@@ -163,6 +163,12 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
    * falls back to its internal selection state so it still works standalone.
    */
   onSelectChat?: (id: string) => void
+  /**
+   * Render function for the footer account slot. Receives `collapsed` so the
+   * consumer can pass it to AccountMenu and get icon-only mode for free.
+   * Falls back to the built-in SidebarMenuItem + dropdown when omitted.
+   */
+  accountMenu?: (collapsed: boolean) => React.ReactNode
 }
 
 // ── Section show/hide animation ───────────────────────────────────────────────
@@ -443,6 +449,7 @@ export function Sidebar({
       searchActive,
       activeChatId,
       onSelectChat,
+      accountMenu,
       className,
       ...props
     // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
@@ -868,90 +875,94 @@ export function Sidebar({
           paddingBottom:   '12px',
           overflow:        'hidden',
         }}>
-          <SidebarMenuItem
-            {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-            variant="account-item"
-            label={userName}
-            sublabel={userEmail}
-            avatarSrc={avatarSrc}
-            onSettingsClick={(e) => { e.stopPropagation(); setAccountMenuOpen(true) }}
-            onClick={() => setAccountMenuOpen(true)}
-          />
+          {accountMenu ? accountMenu(isCollapsed) : (
+            <>
+              <SidebarMenuItem
+                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                variant="account-item"
+                label={userName}
+                sublabel={userEmail}
+                avatarSrc={avatarSrc}
+                onSettingsClick={(e) => { e.stopPropagation(); setAccountMenuOpen(true) }}
+                onClick={() => setAccountMenuOpen(true)}
+              />
 
-          {/* Hidden Radix trigger — serves as position anchor for the dropup */}
-          <DropdownMenu.Root open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
-            <DropdownMenu.Trigger
-              style={{
-                position:      'absolute',
-                top:           0,
-                left:          '50%',
-                width:         1,
-                height:        1,
-                opacity:       0,
-                pointerEvents: 'none',
-                border:        'none',
-                background:    'none',
-                padding:       0,
-              }}
-            />
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content
-                side="top"
-                align="center"
-                sideOffset={4}
-                onCloseAutoFocus={(e) => e.preventDefault()}
-                style={{
-                  backgroundColor: 'var(--neutral-white)',
-                  borderRadius:    '12px',
-                  padding:         '4px',
-                  boxShadow:       '0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
-                  zIndex:          1000,
-                  minWidth:        '222px',
-                  outline:         'none',
-                }}
-              >
-                <DropdownMenu.Item
-                  style={accountMenuItemStyle}
-                  onSelect={() => onSettingsClick?.()}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)' }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
-                >
-                  <SettingsOneIcon size={16} />
-                  Settings
-                </DropdownMenu.Item>
-
-                <DropdownMenu.Item
-                  style={accountMenuItemStyle}
-                  onSelect={() => onHelpClick?.()}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)' }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
-                >
-                  <InformationCircleIcon size={16} />
-                  Help
-                </DropdownMenu.Item>
-
-                <DropdownMenu.Separator style={{ height: '1px', backgroundColor: 'var(--neutral-100)', margin: '4px 0' }} />
-
-                <DropdownMenu.Item
-                  style={accountMenuItemDestructiveStyle}
-                  onSelect={() => {
-                    // Match front-end: authenticated → run the logout flow;
-                    // unauthenticated → send the user to login instead.
-                    if (isAuthenticated) {
-                      onLogoutClick?.()
-                    } else if (typeof window !== 'undefined') {
-                      window.location.href = '/auth/login'
-                    }
+              {/* Hidden Radix trigger — serves as position anchor for the dropup */}
+              <DropdownMenu.Root open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
+                <DropdownMenu.Trigger
+                  style={{
+                    position:      'absolute',
+                    top:           0,
+                    left:          '50%',
+                    width:         1,
+                    height:        1,
+                    opacity:       0,
+                    pointerEvents: 'none',
+                    border:        'none',
+                    background:    'none',
+                    padding:       0,
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--red-50, #fff5f5)' }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
-                >
-                  <ArrowRightTwoIcon size={16} />
-                  {isAuthenticated ? 'Sign Out' : 'Sign In'}
-                </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
+                />
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    side="top"
+                    align="center"
+                    sideOffset={4}
+                    onCloseAutoFocus={(e) => e.preventDefault()}
+                    style={{
+                      backgroundColor: 'var(--neutral-white)',
+                      borderRadius:    '12px',
+                      padding:         '4px',
+                      boxShadow:       '0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
+                      zIndex:          1000,
+                      minWidth:        '222px',
+                      outline:         'none',
+                    }}
+                  >
+                    <DropdownMenu.Item
+                      style={accountMenuItemStyle}
+                      onSelect={() => onSettingsClick?.()}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)' }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
+                    >
+                      <SettingsOneIcon size={16} />
+                      Settings
+                    </DropdownMenu.Item>
+
+                    <DropdownMenu.Item
+                      style={accountMenuItemStyle}
+                      onSelect={() => onHelpClick?.()}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)' }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
+                    >
+                      <InformationCircleIcon size={16} />
+                      Help
+                    </DropdownMenu.Item>
+
+                    <DropdownMenu.Separator style={{ height: '1px', backgroundColor: 'var(--neutral-100)', margin: '4px 0' }} />
+
+                    <DropdownMenu.Item
+                      style={accountMenuItemDestructiveStyle}
+                      onSelect={() => {
+                        // Match front-end: authenticated → run the logout flow;
+                        // unauthenticated → send the user to login instead.
+                        if (isAuthenticated) {
+                          onLogoutClick?.()
+                        } else if (typeof window !== 'undefined') {
+                          window.location.href = '/auth/login'
+                        }
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--red-50, #fff5f5)' }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
+                    >
+                      <ArrowRightTwoIcon size={16} />
+                      {isAuthenticated ? 'Sign Out' : 'Sign In'}
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            </>
+          )}
         </div>
 
       </div>

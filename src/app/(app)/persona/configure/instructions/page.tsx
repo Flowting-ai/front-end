@@ -50,6 +50,7 @@ import { getModelLlmId } from '@/lib/model-icons'
 import { TEMPLATE_PRESETS } from '@/app/(app)/personas/_data/template-presets'
 import { pickTemplateAvatar } from '@/lib/persona-template-avatars'
 import { ConnectPromptCard, PermissionPromptCard } from '@/components/chat/ConnectorPrompts'
+import { ConnectorTogglesPanel } from '@/app/(app)/persona/configure/components/ConnectorTogglesPanel'
 import { ActivitiesSection } from '@/components/chat/ActivityRow'
 import type { PersonaConnectPrompt, PersonaPermissionPrompt, PersonaActivityItem } from '@/lib/api/personas'
 import type { ActivityItem } from '@/hooks/use-chat-state'
@@ -816,7 +817,7 @@ function PersonaConfigureInstructionsContent() {
         resetInstructionHistory(prompt)
         setTemperature(version.temperature ?? 0.5)
         setImageUrl(readProfileAvatar(repoIdParam) ?? version.image_url ?? null)
-        if (version.connector_slugs != null) setConnectorSlugs(version.connector_slugs)
+        if (version.connectors.length > 0) setConnectorSlugs(version.connectors)
         const resolvedModel1 = matchModel(fetchedModels, version.model_id, repoIdParam, firstModel)
         setSelectedModel(resolvedModel1)
         if (resolvedModel1) writePersonaModelCache(repoIdParam, resolvedModel1)
@@ -849,7 +850,7 @@ function PersonaConfigureInstructionsContent() {
           resetInstructionHistory(prompt)
           setTemperature(fullVersion.temperature ?? 0.5)
           setImageUrl(readProfileAvatar(repoIdParam) ?? fullVersion.image_url ?? null)
-          if (fullVersion.connector_slugs != null) setConnectorSlugs(fullVersion.connector_slugs)
+          if (fullVersion.connectors.length > 0) setConnectorSlugs(fullVersion.connectors)
           setVersionId(fullVersion.id)
           // Stamp URL so a reload goes straight to this version
           window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${fullVersion.id}`)
@@ -869,7 +870,7 @@ function PersonaConfigureInstructionsContent() {
           resetInstructionHistory(prompt)
           setTemperature(repo.active_version.temperature ?? 0.5)
           setImageUrl(readProfileAvatar(repoIdParam) ?? repo.active_version.image_url ?? null)
-          if (repo.active_version.connector_slugs != null) setConnectorSlugs(repo.active_version.connector_slugs)
+          if (repo.active_version.connectors.length > 0) setConnectorSlugs(repo.active_version.connectors)
           setVersionId(repo.active_version.id)
           window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${repo.active_version.id}`)
           const resolvedModel3 = matchModel(fetchedModels, repo.active_version.model_id, repoIdParam, firstModel)
@@ -1722,6 +1723,13 @@ function PersonaConfigureInstructionsContent() {
                 <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }} />
               </div>
             </div>
+            {repoIdParam && versionId && (
+              <ConnectorTogglesPanel
+                repoId={repoIdParam}
+                versionId={versionId}
+                onConnectorsChange={setConnectorSlugs}
+              />
+            )}
             <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
               {chatMessages.length === 0 ? (
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
@@ -1852,6 +1860,13 @@ function PersonaConfigureInstructionsContent() {
                   <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }} />
                 </div>
               </div>
+              {repoIdParam && versionId && (
+                <ConnectorTogglesPanel
+                  repoId={repoIdParam}
+                  versionId={versionId}
+                  onConnectorsChange={setConnectorSlugs}
+                />
+              )}
               <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
                 {chatMessages.length === 0 ? (
                   <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>Hi! I&apos;m your persona. Test me here while you configure.</p>

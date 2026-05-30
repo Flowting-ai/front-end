@@ -59,6 +59,8 @@ function ProjectCardInner(
         onFocus={() => setFocused(true)}
         onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocused(false) }}
         style={{
+          position:        'relative',
+          zIndex:          menuOpen ? 1 : 'auto',
           display:         'flex',
           flexDirection:   'column',
           height:          '160px',

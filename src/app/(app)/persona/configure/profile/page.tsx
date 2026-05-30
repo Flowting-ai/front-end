@@ -22,6 +22,7 @@ import { IconButton } from '@/components/IconButton'
 import { toast } from 'sonner'
 import { ChatInput } from '@/components/ChatInput'
 import { ConnectPromptCard, PermissionPromptCard } from '@/components/chat/ConnectorPrompts'
+import { ConnectorTogglesPanel } from '@/app/(app)/persona/configure/components/ConnectorTogglesPanel'
 import { ActivitiesSection } from '@/components/chat/ActivityRow'
 import type { PersonaConnectPrompt, PersonaPermissionPrompt, PersonaActivityItem } from '@/lib/api/personas'
 import type { ActivityItem } from '@/hooks/use-chat-state'
@@ -361,7 +362,7 @@ function PersonaConfigureProfileContent() {
   useEffect(() => {
     if (!repoId || !versionId) return
     getVersion(repoId, versionId)
-      .then(v => { if (v.connector_slugs != null) setConnectorSlugs(v.connector_slugs) })
+      .then(v => { setConnectorSlugs(v.connectors ?? []) })
       .catch(() => {})
   }, [repoId, versionId])
 
@@ -415,7 +416,7 @@ function PersonaConfigureProfileContent() {
     }
 
     try {
-      abortStreamRef.current = await testVersionStream(repoId, versionId, value.trim(), callbacks, { connectorSlugs: connectorSlugs ?? undefined })
+      abortStreamRef.current = await testVersionStream(repoId, versionId, value.trim(), callbacks, { connectorSlugs: connectorSlugs ?? [] })
     } catch (err) {
       callbacks.onError?.((err as Error).message ?? 'Failed to send message')
     }
@@ -846,6 +847,15 @@ function PersonaConfigureProfileContent() {
               </div>
             </div>
 
+            {/* Connector toggles */}
+            {repoId && versionId && (
+              <ConnectorTogglesPanel
+                repoId={repoId}
+                versionId={versionId}
+                onConnectorsChange={setConnectorSlugs}
+              />
+            )}
+
             {/* Messages area */}
             <div
               ref={chatScrollRef}
@@ -977,6 +987,13 @@ function PersonaConfigureProfileContent() {
                   <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }} />
                 </div>
               </div>
+              {repoId && versionId && (
+                <ConnectorTogglesPanel
+                  repoId={repoId}
+                  versionId={versionId}
+                  onConnectorsChange={setConnectorSlugs}
+                />
+              )}
               <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
                 {chatMessages.length === 0 ? (
                   <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>{`Hi! I'm ${personaName}. Test me here while you configure.`}</p>

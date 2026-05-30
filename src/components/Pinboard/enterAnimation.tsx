@@ -75,6 +75,7 @@ export function EnterChunk({ cfg, index, children, style, className, ref }: Ente
       ref={ref}
       className={className}
       style={style}
+      suppressHydrationWarning
       initial={{
         opacity: cfg.from.opacity,
         y:       cfg.from.y,

@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelOneIcon } from '@strange-huge/icons'
+import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelOneIcon, AlertCircleIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
 import { ProjectCard } from '@/components/ProjectCard'
@@ -62,12 +62,26 @@ export default function ProjectsPage() {
   const [deleteTarget, setDeleteTarget]           = useState<Project | null>(null)
   const [isDeleting,   setIsDeleting]             = useState(false)
 
+  async function handleDelete(project: Project) {
+    if (project.chatCount > 0) {
+      setDeleteTarget(project)
+      return
+    }
+    try {
+      await deleteProject(project.id)
+      toast.success(`"${project.name}" deleted`)
+    } catch {
+      // error toast shown by context
+    }
+  }
+
   async function handleDeleteConfirm() {
     if (!deleteTarget) return
     setIsDeleting(true)
     try {
       await deleteProject(deleteTarget.id)
-      toast.success(`"${deleteTarget.name}" deleted`)
+      const chatWord = deleteTarget.chatCount === 1 ? 'chat' : 'chats'
+      toast.success(`"${deleteTarget.name}" and ${deleteTarget.chatCount} ${chatWord} deleted`)
       setDeleteTarget(null)
     } catch {
       // error toast shown by context
@@ -198,6 +212,15 @@ export default function ProjectsPage() {
               color:       '#1a1714',
             }}
           />
+          {query && (
+            <IconButton
+              variant="ghost"
+              size="sm"
+              aria-label="Clear search"
+              icon={<CancelOneIcon size={14} />}
+              onClick={() => setQuery('')}
+            />
+          )}
         </div>
 
         {/* Project grid */}
@@ -286,7 +309,7 @@ export default function ProjectsPage() {
                 onClick={() => push(`/project/${project.id}`)}
                 onEdit={() => setEditTarget(project)}
                 onArchive={() => {/* archive flow - backlog */}}
-                onDelete={() => setDeleteTarget(project)}
+                onDelete={() => handleDelete(project)}
               />
             ))}
           </div>
@@ -309,101 +332,155 @@ export default function ProjectsPage() {
       {mounted && createPortal(
         <AnimatePresence>
           {deleteTarget && (
-            <m.div
-              key="delete-project-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null) }}
-              style={{
-                position:        'fixed',
-                inset:           0,
-                zIndex:          21,
-                display:         'flex',
-                alignItems:      'center',
-                justifyContent:  'center',
-                backgroundColor: 'rgba(26,23,20,0.4)',
-                backdropFilter:  'blur(2px)',
-              }}
-            >
+            <>
+              {/* Backdrop */}
               <m.div
-                key="delete-project-modal"
-                initial={{ opacity: 0, scale: 0.96, y: 8 }}
-                animate={{ opacity: 1, scale: 1,    y: 0 }}
-                exit={{    opacity: 0, scale: 0.96, y: 8 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.8 }}
-                onClick={(e) => e.stopPropagation()}
+                key="delete-project-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                onClick={() => setDeleteTarget(null)}
                 style={{
-                  background:    'var(--neutral-white)',
-                  borderRadius:  '20px',
-                  boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
-                  width:         '400px',
-                  maxWidth:      'calc(100vw - 32px)',
-                  display:       'flex',
-                  flexDirection: 'column',
-                  overflow:      'hidden',
+                  position:        'fixed',
+                  inset:           0,
+                  zIndex:          10000,
+                  backgroundColor: 'rgba(0,0,0,0.28)',
+                  backdropFilter:  'blur(2px)',
+                }}
+              />
+
+              {/* Centering wrapper */}
+              <div
+                style={{
+                  position:       'fixed',
+                  inset:          0,
+                  zIndex:         10001,
+                  display:        'flex',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  pointerEvents:  'none',
                 }}
               >
-                <div
+                <m.div
+                  key="delete-project-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Delete project"
+                  initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                  animate={{ opacity: 1, scale: 1,    y: 0 }}
+                  exit={{    opacity: 0, scale: 0.96, y: 8 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  onClick={(e) => e.stopPropagation()}
                   style={{
-                    display:        'flex',
-                    alignItems:     'center',
-                    justifyContent: 'space-between',
-                    padding:        '20px 20px 16px',
+                    pointerEvents:   'auto',
+                    backgroundColor: 'var(--neutral-white)',
+                    borderRadius:    16,
+                    boxShadow:       '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1px var(--neutral-100)',
+                    width:           480,
+                    maxWidth:        'calc(100vw - 32px)',
+                    display:         'flex',
+                    flexDirection:   'column',
+                    overflow:        'hidden',
                   }}
                 >
-                  <p
+                  {/* Header */}
+                  <div
                     style={{
-                      fontFamily: 'var(--font-title)',
-                      fontWeight: 'var(--font-weight-regular)',
-                      fontSize:   '24px',
-                      lineHeight: '32px',
-                      color:      '#1a1714',
-                      margin:     0,
+                      display:        'flex',
+                      alignItems:     'center',
+                      justifyContent: 'space-between',
+                      padding:        '20px 20px 16px',
+                      borderBottom:   '1px solid var(--neutral-100)',
+                      flexShrink:     0,
                     }}
                   >
-                    Delete project?
-                  </p>
-                  <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={() => setDeleteTarget(null)} />
-                </div>
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 600,
+                        fontSize:   'var(--font-size-body-lg)',
+                        lineHeight: 'var(--line-height-body-lg)',
+                        color:      'var(--neutral-900)',
+                        margin:     0,
+                      }}
+                    >
+                      Delete project?
+                    </p>
+                    <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={() => setDeleteTarget(null)} />
+                  </div>
 
-                <div style={{ height: '1px', background: 'var(--neutral-100)' }} />
-
-                <div style={{ padding: '20px' }}>
-                  <p
+                  {/* Body */}
+                  <div
                     style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 'var(--font-weight-regular)',
-                      fontSize:   '14px',
-                      lineHeight: '22px',
-                      color:      'var(--neutral-700)',
-                      margin:     0,
+                      padding:       '20px',
+                      display:       'flex',
+                      flexDirection: 'column',
+                      gap:           '12px',
+                      flexShrink:    0,
                     }}
                   >
-                    {deleteTarget.chatCount > 0
-                      ? `"${deleteTarget.name}" has ${deleteTarget.chatCount} chat${deleteTarget.chatCount !== 1 ? 's' : ''}. This action cannot be undone.`
-                      : `Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.`
-                    }
-                  </p>
-                </div>
+                    {/* Warning tag */}
+                    <div
+                      style={{
+                        display:         'inline-flex',
+                        alignSelf:       'flex-start',
+                        alignItems:      'center',
+                        gap:             5,
+                        padding:         '3px 8px 3px 6px',
+                        borderRadius:    6,
+                        backgroundColor: 'var(--red-400-10)',
+                        boxShadow:       '0px 0px 0px 1px rgba(238,48,48,0.22)',
+                      }}
+                    >
+                      <AlertCircleIcon size={13} color="var(--red-500)" />
+                      <span
+                        style={{
+                          fontFamily: 'var(--font-body)',
+                          fontWeight: 600,
+                          fontSize:   '11px',
+                          lineHeight: '16px',
+                          color:      'var(--red-600)',
+                          letterSpacing: '0.02em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Warning
+                      </span>
+                    </div>
 
-                <div style={{ height: '1px', background: 'var(--neutral-100)' }} />
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 'var(--font-weight-regular)',
+                        fontSize:   'var(--font-size-body)',
+                        lineHeight: 'var(--line-height-body)',
+                        color:      'var(--neutral-700)',
+                        margin:     0,
+                      }}
+                    >
+                      {`"${deleteTarget.name}" contains ${deleteTarget.chatCount} ${deleteTarget.chatCount === 1 ? 'chat' : 'chats'}. Deleting this project will permanently remove all its chats. This action cannot be undone.`}
+                    </p>
+                  </div>
 
-                <div
-                  style={{
-                    display:        'flex',
-                    justifyContent: 'flex-end',
-                    alignItems:     'center',
-                    gap:            '8px',
-                    padding:        '16px 20px',
-                  }}
-                >
-                  <Button variant="ghost" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Cancel</Button>
-                  <Button variant="danger" onClick={handleDeleteConfirm} loading={isDeleting}>Delete</Button>
-                </div>
-              </m.div>
-            </m.div>
+                  {/* Footer */}
+                  <div
+                    style={{
+                      display:        'flex',
+                      justifyContent: 'flex-end',
+                      alignItems:     'center',
+                      gap:            8,
+                      padding:        '12px 16px 16px',
+                      borderTop:      '1px solid var(--neutral-100)',
+                      flexShrink:     0,
+                    }}
+                  >
+                    <Button variant="ghost" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Cancel</Button>
+                    <Button variant="danger" onClick={handleDeleteConfirm} loading={isDeleting}>Delete</Button>
+                  </div>
+                </m.div>
+              </div>
+            </>
           )}
         </AnimatePresence>,
         document.body

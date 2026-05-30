@@ -219,7 +219,7 @@ function PersonaConfigureSharingContent() {
   useEffect(() => {
     if (!repoId || !versionId) return
     getVersion(repoId, versionId)
-      .then(v => { if (v.connector_slugs != null) setConnectorSlugs(v.connector_slugs) })
+      .then(v => { setConnectorSlugs(v.connectors) })
       .catch(() => {})
   }, [repoId, versionId])
 

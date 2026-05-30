@@ -97,6 +97,12 @@ function useDebounce<T>(value: T, delay: number): T {
 
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function RightSidebarImpl() {
+  // Always render PinboardSkeleton on first paint so server HTML (isLoading=true)
+  // and client initial render match, preventing a hydration mismatch when the
+  // pinboard context has a cached/stale isLoading=false value on the client.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
   const { pins, folders: contextFolders, isLoading, isOpen, close, removePin, clonePin, addFolder, updatePinFolder, renameFolder, removeFolder, chatFilter, clearChatFilter } = usePinboard()
   const { chats } = useChatHistoryContext()
 
@@ -434,7 +440,7 @@ function RightSidebarImpl() {
           on every frame, firing every Pin's ResizeObserver and triggering N
           concurrent height spring animations throughout the transition. */}
       <div style={{ width: 332, height: "100%", flexShrink: 0 }}>
-        {isLoading ? (
+        {(!mounted || isLoading) ? (
           <PinboardSkeleton fluid pinCount={4} />
         ) : (
           <Pinboard

@@ -164,7 +164,7 @@ export function AppLayout({
             </main>
 
             {/* ── Floating action panel - mid-right of rounded container ── */}
-            {!isProjectPage && (
+            {!isProjectPage && !isPersonaChatPage && (
               <Suspense fallback={null}>
                 <FloatingPanel />
               </Suspense>

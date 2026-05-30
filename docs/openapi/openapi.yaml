@@ -10,13 +10,13 @@ paths:
       summary: Getchats
       operationId: getchats_chats_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/ChatsResponse'
+                  $ref: "#/components/schemas/ChatsResponse"
                 type: array
                 title: Response Getchats Chats Get
       security:
@@ -30,20 +30,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeleteChat'
+              $ref: "#/components/schemas/DeleteChat"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /chats/create:
@@ -56,10 +56,10 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_create_new_chat_chats_create_post'
+              $ref: "#/components/schemas/Body_create_new_chat_chats_create_post"
         required: true
       responses:
-        '200':
+        "200":
           description: |-
             Streaming chat response via Server-Sent Events.
 
@@ -120,27 +120,27 @@ paths:
                     deployment_name:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Deployment Name
                     company:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Company
                     complexity:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Complexity
                     thinking_enabled:
                       anyOf:
                         - type: boolean
-                        - type: 'null'
+                        - type: "null"
                       title: Thinking Enabled
                     effort:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Effort
                   required:
                     - model_id
@@ -181,12 +181,12 @@ paths:
                     plan_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Plan Id
                     step_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Step Id
                   required:
                     - url
@@ -226,7 +226,7 @@ paths:
                     label:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Label
                     status:
                       title: Status
@@ -237,32 +237,32 @@ paths:
                     step:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Step
                     message:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Message
                     code_preview:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Code Preview
                     elapsed_seconds:
                       anyOf:
                         - type: number
-                        - type: 'null'
+                        - type: "null"
                       title: Elapsed Seconds
                     percent:
                       anyOf:
                         - type: number
-                        - type: 'null'
+                        - type: "null"
                       title: Percent
                     detail:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Detail
                   required:
                     - tool
@@ -275,7 +275,7 @@ paths:
                     label:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Label
                     step:
                       title: Step
@@ -289,22 +289,22 @@ paths:
                     code_preview:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Code Preview
                     elapsed_seconds:
                       anyOf:
                         - type: number
-                        - type: 'null'
+                        - type: "null"
                       title: Elapsed Seconds
                     percent:
                       anyOf:
                         - type: number
-                        - type: 'null'
+                        - type: "null"
                       title: Percent
                     detail:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Detail
                   required:
                     - step
@@ -396,7 +396,7 @@ paths:
                       title: Title
                       type: string
                     description:
-                      default: ''
+                      default: ""
                       title: Description
                       type: string
                     options:
@@ -412,7 +412,7 @@ paths:
                       title: Metadata
                       type: object
                     respond_url:
-                      default: ''
+                      default: ""
                       title: Respond Url
                       type: string
                   required:
@@ -436,11 +436,11 @@ paths:
                       title: Respond Url
                       type: string
                     title:
-                      default: ''
+                      default: ""
                       title: Title
                       type: string
                     description:
-                      default: ''
+                      default: ""
                       title: Description
                       type: string
                     questions:
@@ -575,7 +575,7 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Tool Call
                   required:
                     - content
@@ -633,13 +633,13 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Usage
                     reasoning_details:
                       anyOf:
                         - items: {}
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Reasoning Details
                     tool_calls:
                       anyOf:
@@ -647,12 +647,12 @@ paths:
                             additionalProperties: true
                             type: object
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Tool Calls
                     finish_reason:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Finish Reason
                   title: DoneEvent
                   type: object
@@ -670,12 +670,12 @@ paths:
                     - error
                   title: ErrorEvent
                   type: object
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /chats/{chat_id}/messages:
@@ -695,21 +695,21 @@ paths:
             format: uuid
             title: Chat Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/GetMessages'
+                  $ref: "#/components/schemas/GetMessages"
                 title: Response Get Messages Chats  Chat Id  Messages Get
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /chats/{chat_id}/stream:
     post:
       tags:
@@ -731,9 +731,9 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_stream_chat_message_chats__chat_id__stream_post'
+              $ref: "#/components/schemas/Body_stream_chat_message_chats__chat_id__stream_post"
       responses:
-        '200':
+        "200":
           description: |-
             Streaming chat response via Server-Sent Events.
 
@@ -794,27 +794,27 @@ paths:
                     deployment_name:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Deployment Name
                     company:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Company
                     complexity:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Complexity
                     thinking_enabled:
                       anyOf:
                         - type: boolean
-                        - type: 'null'
+                        - type: "null"
                       title: Thinking Enabled
                     effort:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Effort
                   required:
                     - model_id
@@ -855,12 +855,12 @@ paths:
                     plan_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Plan Id
                     step_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Step Id
                   required:
                     - url
@@ -900,7 +900,7 @@ paths:
                     label:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Label
                     status:
                       title: Status
@@ -911,32 +911,32 @@ paths:
                     step:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Step
                     message:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Message
                     code_preview:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Code Preview
                     elapsed_seconds:
                       anyOf:
                         - type: number
-                        - type: 'null'
+                        - type: "null"
                       title: Elapsed Seconds
                     percent:
                       anyOf:
                         - type: number
-                        - type: 'null'
+                        - type: "null"
                       title: Percent
                     detail:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Detail
                   required:
                     - tool
@@ -949,7 +949,7 @@ paths:
                     label:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Label
                     step:
                       title: Step
@@ -963,22 +963,22 @@ paths:
                     code_preview:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Code Preview
                     elapsed_seconds:
                       anyOf:
                         - type: number
-                        - type: 'null'
+                        - type: "null"
                       title: Elapsed Seconds
                     percent:
                       anyOf:
                         - type: number
-                        - type: 'null'
+                        - type: "null"
                       title: Percent
                     detail:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Detail
                   required:
                     - step
@@ -1070,7 +1070,7 @@ paths:
                       title: Title
                       type: string
                     description:
-                      default: ''
+                      default: ""
                       title: Description
                       type: string
                     options:
@@ -1086,7 +1086,7 @@ paths:
                       title: Metadata
                       type: object
                     respond_url:
-                      default: ''
+                      default: ""
                       title: Respond Url
                       type: string
                   required:
@@ -1110,11 +1110,11 @@ paths:
                       title: Respond Url
                       type: string
                     title:
-                      default: ''
+                      default: ""
                       title: Title
                       type: string
                     description:
-                      default: ''
+                      default: ""
                       title: Description
                       type: string
                     questions:
@@ -1249,7 +1249,7 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Tool Call
                   required:
                     - content
@@ -1307,13 +1307,13 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Usage
                     reasoning_details:
                       anyOf:
                         - items: {}
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Reasoning Details
                     tool_calls:
                       anyOf:
@@ -1321,12 +1321,12 @@ paths:
                             additionalProperties: true
                             type: object
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Tool Calls
                     finish_reason:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Finish Reason
                   title: DoneEvent
                   type: object
@@ -1344,12 +1344,12 @@ paths:
                     - error
                   title: ErrorEvent
                   type: object
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /chats/{chat_id}/stop:
     post:
       tags:
@@ -1367,17 +1367,17 @@ paths:
             format: uuid
             title: Chat Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /chats/{chat_id}/star:
     patch:
       tags:
@@ -1395,17 +1395,17 @@ paths:
             format: uuid
             title: Chat Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /chats/rename:
     patch:
       tags:
@@ -1416,20 +1416,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RenameChat'
+              $ref: "#/components/schemas/RenameChat"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /chats/message/{message_id}:
@@ -1449,17 +1449,17 @@ paths:
             format: uuid
             title: Message Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /chats/files/{attachment_id}/save-to-drive:
     post:
       tags:
@@ -1481,21 +1481,21 @@ paths:
           application/json:
             schema:
               anyOf:
-                - $ref: '#/components/schemas/SaveToDriveRequest'
-                - type: 'null'
+                - $ref: "#/components/schemas/SaveToDriveRequest"
+                - type: "null"
               title: Body
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /chats/prompts/{prompt_id}:
     post:
       tags:
@@ -1523,16 +1523,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserPromptResponse'
+              $ref: "#/components/schemas/UserPromptResponse"
       responses:
-        '204':
+        "204":
           description: Successful Response
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /llm/models:
     get:
       tags:
@@ -1540,12 +1540,12 @@ paths:
       summary: List Models
       operationId: list_models_llm_models_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ModelsResponse'
+                $ref: "#/components/schemas/ModelsResponse"
       security:
         - HTTPBearer: []
   /llm/models/all:
@@ -1555,13 +1555,13 @@ paths:
       summary: List All Models
       operationId: list_all_models_llm_models_all_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/GetModelsWithStatus'
+                  $ref: "#/components/schemas/GetModelsWithStatus"
                 type: array
                 title: Response List All Models Llm Models All Get
       security:
@@ -1576,20 +1576,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BlockModel'
+              $ref: "#/components/schemas/BlockModel"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /llm/models/test:
@@ -1602,20 +1602,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TestModelRequest'
+              $ref: "#/components/schemas/TestModelRequest"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /persona:
@@ -1625,13 +1625,13 @@ paths:
       summary: List Persona Repos
       operationId: list_persona_repos_persona_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/PersonaRepoResponse'
+                  $ref: "#/components/schemas/PersonaRepoResponse"
                 type: array
                 title: Response List Persona Repos Persona Get
       security:
@@ -1645,21 +1645,21 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_create_new_persona_repo_persona_post'
+              $ref: "#/components/schemas/Body_create_new_persona_repo_persona_post"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonaRepoResponse'
-        '422':
+                $ref: "#/components/schemas/PersonaRepoResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /persona/enhance-prompt:
@@ -1672,21 +1672,21 @@ paths:
         content:
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/Body_enhance_persona_enhance_prompt_post'
+              $ref: "#/components/schemas/Body_enhance_persona_enhance_prompt_post"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EnhancePromptResponse'
-        '422':
+                $ref: "#/components/schemas/EnhancePromptResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /persona/{repo_id}/guide:
@@ -1714,9 +1714,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PersonaGuideRequest'
+              $ref: "#/components/schemas/PersonaGuideRequest"
       responses:
-        '200':
+        "200":
           description: |-
             Streaming persona chat response via Server-Sent Events.
 
@@ -1788,12 +1788,12 @@ paths:
                     plan_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Plan Id
                     step_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Step Id
                   required:
                     - url
@@ -1875,13 +1875,13 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Usage
                     reasoning_details:
                       anyOf:
                         - items: {}
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Reasoning Details
                     tool_calls:
                       anyOf:
@@ -1889,12 +1889,12 @@ paths:
                             additionalProperties: true
                             type: object
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Tool Calls
                     finish_reason:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Finish Reason
                   title: DoneEvent
                   type: object
@@ -1912,12 +1912,12 @@ paths:
                     - error
                   title: ErrorEvent
                   type: object
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}:
     get:
       tags:
@@ -1935,18 +1935,18 @@ paths:
             format: uuid
             title: Repo Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonaRepoResponse'
-        '422':
+                $ref: "#/components/schemas/PersonaRepoResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     delete:
       tags:
         - persona
@@ -1963,17 +1963,17 @@ paths:
             format: uuid
             title: Repo Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/pause:
     patch:
       tags:
@@ -1991,17 +1991,17 @@ paths:
             format: uuid
             title: Repo Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/active:
     patch:
       tags:
@@ -2023,20 +2023,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetActiveVersion'
+              $ref: "#/components/schemas/SetActiveVersion"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonaRepoResponse'
-        '422':
+                $ref: "#/components/schemas/PersonaRepoResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/versions:
     get:
       tags:
@@ -2054,21 +2054,21 @@ paths:
             format: uuid
             title: Repo Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/PersonaVersionListItem'
+                  $ref: "#/components/schemas/PersonaVersionListItem"
                 title: Response List Repo Versions Persona  Repo Id  Versions Get
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     post:
       tags:
         - persona
@@ -2089,20 +2089,20 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_create_new_version_persona__repo_id__versions_post'
+              $ref: "#/components/schemas/Body_create_new_version_persona__repo_id__versions_post"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonaResponse'
-        '422':
+                $ref: "#/components/schemas/PersonaResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/versions/{persona_id}:
     get:
       tags:
@@ -2127,18 +2127,18 @@ paths:
             format: uuid
             title: Persona Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonaResponse'
-        '422':
+                $ref: "#/components/schemas/PersonaResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     patch:
       tags:
         - persona
@@ -2165,20 +2165,20 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_update_version_persona__repo_id__versions__persona_id__patch'
+              $ref: "#/components/schemas/Body_update_version_persona__repo_id__versions__persona_id__patch"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonaResponse'
-        '422':
+                $ref: "#/components/schemas/PersonaResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     delete:
       tags:
         - persona
@@ -2202,17 +2202,17 @@ paths:
             format: uuid
             title: Persona Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/versions/{persona_id}/document:
     post:
       tags:
@@ -2241,20 +2241,20 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_upload_version_document_persona__repo_id__versions__persona_id__document_post'
+              $ref: "#/components/schemas/Body_upload_version_document_persona__repo_id__versions__persona_id__document_post"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonaResponse'
-        '422':
+                $ref: "#/components/schemas/PersonaResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/versions/{persona_id}/document/{document_id}:
     delete:
       tags:
@@ -2286,18 +2286,18 @@ paths:
             format: uuid
             title: Document Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonaResponse'
-        '422':
+                $ref: "#/components/schemas/PersonaResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/versions/{persona_id}/connectors:
     put:
       tags:
@@ -2326,20 +2326,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetPersonaConnectors'
+              $ref: "#/components/schemas/SetPersonaConnectors"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonaResponse'
-        '422':
+                $ref: "#/components/schemas/PersonaResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/versions/{persona_id}/test:
     post:
       tags:
@@ -2368,19 +2368,19 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_test_version_stream_persona__repo_id__versions__persona_id__test_post'
+              $ref: "#/components/schemas/Body_test_version_stream_persona__repo_id__versions__persona_id__test_post"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/chats:
     get:
       tags:
@@ -2398,21 +2398,21 @@ paths:
             format: uuid
             title: Repo Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/PersonaChatsResponse'
+                  $ref: "#/components/schemas/PersonaChatsResponse"
                 title: Response List Repo Chats Persona  Repo Id  Chats Get
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     delete:
       tags:
         - persona
@@ -2433,19 +2433,19 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeletePersonaChat'
+              $ref: "#/components/schemas/DeletePersonaChat"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/chats/create:
     post:
       tags:
@@ -2467,9 +2467,9 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_create_repo_chat_persona__repo_id__chats_create_post'
+              $ref: "#/components/schemas/Body_create_repo_chat_persona__repo_id__chats_create_post"
       responses:
-        '200':
+        "200":
           description: |-
             Streaming persona chat response via Server-Sent Events.
 
@@ -2541,12 +2541,12 @@ paths:
                     plan_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Plan Id
                     step_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Step Id
                   required:
                     - url
@@ -2628,13 +2628,13 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Usage
                     reasoning_details:
                       anyOf:
                         - items: {}
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Reasoning Details
                     tool_calls:
                       anyOf:
@@ -2642,12 +2642,12 @@ paths:
                             additionalProperties: true
                             type: object
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Tool Calls
                     finish_reason:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Finish Reason
                   title: DoneEvent
                   type: object
@@ -2665,12 +2665,12 @@ paths:
                     - error
                   title: ErrorEvent
                   type: object
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/chats/{chat_id}/messages:
     get:
       tags:
@@ -2695,21 +2695,21 @@ paths:
             format: uuid
             title: Chat Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/GetPersonaMessages'
+                  $ref: "#/components/schemas/GetPersonaMessages"
                 title: Response Get Messages Persona  Repo Id  Chats  Chat Id  Messages Get
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/chats/{chat_id}/stream:
     post:
       tags:
@@ -2738,9 +2738,9 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_stream_persona_message_persona__repo_id__chats__chat_id__stream_post'
+              $ref: "#/components/schemas/Body_stream_persona_message_persona__repo_id__chats__chat_id__stream_post"
       responses:
-        '200':
+        "200":
           description: |-
             Streaming persona chat response via Server-Sent Events.
 
@@ -2812,12 +2812,12 @@ paths:
                     plan_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Plan Id
                     step_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Step Id
                   required:
                     - url
@@ -2899,13 +2899,13 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Usage
                     reasoning_details:
                       anyOf:
                         - items: {}
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Reasoning Details
                     tool_calls:
                       anyOf:
@@ -2913,12 +2913,12 @@ paths:
                             additionalProperties: true
                             type: object
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Tool Calls
                     finish_reason:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Finish Reason
                   title: DoneEvent
                   type: object
@@ -2936,12 +2936,12 @@ paths:
                     - error
                   title: ErrorEvent
                   type: object
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/chats/{chat_id}/stop:
     post:
       tags:
@@ -2966,17 +2966,17 @@ paths:
             format: uuid
             title: Chat Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/chats/rename:
     patch:
       tags:
@@ -2998,19 +2998,19 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RenamePersonaChat'
+              $ref: "#/components/schemas/RenamePersonaChat"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /persona/{repo_id}/chats/{chat_id}/message/{message_id}:
     delete:
       tags:
@@ -3042,17 +3042,17 @@ paths:
             format: uuid
             title: Message Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /pins:
     get:
       tags:
@@ -3060,13 +3060,13 @@ paths:
       summary: Get All Pins
       operationId: get_all_pins_pins_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/PinResponse'
+                  $ref: "#/components/schemas/PinResponse"
                 type: array
                 title: Response Get All Pins Pins Get
       security:
@@ -3088,18 +3088,18 @@ paths:
             format: uuid
             title: Pin Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PinResponse'
-        '422':
+                $ref: "#/components/schemas/PinResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     delete:
       tags:
         - pins
@@ -3116,14 +3116,14 @@ paths:
             format: uuid
             title: Pin Id
       responses:
-        '204':
+        "204":
           description: Successful Response
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /pins/message/{message_id}:
     post:
       tags:
@@ -3141,18 +3141,18 @@ paths:
             format: uuid
             title: Message Id
       responses:
-        '201':
+        "201":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PinResponse'
-        '422':
+                $ref: "#/components/schemas/PinResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /pins/folders/all:
     get:
       tags:
@@ -3160,13 +3160,13 @@ paths:
       summary: Get All Folders
       operationId: get_all_folders_pins_folders_all_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/FolderResponse'
+                  $ref: "#/components/schemas/FolderResponse"
                 type: array
                 title: Response Get All Folders Pins Folders All Get
       security:
@@ -3181,21 +3181,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateFolder'
+              $ref: "#/components/schemas/CreateFolder"
         required: true
       responses:
-        '201':
+        "201":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FolderResponse'
-        '422':
+                $ref: "#/components/schemas/FolderResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /pins/folders/{folder_id}:
@@ -3219,20 +3219,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RenameFolder'
+              $ref: "#/components/schemas/RenameFolder"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FolderResponse'
-        '422':
+                $ref: "#/components/schemas/FolderResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     delete:
       tags:
         - pins
@@ -3249,14 +3249,14 @@ paths:
             format: uuid
             title: Folder Id
       responses:
-        '204':
+        "204":
           description: Successful Response
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /pins/{pin_id}/folder:
     patch:
       tags:
@@ -3278,20 +3278,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MovePin'
+              $ref: "#/components/schemas/MovePin"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PinResponse'
-        '422':
+                $ref: "#/components/schemas/PinResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /pins/{pin_id}/tags:
     put:
       tags:
@@ -3313,20 +3313,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReplaceTags'
+              $ref: "#/components/schemas/ReplaceTags"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PinResponse'
-        '422':
+                $ref: "#/components/schemas/PinResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /pins/{pin_id}/comments:
     post:
       tags:
@@ -3348,20 +3348,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CommentCreate'
+              $ref: "#/components/schemas/CommentCreate"
       responses:
-        '201':
+        "201":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CommentResponse'
-        '422':
+                $ref: "#/components/schemas/CommentResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /pins/{pin_id}/comments/{comment_id}:
     patch:
       tags:
@@ -3390,20 +3390,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CommentUpdate'
+              $ref: "#/components/schemas/CommentUpdate"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CommentResponse'
-        '422':
+                $ref: "#/components/schemas/CommentResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     delete:
       tags:
         - pins
@@ -3427,14 +3427,14 @@ paths:
             format: uuid
             title: Comment Id
       responses:
-        '204':
+        "204":
           description: Successful Response
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /highlights:
     patch:
       tags:
@@ -3448,20 +3448,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/HighlightCreate'
+              $ref: "#/components/schemas/HighlightCreate"
       responses:
-        '201':
+        "201":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HighlightResponse'
-        '422':
+                $ref: "#/components/schemas/HighlightResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     get:
       tags:
         - highlights
@@ -3478,21 +3478,21 @@ paths:
             format: uuid
             title: Chat Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/HighlightResponse'
+                  $ref: "#/components/schemas/HighlightResponse"
                 title: Response Get Highlights Highlights Get
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /highlights/{highlight_id}:
     patch:
       tags:
@@ -3510,14 +3510,14 @@ paths:
             format: uuid
             title: Highlight Id
       responses:
-        '204':
+        "204":
           description: Successful Response
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /users/create:
     post:
       tags:
@@ -3525,12 +3525,12 @@ paths:
       summary: Create User
       operationId: create_user_users_create_post
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
+                $ref: "#/components/schemas/UserResponse"
       security:
         - HTTPBearer: []
   /users/me:
@@ -3540,12 +3540,12 @@ paths:
       summary: Get Me
       operationId: get_me_users_me_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserAccountResponse'
+                $ref: "#/components/schemas/UserAccountResponse"
       security:
         - HTTPBearer: []
     delete:
@@ -3554,7 +3554,7 @@ paths:
       summary: Delete Me
       operationId: delete_me_users_me_delete
       responses:
-        '204':
+        "204":
           description: Successful Response
       security:
         - HTTPBearer: []
@@ -3567,21 +3567,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateUser'
+              $ref: "#/components/schemas/UpdateUser"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
-        '422':
+                $ref: "#/components/schemas/UserResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /users/me/onboarding:
@@ -3594,21 +3594,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateOnboarding'
+              $ref: "#/components/schemas/UpdateOnboarding"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OnboardingSummary'
-        '422':
+                $ref: "#/components/schemas/OnboardingSummary"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /stripe/checkout:
@@ -3621,21 +3621,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateCheckoutSessionRequest'
+              $ref: "#/components/schemas/CreateCheckoutSessionRequest"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateCheckoutSessionResponse'
-        '422':
+                $ref: "#/components/schemas/CreateCheckoutSessionResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /stripe/topup:
@@ -3648,21 +3648,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateTopUpSessionRequest'
+              $ref: "#/components/schemas/CreateTopUpSessionRequest"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateTopUpSessionResponse'
-        '422':
+                $ref: "#/components/schemas/CreateTopUpSessionResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /stripe/topup/charge:
@@ -3675,21 +3675,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateTopUpSessionRequest'
+              $ref: "#/components/schemas/CreateTopUpSessionRequest"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TopUpChargeResponse'
-        '422':
+                $ref: "#/components/schemas/TopUpChargeResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /stripe/trial:
@@ -3699,12 +3699,12 @@ paths:
       summary: Start My Trial
       operationId: start_my_trial_stripe_trial_post
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SubscriptionActionResponse'
+                $ref: "#/components/schemas/SubscriptionActionResponse"
       security:
         - HTTPBearer: []
   /stripe/subscription:
@@ -3714,12 +3714,12 @@ paths:
       summary: Cancel My Subscription
       operationId: cancel_my_subscription_stripe_subscription_delete
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SubscriptionActionResponse'
+                $ref: "#/components/schemas/SubscriptionActionResponse"
       security:
         - HTTPBearer: []
   /stripe/subscription/resume:
@@ -3729,12 +3729,12 @@ paths:
       summary: Resume My Subscription
       operationId: resume_my_subscription_stripe_subscription_resume_post
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SubscriptionActionResponse'
+                $ref: "#/components/schemas/SubscriptionActionResponse"
       security:
         - HTTPBearer: []
   /stripe/billing:
@@ -3744,12 +3744,12 @@ paths:
       summary: Get My Billing
       operationId: get_my_billing_stripe_billing_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BillingInfo'
+                $ref: "#/components/schemas/BillingInfo"
       security:
         - HTTPBearer: []
   /stripe/portal:
@@ -3759,12 +3759,12 @@ paths:
       summary: Open Billing Portal
       operationId: open_billing_portal_stripe_portal_post
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BillingPortalResponse'
+                $ref: "#/components/schemas/BillingPortalResponse"
       security:
         - HTTPBearer: []
   /projects:
@@ -3774,13 +3774,13 @@ paths:
       summary: List Projects
       operationId: list_projects_projects_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/ProjectSummary'
+                  $ref: "#/components/schemas/ProjectSummary"
                 type: array
                 title: Response List Projects Projects Get
       security:
@@ -3794,21 +3794,21 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_create_project_projects_post'
+              $ref: "#/components/schemas/Body_create_project_projects_post"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectResponse'
-        '422':
+                $ref: "#/components/schemas/ProjectResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /projects/{project_id}:
@@ -3828,18 +3828,18 @@ paths:
             format: uuid
             title: Project Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectResponse'
-        '422':
+                $ref: "#/components/schemas/ProjectResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     patch:
       tags:
         - projects
@@ -3859,20 +3859,20 @@ paths:
         content:
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/Body_update_project_projects__project_id__patch'
+              $ref: "#/components/schemas/Body_update_project_projects__project_id__patch"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectResponse'
-        '422':
+                $ref: "#/components/schemas/ProjectResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     delete:
       tags:
         - projects
@@ -3889,17 +3889,17 @@ paths:
             format: uuid
             title: Project Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /projects/{project_id}/files:
     put:
       tags:
@@ -3921,20 +3921,20 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_add_project_files_projects__project_id__files_put'
+              $ref: "#/components/schemas/Body_add_project_files_projects__project_id__files_put"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectResponse'
-        '422':
+                $ref: "#/components/schemas/ProjectResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /projects/{project_id}/files/{document_id}:
     delete:
       tags:
@@ -3959,18 +3959,18 @@ paths:
             format: uuid
             title: Document Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectResponse'
-        '422':
+                $ref: "#/components/schemas/ProjectResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /projects/{project_id}/chats:
     get:
       tags:
@@ -3988,21 +3988,21 @@ paths:
             format: uuid
             title: Project Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ProjectChatSummary'
+                  $ref: "#/components/schemas/ProjectChatSummary"
                 title: Response List Project Chats Projects  Project Id  Chats Get
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /projects/{project_id}/chats/{chat_id}:
     post:
       tags:
@@ -4027,17 +4027,17 @@ paths:
             format: uuid
             title: Chat Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     delete:
       tags:
         - projects
@@ -4061,17 +4061,17 @@ paths:
             format: uuid
             title: Chat Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /connectors:
     get:
       tags:
@@ -4079,12 +4079,12 @@ paths:
       summary: List Connectors
       operationId: list_connectors_connectors_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConnectorListResponse'
+                $ref: "#/components/schemas/ConnectorListResponse"
       security:
         - HTTPBearer: []
   /connectors/{slug}:
@@ -4103,18 +4103,18 @@ paths:
             type: string
             title: Slug
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConnectorCatalogEntry'
-        '422':
+                $ref: "#/components/schemas/ConnectorCatalogEntry"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     patch:
       tags:
         - connectors
@@ -4134,20 +4134,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateConnectorRequest'
+              $ref: "#/components/schemas/UpdateConnectorRequest"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConnectorCatalogEntry'
-        '422':
+                $ref: "#/components/schemas/ConnectorCatalogEntry"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     delete:
       tags:
         - connectors
@@ -4163,14 +4163,14 @@ paths:
             type: string
             title: Slug
       responses:
-        '204':
+        "204":
           description: Successful Response
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /connectors/{slug}/link:
     post:
       tags:
@@ -4191,22 +4191,22 @@ paths:
           application/json:
             schema:
               anyOf:
-                - $ref: '#/components/schemas/LinkRequest'
-                - type: 'null'
+                - $ref: "#/components/schemas/LinkRequest"
+                - type: "null"
               title: Body
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LinkResponse'
-        '422':
+                $ref: "#/components/schemas/LinkResponse"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /brain:
     get:
       tags:
@@ -4214,13 +4214,13 @@ paths:
       summary: List Chats
       operationId: list_chats_brain_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/BrainChatListItem'
+                  $ref: "#/components/schemas/BrainChatListItem"
                 type: array
                 title: Response List Chats Brain Get
       security:
@@ -4234,20 +4234,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeleteChat'
+              $ref: "#/components/schemas/DeleteChat"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /brain/create:
@@ -4260,10 +4260,10 @@ paths:
         content:
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/Body_create_brain_chat_brain_create_post'
+              $ref: "#/components/schemas/Body_create_brain_chat_brain_create_post"
         required: true
       responses:
-        '200':
+        "200":
           description: |-
             Streaming Brain orchestrator response via Server-Sent Events.
 
@@ -4352,12 +4352,12 @@ paths:
                     plan_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Plan Id
                     step_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Step Id
                   required:
                     - url
@@ -4397,7 +4397,7 @@ paths:
                     label:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Label
                     status:
                       title: Status
@@ -4408,32 +4408,32 @@ paths:
                     step:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Step
                     message:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Message
                     code_preview:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Code Preview
                     elapsed_seconds:
                       anyOf:
                         - type: number
-                        - type: 'null'
+                        - type: "null"
                       title: Elapsed Seconds
                     percent:
                       anyOf:
                         - type: number
-                        - type: 'null'
+                        - type: "null"
                       title: Percent
                     detail:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Detail
                   required:
                     - tool
@@ -4500,7 +4500,7 @@ paths:
                       title: Title
                       type: string
                     description:
-                      default: ''
+                      default: ""
                       title: Description
                       type: string
                     options:
@@ -4516,7 +4516,7 @@ paths:
                       title: Metadata
                       type: object
                     respond_url:
-                      default: ''
+                      default: ""
                       title: Respond Url
                       type: string
                   required:
@@ -4540,11 +4540,11 @@ paths:
                       title: Respond Url
                       type: string
                     title:
-                      default: ''
+                      default: ""
                       title: Title
                       type: string
                     description:
-                      default: ''
+                      default: ""
                       title: Description
                       type: string
                     questions:
@@ -4617,13 +4617,13 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Persona
                     user_context:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: User Context
                     pins:
                       default: []
@@ -4657,7 +4657,7 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Project
                     documents:
                       default: []
@@ -4696,7 +4696,7 @@ paths:
                       title: Edges
                       type: array
                     plan_text:
-                      default: ''
+                      default: ""
                       title: Plan Text
                       type: string
                     required_connectors:
@@ -4862,7 +4862,7 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Tool Call
                   required:
                     - content
@@ -4920,13 +4920,13 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Usage
                     reasoning_details:
                       anyOf:
                         - items: {}
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Reasoning Details
                     tool_calls:
                       anyOf:
@@ -4934,12 +4934,12 @@ paths:
                             additionalProperties: true
                             type: object
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Tool Calls
                     finish_reason:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Finish Reason
                   title: DoneEvent
                   type: object
@@ -4957,12 +4957,12 @@ paths:
                     - error
                   title: ErrorEvent
                   type: object
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /brain/{chat_id}/stream:
@@ -4986,9 +4986,9 @@ paths:
         content:
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/Body_stream_brain_message_brain__chat_id__stream_post'
+              $ref: "#/components/schemas/Body_stream_brain_message_brain__chat_id__stream_post"
       responses:
-        '200':
+        "200":
           description: |-
             Streaming Brain orchestrator response via Server-Sent Events.
 
@@ -5077,12 +5077,12 @@ paths:
                     plan_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Plan Id
                     step_id:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Step Id
                   required:
                     - url
@@ -5122,7 +5122,7 @@ paths:
                     label:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Label
                     status:
                       title: Status
@@ -5133,32 +5133,32 @@ paths:
                     step:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Step
                     message:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Message
                     code_preview:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Code Preview
                     elapsed_seconds:
                       anyOf:
                         - type: number
-                        - type: 'null'
+                        - type: "null"
                       title: Elapsed Seconds
                     percent:
                       anyOf:
                         - type: number
-                        - type: 'null'
+                        - type: "null"
                       title: Percent
                     detail:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Detail
                   required:
                     - tool
@@ -5225,7 +5225,7 @@ paths:
                       title: Title
                       type: string
                     description:
-                      default: ''
+                      default: ""
                       title: Description
                       type: string
                     options:
@@ -5241,7 +5241,7 @@ paths:
                       title: Metadata
                       type: object
                     respond_url:
-                      default: ''
+                      default: ""
                       title: Respond Url
                       type: string
                   required:
@@ -5265,11 +5265,11 @@ paths:
                       title: Respond Url
                       type: string
                     title:
-                      default: ''
+                      default: ""
                       title: Title
                       type: string
                     description:
-                      default: ''
+                      default: ""
                       title: Description
                       type: string
                     questions:
@@ -5342,13 +5342,13 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Persona
                     user_context:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: User Context
                     pins:
                       default: []
@@ -5382,7 +5382,7 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Project
                     documents:
                       default: []
@@ -5421,7 +5421,7 @@ paths:
                       title: Edges
                       type: array
                     plan_text:
-                      default: ''
+                      default: ""
                       title: Plan Text
                       type: string
                     required_connectors:
@@ -5587,7 +5587,7 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Tool Call
                   required:
                     - content
@@ -5645,13 +5645,13 @@ paths:
                       anyOf:
                         - additionalProperties: true
                           type: object
-                        - type: 'null'
+                        - type: "null"
                       title: Usage
                     reasoning_details:
                       anyOf:
                         - items: {}
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Reasoning Details
                     tool_calls:
                       anyOf:
@@ -5659,12 +5659,12 @@ paths:
                             additionalProperties: true
                             type: object
                           type: array
-                        - type: 'null'
+                        - type: "null"
                       title: Tool Calls
                     finish_reason:
                       anyOf:
                         - type: string
-                        - type: 'null'
+                        - type: "null"
                       title: Finish Reason
                   title: DoneEvent
                   type: object
@@ -5682,12 +5682,12 @@ paths:
                     - error
                   title: ErrorEvent
                   type: object
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /brain/{chat_id}/messages:
     get:
       tags:
@@ -5705,21 +5705,21 @@ paths:
             format: uuid
             title: Chat Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/BrainMessage'
+                  $ref: "#/components/schemas/BrainMessage"
                 title: Response Get Messages Brain  Chat Id  Messages Get
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /brain/{chat_id}/plans:
     get:
       tags:
@@ -5737,21 +5737,21 @@ paths:
             format: uuid
             title: Chat Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/BrainPlanResponse'
+                  $ref: "#/components/schemas/BrainPlanResponse"
                 title: Response Get Chat Plans Brain  Chat Id  Plans Get
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /brain/{chat_id}/stop:
     post:
       tags:
@@ -5769,17 +5769,17 @@ paths:
             format: uuid
             title: Chat Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /brain/{chat_id}/star:
     patch:
       tags:
@@ -5797,17 +5797,17 @@ paths:
             format: uuid
             title: Chat Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /brain/rename:
     patch:
       tags:
@@ -5818,20 +5818,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RenameChat'
+              $ref: "#/components/schemas/RenameChat"
         required: true
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
       security:
         - HTTPBearer: []
   /tasks:
@@ -5841,13 +5841,13 @@ paths:
       summary: List Tasks
       operationId: list_tasks_tasks_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/ScheduledTaskListItem'
+                  $ref: "#/components/schemas/ScheduledTaskListItem"
                 type: array
                 title: Response List Tasks Tasks Get
       security:
@@ -5869,18 +5869,18 @@ paths:
             format: uuid
             title: Task Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScheduledTaskDetail'
-        '422':
+                $ref: "#/components/schemas/ScheduledTaskDetail"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
     patch:
       tags:
         - scheduled-tasks
@@ -5905,20 +5905,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ScheduledTaskUpdate'
+              $ref: "#/components/schemas/ScheduledTaskUpdate"
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScheduledTaskDetail'
-        '422':
+                $ref: "#/components/schemas/ScheduledTaskDetail"
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /tasks/{task_id}/run:
     post:
       tags:
@@ -5936,23 +5936,23 @@ paths:
             format: uuid
             title: Task Id
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema: {}
-        '422':
+        "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: "#/components/schemas/HTTPValidationError"
   /health:
     get:
       summary: Health
       operationId: health_health_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
@@ -5970,7 +5970,7 @@ components:
         help:
           type: string
           title: Help
-          default: ''
+          default: ""
         secret:
           type: boolean
           title: Secret
@@ -5992,17 +5992,17 @@ components:
         plan_type:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Plan Type
         subscription_status:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Subscription Status
         current_period_end:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Current Period End
         cancel_at_period_end:
           type: boolean
@@ -6010,18 +6010,18 @@ components:
           default: false
         payment_method:
           anyOf:
-            - $ref: '#/components/schemas/PaymentMethodInfo'
-            - type: 'null'
+            - $ref: "#/components/schemas/PaymentMethodInfo"
+            - type: "null"
         invoices:
           items:
-            $ref: '#/components/schemas/InvoiceInfo'
+            $ref: "#/components/schemas/InvoiceInfo"
           type: array
           title: Invoices
           default: []
         upcoming_invoice:
           anyOf:
-            - $ref: '#/components/schemas/UpcomingInvoiceInfo'
-            - type: 'null'
+            - $ref: "#/components/schemas/UpcomingInvoiceInfo"
+            - type: "null"
       type: object
       title: BillingInfo
     BillingPortalResponse:
@@ -6064,12 +6064,12 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Persona Id
         pin_ids:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Pin Ids
         use_mistral_ocr:
           type: boolean
@@ -6088,17 +6088,17 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Model Id
         algorithm:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Algorithm
         pin_ids:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Pin Ids
         use_mistral_ocr:
           type: boolean
@@ -6107,19 +6107,19 @@ components:
         system_instruction:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: System Instruction
         project_id:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Project Id
         persona_id:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Persona Id
         files:
           anyOf:
@@ -6127,7 +6127,7 @@ components:
                 type: string
                 contentMediaType: application/octet-stream
               type: array
-            - type: 'null'
+            - type: "null"
           title: Files
       type: object
       required:
@@ -6145,21 +6145,21 @@ components:
         prompt:
           type: string
           title: Prompt
-          default: ''
+          default: ""
         description:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Description
         temperature:
           anyOf:
             - type: number
-            - type: 'null'
+            - type: "null"
           title: Temperature
         tags:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Tags
         files:
           anyOf:
@@ -6167,13 +6167,13 @@ components:
                 type: string
                 contentMediaType: application/octet-stream
               type: array
-            - type: 'null'
+            - type: "null"
           title: Files
         image:
           anyOf:
             - type: string
               contentMediaType: application/octet-stream
-            - type: 'null'
+            - type: "null"
           title: Image
       type: object
       required:
@@ -6192,21 +6192,21 @@ components:
         prompt:
           type: string
           title: Prompt
-          default: ''
+          default: ""
         description:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Description
         temperature:
           anyOf:
             - type: number
-            - type: 'null'
+            - type: "null"
           title: Temperature
         tags:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Tags
         files:
           anyOf:
@@ -6214,13 +6214,13 @@ components:
                 type: string
                 contentMediaType: application/octet-stream
               type: array
-            - type: 'null'
+            - type: "null"
           title: Files
         image:
           anyOf:
             - type: string
               contentMediaType: application/octet-stream
-            - type: 'null'
+            - type: "null"
           title: Image
       type: object
       required:
@@ -6235,15 +6235,15 @@ components:
         description:
           type: string
           title: Description
-          default: ''
+          default: ""
         system_instruction:
           type: string
           title: System Instruction
-          default: ''
+          default: ""
         tags:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Tags
         files:
           anyOf:
@@ -6251,7 +6251,7 @@ components:
                 type: string
                 contentMediaType: application/octet-stream
               type: array
-            - type: 'null'
+            - type: "null"
           title: Files
       type: object
       required:
@@ -6272,7 +6272,7 @@ components:
                 type: string
                 contentMediaType: application/octet-stream
               type: array
-            - type: 'null'
+            - type: "null"
           title: Files
       type: object
       required:
@@ -6296,12 +6296,12 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Persona Id
         pin_ids:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Pin Ids
         use_mistral_ocr:
           type: boolean
@@ -6320,29 +6320,29 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Model Id
         algorithm:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Algorithm
         pin_ids:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Pin Ids
         reference_message_id:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Reference Message Id
         replace_message_id:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Replace Message Id
         use_mistral_ocr:
           type: boolean
@@ -6351,13 +6351,13 @@ components:
         system_instruction:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: System Instruction
         persona_id:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Persona Id
         files:
           anyOf:
@@ -6365,7 +6365,7 @@ components:
                 type: string
                 contentMediaType: application/octet-stream
               type: array
-            - type: 'null'
+            - type: "null"
           title: Files
       type: object
       required:
@@ -6386,7 +6386,7 @@ components:
                 type: string
                 contentMediaType: application/octet-stream
               type: array
-            - type: 'null'
+            - type: "null"
           title: Files
       type: object
       required:
@@ -6403,7 +6403,7 @@ components:
                 type: string
                 contentMediaType: application/octet-stream
               type: array
-            - type: 'null'
+            - type: "null"
           title: Files
       type: object
       required:
@@ -6414,22 +6414,22 @@ components:
         title:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Title
         description:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Description
         system_instruction:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: System Instruction
         tags:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Tags
       type: object
       title: Body_update_project_projects__project_id__patch
@@ -6438,39 +6438,39 @@ components:
         name:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Name
         prompt:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Prompt
         description:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Description
         model_id:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Model Id
         temperature:
           anyOf:
             - type: number
-            - type: 'null'
+            - type: "null"
           title: Temperature
         tags:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Tags
         image:
           anyOf:
             - type: string
               contentMediaType: application/octet-stream
-            - type: 'null'
+            - type: "null"
           title: Image
         files:
           anyOf:
@@ -6478,12 +6478,12 @@ components:
                 type: string
                 contentMediaType: application/octet-stream
               type: array
-            - type: 'null'
+            - type: "null"
           title: Files
         remove_document_ids:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Remove Document Ids
       type: object
       title: Body_update_version_persona__repo_id__versions__persona_id__patch
@@ -6518,13 +6518,13 @@ components:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Created At
         updated_at:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Updated At
       type: object
       required:
@@ -6544,39 +6544,39 @@ components:
         output:
           type: string
           title: Output
-          default: ''
+          default: ""
         reasoning:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Reasoning
         reasoning_sections:
           anyOf:
             - items: {}
               type: array
-            - type: 'null'
+            - type: "null"
           title: Reasoning Sections
         model_name:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Model Name
         created_at:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Created At
         tool_calls:
           anyOf:
             - items: {}
               type: array
-            - type: 'null'
+            - type: "null"
           title: Tool Calls
         plan:
           anyOf:
-            - $ref: '#/components/schemas/BrainPlanResponse'
-            - type: 'null'
+            - $ref: "#/components/schemas/BrainPlanResponse"
+            - type: "null"
         attachments:
           items:
             additionalProperties: true
@@ -6603,12 +6603,12 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Supersedes Id
         counter_text:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Counter Text
         plan_json:
           additionalProperties: true
@@ -6617,13 +6617,13 @@ components:
         final_error:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Final Error
         created_at:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Created At
       type: object
       required:
@@ -6666,7 +6666,7 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Project Id
       type: object
       required:
@@ -6739,12 +6739,12 @@ components:
           title: Description
         tools:
           items:
-            $ref: '#/components/schemas/ToolEntry'
+            $ref: "#/components/schemas/ToolEntry"
           type: array
           title: Tools
         api_key_fields:
           items:
-            $ref: '#/components/schemas/ApiKeyField'
+            $ref: "#/components/schemas/ApiKeyField"
           type: array
           title: Api Key Fields
         linked:
@@ -6762,7 +6762,7 @@ components:
       properties:
         connectors:
           items:
-            $ref: '#/components/schemas/ConnectorCatalogEntry'
+            $ref: "#/components/schemas/ConnectorCatalogEntry"
           type: array
           title: Connectors
       type: object
@@ -6772,7 +6772,7 @@ components:
     CreateCheckoutSessionRequest:
       properties:
         plan_type:
-          $ref: '#/components/schemas/PlanType'
+          $ref: "#/components/schemas/PlanType"
         billing:
           type: string
           title: Billing
@@ -6810,11 +6810,11 @@ components:
           type: number
           minimum: 1
           title: Amount Usd
-          description: 'Dollars to add as credit (1:1 conversion). Stripe minimum: $1.'
+          description: "Dollars to add as credit (1:1 conversion). Stripe minimum: $1."
         idempotency_key:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Idempotency Key
       type: object
       required:
@@ -6875,7 +6875,7 @@ components:
         file_link:
           type: string
           title: File Link
-          default: ''
+          default: ""
         mime_type:
           type: string
           title: Mime Type
@@ -6929,19 +6929,19 @@ components:
         reasoning:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Reasoning
         reasoning_sections:
           anyOf:
             - items:
-                $ref: '#/components/schemas/ReasoningSection'
+                $ref: "#/components/schemas/ReasoningSection"
               type: array
-            - type: 'null'
+            - type: "null"
           title: Reasoning Sections
         model_name:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Model Name
         pin_ids:
           anyOf:
@@ -6949,29 +6949,29 @@ components:
                 anyOf:
                   - type: string
                     format: uuid
-                  - type: 'null'
+                  - type: "null"
               type: array
-            - type: 'null'
+            - type: "null"
           title: Pin Ids
         referenced_message_id:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Referenced Message Id
         file_attachments:
           anyOf:
             - items:
-                $ref: '#/components/schemas/FileAttachment'
+                $ref: "#/components/schemas/FileAttachment"
               type: array
-            - type: 'null'
+            - type: "null"
           title: File Attachments
         web_searches:
           anyOf:
             - items:
-                $ref: '#/components/schemas/WebSearchResult'
+                $ref: "#/components/schemas/WebSearchResult"
               type: array
-            - type: 'null'
+            - type: "null"
           title: Web Searches
       type: object
       required:
@@ -7004,22 +7004,22 @@ components:
         model_context_window:
           anyOf:
             - type: integer
-            - type: 'null'
+            - type: "null"
           title: Model Context Window
         model_output_size:
           anyOf:
             - type: integer
-            - type: 'null'
+            - type: "null"
           title: Model Output Size
         model_input_cost:
           anyOf:
             - type: number
-            - type: 'null'
+            - type: "null"
           title: Model Input Cost
         model_output_cost:
           anyOf:
             - type: number
-            - type: 'null'
+            - type: "null"
           title: Model Output Cost
         model_plan_type:
           type: string
@@ -7027,6 +7027,12 @@ components:
         model_description:
           type: string
           title: Model Description
+        model_thinking_efforts:
+          items:
+            type: string
+          type: array
+          title: Model Thinking Efforts
+          default: []
       type: object
       required:
         - model_id
@@ -7062,22 +7068,22 @@ components:
         model_context_window:
           anyOf:
             - type: integer
-            - type: 'null'
+            - type: "null"
           title: Model Context Window
         model_output_size:
           anyOf:
             - type: integer
-            - type: 'null'
+            - type: "null"
           title: Model Output Size
         model_input_cost:
           anyOf:
             - type: number
-            - type: 'null'
+            - type: "null"
           title: Model Input Cost
         model_output_cost:
           anyOf:
             - type: number
-            - type: 'null'
+            - type: "null"
           title: Model Output Cost
         model_plan_type:
           type: string
@@ -7085,6 +7091,12 @@ components:
         model_description:
           type: string
           title: Model Description
+        model_thinking_efforts:
+          items:
+            type: string
+          type: array
+          title: Model Thinking Efforts
+          default: []
         blocked:
           type: boolean
           title: Blocked
@@ -7114,14 +7126,14 @@ components:
         reasoning:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Reasoning
         file_attachments:
           anyOf:
             - items:
-                $ref: '#/components/schemas/PersonaFileAttachment'
+                $ref: "#/components/schemas/PersonaFileAttachment"
               type: array
-            - type: 'null'
+            - type: "null"
           title: File Attachments
           default: []
       type: object
@@ -7150,7 +7162,7 @@ components:
       properties:
         detail:
           items:
-            $ref: '#/components/schemas/ValidationError'
+            $ref: "#/components/schemas/ValidationError"
           type: array
           title: Detail
       type: object
@@ -7238,22 +7250,22 @@ components:
         status:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Status
         created:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Created
         invoice_url:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Invoice Url
         invoice_pdf:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Invoice Pdf
       type: object
       required:
@@ -7267,7 +7279,7 @@ components:
             - additionalProperties:
                 type: string
               type: object
-            - type: 'null'
+            - type: "null"
           title: Init Data
       type: object
       title: LinkRequest
@@ -7285,7 +7297,7 @@ components:
         redirect_url:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Redirect Url
       type: object
       required:
@@ -7295,17 +7307,17 @@ components:
       properties:
         all:
           items:
-            $ref: '#/components/schemas/GetModels'
+            $ref: "#/components/schemas/GetModels"
           type: array
           title: All
         recent:
           items:
-            $ref: '#/components/schemas/GetModels'
+            $ref: "#/components/schemas/GetModels"
           type: array
           title: Recent
         most_used:
           items:
-            $ref: '#/components/schemas/GetModels'
+            $ref: "#/components/schemas/GetModels"
           type: array
           title: Most Used
       type: object
@@ -7335,17 +7347,17 @@ components:
         user_role:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: User Role
         ai_tone:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Ai Tone
         role_fit:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Role Fit
       type: object
       required:
@@ -7356,27 +7368,27 @@ components:
         brand:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Brand
         last4:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Last4
         exp_month:
           anyOf:
             - type: integer
-            - type: 'null'
+            - type: "null"
           title: Exp Month
         exp_year:
           anyOf:
             - type: integer
-            - type: 'null'
+            - type: "null"
           title: Exp Year
         funding:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Funding
       type: object
       title: PaymentMethodInfo
@@ -7396,7 +7408,7 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Persona Id
       type: object
       required:
@@ -7420,17 +7432,17 @@ components:
         size_bytes:
           anyOf:
             - type: integer
-            - type: 'null'
+            - type: "null"
           title: Size Bytes
         content_type:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Content Type
         download_url:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Download Url
       type: object
       required:
@@ -7443,7 +7455,7 @@ components:
         file_link:
           type: string
           title: File Link
-          default: ''
+          default: ""
         mime_type:
           type: string
           title: Mime Type
@@ -7467,26 +7479,26 @@ components:
         prompt:
           type: string
           title: Prompt
-          default: ''
+          default: ""
         description:
           type: string
           title: Description
-          default: ''
+          default: ""
         name:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Name
         model_id:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Model Id
         temperature:
           anyOf:
             - type: number
-            - type: 'null'
+            - type: "null"
           title: Temperature
         connectors:
           items:
@@ -7496,7 +7508,7 @@ components:
           default: []
         history:
           items:
-            $ref: '#/components/schemas/GuideMessage'
+            $ref: "#/components/schemas/GuideMessage"
           type: array
           title: History
           default: []
@@ -7528,12 +7540,12 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Active Version Id
         active_version:
           anyOf:
-            - $ref: '#/components/schemas/PersonaResponse'
-            - type: 'null'
+            - $ref: "#/components/schemas/PersonaResponse"
+            - type: "null"
         version_count:
           type: integer
           title: Version Count
@@ -7577,7 +7589,7 @@ components:
         description:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Description
         is_active:
           type: boolean
@@ -7586,22 +7598,22 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Model Id
         image_url:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Image Url
         image_s3_key:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Image S3 Key
         temperature:
           anyOf:
             - type: number
-            - type: 'null'
+            - type: "null"
           title: Temperature
         tags:
           items:
@@ -7611,7 +7623,7 @@ components:
           default: []
         documents:
           items:
-            $ref: '#/components/schemas/PersonaDocumentResponse'
+            $ref: "#/components/schemas/PersonaDocumentResponse"
           type: array
           title: Documents
           default: []
@@ -7660,7 +7672,7 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: 'null'
+            - type: "null"
           title: Model Id
         is_active:
           type: boolean
@@ -7721,19 +7733,19 @@ components:
           format: uuid
           title: Folder Id
         category:
-          $ref: '#/components/schemas/PinCategory'
+          $ref: "#/components/schemas/PinCategory"
         content:
           type: string
           title: Content
         tags:
           items:
-            $ref: '#/components/schemas/TagResponse'
+            $ref: "#/components/schemas/TagResponse"
           type: array
           title: Tags
           default: []
         comments:
           items:
-            $ref: '#/components/schemas/CommentResponse'
+            $ref: "#/components/schemas/CommentResponse"
           type: array
           title: Comments
           default: []
@@ -7757,17 +7769,17 @@ components:
         plan_type:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Plan Type
         subscription_status:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Subscription Status
         current_period_end:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Current Period End
       type: object
       title: PlanSummary
@@ -7823,7 +7835,7 @@ components:
         file_link:
           type: string
           title: File Link
-          default: ''
+          default: ""
         created_at:
           type: string
           format: date-time
@@ -7865,7 +7877,7 @@ components:
           title: Updated At
         documents:
           items:
-            $ref: '#/components/schemas/ProjectDocumentResponse'
+            $ref: "#/components/schemas/ProjectDocumentResponse"
           type: array
           title: Documents
           default: []
@@ -7926,11 +7938,11 @@ components:
         heading:
           type: string
           title: Heading
-          default: ''
+          default: ""
         body:
           type: string
           title: Body
-          default: ''
+          default: ""
       type: object
       title: ReasoningSection
     RenameChat:
@@ -7986,7 +7998,7 @@ components:
         folder_id:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Folder Id
       type: object
       title: SaveToDriveRequest
@@ -8002,7 +8014,7 @@ components:
         plan_text:
           type: string
           title: Plan Text
-          default: ''
+          default: ""
         schedule_json:
           additionalProperties: true
           type: object
@@ -8014,13 +8026,13 @@ components:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Next Run At
         last_run_at:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Last Run At
         run_count:
           type: integer
@@ -8037,13 +8049,13 @@ components:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Created At
         updated_at:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Updated At
         plan_json:
           additionalProperties: true
@@ -8051,14 +8063,14 @@ components:
           title: Plan Json
         runs:
           items:
-            $ref: '#/components/schemas/ScheduledTaskRunResponse'
+            $ref: "#/components/schemas/ScheduledTaskRunResponse"
           type: array
           title: Runs
           default: []
         success_rate:
           anyOf:
             - type: number
-            - type: 'null'
+            - type: "null"
           title: Success Rate
           description: |-
             Completed runs / runs that reached a terminal status. None until the
@@ -8087,7 +8099,7 @@ components:
         plan_text:
           type: string
           title: Plan Text
-          default: ''
+          default: ""
         schedule_json:
           additionalProperties: true
           type: object
@@ -8099,13 +8111,13 @@ components:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Next Run At
         last_run_at:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Last Run At
         run_count:
           type: integer
@@ -8122,18 +8134,18 @@ components:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Created At
         updated_at:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Updated At
         success_rate:
           anyOf:
             - type: number
-            - type: 'null'
+            - type: "null"
           title: Success Rate
           description: |-
             Completed runs / runs that reached a terminal status. None until the
@@ -8161,7 +8173,7 @@ components:
         node_id:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Node Id
         message:
           type: string
@@ -8170,7 +8182,7 @@ components:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Created At
       type: object
       required:
@@ -8191,39 +8203,39 @@ components:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Started At
         completed_at:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Completed At
         error:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Error
         node_outputs:
           anyOf:
             - additionalProperties: true
               type: object
-            - type: 'null'
+            - type: "null"
           title: Node Outputs
         synthesis:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Synthesis
         created_at:
           anyOf:
             - type: string
               format: date-time
-            - type: 'null'
+            - type: "null"
           title: Created At
         logs:
           items:
-            $ref: '#/components/schemas/ScheduledTaskLogResponse'
+            $ref: "#/components/schemas/ScheduledTaskLogResponse"
           type: array
           title: Logs
           default: []
@@ -8271,12 +8283,12 @@ components:
         plan_type:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Plan Type
         current_period_end:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Current Period End
       type: object
       required:
@@ -8340,7 +8352,7 @@ components:
         client_secret:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Client Secret
       type: object
       required:
@@ -8357,7 +8369,7 @@ components:
         next_payment_date:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Next Payment Date
       type: object
       required:
@@ -8369,16 +8381,16 @@ components:
         permissions:
           anyOf:
             - items:
-                $ref: '#/components/schemas/ToolEntry'
+                $ref: "#/components/schemas/ToolEntry"
               type: array
-            - type: 'null'
+            - type: "null"
           title: Permissions
         credentials:
           anyOf:
             - additionalProperties:
                 type: string
               type: object
-            - type: 'null'
+            - type: "null"
           title: Credentials
       type: object
       title: UpdateConnectorRequest
@@ -8387,22 +8399,22 @@ components:
         user_role:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: User Role
         ai_tone:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Ai Tone
         role_fit:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Role Fit
         onboarding_completed:
           anyOf:
             - type: boolean
-            - type: 'null'
+            - type: "null"
           title: Onboarding Completed
       type: object
       title: UpdateOnboarding
@@ -8411,22 +8423,22 @@ components:
         first_name:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: First Name
         last_name:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Last Name
         phone_number:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Phone Number
         profile_picture:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Profile Picture
       type: object
       title: UpdateUser
@@ -8440,7 +8452,7 @@ components:
           title: Spent This Period
           default: 0
         by_category:
-          $ref: '#/components/schemas/CategoryUsage'
+          $ref: "#/components/schemas/CategoryUsage"
           default:
             chat: 0
             persona: 0
@@ -8462,12 +8474,12 @@ components:
         phone_number:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Phone Number
         profile_picture:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Profile Picture
         created_at:
           type: string
@@ -8477,15 +8489,15 @@ components:
           type: boolean
           title: Active
         onboarding:
-          $ref: '#/components/schemas/OnboardingSummary'
+          $ref: "#/components/schemas/OnboardingSummary"
         plan:
           anyOf:
-            - $ref: '#/components/schemas/PlanSummary'
-            - type: 'null'
+            - $ref: "#/components/schemas/PlanSummary"
+            - type: "null"
         usage:
           anyOf:
-            - $ref: '#/components/schemas/UsageResponse'
-            - type: 'null'
+            - $ref: "#/components/schemas/UsageResponse"
+            - type: "null"
       type: object
       required:
         - first_name
@@ -8522,12 +8534,12 @@ components:
         phone_number:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Phone Number
         profile_picture:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Profile Picture
         created_at:
           type: string
@@ -8537,7 +8549,7 @@ components:
           type: boolean
           title: Active
         onboarding:
-          $ref: '#/components/schemas/OnboardingSummary'
+          $ref: "#/components/schemas/OnboardingSummary"
       type: object
       required:
         - first_name

@@ -36,9 +36,10 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
   const isProjectChatPage   = !!projectChatMatch;
   const isProjectDetailPage = pathname.startsWith('/project') && !isProjectChatPage;
   const isChatsPage         = pathname === '/chats';
-  const personaChatMatch    = pathname.match(/^\/personas\/([^/]+)\/chat/);
-  const isPersonaChatPage   = !!personaChatMatch;
-  const personaId           = personaChatMatch?.[1] ?? null;
+  const personaChatMatch      = pathname.match(/^\/personas\/([^/]+)\/chat/);
+  const isPersonaChatPage     = !!personaChatMatch;
+  const personaId             = personaChatMatch?.[1] ?? null;
+  const isPersonaConfigurePage = pathname.startsWith('/persona/configure');
 
   // Fetch persona data + resolve full model object for the top-bar tag on persona chat pages
   const [persona,      setPersona]      = useState<Persona | null>(null);
@@ -250,8 +251,8 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
         </>
       ) : (
         <>
-          {/* ── Left: model selector (hidden on project detail / chats pages) ── */}
-          {!isProjectDetailPage && !isChatsPage && modelSelectorButton}
+          {/* ── Left: model selector (hidden on project detail / chats / persona configure pages) ── */}
+          {!isProjectDetailPage && !isChatsPage && !isPersonaConfigurePage && modelSelectorButton}
         </>
       )}
     </div>

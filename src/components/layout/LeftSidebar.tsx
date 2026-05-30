@@ -6,6 +6,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { FolderAddIcon, MoreHorizontalIcon, PlusSignIcon } from "@strange-huge/icons";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
+import { AccountMenu } from "@/components/AccountMenu";
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
@@ -1103,6 +1104,11 @@ function LeftSidebarImpl({
     ? user.firstName?.trim() || user.name?.split(" ")[0]?.trim() || ""
     : "";
 
+  // "pro" → "Pro", "starter" → "Starter", null / "none" → undefined (hidden)
+  const planLabel = user?.planType
+    ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
+    : undefined;
+
   const sectionProps: SectionProps = {
     activeChatId: resolvedActiveChatId,
     onSelectChat: handleSelectChat,
@@ -1113,9 +1119,6 @@ function LeftSidebarImpl({
     <>
     <Sidebar
       key={sidebarSectionKey}
-      userName={displayName || "Account"}
-      userEmail={user?.email ?? ""}
-      avatarSrc={undefined}
       defaultCollapsed={collapsedRef.current}
       defaultBodySection={computedDefaultBodySection}
       searchActive={searchOpen}
@@ -1126,10 +1129,23 @@ function LeftSidebarImpl({
       onProjectsClick={() => { toast.info("Opening Projects"); push("/projects") }}
       onPersonasClick={() => { toast.info("Opening Personas"); push("/personas") }}
       onBrainClick={() => { toast.info("Opening Brain"); push("/brain") }}
-      onSettingsClick={() => push("/settings")}
-      onHelpClick={() => push("/settings/help")}
-      onLogoutClick={() => { void logout() }}
-      isAuthenticated={isAuthenticated}
+      accountMenu={(collapsed) => (
+        <AccountMenu
+          name={displayName || "Account"}
+          plan={planLabel}
+          credits={user?.creditsRemaining ?? undefined}
+          avatarSrc={user?.profilePicture ?? undefined}
+          collapsed={collapsed}
+          panelWidth={274}
+          placement="top-start"
+          onProfile={() => push("/settings/account")}
+          onUpgradePlan={() => push("/settings/billing")}
+          onSettings={() => push("/settings")}
+          onWhatsNew={() => toast.info("What's new — coming soon!")}
+          onHelp={() => push("/settings/help")}
+          onLogOut={() => { if (isAuthenticated) { void logout() } else { push("/auth/login") } }}
+        />
+      )}
       projectItems={<ProjectsSection />}
       recentItems={
         isPersonaPage ? (

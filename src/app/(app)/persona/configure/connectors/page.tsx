@@ -27,6 +27,7 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { ChatInput } from '@/components/ChatInput'
 import ConnectorsTab from '@/app/(app)/persona/configure/components/ConnectorsTab'
+import { ConnectorTogglesPanel } from '@/app/(app)/persona/configure/components/ConnectorTogglesPanel'
 import { VersionCard } from '@/components/VersionCard'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -219,7 +220,7 @@ function PersonaConfigureConnectorsContent() {
   useEffect(() => {
     if (!repoId || !versionId) return
     getVersion(repoId, versionId)
-      .then(v => { if (v.connector_slugs != null) setConnectorSlugs(v.connector_slugs) })
+      .then(v => { setConnectorSlugs(v.connectors) })
       .catch(() => {})
   }, [repoId, versionId])
 
@@ -571,6 +572,15 @@ function PersonaConfigureConnectorsContent() {
               </div>
             </div>
 
+            {/* Connector toggles */}
+            {repoId && versionId && (
+              <ConnectorTogglesPanel
+                repoId={repoId}
+                versionId={versionId}
+                onConnectorsChange={setConnectorSlugs}
+              />
+            )}
+
             {/* Messages area */}
             <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
               {chatMessages.length === 0 ? (
@@ -672,6 +682,15 @@ function PersonaConfigureConnectorsContent() {
                   />
                 </div>
               </div>
+
+              {/* Connector toggles */}
+              {repoId && versionId && (
+                <ConnectorTogglesPanel
+                  repoId={repoId}
+                  versionId={versionId}
+                  onConnectorsChange={setConnectorSlugs}
+                />
+              )}
 
               {/* Messages area */}
               <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>

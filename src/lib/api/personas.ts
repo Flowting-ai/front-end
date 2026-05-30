@@ -46,8 +46,8 @@ export interface PersonaVersionResponse {
   temperature: number | null;
   documents: PersonaDocumentResponse[];
   total_usage: number;
-  /** Slugs of connectors enabled for this version. Null/absent = all linked connectors. */
-  connector_slugs: string[] | null;
+  /** Slugs of connectors enabled for this version. Empty array = none assigned. */
+  connectors: string[];
   created_at: string;
   updated_at: string;
 }
@@ -835,7 +835,7 @@ export async function createAndStreamPersonaChat(
   repoId: string,
   input: string,
   callbacks: PersonaChatStreamCallbacks,
-  options?: { files?: File[]; useMistralOcr?: boolean },
+  options?: { files?: File[]; useMistralOcr?: boolean; connectorSlugs?: string[] },
 ): Promise<() => void> {
   const controller = new AbortController();
   const { body, headers } = buildStreamBody(input, options);
@@ -879,7 +879,7 @@ export async function streamPersonaMessage(
   chatId: string,
   input: string,
   callbacks: PersonaChatStreamCallbacks,
-  options?: { files?: File[]; useMistralOcr?: boolean },
+  options?: { files?: File[]; useMistralOcr?: boolean; connectorSlugs?: string[] },
 ): Promise<() => void> {
   const controller = new AbortController();
   const { body, headers } = buildStreamBody(input, options);

@@ -15,7 +15,6 @@ import {
 } from '@/lib/api/connectors'
 import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
 import { ApiError } from '@/lib/api/client'
-import { getVersion, setVersionConnectors } from '@/lib/api/personas'
 
 // ── Connector logo map ────────────────────────────────────────────────────────
 
@@ -596,14 +595,12 @@ function ApiKeyForm({ fields, values, onChange, onSubmit, onCancel, submitting }
 
 // ── Connector row (personal) ──────────────────────────────────────────────────
 
-function ConnectorRow({ entry, isExpanded, onExpandToggle, onManage, onUpdate, personaEnabled, onPersonaToggle }: {
-  entry:            ConnectorCatalogEntry
-  isExpanded:       boolean
-  onExpandToggle:   (slug: string) => void
-  onManage:         (e: ConnectorCatalogEntry) => void
-  onUpdate:         (updated: ConnectorCatalogEntry) => void
-  personaEnabled?:  boolean
-  onPersonaToggle?: (slug: string, enabled: boolean) => void
+function ConnectorRow({ entry, isExpanded, onExpandToggle, onManage, onUpdate }: {
+  entry:          ConnectorCatalogEntry
+  isExpanded:     boolean
+  onExpandToggle: (slug: string) => void
+  onManage:       (e: ConnectorCatalogEntry) => void
+  onUpdate:       (updated: ConnectorCatalogEntry) => void
 }) {
   const [disconnecting, setDisconnecting] = useState(false)
 
@@ -670,17 +667,6 @@ function ConnectorRow({ entry, isExpanded, onExpandToggle, onManage, onUpdate, p
         {/* Right controls */}
         {entry.linked ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            {onPersonaToggle !== undefined && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
-                  Use in persona
-                </span>
-                <ToggleSwitch
-                  on={personaEnabled ?? true}
-                  onChange={() => onPersonaToggle(entry.slug, !(personaEnabled ?? true))}
-                />
-              </div>
-            )}
             <OnBadge />
             <ToggleSwitch on={true} onChange={() => void handleToggleOff()} disabled={disconnecting} />
           </div>
@@ -845,29 +831,13 @@ export default function ConnectorsTab({ repoId, versionId }: { repoId?: string; 
   const [searchQuery,         setSearchQuery]         = useState('')
   const [expandedSlug,        setExpandedSlug]        = useState<string | null>(null)
   const [modalEntry,          setModalEntry]          = useState<ConnectorCatalogEntry | null>(null)
-  // null = not loaded yet; undefined = version has no connector restriction (all enabled)
-  const [versionSlugs,        setVersionSlugs]        = useState<Set<string> | null>(null)
-  const [savingSlug,          setSavingSlug]          = useState<string | null>(null)
-
-  const isPersonaContext = !!(repoId && versionId)
 
   const fetchConnectors = useCallback(async () => {
     setLoading(true)
     setLoadError('')
     try {
-      const [list, version] = await Promise.all([
-        listConnectors(),
-        isPersonaContext ? getVersion(repoId!, versionId!) : Promise.resolve(null),
-      ])
+      const list = await listConnectors()
       setConnectors(list)
-      if (version) {
-        // null connector_slugs from the API means "all linked connectors enabled"
-        setVersionSlugs(
-          version.connector_slugs != null
-            ? new Set(version.connector_slugs)
-            : new Set(list.filter(c => c.linked).map(c => c.slug)),
-        )
-      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load connectors'
       setLoadError(msg)
@@ -875,37 +845,9 @@ export default function ConnectorsTab({ repoId, versionId }: { repoId?: string; 
     } finally {
       setLoading(false)
     }
-  }, [isPersonaContext, repoId, versionId])
+  }, [])
 
   useEffect(() => { void fetchConnectors() }, [fetchConnectors])
-
-  const handlePersonaToggle = useCallback(async (slug: string, enabled: boolean) => {
-    if (!repoId || !versionId || savingSlug) return
-    setSavingSlug(slug)
-    const next = new Set(versionSlugs ?? connectors.filter(c => c.linked).map(c => c.slug))
-    if (enabled) { next.add(slug) } else { next.delete(slug) }
-    // Optimistic update
-    setVersionSlugs(new Set(next))
-    try {
-      const updated = await setVersionConnectors(repoId, versionId, [...next])
-      // Sync with what the server actually persisted
-      setVersionSlugs(
-        updated.connector_slugs != null
-          ? new Set(updated.connector_slugs)
-          : new Set(connectors.filter(c => c.linked).map(c => c.slug)),
-      )
-    } catch (err) {
-      // Roll back on failure
-      setVersionSlugs(prev => {
-        const rolled = new Set(prev)
-        if (enabled) { rolled.delete(slug) } else { rolled.add(slug) }
-        return rolled
-      })
-      toast.error(err instanceof Error ? err.message : 'Failed to update connector for persona')
-    } finally {
-      setSavingSlug(null)
-    }
-  }, [repoId, versionId, savingSlug, versionSlugs, connectors])
 
   const handleUpdate = useCallback((updated: ConnectorCatalogEntry) => {
     setConnectors(prev => prev.map(c => c.slug === updated.slug ? updated : c))
@@ -1032,8 +974,6 @@ export default function ConnectorsTab({ repoId, versionId }: { repoId?: string; 
                       onExpandToggle={handleExpandToggle}
                       onManage={setModalEntry}
                       onUpdate={handleUpdate}
-                      personaEnabled={isPersonaContext ? (versionSlugs?.has(c.slug) ?? true) : undefined}
-                      onPersonaToggle={isPersonaContext ? (slug, enabled) => void handlePersonaToggle(slug, enabled) : undefined}
                     />
                   ))}
                 </div>

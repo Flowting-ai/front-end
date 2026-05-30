@@ -8,7 +8,7 @@ import { ChatMessageMemo } from "@/components/chat/ChatMessage";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
-import type { UIMessage } from "@/hooks/use-chat-state";
+import type { UIMessage, ActivityItem } from "@/hooks/use-chat-state";
 import type { ConnectorConnectPrompt, ConnectorPermissionPrompt } from "@/hooks/use-chat-state";
 import {
   getPersona,
@@ -18,6 +18,7 @@ import {
   streamPersonaMessage,
   type Persona,
   type PersonaChatStreamCallbacks,
+  type PersonaActivityItem,
 } from "@/lib/api/personas";
 import {
   emitPersonaChatCreated,
@@ -35,6 +36,7 @@ interface LocalMessage {
   attachments?: Array<{ file_name: string; mime_type: string; url?: string; file_size?: number }>;
   connectPrompts?:    ConnectorConnectPrompt[];
   permissionPrompts?: ConnectorPermissionPrompt[];
+  activities?:        ActivityItem[];
 }
 
 export interface PersonaChatInterfaceProps {
@@ -119,6 +121,7 @@ function toUIMessage(msg: LocalMessage, chatId: string): UIMessage {
     })),
     connectorConnectPrompts:    msg.connectPrompts,
     connectorPermissionPrompts: msg.permissionPrompts,
+    activities:                 msg.activities,
   };
 }
 
@@ -143,6 +146,9 @@ export function PersonaChatInterface({
   // Persona avatar image URL — falls back to fetching the active version when
   // the repo detail endpoint doesn't embed active_version.image_url.
   const [personaImageUrl,   setPersonaImageUrl]   = useState<string | null>(null);
+  // Connector slugs from the persona's active version — forwarded to the backend
+  // so it knows which connector tools are in scope for this persona.
+  const [connectorSlugs,    setConnectorSlugs]    = useState<string[] | null>(null);
 
   const fileInputRef         = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -168,11 +174,18 @@ export function PersonaChatInterface({
       setPersona(p);
       if (p.imageUrl) {
         setPersonaImageUrl(p.imageUrl);
-      } else if (p.activeVersionId) {
-        // Active version may not be embedded in the repo detail response —
-        // fetch it separately to retrieve the profile avatar image.
+      }
+      if (p.activeVersionId) {
+        // Fetch the active version to get connector slugs (always needed) and
+        // as a fallback for the avatar image when it's not embedded in the repo.
         getVersion(p.id, p.activeVersionId)
-          .then(v => { if (!cancelled && v.image_url) setPersonaImageUrl(v.image_url); })
+          .then(v => {
+            if (cancelled) return;
+            if (!p.imageUrl && v.image_url) setPersonaImageUrl(v.image_url);
+            // null means "all linked connectors" — send an empty array so the backend
+            // uses its own default (all linked); explicitly-set slugs are forwarded as-is.
+            setConnectorSlugs(v.connectors ?? []);
+          })
           .catch(() => {});
       }
     }).catch(console.error);
@@ -324,6 +337,18 @@ export function PersonaChatInterface({
       onTitle: (title: string) => {
         if (resolvedChatId) emitPersonaChatTitleUpdated({ personaId, chatId: resolvedChatId, title });
       },
+      onToolActivity: (item: PersonaActivityItem) => {
+        setMessages(prev => prev.map(m => {
+          if (m.id !== resolvedAssistantId) return m;
+          const acts = m.activities ?? [];
+          const idx  = acts.findIndex(a => a.id === item.id);
+          if (idx >= 0) {
+            const updated = [...acts]; updated[idx] = { ...acts[idx], ...item } as ActivityItem;
+            return { ...m, activities: updated };
+          }
+          return { ...m, activities: [...acts, item as ActivityItem] };
+        }));
+      },
       onConnectPrompt: (prompt) => {
         setMessages(prev => prev.map(m =>
           m.id === resolvedAssistantId
@@ -357,7 +382,10 @@ export function PersonaChatInterface({
       },
     };
 
-    const options = filesToSend.length > 0 ? { files: filesToSend } : undefined;
+    const options: { files?: File[]; connectorSlugs?: string[] } = {
+      connectorSlugs: connectorSlugs ?? [],
+    };
+    if (filesToSend.length > 0) options.files = filesToSend;
 
     // Safety net: if neither onDone nor onError fires (e.g. proxy stalls,
     // unawaited rejection), reset the streaming UI after 90s so the input
@@ -394,7 +422,7 @@ export function PersonaChatInterface({
       ));
       setIsStreaming(false);
     }
-  }, [personaId, activeChatId, isStreaming, attachments]);
+  }, [personaId, activeChatId, isStreaming, attachments, connectorSlugs]);
 
   const handleStop = useCallback(() => {
     abortRef.current?.();
@@ -484,7 +512,8 @@ export function PersonaChatInterface({
                 hidePinFolders
               />
             }
-            hideModelSelector
+            modelName={selectedModel?.modelName ?? persona?.name ?? ""}
+            disabledModelSelector
             attachmentsSlot={
               <AttachmentManager
                 attachments={attachments}
