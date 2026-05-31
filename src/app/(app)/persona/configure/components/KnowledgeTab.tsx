@@ -30,8 +30,8 @@ type KnowledgeTabProps = {
   onPreviewFile?: (file: KnowledgeFile) => void;
 };
 
-const FILE_LIMIT = 20;
-const SIZE_LIMIT_MB = 800;
+const FILE_LIMIT = 10;
+const SIZE_LIMIT_MB = 300;
 const FILE_SIZE_LIMIT_MB = 30;
 
 const SOURCE_BUTTONS = [
@@ -571,7 +571,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                 Upload files or connect sources - the persona retrieves relevant content during conversations.
               </p>
             </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", width: "100%" }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "center", width: "100%" }}>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -735,7 +735,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
             )}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "center" }}>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}

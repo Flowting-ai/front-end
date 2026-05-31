@@ -65,12 +65,13 @@ const TAB_ROUTES: Partial<Record<Tab, string>> = {
 function docsToFiles(version: PersonaVersionResponse): KnowledgeFile[] {
   return (version.documents ?? []).map(doc => {
     const ext = doc.document_filename.split('.').pop()?.toUpperCase() ?? 'FILE'
+    const size = (doc as any).size_bytes ? `${((doc as any).size_bytes / 1024 / 1024).toFixed(1)} MB` : '-'
     return {
       id:       doc.id,
       name:     doc.document_filename,
       type:     'file' as const,
       fileType: ext,
-      size:     '-',
+      size:     size,
       date:     new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     }
   })
@@ -262,6 +263,20 @@ function PersonaConfigureKnowledgeContent() {
     if (el) el.scrollTop = el.scrollHeight
   }, [chatMessages])
 
+  // Restore file sizes from sessionStorage on mount or version change
+  useEffect(() => {
+    if (!repoId || !versionId || typeof window === 'undefined') return
+    const storageKey = `persona_file_sizes_${repoId}_${versionId}`
+    const stored = sessionStorage.getItem(storageKey)
+    if (stored) {
+      try {
+        fileSizeMapRef.current = JSON.parse(stored)
+      } catch (e) {
+        console.error('[KnowledgePage] Failed to parse stored file sizes:', e)
+      }
+    }
+  }, [repoId, versionId])
+
   useEffect(() => {
     if (!repoId || !versionId) return
     getVersion(repoId, versionId)
@@ -371,6 +386,12 @@ function PersonaConfigureKnowledgeContent() {
         fileUrlMapRef.current[f.name.toLowerCase().replace(/_+/g, ' ')]  = blobUrl // underscores→spaces
       }
     })
+
+    // Persist file sizes to sessionStorage so they survive page reloads
+    if (typeof window !== 'undefined') {
+      const storageKey = `persona_file_sizes_${repoId}_${versionId}`
+      sessionStorage.setItem(storageKey, JSON.stringify(fileSizeMapRef.current))
+    }
 
     // Show placeholder entries immediately so the UI doesn't appear frozen
     const placeholders: KnowledgeFile[] = rawFiles.map(raw => ({

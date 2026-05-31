@@ -50,22 +50,27 @@ function CreditsExhaustedModalImpl() {
   const hasShownRef = useRef(false);
 
   const creditsRemaining = user?.creditsRemaining ?? null;
+  const creditsTotal = user?.creditsTotal ?? null;
   const subscriptionStatus = user?.subscriptionStatus;
   const hasActiveSubscription =
     subscriptionStatus === "active" || subscriptionStatus === "trialing";
+  const hasEverHadCredits = creditsTotal !== null && creditsTotal > 0;
 
-  // Show automatically when credits drop to 0 (post-chat refresh)
+  // Show automatically when credits drop to 0 (post-chat refresh).
+  // Only fires if the user has actually been allocated credits before —
+  // prevents triggering for fresh users who haven't claimed trial yet.
   useEffect(() => {
     if (
       creditsRemaining !== null &&
       creditsRemaining <= 0 &&
+      hasEverHadCredits &&
       !hasActiveSubscription &&
       !hasShownRef.current
     ) {
       hasShownRef.current = true;
       setVisible(true);
     }
-  }, [creditsRemaining, hasActiveSubscription]);
+  }, [creditsRemaining, hasActiveSubscription, hasEverHadCredits]);
 
   // Listen for imperative "credits:exhausted" events (e.g. from blocked sends)
   useEffect(() => {

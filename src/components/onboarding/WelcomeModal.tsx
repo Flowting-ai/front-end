@@ -121,22 +121,12 @@ function ChoiceCard({
 function SouvenirWordmark() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "11.5px" }}>
-      <svg
-        width="40"
-        height="40"
-        viewBox="0 0 40 40"
-        fill="none"
-        aria-hidden
-      >
-        <circle cx="20" cy="20" r="18" stroke="#26211e" strokeWidth="1.5" fill="none" />
-        <path
-          d="M12 20 C12 15, 16 12, 20 12 C24 12, 28 15, 28 20 C28 25, 24 28, 20 28 C16 28, 12 25, 12 20Z"
-          stroke="#26211e"
-          strokeWidth="1.2"
-          fill="none"
-        />
-        <circle cx="20" cy="20" r="3" fill="#26211e" />
-      </svg>
+      <img
+        src="/icons/logo/souvenir-logo.svg"
+        alt="Souvenir"
+        width={40}
+        height={40}
+      />
       <span
         style={{
           fontFamily: "var(--font-title)",
@@ -159,17 +149,24 @@ type ModalStep = "welcome" | "choose-plan" | "credits-added";
 
 // ── Modal ──────────────────────────────────────────────────────────────────────
 
+const WELCOME_ACK_KEY = "souvenir_welcome_acknowledged";
+
 function WelcomeModalImpl() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, setUser, refreshUser } = useAuth();
-  const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<ModalStep>("welcome");
   const [trialLoading, setTrialLoading] = useState(false);
+  const [visible, setVisible] = useState(false);
 
+  // Show only when triggered by ?welcome=1 AND not previously acknowledged.
   useEffect(() => {
     if (searchParams.get("welcome") === "1") {
-      setVisible(true);
+      const alreadyAcked = localStorage.getItem(WELCOME_ACK_KEY) === "1";
+      if (!alreadyAcked) {
+        setVisible(true);
+      }
+      // Always clean the URL param
       const url = new URL(window.location.href);
       url.searchParams.delete("welcome");
       window.history.replaceState({}, "", url.toString());
@@ -177,6 +174,7 @@ function WelcomeModalImpl() {
   }, [searchParams]);
 
   const handleClose = () => {
+    localStorage.setItem(WELCOME_ACK_KEY, "1");
     setVisible(false);
   };
 
@@ -216,6 +214,7 @@ function WelcomeModalImpl() {
   }, [refreshUser, user, setUser]);
 
   const handleBuySubscription = useCallback(() => {
+    localStorage.setItem(WELCOME_ACK_KEY, "1");
     setVisible(false);
     router.push("/settings/billing");
   }, [router]);
@@ -390,7 +389,7 @@ function WelcomeModalImpl() {
                     width: "100%",
                   }}
                 >
-                  <span style={{ fontSize: "40px", lineHeight: 1 }}>🎉</span>
+                  {/* <span style={{ fontSize: "40px", lineHeight: 1 }}>🎉</span> */}
 
                   <h2
                     style={{

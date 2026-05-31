@@ -4,8 +4,8 @@ import React, { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallb
 import { AnimatePresence, m } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-const WelcomeModal = dynamic(() => import("@/components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })), { ssr: false, loading: () => null });
 import { X } from "lucide-react";
+const WelcomeModal = dynamic(() => import("@/components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })), { ssr: false, loading: () => null });
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";

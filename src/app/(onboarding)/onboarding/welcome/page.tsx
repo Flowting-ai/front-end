@@ -13,11 +13,14 @@ export default function OnboardingWelcomePage() {
   const { isHydrated, isAuthenticated, user, logout } = useAuth();
   const { data, setFirstName, setLastName, setNickname } = useOnboarding();
 
-  // Pre-fill name from existing user profile. Nickname has no backend field yet,
-  // so it is collected fresh each time and not pre-filled.
+  // Pre-fill name from existing user profile, but skip values that look like
+  // an email (Auth0 defaults first_name to the email on new signups).
   useEffect(() => {
-    if (user?.firstName && !data.firstName) setFirstName(user.firstName);
-    if (user?.lastName && !data.lastName) setLastName(user.lastName);
+    const email = user?.email ?? "";
+    const fn = user?.firstName ?? "";
+    const ln = user?.lastName ?? "";
+    if (fn && fn !== email && !fn.includes("@") && !data.firstName) setFirstName(fn);
+    if (ln && ln !== email && !ln.includes("@") && !data.lastName) setLastName(ln);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
