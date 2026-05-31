@@ -920,7 +920,6 @@ export function ChatInput({
           borderRadius:    '24px',
           backgroundColor: 'var(--chat-input-bg)',
           boxShadow:       shadow,
-          overflow:        'hidden',
           transition:      'box-shadow 150ms',
         }}
         onMouseEnter={handleMouseEnter}

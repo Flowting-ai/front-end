@@ -284,6 +284,7 @@ export function ContextRail({ data }: ContextRailProps) {
                   gap:         10,
                   padding:     '7px 16px',
                   borderTop:   i > 0 ? '1px solid var(--neutral-100)' : 'none',
+                  cursor:      'grab',
                 }}
               >
                 <span style={{ flexShrink: 0, lineHeight: 0, marginTop: 3 }}>

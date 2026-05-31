@@ -349,6 +349,26 @@ const BASE_COMPONENTS: Components = {
   },
 };
 
+// DOMPurify with the html profile treats the entire string as HTML, so LaTeX
+// special chars like <, >, and & inside math delimiters get escaped or stripped
+// before rehype-katex ever sees them. Stash all math blocks (both $$ display and
+// $ inline) before sanitizing, then restore them after so their content is
+// never touched by DOMPurify.
+function sanitizePreservingMath(content: string): string {
+  const stash: string[] = []
+  const token = (i: number) => `\x02M${i}\x02`
+
+  const guarded = content
+    // Display math first (longer delimiter wins over inline $)
+    .replace(/\$\$([\s\S]*?)\$\$/g, (m) => { stash.push(m); return token(stash.length - 1) })
+    // Inline math (no newlines inside — avoids grabbing prose dollar signs)
+    .replace(/\$([^$\n]+?)\$/g, (m) => { stash.push(m); return token(stash.length - 1) })
+
+  const sanitized = DOMPurify.sanitize(guarded, { USE_PROFILES: { html: true } })
+
+  return sanitized.replace(/\x02M(\d+)\x02/g, (_, i) => stash[Number(i)] ?? '')
+}
+
 // During streaming, an unclosed code fence causes react-markdown to extend
 // the code block over all remaining text. Count fences and append a close
 // if the tally is odd so the parser always sees balanced delimiters.
@@ -520,9 +540,11 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
       : closeOpenFences(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(content)))));
     // Sanitise only when we're about to ask rehype-raw to parse HTML —
     // for pure-markdown rendering, DOMPurify's HTML-context parsing can
-    // corrupt characters like `<` that appear in code blocks.
+    // corrupt characters like `<` that appear in code blocks or math.
+    // sanitizePreservingMath stashes math blocks before DOMPurify runs so
+    // LaTeX with <, >, or & (e.g. alignment environments) is never corrupted.
     return allowHtml
-      ? DOMPurify.sanitize(base, { USE_PROFILES: { html: true } })
+      ? sanitizePreservingMath(base)
       : base;
   }, [hasCitations, content, allowHtml]);
 
@@ -530,9 +552,11 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
     const plugins: Pluggable[] = highlights?.length
       ? [rehypeKatex, makeHighlightMarksPlugin(highlights)]
       : [...rehypePlugins];
-    // rehype-raw must run before rehype-katex so math delimiters that
-    // were turned into HTML by remark-math aren't double-processed.
-    if (allowHtml) plugins.unshift(rehypeRaw);
+    // rehype-katex must run BEFORE rehype-raw. rehype-raw re-serialises the
+    // HAST tree, which would destroy the math node metadata that rehype-katex
+    // needs to render KaTeX. By running rehype-katex first, math is already
+    // rendered to HTML before rehype-raw processes the rest of the document.
+    if (allowHtml) plugins.push(rehypeRaw);
     return plugins;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlights, allowHtml]);

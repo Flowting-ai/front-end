@@ -362,7 +362,6 @@ export function ChatInput(
           borderRadius: szRadius,
           backgroundColor: "var(--chat-input-bg)",
           boxShadow: shadow,
-          overflow: "hidden",
           transition: "box-shadow 150ms",
         }}
         onMouseEnter={handleMouseEnter}
@@ -485,7 +484,7 @@ export function ChatInput(
           }}
         >
           {/* Left: attach button + chips slot — flex:1 so chips scroll without pushing the right side */}
-          <div style={{ display: "flex", gap: "8px", alignItems: "center", flex: 1, minWidth: 0, overflow: "hidden" }}>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flex: 1, minWidth: 0 }}>
             <div style={{ flexShrink: 0 }}>
               {addMenu !== undefined ? (
                 <Dropdown.Float
