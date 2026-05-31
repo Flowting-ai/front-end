@@ -51,12 +51,12 @@ const createCheckoutForPlan = async (
 
   const successUrl =
     checkoutFlow === "settings_change_plan"
-      ? `${appBase}/settings/usage-and-billing/change-plan/confirmation?plan=${planType}&billing=monthly`
-      : `${appBase}/onboarding/pricing/confirmation?plan=${planType}&billing=monthly`;
+      ? `${appBase}/settings/billing/confirmation?plan=${planType}&billing=monthly`
+      : `${appBase}/settings/billing/confirmation?plan=${planType}&billing=monthly`;
   const cancelUrl =
     checkoutFlow === "settings_change_plan"
-      ? `${appBase}/settings/usage-and-billing/change-plan?checkout=cancelled`
-      : `${appBase}/onboarding/pricing?checkout=cancelled`;
+      ? `${appBase}/settings/billing?checkout=cancelled`
+      : `${appBase}/settings/billing?checkout=cancelled`;
 
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "subscription",

@@ -21,11 +21,12 @@ export const USER_CREATE_ENDPOINT = withBase("/users/create");
 export const USER_ONBOARDING_ENDPOINT = withBase("/users/me/onboarding");
 
 // ── Stripe ────────────────────────────────────────────────────────────────────
-/** Same-origin Next route handlers - honor `checkout_flow` (e.g. change-plan cancel → /settings/.../change-plan). */
-export const STRIPE_CHECKOUT_ENDPOINT = "/api/stripe/checkout";
-export const STRIPE_SUBSCRIPTION_ENDPOINT = "/api/stripe/subscription";
-export const STRIPE_TOPUP_ENDPOINT = "/api/stripe/topup";
-/** Backend (proxied) Stripe reads — billing snapshot + hosted portal link. */
+/** All Stripe operations go through the backend API proxy. */
+export const STRIPE_CHECKOUT_ENDPOINT = withBase("/stripe/checkout");
+export const STRIPE_SUBSCRIPTION_ENDPOINT = withBase("/stripe/subscription");
+export const STRIPE_SUBSCRIPTION_RESUME_ENDPOINT = withBase("/stripe/subscription/resume");
+export const STRIPE_TOPUP_ENDPOINT = withBase("/stripe/topup");
+export const STRIPE_TOPUP_CHARGE_ENDPOINT = withBase("/stripe/topup/charge");
 export const STRIPE_BILLING_ENDPOINT = withBase("/stripe/billing");
 export const STRIPE_PORTAL_ENDPOINT = withBase("/stripe/portal");
 /** Start a free trial (grants 1000 credits). */

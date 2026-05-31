@@ -5,7 +5,9 @@ import {
   STRIPE_CHECKOUT_ENDPOINT,
   STRIPE_PORTAL_ENDPOINT,
   STRIPE_SUBSCRIPTION_ENDPOINT,
+  STRIPE_SUBSCRIPTION_RESUME_ENDPOINT,
   STRIPE_TOPUP_ENDPOINT,
+  STRIPE_TOPUP_CHARGE_ENDPOINT,
   USER_CREATE_ENDPOINT,
   USER_ENDPOINT,
   USER_ONBOARDING_ENDPOINT,
@@ -338,15 +340,6 @@ export interface TopUpSessionResponse {
   checkout_url: string;
 }
 
-export interface UpdateSubscriptionResponse {
-  status: string;
-  new_plan: UserPlanType;
-}
-
-export type UpdateSubscriptionResult =
-  | UpdateSubscriptionResponse
-  | CheckoutSessionResponse;
-
 export async function fetchCurrentUser(): Promise<UserProfile | null> {
   const response = await apiFetch(USER_ENDPOINT, { method: "GET" });
   if (!response.ok) return null;
@@ -476,21 +469,13 @@ export async function deleteUser(): Promise<void> {
   await apiFetch(USER_ENDPOINT, { method: "DELETE" });
 }
 
-export type StripeCheckoutFlow = "onboarding" | "settings_change_plan";
-
 export async function createCheckoutSession(
   plan_type: UserPlanType,
   billing: BillingPlan = "monthly",
-  options?: { checkoutFlow?: StripeCheckoutFlow },
 ): Promise<CheckoutSessionResponse> {
-  const payload: Record<string, string> = { plan_type, billing };
-  if (options?.checkoutFlow === "settings_change_plan") {
-    payload.checkout_flow = "settings_change_plan";
-  }
-
   const response = await apiFetch(STRIPE_CHECKOUT_ENDPOINT, {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ plan_type, billing }),
   });
 
   const data = (await response.json()) as CheckoutSessionResponse | { error?: string };
@@ -500,29 +485,6 @@ export async function createCheckoutSession(
   }
 
   return data;
-}
-
-export async function updateSubscriptionPlan(
-  plan_type: UserPlanType,
-  options?: { checkoutFlow?: StripeCheckoutFlow },
-): Promise<UpdateSubscriptionResult> {
-  const payload: Record<string, string> = { plan_type };
-  if (options?.checkoutFlow === "settings_change_plan") {
-    payload.checkout_flow = "settings_change_plan";
-  }
-
-  const response = await apiFetch(STRIPE_SUBSCRIPTION_ENDPOINT, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
-
-  const data = (await response.json()) as UpdateSubscriptionResult | { error?: string };
-
-  if (!response.ok || (!("new_plan" in data) && !("checkout_url" in data))) {
-    throw new Error(("error" in data && data.error) || "Failed to update subscription.");
-  }
-
-  return data as UpdateSubscriptionResult;
 }
 
 export async function createTopUpSession(amount_usd: number): Promise<TopUpSessionResponse> {
@@ -609,12 +571,18 @@ export async function openBillingPortal(): Promise<string | null> {
   return typeof data.portal_url === "string" ? data.portal_url : null;
 }
 
-export async function cancelSubscription(): Promise<{ status: string }> {
+export interface SubscriptionActionResponse {
+  status: string;
+  plan_type?: string | null;
+  current_period_end?: string | null;
+}
+
+export async function cancelSubscription(): Promise<SubscriptionActionResponse> {
   const response = await apiFetch(STRIPE_SUBSCRIPTION_ENDPOINT, { method: "DELETE" });
 
-  let data: { status?: string; error?: string } = {};
+  let data: SubscriptionActionResponse & { error?: string } = { status: "" };
   try {
-    data = (await response.json()) as { status?: string; error?: string };
+    data = (await response.json()) as SubscriptionActionResponse & { error?: string };
   } catch {
     // non-JSON error body
   }
@@ -623,5 +591,43 @@ export async function cancelSubscription(): Promise<{ status: string }> {
     throw new Error(data.error || "Failed to cancel subscription.");
   }
 
-  return { status: data.status };
+  return { status: data.status, plan_type: data.plan_type, current_period_end: data.current_period_end };
+}
+
+export async function resumeSubscription(): Promise<SubscriptionActionResponse> {
+  const response = await apiFetch(STRIPE_SUBSCRIPTION_RESUME_ENDPOINT, { method: "POST" });
+
+  let data: SubscriptionActionResponse & { error?: string } = { status: "" };
+  try {
+    data = (await response.json()) as SubscriptionActionResponse & { error?: string };
+  } catch {
+    // non-JSON error body
+  }
+
+  if (!response.ok || !data.status) {
+    throw new Error(data.error || "Failed to resume subscription.");
+  }
+
+  return { status: data.status, plan_type: data.plan_type, current_period_end: data.current_period_end };
+}
+
+export interface TopUpChargeResponse {
+  status: string;
+  client_secret?: string | null;
+}
+
+/** Charge a top-up immediately using the saved payment method. */
+export async function chargeTopUp(amount_usd: number): Promise<TopUpChargeResponse> {
+  const response = await apiFetch(STRIPE_TOPUP_CHARGE_ENDPOINT, {
+    method: "POST",
+    body: JSON.stringify({ amount_usd }),
+  });
+
+  const data = (await response.json()) as TopUpChargeResponse & { error?: string };
+
+  if (!response.ok || !data.status) {
+    throw new Error(data.error || "Failed to charge top-up.");
+  }
+
+  return data;
 }

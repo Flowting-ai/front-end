@@ -70,12 +70,12 @@ export async function POST(req: Request) {
 
   const successUrl =
     checkoutFlow === "settings_change_plan"
-      ? `${appBase}/settings/usage-and-billing/change-plan/confirmation?plan=${plan_type}&billing=${billing}`
-      : `${appBase}/onboarding/pricing/confirmation?plan=${plan_type}&billing=${billing}`;
+      ? `${appBase}/settings/billing/confirmation?plan=${plan_type}&billing=${billing}`
+      : `${appBase}/settings/billing/confirmation?plan=${plan_type}&billing=${billing}`;
   const cancelUrl =
     checkoutFlow === "settings_change_plan"
-      ? `${appBase}/settings/usage-and-billing/change-plan?checkout=cancelled`
-      : `${appBase}/onboarding/pricing?checkout=cancelled`;
+      ? `${appBase}/settings/billing?checkout=cancelled`
+      : `${appBase}/settings/billing?checkout=cancelled`;
 
   const stripe = getStripe();
   try {

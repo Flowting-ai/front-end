@@ -6,10 +6,12 @@ import { createPortal } from 'react-dom'
 import { useAuth } from '@/context/auth-context'
 import {
   cancelSubscription,
+  chargeTopUp,
   createCheckoutSession,
   createTopUpSession,
   fetchBilling,
   openBillingPortal,
+  resumeSubscription,
   type BillingInfo,
   type UserPlanType,
 } from '@/lib/api/user'
@@ -202,6 +204,7 @@ export default function BillingPage() {
   const [openingPortal,        setOpeningPortal]        = useState(false)
   const [showCancelDialog,     setShowCancelDialog]     = useState(false)
   const [isCanceling,          setIsCanceling]          = useState(false)
+  const [isResuming,           setIsResuming]           = useState(false)
 
   const didInit = useRef(false)
 
@@ -328,6 +331,17 @@ export default function BillingPage() {
   const handleBuyCredits = async () => {
     setIsBuyingCredits(true)
     try {
+      // If user has a saved payment method, charge instantly
+      if (billing?.payment_method) {
+        const result = await chargeTopUp(TOP_UP_USD)
+        if (result.status === 'succeeded' || result.status === 'ok') {
+          toast.success('Credits added successfully!')
+          await reload()
+          setIsBuyingCredits(false)
+          return
+        }
+      }
+      // Otherwise redirect to Stripe checkout
       const session = await createTopUpSession(TOP_UP_USD)
       window.location.href = session.checkout_url
     } catch (err) {
@@ -340,7 +354,7 @@ export default function BillingPage() {
     if (targetPlan === planType || changingToPlan) return
     setChangingToPlan(targetPlan)
     try {
-      const checkout = await createCheckoutSession(targetPlan, 'monthly', { checkoutFlow: 'settings_change_plan' })
+      const checkout = await createCheckoutSession(targetPlan, 'monthly')
       window.location.href = checkout.checkout_url
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update plan')
@@ -373,6 +387,19 @@ export default function BillingPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to cancel subscription')
     } finally {
       setIsCanceling(false)
+    }
+  }
+
+  const handleResumeSubscription = async () => {
+    setIsResuming(true)
+    try {
+      await resumeSubscription()
+      toast.success('Subscription resumed successfully')
+      await reload()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to resume subscription')
+    } finally {
+      setIsResuming(false)
     }
   }
 
@@ -577,9 +604,24 @@ export default function BillingPage() {
                     </button>
                   )}
                   {cancelAtPeriodEnd && (
-                    <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.ink }}>
-                      Cancels on {fmtDate(periodEnd)}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.ink }}>
+                        Cancels on {fmtDate(periodEnd)}
+                      </span>
+                      <button
+                        onClick={() => { void handleResumeSubscription() }}
+                        disabled={isResuming}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          padding: '6px 10px 8px', borderRadius: 10, cursor: isResuming ? 'default' : 'pointer',
+                          backgroundColor: C.white, border: 'none', opacity: isResuming ? 0.6 : 1,
+                          boxShadow: '0px 1.091px 1.091px 0px rgba(24,2,2,0.05), 0px 1.455px 3.127px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--neutral-200), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
+                          fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: C.ink, whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {isResuming ? 'Resuming…' : 'Resume Plan'}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
