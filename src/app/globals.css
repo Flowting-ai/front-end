@@ -283,8 +283,8 @@
 /* ── Brain ContextRail — slide/fade panel (same pattern as Pinboard rail) ──── */
 .kds-context-rail {
   --context-rail-width: 300px;
-  --panel-open-dur:  400ms;
-  --panel-close-dur: 350ms;
+  --panel-open-dur:  150ms;
+  --panel-close-dur: 200ms;
   --panel-translate-x: calc(var(--context-rail-width) * 0.5);
   --panel-blur: 2px;
   --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);

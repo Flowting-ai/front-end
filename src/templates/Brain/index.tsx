@@ -158,6 +158,8 @@ export interface BrainShellProps {
   contextRailData?: ContextRailData
   /** Ref forwarded to the scrollable thread container — used by the page for auto-scroll. */
   threadRef?: React.RefObject<HTMLDivElement | null>
+  /** Pre-populate the chat input with this text (e.g. from a schedule creation flow). */
+  initialInputValue?: string
 }
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
@@ -186,10 +188,18 @@ export function BrainShell({
   onShare,
   contextRailData,
   threadRef,
+  initialInputValue,
 }: BrainShellProps) {
   // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [phase,      setPhase]      = useState<Phase>(defaultPhase)
   const [inputValue, setInputValue] = useState('')
+
+  // When the parent passes a pre-composed prompt (e.g. from schedule creation),
+  // populate the textarea so the user can review and send it.
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- intentional one-time seed; guarded by non-empty check
+  useEffect(() => {
+    if (initialInputValue) setInputValue(initialInputValue)
+  }, [initialInputValue])
   const prevDefaultPhaseRef = useRef(defaultPhase)
   if (prevDefaultPhaseRef.current !== defaultPhase) {
     prevDefaultPhaseRef.current = defaultPhase

@@ -389,6 +389,101 @@ function normalizeInlineBoldTitles(content: string): string {
     .replace(/(\*\*[^*\n]+\*\*)([A-Za-z])/g, '$1\n\n$2');
 }
 
+// Bold markers that cross paragraph boundaries (\n\n) can never be rendered by
+// remark — it resets bold state at every paragraph break. When the LLM splits a
+// **bold span** across paragraphs, every subsequent ** in the document may appear
+// as a literal. Fix by inspecting each paragraph independently:
+//
+//   • Odd count + trailing **     → orphaned opener with no content, remove it
+//   • Odd count + right-flanking  → orphaned closer from a prior paragraph, remove it
+//   • Odd count + left-flanking   → opener with no closer in this paragraph, close it
+//
+// This runs BEFORE normalizeInlineBoldTitles so the within-paragraph cross-line
+// patterns are handled after the paragraph-level structure is already clean.
+function repairCrossParaBold(content: string): string {
+  // Protect code regions — ** inside fences/spans must not be counted or moved.
+  const codeBlocks: string[] = []
+  const guarded = content.replace(/```[\s\S]*?```|`[^`\n]+`/g, m => {
+    codeBlocks.push(m)
+    return `\x02${codeBlocks.length - 1}\x02`
+  })
+
+  // Split on paragraph breaks, keeping the separators so we can rejoin cleanly.
+  const segments = guarded.split(/(\n{2,})/)
+
+  const fixed = segments.map(seg => {
+    // Pure-newline separators — keep verbatim.
+    if (/^\n+$/.test(seg)) return seg
+
+    const markers = [...seg.matchAll(/\*\*/g)]
+    if (markers.length % 2 === 0) return seg  // Even → balanced, nothing to do.
+
+    // ── Odd marker count: find and repair the orphan ──────────────────────────
+
+    if (markers.length === 1) {
+      const pos       = markers[0].index!
+      const charBefore = pos > 0 ? seg[pos - 1] : ''
+      const afterSlice = seg.slice(pos + 2)
+      // Trailing: ** at end of paragraph with no text after it.
+      const isTrailing = /^\s*$/.test(afterSlice)
+      // Right-flanking: non-whitespace immediately precedes ** → it's a closer.
+      const isRightFlanking = charBefore !== '' && !/[\s\n]/.test(charBefore)
+
+      if (isTrailing || isRightFlanking) {
+        // Orphaned closing marker or opener with no content → remove.
+        return seg.slice(0, pos) + afterSlice
+      }
+      // Orphaned opening marker with actual content → close the span at paragraph end.
+      return seg.trimEnd() + '**'
+    }
+
+    // Multiple markers (≥ 3), odd count — the paragraph has balanced pairs plus
+    // one stray. If the paragraph ends with **, that's the stray; strip it.
+    // Otherwise close the span at the end (covers the opener-without-closer case).
+    if (/\*\*\s*$/.test(seg)) {
+      return seg.replace(/\*\*(\s*)$/, '$1')
+    }
+    return seg.trimEnd() + '**'
+  })
+
+  let result = fixed.join('')
+  result = result.replace(/\x02(\d+)\x02/g, (_, n) => codeBlocks[Number(n)])
+  return result
+}
+
+// LLMs occasionally produce orphaned ** markers that corrupt remark's bold-tracking
+// state, causing every subsequent ** pair in the document to render as literal text
+// instead of bold. Two common patterns:
+//
+//   1. A lone ** on its own line — always orphaned because valid bold always has text
+//      between its delimiters. Removing it restores the parser's balance.
+//
+//   2. ** immediately before a list bullet ("**- item") — the model placed a closing
+//      marker at the wrong position. Removing the ** prefix lets the list parse correctly.
+//
+// After those targeted removals, recount all ** outside code spans/fences.
+// If the total is still odd (one unclosed bold remains), append a closing ** —
+// the same streaming-safe strategy used by closeOpenFences for code blocks.
+function fixOrphanedBold(content: string): string {
+  let out = content
+    // 1. Lone ** on its own line (with optional surrounding whitespace) — remove entirely.
+    .replace(/^[ \t]*\*\*[ \t]*$/gm, '')
+    // 2. ** at the start of a line immediately before a list bullet — strip the ** prefix.
+    .replace(/^(\s*)\*\*\s*(?=[-•+*]\s|\d+\.\s)/gm, '$1')
+
+  // 3. Count ** markers outside code fences and inline code spans.
+  //    Replace code regions with placeholder chars (preserving length is not required,
+  //    we only need to eliminate their ** from the count).
+  const stripped = out
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`\n]+`/g, '')
+  const count = (stripped.match(/\*\*/g) ?? []).length
+  // Odd count → unmatched bold open somewhere; close it.
+  if (count % 2 !== 0) out = out + '**'
+
+  return out
+}
+
 interface MarkdownRendererProps {
   content: string;
   webCitations?: WebCitation[];
@@ -414,9 +509,15 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
   );
 
   const processed = useMemo(() => {
+    // Pipeline (innermost runs first):
+    //   repairCrossParaBold      — per-paragraph ** balance (paragraph-break cascade fix)
+    //   normalizeInlineBoldTitles — within-paragraph cross-line-break ** collapse
+    //   fixOrphanedBold          — lone ** lines, ** before bullets, doc-level balance
+    //   normalizeMathDelimiters  — LaTeX delimiter normalisation
+    //   closeOpenFences          — unclosed code fence guard
     const base = hasCitations
-      ? closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(preprocessCitations(content))))
-      : closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(content)));
+      ? closeOpenFences(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(preprocessCitations(content))))))
+      : closeOpenFences(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(content)))));
     // Sanitise only when we're about to ask rehype-raw to parse HTML —
     // for pure-markdown rendering, DOMPurify's HTML-context parsing can
     // corrupt characters like `<` that appear in code blocks.

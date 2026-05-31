@@ -15,7 +15,10 @@ import {
 } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { IconButton } from '@/components/IconButton'
+import { AccountMenu } from '@/components/AccountMenu'
+import { Badge } from '@/components/Badge'
 import { useAuth } from '@/context/auth-context'
+import { toast } from 'sonner'
 
 const MY_SETTINGS_ITEMS = [
   { id: 'account',       label: 'Account',         href: '/settings/account',       icon: <UserAiIcon        size={20} />, disabled: false },
@@ -39,11 +42,15 @@ const ORG_ITEMS = [
 export function SettingsSidebar() {
   const { push } = useRouter()
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, logout, isAuthenticated } = useAuth()
 
   const displayName = user
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
     : ''
+
+  const planLabel = user?.planType
+    ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
+    : undefined
 
   return (
     <div
@@ -106,7 +113,7 @@ export function SettingsSidebar() {
         {/* My Settings section */}
         <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ padding: '5px 6px' }}>
+            <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <p style={{
                 fontFamily: 'var(--font-body)',
                 fontWeight: 500,
@@ -118,6 +125,7 @@ export function SettingsSidebar() {
               }}>
                 My Settings
               </p>
+              <Badge label="Individual" color="Blue" />
             </div>
             {MY_SETTINGS_ITEMS.map(item => (
               item.disabled ? (
@@ -148,7 +156,7 @@ export function SettingsSidebar() {
         {/* Organization section */}
         <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ padding: '5px 6px' }}>
+            <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <p style={{
                 fontFamily: 'var(--font-body)',
                 fontWeight: 500,
@@ -160,6 +168,7 @@ export function SettingsSidebar() {
               }}>
                 Organization
               </p>
+              <Badge label="Teams" color="Purple" />
             </div>
             {ORG_ITEMS.map(item => (
               item.disabled ? (
@@ -188,7 +197,7 @@ export function SettingsSidebar() {
         </div>
       </div>
 
-      {/* ── Account item — fixed ── */}
+      {/* ── Account menu — fixed ── */}
       <div style={{
         flexShrink:      0,
         backgroundColor: 'var(--neutral-50)',
@@ -198,12 +207,20 @@ export function SettingsSidebar() {
         paddingBottom:   12,
         boxShadow:       '0px -34px 33.5px 0px var(--neutral-50)',
       }}>
-        <SidebarMenuItem
-          fluid
-          variant="account-item"
-          label={displayName || 'Account'}
-          sublabel={user?.email ?? ''}
-          onSettingsClick={() => push('/settings/account')}
+        <AccountMenu
+          name={displayName || 'Account'}
+          plan={planLabel}
+          credits={user?.creditsRemaining ?? undefined}
+          avatarSrc={user?.profilePicture ?? undefined}
+          collapsed={false}
+          panelWidth={274}
+          placement="top-start"
+          onProfile={() => push('/settings/account')}
+          onUpgradePlan={() => push('/settings/billing')}
+          onSettings={() => push('/settings')}
+          onWhatsNew={() => toast.info("What's new — coming soon!")}
+          onHelp={() => push('/settings/help')}
+          onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
         />
       </div>
     </div>

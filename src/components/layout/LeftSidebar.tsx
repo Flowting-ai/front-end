@@ -1128,7 +1128,7 @@ function LeftSidebarImpl({
       onChatsClick={() => { toast.info("Opening Chat Board"); push("/chats") }}
       onProjectsClick={() => { toast.info("Opening Projects"); push("/projects") }}
       onPersonasClick={() => { toast.info("Opening Personas"); push("/personas") }}
-      onBrainClick={() => { toast.info("Opening Brain"); push("/brain") }}
+      onBrainClick={() => { toast.info("Opening Brain"); push("/brain/threads") }}
       accountMenu={(collapsed) => (
         <AccountMenu
           name={displayName || "Account"}

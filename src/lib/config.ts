@@ -131,6 +131,13 @@ export const PROJECT_FILES_ENDPOINT  = (projectId: string) =>
 export const PROJECT_FILE_ENDPOINT   = (projectId: string, documentId: string) =>
   withBase(`/projects/${projectId}/files/${documentId}`)
 
+// ── Persona Shares ─────────────────────────────────────────────────────────
+export const PERSONA_SHARES_ENDPOINT = withBase('/persona-shares')
+export const PERSONA_SHARE_DETAIL_ENDPOINT = (id: string) =>
+  withBase(`/persona-shares/${id}`)
+export const PERSONA_SHARE_ACCEPT_ENDPOINT = (id: string) =>
+  withBase(`/persona-shares/${id}/accept`)
+
 // ── Connectors ────────────────────────────────────────────────────────────────
 export const CONNECTORS_ENDPOINT            = withBase('/connectors')
 export const CONNECTOR_DETAIL_ENDPOINT      = (slug: string) => withBase(`/connectors/${slug}`)

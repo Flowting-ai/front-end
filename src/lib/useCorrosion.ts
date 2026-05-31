@@ -32,6 +32,8 @@ export function useCorrosion(circleRef: React.RefObject<SVGCircleElement | null>
 
   const rafRef      = useRef<number>(0)
   const lastTimeRef = useRef<number | null>(null)
+  // Holds the tick fn so onMouseEnter can (re)start the loop after it went idle.
+  const tickRef = useRef<((now: number) => void) | null>(null)
 
   useEffect(() => {
     const setCircle = (r: number, cx: number, cy: number) => {
@@ -78,13 +80,23 @@ export function useCorrosion(circleRef: React.RefObject<SVGCircleElement | null>
         }
       }
 
-      rafRef.current = requestAnimationFrame(tick)
+      // Only continue the loop while animating — stop in idle to avoid burning
+      // a RAF every frame on every default Button that isn't being hovered.
+      if (stateRef.current !== 'idle') {
+        rafRef.current = requestAnimationFrame(tick)
+      } else {
+        rafRef.current   = 0
+        lastTimeRef.current = null
+      }
     }
 
-    rafRef.current = requestAnimationFrame(tick)
+    tickRef.current = tick
+    // Do NOT start the loop on mount — it starts on the first hover.
     return () => {
       cancelAnimationFrame(rafRef.current)
+      rafRef.current   = 0
       lastTimeRef.current = null
+      tickRef.current  = null
     }
   }, [circleRef])
 
@@ -105,6 +117,11 @@ export function useCorrosion(circleRef: React.RefObject<SVGCircleElement | null>
     }
 
     stateRef.current = 'spreading'
+
+    // (Re)start the RAF loop if it stopped during idle.
+    if (!rafRef.current && tickRef.current) {
+      rafRef.current = requestAnimationFrame(tickRef.current)
+    }
   }
 
   const onMouseLeave = (e: React.MouseEvent<HTMLElement>) => {

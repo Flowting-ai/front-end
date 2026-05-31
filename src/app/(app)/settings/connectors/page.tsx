@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { Switch } from '@/components/Switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
-import { MoreVerticalIcon } from '@strange-huge/icons'
 import {
   listConnectors,
   initiateLink,
@@ -308,10 +307,11 @@ function ToolPermissionsModal({
 }) {
   // local copy of tools so UI updates optimistically
   // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
-  const [tools,      setTools]      = useState<ConnectorTool[]>(entry.tools ?? [])
-  const [saving,     setSaving]     = useState<string | null>(null)  // slug being saved
-  const [unlinking,  setUnlinking]  = useState(false)
-  const [expanded,   setExpanded]   = useState(false)
+  const [tools,       setTools]       = useState<ConnectorTool[]>(entry.tools ?? [])
+  const [saving,      setSaving]      = useState<string | null>(null)  // slug being saved
+  const [unlinking,   setUnlinking]   = useState(false)
+  const [allowingAll, setAllowingAll] = useState(false)
+  const [expanded,    setExpanded]    = useState(false)
   const abortedRef = useRef(false)
   // Reset on every effect setup so React StrictMode's mount→cleanup→mount
   // cycle doesn't leave abortedRef stuck at true (which would silently bail
@@ -364,6 +364,29 @@ function ToolPermissionsModal({
       setUnlinking(false)
     }
   }, [entry, onUpdate, onClose])
+
+  const handleAllowAll = useCallback(async () => {
+    if (abortedRef.current || tools.length === 0) return
+    setAllowingAll(true)
+    setTools(prev => prev.map(t => ({ ...t, policy: 'allow' as const })))
+    try {
+      // eslint-disable-next-line react-doctor/async-defer-await -- abort-guard: check if unmounted after async call, not before
+      const updated = await updateConnector(entry.slug, {
+        permissions: tools.map(t => ({ slug: t.slug, policy: 'allow' as const })),
+      })
+      if (abortedRef.current) return
+      setTools(updated.tools ?? [])
+      onUpdate(updated)
+      toast.success('All tools set to Always allow')
+    } catch (err) {
+      if (abortedRef.current) return
+      setTools(entry.tools ?? [])
+      const msg = err instanceof Error ? err.message : 'Failed to update permissions'
+      toast.error(msg)
+    } finally {
+      if (!abortedRef.current) setAllowingAll(false)
+    }
+  }, [entry, tools, onUpdate])
 
   // Show at most 5 tools collapsed; expand to see all
   const COLLAPSED_COUNT = 5
@@ -463,26 +486,41 @@ function ToolPermissionsModal({
 
         {/* Tool permissions */}
         <div style={{ padding: '20px 24px' }}>
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 600,
-            fontSize:   14,
-            lineHeight: '22px',
-            color:      'var(--neutral-900)',
-            margin:     '0 0 4px',
-          }}>
-            Tool permissions
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 400,
-            fontSize:   13,
-            lineHeight: '20px',
-            color:      'var(--neutral-500)',
-            margin:     '0 0 16px',
-          }}>
-            Choose when Brain is allowed to use each tool.
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+            <div>
+              <p style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 600,
+                fontSize:   14,
+                lineHeight: '22px',
+                color:      'var(--neutral-900)',
+                margin:     '0 0 4px',
+              }}>
+                Tool permissions
+              </p>
+              <p style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 400,
+                fontSize:   13,
+                lineHeight: '20px',
+                color:      'var(--neutral-500)',
+                margin:     0,
+              }}>
+                Choose when Brain is allowed to use each tool.
+              </p>
+            </div>
+            {tools.length > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={allowingAll || saving !== null || unlinking}
+                loading={allowingAll}
+                onClick={() => void handleAllowAll()}
+              >
+                Allow all
+              </Button>
+            )}
+          </div>
 
           {tools.length === 0 ? (
             <p style={{
@@ -555,32 +593,20 @@ function ToolPermissionsModal({
 
         {/* Footer: Disconnect */}
         <div style={{
-          padding:     '16px 24px',
-          borderTop:   '1px solid var(--neutral-100)',
-          display:     'flex',
+          padding:        '16px 24px',
+          borderTop:      '1px solid var(--neutral-100)',
+          display:        'flex',
           justifyContent: 'flex-end',
         }}>
-          <button
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={unlinking || allowingAll}
+            loading={unlinking}
             onClick={() => void handleDisconnect()}
-            disabled={unlinking}
-            style={{
-              display:         'inline-flex',
-              alignItems:      'center',
-              gap:             6,
-              padding:         '7px 14px',
-              borderRadius:    8,
-              border:          '1px solid var(--red-200, #FECACA)',
-              backgroundColor: 'transparent',
-              cursor:          unlinking ? 'not-allowed' : 'pointer',
-              opacity:         unlinking ? 0.6 : 1,
-              fontFamily:      'var(--font-body)',
-              fontWeight:      500,
-              fontSize:        14,
-              color:           'var(--red-600, #DC2626)',
-            }}
           >
-            {unlinking ? <><SpinnerIcon size={12} /> Disconnecting…</> : 'Disconnect'}
-          </button>
+            <span style={{ color: 'var(--red-600, #DC2626)' }}>Disconnect</span>
+          </Button>
         </div>
 
       </div>
@@ -788,65 +814,54 @@ function ConnectorCard({
 
   return (
     <div style={{
+      position:        'relative',
       backgroundColor: 'white',
       borderRadius:    16,
       padding:         16,
+      paddingBottom:   showApiForm ? 16 : 60,
       display:         'flex',
       flexDirection:   'column',
       gap:             12,
       boxShadow:       '0px 2px 2.8px 0px var(--neutral-200), 0px 0px 0px 1px var(--neutral-200)',
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
-        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <ConnectorAvatar entry={entry} size={32} />
-          </div>
-          <div style={{ flex: '1 0 0', minWidth: 0 }}>
-            <p style={{
-              fontFamily:   'var(--font-body)',
-              fontWeight:   500,
-              fontSize:     14,
-              lineHeight:   '22px',
-              color:        'var(--neutral-900)',
-              margin:       0,
-              overflow:     'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace:   'nowrap',
-            }}>
-              {entry.display_name}
-            </p>
-            <p style={{
-              fontFamily:   'var(--font-body)',
-              fontWeight:   400,
-              fontSize: 12,
-              lineHeight:   '16px',
-              color:        'var(--neutral-400)',
-              margin:       0,
-              textTransform: 'capitalize',
-            }}>
-              {entry.auth_mode === 'api_key' ? 'API Key' : 'OAuth'}
-            </p>
-          </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <ConnectorAvatar entry={entry} size={32} />
         </div>
-        {isActive && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onManage(entry)}
-            style={{ flexShrink: 0, color: 'var(--neutral-500)' }}
-            aria-label="Manage connector"
-          >
-            <MoreVerticalIcon size={20} />
-          </Button>
-        )}
+        <div style={{ flex: '1 0 0', minWidth: 0 }}>
+          <p style={{
+            fontFamily:   'var(--font-body)',
+            fontWeight:   500,
+            fontSize:     14,
+            lineHeight:   '22px',
+            color:        'var(--neutral-900)',
+            margin:       0,
+            overflow:     'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace:   'nowrap',
+          }}>
+            {entry.display_name}
+          </p>
+          <p style={{
+            fontFamily:    'var(--font-body)',
+            fontWeight:    400,
+            fontSize:      12,
+            lineHeight:    '16px',
+            color:         'var(--neutral-400)',
+            margin:        0,
+            textTransform: 'capitalize',
+          }}>
+            {entry.auth_mode === 'api_key' ? 'API Key' : 'OAuth'}
+          </p>
+        </div>
       </div>
 
       {/* Description */}
       <p style={{
         fontFamily:      'var(--font-body)',
         fontWeight:      400,
-        fontSize: 12,
+        fontSize:        12,
         lineHeight:      '16px',
         color:           'var(--neutral-500)',
         margin:          0,
@@ -870,7 +885,7 @@ function ConnectorCard({
         </p>
       )}
 
-      {/* API key form (inline) */}
+      {/* API key form — normal flow, button hidden while this is open */}
       {showApiForm && !isActive && (
         <ApiKeyForm
           fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD]}
@@ -882,9 +897,9 @@ function ConnectorCard({
         />
       )}
 
-      {/* Footer action */}
+      {/* Action button — absolute bottom-right so all cards align regardless of content height */}
       {!showApiForm && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ position: 'absolute', bottom: 16, right: 16 }}>
           {isActive ? (
             <Button
               variant="secondary"
@@ -914,9 +929,11 @@ function ConnectorCard({
 function SkeletonCard() {
   return (
     <div style={{
+      position:        'relative',
       backgroundColor: 'white',
       borderRadius:    16,
       padding:         16,
+      paddingBottom:   60,
       display:         'flex',
       flexDirection:   'column',
       gap:             12,
@@ -931,7 +948,7 @@ function SkeletonCard() {
       </div>
       <div style={{ height: 11, width: '90%', borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
       <div style={{ height: 11, width: '70%', borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ position: 'absolute', bottom: 16, right: 16 }}>
         <div style={{ height: 32, width: 80, borderRadius: 8, backgroundColor: 'var(--neutral-100)' }} />
       </div>
     </div>

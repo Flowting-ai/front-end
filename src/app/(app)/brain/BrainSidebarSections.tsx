@@ -1,14 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { m } from 'framer-motion'
-import { CalendarThreeIcon, FolderAddIcon } from '@strange-huge/icons'
+import { CalendarThreeIcon } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarMenuSkeleton } from '@/components/SidebarMenuSkeleton'
-import { SidebarProjectsSection } from '@/components/SidebarProjectsSection'
-import { useProjects } from '@/context/projects-context'
 import {
   listBrainChats,
   renameBrainChat,
@@ -16,6 +14,7 @@ import {
   deleteBrainChat,
   type BrainChatListItem,
 } from '@/lib/api/brain'
+import { stripDocumentBlocks } from '@/lib/brain-file-extract'
 import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
 
 // ── Dropdown styles — match ChatHistoryItem / ProjectChatItem exactly ─────────
@@ -52,96 +51,6 @@ const sectionHeightVariants = {
     height: 0,
     transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] as const, delay: 0.14 },
   },
-}
-
-// ── Brain Projects ────────────────────────────────────────────────────────────
-
-function BrainProjectsSection() {
-  const { push }   = useRouter()
-  const pathname   = usePathname()
-  const { projects, getChats } = useProjects()
-
-  const [shown,       setShown]       = useState(true)
-  const [overflow,    setOverflow]    = useState<'visible' | 'hidden'>('visible')
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-
-  const toggleExpand = (id: string, expanded: boolean) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev)
-      expanded ? next.add(id) : next.delete(id)
-      return next
-    })
-  }
-
-  return (
-    <>
-      <SidebarMenuItem
-        fluid
-        variant="header"
-        label="Brain Projects"
-        shown={shown}
-        onShowClick={() => setShown(s => !s)}
-      />
-      <m.div
-        animate={shown ? 'open' : 'closed'}
-        initial={false}
-        variants={sectionHeightVariants}
-        style={{ overflow }}
-        onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
-        onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
-      >
-        <div style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <SidebarMenuItem
-            fluid
-            variant="default"
-            label="New project"
-            icon={<FolderAddIcon size={20} />}
-            onClick={() => push('/projects/new')}
-          />
-
-          {projects.length === 0 && (
-            <div style={{
-              padding:    '8px 6px',
-              fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-caption)',
-              color:      'var(--neutral-400)',
-            }}>
-              No projects yet
-            </div>
-          )}
-
-          {projects.slice(0, 5).map(project => {
-            const isActive   = pathname.startsWith(`/project/${project.id}`)
-            const isExpanded = expandedIds.has(project.id)
-            const chats      = getChats(project.id)
-
-            return (
-              <SidebarProjectsSection
-                key={project.id}
-                fluid
-                label={project.name}
-                active={isActive}
-                expanded={isExpanded}
-                onClick={() => push(`/project/${project.id}`)}
-                onExpandedChange={(v) => toggleExpand(project.id, v)}
-              >
-                {chats.slice(0, 5).map(chat => (
-                  <SidebarMenuItem
-                    key={chat.id}
-                    fluid
-                    variant="chat-item"
-                    label={chat.title || 'Untitled'}
-                    selected={false}
-                    onClick={() => push(`/project/${project.id}/chat/${chat.id}`)}
-                  />
-                ))}
-              </SidebarProjectsSection>
-            )
-          })}
-        </div>
-      </m.div>
-    </>
-  )
 }
 
 // ── Schedules ─────────────────────────────────────────────────────────────────
@@ -224,7 +133,7 @@ function BrainThreadItem({
         <SidebarMenuItem
           fluid
           variant={isEditing ? 'chat-item-edit' : 'chat-item'}
-          label={thread.chat_title || 'Untitled'}
+          label={stripDocumentBlocks(thread.chat_title) || 'Untitled'}
           selected={isActive}
           onClick={() => { if (!isEditing) onSelect() }}
           onMoreClick={handleMoreClick}
@@ -293,7 +202,7 @@ function BrainThreadItem({
 
           <DropdownMenu.Item
             style={menuItemDestructiveStyle}
-            onSelect={() => onDelete(thread.id, thread.chat_title)}
+            onSelect={() => onDelete(thread.id, stripDocumentBlocks(thread.chat_title) || thread.chat_title)}
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--red-50, #fff5f5)')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')}
           >
@@ -354,7 +263,7 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
   const handleDelete = (id: string, title: string) => {
     openDeleteChatDialog({
       chatId:    id,
-      chatTitle: title,
+      chatTitle: stripDocumentBlocks(title) || title,
       onConfirm: async () => {
         await deleteBrainChat(id)
         setThreads(prev => prev.filter(t => t.id !== id))
@@ -468,7 +377,6 @@ export function BrainSidebarSections({
 }: BrainSidebarSectionsProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <BrainProjectsSection />
       <BrainSchedulesSection isActive={isSchedulesPage} />
       <BrainThreadsSection activeChatId={activeChatId} onThreadClick={onThreadClick} />
     </div>

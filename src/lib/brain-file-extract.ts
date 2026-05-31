@@ -1,6 +1,16 @@
 'use client'
 
 /**
+ * Strip <document name="…">…</document> blocks injected by the file-upload
+ * flow from a Brain message string. The backend persists the full input
+ * (document blocks + user text), so we strip them before displaying to the
+ * user or using the text as a lookup key.
+ */
+export function stripDocumentBlocks(input: string): string {
+  return input.replace(/<document[^>]*>[\s\S]*?<\/document>/g, '').trim()
+}
+
+/**
  * Client-side text extraction for files uploaded to Brain chat.
  *
  * The brain backend does not process FormData file uploads the same way

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useLayoutEffect, useState, useCallback } from 'react'
 import { getSvgPath } from 'figma-squircle'
 
 // Module-level cache: most buttons share identical dimensions and radius, so
@@ -41,7 +41,7 @@ export function useSquircle(cornerRadius: number, smoothing = 0.6, strokeWidth =
     }
   }, [cornerRadius, smoothing, strokeWidth])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     compute()
     const ro = new ResizeObserver(compute)
     if (ref.current) ro.observe(ref.current)

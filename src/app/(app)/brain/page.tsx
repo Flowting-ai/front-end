@@ -15,6 +15,7 @@ import {
   LoopCancelledCard,
   LoopFailedCard,
   ClarificationSummary,
+  ArtifactCard,
   type ClarificationSummaryItem,
 } from '@/templates/Brain'
 import type { QuestionCardOption } from '@/components/QuestionCard'
@@ -26,6 +27,7 @@ import type { Phase, PlanStep, StepStatus } from '@/templates/Brain/lib/phase'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
 import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
+import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
 import { Chip } from '@/components/Chip'
 import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon } from '@strange-huge/icons'
@@ -62,7 +64,7 @@ import {
   type WebSearchEvent,
 } from '@/lib/api/brain'
 import { ApiError } from '@/lib/api/client'
-import { isExtractable, extractText } from '@/lib/brain-file-extract'
+import { isExtractable, extractText, stripDocumentBlocks } from '@/lib/brain-file-extract'
 import { linkScheduleToChat, consumePendingPrompt } from '@/lib/scheduleLinks'
 import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
 import type { ContextRailData } from '@/templates/Brain/ContextRail'
@@ -284,6 +286,28 @@ function synthesizeContextFromMessages(
   }
 }
 
+// ── Generated-file display helpers ───────────────────────────────────────────
+
+function mimeLabel(mime: string): string {
+  if (mime.includes('pdf'))                                           return 'PDF Document'
+  if (mime.includes('word') || mime.includes('docx'))                return 'Word Document'
+  if (mime.includes('excel') || mime.includes('spreadsheet') || mime.includes('xlsx')) return 'Spreadsheet'
+  if (mime.includes('powerpoint') || mime.includes('presentation') || mime.includes('pptx')) return 'Presentation'
+  if (mime.includes('text/plain'))                                    return 'Text File'
+  if (mime.includes('markdown'))                                      return 'Markdown'
+  if (mime.includes('csv'))                                           return 'CSV'
+  if (mime.includes('json'))                                          return 'JSON'
+  if (mime.includes('html'))                                          return 'HTML'
+  if (mime.includes('image/'))                                        return 'Image'
+  return 'File'
+}
+
+// Extract a display filename from an S3 key (last path segment).
+function filenameFromS3Key(key: string): string {
+  const segment = key.split('/').pop()
+  return segment && segment.length > 0 ? segment : 'Generated file'
+}
+
 // ── User attachment metadata (file info kept after upload for display) ────────
 
 interface UserAttachment {
@@ -360,15 +384,16 @@ function AttachmentChips({ attachments }: { attachments: UserAttachment[] }) {
 // ── Local completed-turn snapshot (built up during the session) ───────────────
 
 interface LocalTurn {
-  key:          string
-  userInput:    string
-  output:       string
-  planSteps?:   PlanStep[]
-  planSummary?: string
-  images?:      ImageEvent[]
-  completedAt?: Date
-  cancelled:    boolean
-  attachments?: UserAttachment[]
+  key:             string
+  userInput:       string
+  output:          string
+  planSteps?:      PlanStep[]
+  planSummary?:    string
+  images?:         ImageEvent[]
+  generatedFiles?: GeneratedFileEvent[]
+  completedAt?:    Date
+  cancelled:       boolean
+  attachments?:    UserAttachment[]
 }
 
 // ── Counter input UI ──────────────────────────────────────────────────────────
@@ -681,90 +706,92 @@ interface PermissionPromptCardProps {
 
 function PermissionPromptCard({ prompt, disabled = false, onDecide }: PermissionPromptCardProps) {
   const logoSrc = connectorLogoSrc(prompt.connectorSlug) ?? connectorLogoSrc(prompt.displayName)
+  const displayName = prompt.displayName || prompt.connectorSlug || '?'
   return (
     <div style={{
       display:         'flex',
       flexDirection:   'column',
-      gap:             10,
-      padding:         '14px 16px',
-      borderRadius:    12,
+      gap:             12,
+      padding:         '16px',
+      borderRadius:    16,
       border:          '1px solid var(--neutral-200)',
-      backgroundColor: 'var(--neutral-white)',
+      backgroundColor: 'var(--color-surface-glass)',
+      boxShadow:       'var(--shadow-card-default)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* Header: connector logo + title + tool slug */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         {logoSrc ? (
           // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset, variable path prevents next/image static analysis
           <img
             src={logoSrc}
             alt=""
-            width={24}
-            height={24}
-            style={{ objectFit: 'contain', display: 'block', flexShrink: 0 }}
+            width={32}
+            height={32}
+            style={{ objectFit: 'contain', display: 'block', flexShrink: 0, borderRadius: 8, marginTop: 1 }}
           />
         ) : (
           <span style={{
-            width:           24,
-            height:          24,
-            borderRadius:    6,
+            width:           32,
+            height:          32,
+            borderRadius:    8,
             backgroundColor: 'var(--neutral-100)',
             display:         'flex',
             alignItems:      'center',
             justifyContent:  'center',
             fontFamily:      'var(--font-body)',
-            fontSize:        13,
+            fontSize:        14,
             fontWeight:      600,
             color:           'var(--neutral-600)',
             flexShrink:      0,
             textTransform:   'uppercase',
             userSelect:      'none',
+            marginTop:       1,
           }}>
-            {(prompt.displayName || prompt.connectorSlug || '?').charAt(0)}
+            {displayName.charAt(0)}
           </span>
         )}
-        <span style={{
-          fontFamily: 'var(--font-body)',
-          fontSize:   'var(--font-size-body)',
-          fontWeight: 'var(--font-weight-medium)',
-          color:      'var(--neutral-800)',
-        }}>
-          Allow {prompt.displayName || prompt.connectorSlug} to run this action?
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: '1 0 0', minWidth: 0 }}>
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-body)',
+            fontWeight: 'var(--font-weight-medium)',
+            lineHeight: 'var(--line-height-body)',
+            color:      'var(--neutral-800)',
+          }}>
+            Allow {displayName} to run this action?
+          </span>
+          {prompt.toolSlug && (
+            <span style={{
+              fontFamily:   'var(--font-body)',
+              fontSize:     'var(--font-size-caption)',
+              lineHeight:   'var(--line-height-caption)',
+              color:        'var(--neutral-500)',
+              overflow:     'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace:   'nowrap',
+            }}>
+              <code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.toolSlug}</code>
+            </span>
+          )}
+        </div>
       </div>
-      {prompt.toolSlug && (
-        <span style={{
-          fontFamily: 'var(--font-body)',
-          fontSize:   'var(--font-size-caption)',
-          lineHeight: 'var(--line-height-caption)',
-          color:      'var(--neutral-500)',
-        }}>
-          Tool: <code style={{ fontFamily: 'var(--font-code)' }}>{prompt.toolSlug}</code>
-        </span>
-      )}
+
+      {/* Actions */}
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 }}>
         {prompt.options.map((opt) => {
-          const danger  = opt.style === 'danger' || opt.value === 'block'
-          const primary = opt.style === 'primary' || opt.value === 'allow' || opt.value === 'allow_once'
+          const isPrimary = opt.style === 'primary' || opt.value === 'allow' || opt.value === 'allow_once'
+          const isDanger  = opt.style === 'danger'
+          const variant = isDanger ? 'danger' : isPrimary ? 'default' : 'secondary'
           return (
-            <button
+            <Button
               key={opt.value}
-              type="button"
+              size="sm"
+              variant={variant}
               disabled={disabled}
               onClick={() => onDecide(opt.value)}
-              style={{
-                padding:         '6px 14px',
-                borderRadius:    999,
-                border:          primary ? 'none' : '1px solid var(--neutral-200)',
-                backgroundColor: primary ? (disabled ? 'var(--neutral-200)' : 'var(--neutral-900)') : 'transparent',
-                color:           danger
-                  ? 'var(--color-tag-Red-text, #c0392b)'
-                  : primary ? (disabled ? 'var(--neutral-500)' : 'var(--neutral-white)') : 'var(--neutral-600)',
-                cursor:          disabled ? 'not-allowed' : 'pointer',
-                fontFamily:      'var(--font-body)',
-                fontSize:        'var(--font-size-caption)',
-              }}
             >
               {opt.label}
-            </button>
+            </Button>
           )
         })}
       </div>
@@ -1113,6 +1140,7 @@ function BrainPageInner() {
   // Search/file data now lives directly in the timeline items; only the image
   // list (snapshot) and the latest tool-progress are kept as separate state.
   const [streamImages,       setStreamImages]       = useState<ImageEvent[]>([])
+  const [streamFiles,        setStreamFiles]        = useState<GeneratedFileEvent[]>([])
   const [toolProgress,       setToolProgress]       = useState<ToolProgressEvent | null>(null)
 
   // ── Live turn context (event: context) ────────────────────────────────────────
@@ -1163,27 +1191,55 @@ function BrainPageInner() {
     return () => el.removeEventListener('scroll', onScroll)
   }, [])
 
-  const scrollToBottom = useCallback((force = false) => {
+  // ── ResizeObserver — primary scroll driver ───────────────────────────────────
+  // useEffect + rAF only fires when React state changes. Framer-motion step-card
+  // height animations are JS-driven DOM updates with NO React state change between
+  // frames: scroll gets set once when the card first appears (height ≈ 0), then
+  // the card grows for ~300ms with no new scroll — user strands above the bottom.
+  //
+  // ResizeObserver fires on every frame that the inner content div changes size,
+  // including mid-animation DOM updates, giving accurate scrollHeight each frame.
+  useEffect(() => {
     const el = threadRef.current
     if (!el) return
-    if (force || isNearBottomRef.current) {
-      el.scrollTop = el.scrollHeight
-    }
+    const inner = el.firstElementChild
+    if (!inner) return
+    const ro = new ResizeObserver(() => {
+      if (isNearBottomRef.current) {
+        el.scrollTop = el.scrollHeight
+      }
+    })
+    ro.observe(inner)
+    return () => ro.disconnect()
   }, [])
 
-  // Scroll as streaming text arrives.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { scrollToBottom() }, [streamedContent])
+  // ── Coalesced rAF scroll — forced / explicit triggers only ────────────────────
+  // ResizeObserver handles all content-height-driven scrolls above.
+  // This rAF path is kept for cases where we must force-scroll regardless of
+  // isNearBottomRef (permission prompts, plan approval cards, phase transitions).
+  const scrollRafRef   = useRef(0)
+  const scrollForceRef = useRef(false)
 
-  // Scroll when a new timeline item is added (tool call, connect / permission card, etc.).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { scrollToBottom() }, [timeline.length])
+  const scrollToBottom = useCallback((force = false) => {
+    if (force) scrollForceRef.current = true
+    cancelAnimationFrame(scrollRafRef.current)
+    scrollRafRef.current = requestAnimationFrame(() => {
+      const el = threadRef.current
+      if (!el) return
+      const shouldForce = scrollForceRef.current
+      scrollForceRef.current = false
+      if (shouldForce || isNearBottomRef.current) {
+        el.scrollTop = el.scrollHeight
+      }
+    })
+  }, [])
 
-  // Phase transitions — force-scroll when a card needs user action.
+  // Phase transitions — force-scroll only when a card needs user action.
   useEffect(() => {
     if (phase === 'idle') return
-    const needsAction = phase === 'planning' || phase === 'paused' || phase === 'complete'
-    scrollToBottom(needsAction)
+    if (phase === 'planning' || phase === 'paused' || phase === 'complete') {
+      scrollToBottom(true)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
 
@@ -1277,6 +1333,7 @@ function BrainPageInner() {
     setStreamError(null)
     setPausedAfterLabel(undefined)
     setStreamImages([])
+    setStreamFiles([])
     setToolProgress(null)
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
@@ -1620,7 +1677,9 @@ function BrainPageInner() {
         const filename  = typeof d.filename  === 'string' ? d.filename  : ''
         const mime_type = typeof d.mime_type === 'string' ? d.mime_type : ''
         if (url && filename) {
-          setTimeline((prev) => [...prev, { kind: 'file', id: `file-${++timelineSeqRef.current}`, data: { url, s3_key, filename, mime_type } }])
+          const fileEvent: GeneratedFileEvent = { url, s3_key, filename, mime_type }
+          setStreamFiles((prev) => [...prev, fileEvent])
+          setTimeline((prev) => [...prev, { kind: 'file', id: `file-${++timelineSeqRef.current}`, data: fileEvent }])
         }
         break
       }
@@ -1790,20 +1849,22 @@ function BrainPageInner() {
     currentCompletedAt: Date | null,
     currentStreamImages: ImageEvent[],
     currentAttachments: UserAttachment[] = [],
+    currentStreamFiles: GeneratedFileEvent[] = [],
   ) => {
     const key = `turn-${++turnCounterRef.current}`
     setLocalTurns((prev) => [
       ...prev,
       {
         key,
-        userInput:   currentUserMessage,
-        output:      currentStreamedContent,
-        planSteps:   currentPlanSteps.length > 0 ? currentPlanSteps : undefined,
-        planSummary: currentActivePlanSummary || undefined,
-        images:      currentStreamImages.length > 0 ? currentStreamImages : undefined,
-        completedAt: currentCompletedAt ?? undefined,
-        cancelled:   opts.cancelled ?? false,
-        attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
+        userInput:      currentUserMessage,
+        output:         currentStreamedContent,
+        planSteps:      currentPlanSteps.length > 0 ? currentPlanSteps : undefined,
+        planSummary:    currentActivePlanSummary || undefined,
+        images:         currentStreamImages.length > 0 ? currentStreamImages : undefined,
+        generatedFiles: currentStreamFiles.length > 0 ? currentStreamFiles : undefined,
+        completedAt:    currentCompletedAt ?? undefined,
+        cancelled:      opts.cancelled ?? false,
+        attachments:    currentAttachments.length > 0 ? currentAttachments : undefined,
       },
     ])
 
@@ -1822,6 +1883,7 @@ function BrainPageInner() {
     setCounterText('')
     setPausedAfterLabel(undefined)
     setStreamImages([])
+    setStreamFiles([])
     setToolProgress(null)
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
@@ -1873,6 +1935,7 @@ function BrainPageInner() {
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
     setStreamImages([])
+    setStreamFiles([])
     setToolProgress(null)
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
@@ -1933,19 +1996,23 @@ function BrainPageInner() {
     }
   }, [handleNamedEvent, handleInlineEvent, replace])
 
-  // ── Auto-fire from schedule create ────────────────────────────────────────────
+  // ── Pre-populate input from schedule create ───────────────────────────────────
   // The Schedules page hands off newly-created schedules via ?fromSchedule=<id>
-  // with the prompt stashed in sessionStorage. We start the chat once, write the
-  // resulting chatId back into the link store, and never look at this id again.
-  const handledScheduleIdRef = useRef<string | null>(null)
+  // with the prompt stashed in memory. We read it once, feed it into BrainShell's
+  // input so the user can review and send it, and keep the schedule id around so
+  // the first handleSend can still call linkScheduleToChat.
+  const [scheduleInitialInput,  setScheduleInitialInput]  = useState('')
+  const pendingFromScheduleIdRef = useRef<string | null>(null)
+  const handledScheduleIdRef     = useRef<string | null>(null)
   useEffect(() => {
     const sid = searchParams.get('fromSchedule')
     if (!sid || handledScheduleIdRef.current === sid) return
     handledScheduleIdRef.current = sid
     const prompt = consumePendingPrompt(sid)
     if (!prompt) return
-    void runBrainStream(prompt, null, sid)
-  }, [searchParams, runBrainStream])
+    pendingFromScheduleIdRef.current = sid
+    setScheduleInitialInput(prompt)
+  }, [searchParams])
 
   // ── Send handler ──────────────────────────────────────────────────────────────
 
@@ -1961,6 +2028,7 @@ function BrainPageInner() {
         completedAt,
         streamImages,
         userAttachments,
+        streamFiles,
       )
     }
 
@@ -1992,10 +2060,14 @@ function BrainPageInner() {
         ? (value.trim() ? `${prefix}\n\n${value}` : prefix)
         : value
 
+      // Consume the pending schedule id once so the new chat gets linked.
+      const fromScheduleId = pendingFromScheduleIdRef.current
+      pendingFromScheduleIdRef.current = null
+
       void runBrainStream(
         apiMessage,
         chatId,
-        undefined,
+        fromScheduleId ?? undefined,
         binaryFiles.length > 0 ? binaryFiles : undefined,
         value,   // shown in user bubble (original text, no injected content)
         allFiles.length > 0 ? allFiles : undefined,  // all files shown as chips (incl. text-extracted)
@@ -2005,7 +2077,7 @@ function BrainPageInner() {
     void doSend()
   }, [
     phase, chatId, planSteps, userMessage, streamedContent,
-    activePlanSummary, completedAt, streamImages, snapshotAndReset, runBrainStream,
+    activePlanSummary, completedAt, streamImages, streamFiles, snapshotAndReset, runBrainStream,
     brainAttachments, userAttachments,
   ])
 
@@ -2287,9 +2359,10 @@ function BrainPageInner() {
       completedAt,
       streamImages,
       userAttachments,
+      streamFiles,
     )
     setPhase('idle')
-  }, [phase, planSteps, userMessage, streamedContent, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments])
+  }, [phase, planSteps, userMessage, streamedContent, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles])
 
   // ── New chat ─────────────────────────────────────────────────────────────────
   // Used by both the sidebar's "Brain" button and the "+ New chat" entry.
@@ -2328,6 +2401,7 @@ function BrainPageInner() {
     setStreamError(null)
     setPausedAfterLabel(undefined)
     setStreamImages([])
+    setStreamFiles([])
     setToolProgress(null)
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
@@ -2344,13 +2418,19 @@ function BrainPageInner() {
 
   const historyElements = historyMessages.map((msg) => {
     const planSteps = msg.plan ? mapHistoryPlanSteps(msg.plan) : []
-    const images = (msg.attachments ?? []).filter((a) => a.mime_type?.startsWith('image/'))
-    const msgAttachments = storedHistoryAttachments[msg.input]
+    const allAttachments = msg.attachments ?? []
+    const images       = allAttachments.filter((a) => a.mime_type?.startsWith('image/'))
+    const genFiles     = allAttachments.filter((a) => !a.mime_type?.startsWith('image/') && a.origin === 'generated')
+    // msg.input from the backend contains injected <document> blocks — strip them
+    // before display and before keying into localStorage (which was stored against
+    // the clean user text, not the full injected message).
+    const cleanInput = stripDocumentBlocks(msg.input)
+    const msgAttachments = storedHistoryAttachments[cleanInput]
     return (
       <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           {msgAttachments && <AttachmentChips attachments={msgAttachments} />}
-          <MessageBubble role="user" content={msg.input} maxWidth="75%" />
+          <MessageBubble role="user" content={cleanInput} maxWidth="75%" />
         </div>
         {planSteps.length > 0 && (
           <LoopHistoryCard
@@ -2362,6 +2442,18 @@ function BrainPageInner() {
         {images.length > 0 && <MessageImages images={images} />}
         {msg.output && (
           <StreamingMessageBubble content={msg.output} isComplete />
+        )}
+        {genFiles.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {genFiles.map((f) => (
+              <ArtifactCard
+                key={f.id}
+                title={filenameFromS3Key(f.s3_key)}
+                meta={mimeLabel(f.mime_type)}
+                onClick={() => window.open(f.url, '_blank', 'noopener')}
+              />
+            ))}
+          </div>
         )}
       </div>
     )
@@ -2385,6 +2477,18 @@ function BrainPageInner() {
       {turn.images && turn.images.length > 0 && <MessageImages images={turn.images} />}
       {turn.output && (
         <StreamingMessageBubble content={turn.output} isComplete />
+      )}
+      {turn.generatedFiles && turn.generatedFiles.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {turn.generatedFiles.map((f) => (
+            <ArtifactCard
+              key={f.url}
+              title={f.filename}
+              meta={mimeLabel(f.mime_type)}
+              onClick={() => window.open(f.url, '_blank', 'noopener')}
+            />
+          ))}
+        </div>
       )}
       {turn.cancelled && !turn.output && (
         <LoopCancelledCard
@@ -2427,7 +2531,14 @@ function BrainPageInner() {
       case 'web_search':
         return <ActivityFeed key={item.id} items={[{ kind: 'web_search', data: item.data, id: item.id }]} />
       case 'file':
-        return <ActivityFeed key={item.id} items={[{ kind: 'file', data: item.data, id: item.id }]} />
+        return (
+          <ArtifactCard
+            key={item.id}
+            title={item.data.filename}
+            meta={mimeLabel(item.data.mime_type)}
+            onClick={() => window.open(item.data.url, '_blank', 'noopener')}
+          />
+        )
       case 'image':
         return <MessageImages key={item.id} images={[{ url: item.url }]} />
       case 'progress':
@@ -2466,7 +2577,25 @@ function BrainPageInner() {
         <ClarificationSummary items={answeredClarifications} />
       )}
 
-      {/* Plan card + optional counter input */}
+      {/* ActivityBlock — plan-step tracker; persists through executing and paused */}
+      {showActivityBlock && (
+        <ActivityBlock steps={planSteps} interpretation={activePlanSummary} />
+      )}
+
+      {/* Complete header sits above the transcript */}
+      {phase === 'complete' && (
+        <BrainResultHeader summary={activePlanSummary || 'Analysis complete'} />
+      )}
+
+      {/* ── Ordered transcript ──────────────────────────────────────────────
+          Text segments, tool calls, web searches, files, images, the connector
+          permission/link cards — all rendered in the order they streamed in,
+          so chat and tools interleave instead of bucketing. */}
+      {timeline.map((item, i) => renderTimelineItem(item, i === timeline.length - 1))}
+
+      {/* Plan card + optional counter input — rendered AFTER the timeline so
+          approval UI is always at the bottom regardless of how much content
+          has already streamed above it (e.g. a second plan after countering). */}
       {showPlanCard && (
         <>
           <PlanCard
@@ -2488,22 +2617,6 @@ function BrainPageInner() {
           )}
         </>
       )}
-
-      {/* ActivityBlock — plan-step tracker; persists through executing and paused */}
-      {showActivityBlock && (
-        <ActivityBlock steps={planSteps} interpretation={activePlanSummary} />
-      )}
-
-      {/* Complete header sits above the transcript */}
-      {phase === 'complete' && (
-        <BrainResultHeader summary={activePlanSummary || 'Analysis complete'} />
-      )}
-
-      {/* ── Ordered transcript ──────────────────────────────────────────────
-          Text segments, tool calls, web searches, files, images, the connector
-          permission/link cards — all rendered in the order they streamed in,
-          so chat and tools interleave instead of bucketing. */}
-      {timeline.map((item, i) => renderTimelineItem(item, i === timeline.length - 1))}
 
       {/* Live cursor — thinking before the first token, composing while tokens
           (or tools) are still arriving. */}
@@ -2734,6 +2847,7 @@ function BrainPageInner() {
       onSend={handleSend}
       contextRailData={contextRailData}
       threadRef={threadRef}
+      initialInputValue={scheduleInitialInput || undefined}
       clarificationProps={activeClarification ? {
         // The backend's `title` is usually a generic preamble. The actual
         // model-generated question lives in `description`. Prefer the
@@ -2790,6 +2904,7 @@ function BrainPageInner() {
         userEmail:          user?.email ?? '',
         isAuthenticated,
         defaultBodySection: 'workflow',
+        hideProjects:       true,
         defaultCollapsed:   sidebarCollapsedRef.current,
         onCollapse:         handleSidebarCollapse,
         recentItems: (
@@ -2799,6 +2914,7 @@ function BrainPageInner() {
             onThreadClick={(id) => { replace(`/brain?id=${id}`) }}
           />
         ),
+        newChatLabel:    'New brain thread',
         onNewChat:       handleNewChat,
         onChatsClick:    () => { toast.info("Opening Chat Board"); push('/chats') },
         onPersonasClick: () => { toast.info("Opening Personas"); push('/personas') },
@@ -2806,7 +2922,7 @@ function BrainPageInner() {
         onSettingsClick: () => push('/settings'),
         onHelpClick:     () => push('/settings/help'),
         onLogoutClick:   () => { void logout() },
-        onBrainClick:    handleNewChat,
+        onBrainClick:    () => push('/brain/threads'),
       }}
     >
       {chatIdFromUrl || hasContent ? (

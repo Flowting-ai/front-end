@@ -157,15 +157,37 @@ export function ScheduleEditModal({
             }}
           >
             {/* Header */}
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-body-lg)',
-              fontWeight: 'var(--font-weight-semibold)',
-              lineHeight: 'var(--line-height-body-lg)',
-              color:      'var(--neutral-900)',
-            }}>
-              {isCreate ? 'New schedule' : 'Edit schedule'}
-            </span>
+            {isCreate ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize:   'var(--font-size-body-lg)',
+                  fontWeight: 'var(--font-weight-semibold)',
+                  lineHeight: 'var(--line-height-body-lg)',
+                  color:      'var(--neutral-900)',
+                }}>
+                  New schedule
+                </span>
+                <span style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize:   'var(--font-size-caption)',
+                  lineHeight: 'var(--line-height-caption)',
+                  color:      'var(--neutral-500)',
+                }}>
+                  Schedules are always created via brain threads — enter details here to go create the schedule via a brain thread.
+                </span>
+              </div>
+            ) : (
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize:   'var(--font-size-body-lg)',
+                fontWeight: 'var(--font-weight-semibold)',
+                lineHeight: 'var(--line-height-body-lg)',
+                color:      'var(--neutral-900)',
+              }}>
+                Edit schedule
+              </span>
+            )}
 
             {/* Name */}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -280,7 +302,7 @@ export function ScheduleEditModal({
                 disabled={!canSave}
                 onClick={handleSave}
               >
-                {isCreate ? 'Create schedule' : 'Save changes'}
+                {isCreate ? 'Start brain thread' : 'Save changes'}
               </Button>
             </div>
 

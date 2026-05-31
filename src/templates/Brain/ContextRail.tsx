@@ -196,7 +196,7 @@ export function ContextRail({ data }: ContextRailProps) {
       <div style={{
         flex:                '1 0 0',
         minHeight:           0,
-        overflowY:           'auto',
+        overflowY:           'scroll',
         overscrollBehaviorY: 'contain',
         display:             'flex',
         flexDirection:       'column',

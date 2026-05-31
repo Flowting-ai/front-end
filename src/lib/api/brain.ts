@@ -405,11 +405,13 @@ export interface BrainSSECallbacks {
  * Max gap between any bytes from the server before we declare the stream
  * dead. The backend sends `event: stream_heartbeat` every ~5s while blocked
  * on user prompts, but during model thinking and tool execution it can fall
- * silent for tens of seconds — extended-thinking turns and slow tools both
- * produce zero events until they're done. Two minutes covers realistic
- * worst-case latency while still catching a truly wedged backend.
+ * silent for tens of seconds — extended-thinking turns, slow tools, and large
+ * document processing (multi-page PDFs / DOCX with extracted text injected as
+ * document blocks) all produce zero events for extended periods. Five minutes
+ * matches the server-side proxy's maxDuration and covers realistic worst-case
+ * scenarios while still catching a truly wedged backend.
  */
-const STREAM_IDLE_TIMEOUT_MS = 120_000
+const STREAM_IDLE_TIMEOUT_MS = 300_000
 
 /**
  * Reads a Brain SSE response body until the stream closes.
@@ -503,7 +505,7 @@ export async function consumeBrainStream(
   } finally {
     if (watchdog) clearTimeout(watchdog)
     if (timedOut) {
-      callbacks.onError?.(new Error('Brain went quiet for 2 minutes — the connection may have stalled. Please try again.'))
+      callbacks.onError?.(new Error('Brain went quiet for too long — the connection may have stalled. Please try again.'))
     }
     callbacks.onClose?.()
   }

@@ -717,7 +717,7 @@ export default function BillingPage() {
                 </Button>
               </div>
 
-              <div style={{ padding: '0 24px 12px' }}>
+              <div style={{ padding: '24px 24px 12px' }}>
                 <div style={{ borderRadius: 8, backgroundColor: C.white, boxShadow: CARD_RING, padding: 12 }}>
                   {/* Table header */}
                   <div style={{ display: 'flex', gap: 24, alignItems: 'center', padding: '0 12px 12px', borderBottom: `1px solid ${C.hair}` }}>

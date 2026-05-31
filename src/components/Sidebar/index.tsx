@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { m, AnimatePresence } from 'framer-motion'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { cn } from '@/lib/utils'
 import {
   SearchOneIcon,
@@ -14,14 +13,12 @@ import {
   SidebarLeftIcon,
   MoreHorizontalIcon,
   BubbleChatIcon,
-  SettingsOneIcon,
-  InformationCircleIcon,
-  ArrowRightTwoIcon,
 } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarProjectsSection } from '@/components/SidebarProjectsSection'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
+import { AccountMenu } from '@/components/AccountMenu'
 
 // ── Souvenir wordmark SVG (115×20px) ──────────────────────────────────────────
 
@@ -94,6 +91,8 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   isAuthenticated?: boolean
   /** Called when New chat is clicked */
   onNewChat?: () => void
+  /** Override label for the "New chat" button — e.g. "New brain thread" on brain pages */
+  newChatLabel?: string
   /** Called when Search is clicked */
   onSearch?: () => void
   /** Called when the sidebar collapse/toggle button is clicked */
@@ -106,6 +105,8 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onPersonasClick?: () => void
   /** Called when the Brain nav item is clicked */
   onBrainClick?: () => void
+  /** When true, the Projects nav item and Projects body section are hidden. Use on brain pages. */
+  hideProjects?: boolean
   /** Called when "Show" is clicked on the Recents section header */
   onShowAllRecents?: React.MouseEventHandler<HTMLButtonElement>
   /**
@@ -405,21 +406,6 @@ function DefaultRecentItems({ selectedItem, activeChatId, onSelect: _onSelect, o
   )
 }
 
-// ── Account dropdown menu styles ──────────────────────────────────────────────
-
-const accountMenuItemStyle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: '8px',
-  padding: '7px 10px', borderRadius: '8px', cursor: 'pointer',
-  fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
-  fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)',
-  color: 'var(--neutral-700)', outline: 'none', userSelect: 'none',
-}
-
-const accountMenuItemDestructiveStyle: React.CSSProperties = {
-  ...accountMenuItemStyle,
-  color: 'var(--red-500)',
-}
-
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function Sidebar({
@@ -432,12 +418,14 @@ export function Sidebar({
       onLogoutClick,
       isAuthenticated = false,
       onNewChat,
+      newChatLabel = 'New chat',
       onSearch,
       onCollapse,
       onChatsClick,
       onProjectsClick,
       onPersonasClick,
       onBrainClick,
+      hideProjects   = false,
       projects       = DEFAULT_PROJECTS,
       onShowAllProjects,
       projectItems,
@@ -459,7 +447,6 @@ export function Sidebar({
     const [collapseHovered,  setCollapseHovered]  = useState(false)
     const [atScrollTop,      setAtScrollTop]      = useState(true)
     const [atScrollBottom,   setAtScrollBottom]   = useState(false)
-    const [accountMenuOpen,  setAccountMenuOpen]  = useState(false)
 
     // Scroll-position memory across collapse ↔ expand. When collapsing, the
     // body's overflow flips to `hidden`; if we leave scrollTop where it was,
@@ -642,11 +629,11 @@ export function Sidebar({
             paddingRight:  '8px',
             overflow:      'hidden',
           }}>
-            <Tooltip content="New chat" side="right" disabled={!isCollapsed}>
+            <Tooltip content={newChatLabel} side="right" disabled={!isCollapsed}>
               <SidebarMenuItem
                 {...(isCollapsed ? { collapsed: true } : { fluid: true })}
                 variant="new-chat"
-                label="New chat"
+                label={newChatLabel}
                 selected={selectedItem === 'new-chat'}
                 onClick={() => { setBodySection('chat-board'); setSelectedItem('new-chat'); setActiveFolder(null); onNewChat?.() }}
               />
@@ -743,9 +730,9 @@ export function Sidebar({
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             style={{ display: 'flex', flexDirection: 'column', pointerEvents: isCollapsed ? 'none' : 'auto' }}
           >
-            {/* Projects - only visible in chat-board section */}
+            {/* Projects - only visible in chat-board section, and never on brain pages */}
             <AnimatePresence initial={false}>
-              {bodySection === 'chat-board' && (
+              {!hideProjects && bodySection === 'chat-board' && (
                 <div key="projects-section" style={{
                   display:       'flex',
                   flexDirection: 'column',
@@ -878,92 +865,23 @@ export function Sidebar({
           overflow:        'hidden',
         }}>
           {accountMenu ? accountMenu(isCollapsed) : (
-            <>
-              <SidebarMenuItem
-                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                variant="account-item"
-                label={userName}
-                sublabel={userEmail}
-                avatarSrc={avatarSrc}
-                onSettingsClick={(e) => { e.stopPropagation(); setAccountMenuOpen(true) }}
-                onClick={() => setAccountMenuOpen(true)}
-              />
-
-              {/* Hidden Radix trigger — serves as position anchor for the dropup */}
-              <DropdownMenu.Root open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
-                <DropdownMenu.Trigger
-                  style={{
-                    position:      'absolute',
-                    top:           0,
-                    left:          '50%',
-                    width:         1,
-                    height:        1,
-                    opacity:       0,
-                    pointerEvents: 'none',
-                    border:        'none',
-                    background:    'none',
-                    padding:       0,
-                  }}
-                />
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    side="top"
-                    align="center"
-                    sideOffset={4}
-                    onCloseAutoFocus={(e) => e.preventDefault()}
-                    style={{
-                      backgroundColor: 'var(--neutral-white)',
-                      borderRadius:    '12px',
-                      padding:         '4px',
-                      boxShadow:       '0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
-                      zIndex:          1000,
-                      minWidth:        '222px',
-                      outline:         'none',
-                    }}
-                  >
-                    <DropdownMenu.Item
-                      style={accountMenuItemStyle}
-                      onSelect={() => onSettingsClick?.()}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)' }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
-                    >
-                      <SettingsOneIcon size={16} />
-                      Settings
-                    </DropdownMenu.Item>
-
-                    <DropdownMenu.Item
-                      style={accountMenuItemStyle}
-                      onSelect={() => onHelpClick?.()}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)' }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
-                    >
-                      <InformationCircleIcon size={16} />
-                      Help
-                    </DropdownMenu.Item>
-
-                    <DropdownMenu.Separator style={{ height: '1px', backgroundColor: 'var(--neutral-100)', margin: '4px 0' }} />
-
-                    <DropdownMenu.Item
-                      style={accountMenuItemDestructiveStyle}
-                      onSelect={() => {
-                        // Match front-end: authenticated → run the logout flow;
-                        // unauthenticated → send the user to login instead.
-                        if (isAuthenticated) {
-                          onLogoutClick?.()
-                        } else if (typeof window !== 'undefined') {
-                          window.location.href = '/auth/login'
-                        }
-                      }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--red-50, #fff5f5)' }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
-                    >
-                      <ArrowRightTwoIcon size={16} />
-                      {isAuthenticated ? 'Sign Out' : 'Sign In'}
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
-            </>
+            <AccountMenu
+              name={userName ?? ''}
+              plan={userEmail}
+              avatarSrc={avatarSrc}
+              collapsed={isCollapsed}
+              panelWidth={274}
+              placement="top-start"
+              onSettings={onSettingsClick}
+              onHelp={onHelpClick}
+              onLogOut={() => {
+                if (isAuthenticated) {
+                  onLogoutClick?.()
+                } else if (typeof window !== 'undefined') {
+                  window.location.href = '/auth/login'
+                }
+              }}
+            />
           )}
         </div>
 

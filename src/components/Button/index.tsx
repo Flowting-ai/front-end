@@ -124,14 +124,23 @@ export function Button({
   const circleRef = useRef<SVGCircleElement>(null)
   const { onMouseEnter: corrosionEnter, onMouseLeave: corrosionLeave } = useCorrosion(circleRef)
 
+  // isHovered drives visual changes only for ghost/outline/secondary/danger.
+  // For the default variant every isHovered reference is behind isSubtle /
+  // isSecondary / isDanger guards, so the state is never consumed. Skipping
+  // setIsHovered for default avoids a React re-render on every mouse-enter,
+  // which otherwise causes flickering by forcing the GPU to re-composite the
+  // clip-path + drop-shadow + SVG-filter stack while the corrosion animation
+  // is starting.
+  const needsHoverState = isSubtle || isSecondary || isDanger
+
   const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
-    setIsHovered(true)
+    if (needsHoverState) setIsHovered(true)
     if (isCorrosion) corrosionEnter(e)
     externalMouseEnter?.(e)
   }
 
   const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
-    setIsHovered(false)
+    if (needsHoverState) setIsHovered(false)
     if (isCorrosion) corrosionLeave(e)
     externalMouseLeave?.(e)
   }

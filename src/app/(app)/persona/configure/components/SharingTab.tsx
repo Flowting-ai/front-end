@@ -1,15 +1,25 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Switch } from '@/components/Switch'
 import { Button } from '@/components/Button'
 import { CancelOneIcon, ArrowUpRightOneIcon } from '@strange-huge/icons'
+import { toast } from 'sonner'
+import {
+  createShare,
+  listShares,
+  revokeShare,
+  type PersonaShare,
+} from '@/lib/api/persona-shares'
+import { ApiError } from '@/lib/api/client'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Visibility = 'private' | 'team' | 'community'
 
 export interface SharingTabProps {
+  /** persona VERSION id — the share is tied to a specific version */
+  versionId?: string
   hasTeamsPlan?: boolean
 }
 
@@ -196,24 +206,141 @@ function UsageBar({ percent }: { percent: number }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function SharingTab({ hasTeamsPlan = false }: SharingTabProps) {
+export default function SharingTab({ versionId, hasTeamsPlan = false }: SharingTabProps) {
   const [visibility, setVisibility] = useState<Visibility>('private')
+
+  // ── Link share state ───────────────────────────────────────────────────────
   const [superLinkEnabled, setSuperLinkEnabled] = useState(false)
-  const [linkGenerated, setLinkGenerated] = useState(false)
+  const [linkShare, setLinkShare] = useState<PersonaShare | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [isRevoking, setIsRevoking] = useState(false)
   const [tokenLimit, setTokenLimit] = useState(10000)
 
-  const tokensUsed = 1400
-  const usagePercent = Math.min(100, Math.round((tokensUsed / tokenLimit) * 100))
-  const generatedUrl = 'souvenir.app/p/legal-advisor-a8b2c3'
+  // ── Email share state ──────────────────────────────────────────────────────
+  const [emailShares, setEmailShares] = useState<PersonaShare[]>([])
+  const [emailInput, setEmailInput] = useState('')
+  const [emailTokenLimit, setEmailTokenLimit] = useState(5000)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [revokingEmailId, setRevokingEmailId] = useState<string | null>(null)
 
-  function handleSuperLinkToggle(enabled: boolean) {
-    setSuperLinkEnabled(enabled)
-    if (!enabled) setLinkGenerated(false)
+  // ── Load existing shares on mount ─────────────────────────────────────────
+  const loadShares = useCallback(async () => {
+    if (!versionId) return
+    try {
+      const all = await listShares()
+      const mine = all.filter(s => s.persona_id === versionId && s.is_active)
+      const existing = mine.find(s => s.share_type === 'link') ?? null
+      setLinkShare(existing)
+      setSuperLinkEnabled(existing !== null)
+      setEmailShares(mine.filter(s => s.share_type === 'email'))
+    } catch {
+      // silently ignore — share list failing shouldn't break the page
+    }
+  }, [versionId])
+
+  useEffect(() => { loadShares() }, [loadShares])
+
+  // ── Link share handlers ────────────────────────────────────────────────────
+
+  async function handleGenerateLink() {
+    if (!versionId) {
+      toast.error('Save the persona first before generating a share link.')
+      return
+    }
+    setIsGenerating(true)
+    try {
+      const share = await createShare({
+        persona_id: versionId,
+        share_type: 'link',
+        credit_limit: tokenLimit,
+      })
+      setLinkShare(share)
+      toast.success('Share link generated')
+    } catch (err) {
+      toast.error((err as ApiError).message ?? 'Failed to generate link')
+      setSuperLinkEnabled(false)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  async function handleRevokeLink() {
+    if (!linkShare) return
+    setIsRevoking(true)
+    try {
+      await revokeShare(linkShare.id)
+      setLinkShare(null)
+      setSuperLinkEnabled(false)
+      toast.success('Share link revoked')
+    } catch (err) {
+      toast.error((err as ApiError).message ?? 'Failed to revoke link')
+    } finally {
+      setIsRevoking(false)
+    }
   }
 
   function handleCopy() {
-    navigator.clipboard.writeText(`https://${generatedUrl}`).catch(() => {})
+    if (!linkShare?.share_url) return
+    navigator.clipboard.writeText(linkShare.share_url).catch(() => {})
+    toast.success('Link copied')
   }
+
+  // ── Email share handlers ───────────────────────────────────────────────────
+
+  async function handleSendEmailInvite() {
+    const email = emailInput.trim()
+    if (!email) return
+    if (!versionId) {
+      toast.error('Save the persona first before sending invites.')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Enter a valid email address')
+      return
+    }
+    setIsSendingEmail(true)
+    try {
+      const share = await createShare({
+        persona_id: versionId,
+        share_type: 'email',
+        recipient_emails: [email],
+        credit_limit: emailTokenLimit,
+      })
+      setEmailShares(prev => [...prev, share])
+      setEmailInput('')
+      toast.success(`Invite sent to ${email}`)
+    } catch (err) {
+      toast.error((err as ApiError).message ?? 'Failed to send invite')
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
+
+  async function handleRevokeEmailShare(id: string) {
+    setRevokingEmailId(id)
+    try {
+      await revokeShare(id)
+      setEmailShares(prev => prev.filter(s => s.id !== id))
+      toast.success('Invite revoked')
+    } catch (err) {
+      toast.error((err as ApiError).message ?? 'Failed to revoke invite')
+    } finally {
+      setRevokingEmailId(null)
+    }
+  }
+
+  // ── Derived values ─────────────────────────────────────────────────────────
+
+  const displayUrl = linkShare?.share_url
+    ? linkShare.share_url.replace(/^https?:\/\//, '')
+    : 'Your link will appear here'
+
+  const usagePercent =
+    linkShare && linkShare.credit_limit
+      ? Math.min(100, Math.round((linkShare.credit_used / linkShare.credit_limit) * 100))
+      : 0
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%' }}>
@@ -303,13 +430,17 @@ export default function SharingTab({ hasTeamsPlan = false }: SharingTabProps) {
                 maxWidth: 560,
               }}
             >
-              Generate a shareable URL anyone can chat without a Souvenir account. You cover the token cost.
+              Generate a shareable URL. Recipients get their own copy of this persona — you cover their token usage up to the limit you set.
             </span>
           </div>
-          <Switch checked={superLinkEnabled} onCheckedChange={handleSuperLinkToggle} />
+          <Switch
+            checked={superLinkEnabled}
+            onCheckedChange={setSuperLinkEnabled}
+            disabled={isGenerating || isRevoking}
+          />
         </div>
 
-        {/* URL bar - visible when super link is enabled */}
+        {/* URL bar — visible when toggle is on */}
         {superLinkEnabled && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
@@ -335,23 +466,23 @@ export default function SharingTab({ hasTeamsPlan = false }: SharingTabProps) {
                     fontWeight: 500,
                     fontSize: 14,
                     lineHeight: '22px',
-                    color: linkGenerated ? 'var(--neutral-800)' : 'var(--neutral-200)',
+                    color: linkShare ? 'var(--neutral-800)' : 'var(--neutral-300)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  {generatedUrl}
+                  {displayUrl}
                 </span>
               </div>
 
               {/* Action buttons */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                {linkGenerated ? (
+                {linkShare ? (
                   <>
-                    {/* Revoke link */}
                     <button
-                      onClick={() => setLinkGenerated(false)}
+                      onClick={handleRevokeLink}
+                      disabled={isRevoking}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -359,86 +490,328 @@ export default function SharingTab({ hasTeamsPlan = false }: SharingTabProps) {
                         padding: '5px 8px',
                         borderRadius: 8,
                         border: 'none',
-                        cursor: 'pointer',
+                        cursor: isRevoking ? 'not-allowed' : 'pointer',
                         backgroundColor: 'transparent',
                         fontFamily: 'var(--font-body)',
                         fontWeight: 500,
                         fontSize: 14,
                         lineHeight: '22px',
-                        color: '#ee3030',
+                        color: isRevoking ? 'var(--neutral-400)' : '#ee3030',
+                        opacity: isRevoking ? 0.6 : 1,
+                        transition: 'opacity 150ms',
                       }}
                     >
-                      <CancelOneIcon size={16} color="#ee3030" />
-                      Revoke link
+                      <CancelOneIcon size={16} color={isRevoking ? 'var(--neutral-400)' : '#ee3030'} />
+                      {isRevoking ? 'Revoking…' : 'Revoke link'}
                     </button>
-
-                    {/* Copy */}
                     <Button variant="secondary" size="sm" onClick={handleCopy}>
                       Copy
                     </Button>
                   </>
                 ) : (
-                  <Button variant="default" size="sm" onClick={() => setLinkGenerated(true)}>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleGenerateLink}
+                    loading={isGenerating}
+                    disabled={isGenerating}
+                  >
                     Generate link
                   </Button>
                 )}
               </div>
             </div>
 
-            {/* Token usage - visible after link is generated */}
-            {linkGenerated && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Token limit — shown before generation so the user can configure it */}
+            {!linkShare && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 400,
+                    fontSize: 14,
+                    lineHeight: '22px',
+                    color: 'var(--neutral-700)',
+                  }}
+                >
+                  Token limit
+                </span>
                 <div
+                  style={{
+                    backgroundColor: 'white',
+                    border: '1px solid var(--neutral-200)',
+                    borderRadius: 8,
+                    padding: 7,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <input
+                    type="number"
+                    value={tokenLimit}
+                    min={1}
+                    onChange={e => setTokenLimit(Math.max(1, parseInt(e.target.value) || 1))}
+                    style={{
+                      width: 96,
+                      border: 'none',
+                      // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
+                      outline: 'none',
+                      backgroundColor: 'transparent',
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 400,
+                      fontSize: 12,
+                      lineHeight: 'normal',
+                      color: '#3b3632',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Token usage — shown after link is generated */}
+            {linkShare && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 400,
+                    fontSize: 14,
+                    lineHeight: '22px',
+                    color: 'var(--neutral-700)',
+                  }}
+                >
+                  {linkShare.credit_limit !== null
+                    ? `${usagePercent}% used · ${linkShare.credit_used.toLocaleString()} / ${linkShare.credit_limit.toLocaleString()} tokens`
+                    : `${linkShare.credit_used.toLocaleString()} tokens used · No limit`}
+                </span>
+                {linkShare.credit_limit !== null && <UsageBar percent={usagePercent} />}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Divider ─────────────────────────────────────────────────────────── */}
+      <div style={{ height: 1, width: '100%', backgroundColor: 'rgba(59,54,50,0.15)' }} />
+
+      {/* ── Email sharing ────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: 14,
+              lineHeight: 1.5,
+              letterSpacing: '0.07px',
+              color: '#0a0a0a',
+            }}
+          >
+            Email Invite
+          </span>
+          <span
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: 12,
+              lineHeight: '16px',
+              color: '#6a625d',
+              maxWidth: 560,
+            }}
+          >
+            Send the share link directly to someone via email. Their usage is billed to you up to the token limit you set.
+          </span>
+        </div>
+
+        {/* Email input row */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <div
+            style={{
+              flex: '1 0 0',
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: 'white',
+                border: '1px solid var(--neutral-200)',
+                borderRadius: 10,
+                padding: '8px 12px',
+                height: 46,
+              }}
+            >
+              <input
+                type="email"
+                value={emailInput}
+                onChange={e => setEmailInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleSendEmailInvite() } }}
+                placeholder="colleague@company.com"
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
+                  outline: 'none',
+                  backgroundColor: 'transparent',
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 400,
+                  fontSize: 14,
+                  lineHeight: '22px',
+                  color: 'var(--neutral-900)',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Token limit for this invite */}
+          <div
+            style={{
+              backgroundColor: 'white',
+              border: '1px solid var(--neutral-200)',
+              borderRadius: 10,
+              padding: '8px 12px',
+              height: 46,
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <input
+              type="number"
+              value={emailTokenLimit}
+              min={1}
+              onChange={e => setEmailTokenLimit(Math.max(1, parseInt(e.target.value) || 1))}
+              style={{
+                width: 80,
+                border: 'none',
+                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
+                outline: 'none',
+                backgroundColor: 'transparent',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 400,
+                fontSize: 12,
+                lineHeight: 'normal',
+                color: '#3b3632',
+              }}
+            />
+            <span
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 400,
+                fontSize: 12,
+                color: 'var(--neutral-500)',
+                marginLeft: 4,
+                flexShrink: 0,
+              }}
+            >
+              tokens
+            </span>
+          </div>
+
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleSendEmailInvite}
+            loading={isSendingEmail}
+            disabled={isSendingEmail || !emailInput.trim()}
+            style={{ height: 46, flexShrink: 0 }}
+          >
+            Send invite
+          </Button>
+        </div>
+
+        {/* Existing email shares */}
+        {emailShares.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {emailShares.map(share => {
+              const emails = share.recipient_emails ?? []
+              const emailStr = emails.join(', ') || 'Unknown recipient'
+              const pct = share.credit_limit
+                ? Math.min(100, Math.round((share.credit_used / share.credit_limit) * 100))
+                : null
+              const isRevoking = revokingEmailId === share.id
+              return (
+                <div
+                  key={share.id}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    borderRadius: 10,
+                    backgroundColor: 'white',
+                    boxShadow: '0px 0px 0px 1px var(--neutral-100)',
+                    gap: 12,
                   }}
                 >
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 400,
-                      fontSize: 14,
-                      lineHeight: '22px',
-                      color: 'var(--neutral-700)',
-                    }}
-                  >
-                    {usagePercent}% used · {tokensUsed.toLocaleString()} / {tokenLimit.toLocaleString()} tokens
-                  </span>
-                  <div
-                    style={{
-                      backgroundColor: 'white',
-                      border: '1px solid var(--neutral-200)',
-                      borderRadius: 8,
-                      padding: 7,
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <input
-                      type="number"
-                      value={tokenLimit}
-                      onChange={e => setTokenLimit(Math.max(1, parseInt(e.target.value) || 1))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                    <span
                       style={{
-                        width: 96,
-                        border: 'none',
-                        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
-                        outline: 'none',
-                        backgroundColor: 'transparent',
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 500,
+                        fontSize: 14,
+                        lineHeight: '22px',
+                        color: 'var(--neutral-800)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {emailStr}
+                    </span>
+                    <span
+                      style={{
                         fontFamily: 'var(--font-body)',
                         fontWeight: 400,
                         fontSize: 12,
-                        lineHeight: 'normal',
-                        color: '#3b3632',
+                        lineHeight: '16px',
+                        color: 'var(--neutral-500)',
                       }}
-                    />
+                    >
+                      {share.credit_limit !== null
+                        ? `${share.credit_used.toLocaleString()} / ${share.credit_limit.toLocaleString()} tokens${pct !== null ? ` · ${pct}% used` : ''}`
+                        : `${share.credit_used.toLocaleString()} tokens used · No limit`}
+                    </span>
                   </div>
-                </div>
 
-                <UsageBar percent={usagePercent} />
-              </div>
-            )}
+                  <button
+                    onClick={() => handleRevokeEmailShare(share.id)}
+                    disabled={isRevoking}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      padding: '4px 8px',
+                      borderRadius: 8,
+                      border: 'none',
+                      cursor: isRevoking ? 'not-allowed' : 'pointer',
+                      backgroundColor: 'transparent',
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 500,
+                      fontSize: 14,
+                      lineHeight: '22px',
+                      color: isRevoking ? 'var(--neutral-400)' : '#ee3030',
+                      opacity: isRevoking ? 0.6 : 1,
+                      flexShrink: 0,
+                      transition: 'opacity 150ms',
+                    }}
+                  >
+                    <CancelOneIcon size={14} color={isRevoking ? 'var(--neutral-400)' : '#ee3030'} />
+                    {isRevoking ? 'Revoking…' : 'Revoke'}
+                  </button>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

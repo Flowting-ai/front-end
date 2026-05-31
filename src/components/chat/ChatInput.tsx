@@ -469,6 +469,7 @@ export function ChatInput(
               lineHeight: szLineHeight,
               color: "var(--chat-input-text)",
               caretColor: "var(--focus-ring)",
+              cursor: disabled ? "not-allowed" : undefined,
             }}
           />
         </div>

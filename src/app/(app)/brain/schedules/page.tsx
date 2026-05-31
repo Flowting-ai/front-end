@@ -212,13 +212,19 @@ function BrainSchedulesPageInner() {
       return
     }
 
-    // Create: stash the prompt so the Brain page can pick it up, then route
-    // there. Brain will start a new chat with this prompt and write the
-    // chatId back into the link store, binding the two for the lifetime of
-    // the schedule.
+    // Create: build a structured prompt from all form fields so the Brain
+    // thread has full context, stash it, then navigate. Brain will start a
+    // new chat with this prompt and write the chatId back into the link
+    // store, binding the two for the lifetime of the schedule.
     const newId = `${idPrefix}-${Date.now()}`
     localIdsRef.current.add(newId)
-    stashPendingPrompt(newId, data.instructions)
+    const prompt = [
+      `I want to create a schedule called "${data.name}".`,
+      ``,
+      `Instructions: ${data.instructions}`,
+      `Frequency: ${data.frequency}`,
+    ].join('\n')
+    stashPendingPrompt(newId, prompt)
     setSchedules(prev => [...prev, {
       id:          newId,
       name:        data.name,
@@ -291,8 +297,10 @@ function BrainSchedulesPageInner() {
             onThreadClick={(id) => push(`/brain?id=${id}`)}
           />
         }
+        hideProjects
+        newChatLabel="New brain thread"
         onNewChat={() => push('/brain')}
-        onBrainClick={() => push('/brain')}
+        onBrainClick={() => push('/brain/threads')}
         onChatsClick={() => { toast.info("Opening Chat Board"); push('/chats') }}
         onPersonasClick={() => { toast.info("Opening Personas"); push('/personas') }}
         onProjectsClick={() => { toast.info("Opening Projects"); push('/projects') }}
