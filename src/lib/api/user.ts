@@ -549,6 +549,26 @@ export async function fetchBilling(): Promise<BillingInfo | null> {
           } as BillingCredits;
         })()
       : null;
+  // Normalise invoice fields: Stripe returns `created` as a Unix timestamp
+  // (seconds), but our type and fmtDate() expect an ISO string. Convert any
+  // number to ISO; leave strings untouched.
+  const normalizeInvoiceDate = (raw: unknown): string | null => {
+    if (typeof raw === "number") return new Date(raw * 1000).toISOString()
+    if (typeof raw === "string" && raw.length > 0) return raw
+    return null
+  }
+
+  const rawInvoices = Array.isArray(root.invoices)
+    ? (root.invoices as Record<string, unknown>[]).map((inv): BillingInvoice => ({
+        amount_paid:  typeof inv.amount_paid === "number"  ? inv.amount_paid  : 0,
+        currency:     typeof inv.currency    === "string"  ? inv.currency     : "usd",
+        status:       typeof inv.status      === "string"  ? inv.status       : null,
+        created:      normalizeInvoiceDate(inv.created),
+        invoice_url:  typeof inv.invoice_url === "string"  ? inv.invoice_url  : null,
+        invoice_pdf:  typeof inv.invoice_pdf === "string"  ? inv.invoice_pdf  : null,
+      }))
+    : []
+
   return {
     plan_type: typeof root.plan_type === "string" ? root.plan_type : null,
     subscription_status:
@@ -557,7 +577,7 @@ export async function fetchBilling(): Promise<BillingInfo | null> {
       typeof root.current_period_end === "string" ? root.current_period_end : null,
     cancel_at_period_end: Boolean(root.cancel_at_period_end),
     payment_method: pm,
-    invoices: Array.isArray(root.invoices) ? (root.invoices as BillingInvoice[]) : [],
+    invoices: rawInvoices,
     upcoming_invoice: upcoming,
     credits,
   };

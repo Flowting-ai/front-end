@@ -16,6 +16,8 @@ import {
   type UserPlanType,
 } from '@/lib/api/user'
 import { Button } from '@/components/Button'
+import { CardBrandLogo } from '@/components/CardBrandLogo'
+import type { CardBrand } from '@/components/CardBrandLogo'
 import { toast } from 'sonner'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -46,9 +48,9 @@ const PLAN_PRICES: Record<string, number> = {
 }
 
 const PLAN_FEATURE_LIST: Record<string, string[]> = {
-  starter: ['Standard models', 'Basic routing', '3 agents', '3 workflows'],
-  pro:     ['Advanced models', 'Advanced routing', 'Model compare', '25 agents', '10 workflows', 'Cost savings report'],
-  power:   ['Advanced models', 'Advanced routing', 'Model compare', 'Unlimited agents', 'Unlimited workflows', 'Advanced analytics'],
+  starter: ['Basic routing', 'AI Assistants', 'Brain & Automation', 'Connectors', 'Pins', 'Projects'],
+  pro:     ['Advanced routing', 'Model compare', 'Unlimited agents', 'Cost savings report', 'Brain & Automation', 'Connectors', 'Pins', 'Projects'],
+  power:   ['Advanced routing', 'Model compare', 'Unlimited agents', 'Advanced analytics', 'Brain & Automation', 'Connectors', 'Pins', 'Projects'],
 }
 
 const PLAN_OPTIONS: { id: UserPlanType; label: string; price: number }[] = [
@@ -98,7 +100,9 @@ function fmtAmount(value: number, currency = 'usd'): string {
     fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: key })
     _fmtAmountCache.set(key, fmt)
   }
-  return fmt.format(value / 100) // Stripe reports minor units (cents)
+  // The backend normalises Stripe amounts to dollars before returning them,
+  // so no division by 100 is needed here.
+  return fmt.format(value)
 }
 
 function fmtNum(n: number | null | undefined): string {
@@ -265,14 +269,16 @@ export default function BillingPage() {
     : billing?.credits
       ? Math.round(billing.credits.total_credits * 1000)
       : null;
-  const billingCreditsRemaining = billing?.credits?.trial
-    ? Math.round(billing.credits.trial.remaining * 1000)
-    : billingCreditsTotal;
   const billingCreditsUsed = billing?.credits?.trial
     ? Math.round(billing.credits.trial.used * 1000)
     : billing?.credits?.used
       ? Math.round(((billing.credits.used.chat ?? 0) + (billing.credits.used.persona ?? 0) + (billing.credits.used.brain ?? 0)) * 1000)
       : 0;
+  const billingCreditsRemaining = billing?.credits?.trial
+    ? Math.round(billing.credits.trial.remaining * 1000)
+    : billingCreditsTotal !== null
+      ? Math.max(0, billingCreditsTotal - billingCreditsUsed)
+      : null;
 
   const liveSnap: BillingSnapshot | null = liveReady
     ? {
@@ -559,7 +565,7 @@ export default function BillingPage() {
                       boxShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5)',
                       fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--blue-700)', whiteSpace: 'nowrap',
                     }}>
-                      {planPrice}$/month
+                      ${planPrice}/month
                     </span>
                   )}
                   {isTrialUser && (
@@ -677,15 +683,7 @@ export default function BillingPage() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px' }}>
-                <div style={{
-                  width: 46, height: 32, borderRadius: 6, flexShrink: 0,
-                  backgroundColor: 'var(--neutral-50)', border: `1px solid ${C.hair}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <span style={{ fontFamily: BODY, fontWeight: 700, fontSize: 10, letterSpacing: '0.02em', textTransform: 'uppercase', color: C.muted }}>
-                    {pm?.brand ? pm.brand.slice(0, 4) : 'Card'}
-                  </span>
-                </div>
+                <CardBrandLogo brand={(pm?.brand as CardBrand) || 'unknown'} width={46} height={32} />
                 <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: billingPending ? 6 : 0 }}>
                   {billingPending ? (
                     <><Skel w={180} h={16} /><Skel w={120} h={12} /></>

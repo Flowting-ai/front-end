@@ -112,8 +112,12 @@ export function PinCommentField({
     }
 
     // Block Enter - second line comes from word wrap only.
+    // Also blur to signal "done editing" so the comment is saved.
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter') e.preventDefault()
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        ;(e.target as HTMLTextAreaElement).blur()
+      }
       externalKeyDown?.(e)
     }
 

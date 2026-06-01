@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, type JSX } from 'react'
 import { m } from 'framer-motion'
 import { CopyOneIcon } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
-import { MarkdownRenderer } from '@/lib/markdown-utils'
+import { BrainContentRenderer } from './BrainContentRenderer'
 
 // ── Streaming typewriter hook ─────────────────────────────────────────────────
 // Ported from front-end/src/components/chat/chat-message.tsx.
@@ -333,7 +333,7 @@ export function StreamingMessageBubble({
       animate={{ opacity: 1, y: 0,  filter: 'blur(0px)' }}
       transition={springs.moderate}
     >
-      <MarkdownRenderer content={content} allowHtml />
+      <BrainContentRenderer content={content} />
       {!isComplete && <StreamCursor />}
     </m.div>
   )

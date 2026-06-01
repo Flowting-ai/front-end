@@ -270,7 +270,18 @@ export interface UseChatStateResult {
 
 // ── Implementation ────────────────────────────────────────────────────────────
 
-export function useChatState(chatId: string | undefined): UseChatStateResult {
+export interface UseChatStateOptions {
+  /**
+   * Override the default message fetcher. When provided, called instead of
+   * getChatMessages so persona/brain surfaces can supply their own loader
+   * without needing a separate state hook. The returned messages must already
+   * be in UIMessage form (fully normalised). Pagination is disabled when this
+   * override is active.
+   */
+  loadMessages?: (chatId: string) => Promise<UIMessage[]>
+}
+
+export function useChatState(chatId: string | undefined, options?: UseChatStateOptions): UseChatStateResult {
   const [messages, setMessages] = useState<UIMessage[]>([])
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [hasMoreMessages, setHasMoreMessages] = useState(false)
@@ -312,13 +323,22 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
     setMessages([])
     cursorRef.current = undefined
 
-    getChatMessages(chatId)
-      .then((res) => {
-        if (cancelled) return
-        setMessages(toUIMessages(res.messages))
-        setHasMoreMessages(res.has_more)
-        cursorRef.current = res.next_cursor ?? undefined
-      })
+    const fetch = options?.loadMessages
+      ? options.loadMessages(chatId).then((msgs) => {
+          // Custom loader returns UIMessage[] directly; no pagination.
+          if (!cancelled) {
+            setMessages(msgs)
+            setHasMoreMessages(false)
+          }
+        })
+      : getChatMessages(chatId).then((res) => {
+          if (cancelled) return
+          setMessages(toUIMessages(res.messages))
+          setHasMoreMessages(res.has_more)
+          cursorRef.current = res.next_cursor ?? undefined
+        })
+
+    fetch
       .catch((err) => {
         logger.error("[useChatState] Failed to load messages", err)
       })

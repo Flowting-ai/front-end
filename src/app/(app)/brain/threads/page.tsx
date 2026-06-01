@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'rea
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
 import { Sidebar } from '@/components/Sidebar'
+import { AccountMenu } from '@/components/AccountMenu'
 import { ChatRow } from '@/components/ChatRow'
 import { Button } from '@/components/Button'
 import { InputField } from '@/components/InputField'
@@ -65,6 +66,10 @@ function BrainThreadsPageInner() {
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
     : ''
 
+  const planLabel = user?.planType
+    ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
+    : undefined
+
   // ── Thread list state ─────────────────────────────────────────────────────
 
   const [threads,     setThreads]     = useState<BrainChatListItem[]>([])
@@ -124,9 +129,6 @@ function BrainThreadsPageInner() {
 
       {/* ── Left sidebar ── */}
       <Sidebar
-        userName={displayName || 'Account'}
-        userEmail={user?.email ?? ''}
-        isAuthenticated={isAuthenticated}
         defaultBodySection="workflow"
         defaultCollapsed={sidebarCollapsedRef.current}
         onCollapse={handleSidebarCollapse}
@@ -144,9 +146,22 @@ function BrainThreadsPageInner() {
         onChatsClick={() => { toast.info("Opening Chat Board"); push('/chats') }}
         onPersonasClick={() => { toast.info("Opening Personas"); push('/personas') }}
         onProjectsClick={() => { toast.info("Opening Projects"); push('/projects') }}
-        onSettingsClick={() => push('/settings')}
-        onHelpClick={() => push('/settings/help')}
-        onLogoutClick={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
+        accountMenu={(collapsed) => (
+          <AccountMenu
+            name={displayName || 'Account'}
+            plan={planLabel}
+            credits={user?.creditsRemaining ?? undefined}
+            avatarSrc={user?.profilePicture ?? undefined}
+            collapsed={collapsed}
+            panelWidth={274}
+            placement="top-start"
+            onProfile={() => push('/settings/account')}
+            onUpgradePlan={() => push('/settings/billing')}
+            onSettings={() => push('/settings')}
+            onHelp={() => push('/settings/help')}
+            onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
+          />
+        )}
       />
 
       {/* ── Main content ── */}

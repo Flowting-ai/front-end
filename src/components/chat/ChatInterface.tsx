@@ -13,7 +13,7 @@ import {
 } from "./AttachmentManager";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useFileUpload } from "@/hooks/use-file-upload";
-import { useChatState } from "@/hooks/use-chat-state";
+import { useChatState, type UseChatStateOptions, type UIMessage } from "@/hooks/use-chat-state";
 import {
   useStreamingChat,
   type StreamState,
@@ -140,6 +140,37 @@ interface ChatInterfaceProps {
    * Use when a persona's model is locked and should not be changed.
    */
   disabledModelSelector?: boolean;
+  /**
+   * Override the SSE proxy endpoint. Defaults to "/api/chat".
+   * Set to "/api/persona-chat" for persona-scoped chats.
+   */
+  endpoint?: string;
+  /**
+   * Custom backend stop handler. When provided, called instead of the default
+   * POST /chats/{id}/stop. Use for persona or brain stop endpoints.
+   */
+  onStopBackend?: (chatId: string) => void;
+  /**
+   * Connector slugs forwarded to the backend on every send.
+   * Used by persona chats that have connectors wired to a specific version.
+   */
+  connectorSlugs?: string[];
+  /**
+   * Rendered when the message list is empty and not loading.
+   * Use to show a persona avatar / greeting instead of nothing.
+   */
+  emptyState?: React.ReactNode;
+  /**
+   * Override the default message fetcher (getChatMessages).
+   * When provided, called with the chatId on mount; must return UIMessage[].
+   * Pagination is disabled when this is set.
+   */
+  loadMessages?: (chatId: string) => Promise<UIMessage[]>;
+  /**
+   * When true, hide the pin @-mention dropdown and chips.
+   * Persona chats don't use pins.
+   */
+  hidePinActions?: boolean;
 }
 
 export function ChatInterface({
@@ -168,6 +199,12 @@ export function ChatInterface({
   selectedStyleId,
   scrollToMessageId,
   disabledModelSelector,
+  endpoint,
+  onStopBackend,
+  connectorSlugs,
+  emptyState,
+  loadMessages,
+  hidePinActions = false,
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
@@ -226,6 +263,12 @@ export function ChatInterface({
     );
   }, [pins, pinQuery]);
 
+  const chatStateOptions = useMemo<UseChatStateOptions | undefined>(
+    () => loadMessages ? { loadMessages } : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadMessages identity is stable per render of the caller
+    [loadMessages],
+  )
+
   const {
     messages: rawMessages,
     setMessages,
@@ -236,7 +279,7 @@ export function ChatInterface({
     addLoadingAssistantMessage,
     rollbackLast,
     markChatAsOptimistic,
-  } = useChatState(chatId);
+  } = useChatState(chatId, chatStateOptions);
 
   const messages = rawMessages ?? [];
 
@@ -263,6 +306,8 @@ export function ChatInterface({
     onChatMoveToTop: (id) => moveToTop(id),
     setStreamState,
     onStreamDone: refreshUser,
+    ...(endpoint ? { endpoint } : {}),
+    ...(onStopBackend ? { onStopBackend } : {}),
   });
 
   const isStreaming = streamState === "streaming" || streamState === "waiting";
@@ -309,6 +354,7 @@ export function ChatInterface({
         systemPrompt: selectedPersonaSystemPrompt ?? undefined,
         temperature: selectedPersonaTemperature ?? undefined,
         toneId: selectedStyleId ?? undefined,
+        connectorSlugs: connectorSlugs && connectorSlugs.length > 0 ? connectorSlugs : undefined,
         onUploadProgress: files.length > 0 ? (pct) => {
           setMessages((prev) => prev.map((msg) =>
             msg.id !== userMsgId ? msg : {
@@ -514,6 +560,7 @@ export function ChatInterface({
         systemPrompt: selectedPersonaSystemPrompt ?? undefined,
         temperature: selectedPersonaTemperature ?? undefined,
         toneId: selectedStyleId ?? undefined,
+        connectorSlugs: connectorSlugs && connectorSlugs.length > 0 ? connectorSlugs : undefined,
         onUploadProgress: allFiles.length > 0 ? (pct) => {
           setMessages((prev) => prev.map((msg) =>
             msg.id !== userMsgId ? msg : {
@@ -641,7 +688,7 @@ export function ChatInterface({
         }}
       >
         <div style={{ width: "100%", maxWidth: "720px" }}>
-          {/* Loading indicator for pagination */}
+          {/* Loading indicator */}
           {isLoadingMessages && (
             <div
               style={{
@@ -653,6 +700,9 @@ export function ChatInterface({
               <LoadingSpinner size={20} />
             </div>
           )}
+
+          {/* Empty state — shown when no messages and not loading */}
+          {!isLoadingMessages && messages.length === 0 && emptyState}
 
           {/* Messages — virtualised: only renders visible rows */}
           <div style={{ position: 'relative', height: msgVirtualizer.getTotalSize() }}>
@@ -728,14 +778,16 @@ export function ChatInterface({
           ref={inputWrapperRef}
           style={{ width: "100%", maxWidth: "754px", position: "relative" }}
         >
-          <PinMentionDropdown
-            isOpen={showPinDropdown}
-            pins={filteredPins}
-            query={pinQuery}
-            highlightedIndex={highlightedPinIndex}
-            onHighlight={setHighlightedPinIndex}
-            onSelect={handlePinSelect}
-          />
+          {!hidePinActions && (
+            <PinMentionDropdown
+              isOpen={showPinDropdown}
+              pins={filteredPins}
+              query={pinQuery}
+              highlightedIndex={highlightedPinIndex}
+              onHighlight={setHighlightedPinIndex}
+              onSelect={handlePinSelect}
+            />
+          )}
 
           <ChatInput
             value={inputValue}
@@ -749,7 +801,7 @@ export function ChatInterface({
             modelMenu={modelMenu}
             disabledModelSelector={disabledModelSelector}
             chips={
-              mentionedPins.length > 0 ? (
+              !hidePinActions && mentionedPins.length > 0 ? (
                 <>
                   {mentionedPins.map((mp) => (
                     <MentionChip
@@ -774,9 +826,9 @@ export function ChatInterface({
             isStreaming={isStreaming}
             disabled={isStreaming}
             placeholder="How can I help you today?"
-            onMentionChange={handleMentionChange}
-            isPinDropdownOpen={showPinDropdown}
-            onPinNavigate={handlePinNavigate}
+            onMentionChange={hidePinActions ? undefined : handleMentionChange}
+            isPinDropdownOpen={hidePinActions ? false : showPinDropdown}
+            onPinNavigate={hidePinActions ? undefined : handlePinNavigate}
           />
         </div>
 

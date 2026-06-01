@@ -393,6 +393,39 @@ function normalizeMathDelimiters(content: string): string {
   return out;
 }
 
+// LLMs sometimes generate bold text that spans a paragraph break, e.g.:
+//   "...indicates that **Gmail is not enabled\n\n**. This typically happens with **\n\nGoogle Workspace\n\n** accounts..."
+//
+// Standard markdown parsers (remark included) reset all inline formatting at every
+// paragraph boundary (\n\n). Any ** pair that crosses such a break is never
+// recognised as bold — both markers render as literal asterisks, corrupting the
+// rest of the document's bold state.
+//
+// Fix: find every **…** span (lazy, shortest-first) and, when the inner content
+// contains a paragraph break, collapse it to a single space so the span becomes
+// a valid single-paragraph inline-bold. Empty spans (** \n\n **) are removed.
+// Code fences and inline code spans are protected before the scan.
+function collapseInterParagraphBold(content: string): string {
+  const codeBlocks: string[] = []
+  const guarded = content.replace(/```[\s\S]*?```|`[^`\n]+`/g, m => {
+    codeBlocks.push(m)
+    return `\x02${codeBlocks.length - 1}\x02`
+  })
+
+  const fixed = guarded.replace(/\*\*([\s\S]*?)\*\*/g, (_match, inner: string, offset: number) => {
+    if (!inner.includes('\n\n')) return _match
+    const collapsed = inner.replace(/\n{2,}/g, ' ').trim()
+    if (!collapsed) return ''
+    // If the bold marker directly follows a non-whitespace character (e.g. "Gmail.**"),
+    // the collapsed paragraph break was the only separator — restore a space before **.
+    const charBefore = offset > 0 ? guarded[offset - 1] : ' '
+    const prefix = /\S/.test(charBefore) ? ' ' : ''
+    return `${prefix}**${collapsed}**`
+  })
+
+  return fixed.replace(/\x02(\d+)\x02/g, (_, n) => codeBlocks[Number(n)] ?? '')
+}
+
 // When the model outputs **Title** mid-sentence with no surrounding whitespace
 // (e.g. "...for 2026.**Planning the search**I'll perform..."), insert blank lines
 // so ReactMarkdown treats it as a standalone paragraph/heading rather than inline bold.
@@ -530,14 +563,15 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
 
   const processed = useMemo(() => {
     // Pipeline (innermost runs first):
-    //   repairCrossParaBold      — per-paragraph ** balance (paragraph-break cascade fix)
-    //   normalizeInlineBoldTitles — within-paragraph cross-line-break ** collapse
-    //   fixOrphanedBold          — lone ** lines, ** before bullets, doc-level balance
-    //   normalizeMathDelimiters  — LaTeX delimiter normalisation
-    //   closeOpenFences          — unclosed code fence guard
+    //   collapseInterParagraphBold — collapse \n\n inside **…** spans so remark sees valid bold
+    //   repairCrossParaBold        — per-paragraph ** balance (paragraph-break cascade fix)
+    //   normalizeInlineBoldTitles  — within-paragraph cross-line-break ** collapse
+    //   fixOrphanedBold            — lone ** lines, ** before bullets, doc-level balance
+    //   normalizeMathDelimiters    — LaTeX delimiter normalisation
+    //   closeOpenFences            — unclosed code fence guard
     const base = hasCitations
-      ? closeOpenFences(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(preprocessCitations(content))))))
-      : closeOpenFences(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(content)))));
+      ? closeOpenFences(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(collapseInterParagraphBold(preprocessCitations(content)))))))
+      : closeOpenFences(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(collapseInterParagraphBold(content))))));
     // Sanitise only when we're about to ask rehype-raw to parse HTML —
     // for pure-markdown rendering, DOMPurify's HTML-context parsing can
     // corrupt characters like `<` that appear in code blocks or math.

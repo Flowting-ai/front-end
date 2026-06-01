@@ -16,7 +16,7 @@
 
 import React from "react"
 import { parseContentSegments } from "./content-parser"
-import { MarkdownRenderer } from "./markdown-utils"
+import { LineRenderer } from "./line-renderer"
 import type { HighlightSpec } from "./markdown-utils"
 import { XmlTable } from "@/components/chat/XmlTable"
 import { XmlChart } from "@/components/chat/XmlChart"
@@ -115,15 +115,10 @@ export function ContentRenderer({
           return null
         }
 
-        // Use MarkdownRenderer for both streaming and completed messages.
-        // This provides full GFM tables, fenced code highlighting, KaTeX math,
-        // and proper block-level structure at all times — matching the quality
-        // of ChatGPT and Claude. The closeOpenFences preprocessing inside
-        // MarkdownRenderer handles partially-streamed code fences gracefully.
         return (
           // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- segment index is stable; no other unique key available
           <React.Fragment key={i}>
-            <MarkdownRenderer
+            <LineRenderer
               content={seg.text}
               webCitations={webCitations}
               highlights={isStreaming ? undefined : highlights}

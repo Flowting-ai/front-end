@@ -1381,6 +1381,12 @@ export function Pin({
                   aria-label="Add a comment"
                   defaultValue={comments?.[0]?.content ?? ''}
                   style={{ width: '100%' }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      ;(e.target as HTMLInputElement).blur()
+                    }
+                  }}
                 />
               </m.div>
             )}

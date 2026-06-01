@@ -21,7 +21,7 @@ import {
   Brain03Icon,
 } from "@hugeicons/core-free-icons";
 import { LlmIcon } from "@strange-huge/icons/llm";
-import { MarkdownRenderer } from "@/lib/markdown-utils";
+import { LineRenderer } from "@/lib/line-renderer";
 import { ActivitiesSection } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
 import { springs } from "@/lib/springs";
@@ -483,7 +483,7 @@ function ThinkingContent({
             marginTop: hasActivities ? 8 : 0,
           }}
         >
-          <MarkdownRenderer content={thinkingContent} />
+          <LineRenderer content={thinkingContent} />
           <StreamingCursor isVisible={isStreaming} />
         </div>
       ) : null}
@@ -710,5 +710,5 @@ export function ReasoningBlock({
 /** Legacy export kept for any external callers */
 export const renderReasoningContent = (text: string): React.ReactNode => {
   if (!text) return null;
-  return <MarkdownRenderer content={text} />;
+  return <LineRenderer content={text} />;
 };

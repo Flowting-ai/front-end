@@ -98,7 +98,7 @@ const CreditsBadge = ({ credits }: { credits: number }) => (
         whiteSpace: 'nowrap',
       }}
     >
-      {credits} credits
+      {credits} credits left
     </span>
   </div>
 )

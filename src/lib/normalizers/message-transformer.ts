@@ -26,13 +26,18 @@ function filenameFromUrl(url: string): string {
 
 /**
  * Normalise the `file_attachments` array from a backend message into
- * separate `generatedFiles` and `attachments` lists for the UIMessage.
+ * separate `generatedFiles`, `images`, and `attachments` lists for the UIMessage.
+ *
+ * Generated image files (mime_type starts with "image/") are routed to `images`
+ * for inline display; all other generated files go to `generatedFiles` (download
+ * card). Uploaded files are restored into `attachments` with their backend URLs.
  */
-function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" | "attachments"> {
+function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" | "images" | "attachments"> {
   const rawAtts = raw.file_attachments;
   if (!Array.isArray(rawAtts) || rawAtts.length === 0) return {};
 
   const generatedFiles: GeneratedFile[] = [];
+  const generatedImages: import("@/hooks/use-chat-state").GeneratedImage[] = [];
   const uploadedAttachments: import("@/types/chat").Attachment[] = [];
 
   for (const att of rawAtts) {
@@ -47,7 +52,13 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" 
       : filenameFromUrl(url);
 
     if (origin === "generated") {
-      generatedFiles.push({ url, filename, mimeType });
+      if (mimeType && mimeType.startsWith("image/")) {
+        // Route generated images to msg.images so they render inline,
+        // matching the behaviour of the `image` SSE event during streaming.
+        generatedImages.push({ url });
+      } else {
+        generatedFiles.push({ url, filename, mimeType });
+      }
     } else if (origin === "uploaded" || origin === "user") {
       // Populate the user message bubble with the actual backend URL after a page refresh.
       uploadedAttachments.push({
@@ -62,21 +73,23 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" 
 
   return {
     ...(generatedFiles.length > 0 ? { generatedFiles } : {}),
+    ...(generatedImages.length > 0 ? { images: generatedImages } : {}),
     ...(uploadedAttachments.length > 0 ? { attachments: uploadedAttachments } : {}),
   };
 }
 
 /** Converts a raw API Message into a UIMessage ready for rendering. */
 export function toUIMessage(raw: Message): UIMessage {
-  // ── modelName + modelMeta from model_name field ──────────────────────────
+  // ── modelName + modelMeta from model_name (or model) field ─────────────
   let modelName: string | undefined;
   let modelMeta: ModelSelectedMeta | undefined;
-  if (raw.model_name) {
-    modelName = raw.model_name;
+  const rawModelName = raw.model_name ?? raw.model;
+  if (rawModelName) {
+    modelName = rawModelName;
     modelMeta = {
-      modelId: raw.model_name,
-      modelName: raw.model_name,
-      company: inferCompany(raw.model_name),
+      modelId: rawModelName,
+      modelName: rawModelName,
+      company: inferCompany(rawModelName),
     };
   }
 
@@ -128,11 +141,35 @@ export function toUIMessage(raw: Message): UIMessage {
     }
   }
 
-  // ── image_links → images ─────────────────────────────────────────────────
-  // Restore generated images from the persisted image_links field so they
-  // display correctly after a page refresh (no new stream needed).
-  const restoredImages = raw.image_links && raw.image_links.length > 0
+  // ── images: merge image_links + generated image file_attachments ─────────
+  // Two sources can contribute inline images after a page refresh:
+  //   1. raw.image_links  — legacy/explicit image URL list from the backend
+  //   2. fileData.images  — image/* files routed from file_attachments (e.g.
+  //                         image-generation tools that store result as an
+  //                         attachment with origin="generated" + image/* mime)
+  // Merge both, deduplicating by URL so a URL that appears in both doesn't
+  // render twice.
+  const imageFromLinks = raw.image_links && raw.image_links.length > 0
     ? raw.image_links.map((url) => ({ url }))
+    : [];
+  const imageFromAtts = fileData.images ?? [];
+  const seenImageUrls = new Set<string>();
+  const mergedImages: import("@/hooks/use-chat-state").GeneratedImage[] = [];
+  for (const img of [...imageFromLinks, ...imageFromAtts]) {
+    if (!seenImageUrls.has(img.url)) {
+      seenImageUrls.add(img.url);
+      mergedImages.push(img);
+    }
+  }
+  const restoredImages = mergedImages.length > 0 ? mergedImages : undefined;
+
+  // ── response_blocks → responseBlocks ─────────────────────────────────────
+  // Restore structured response blocks (tables, charts, steps, etc.) that were
+  // produced during streaming via structured_block SSE events and persisted by
+  // the backend in response_blocks. Without this, structured content disappears
+  // on page refresh.
+  const restoredResponseBlocks = Array.isArray(raw.response_blocks) && raw.response_blocks.length > 0
+    ? (raw.response_blocks as import("@/hooks/use-chat-state").ResponseBlock[])
     : undefined;
 
   return {
@@ -146,6 +183,7 @@ export function toUIMessage(raw: Message): UIMessage {
     ...(mergedAttachments ? { attachments: mergedAttachments } : {}),
     ...(fileData.generatedFiles ? { generatedFiles: fileData.generatedFiles } : {}),
     ...(restoredImages ? { images: restoredImages } : {}),
+    ...(restoredResponseBlocks ? { responseBlocks: restoredResponseBlocks } : {}),
   }
 }
 

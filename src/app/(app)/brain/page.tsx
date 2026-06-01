@@ -22,6 +22,7 @@ import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
 import { useAuth } from '@/context/auth-context'
 import { useModelSelectorContext } from '@/context/model-selector-context'
+import { AccountMenu } from '@/components/AccountMenu'
 import { BrainSidebarSections } from './BrainSidebarSections'
 import type { Phase, PlanStep, StepStatus } from '@/templates/Brain/lib/phase'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
@@ -80,6 +81,26 @@ export default function BrainPage() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Converts a raw tool slug to a human-readable display name.
+ * Handles both SCREAMING_SNAKE_CASE connector slugs (GMAIL_SEND_EMAIL)
+ * and lowercase snake_case tool names (gmail_send_email).
+ *   GMAIL_SEND_EMAIL → Gmail: Send Email
+ *   run_connector_tool → run connector tool
+ */
+function formatToolSlug(slug: string): string {
+  if (!slug) return 'Tool'
+  // SCREAMING_SNAKE → treat first segment as service, rest as action
+  if (/^[A-Z][A-Z0-9_]+$/.test(slug)) {
+    const parts = slug.split('_')
+    const service = parts[0].charAt(0) + parts[0].slice(1).toLowerCase()
+    const action  = parts.slice(1).map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ')
+    return action ? `${service}: ${action}` : service
+  }
+  // lowercase_snake → space-separated
+  return slug.replace(/_/g, ' ')
+}
 
 function mapBackendStepStatus(status?: string): StepStatus {
   switch (status) {
@@ -809,7 +830,7 @@ type ActivityFeedItem =
   | { kind: 'web_search'; data: WebSearchEvent;     id: string }
   | { kind: 'image';      data: ImageEvent;         id: string }
   | { kind: 'file';       data: GeneratedFileEvent; id: string }
-  | { kind: 'tool';       data: ToolCallPreview;    id: string; status: 'streaming' | 'executing' | 'complete' }
+  | { kind: 'tool';       data: ToolCallPreview;    id: string; status: 'streaming' | 'executing' | 'complete' | 'failed' }
   | { kind: 'progress';   data: ToolProgressEvent;  id: string }
 
 // ── Turn timeline ─────────────────────────────────────────────────────────────
@@ -862,7 +883,12 @@ function ActivityFeed({ items }: { items: ActivityFeedItem[] }) {
             <div key={item.id} style={feedRowStyle}>
               <span style={feedLabelStyle}>Tool</span>
               <span style={feedValueStyle}>{item.data.name ?? 'unknown'}</span>
-              <span style={feedMetaStyle}>{item.status}</span>
+              <span style={{
+                ...feedMetaStyle,
+                ...(item.status === 'failed' ? { color: 'var(--red-500, #DC3545)' } : {}),
+              }}>
+                {item.status === 'failed' ? 'failed' : item.status === 'complete' ? 'done' : item.status}
+              </span>
             </div>
           )
           case 'progress': return (
@@ -966,6 +992,10 @@ function BrainPageInner() {
   const displayName = user
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
     : ''
+
+  const planLabel = user?.planType
+    ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
+    : undefined
 
   // ── Sidebar collapse state — shared via localStorage with all other pages ─────
 
@@ -2426,6 +2456,47 @@ function BrainPageInner() {
     // the clean user text, not the full injected message).
     const cleanInput = stripDocumentBlocks(msg.input)
     const msgAttachments = storedHistoryAttachments[cleanInput]
+
+    // Map persisted tool_calls into ActivityFeedItem[] for the history view.
+    const rawToolCalls = (msg.tool_calls ?? []) as Array<Record<string, unknown>>
+    const historyToolItems: ActivityFeedItem[] = rawToolCalls
+      .map((tc, idx): ActivityFeedItem | null => {
+        const tool = typeof tc.tool === 'string' ? tc.tool : ''
+        const args = (tc.args && typeof tc.args === 'object' ? tc.args : {}) as Record<string, unknown>
+
+        if (tool === 'web_search') {
+          const query = typeof args.query === 'string' ? args.query : ''
+          return { kind: 'web_search', data: { query, links: [] }, id: `${msg.id}-tc-${idx}` }
+        }
+        if (tool === 'web_read') {
+          const url = typeof args.url === 'string' ? args.url : ''
+          let hostname = url
+          try { hostname = new URL(url).hostname } catch { /* use raw url */ }
+          return { kind: 'tool', data: { name: `Read: ${hostname}` }, id: `${msg.id}-tc-${idx}`, status: 'complete' }
+        }
+        // run_connector_tool / gmail_send_email / list_connector_tools etc
+        if (tool === 'list_connectors' || tool === 'list_connector_tools') return null // internal, don't show
+
+        // Display name: prefer args.tool_slug (e.g. GMAIL_SEND_EMAIL → Gmail: Send Email),
+        // otherwise humanise the tool function name (gmail_send_email → gmail send email).
+        const rawSlug = typeof args.tool_slug === 'string' ? args.tool_slug : tool
+        const toolName = formatToolSlug(rawSlug)
+
+        // Detect success/failure from the tool output JSON.
+        // `successful === false` or a top-level `error` field means the call failed.
+        let toolStatus: 'streaming' | 'executing' | 'complete' | 'failed' = 'complete'
+        if (typeof tc.output === 'string') {
+          try {
+            const parsed = JSON.parse(tc.output)
+            if (parsed?.successful === false || (parsed?.error && !parsed?.data?.display_url)) {
+              toolStatus = 'failed'
+            }
+          } catch { /* not JSON, keep as complete */ }
+        }
+        return { kind: 'tool', data: { name: toolName }, id: `${msg.id}-tc-${idx}`, status: toolStatus }
+      })
+      .filter((x): x is ActivityFeedItem => x !== null)
+
     return (
       <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
@@ -2439,6 +2510,7 @@ function BrainPageInner() {
             completedAt={msg.created_at ? new Date(msg.created_at) : undefined}
           />
         )}
+        {historyToolItems.length > 0 && <ActivityFeed items={historyToolItems} />}
         {images.length > 0 && <MessageImages images={images} />}
         {msg.output && (
           <StreamingMessageBubble content={msg.output} isComplete />
@@ -2900,9 +2972,6 @@ function BrainPageInner() {
         ),
       }}
       sidebarProps={{
-        userName:           displayName || 'Account',
-        userEmail:          user?.email ?? '',
-        isAuthenticated,
         defaultBodySection: 'workflow',
         hideProjects:       true,
         defaultCollapsed:   sidebarCollapsedRef.current,
@@ -2919,10 +2988,23 @@ function BrainPageInner() {
         onChatsClick:    () => { toast.info("Opening Chat Board"); push('/chats') },
         onPersonasClick: () => { toast.info("Opening Personas"); push('/personas') },
         onProjectsClick: () => { toast.info("Opening Projects"); push('/projects') },
-        onSettingsClick: () => push('/settings'),
-        onHelpClick:     () => push('/settings/help'),
-        onLogoutClick:   () => { void logout() },
         onBrainClick:    () => push('/brain/threads'),
+        accountMenu: (collapsed) => (
+          <AccountMenu
+            name={displayName || 'Account'}
+            plan={planLabel}
+            credits={user?.creditsRemaining ?? undefined}
+            avatarSrc={user?.profilePicture ?? undefined}
+            collapsed={collapsed}
+            panelWidth={274}
+            placement="top-start"
+            onProfile={() => push('/settings/account')}
+            onUpgradePlan={() => push('/settings/billing')}
+            onSettings={() => push('/settings')}
+            onHelp={() => push('/settings/help')}
+            onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
+          />
+        ),
       }}
     >
       {chatIdFromUrl || hasContent ? (

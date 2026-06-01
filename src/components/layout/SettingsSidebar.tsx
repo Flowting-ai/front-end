@@ -23,11 +23,11 @@ import { toast } from 'sonner'
 const MY_SETTINGS_ITEMS = [
   { id: 'account',       label: 'Account',         href: '/settings/account',       icon: <UserAiIcon        size={20} />, disabled: false },
   { id: 'billing',       label: 'Usage & Billing',  href: '/settings/billing',       icon: <AbacusIcon        size={20} />, disabled: false },
-  { id: 'files',         label: 'Files & Data',     href: '/settings/files',         icon: <FolderLibraryIcon size={20} />, disabled: true  },
+  // { id: 'files',         label: 'Files & Data',     href: '/settings/files',         icon: <FolderLibraryIcon size={20} />, disabled: true  },
   { id: 'ai',            label: 'AI & Models',      href: '/settings/ai',            icon: <NeuralNetworkIcon size={20} />, disabled: false },
-  { id: 'notifications', label: 'Notifications',    href: '/settings/notifications', icon: <BubbleChatIcon    size={20} />, disabled: true  },
-  { id: 'preferences',   label: 'Preference',       href: '/settings/preferences',   icon: <FolderOneIcon     size={20} />, disabled: true  },
-  { id: 'security',      label: 'Security',         href: '/settings/security',      icon: <FolderOneIcon     size={20} />, disabled: true  },
+  // { id: 'notifications', label: 'Notifications',    href: '/settings/notifications', icon: <BubbleChatIcon    size={20} />, disabled: true  },
+  // { id: 'preferences',   label: 'Preference',       href: '/settings/preferences',   icon: <FolderOneIcon     size={20} />, disabled: true  },
+  // { id: 'security',      label: 'Security',         href: '/settings/security',      icon: <FolderOneIcon     size={20} />, disabled: true  },
   { id: 'connectors',    label: 'Connectors',       href: '/settings/connectors',    icon: <LinkSixIcon       size={20} />, disabled: false },
   { id: 'help',          label: 'Help & Legal',     href: '/settings/help',          icon: <FolderOneIcon     size={20} />, disabled: false },
 ]
@@ -153,7 +153,7 @@ export function SettingsSidebar() {
           </div>
         </div>
 
-        {/* Organization section */}
+        {/* Organization section — hidden for now
         <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -195,6 +195,7 @@ export function SettingsSidebar() {
             ))}
           </div>
         </div>
+        */}
       </div>
 
       {/* ── Account menu — fixed ── */}

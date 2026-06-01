@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { CardBrandLogo } from '@/components/CardBrandLogo'
 
 // ── Shared buttons ─────────────────────────────────────────────────────────────
 
@@ -192,27 +193,8 @@ function CardHeader({
   )
 }
 
-// ── Visa card SVG ─────────────────────────────────────────────────────────────
-
-function VisaCard() {
-  return (
-    <div style={{
-      width:           63,
-      height:          44,
-      borderRadius:    6,
-      backgroundColor: '#1a1f71',
-      display:         'flex',
-      alignItems:      'center',
-      justifyContent:  'center',
-      flexShrink:      0,
-      boxShadow:       '0px 1px 3px 0px rgba(0,0,0,0.2)',
-    }}>
-      <svg width="40" height="14" viewBox="0 0 40 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M15.15 13.2H12.3L14.1 0.8H16.95L15.15 13.2ZM10.05 0.8L7.35 9.2L7.05 7.6L6.15 2C6.15 2 6 0.8 4.5 0.8H0.15L0 0.95C0 0.95 1.35 1.25 2.85 2.15L5.4 13.2H8.4L13.05 0.8H10.05ZM37.5 13.2H40.2L37.8 0.8H35.55C34.2 0.8 33.9 1.8 33.9 1.8L29.55 13.2H32.55L33.15 11.55H36.75L37.5 13.2ZM33.9 9.3L35.4 5.1L36.3 9.3H33.9ZM29.1 3.6L29.55 0.95C29.55 0.95 28.35 0.5 27.15 0.5C25.5 0.5 21.9 1.2 21.9 4.35C21.9 7.35 25.95 7.35 25.95 8.9C25.95 10.5 22.35 10.2 21.15 9.15L20.7 11.9C20.7 11.9 21.9 12.5 23.7 12.5C25.5 12.5 29.85 11.55 29.85 8.1C29.85 4.95 25.65 4.65 25.65 3.3C25.65 1.95 28.35 2.1 29.1 3.6Z" fill="white" />
-      </svg>
-    </div>
-  )
-}
+// ── Card brand logo (now uses shared CardBrandLogo component) ─────────────────
+// Kept for quick reference: brand can be 'visa' | 'mastercard' | 'amex' | 'discover' | 'diners' | 'jcb' | 'unionpay' | 'unknown'
 
 // ── Paid status badge ─────────────────────────────────────────────────────────
 
@@ -532,7 +514,7 @@ export default function OrgPlansPage() {
             gap:        12,
             padding:    '12px 24px',
           }}>
-            <VisaCard />
+            <CardBrandLogo brand="visa" />
             <div style={{ flex: '1 0 0', minWidth: 0 }}>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                 Card ending in 1234

@@ -123,6 +123,14 @@ async function doFetch(path: string, options: ApiFetchOptions): Promise<Response
     headers.set(key, value);
   }
 
+  // Send timezone and locale info to the backend.
+  if (typeof window !== "undefined") {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz) headers.set("X-Timezone", tz);
+    const locale = navigator.language;
+    if (locale) headers.set("X-Locale", locale);
+  }
+
   return fetch(url, { credentials: "include", ...options, headers });
 }
 

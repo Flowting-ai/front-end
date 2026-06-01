@@ -325,39 +325,53 @@ export function useStreamingChat({
               : null
 
             if (universalMsgId && universalAtts) {
-              const toAdd = universalAtts
-                .flatMap((a) => {
-                  if (a.origin !== "generated") return []
-                  const url = (
-                    typeof a.file_link === "string" ? a.file_link
-                    : typeof a.url === "string" ? a.url
-                    : typeof a.link === "string" ? a.link
-                    : ""
-                  ).trim()
-                  if (!url) return []
+              const newGeneratedFiles: import("@/hooks/use-chat-state").GeneratedFile[] = []
+              const newGeneratedImages: import("@/hooks/use-chat-state").GeneratedImage[] = []
+
+              for (const a of universalAtts) {
+                if (a.origin !== "generated") continue
+                const url = (
+                  typeof a.file_link === "string" ? a.file_link
+                  : typeof a.url === "string" ? a.url
+                  : typeof a.link === "string" ? a.link
+                  : ""
+                ).trim()
+                if (!url) continue
+                const mimeType = typeof a.mime_type === "string" ? a.mime_type : undefined
+                if (mimeType && mimeType.startsWith("image/")) {
+                  // Route generated images to msg.images for inline display,
+                  // matching the `image` SSE event behaviour.
+                  newGeneratedImages.push({ url })
+                } else {
                   const rawName =
                     typeof a.file_name === "string" ? a.file_name
                     : typeof a.name === "string" ? a.name
                     : undefined
-                  const filename =
-                    rawName?.trim() || url.split("/").pop() || "file"
-                  const mimeType =
-                    typeof a.mime_type === "string" ? a.mime_type : undefined
-                  return [{ url, filename, mimeType }]
-                })
-              if (toAdd.length > 0) {
+                  const filename = rawName?.trim() || url.split("/").pop() || "file"
+                  newGeneratedFiles.push({ url, filename, mimeType })
+                }
+              }
+
+              if (newGeneratedFiles.length > 0 || newGeneratedImages.length > 0) {
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== universalMsgId) return msg
-                    const existing = msg.generatedFiles ?? []
-                    const existingUrls = new Set(existing.map((f) => f.url))
-                    const newFiles: import("@/hooks/use-chat-state").GeneratedFile[] = []
-                    for (const f of toAdd) {
-                      if (!existingUrls.has(f.url)) newFiles.push(f)
+                    let updated = msg
+                    if (newGeneratedFiles.length > 0) {
+                      const existingUrls = new Set((msg.generatedFiles ?? []).map((f) => f.url))
+                      const toAdd = newGeneratedFiles.filter((f) => !existingUrls.has(f.url))
+                      if (toAdd.length > 0) {
+                        updated = { ...updated, generatedFiles: [...(updated.generatedFiles ?? []), ...toAdd] }
+                      }
                     }
-                    return newFiles.length > 0
-                      ? { ...msg, generatedFiles: [...existing, ...newFiles] }
-                      : msg
+                    if (newGeneratedImages.length > 0) {
+                      const existingUrls = new Set((msg.images ?? []).map((i) => i.url))
+                      const toAdd = newGeneratedImages.filter((i) => !existingUrls.has(i.url))
+                      if (toAdd.length > 0) {
+                        updated = { ...updated, images: [...(updated.images ?? []), ...toAdd] }
+                      }
+                    }
+                    return updated
                   }),
                 )
               }
@@ -497,39 +511,56 @@ export function useStreamingChat({
               }
             }
 
-            // ── file_attachments → generatedFiles ─────────────────────────────
+            // ── file_attachments → generatedFiles / images ────────────────────
             // The backend returns uploaded + generated files in `file_attachments`.
-            // origin === "generated" → render as downloadable files in the assistant bubble.
+            // origin === "generated" + image/* mime → inline image display (msg.images)
+            // origin === "generated" + other       → downloadable file card (msg.generatedFiles)
             if (currentMsgId) {
               const rawAtts = Array.isArray(savedMsg.file_attachments)
                 ? (savedMsg.file_attachments as Array<Record<string, unknown>>)
                 : []
-              const generatedFromSaved: import("@/hooks/use-chat-state").GeneratedFile[] = rawAtts
-                .flatMap((a) => {
-                  if (a.origin !== "generated") return []
-                  const url = (
-                    typeof a.file_link === "string" ? a.file_link :
-                    typeof a.url      === "string" ? a.url :
-                    typeof a.link     === "string" ? a.link : ""
-                  ).trim()
-                  if (!url) return []
+              const generatedFromSaved: import("@/hooks/use-chat-state").GeneratedFile[] = []
+              const imagesFromSaved: import("@/hooks/use-chat-state").GeneratedImage[] = []
+
+              for (const a of rawAtts) {
+                if (a.origin !== "generated") continue
+                const url = (
+                  typeof a.file_link === "string" ? a.file_link :
+                  typeof a.url      === "string" ? a.url :
+                  typeof a.link     === "string" ? a.link : ""
+                ).trim()
+                if (!url) continue
+                const mimeType = typeof a.mime_type === "string" ? a.mime_type : undefined
+                if (mimeType && mimeType.startsWith("image/")) {
+                  imagesFromSaved.push({ url })
+                } else {
                   const rawName = typeof a.file_name === "string" ? a.file_name
                     : typeof a.name === "string" ? a.name : undefined
                   const filename = rawName?.trim() || url.split("/").pop() || "file"
-                  const mimeType = typeof a.mime_type === "string" ? a.mime_type : undefined
-                  return [{ url, filename, mimeType }]
-                })
+                  generatedFromSaved.push({ url, filename, mimeType })
+                }
+              }
 
-              if (generatedFromSaved.length > 0) {
+              if (generatedFromSaved.length > 0 || imagesFromSaved.length > 0) {
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== currentMsgId) return msg
-                    const existing = msg.generatedFiles ?? []
-                    const existingUrls = new Set(existing.map((f) => f.url))
-                    const toAdd = generatedFromSaved.filter((f) => !existingUrls.has(f.url))
-                    return toAdd.length > 0
-                      ? { ...msg, generatedFiles: [...existing, ...toAdd] }
-                      : msg
+                    let updated = msg
+                    if (generatedFromSaved.length > 0) {
+                      const existingUrls = new Set((msg.generatedFiles ?? []).map((f) => f.url))
+                      const toAdd = generatedFromSaved.filter((f) => !existingUrls.has(f.url))
+                      if (toAdd.length > 0) {
+                        updated = { ...updated, generatedFiles: [...(updated.generatedFiles ?? []), ...toAdd] }
+                      }
+                    }
+                    if (imagesFromSaved.length > 0) {
+                      const existingUrls = new Set((msg.images ?? []).map((i) => i.url))
+                      const toAdd = imagesFromSaved.filter((i) => !existingUrls.has(i.url))
+                      if (toAdd.length > 0) {
+                        updated = { ...updated, images: [...(updated.images ?? []), ...toAdd] }
+                      }
+                    }
+                    return updated
                   }),
                 )
               }
@@ -1161,6 +1192,12 @@ export function useStreamingChat({
             )
 
             streamFinished = true
+            continue
+          }
+
+          if (eventName === "stream_heartbeat") {
+            // Server-sent elapsed-time ping during long/silent generations (e.g. extended thinking).
+            // No UI action needed — the keepalive on the proxy side already handles connection keep-alive.
             continue
           }
 
