@@ -59,6 +59,8 @@ function BillingConfirmationContent() {
         // Give Stripe webhook a moment to propagate
         await new Promise((r) => setTimeout(r, 1500))
         await Promise.all([refreshUser(), fetchBilling()])
+        // Clear the bypass cookie now that sync is complete
+        document.cookie = 'souvenir_checkout_complete=; path=/; max-age=0; SameSite=Lax'
         if (!cancelled) setSyncing(false)
       } catch {
         if (!cancelled) setSyncing(false)

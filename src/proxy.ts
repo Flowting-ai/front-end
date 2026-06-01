@@ -142,7 +142,10 @@ export default async function proxy(request: NextRequest) {
   const cookies = request.headers.get("cookie") ?? "";
   const justCompletedCheckout = cookies.includes("souvenir_checkout_complete=1");
 
-  if (session && hasKnownOnboardingState && !hasOnboarded && !justCompletedCheckout) {
+  // Never block access to the billing confirmation page (post-checkout return from Stripe)
+  const isBillingConfirmation = pathname.startsWith("/settings/billing/confirmation");
+
+  if (session && hasKnownOnboardingState && !hasOnboarded && !justCompletedCheckout && !isBillingConfirmation) {
     return Response.redirect(new URL(onboarding!.nextPath, request.url));
   }
 

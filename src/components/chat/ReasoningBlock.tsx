@@ -83,9 +83,11 @@ export function ModelLogo({
   const iconWrap: React.CSSProperties = {
     width: size, height: size, borderRadius: 4, overflow: "hidden",
     flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 0,
+    userSelect: "none",
   };
-  if (llmId) return <span style={iconWrap}><LlmIcon id={llmId} variant="color" size={size} /></span>;
-  return <SouvenirMark size={size} />;
+  const preventDrag = (e: React.DragEvent) => e.preventDefault();
+  if (llmId) return <span draggable={false} onDragStart={preventDrag} style={iconWrap}><LlmIcon id={llmId} variant="color" size={size} /></span>;
+  return <span draggable={false} onDragStart={preventDrag} style={{ userSelect: "none" }}><SouvenirMark size={size} /></span>;
 }
 
 // ── AnimatedLogo - Souvenir mark → model icon swing-in with glow burst ────────
@@ -108,10 +110,12 @@ function AnimatedLogo({
   const iconWrap: React.CSSProperties = {
     width: 16, height: 16, borderRadius: 4, overflow: "hidden",
     flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 0,
+    userSelect: "none",
   };
+  const preventDrag = (e: React.DragEvent) => e.preventDefault();
 
   return (
-    <div style={{ position: "relative", width: 16, height: 16, flexShrink: 0 }}>
+    <div draggable={false} onDragStart={preventDrag} style={{ position: "relative", width: 16, height: 16, flexShrink: 0, userSelect: "none" }}>
       <AnimatePresence mode="popLayout" initial={false}>
         {!showModel ? (
           <m.div key="souvenir"
@@ -564,7 +568,7 @@ export function ReasoningBlock({
     <div style={{ margin: "4px 0 10px" }}>
 
       {/* ── Outer header ────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20, userSelect: "none" }}>
+      <div draggable={false} style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20, userSelect: "none" }}>
         {/* Animated logo - Souvenir mark while thinking, model icon after model_selected */}
         <AnimatedLogo
           modelMeta={modelMeta}

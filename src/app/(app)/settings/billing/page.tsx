@@ -349,6 +349,7 @@ export default function BillingPage() {
       }
       // Otherwise redirect to Stripe checkout
       const session = await createTopUpSession(TOP_UP_USD)
+      document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
       window.location.href = session.checkout_url
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to start credit purchase')
@@ -361,6 +362,7 @@ export default function BillingPage() {
     setChangingToPlan(targetPlan)
     try {
       const checkout = await createCheckoutSession(targetPlan, 'monthly')
+      document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
       window.location.href = checkout.checkout_url
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update plan')

@@ -47,7 +47,7 @@ const createCheckoutForPlan = async (
     throw new Error("Price not configured for this plan.");
   }
 
-  const appBase = process.env.APP_BASE_URL || "http://localhost:3000";
+  const appBase = (process.env.APP_BASE_URL || "http://localhost:3000").replace(/\/+$/, "");
 
   const successUrl =
     checkoutFlow === "settings_change_plan"

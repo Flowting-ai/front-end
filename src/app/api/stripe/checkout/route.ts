@@ -66,7 +66,7 @@ export async function POST(req: Request) {
   }
 
   // 3. Create Stripe Checkout Session
-  const appBase = process.env.APP_BASE_URL || "http://localhost:3000";
+  const appBase = (process.env.APP_BASE_URL || "http://localhost:3000").replace(/\/+$/, "");
 
   const successUrl =
     checkoutFlow === "settings_change_plan"

@@ -1,9 +1,10 @@
 'use client'
 
 /**
- * BrainContentRenderer — thin wrapper around the shared LineRenderer.
- * LineRenderer is the single implementation used across all chat surfaces:
- * regular chat, persona chat, reasoning blocks, and Brain.
+ * BrainContentRenderer — thin wrapper around ContentRenderer.
+ * ContentRenderer splits content into segments (markdown / table / chart)
+ * and delegates to the appropriate component. This ensures HTML <table>
+ * blocks from the AI render as styled tables instead of raw text.
  */
 
-export { LineRenderer as BrainContentRenderer } from '@/lib/line-renderer'
+export { ContentRenderer as BrainContentRenderer } from '@/lib/content-renderer'

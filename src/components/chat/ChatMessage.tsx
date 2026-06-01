@@ -54,7 +54,7 @@ function StandaloneActivitiesBlock({
   return (
     <div style={{ margin: "4px 0 8px" }}>
       {/* Header row - logo + model name + summary + chevron */}
-      <div style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20 }}>
+      <div draggable={false} style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20, userSelect: "none" }}>
         <ModelLogo modelMeta={modelMeta} modelName={modelName} size={16} />
         {displayName && (
           <span
@@ -497,11 +497,13 @@ export function ChatMessage({
         {/* Assistant role label when no thinking/reasoning present */}
         {!hasThinking && !(message.activities && message.activities.length > 0) && (message.modelName || !message.isLoading) && (
           <div
+            draggable={false}
             style={{
               display: "flex",
               alignItems: "center",
               gap: "6px",
               marginBottom: "4px",
+              userSelect: "none",
             }}
           >
             <ModelLogo modelMeta={message.modelMeta} modelName={message.modelName || message.model_name || message.model} size={16} />
@@ -532,7 +534,7 @@ export function ChatMessage({
         {/* Loading state - shows shimmer label */}
         {message.isLoading && !message.content && !message.thinking && !(message.activities && message.activities.length > 0) && (
           <div style={{ margin: "4px 0 8px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20 }}>
+            <div draggable={false} style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20, userSelect: "none" }}>
               <ModelLogo modelMeta={message.modelMeta} modelName={message.modelName || message.model_name || message.model} size={16} />
               <span
                 className="kaya-label-shimmer"
