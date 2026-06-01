@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { toast } from "sonner";
 import { Plus, Search, Upload, MoreHorizontal, Eye, ArrowDownToLine, SlidersHorizontal, ChevronDown, ArrowUpToLine, ArrowUp } from "lucide-react";
 
 export type KnowledgeFile = {
@@ -34,6 +35,9 @@ const FILE_LIMIT = 10;
 const SIZE_LIMIT_MB = 300;
 const FILE_SIZE_LIMIT_MB = 30;
 
+// Backend only accepts PDF and PPTX
+const ALLOWED_EXTENSIONS = new Set(["pdf", "pptx"]);
+
 const SOURCE_BUTTONS = [
   { label: "Google Drive", key: "drive" },
   { label: "Slack", key: "slack" },
@@ -42,12 +46,7 @@ const SOURCE_BUTTONS = [
 
 const FILE_BADGE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   PDF:  { bg: "#cadcf1", border: "rgba(13,110,178,0.5)", text: "#135487" },
-  DOCX: { bg: "#cadcf1", border: "rgba(13,110,178,0.5)", text: "#135487" },
-  TXT:  { bg: "#cadcf1", border: "rgba(13,110,178,0.5)", text: "#135487" },
-  CSV:  { bg: "#cadcf1", border: "rgba(13,110,178,0.5)", text: "#135487" },
-  XLSX: { bg: "#cadcf1", border: "rgba(13,110,178,0.5)", text: "#135487" },
-  MD:   { bg: "#cadcf1", border: "rgba(13,110,178,0.5)", text: "#135487" },
-  JSON: { bg: "#cadcf1", border: "rgba(13,110,178,0.5)", text: "#135487" },
+  PPTX: { bg: "#f1d9ca", border: "rgba(178,80,13,0.5)",  text: "#87350d" },
   URL:  { bg: "#ffbfb6", border: "rgba(159,38,35,0.5)",  text: "#7a201c" },
   URLs: { bg: "#ffbfb6", border: "rgba(159,38,35,0.5)",  text: "#7a201c" },
 };
@@ -355,7 +354,7 @@ function DropOverlay({ visible }: { visible: boolean }) {
       <ArrowUp size={28} color="#0d6eb2" />
       <p style={{ margin: 0, fontSize: 16, fontWeight: 500 }}>Drop files to upload</p>
       <p style={{ margin: 0, fontSize: 12, color: "#3b3632" }}>
-        PDF, DOCX, TXT, CSV, MD, JSON, XLSX
+        PDF or PPTX · max 30 MB per file
       </p>
     </div>
   );
@@ -382,14 +381,28 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
   const ingestFiles = (raw: File[]) => {
     if (raw.length === 0) return;
 
+    // File type validation — backend only accepts PDF and PPTX
+    const unsupported = raw.filter(f => {
+      const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
+      return !ALLOWED_EXTENSIONS.has(ext);
+    });
+    unsupported.forEach(f => {
+      const ext = f.name.split(".").pop()?.toUpperCase() ?? "file";
+      toast.error(`"${f.name}" is not supported. Only PDF and PPTX files can be uploaded.`, { description: `Received: ${ext}` });
+    });
+
+    const typeOk = raw.filter(f => {
+      const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
+      return ALLOWED_EXTENSIONS.has(ext);
+    });
+    if (typeOk.length === 0) return;
+
     // Per-file size validation (30 MB limit)
-    const oversized = raw.filter(f => f.size > FILE_SIZE_LIMIT_MB * 1024 * 1024);
-    if (oversized.length > 0) {
-      oversized.forEach(f =>
-        alert(`"${f.name}" exceeds the ${FILE_SIZE_LIMIT_MB} MB per-file limit and was not added.`)
-      );
-    }
-    const valid = raw.filter(f => f.size <= FILE_SIZE_LIMIT_MB * 1024 * 1024);
+    const oversized = typeOk.filter(f => f.size > FILE_SIZE_LIMIT_MB * 1024 * 1024);
+    oversized.forEach(f =>
+      toast.error(`"${f.name}" exceeds the ${FILE_SIZE_LIMIT_MB} MB per-file limit.`)
+    );
+    const valid = typeOk.filter(f => f.size <= FILE_SIZE_LIMIT_MB * 1024 * 1024);
     if (valid.length === 0) return;
 
     if (onRawFilesSelected) {
@@ -669,7 +682,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
           </button>
         </div>
 
-        <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.txt,.csv,.md,.json,.xlsx" style={{ display: "none" }} onChange={handleFileUpload} />
+        <input ref={fileInputRef} type="file" multiple accept=".pdf,.pptx" style={{ display: "none" }} onChange={handleFileUpload} />
       </div>
     );
   }
@@ -967,7 +980,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
         </button>
       </div>
 
-      <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.txt,.csv,.md,.json,.xlsx" style={{ display: "none" }} onChange={handleFileUpload} />
+      <input ref={fileInputRef} type="file" multiple accept=".pdf,.pptx" style={{ display: "none" }} onChange={handleFileUpload} />
     </div>
   );
 }

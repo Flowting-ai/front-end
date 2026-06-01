@@ -10,20 +10,14 @@ import {
   MoreHorizontalIcon,
   QuillWriteOneIcon,
   ArrowUpRightOneIcon,
-  UserAiIcon,
-  AiIdeaIcon,
-  FolderLibraryIcon,
   ArrowDownOneIcon,
   AtomOneIcon,
   PlusSignIcon,
   CancelOneIcon,
-  ExpandIcon,
-  ArrowShrinkTwoIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
-import { ChatInput } from '@/components/ChatInput'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
 import ExampleConversationModal from '@/app/(app)/persona/configure/components/ExampleConversationModal'
 import RepublishModal from '@/app/(app)/persona/configure/components/RepublishModal'
@@ -31,19 +25,11 @@ import { useInstructionHistory } from '@/app/(app)/persona/configure/hooks/use-i
 import {
   createPersonaRepo,
   createVersion,
-  deleteVersion,
   getPersonaRepo,
   getVersion,
   setActiveVersion,
   listVersions,
-  testVersionStream,
-  guidePersonaStream,
   bustPersonasCache,
-  type PersonaChatStreamCallbacks,
-  type PersonaVersionResponse,
-  type PersonaRepoResponse,
-  type PersonaVersionListItem,
-  type GuideMessage,
 } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
@@ -52,16 +38,7 @@ import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
 import { TEMPLATE_PRESETS } from '@/app/(app)/personas/_data/template-presets'
 import { pickTemplateAvatar } from '@/lib/persona-template-avatars'
-import { ConnectPromptCard, PermissionPromptCard } from '@/components/chat/ConnectorPrompts'
-import { ActivitiesSection } from '@/components/chat/ActivityRow'
-import type { PersonaConnectPrompt, PersonaPermissionPrompt, PersonaActivityItem } from '@/lib/api/personas'
-import type { ActivityItem } from '@/hooks/use-chat-state'
-import { ChatAddMenu, type SelectedPersonaInfo as AddMenuPersonaInfo } from '@/components/chat/AddMenu'
-import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
-import { useFileUpload } from '@/hooks/use-file-upload'
-import type { PinFolder } from '@/lib/api/pins'
-import { MessageBubble } from '@/components/MessageBubble'
-import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
+import { usePersonaConfigure } from '@/app/(app)/persona/configure/context'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -122,109 +99,6 @@ function getTemperatureLabel(v: number): string {
   if (v <= 0.62) return 'Balanced'
   if (v <= 0.87) return 'Creative'
   return 'Very Creative'
-}
-
-// ── Floating menu ─────────────────────────────────────────────────────────────
-
-function FloatingMenuButton({
-  active,
-  title,
-  onClick,
-  children,
-}: {
-  active: boolean
-  title: string
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 6,
-        borderRadius: 8,
-        border: 'none',
-        cursor: 'pointer',
-        position: 'relative',
-        backgroundColor: active ? 'rgba(237,225,215,0.6)' : 'transparent',
-        boxShadow: active
-          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
-          : 'none',
-        transition: 'background-color 150ms, box-shadow 150ms',
-      }}
-    >
-      {active && (
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: 'inherit',
-            boxShadow:
-              'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
-      {children}
-    </button>
-  )
-}
-
-function FloatingMenu({
-  testChatOpen,
-  onToggleTestChat,
-  aiSuggestOpen,
-  onToggleAiSuggest,
-  versionsOpen,
-  onToggleVersions,
-}: {
-  testChatOpen: boolean
-  onToggleTestChat: () => void
-  aiSuggestOpen: boolean
-  onToggleAiSuggest: () => void
-  versionsOpen: boolean
-  onToggleVersions: () => void
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-        backgroundColor: 'var(--neutral-white)',
-        borderRadius: 12,
-        padding: '4px 4px 6px',
-        boxShadow:
-          '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-200)',
-        position: 'relative',
-      }}
-    >
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: 'inherit',
-          boxShadow: 'inset 0px -2.182px 0.364px 0px var(--neutral-100)',
-          pointerEvents: 'none',
-        }}
-      />
-      <FloatingMenuButton active={testChatOpen} title={testChatOpen ? 'Close test chat' : 'Open test chat'} onClick={onToggleTestChat}>
-        <UserAiIcon size={20} color="var(--neutral-700)" animated />
-      </FloatingMenuButton>
-      <FloatingMenuButton active={aiSuggestOpen} title={aiSuggestOpen ? 'Close AI suggestions' : 'AI suggestions'} onClick={onToggleAiSuggest}>
-        <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
-      </FloatingMenuButton>
-      <FloatingMenuButton active={versionsOpen} title={versionsOpen ? 'Close versions' : 'View versions'} onClick={onToggleVersions}>
-        <FolderLibraryIcon size={20} color="var(--neutral-700)" animated />
-      </FloatingMenuButton>
-    </div>
-  )
 }
 
 // ── Undo / redo group — matches Figma node 848:54854 footer button group ─────
@@ -634,219 +508,17 @@ function PersonaConfigureInstructionsContent() {
   const [isInitialising, setIsInitialising] = useState(true)
   const [isSaving,      setIsSaving]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
-  const [testChatOpen,       setTestChatOpen]       = useState(false)
-  const [testChatExpanded,   setTestChatExpanded]   = useState(false)
+
+  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback } = usePersonaConfigure()
 
   const [exampleConvOpen, setExampleConvOpen] = useState(false)
   const [exampleConvExpanded, setExampleConvExpanded] = useState(false)
   const [exampleConversations, setExampleConversations] = useState<Array<{ id: string; userSays: string; personaReplies: string }>>([])
   const [republishModalOpen, setRepublishModalOpen] = useState(false)
-  const [aiSuggestOpen,             setAiSuggestOpen]             = useState(false)
-  const [versionsOpen,              setVersionsOpen]              = useState(false)
-  const [versions,                  setVersions]                  = useState<PersonaVersionListItem[]>([])
-  const [versionsLoading,           setVersionsLoading]           = useState(false)
-  const [restoringId,               setRestoringId]               = useState<string | null>(null)
-  const [versionsChangeTags,        setVersionsChangeTags]        = useState<Map<string, string[]>>(new Map())
-
-  // ── AI suggestions (guide) state ───────────────────────────────────────────
-
-  type GuideMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean }
-  const [guideMessages,    setGuideMessages]    = useState<GuideMsg[]>([])
-  const [guideHistory,     setGuideHistory]     = useState<GuideMessage[]>([])
-  // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- guideIsStreaming guards the send handler to prevent duplicate submissions
-  const [guideIsStreaming, setGuideIsStreaming] = useState(false)
-  const guideAbortRef  = useRef<(() => void) | null>(null)
-  const guideScrollRef = useRef<HTMLDivElement>(null)
-
-  const anyPanelOpen = testChatOpen || versionsOpen || aiSuggestOpen
 
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
   const hasInitialisedRef = useRef(false)
   const savedSnapshotRef  = useRef<{ instruction: string; modelId: string; temperature: number } | null>(null)
-
-  // ── Test-chat state ─────────────────────────────────────────────────────────
-
-  type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean; connectPrompts?: PersonaConnectPrompt[]; permissionPrompts?: PersonaPermissionPrompt[]; activities?: ActivityItem[]; attachments?: Array<{ file_name: string; mime_type: string; file_size?: number }> }
-  const [chatMessages,  setChatMessages]  = useState<ChatMsg[]>([])
-  // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- isStreaming guards the send handler to prevent duplicate submissions
-  const [isStreaming,   setIsStreaming]   = useState(false)
-  const abortStreamRef  = useRef<(() => void) | null>(null)
-  const chatScrollRef   = useRef<HTMLDivElement>(null)
-
-  // ── Test-chat add-menu state ──────────────────────────────────────────────────
-  const [testChatWebSearch,   setTestChatWebSearch]   = useState(false)
-  const [testChatStyleId,     setTestChatStyleId]     = useState<string | null>(null)
-  const [testChatFolders,     setTestChatFolders]     = useState<PinFolder[]>([])
-  const [testChatPersonaId,   setTestChatPersonaId]   = useState<string | null>(null)
-  const [testChatAttachments, setTestChatAttachments] = useState<PendingAttachment[]>([])
-  const testChatFileInputRef = useRef<HTMLInputElement>(null)
-  const { processFiles, FILE_ACCEPT } = useFileUpload()
-
-  function handleTestChatAddFiles() { testChatFileInputRef.current?.click() }
-
-  function handleTestChatFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files?.length) {
-      const captured = Array.from(e.target.files)
-      e.target.value = ''
-      setTestChatAttachments(prev => processFiles(captured, prev))
-    }
-  }
-
-  function handleTestChatFolderToggle(folder: PinFolder) {
-    setTestChatFolders(prev =>
-      prev.some(f => f.id === folder.id)
-        ? prev.filter(f => f.id !== folder.id)
-        : [...prev, folder]
-    )
-  }
-
-  // Auto-scroll to bottom when new content arrives
-  useEffect(() => {
-    const el = chatScrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [chatMessages])
-
-  useEffect(() => {
-    const el = guideScrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [guideMessages])
-
-  async function handleTestChatSend(value: string) {
-    const trimmedValue = value.trim()
-    const filesToSend = testChatAttachments.map(a => a.file)
-    if ((!trimmedValue && filesToSend.length === 0) || !repoId || !versionId || isStreaming) return
-
-    // Capture and clear attachments before setting messages
-    setTestChatAttachments([])
-
-    const userMsgId = `user-${Date.now()}`
-    const asstMsgId = `asst-${Date.now()}`
-
-    setChatMessages(prev => [
-      ...prev,
-      {
-        id:          userMsgId,
-        role:        'user',
-        text:        trimmedValue,
-        attachments: filesToSend.length > 0
-          ? filesToSend.map(f => ({ file_name: f.name, mime_type: f.type, file_size: f.size }))
-          : undefined,
-      },
-      { id: asstMsgId, role: 'assistant', text: '', isStreaming: true },
-    ])
-    setIsStreaming(true)
-
-    const callbacks: PersonaChatStreamCallbacks = {
-      onChunk: (delta) => setChatMessages(prev =>
-        prev.map(m => m.id === asstMsgId ? { ...m, text: m.text + delta } : m)
-      ),
-      onDone: () => {
-        setChatMessages(prev =>
-          prev.map(m => m.id === asstMsgId ? { ...m, isStreaming: false } : m)
-        )
-        setIsStreaming(false)
-      },
-      onError: (err) => {
-        setChatMessages(prev =>
-          prev.map(m => m.id === asstMsgId ? { ...m, text: `⚠ ${err}`, isStreaming: false } : m)
-        )
-        setIsStreaming(false)
-      },
-      onConnectPrompt: (prompt) => setChatMessages(prev =>
-        prev.map(m => m.id === asstMsgId ? { ...m, connectPrompts: [...(m.connectPrompts ?? []), prompt] } : m)
-      ),
-      onPermissionPrompt: (prompt) => setChatMessages(prev =>
-        prev.map(m => m.id === asstMsgId ? { ...m, permissionPrompts: [...(m.permissionPrompts ?? []), prompt] } : m)
-      ),
-      onToolActivity: (item: PersonaActivityItem) => setChatMessages(prev =>
-        prev.map(m => {
-          if (m.id !== asstMsgId) return m
-          const acts = m.activities ?? []
-          const idx  = acts.findIndex(a => a.id === item.id)
-          if (idx >= 0) {
-            const updated = [...acts]; updated[idx] = { ...acts[idx], ...item } as ActivityItem
-            return { ...m, activities: updated }
-          }
-          return { ...m, activities: [...acts, item as ActivityItem] }
-        })
-      ),
-    }
-
-    try {
-      abortStreamRef.current = await testVersionStream(
-        repoId,
-        versionId,
-        trimmedValue,
-        callbacks,
-        { files: filesToSend.length > 0 ? filesToSend : undefined, connectorSlugs: connectorSlugs ?? undefined },
-      )
-    } catch (err) {
-      callbacks.onError?.((err as Error).message ?? 'Failed to send message')
-    }
-  }
-
-  async function handleGuideSend(value: string) {
-    const question = value.trim()
-    if (!question || !repoId || guideIsStreaming) return
-
-    const userMsgId = `guide-user-${Date.now()}`
-    const asstMsgId = `guide-asst-${Date.now()}`
-    const modelId   = selectedModel ? stableKey(selectedModel) : null
-    const historySnapshot = guideHistory.slice()
-
-    setGuideMessages(prev => [
-      ...prev,
-      { id: userMsgId, role: 'user',      text: question },
-      { id: asstMsgId, role: 'assistant', text: '', isStreaming: true },
-    ])
-    setGuideIsStreaming(true)
-
-    let accumulated = ''
-
-    const callbacks: PersonaChatStreamCallbacks = {
-      onChunk: (delta) => {
-        accumulated += delta
-        setGuideMessages(prev =>
-          prev.map(m => m.id === asstMsgId ? { ...m, text: m.text + delta } : m)
-        )
-      },
-      onDone: () => {
-        setGuideMessages(prev =>
-          prev.map(m => m.id === asstMsgId ? { ...m, isStreaming: false } : m)
-        )
-        setGuideHistory(prev => [
-          ...prev,
-          { role: 'user',      content: question    },
-          { role: 'assistant', content: accumulated },
-        ])
-        setGuideIsStreaming(false)
-      },
-      onError: (err) => {
-        setGuideMessages(prev =>
-          prev.map(m => m.id === asstMsgId ? { ...m, text: `⚠ ${err}`, isStreaming: false } : m)
-        )
-        setGuideIsStreaming(false)
-      },
-    }
-
-    try {
-      guideAbortRef.current = await guidePersonaStream(
-        repoId,
-        {
-          question,
-          prompt:      instruction,
-          name:        personaName || null,
-          model_id:    modelId     || null,
-          temperature,
-          connectors:  connectorSlugs ?? [],
-          history:     historySnapshot,
-        },
-        callbacks,
-      )
-    } catch (err) {
-      callbacks.onError?.((err as Error).message ?? 'Failed to get suggestions')
-    }
-  }
 
   // ── Initialise: fetch models, then create or load persona ──────────────────
 
@@ -1045,27 +717,23 @@ function PersonaConfigureInstructionsContent() {
     initialise()
   }, [initialise])
 
-  // ── Versions panel ───────────────────────────────────────────────────────────
-
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
-    if (!versionsOpen || !repoId) return
-    setVersionsLoading(true)
-    listVersions(repoId)
-      .then(v => setVersions(
-        v.slice()
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .slice(0, MAX_VERSIONS)
-      ))
-      .catch(() => {})
-      .finally(() => setVersionsLoading(false))
-  }, [versionsOpen, repoId])
+    const modelId = selectedModel ? stableKey(selectedModel) : null
+    updatePersonaInfo({
+      repoId,
+      versionId,
+      personaName:      personaName || undefined,
+      imageUrl,
+      connectorSlugs:   connectorSlugs ?? [],
+      guidePrompt:      instruction,
+      guideModelId:     modelId,
+      guideTemperature: temperature,
+      guideModelName:   selectedModel?.modelName ?? 'AI',
+    })
+  }, [repoId, versionId, personaName, imageUrl, connectorSlugs, instruction, selectedModel, temperature, updatePersonaInfo])
 
-  async function handleRestoreVersion(targetId: string) {
-    if (!repoId || restoringId) return
-    setRestoringId(targetId)
-    try {
-      const full = await getVersion(repoId, targetId)
+  useEffect(() => {
+    registerVersionRestoreCallback((full) => {
       const prompt = full.prompt ?? ''
       setInstruction(prompt)
       resetInstructionHistory(prompt)
@@ -1073,24 +741,11 @@ function PersonaConfigureInstructionsContent() {
       const model = matchModel(allModels, full.model_id, repoId, null)
       if (model) { setSelectedModel(model); writePersonaModelCache(repoId, model) }
       setExampleConversations(parseExampleConversations(prompt))
-      // Move restored card to top and make it current
-      setVersions(prev => {
-        const target = prev.find(x => x.id === targetId)
-        if (!target) return prev
-        return [target, ...prev.filter(x => x.id !== targetId)]
-      })
-      setVersionId(targetId)
-      const params = new URLSearchParams(searchParams.toString())
-      params.set('versionId', targetId)
-      window.history.replaceState(null, '', `?${params.toString()}`)
-      savedSnapshotRef.current = null  // mark dirty so save button enables immediately
-      toast.success('Version restored — click Publish to make it live')
-    } catch {
-      toast.error('Failed to restore version')
-    } finally {
-      setRestoringId(null)
-    }
-  }
+      setVersionId(full.id)
+      savedSnapshotRef.current = null
+    })
+    return () => registerVersionRestoreCallback(null)
+  }, [repoId, allModels, registerVersionRestoreCallback])
 
   // ── Save version ─────────────────────────────────────────────────────────────
 
@@ -1099,13 +754,6 @@ function PersonaConfigureInstructionsContent() {
     if (!repoId || !modelId) return
     setIsSaving(true)
     try {
-      // Compute change tags before save (compare to last saved snapshot)
-      const snap = savedSnapshotRef.current
-      const tags: string[] = []
-      if (snap === null || instruction !== snap.instruction) tags.push('System Prompt')
-      if (snap === null || modelId !== snap.modelId)         tags.push('Model')
-      if (snap === null || temperature !== snap.temperature) tags.push('Creativity')
-
       let imageFile: File | null = null
       let preserveImageUrl: string | null = null
       const avatarDataUrl = readProfileAvatar(repoId)
@@ -1130,35 +778,11 @@ function PersonaConfigureInstructionsContent() {
 
       setVersionId(version.id)
       if (version.image_url) setImageUrl(version.image_url)
+      updatePersonaInfo({ versionId: version.id })
       const params = new URLSearchParams(searchParams.toString())
       params.set('versionId', version.id)
       window.history.replaceState(null, '', `?${params.toString()}`)
 
-      // Prepend the new draft version; the active (published) version is unchanged.
-      const newItem: PersonaVersionListItem = {
-        id:         version.id,
-        name:       version.name,
-        handler:    version.handler,
-        model_id:   version.model_id,
-        is_active:  false,
-        created_at: version.created_at,
-        updated_at: version.updated_at,
-      }
-      const prevVersions = versions.filter(v => v.id !== version.id)
-      // Silently prune the oldest version from the backend when at cap.
-      // Never delete the published version — only surplus drafts.
-      if (prevVersions.length >= MAX_VERSIONS) {
-        const oldest = prevVersions[prevVersions.length - 1]
-        if (oldest && oldest.id !== publishedVersionId) {
-          deleteVersion(repoId, oldest.id).catch(err =>
-            console.error('[PersonaConfigure] Failed to prune old version', err),
-          )
-        }
-      }
-      setVersions([newItem, ...prevVersions].slice(0, MAX_VERSIONS))
-
-      // Store change tags for this version and advance snapshot
-      setVersionsChangeTags(prev => new Map([...prev, [version.id, tags]]))
       savedSnapshotRef.current = { instruction, modelId, temperature }
       bustPersonasCache()
 
@@ -1305,17 +929,7 @@ function PersonaConfigureInstructionsContent() {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 7,
-        alignItems: 'stretch',
-        width: '100%',
-        height: '100%',
-        position: 'relative',
-      }}
-    >
-      {/* ── Left configure panel ──────────────────────────────────────────────── */}
+    <>
       <div
         style={{
           backgroundColor: 'rgba(255,255,255,0.2)',
@@ -1329,8 +943,8 @@ function PersonaConfigureInstructionsContent() {
           paddingTop: 10,
           paddingLeft: 12,
           paddingRight: 12,
+          width: '100%',
           height: '100%',
-          flex: '1 0 0',
           minWidth: 0,
         }}
       >
@@ -1350,7 +964,7 @@ function PersonaConfigureInstructionsContent() {
 
             {/* Tabs — centered when no panel open, left-aligned when a panel is open */}
             <div style={anyPanelOpen
-              ? { display: 'inline-flex', alignItems: 'flex-start' }
+              ? { display: 'inline-flex', alignItems: 'flex-start', position: 'relative' }
               : { position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }
             }>
               <div
@@ -1739,17 +1353,6 @@ function PersonaConfigureInstructionsContent() {
           </div>
         )}
 
-        {/* ── Floating vertical menu ─────────────────────────────────────────── */}
-        <div style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
-          <FloatingMenu
-            testChatOpen={testChatOpen}
-            onToggleTestChat={() => { const next = !testChatOpen; setTestChatOpen(next); if (next) { setAiSuggestOpen(false); setVersionsOpen(false) } }}
-            aiSuggestOpen={aiSuggestOpen}
-            onToggleAiSuggest={() => { const next = !aiSuggestOpen; setAiSuggestOpen(next); if (next) { setTestChatOpen(false); setVersionsOpen(false) } }}
-            versionsOpen={versionsOpen}
-            onToggleVersions={() => { const next = !versionsOpen; setVersionsOpen(next); if (next) { setTestChatOpen(false); setAiSuggestOpen(false) } }}
-          />
-        </div>
       </div>
 
       {/* ── Modals ─────────────────────────────────────────────────────────────────── */}
@@ -1769,555 +1372,7 @@ function PersonaConfigureInstructionsContent() {
           }}
         />
       )}
-
-      {/* ── Test chat panel ───────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {testChatOpen && !testChatExpanded && (
-          <m.div
-            key="test-chat"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 448, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
-            style={{
-              flexShrink: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
-              height: '100%',
-              backgroundColor: 'var(--neutral-white)',
-              border: '1px solid var(--neutral-200)',
-              borderRadius: 16,
-              padding: 12,
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
-                <div style={{ position: 'relative', width: 36, height: 36, borderRadius: 10, flexShrink: 0, backgroundColor: 'var(--neutral-100)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', overflow: 'hidden' }}>
-                  {imageUrl && <Image src={imageUrl} alt="" fill sizes="36px" style={{ objectFit: 'cover' }} unoptimized />}
-                </div>
-                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {personaName || 'Name'}
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                <IconButton variant="outline" size="md" icon={<ExpandIcon size={20} />} aria-label="Expand test chat" onClick={() => setTestChatExpanded(true)} />
-                <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }} />
-              </div>
-            </div>
-            <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
-              {chatMessages.length === 0 ? (
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
-                  Hi! I&apos;m your persona. Test me here while you configure.
-                </p>
-              ) : (
-                chatMessages.map(msg => (
-                  <div
-                    key={msg.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                    }}
-                  >
-                    {msg.role === 'assistant' ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
-                        {msg.activities && msg.activities.length > 0 && <ActivitiesSection activities={msg.activities} />}
-                        {msg.text && <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />}
-                        {msg.connectPrompts?.map(p => <ConnectPromptCard key={p.request_id} prompt={p} />)}
-                        {msg.permissionPrompts?.map(p => <PermissionPromptCard key={p.request_id} prompt={p} />)}
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                        {msg.attachments && msg.attachments.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
-                            {msg.attachments.map((att, i) => (
-                              <div
-                                key={i}
-                                style={{
-                                  display:         'inline-flex',
-                                  alignItems:      'center',
-                                  gap:             5,
-                                  padding:         '4px 8px',
-                                  borderRadius:    8,
-                                  backgroundColor: 'rgba(59,54,50,0.07)',
-                                  border:          '1px solid rgba(59,54,50,0.10)',
-                                  maxWidth:        200,
-                                }}
-                              >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--neutral-500)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                                  {att.mime_type.startsWith('image/') ? (
-                                    <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></>
-                                  ) : (
-                                    <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></>
-                                  )}
-                                </svg>
-                                <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--neutral-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {att.file_name}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <MessageBubble
-                          role={msg.role}
-                          content={msg.text}
-                          maxWidth="85%"
-                          hideActions
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-            <div style={{ flexShrink: 0 }}>
-              <input
-                ref={testChatFileInputRef}
-                type="file"
-                multiple
-                accept={FILE_ACCEPT}
-                onChange={handleTestChatFileChange}
-                style={{ display: 'none' }}
-                aria-hidden="true"
-              />
-              <ChatInput
-                placeholder="Test your persona..."
-                textareaLabel="Test message"
-                modelName={selectedModel?.modelName ?? 'AI'}
-                hideModelSelector={true}
-                webSearch={testChatWebSearch}
-                onWebSearchChange={setTestChatWebSearch}
-                addMenu={
-                  <ChatAddMenu
-                    webSearchEnabled={testChatWebSearch}
-                    onWebSearchChange={setTestChatWebSearch}
-                    onAddFilesClick={handleTestChatAddFiles}
-                    selectedStyleId={testChatStyleId}
-                    onStyleChange={setTestChatStyleId}
-                    selectedFolders={testChatFolders}
-                    onFolderToggle={handleTestChatFolderToggle}
-                    selectedPersonaId={testChatPersonaId}
-                    onPersonaChange={(p) => setTestChatPersonaId(p?.id ?? null)}
-                  />
-                }
-                attachmentsSlot={
-                  <AttachmentManager
-                    attachments={testChatAttachments}
-                    onAttachmentsChange={setTestChatAttachments}
-                  />
-                }
-                onSend={handleTestChatSend}
-              />
-            </div>
-          </m.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Test chat expanded overlay ──────────────────────────────────────── */}
-      <AnimatePresence>
-        {testChatOpen && testChatExpanded && (
-          <m.div key="test-chat-expanded" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
-            style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
-            onClick={(e) => { if (e.target === e.currentTarget) setTestChatExpanded(false) }}
-          >
-            <m.div initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 8, opacity: 0 }} transition={{ type: 'spring', stiffness: 320, damping: 28, mass: 0.7, delay: 0.04 }}
-              style={{ width: 'min(780px, 90vw)', height: 'min(680px, 85vh)', display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 20, padding: 16, overflow: 'hidden', boxShadow: '0px 24px 48px rgba(0,0,0,0.18), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
-                  <div style={{ position: 'relative', width: 36, height: 36, borderRadius: 10, flexShrink: 0, backgroundColor: 'var(--neutral-100)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', overflow: 'hidden' }}>
-                    {imageUrl && <Image src={imageUrl} alt="" fill sizes="36px" style={{ objectFit: 'cover' }} unoptimized />}
-                  </div>
-                  <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{personaName || 'Name'}</p>
-                </div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                  <IconButton variant="outline" size="md" icon={<ArrowShrinkTwoIcon size={20} />} aria-label="Collapse test chat" onClick={() => setTestChatExpanded(false)} />
-                  <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }} />
-                </div>
-              </div>
-              <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
-                {chatMessages.length === 0 ? (
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>Hi! I&apos;m your persona. Test me here while you configure.</p>
-                ) : (
-                  chatMessages.map(msg => (
-                    <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                      {msg.role === 'assistant' ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
-                          {msg.text && <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />}
-                          {msg.connectPrompts?.map(p => <ConnectPromptCard key={p.request_id} prompt={p} />)}
-                          {msg.permissionPrompts?.map(p => <PermissionPromptCard key={p.request_id} prompt={p} />)}
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                          {msg.attachments && msg.attachments.length > 0 && (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
-                              {msg.attachments.map((att, i) => (
-                                <div
-                                  key={i}
-                                  style={{
-                                    display:         'inline-flex',
-                                    alignItems:      'center',
-                                    gap:             5,
-                                    padding:         '4px 8px',
-                                    borderRadius:    8,
-                                    backgroundColor: 'rgba(59,54,50,0.07)',
-                                    border:          '1px solid rgba(59,54,50,0.10)',
-                                    maxWidth:        200,
-                                  }}
-                                >
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--neutral-500)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                                    {att.mime_type.startsWith('image/') ? (
-                                      <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></>
-                                    ) : (
-                                      <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></>
-                                    )}
-                                  </svg>
-                                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--neutral-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {att.file_name}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <MessageBubble role={msg.role} content={msg.text} maxWidth="85%" hideActions />
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-              <div style={{ flexShrink: 0 }}>
-                <input ref={testChatFileInputRef} type="file" multiple accept={FILE_ACCEPT} onChange={handleTestChatFileChange} style={{ display: 'none' }} aria-hidden="true" />
-                <ChatInput placeholder="Test your persona..." textareaLabel="Test message" modelName={selectedModel?.modelName ?? 'AI'} hideModelSelector={true}
-                  webSearch={testChatWebSearch} onWebSearchChange={setTestChatWebSearch}
-                  addMenu={<ChatAddMenu webSearchEnabled={testChatWebSearch} onWebSearchChange={setTestChatWebSearch} onAddFilesClick={handleTestChatAddFiles} selectedStyleId={testChatStyleId} onStyleChange={setTestChatStyleId} selectedFolders={testChatFolders} onFolderToggle={handleTestChatFolderToggle} selectedPersonaId={testChatPersonaId} onPersonaChange={(p) => setTestChatPersonaId(p?.id ?? null)} />}
-                  attachmentsSlot={<AttachmentManager attachments={testChatAttachments} onAttachmentsChange={setTestChatAttachments} />}
-                  onSend={handleTestChatSend}
-                />
-              </div>
-            </m.div>
-          </m.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── AI suggestions panel ─────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {aiSuggestOpen && (
-          <m.div
-            key="ai-suggest-panel"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 400, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
-            style={{
-              flexShrink: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
-              height: '100%',
-              backgroundColor: 'var(--neutral-white)',
-              border: '1px solid var(--neutral-200)',
-              borderRadius: 16,
-              padding: 12,
-              overflow: 'hidden',
-            }}
-          >
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
-                </div>
-                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  AI suggestions
-                </p>
-              </div>
-              <IconButton
-                variant="outline"
-                size="md"
-                icon={<CancelOneIcon size={20} />}
-                aria-label="Close AI suggestions"
-                onClick={() => setAiSuggestOpen(false)}
-              />
-            </div>
-
-            {/* Messages */}
-            <div
-              ref={guideScrollRef}
-              className="kaya-scrollbar"
-              style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}
-            >
-              {guideMessages.length === 0 ? (
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                  Ask me anything about improving your persona — I&apos;ll review your current draft and give you tailored advice.
-                </p>
-              ) : (
-                guideMessages.map(msg => (
-                  <div
-                    key={msg.id}
-                    style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
-                  >
-                    {msg.role === 'assistant' ? (
-                      <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />
-                    ) : (
-                      <div
-                        style={{
-                          maxWidth: '85%',
-                          padding: '8px 12px',
-                          borderRadius: 12,
-                          backgroundColor: 'var(--neutral-100)',
-                          fontFamily: 'var(--font-body)',
-                          fontWeight: 400,
-                          fontSize: 14,
-                          lineHeight: '22px',
-                          color: 'var(--neutral-900)',
-                          wordBreak: 'break-word',
-                        }}
-                      >
-                        {msg.text}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Input */}
-            <div style={{ flexShrink: 0 }}>
-              <ChatInput
-                placeholder="Ask for guidance…"
-                textareaLabel="Ask for AI guidance"
-                modelName={selectedModel?.modelName ?? 'AI'}
-                hideModelSelector
-                onSend={handleGuideSend}
-              />
-            </div>
-          </m.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Versions panel ───────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {versionsOpen && (
-          <m.div
-            key="versions-panel"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 400, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
-            style={{
-              flexShrink: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
-              height: '100%',
-              paddingLeft: 5,
-              paddingRight: 5,
-              paddingTop: 12,
-              paddingBottom: 12,
-              overflow: 'hidden',
-            }}
-          >
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
-                  <FolderLibraryIcon size={20} color="var(--neutral-700)" animated />
-                </div>
-                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>
-                  Versions
-                </p>
-              </div>
-              <IconButton
-                variant="outline"
-                size="md"
-                icon={<CancelOneIcon size={20} />}
-                aria-label="Close versions"
-                onClick={() => setVersionsOpen(false)}
-              />
-            </div>
-
-            {/* Version list */}
-            <div style={{ flex: '1 0 0', minHeight: 0, overflow: 'hidden', padding: 3 }}>
-            <div className="kaya-scrollbar" style={{ height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {versionsLoading ? (
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0 }}>Loading…</p>
-              ) : versions.length === 0 ? (
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: '24px 0', textAlign: 'center' }}>
-                  No versions yet. Use &ldquo;Save version&rdquo; to create one.
-                </p>
-              ) : (
-                versions.map((v, i) => {
-                  const isCurrent    = v.id === versionId
-                  const isLive       = v.id === publishedVersionId
-                  const isRestoring_ = restoringId === v.id
-                  const vNum       = versions.length - i
-                  const vLabel     = `v${String(vNum).padStart(3, '0')}`
-                  const handle     = v.handler ? `@${v.handler}·${vLabel}` : vLabel
-                  const dateStr    = formatVersionDate(v.created_at)
-                  const initials   = nameInitials(v.name || personaName)
-
-                  return (
-                    <div
-                      key={v.id}
-                      style={{
-                        display:         'flex',
-                        flexDirection:   'column',
-                        gap:             9,
-                        padding:         12,
-                        borderRadius:    16,
-                        backgroundColor: isCurrent ? 'var(--neutral-white)' : 'var(--neutral-50)',
-                        border:          isCurrent ? 'none' : '1px dashed var(--neutral-300)',
-                        boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-                        flexShrink:      0,
-                      }}
-                    >
-                      {/* Card header: avatar + name/handle/date */}
-                      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%' }}>
-                        {/* Avatar */}
-                        <div
-                          style={{
-                            width: 37, height: 37, borderRadius: 8, flexShrink: 0,
-                            backgroundColor: 'var(--neutral-100)',
-                            boxShadow: '0px 1.091px 1.09px 0px rgba(59,54,50,0.05), 0px 1.455px 1px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)',
-                            overflow: 'hidden',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            position: 'relative',
-                          }}
-                        >
-                          {isCurrent && imageUrl ? (
-                            <Image src={imageUrl} alt="" fill sizes="37px" style={{ objectFit: 'cover' }} unoptimized />
-                          ) : (
-                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-600)', lineHeight: 1 }}>
-                              {initials}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Name + handle + date */}
-                        <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', whiteSpace: 'nowrap', width: '100%', gap: 8 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', flexShrink: 1, minWidth: 0 }}>
-                              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {v.name || personaName}
-                              </p>
-                              {isLive && (
-                                <span style={{
-                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                  padding: '1px 5px', borderRadius: 5, flexShrink: 0,
-                                  backgroundColor: '#d1fae5', color: '#065f46',
-                                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px',
-                                  boxShadow: '0px 0px 0px 1px rgba(16,110,60,0.35)',
-                                }}>
-                                  Live
-                                </span>
-                              )}
-                            </div>
-                            <p style={{ fontFamily: 'monospace', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, flexShrink: 0 }}>
-                              {dateStr}
-                            </p>
-                          </div>
-                          <p style={{ fontFamily: 'monospace', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {handle}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Bottom row: changes + action button */}
-                      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', width: '100%' }}>
-                        {/* Changes section */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)' }}>
-                            Changes
-                          </span>
-                          <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap' }}>
-                            {(versionsChangeTags.get(v.id) ?? []).map(tag => (
-                              <span
-                                key={tag}
-                                style={{
-                                  display:         'inline-flex',
-                                  alignItems:      'center',
-                                  justifyContent:  'center',
-                                  padding:         '1px 4px',
-                                  borderRadius:    6,
-                                  fontFamily:      'var(--font-body)',
-                                  fontWeight:      500,
-                                  fontSize: 12,
-                                  lineHeight:      '16px',
-                                  whiteSpace:      'nowrap',
-                                  position:        'relative',
-                                  backgroundColor: isCurrent ? '#cadcf1' : 'var(--neutral-100)',
-                                  color:           isCurrent ? '#135487' : 'var(--neutral-700)',
-                                  boxShadow:       isCurrent
-                                    ? '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5), inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)'
-                                    : '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
-                                }}
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Current / Restore button */}
-                        {isCurrent ? (
-                          <div
-                            style={{
-                              display:        'flex',
-                              alignItems:     'center',
-                              justifyContent: 'center',
-                              padding:        '4px 8px 6px',
-                              borderRadius:   8,
-                              flexShrink:     0,
-                              position:       'relative',
-                              cursor:         'default',
-                              background:     'linear-gradient(180deg, #524b47 0%, #26211e 100%)',
-                              boxShadow:      '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
-                            }}
-                          >
-                            <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)', pointerEvents: 'none' }} />
-                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#f7f2ed', whiteSpace: 'nowrap', textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)' }}>
-                              Current
-                            </span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleRestoreVersion(v.id)}
-                            disabled={!!restoringId}
-                            style={{
-                              display:        'flex',
-                              alignItems:     'center',
-                              justifyContent: 'center',
-                              gap:            2,
-                              padding:        '5px 8px',
-                              borderRadius:   8,
-                              border:         'none',
-                              flexShrink:     0,
-                              cursor:         restoringId ? 'not-allowed' : 'pointer',
-                              backgroundColor:'transparent',
-                              boxShadow:      '0px 0px 0px 1px rgba(59,54,50,0.3)',
-                              opacity:        restoringId ? 0.5 : 1,
-                              transition:     'opacity 150ms',
-                            }}
-                          >
-                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', whiteSpace: 'nowrap' }}>
-                              {isRestoring_ ? 'Restoring…' : 'Restore'}
-                            </span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-            </div>
-          </m.div>
-        )}
-      </AnimatePresence>
-
-    </div>
+    </>
   )
 }
 

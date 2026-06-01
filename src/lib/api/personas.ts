@@ -307,15 +307,17 @@ export async function uploadDocument(repoId: string, versionId: string, file: Fi
   );
 }
 
-export async function deleteDocument(repoId: string, versionId: string, documentId: string): Promise<void> {
-  const response = await apiFetch(
+export async function deleteDocument(
+  repoId: string,
+  versionId: string,
+  documentId: string,
+): Promise<PersonaVersionResponse> {
+  // DELETE returns the updated PersonaVersionResponse (200) — callers can use
+  // this directly to refresh the document list without a second getVersion call.
+  return apiFetchJson<PersonaVersionResponse>(
     PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT(repoId, versionId, documentId),
     { method: "DELETE" },
   );
-  if (!response.ok) {
-    throw new Error(`Failed to delete document (${response.status})`);
-  }
-  // 2xx — success. DELETE often returns 204 No Content; don't attempt JSON parse.
 }
 
 // ── Version connectors ────────────────────────────────────────────────────────
@@ -939,10 +941,25 @@ export async function guidePersonaStream(
   }
   if (!response.ok) {
     if (response.status === 503) {
-      // Backend guide model not configured — fall back to enhance-prompt endpoint,
-      // which uses a fixed model that is already working.
+      // "Guide model is not configured" — fetch the persona's own model_id from
+      // GET /persona/{repo_id}/versions and retry once with it explicitly set.
       controller.abort();
-      return guideViaEnhanceFallback(params, callbacks);
+      try {
+        const versions = await listVersions(repoId);
+        const sorted   = versions.slice().sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
+        // Prefer the active version; fall back to the most-recently-saved draft.
+        const modelId =
+          sorted.find(v => v.is_active)?.model_id ??
+          sorted[0]?.model_id ??
+          null;
+        if (modelId) {
+          return guideRetryWithModel(repoId, { ...params, model_id: modelId }, callbacks);
+        }
+      } catch { /* fall through */ }
+      callbacks.onError?.("The guide model is not configured. Please contact your administrator.");
+      return () => controller.abort();
     }
     const text = await response.text().catch(() => "");
     callbacks.onError?.(text || `HTTP ${response.status}`);
@@ -958,55 +975,50 @@ export async function guidePersonaStream(
 }
 
 /**
- * Fallback when the backend guide endpoint returns 503 (GUIDE_MODEL not configured).
- * Calls POST /persona/enhance-prompt — a working endpoint — and formats the structured
- * response (dos, donts, enhanced_prompt) as a single streaming guide reply.
+ * Single retry of the guide endpoint with an explicit model_id sourced from the
+ * versions API. On any failure (including a second 503) surfaces an error — no further retries.
  */
-async function guideViaEnhanceFallback(
+async function guideRetryWithModel(
+  repoId: string,
   params: Parameters<typeof guidePersonaStream>[1],
   callbacks: PersonaChatStreamCallbacks,
 ): Promise<() => void> {
-  let aborted = false;
-  (async () => {
-    if (!params.prompt?.trim()) {
-      // enhance-prompt requires a non-empty prompt — surface a helpful nudge instead
-      callbacks.onChunk?.(
-        "I need your persona's system prompt to give useful suggestions.\n\n" +
-        "Open the guide from the **Instructions tab** where the system prompt is always available.",
-      );
-      callbacks.onDone?.();
-      return;
+  const controller = new AbortController();
+  let response: Response;
+  try {
+    response = await apiFetch(PERSONA_GUIDE_ENDPOINT(repoId), {
+      method: "POST",
+      body: JSON.stringify({
+        question:    params.question,
+        prompt:      params.prompt      ?? "",
+        description: params.description ?? "",
+        name:        params.name        ?? null,
+        model_id:    params.model_id    ?? null,
+        temperature: params.temperature ?? null,
+        connectors:  params.connectors  ?? [],
+        history:     params.history     ?? [],
+        web_search:  params.web_search  ?? false,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if ((err as Error).name !== "AbortError") {
+      callbacks.onError?.((err as Error).message ?? "Failed to get AI suggestions");
     }
-    try {
-      const result = await enhancePrompt(params.prompt);
-      if (aborted) return;
-
-      const lines: string[] = [];
-
-      if (result.dos.length > 0) {
-        lines.push("**What's working well:**");
-        result.dos.forEach(d => lines.push(`- ${d}`));
-      }
-      if (result.donts.length > 0) {
-        if (lines.length) lines.push("");
-        lines.push("**What to avoid:**");
-        result.donts.forEach(d => lines.push(`- ${d}`));
-      }
-      if (result.enhanced_prompt) {
-        if (lines.length) lines.push("");
-        lines.push("**Suggested prompt:**");
-        lines.push(result.enhanced_prompt);
-      }
-
-      if (!aborted) {
-        callbacks.onChunk?.(lines.join("\n"));
-        callbacks.onDone?.();
-      }
-    } catch (err) {
-      if (!aborted) callbacks.onError?.((err as Error).message ?? "Failed to get suggestions");
-    }
-  })();
-  return () => { aborted = true; };
+    return () => controller.abort();
+  }
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    callbacks.onError?.(text || `HTTP ${response.status}`);
+    return () => controller.abort();
+  }
+  const reader = response.body?.getReader();
+  if (!reader) {
+    callbacks.onError?.("No response body");
+    return () => controller.abort();
+  }
+  readPersonaSSEStream(reader, callbacks);
+  return () => controller.abort();
 }
 
 /**
