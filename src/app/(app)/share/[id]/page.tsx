@@ -88,7 +88,7 @@ function ShareAcceptContent() {
       // Navigate to the new persona's instructions page
       setTimeout(() => {
         push(
-          `/persona/configure/instructions?repoId=${result.persona_repo_id}&versionId=${result.persona_version_id}&name=${encodeURIComponent(result.name)}`,
+          `/persona/configure/instructions?repoId=${result.persona_repo_id}&versionId=${result.id}&name=${encodeURIComponent(result.name)}`,
         )
       }, 1200)
     } catch (err) {
@@ -217,8 +217,7 @@ function ShareAcceptContent() {
   // ── Preview ───────────────────────────────────────────────────────────────────
   if (!preview) return null
 
-  const creditsRemaining =
-    preview.credit_limit !== null ? preview.credit_limit - preview.credit_used : null
+  const creditsRemaining = preview.credit_remaining
 
   return (
     <div style={cardStyle}>
@@ -239,10 +238,10 @@ function ShareAcceptContent() {
             justifyContent: 'center',
           }}
         >
-          {preview.persona_image_url ? (
+          {preview.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element -- persona image from trusted backend URL
             <img
-              src={preview.persona_image_url}
+              src={preview.image_url}
               alt={preview.persona_name}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
@@ -292,7 +291,7 @@ function ShareAcceptContent() {
       </div>
 
       {/* Prompt preview */}
-      {preview.persona_prompt && (
+      {preview.prompt && (
         <div
           style={{
             backgroundColor: 'var(--neutral-50)',
@@ -312,18 +311,18 @@ function ShareAcceptContent() {
               whiteSpace: 'pre-line',
             }}
           >
-            {truncatePrompt(preview.persona_prompt)}
+            {truncatePrompt(preview.prompt)}
           </p>
         </div>
       )}
 
       {/* Meta row: model, temperature, credits, expiry */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {preview.persona_model && (
-          <MetaRow label="Model" value={preview.persona_model} />
+        {preview.model_id && (
+          <MetaRow label="Model" value={preview.model_id} />
         )}
-        {preview.persona_temperature !== null && (
-          <MetaRow label="Temperature" value={String(preview.persona_temperature)} />
+        {preview.temperature !== null && (
+          <MetaRow label="Temperature" value={String(preview.temperature)} />
         )}
         {creditsRemaining !== null ? (
           <MetaRow

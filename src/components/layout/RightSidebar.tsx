@@ -52,6 +52,7 @@ function toPinboardPin(
   onDelete: () => void,
   onDuplicate: () => void,
   onShowInChat: () => void,
+  onSaveComment: (text: string) => void,
 ): PinboardPin {
   const tagLabels: { color: BadgeColor; text: string }[] =
     item.tags && item.tags.length > 0
@@ -78,6 +79,7 @@ function toPinboardPin(
     onDelete,
     onDuplicate,
     onShowInChat,
+    onSaveComment,
     onInsert: () => window.dispatchEvent(
       new CustomEvent('pin:insert', { detail: { content: item.content } })
     ),
@@ -103,7 +105,7 @@ function RightSidebarImpl() {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
-  const { pins, folders: contextFolders, isLoading, isOpen, close, removePin, clonePin, addFolder, updatePinFolder, renameFolder, removeFolder, chatFilter, clearChatFilter } = usePinboard()
+  const { pins, folders: contextFolders, isLoading, isOpen, close, removePin, clonePin, addFolder, updatePinFolder, renameFolder, removeFolder, chatFilter, clearChatFilter, updatePinComment } = usePinboard()
   const { chats } = useChatHistoryContext()
 
   // Derive active chat ID from URL — same dual-pattern logic as FloatingPanel.
@@ -321,7 +323,7 @@ function RightSidebarImpl() {
   chatNameByIdRef.current = chatNameById
 
   const handlersRef = useRef(
-    new Map<string, { onExport: () => void; onDelete: () => void; onDuplicate: () => void; onShowInChat: () => void }>(),
+    new Map<string, { onExport: () => void; onDelete: () => void; onDuplicate: () => void; onShowInChat: () => void; onSaveComment: (text: string) => void }>(),
   )
 
   const router = useRouter()
@@ -346,11 +348,12 @@ function RightSidebarImpl() {
             if (p.messageId) params.set('msg', p.messageId)
             router.push(`/chat?${params.toString()}`)
           },
+          onSaveComment: (text: string) => updatePinComment(pinId, text),
         })
       }
       return handlersRef.current.get(pinId)!
     },
-    [removePin, clonePin, router],
+    [removePin, clonePin, router, updatePinComment],
   )
 
   // ── Single filtered+mapped memo (replaces two separate memos) ───────────
@@ -416,7 +419,7 @@ function RightSidebarImpl() {
 
     return result.map((p) => {
       const h = getHandlers(p.id)
-      return toPinboardPin(p, chatNameById, h.onExport, h.onDelete, h.onDuplicate, h.onShowInChat)
+      return toPinboardPin(p, chatNameById, h.onExport, h.onDelete, h.onDuplicate, h.onShowInChat, h.onSaveComment)
     })
   }, [pins, selectedViewId, selectedFolderId, effectiveChatId, selectedCategoryIds, selectedTagIds, searchQuery, sortOrder, chatNameById, getHandlers])
 

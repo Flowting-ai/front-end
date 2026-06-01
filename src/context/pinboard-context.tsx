@@ -8,6 +8,9 @@ import {
   listPins,
   listPinFolders,
   updatePinTags as updatePinTags_api,
+  addPinComment,
+  editPinComment,
+  deletePinComment,
   type PinComment,
 } from "@/lib/api/pins";
 
@@ -113,6 +116,7 @@ interface PinboardContextValue {
   updatePinCategory: (id: string, category: PinCategory) => void;
   updatePinFolder: (id: string, folderId: string | null, folderName?: string) => void;
   updatePinTags: (id: string, tags: string[]) => void;
+  updatePinComment: (id: string, text: string) => void;
   addFolder: (folder: PinFolderView) => void;
   removeFolder: (folderId: string) => void;
   renameFolder: (folderId: string, name: string) => void;
@@ -371,6 +375,49 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const updatePinComment = useCallback((id: string, text: string) => {
+    if (id.startsWith("pin-temp-")) return;
+    setPins((prev) => {
+      const pin = prev.find((p) => p.id === id);
+      if (!pin) return prev;
+      const existingComment = pin.comments?.[0];
+
+      if (!text.trim()) {
+        if (!existingComment) return prev;
+        deletePinComment(id, existingComment.id).catch((err) =>
+          console.error("[PinboardContext] Failed to delete comment", err),
+        );
+        return prev.map((p) => p.id === id ? { ...p, comments: [] } : p);
+      }
+
+      if (existingComment) {
+        editPinComment(id, existingComment.id, text)
+          .then((updated) =>
+            setPins((s) => s.map((p) => p.id === id ? { ...p, comments: [updated] } : p)),
+          )
+          .catch((err) =>
+            console.error("[PinboardContext] Failed to edit comment", err),
+          );
+        return prev.map((p) =>
+          p.id === id ? { ...p, comments: [{ ...existingComment, content: text }] } : p,
+        );
+      }
+
+      addPinComment(id, text)
+        .then((created) =>
+          setPins((s) => s.map((p) => p.id === id ? { ...p, comments: [created] } : p)),
+        )
+        .catch((err) =>
+          console.error("[PinboardContext] Failed to add comment", err),
+        );
+      return prev.map((p) =>
+        p.id === id
+          ? { ...p, comments: [{ id: "", content: text, created_at: new Date().toISOString() }] }
+          : p,
+      );
+    });
+  }, []);
+
   const pinnedMessageIds = useMemo(
     () => new Set(pins.flatMap((p) => (p.messageId ? [p.messageId] : []))),
     [pins],
@@ -386,7 +433,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
       pins, folders, isLoading, isOpen, chatFilter,
       open, close, toggle, openForChat, clearChatFilter,
       addPin, clonePin, removePin, removePinByMessage, isPinned,
-      updatePinCategory, updatePinFolder, updatePinTags,
+      updatePinCategory, updatePinFolder, updatePinTags, updatePinComment,
       addFolder, removeFolder, renameFolder,
       prefetch,
     }),

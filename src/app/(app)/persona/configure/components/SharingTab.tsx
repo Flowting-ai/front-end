@@ -18,7 +18,9 @@ import { ApiError } from '@/lib/api/client'
 type Visibility = 'private' | 'team' | 'community'
 
 export interface SharingTabProps {
-  /** persona VERSION id — the share is tied to a specific version */
+  /** persona REPO id — passed as persona_repo_id when creating shares */
+  repoId?: string
+  /** persona VERSION id — used to filter the existing shares list */
   versionId?: string
   hasTeamsPlan?: boolean
 }
@@ -206,7 +208,7 @@ function UsageBar({ percent }: { percent: number }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function SharingTab({ versionId, hasTeamsPlan = false }: SharingTabProps) {
+export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: SharingTabProps) {
   const [visibility, setVisibility] = useState<Visibility>('private')
 
   // ── Link share state ───────────────────────────────────────────────────────
@@ -243,14 +245,14 @@ export default function SharingTab({ versionId, hasTeamsPlan = false }: SharingT
   // ── Link share handlers ────────────────────────────────────────────────────
 
   async function handleGenerateLink() {
-    if (!versionId) {
+    if (!repoId) {
       toast.error('Save the persona first before generating a share link.')
       return
     }
     setIsGenerating(true)
     try {
       const share = await createShare({
-        persona_id: versionId,
+        persona_repo_id: repoId!,
         share_type: 'link',
         credit_limit: tokenLimit,
       })
@@ -290,7 +292,7 @@ export default function SharingTab({ versionId, hasTeamsPlan = false }: SharingT
   async function handleSendEmailInvite() {
     const email = emailInput.trim()
     if (!email) return
-    if (!versionId) {
+    if (!repoId) {
       toast.error('Save the persona first before sending invites.')
       return
     }
@@ -301,7 +303,7 @@ export default function SharingTab({ versionId, hasTeamsPlan = false }: SharingT
     setIsSendingEmail(true)
     try {
       const share = await createShare({
-        persona_id: versionId,
+        persona_repo_id: repoId!,
         share_type: 'email',
         recipient_emails: [email],
         credit_limit: emailTokenLimit,

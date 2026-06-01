@@ -7,6 +7,7 @@ import {
   PERSONA_ENHANCE_ENDPOINT,
   PERSONA_PAUSE_ENDPOINT,
   PERSONA_ACTIVE_ENDPOINT,
+  PERSONA_GUIDE_ENDPOINT,
   PERSONA_VERSIONS_ENDPOINT,
   PERSONA_VERSION_DETAIL_ENDPOINT,
   PERSONA_VERSION_TEST_ENDPOINT,
@@ -881,6 +882,131 @@ export async function createAndStreamPersonaChat(
   }
   readPersonaSSEStream(reader, callbacks);
   return () => controller.abort();
+}
+
+// ── Persona guide (AI suggestions) ───────────────────────────────────────────
+
+/** A single turn in the in-memory guide conversation history. */
+export interface GuideMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/**
+ * POST /persona/{repo_id}/guide — stream improvement advice for a draft persona.
+ * Sends the current editor state as context; the draft need not be saved.
+ * History is maintained client-side and replayed on every call.
+ * Returns an abort function that cancels the in-flight request.
+ */
+export async function guidePersonaStream(
+  repoId: string,
+  params: {
+    question: string;
+    prompt?: string;
+    description?: string;
+    name?: string | null;
+    model_id?: string | null;
+    temperature?: number | null;
+    connectors?: string[];
+    history?: GuideMessage[];
+    web_search?: boolean;
+  },
+  callbacks: PersonaChatStreamCallbacks,
+): Promise<() => void> {
+  const controller = new AbortController();
+  let response: Response;
+  try {
+    response = await apiFetch(PERSONA_GUIDE_ENDPOINT(repoId), {
+      method: "POST",
+      body: JSON.stringify({
+        question:    params.question,
+        prompt:      params.prompt      ?? "",
+        description: params.description ?? "",
+        name:        params.name        ?? null,
+        model_id:    params.model_id    ?? null,
+        temperature: params.temperature ?? null,
+        connectors:  params.connectors  ?? [],
+        history:     params.history     ?? [],
+        web_search:  params.web_search  ?? false,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if ((err as Error).name !== "AbortError") {
+      callbacks.onError?.((err as Error).message ?? "Failed to get AI suggestions");
+    }
+    return () => controller.abort();
+  }
+  if (!response.ok) {
+    if (response.status === 503) {
+      // Backend guide model not configured — fall back to enhance-prompt endpoint,
+      // which uses a fixed model that is already working.
+      controller.abort();
+      return guideViaEnhanceFallback(params, callbacks);
+    }
+    const text = await response.text().catch(() => "");
+    callbacks.onError?.(text || `HTTP ${response.status}`);
+    return () => controller.abort();
+  }
+  const reader = response.body?.getReader();
+  if (!reader) {
+    callbacks.onError?.("No response body");
+    return () => controller.abort();
+  }
+  readPersonaSSEStream(reader, callbacks);
+  return () => controller.abort();
+}
+
+/**
+ * Fallback when the backend guide endpoint returns 503 (GUIDE_MODEL not configured).
+ * Calls POST /persona/enhance-prompt — a working endpoint — and formats the structured
+ * response (dos, donts, enhanced_prompt) as a single streaming guide reply.
+ */
+async function guideViaEnhanceFallback(
+  params: Parameters<typeof guidePersonaStream>[1],
+  callbacks: PersonaChatStreamCallbacks,
+): Promise<() => void> {
+  let aborted = false;
+  (async () => {
+    if (!params.prompt?.trim()) {
+      // enhance-prompt requires a non-empty prompt — surface a helpful nudge instead
+      callbacks.onChunk?.(
+        "I need your persona's system prompt to give useful suggestions.\n\n" +
+        "Open the guide from the **Instructions tab** where the system prompt is always available.",
+      );
+      callbacks.onDone?.();
+      return;
+    }
+    try {
+      const result = await enhancePrompt(params.prompt);
+      if (aborted) return;
+
+      const lines: string[] = [];
+
+      if (result.dos.length > 0) {
+        lines.push("**What's working well:**");
+        result.dos.forEach(d => lines.push(`- ${d}`));
+      }
+      if (result.donts.length > 0) {
+        if (lines.length) lines.push("");
+        lines.push("**What to avoid:**");
+        result.donts.forEach(d => lines.push(`- ${d}`));
+      }
+      if (result.enhanced_prompt) {
+        if (lines.length) lines.push("");
+        lines.push("**Suggested prompt:**");
+        lines.push(result.enhanced_prompt);
+      }
+
+      if (!aborted) {
+        callbacks.onChunk?.(lines.join("\n"));
+        callbacks.onDone?.();
+      }
+    } catch (err) {
+      if (!aborted) callbacks.onError?.((err as Error).message ?? "Failed to get suggestions");
+    }
+  })();
+  return () => { aborted = true; };
 }
 
 /**

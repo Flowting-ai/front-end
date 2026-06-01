@@ -31,16 +31,19 @@ import { useInstructionHistory } from '@/app/(app)/persona/configure/hooks/use-i
 import {
   createPersonaRepo,
   createVersion,
+  deleteVersion,
   getPersonaRepo,
   getVersion,
   setActiveVersion,
   listVersions,
   testVersionStream,
+  guidePersonaStream,
   bustPersonasCache,
   type PersonaChatStreamCallbacks,
   type PersonaVersionResponse,
   type PersonaRepoResponse,
   type PersonaVersionListItem,
+  type GuideMessage,
 } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
@@ -50,7 +53,6 @@ import { getModelLlmId } from '@/lib/model-icons'
 import { TEMPLATE_PRESETS } from '@/app/(app)/personas/_data/template-presets'
 import { pickTemplateAvatar } from '@/lib/persona-template-avatars'
 import { ConnectPromptCard, PermissionPromptCard } from '@/components/chat/ConnectorPrompts'
-import { ConnectorTogglesPanel } from '@/app/(app)/persona/configure/components/ConnectorTogglesPanel'
 import { ActivitiesSection } from '@/components/chat/ActivityRow'
 import type { PersonaConnectPrompt, PersonaPermissionPrompt, PersonaActivityItem } from '@/lib/api/personas'
 import type { ActivityItem } from '@/hooks/use-chat-state'
@@ -644,8 +646,17 @@ function PersonaConfigureInstructionsContent() {
   const [versions,                  setVersions]                  = useState<PersonaVersionListItem[]>([])
   const [versionsLoading,           setVersionsLoading]           = useState(false)
   const [restoringId,               setRestoringId]               = useState<string | null>(null)
-  const [confirmDeleteOldestOpen,   setConfirmDeleteOldestOpen]   = useState(false)
   const [versionsChangeTags,        setVersionsChangeTags]        = useState<Map<string, string[]>>(new Map())
+
+  // ── AI suggestions (guide) state ───────────────────────────────────────────
+
+  type GuideMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean }
+  const [guideMessages,    setGuideMessages]    = useState<GuideMsg[]>([])
+  const [guideHistory,     setGuideHistory]     = useState<GuideMessage[]>([])
+  // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- guideIsStreaming guards the send handler to prevent duplicate submissions
+  const [guideIsStreaming, setGuideIsStreaming] = useState(false)
+  const guideAbortRef  = useRef<(() => void) | null>(null)
+  const guideScrollRef = useRef<HTMLDivElement>(null)
 
   const anyPanelOpen = testChatOpen || versionsOpen || aiSuggestOpen
 
@@ -694,6 +705,11 @@ function PersonaConfigureInstructionsContent() {
     const el = chatScrollRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [chatMessages])
+
+  useEffect(() => {
+    const el = guideScrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [guideMessages])
 
   async function handleTestChatSend(value: string) {
     const trimmedValue = value.trim()
@@ -766,6 +782,69 @@ function PersonaConfigureInstructionsContent() {
       )
     } catch (err) {
       callbacks.onError?.((err as Error).message ?? 'Failed to send message')
+    }
+  }
+
+  async function handleGuideSend(value: string) {
+    const question = value.trim()
+    if (!question || !repoId || guideIsStreaming) return
+
+    const userMsgId = `guide-user-${Date.now()}`
+    const asstMsgId = `guide-asst-${Date.now()}`
+    const modelId   = selectedModel ? stableKey(selectedModel) : null
+    const historySnapshot = guideHistory.slice()
+
+    setGuideMessages(prev => [
+      ...prev,
+      { id: userMsgId, role: 'user',      text: question },
+      { id: asstMsgId, role: 'assistant', text: '', isStreaming: true },
+    ])
+    setGuideIsStreaming(true)
+
+    let accumulated = ''
+
+    const callbacks: PersonaChatStreamCallbacks = {
+      onChunk: (delta) => {
+        accumulated += delta
+        setGuideMessages(prev =>
+          prev.map(m => m.id === asstMsgId ? { ...m, text: m.text + delta } : m)
+        )
+      },
+      onDone: () => {
+        setGuideMessages(prev =>
+          prev.map(m => m.id === asstMsgId ? { ...m, isStreaming: false } : m)
+        )
+        setGuideHistory(prev => [
+          ...prev,
+          { role: 'user',      content: question    },
+          { role: 'assistant', content: accumulated },
+        ])
+        setGuideIsStreaming(false)
+      },
+      onError: (err) => {
+        setGuideMessages(prev =>
+          prev.map(m => m.id === asstMsgId ? { ...m, text: `⚠ ${err}`, isStreaming: false } : m)
+        )
+        setGuideIsStreaming(false)
+      },
+    }
+
+    try {
+      guideAbortRef.current = await guidePersonaStream(
+        repoId,
+        {
+          question,
+          prompt:      instruction,
+          name:        personaName || null,
+          model_id:    modelId     || null,
+          temperature,
+          connectors:  connectorSlugs ?? [],
+          history:     historySnapshot,
+        },
+        callbacks,
+      )
+    } catch (err) {
+      callbacks.onError?.((err as Error).message ?? 'Failed to get suggestions')
     }
   }
 
@@ -1065,10 +1144,18 @@ function PersonaConfigureInstructionsContent() {
         created_at: version.created_at,
         updated_at: version.updated_at,
       }
-      setVersions(prev => [
-        newItem,
-        ...prev.filter(v => v.id !== version.id),
-      ].slice(0, MAX_VERSIONS))
+      const prevVersions = versions.filter(v => v.id !== version.id)
+      // Silently prune the oldest version from the backend when at cap.
+      // Never delete the published version — only surplus drafts.
+      if (prevVersions.length >= MAX_VERSIONS) {
+        const oldest = prevVersions[prevVersions.length - 1]
+        if (oldest && oldest.id !== publishedVersionId) {
+          deleteVersion(repoId, oldest.id).catch(err =>
+            console.error('[PersonaConfigure] Failed to prune old version', err),
+          )
+        }
+      }
+      setVersions([newItem, ...prevVersions].slice(0, MAX_VERSIONS))
 
       // Store change tags for this version and advance snapshot
       setVersionsChangeTags(prev => new Map([...prev, [version.id, tags]]))
@@ -1086,10 +1173,6 @@ function PersonaConfigureInstructionsContent() {
 
   async function handleSaveVersion() {
     if (!canSave) return
-    if (repoId && versions.length >= MAX_VERSIONS) {
-      setConfirmDeleteOldestOpen(true)
-      return
-    }
     await executeSave()
   }
 
@@ -1723,13 +1806,6 @@ function PersonaConfigureInstructionsContent() {
                 <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }} />
               </div>
             </div>
-            {repoIdParam && versionId && (
-              <ConnectorTogglesPanel
-                repoId={repoIdParam}
-                versionId={versionId}
-                onConnectorsChange={setConnectorSlugs}
-              />
-            )}
             <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
               {chatMessages.length === 0 ? (
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
@@ -1860,13 +1936,6 @@ function PersonaConfigureInstructionsContent() {
                   <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }} />
                 </div>
               </div>
-              {repoIdParam && versionId && (
-                <ConnectorTogglesPanel
-                  repoId={repoIdParam}
-                  versionId={versionId}
-                  onConnectorsChange={setConnectorSlugs}
-                />
-              )}
               <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
                 {chatMessages.length === 0 ? (
                   <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>Hi! I&apos;m your persona. Test me here while you configure.</p>
@@ -1928,6 +1997,102 @@ function PersonaConfigureInstructionsContent() {
                 />
               </div>
             </m.div>
+          </m.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── AI suggestions panel ─────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {aiSuggestOpen && (
+          <m.div
+            key="ai-suggest-panel"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 400, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
+            style={{
+              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+              height: '100%',
+              backgroundColor: 'var(--neutral-white)',
+              border: '1px solid var(--neutral-200)',
+              borderRadius: 16,
+              padding: 12,
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
+                </div>
+                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  AI suggestions
+                </p>
+              </div>
+              <IconButton
+                variant="outline"
+                size="md"
+                icon={<CancelOneIcon size={20} />}
+                aria-label="Close AI suggestions"
+                onClick={() => setAiSuggestOpen(false)}
+              />
+            </div>
+
+            {/* Messages */}
+            <div
+              ref={guideScrollRef}
+              className="kaya-scrollbar"
+              style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}
+            >
+              {guideMessages.length === 0 ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                  Ask me anything about improving your persona — I&apos;ll review your current draft and give you tailored advice.
+                </p>
+              ) : (
+                guideMessages.map(msg => (
+                  <div
+                    key={msg.id}
+                    style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
+                  >
+                    {msg.role === 'assistant' ? (
+                      <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />
+                    ) : (
+                      <div
+                        style={{
+                          maxWidth: '85%',
+                          padding: '8px 12px',
+                          borderRadius: 12,
+                          backgroundColor: 'var(--neutral-100)',
+                          fontFamily: 'var(--font-body)',
+                          fontWeight: 400,
+                          fontSize: 14,
+                          lineHeight: '22px',
+                          color: 'var(--neutral-900)',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {msg.text}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Input */}
+            <div style={{ flexShrink: 0 }}>
+              <ChatInput
+                placeholder="Ask for guidance…"
+                textareaLabel="Ask for AI guidance"
+                modelName={selectedModel?.modelName ?? 'AI'}
+                hideModelSelector
+                onSend={handleGuideSend}
+              />
+            </div>
           </m.div>
         )}
       </AnimatePresence>
@@ -2152,75 +2317,6 @@ function PersonaConfigureInstructionsContent() {
         )}
       </AnimatePresence>
 
-      {/* ── Delete oldest confirmation dialog ───────────────────────────────── */}
-      <AnimatePresence>
-        {confirmDeleteOldestOpen && (
-          <m.div
-            key="confirm-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            style={{
-              position:        'fixed',
-              inset:           0,
-              zIndex:          20,
-              display:         'flex',
-              alignItems:      'center',
-              justifyContent:  'center',
-              backgroundColor: 'rgba(26,25,22,0.4)',
-            }}
-            onClick={() => setConfirmDeleteOldestOpen(false)}
-          >
-            <m.div
-              initial={{ scale: 0.94, opacity: 0, y: 8 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.94, opacity: 0, y: 8 }}
-              transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-              onClick={e => e.stopPropagation()}
-              style={{
-                backgroundColor: 'var(--neutral-white)',
-                borderRadius:    20,
-                padding:         24,
-                width:           400,
-                display:         'flex',
-                flexDirection:   'column',
-                gap:             20,
-                boxShadow:       '0px 8px 32px 0px rgba(26,25,22,0.16), 0px 0px 0px 1px var(--neutral-200)',
-              }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
-                  Version limit reached
-                </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
-                  You already have {MAX_VERSIONS} saved versions. Saving a new version will remove the oldest one. This cannot be undone.
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setConfirmDeleteOldestOpen(false)}
-                >
-                  Cancel
-                </Button>
-                {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- confirmation dialog: "Continue" confirms delete-oldest-and-save action; modal context makes it clear */}
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={async () => {
-                    setConfirmDeleteOldestOpen(false)
-                    await executeSave()
-                  }}
-                >
-                  Continue
-                </Button>
-              </div>
-            </m.div>
-          </m.div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }

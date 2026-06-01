@@ -298,41 +298,41 @@ export default function ProfileTab({
         </div>
       </div>
 
-      {/* Handle */}
+      {/* Handle — auto-generated from name by the backend, not directly editable */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px" }}>
         <label htmlFor="profile-persona-handle" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Handle</label>
         <div
           style={{
-            backgroundColor: "white",
+            backgroundColor: "var(--neutral-50)",
             display: "flex",
             alignItems: "center",
             gap: 2,
             padding: "7px 10px",
             borderRadius: 10,
             boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
+            cursor: "default",
           }}
         >
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#9c938b" }}></span>
           <input
             id="profile-persona-handle"
             type="text"
             value={personaHandle}
-            onChange={(e) => handleHandleChange(e.target.value)}
-            placeholder="handle"
+            readOnly
+            tabIndex={-1}
             style={{
               flex: 1,
               fontFamily: "var(--font-body)",
               fontSize: 14,
-              color: "#6a625d",
+              color: "#9c938b",
               backgroundColor: "transparent",
-              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline: "none",
               border: "none",
+              cursor: "default",
             }}
           />
         </div>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#524b47", margin: 0 }}>
-          Lowercase and hyphens only · how others mention this persona
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#9c938b", margin: 0 }}>
+          Auto-generated from name · updates when you save a new version
         </p>
       </div>
 

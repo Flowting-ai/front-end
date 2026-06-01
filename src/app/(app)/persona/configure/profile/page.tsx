@@ -32,8 +32,10 @@ import { DEFAULT_LANGUAGE } from '@/app/(app)/personas/new/constants'
 import {
   getPersonaRepo, updateVersion, setActiveVersion,
   testVersionStream, listVersions, bustPersonasCache, getVersion,
+  guidePersonaStream,
   type PersonaChatStreamCallbacks,
   type PersonaVersionListItem,
+  type GuideMessage,
 } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import { ChatAddMenu, type SelectedPersonaInfo as AddMenuPersonaInfo } from '@/components/chat/AddMenu'
@@ -81,128 +83,55 @@ function nameInitials(name: string): string {
   return (name || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
 }
 
+function FloatingMenuButton({ active, title, onClick, children }: { active: boolean; title: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', position: 'relative',
+        backgroundColor: active ? 'rgba(237,225,215,0.6)' : 'transparent',
+        boxShadow: active ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)' : 'none',
+        transition: 'background-color 150ms, box-shadow 150ms',
+      }}
+    >
+      {active && (
+        <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)', pointerEvents: 'none' }} />
+      )}
+      {children}
+    </button>
+  )
+}
+
 function FloatingMenu({
-  testChatOpen,
-  onToggleTestChat,
-  versionsOpen,
-  onToggleVersions,
+  testChatOpen, onToggleTestChat,
+  aiSuggestOpen, onToggleAiSuggest,
+  versionsOpen, onToggleVersions,
 }: {
-  testChatOpen: boolean
-  onToggleTestChat: () => void
-  versionsOpen: boolean
-  onToggleVersions: () => void
+  testChatOpen: boolean; onToggleTestChat: () => void
+  aiSuggestOpen: boolean; onToggleAiSuggest: () => void
+  versionsOpen: boolean; onToggleVersions: () => void
 }) {
   return (
     <div
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-        backgroundColor: 'var(--neutral-white)',
-        borderRadius: 12,
-        padding: '4px 4px 6px',
-        boxShadow:
-          '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-200)',
+        display: 'flex', flexDirection: 'column', gap: 4,
+        backgroundColor: 'var(--neutral-white)', borderRadius: 12, padding: '4px 4px 6px',
+        boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-200)',
         position: 'relative',
       }}
     >
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: 'inherit',
-          boxShadow: 'inset 0px -2.182px 0.364px 0px var(--neutral-100)',
-          pointerEvents: 'none',
-        }}
-      />
-      {/* Icon 1 - test persona chat */}
-      <button
-        onClick={onToggleTestChat}
-        title={testChatOpen ? 'Close test chat' : 'Open test chat'}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 6,
-          borderRadius: 8,
-          border: 'none',
-          cursor: 'pointer',
-          position: 'relative',
-          backgroundColor: testChatOpen ? 'rgba(237,225,215,0.6)' : 'transparent',
-          boxShadow: testChatOpen
-            ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
-            : 'none',
-          transition: 'background-color 150ms, box-shadow 150ms',
-        }}
-      >
-        {testChatOpen && (
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: 'inherit',
-              boxShadow:
-                'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
-              pointerEvents: 'none',
-            }}
-          />
-        )}
-        <UserAiIcon size={20} color="var(--neutral-700)" animated />
-      </button>
-
-      {/* Icon 2 - AI idea */}
-      <button
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 6,
-          borderRadius: 8,
-          border: 'none',
-          cursor: 'pointer',
-          backgroundColor: 'transparent',
-        }}
-      >
-        <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
-      </button>
-
-      {/* Icon 3 - versions */}
-      <button
-        onClick={onToggleVersions}
-        title={versionsOpen ? 'Close versions' : 'View versions'}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 6,
-          borderRadius: 8,
-          border: 'none',
-          cursor: 'pointer',
-          position: 'relative',
-          backgroundColor: versionsOpen ? 'rgba(237,225,215,0.6)' : 'transparent',
-          boxShadow: versionsOpen
-            ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
-            : 'none',
-          transition: 'background-color 150ms, box-shadow 150ms',
-        }}
-      >
-        {versionsOpen && (
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: 'inherit',
-              boxShadow:
-                'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
-              pointerEvents: 'none',
-            }}
-          />
-        )}
+      <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'inset 0px -2.182px 0.364px 0px var(--neutral-100)', pointerEvents: 'none' }} />
+      <FloatingMenuButton active={testChatOpen}  title={testChatOpen  ? 'Close test chat'      : 'Open test chat'}      onClick={onToggleTestChat}>
+        <UserAiIcon       size={20} color="var(--neutral-700)" animated />
+      </FloatingMenuButton>
+      <FloatingMenuButton active={aiSuggestOpen} title={aiSuggestOpen ? 'Close AI suggestions' : 'AI suggestions'}      onClick={onToggleAiSuggest}>
+        <AiIdeaIcon       size={20} color="var(--neutral-700)" animated />
+      </FloatingMenuButton>
+      <FloatingMenuButton active={versionsOpen}  title={versionsOpen  ? 'Close versions'       : 'View versions'}       onClick={onToggleVersions}>
         <FolderLibraryIcon size={20} color="var(--neutral-700)" animated />
-      </button>
+      </FloatingMenuButton>
     </div>
   )
 }
@@ -227,8 +156,19 @@ function PersonaConfigureProfileContent() {
   const [testChatOpen,       setTestChatOpen]       = useState(false)
   const [testChatExpanded,   setTestChatExpanded]   = useState(false)
   const [connectorSlugs,     setConnectorSlugs]     = useState<string[] | null>(null)
+  const [currentPrompt,      setCurrentPrompt]      = useState('')
+  const [aiSuggestOpen,      setAiSuggestOpen]      = useState(false)
   const [versionsOpen,    setVersionsOpen]    = useState(false)
-  const anyPanelOpen = testChatOpen || versionsOpen
+  const anyPanelOpen = testChatOpen || aiSuggestOpen || versionsOpen
+
+  // ── Guide (AI suggestions) state ────────────────────────────────────────────
+  type GuideMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean }
+  const [guideMessages,    setGuideMessages]    = useState<GuideMsg[]>([])
+  const [guideHistory,     setGuideHistory]     = useState<GuideMessage[]>([])
+  // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- guards send handler
+  const [guideIsStreaming, setGuideIsStreaming] = useState(false)
+  const guideAbortRef  = useRef<(() => void) | null>(null)
+  const guideScrollRef = useRef<HTMLDivElement>(null)
   const [versions,        setVersions]        = useState<PersonaVersionListItem[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [restoringId,     setRestoringId]     = useState<string | null>(null)
@@ -298,20 +238,25 @@ function PersonaConfigureProfileContent() {
     // Wizard purpose has been consumed into state â€” clean up the one-shot key
     try { sessionStorage.removeItem(`persona_wizard_purpose_${repoId}`) } catch { /* ignore */ }
 
-    // If the user already has meaningful profile data saved, skip the API call
+    // If the user already has meaningful profile data saved, skip overwriting text fields
+    // but ALWAYS load the avatar from the API so it shows in the test chat panel.
     const draft = loadDraft()
     const hasMeaningfulDraft = !!draft && (
       !!(draft.personaHandle as string | undefined) ||
       !!(draft.personaDescription as string | undefined) ||
-      !!(draft.avatarUrl as string | null | undefined) ||
       ((draft.personaName as string | undefined) ?? 'Persona Name') !== 'Persona Name'
     )
-    if (hasMeaningfulDraft) { isInitializedRef.current = true; setIsInitialized(true); return }
 
     getPersonaRepo(repoId)
       .then(repo => {
         const v = repo.active_version
-        // Overwrite defaults with real API data
+        // Always refresh avatar — draft may have been set from text fields only, leaving avatar null
+        if (v?.image_url && !avatarUrl) setAvatarUrl(v.image_url)
+        if (hasMeaningfulDraft) {
+          // Text fields are already correct from the draft — just finish initializing
+          isInitializedRef.current = true; setIsInitialized(true); return
+        }
+        // No meaningful draft — overwrite all fields with real API data
         setPersonaName(repo.name || 'Persona Name')
         if (v?.handler)   setPersonaHandle(`@${v.handler}`)
         if (v?.image_url) setAvatarUrl(v.image_url)
@@ -360,11 +305,67 @@ function PersonaConfigureProfileContent() {
   }, [chatMessages])
 
   useEffect(() => {
+    const el = guideScrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [guideMessages])
+
+  useEffect(() => {
     if (!repoId || !versionId) return
     getVersion(repoId, versionId)
-      .then(v => { setConnectorSlugs(v.connectors ?? []) })
+      .then(v => {
+        setConnectorSlugs(v.connectors ?? [])
+        setCurrentPrompt(v.prompt ?? '')
+      })
       .catch(() => {})
   }, [repoId, versionId])
+
+  async function handleGuideSend(value: string) {
+    const question = value.trim()
+    if (!question || !repoId || guideIsStreaming) return
+
+    const userMsgId = `guide-user-${Date.now()}`
+    const asstMsgId = `guide-asst-${Date.now()}`
+    const historySnapshot = guideHistory.slice()
+
+    setGuideMessages(prev => [
+      ...prev,
+      { id: userMsgId, role: 'user',      text: question },
+      { id: asstMsgId, role: 'assistant', text: '', isStreaming: true },
+    ])
+    setGuideIsStreaming(true)
+
+    let accumulated = ''
+
+    const guideCallbacks: PersonaChatStreamCallbacks = {
+      onChunk: (delta) => {
+        accumulated += delta
+        setGuideMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, text: m.text + delta } : m))
+      },
+      onDone: () => {
+        setGuideMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, isStreaming: false } : m))
+        setGuideHistory(prev => [
+          ...prev,
+          { role: 'user',      content: question    },
+          { role: 'assistant', content: accumulated },
+        ])
+        setGuideIsStreaming(false)
+      },
+      onError: (err) => {
+        setGuideMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, text: `⚠ ${err}`, isStreaming: false } : m))
+        setGuideIsStreaming(false)
+      },
+    }
+
+    try {
+      guideAbortRef.current = await guidePersonaStream(
+        repoId,
+        { question, prompt: currentPrompt, name: personaName || null, history: historySnapshot },
+        guideCallbacks,
+      )
+    } catch (err) {
+      guideCallbacks.onError?.((err as Error).message ?? 'Failed to get suggestions')
+    }
+  }
 
   async function handleTestChatSend(value: string) {
     if (!value.trim() || !repoId || !versionId || isStreaming) return
@@ -763,9 +764,11 @@ function PersonaConfigureProfileContent() {
         >
           <FloatingMenu
             testChatOpen={testChatOpen}
-            onToggleTestChat={() => setTestChatOpen(v => !v)}
+            onToggleTestChat={() => { const n = !testChatOpen; setTestChatOpen(n); if (n) { setAiSuggestOpen(false); setVersionsOpen(false) } }}
+            aiSuggestOpen={aiSuggestOpen}
+            onToggleAiSuggest={() => { const n = !aiSuggestOpen; setAiSuggestOpen(n); if (n) { setTestChatOpen(false); setVersionsOpen(false) } }}
             versionsOpen={versionsOpen}
-            onToggleVersions={() => setVersionsOpen(v => !v)}
+            onToggleVersions={() => { const n = !versionsOpen; setVersionsOpen(n); if (n) { setTestChatOpen(false); setAiSuggestOpen(false) } }}
           />
         </div>
       </div>
@@ -816,7 +819,7 @@ function PersonaConfigureProfileContent() {
                   }}
                 >
                   {avatarUrl && (
-                    <Image src={avatarUrl} alt="" fill unoptimized style={{ objectFit: 'cover' }} />
+                    <Image src={avatarUrl} alt="" fill sizes="36px" unoptimized style={{ objectFit: 'cover' }} />
                   )}
                 </div>
                 <p
@@ -978,7 +981,7 @@ function PersonaConfigureProfileContent() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
                   <div style={{ position: 'relative', width: 36, height: 36, borderRadius: 10, flexShrink: 0, backgroundColor: avatarUrl ? undefined : 'var(--neutral-100)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', overflow: 'hidden' }}>
-                    {avatarUrl && <Image src={avatarUrl} alt="" fill unoptimized style={{ objectFit: 'cover' }} />}
+                    {avatarUrl && <Image src={avatarUrl} alt="" fill sizes="36px" unoptimized style={{ objectFit: 'cover' }} />}
                   </div>
                   <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{personaName}</p>
                 </div>
@@ -1021,6 +1024,58 @@ function PersonaConfigureProfileContent() {
                 />
               </div>
             </m.div>
+          </m.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── AI suggestions panel ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {aiSuggestOpen && (
+          <m.div
+            key="ai-suggest-panel"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 400, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
+            style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, height: '100%', backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12, overflow: 'hidden' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
+                <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
+                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  AI suggestions
+                </p>
+              </div>
+              <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close AI suggestions" onClick={() => setAiSuggestOpen(false)} />
+            </div>
+            <div ref={guideScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
+              {guideMessages.length === 0 ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                  Ask me anything about improving your persona — I&apos;ll review the current draft and give you tailored advice.
+                </p>
+              ) : (
+                guideMessages.map(msg => (
+                  <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                    {msg.role === 'assistant' ? (
+                      <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />
+                    ) : (
+                      <div style={{ maxWidth: '85%', padding: '8px 12px', borderRadius: 12, backgroundColor: 'var(--neutral-100)', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', wordBreak: 'break-word' }}>
+                        {msg.text}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+            <div style={{ flexShrink: 0 }}>
+              <ChatInput
+                placeholder="Ask for guidance…"
+                textareaLabel="Ask for AI guidance"
+                modelName="AI"
+                hideModelSelector
+                onSend={handleGuideSend}
+              />
+            </div>
           </m.div>
         )}
       </AnimatePresence>

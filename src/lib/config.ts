@@ -71,6 +71,8 @@ export const PERSONA_PAUSE_ENDPOINT = (repoId: string) =>
   withBase(`/persona/${repoId}/pause`);
 export const PERSONA_ACTIVE_ENDPOINT = (repoId: string) =>
   withBase(`/persona/${repoId}/active`);
+export const PERSONA_GUIDE_ENDPOINT = (repoId: string) =>
+  withBase(`/persona/${repoId}/guide`);
 // Versions
 export const PERSONA_VERSIONS_ENDPOINT = (repoId: string) =>
   withBase(`/persona/${repoId}/versions`);

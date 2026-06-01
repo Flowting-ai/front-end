@@ -478,7 +478,7 @@ function PersonaConfigureSharingContent() {
               paddingBottom: 32,
             }}
           >
-            <SharingTab versionId={versionId || undefined} />
+            <SharingTab repoId={repoId || undefined} versionId={versionId || undefined} />
           </div>
         </div>
 

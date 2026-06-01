@@ -300,6 +300,11 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   createdAt?:   string
   /** Existing comments to display in the expanded view above the comment field. */
   comments?:    PinComment[]
+  /**
+   * Called when the user commits a comment (Enter key or blur). Receives the
+   * current field text. Empty string means the comment was cleared.
+   */
+  onSaveComment?: (text: string) => void
 }
 
 // ── Tag cap ────────────────────────────────────────────────────────────────────
@@ -355,6 +360,7 @@ export function Pin({
       modelName,
       createdAt,
       comments,
+      onSaveComment,
       className,
       style,
       onMouseEnter: externalEnter,
@@ -610,7 +616,7 @@ export function Pin({
 
     const [contentRef, contentBounds] = useMeasure()
 
-    const commentFieldRef    = useRef<HTMLInputElement>(null)
+    const commentFieldRef    = useRef<HTMLTextAreaElement>(null)
     const focusCommentRef    = useRef(false)
     const cardRef            = useRef<HTMLDivElement>(null)
     const dragInfo           = useRef({ startY: 0, startHeight: 0 })
@@ -1372,20 +1378,18 @@ export function Pin({
                 style={{ width: '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}
               >
                 <ExpandedMeta chatName={chatName} modelName={modelName} createdAt={createdAt} />
-                {/* Single comment slot - ChipInput pre-filled with the first
-                    existing comment so the user edits in-place. At most one
-                    comment is shown/stored per pin. */}
-                <ChipInput
+                {/* Single comment slot - pre-filled with the first existing comment
+                    so the user edits in-place. At most one comment per pin. */}
+                <PinCommentField
                   ref={commentFieldRef}
+                  fluid
                   placeholder="Add a comment…"
                   aria-label="Add a comment"
                   defaultValue={comments?.[0]?.content ?? ''}
-                  style={{ width: '100%' }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      ;(e.target as HTMLInputElement).blur()
-                    }
+                  onBlur={(e) => {
+                    const next = e.target.value
+                    const prev = comments?.[0]?.content ?? ''
+                    if (next !== prev) onSaveComment?.(next)
                   }}
                 />
               </m.div>

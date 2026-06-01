@@ -30,31 +30,33 @@ export interface PersonaShare {
 
 /** Returned by GET /persona-shares/{id} — shown to the person accepting the share. */
 export interface PersonaSharePreview {
-  id: string;
-  share_url: string;
+  share_id: string;
   persona_name: string;
-  persona_prompt: string;
-  persona_model: string | null;
-  persona_temperature: number | null;
-  persona_image_url: string | null;
+  description: string | null;
+  prompt: string;
+  model_id: string | null;
+  temperature: number | null;
+  image_url: string | null;
   shared_by_name: string;
   shared_by_email: string;
   expires_at: string | null;
   credit_limit: number | null;
-  credit_used: number;
-  is_active: boolean;
+  credit_remaining: number | null;
 }
 
-/** Returned by POST /persona-shares/{id}/accept */
+/** Returned by POST /persona-shares/{id}/accept — a PersonaVersionResponse shape. */
 export interface AcceptShareResponse {
+  /** The newly created persona version id. */
+  id: string;
   persona_repo_id: string;
-  persona_version_id: string;
   name: string;
+  handler: string;
+  source_share_id: string;
 }
 
 export interface CreateShareParams {
-  /** The persona VERSION id to share (frozen at creation). */
-  persona_id: string;
+  /** The persona REPO id — backend freezes the active version at share time. */
+  persona_repo_id: string;
   share_type: ShareType;
   recipient_emails?: string[];
   /** null = unlimited */
