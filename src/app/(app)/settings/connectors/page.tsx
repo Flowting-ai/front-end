@@ -10,6 +10,7 @@ import {
   updateConnector,
   unlinkConnector,
   pollConnectorUntilActive,
+  oauthNeedsInitFields,
   DEFAULT_API_KEY_FIELD,
 } from '@/lib/api/connectors'
 import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
@@ -634,7 +635,7 @@ function useConnectFlow(
     return () => { abortedRef.current = true }
   }, [])
 
-  const startOAuth = useCallback(() => {
+  const startOAuth = useCallback((initData?: Record<string, string>) => {
     // Open without noopener so we can navigate popup.location after getting
     // the redirect URL. noopener leaves the popup stuck at about:blank in some
     // browsers (Firefox returns null; some Chrome configs block location assign).
@@ -642,7 +643,9 @@ function useConnectFlow(
     setState('opening')
     setErrorMsg('')
 
-    initiateLink(entry.slug)
+    // initData carries per-tenant OAuth credentials (Shopify client_id/secret);
+    // undefined for plain OAuth.
+    initiateLink(entry.slug, initData)
       .then((link) => {
         if (abortedRef.current) { popup?.close(); return }
         const url = link.redirect_url
@@ -804,8 +807,13 @@ function ConnectorCard({
   const isOpening    = state === 'opening'
   const isSubmitting = state === 'submitting'
 
+  // api_key connectors and per-tenant OAuth connectors (Shopify BYOA, which
+  // declares required init fields like client_id/client_secret) both collect a
+  // credential form first. Plain OAuth goes straight to the popup.
+  const needsForm = entry.auth_mode === 'api_key' || oauthNeedsInitFields(entry)
+
   const handleConnectClick = () => {
-    if (entry.auth_mode === 'api_key') {
+    if (needsForm) {
       setShowApiForm(true)
     } else {
       startOAuth()
@@ -885,15 +893,18 @@ function ConnectorCard({
         </p>
       )}
 
-      {/* API key form — normal flow, button hidden while this is open */}
+      {/* Credential form — used by api_key connectors AND per-tenant OAuth
+          (Shopify). For OAuth the fields are posted as init_data via startOAuth,
+          which then opens the hosted connect popup; for api_key they're PATCHed.
+          Button is hidden while this is open. */}
       {showApiForm && !isActive && (
         <ApiKeyForm
           fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD]}
           values={apiKeyValues}
           onChange={setApiKeyValues}
-          onSubmit={submitApiKey}
+          onSubmit={entry.auth_mode === 'api_key' ? submitApiKey : () => startOAuth(apiKeyValues)}
           onCancel={() => setShowApiForm(false)}
-          submitting={isSubmitting}
+          submitting={isSubmitting || isOpening || isPolling}
         />
       )}
 

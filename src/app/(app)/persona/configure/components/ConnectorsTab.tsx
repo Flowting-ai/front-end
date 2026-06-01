@@ -11,6 +11,7 @@ import {
   updateConnector,
   unlinkConnector,
   pollConnectorUntilActive,
+  oauthNeedsInitFields,
   DEFAULT_API_KEY_FIELD,
 } from '@/lib/api/connectors'
 import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
@@ -470,12 +471,14 @@ function useConnectFlow(
     return () => { abortedRef.current = true }
   }, [])
 
-  const startOAuth = useCallback(() => {
+  const startOAuth = useCallback((initData?: Record<string, string>) => {
     const popup = window.open('', '_blank', 'width=900,height=700')
     setState('opening')
     setErrorMsg('')
 
-    initiateLink(entry.slug)
+    // initData carries per-tenant OAuth credentials (Shopify client_id/secret);
+    // undefined for plain OAuth.
+    initiateLink(entry.slug, initData)
       .then((link) => {
         if (abortedRef.current) { popup?.close(); return }
         const url = link.redirect_url
@@ -694,8 +697,11 @@ function ConnectorRow({ entry, isExpanded, onExpandToggle, onManage, onUpdate }:
         )}
       </div>
 
-      {/* Inline connect panel (API key only — OAuth opens popup) */}
-      {isExpanded && !entry.linked && entry.auth_mode === 'api_key' && (
+      {/* Inline connect panel — credential form. Covers api_key connectors AND
+          per-tenant OAuth (Shopify), whose client_id/secret are posted as
+          init_data via startOAuth (which then opens the hosted popup). Plain
+          OAuth has no fields and uses the "Continue with…" panel below. */}
+      {isExpanded && !entry.linked && (entry.auth_mode === 'api_key' || oauthNeedsInitFields(entry)) && (
         <div style={{ padding: '0 12px 16px 12px' }}>
           <div style={{ padding: '16px', borderRadius: 10, backgroundColor: 'white', boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)' }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#0a0a0a', margin: '0 0 4px' }}>
@@ -713,16 +719,16 @@ function ConnectorRow({ entry, isExpanded, onExpandToggle, onManage, onUpdate }:
               fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD]}
               values={apiKeyValues}
               onChange={setApiKeyValues}
-              onSubmit={submitApiKey}
+              onSubmit={entry.auth_mode === 'api_key' ? submitApiKey : () => startOAuth(apiKeyValues)}
               onCancel={() => onExpandToggle(entry.slug)}
-              submitting={isSubmitting}
+              submitting={isSubmitting || isOpening || isPolling}
             />
           </div>
         </div>
       )}
 
-      {/* Inline connect panel (OAuth) */}
-      {isExpanded && !entry.linked && entry.auth_mode === 'oauth2' && (
+      {/* Inline connect panel (plain OAuth — no init fields) */}
+      {isExpanded && !entry.linked && entry.auth_mode === 'oauth2' && !oauthNeedsInitFields(entry) && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px 16px 12px', gap: 16 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '1 0 0', minWidth: 0 }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#0a0a0a', margin: 0, whiteSpace: 'nowrap' }}>

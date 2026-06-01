@@ -9,6 +9,7 @@ import {
   initiateLink,
   updateConnector,
   pollConnectorUntilActive,
+  oauthNeedsInitFields,
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
 } from '@/lib/api/connectors'
@@ -142,7 +143,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     return () => { abortedRef.current = true }
   }, [])
 
-  const handleOAuth = useCallback(() => {
+  const handleOAuth = useCallback((initData?: Record<string, string>) => {
     // Open WITHOUT noopener/noreferrer so we can navigate popup.location after
     // getting the redirect URL. noopener leaves the popup stuck at about:blank
     // (Firefox returns null; some Chrome configs block location assignment).
@@ -150,7 +151,9 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     setState('connecting')
     setErrorMsg('')
 
-    initiateLink(prompt.connector_slug)
+    // initData carries per-tenant OAuth credentials (Shopify client_id/secret);
+    // undefined for plain OAuth.
+    initiateLink(prompt.connector_slug, initData)
       .then((link) => {
         if (abortedRef.current) { popup?.close(); return }
         if (!link.redirect_url) {
@@ -202,6 +205,12 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
       })
   }, [prompt, apiKeyFields, onConnected])
 
+  // Per-tenant OAuth (Shopify BYOA) declares required init fields in the connect
+  // prompt; render the same credential form as api_key, but submit via the OAuth
+  // path (posts init_data, then opens the hosted connect popup).
+  const needsInitFields = oauthNeedsInitFields(prompt)
+  const showCredentialForm = prompt.auth_mode === 'api_key' || needsInitFields
+
   if (state === 'connected') {
     return (
       <PromptCard>
@@ -235,7 +244,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
         </p>
       )}
 
-      {prompt.auth_mode === 'api_key' ? (
+      {showCredentialForm ? (
         <AnimatePresence initial={false}>
           {!showApiForm ? (
             <m.div key="cta" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -284,17 +293,17 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
               ))}
               <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                 <PromptButton
-                  onClick={handleApiKey}
+                  onClick={prompt.auth_mode === 'api_key' ? handleApiKey : () => handleOAuth(apiKeyFields)}
                   disabled={
-                    state === 'connecting' ||
+                    state === 'connecting' || state === 'polling' ||
                     !(fieldDefs ?? [DEFAULT_API_KEY_FIELD])
                       .filter((f) => f.required)
                       .every((f) => (apiKeyFields[f.name] ?? '').trim())
                   }
                 >
-                  {state === 'connecting' ? 'Connecting…' : 'Connect'}
+                  {state === 'polling' ? 'Waiting…' : state === 'connecting' ? 'Connecting…' : 'Connect'}
                 </PromptButton>
-                <PromptButton variant="outline" onClick={() => setShowApiForm(false)} disabled={state === 'connecting'}>
+                <PromptButton variant="outline" onClick={() => setShowApiForm(false)} disabled={state === 'connecting' || state === 'polling'}>
                   Cancel
                 </PromptButton>
               </div>
@@ -305,7 +314,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
         // ── OAuth2 ────────────────────────────────────────────────────────────
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <PromptButton
-            onClick={state === 'idle' || state === 'error' ? handleOAuth : undefined}
+            onClick={state === 'idle' || state === 'error' ? () => handleOAuth() : undefined}
             disabled={state === 'connecting' || state === 'polling'}
           >
             {state === 'polling' ? (

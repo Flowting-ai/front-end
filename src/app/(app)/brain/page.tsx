@@ -40,6 +40,7 @@ import {
   pollConnectorUntilActive,
   getConnector,
   updateConnector,
+  oauthNeedsInitFields,
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
 } from '@/lib/api/connectors'
@@ -529,12 +530,14 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
       })
   }, [event.auth_mode, event.connector_slug, fields])
 
-  const handleOAuth = useCallback(async () => {
+  const handleOAuth = useCallback(async (initData?: Record<string, string>) => {
     if (busy || done) return
     setBusy(true)
     setError(null)
     try {
-      const { redirect_url } = await initiateLink(event.connector_slug)
+      // initData carries per-tenant OAuth credentials (Shopify client_id/secret);
+      // undefined for plain OAuth.
+      const { redirect_url } = await initiateLink(event.connector_slug, initData)
       if (redirect_url) window.open(redirect_url, '_blank', 'noopener')
       await pollConnectorUntilActive(event.connector_slug)
       if (abortedRef.current) return
@@ -569,6 +572,10 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
 
   const resolvedFields = fields ?? [DEFAULT_API_KEY_FIELD]
   const allFilled = resolvedFields.filter((f) => f.required).every((f) => (creds[f.name] ?? '').trim())
+  // Per-tenant OAuth (Shopify BYOA) declares required init fields; render the
+  // same credential form as api_key, but submit via the OAuth path (posts
+  // init_data, then opens the hosted connect popup).
+  const showCredentialForm = event.auth_mode === 'api_key' || oauthNeedsInitFields(event)
 
   const cardStyle: CSSProperties = {
     display:         'flex',
@@ -666,7 +673,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
         </span>
       )}
 
-      {event.auth_mode === 'api_key' ? (
+      {showCredentialForm ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
           {resolvedFields.map((field) => (
             <div key={field.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -685,7 +692,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
             <button
               type="button"
-              onClick={() => void handleApiKey()}
+              onClick={() => void (event.auth_mode === 'api_key' ? handleApiKey() : handleOAuth(creds))}
               disabled={busy || done || !allFilled}
               style={btnStyle(true, busy || done || !allFilled)}
             >
@@ -1747,6 +1754,9 @@ function BrainPageInner() {
         const auth_mode    = typeof d.auth_mode      === 'string' ? d.auth_mode      : 'oauth2'
         const tool_name    = typeof d.tool_name      === 'string' ? d.tool_name      : ''
         const request_id   = typeof d.request_id     === 'string' ? d.request_id     : ''
+        // Per-tenant OAuth (Shopify) ships its init fields here so the card can
+        // render the credential form inline instead of a bare OAuth popup.
+        const api_key_fields = Array.isArray(d.api_key_fields) ? (d.api_key_fields as ApiKeyField[]) : undefined
         if (slug) {
           setToolConnectPrompt({
             connector_slug: slug,
@@ -1754,6 +1764,7 @@ function BrainPageInner() {
             auth_mode,
             tool_name,
             request_id,
+            api_key_fields,
           })
           setTimeline((prev) => [...prev, { kind: 'connect', id: `connect-${++timelineSeqRef.current}`, slug }])
         }

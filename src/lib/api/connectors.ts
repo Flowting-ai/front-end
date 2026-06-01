@@ -36,6 +36,22 @@ export const DEFAULT_API_KEY_FIELD: ApiKeyField = {
   required: true,
 }
 
+/**
+ * True for per-tenant OAuth connectors that require init fields up front —
+ * e.g. Shopify's bring-your-own-app S2S, which declares `client_id` /
+ * `client_secret` in `api_key_fields`. The merchant must submit these so the
+ * backend can mint their per-merchant auth config; they're posted in
+ * `init_data` on POST /connectors/{slug}/link (NOT PATCHed as credentials).
+ * Plain OAuth connectors have no init fields and link with a bare POST.
+ */
+export function oauthNeedsInitFields(
+  c: { auth_mode?: string; api_key_fields?: ApiKeyField[] | null },
+): boolean {
+  return c.auth_mode === 'oauth2'
+    && Array.isArray(c.api_key_fields)
+    && c.api_key_fields.length > 0
+}
+
 export interface ConnectorCatalogEntry {
   slug:            string
   display_name:    string
@@ -75,8 +91,18 @@ export async function getConnector(slug: string): Promise<ConnectorCatalogEntry>
   return apiFetchJson<ConnectorCatalogEntry>(CONNECTOR_DETAIL_ENDPOINT(slug))
 }
 
-export async function initiateLink(slug: string): Promise<LinkResponse> {
-  return apiFetchJson<LinkResponse>(CONNECTOR_LINK_ENDPOINT(slug), { method: 'POST' })
+export async function initiateLink(
+  slug: string,
+  initData?: Record<string, string>,
+): Promise<LinkResponse> {
+  // Per-tenant OAuth (Shopify BYOA) submits its app credentials here as
+  // `init_data`; the backend mints a per-merchant auth config from them and
+  // returns the hosted connect link. Plain OAuth sends no body.
+  const hasInit = initData != null && Object.keys(initData).length > 0
+  return apiFetchJson<LinkResponse>(CONNECTOR_LINK_ENDPOINT(slug), {
+    method: 'POST',
+    ...(hasInit ? { body: JSON.stringify({ init_data: initData }) } : {}),
+  })
 }
 
 export async function updateConnector(
