@@ -159,14 +159,15 @@ function WelcomeModalImpl() {
   const [trialLoading, setTrialLoading] = useState(false);
   const [visible, setVisible] = useState(false);
 
-  // Show only when triggered by ?welcome=1 AND not previously acknowledged.
+  // Show whenever ?welcome=1 is present — this param is only ever added by the
+  // onboarding import page after a fresh signup, so a new arrival should always
+  // see the modal regardless of any stale localStorage state from a prior session.
   useEffect(() => {
     if (searchParams.get("welcome") === "1") {
-      const alreadyAcked = localStorage.getItem(WELCOME_ACK_KEY) === "1";
-      if (!alreadyAcked) {
-        setVisible(true);
-      }
-      // Always clean the URL param
+      // Reset any previous ack so the modal always shows on fresh onboarding.
+      localStorage.removeItem(WELCOME_ACK_KEY);
+      setVisible(true);
+      // Clean the URL param so it doesn't linger after the modal closes.
       const url = new URL(window.location.href);
       url.searchParams.delete("welcome");
       window.history.replaceState({}, "", url.toString());
