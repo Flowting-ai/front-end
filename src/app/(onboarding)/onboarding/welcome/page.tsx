@@ -52,19 +52,19 @@ export default function OnboardingWelcomePage() {
       style={{
         minHeight: "100vh",
         width: "100%",
+        position: "relative",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "var(--neutral-50, #f7f2ed)",
-        backgroundImage: "url('/icons/souvenir-bg.svg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        backgroundAttachment: "fixed",
       }}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- decorative background; Next Image doesn't support SVG patterns with embedded raster images */}
+      <img src="https://souvenirai-storage.s3.us-east-1.amazonaws.com/public/souvenir-onboarding-bg.svg" alt="Souvenir onboarding background" aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0, pointerEvents: "none" }} />
     <div
       style={{
+        position: "relative",
+        zIndex: 1,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -164,24 +164,10 @@ export default function OnboardingWelcomePage() {
         </div>
       </div>
 
-      {/* Log out link */}
-      <button
-        type="button"
-        onClick={() => void logout()}
-        style={{
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          fontFamily: "var(--font-body)",
-          fontWeight: 400,
-          fontSize: "12px",
-          lineHeight: "16px",
-          color: "#0d6eb2",
-          textDecoration: "underline",
-        }}
-      >
-        Log out
-      </button>
+      {/* Log out */}
+      <Button variant="ghost" size="sm" onClick={() => void logout()}>
+        <span style={{ color: "#0d6eb2", textDecoration: "underline" }}>Log out</span>
+      </Button>
     </div>
     </div>
   );

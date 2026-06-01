@@ -22,7 +22,7 @@ Write it as a briefing for someone who has never met me. Plain prose only. Under
 export default function OnboardingImportPage() {
   const { push } = useRouter();
   const { data, setAiContext } = useOnboarding();
-  const { refreshUser } = useAuth();
+  const { refreshUser, logout } = useAuth();
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -66,19 +66,19 @@ export default function OnboardingImportPage() {
       style={{
         minHeight: "100vh",
         width: "100%",
+        position: "relative",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "var(--neutral-50, #f7f2ed)",
-        backgroundImage: "url('/icons/souvenir-bg.svg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        backgroundAttachment: "fixed",
       }}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- decorative background; Next Image doesn't support SVG patterns with embedded raster images */}
+      <img src="https://souvenirai-storage.s3.us-east-1.amazonaws.com/public/souvenir-onboarding-bg.svg" alt="Souvenir onboarding background" aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0, pointerEvents: "none" }} />
     <div
       style={{
+        position: "relative",
+        zIndex: 1,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -339,7 +339,7 @@ export default function OnboardingImportPage() {
       {/* Action buttons */}
       {/* Action buttons */}
       <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-        <Button variant="outline" size="sm" onClick={() => push("/onboarding/tone")} disabled={loading}>
+        <Button variant="secondary" size="sm" onClick={() => push("/onboarding/tone")} disabled={loading}>
           Back
         </Button>
         <Button
@@ -351,7 +351,7 @@ export default function OnboardingImportPage() {
           Import and continue
         </Button>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={loading}
           onClick={() => void submitOnboarding(true)}
@@ -361,19 +361,9 @@ export default function OnboardingImportPage() {
       </div>
 
       {/* Log out */}
-      <a
-        href="/auth/logout"
-        style={{
-          fontFamily: "var(--font-body)",
-          fontWeight: 400,
-          fontSize: "12px",
-          lineHeight: "16px",
-          color: "#0d6eb2",
-          textDecoration: "underline",
-        }}
-      >
-        Log out
-      </a>
+      <Button variant="ghost" size="sm" onClick={() => void logout()}>
+        <span style={{ color: "#0d6eb2", textDecoration: "underline" }}>Log out</span>
+      </Button>
     </div>
     </div>
   );

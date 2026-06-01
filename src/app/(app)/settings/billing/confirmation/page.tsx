@@ -1,23 +1,22 @@
 'use client'
 
-import React, { Suspense, useEffect, useState } from 'react'
+import React, { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
 import { fetchBilling } from '@/lib/api/user'
+import { Button } from '@/components/Button'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
 
 const C = {
-  ink:    'var(--neutral-900)',
-  muted:  'var(--neutral-500)',
-  white:  'var(--neutral-white)',
-  green:  '#16A34A',
-  greenBg:'#DCFCE7',
+  ink:     'var(--neutral-900)',
+  muted:   'var(--neutral-500)',
+  green:   '#16A34A',
+  greenBg: '#DCFCE7',
 } as const
 
-// ── CheckCircle icon (inline, no external dep) ────────────────────────────────
 function CheckCircleIcon() {
   return (
     <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -39,38 +38,21 @@ function BillingConfirmationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { refreshUser } = useAuth()
-  const [syncing, setSyncing] = useState(true)
-  const [planLabel, setPlanLabel] = useState<string>('')
 
   const plan = searchParams.get('plan')
   const type = searchParams.get('type') // 'topup' | 'plan' | null
 
-  useEffect(() => {
-    if (plan) {
-      setPlanLabel(plan.charAt(0).toUpperCase() + plan.slice(1))
-    }
-  }, [plan])
+  const planLabel = plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : null
+  const isTopUp   = type === 'topup'
 
-  // Re-fetch user + billing to sync the new subscription state
+  // Fire-and-forget: refresh auth + billing once on mount.
+  // Empty deps is intentional — refreshUser is not useCallback-memoised in
+  // auth-context, so including it in deps causes an infinite re-run loop.
   useEffect(() => {
-    let cancelled = false
-    const sync = async () => {
-      try {
-        // Give Stripe webhook a moment to propagate
-        await new Promise((r) => setTimeout(r, 1500))
-        await Promise.all([refreshUser(), fetchBilling()])
-        // Clear the bypass cookie now that sync is complete
-        document.cookie = 'souvenir_checkout_complete=; path=/; max-age=0; SameSite=Lax'
-        if (!cancelled) setSyncing(false)
-      } catch {
-        if (!cancelled) setSyncing(false)
-      }
-    }
-    void sync()
-    return () => { cancelled = true }
-  }, [refreshUser])
-
-  const isTopUp = type === 'topup'
+    document.cookie = 'souvenir_checkout_complete=; path=/; max-age=0; SameSite=Lax'
+    void refreshUser()
+    void fetchBilling()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const heading = isTopUp ? 'Credits Added!' : 'Payment Successful!'
   const description = isTopUp
@@ -98,6 +80,7 @@ function BillingConfirmationContent() {
         width: '100%',
         textAlign: 'center',
       }}>
+
         {/* Icon */}
         <div style={{
           width: 96,
@@ -132,60 +115,17 @@ function BillingConfirmationContent() {
           }}>
             {description}
           </p>
-          {syncing && (
-            <p style={{
-              fontFamily: BODY,
-              fontSize: 13,
-              lineHeight: '18px',
-              color: C.muted,
-              margin: '8px 0 0',
-            }}>
-              Syncing your account…
-            </p>
-          )}
         </div>
 
-        {/* CTA */}
-        <button
-          type="button"
-          onClick={() => router.push('/chat')}
-          disabled={syncing}
-          style={{
-            fontFamily: BODY,
-            fontSize: 15,
-            fontWeight: 500,
-            lineHeight: '22px',
-            color: C.white,
-            backgroundColor: syncing ? '#A3A3A3' : C.ink,
-            border: 'none',
-            borderRadius: 8,
-            padding: '12px 32px',
-            cursor: syncing ? 'default' : 'pointer',
-            transition: 'background-color 0.15s',
-            width: '100%',
-            maxWidth: 320,
-          }}
-        >
-          {syncing ? 'Setting up…' : 'Continue to Dashboard'}
-        </button>
-
-        {/* Secondary link */}
-        <button
-          type="button"
-          onClick={() => router.push('/settings/billing')}
-          style={{
-            fontFamily: BODY,
-            fontSize: 13,
-            color: C.muted,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            textDecoration: 'underline',
-            padding: 0,
-          }}
-        >
-          View billing details
-        </button>
+        {/* CTAs */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 320 }}>
+          <Button fluid onClick={() => router.push('/settings/billing')}>
+            Go to usage &amp; billing
+          </Button>
+          <Button variant="ghost" fluid onClick={() => router.push('/chat')}>
+            Go to Dashboard
+          </Button>
+        </div>
       </div>
     </div>
   )
