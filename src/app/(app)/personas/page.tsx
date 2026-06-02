@@ -17,8 +17,12 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, type Persona } from '@/lib/api/personas'
+import { listShares, revokeShare, getSharePreview, type PersonaShare } from '@/lib/api/persona-shares'
 import Tabs from '@/components/Tabs'
 import { PersonaCard } from '@/components/PersonaCard'
+import { SuperLinkRow, type SuperLinkStatus } from '@/components/SuperLinkRow'
+import { SuperLinkDrawer, type SuperLinkDrawerLink } from '@/components/SuperLinkDrawer'
+import { SuperLinksEmpty } from '@/components/SuperLinksEmpty'
 import { usePinboard } from '@/context/pinboard-context'
 import { toast } from 'sonner'
 
@@ -266,6 +270,47 @@ function DeleteDialog({ name, onConfirm, onCancel }: { name: string; onConfirm: 
   )
 }
 
+// ── Super Links helpers ───────────────────────────────────────────────────────
+
+const SL_COLORS = ['#7C3AED', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#6366F1']
+
+function colorFromName(name: string): string {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return SL_COLORS[h % SL_COLORS.length]
+}
+
+function shareStatus(share: PersonaShare): SuperLinkStatus {
+  if (!share.is_active) return 'revoked'
+  if (share.credit_limit !== null && share.credit_used >= share.credit_limit) return 'limit-reached'
+  return 'active'
+}
+
+function toDrawerLink(
+  share: PersonaShare,
+  personaName: string,
+  avatarUrl: string | null,
+  repoId: string,
+): SuperLinkDrawerLink {
+  return {
+    id:             share.id,
+    personaName,
+    avatarColor:    colorFromName(personaName),
+    avatarUrl,
+    repoId,
+    url:            share.share_url.replace(/^https?:\/\//, ''),
+    tokenUsed:      share.credit_used,
+    tokenLimit:     share.credit_limit ?? 0,
+    conversations:  0,
+    uniqueUsers:    0,
+    tokensPerConvo: 0,
+    lastUsedAt:     share.updated_at,
+    status:         shareStatus(share),
+    dailyTokens:    [],
+    sessions:       [],
+  }
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
@@ -287,6 +332,13 @@ export default function PersonasPage() {
   const [allOpen,      setAllOpen]      = useState(false)
   const [filterOpen,   setFilterOpen]   = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Persona | null>(null)
+
+  // Super Links state
+  const [shares,         setShares]         = useState<PersonaShare[]>([])
+  const [sharesLoading,  setSharesLoading]  = useState(false)
+  const [selectedShareId, setSelectedShareId] = useState<string | null>(null)
+  // Enriched persona info per share (name + image) fetched from getSharePreview
+  const [shareMeta, setShareMeta] = useState<Record<string, { name: string; imageUrl: string | null }>>({})
 
   // Close the pinboard whenever the personas page is mounted.
   useEffect(() => { closePinboard() }, [closePinboard])
@@ -317,6 +369,61 @@ export default function PersonasPage() {
       .catch(console.error)
       .finally(() => setIsLoading(false))
   }, [pathname])
+
+  // Fetch link shares whenever the super-links tab is active.
+  // Enriches each share with persona name + image via getSharePreview so the
+  // display never depends on fragile version-ID cross-matching.
+  useEffect(() => {
+    if (activeTab !== 'super-links') return
+    setSharesLoading(true)
+    listShares()
+      .then(allShares => {
+        const linkShares = allShares.filter(s => s.share_type === 'link')
+        setShares(linkShares)
+        // Fetch preview data for every share in parallel; failures are silently skipped.
+        Promise.allSettled(linkShares.map(s => getSharePreview(s.id))).then(results => {
+          const meta: Record<string, { name: string; imageUrl: string | null }> = {}
+          results.forEach((r, i) => {
+            const share = linkShares[i]
+            if (r.status === 'fulfilled' && share) {
+              meta[share.id] = { name: r.value.persona_name, imageUrl: r.value.image_url }
+            }
+          })
+          setShareMeta(meta)
+        })
+      })
+      .catch(console.error)
+      .finally(() => setSharesLoading(false))
+  }, [activeTab, pathname])
+
+  // Map share persona_id → persona info.
+  // Indexed by BOTH activeVersionId (version frozen at publish time) and repo id
+  // so a match is found regardless of whether the share was created before or
+  // after the last republish.
+  const versionToPersona = useMemo(() => {
+    const map: Record<string, { name: string; imageUrl: string | null; repoId: string }> = {}
+    for (const p of personas) {
+      const entry = { name: p.name, imageUrl: p.imageUrl, repoId: p.id }
+      // Primary key: version ID (most common match)
+      if (p.activeVersionId) map[p.activeVersionId] = entry
+      // Fallback key: repo ID (covers shares whose persona_id is the repo ID)
+      map[p.id] = entry
+    }
+    return map
+  }, [personas])
+
+  // Build the drawer link object for the currently selected share.
+  const selectedDrawerLink = useMemo((): SuperLinkDrawerLink | null => {
+    if (!selectedShareId) return null
+    const share = shares.find(s => s.id === selectedShareId)
+    if (!share) return null
+    const preview = shareMeta[share.id]
+    const personaInfo = versionToPersona[share.persona_id]
+    const name     = preview?.name     ?? personaInfo?.name     ?? 'Persona'
+    const imageUrl = preview?.imageUrl ?? personaInfo?.imageUrl ?? null
+    const repoId   = personaInfo?.repoId ?? ''
+    return toDrawerLink(share, name, imageUrl, repoId)
+  }, [selectedShareId, shares, versionToPersona, shareMeta])
 
   // Filter + sort — split into three chained memos so a sort change doesn't
   // re-run filtering, and a tag/status change doesn't re-run the sort.
@@ -449,13 +556,14 @@ export default function PersonasPage() {
                 <Tabs.List>
                   <Tabs.Trigger value="my-personas">My Personas ({personas.length})</Tabs.Trigger>
                   <Tabs.Trigger value="shared" disabled>Shared</Tabs.Trigger>
-                  <Tabs.Trigger value="super-links" disabled>Super Links</Tabs.Trigger>
+                  <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
                   {/* Disabled community section for now since we don't have a real source of recommended personas yet, and it was causing confusion having the mock data visible in the UI */}
                   {/* <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger> */}
                 </Tabs.List>
               </Tabs>
 
-              {/* Toolbar */}
+              {/* Toolbar — only shown on My Personas tab */}
+              {activeTab === 'my-personas' && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {/* Status filter */}
@@ -589,6 +697,7 @@ export default function PersonasPage() {
                   </Dropdown.Float>
                 </div>
               </div>
+              )}
             </div>
           </div>
 
@@ -715,9 +824,119 @@ export default function PersonasPage() {
 
           {/* ── Recommended for you ── (hidden) */}
 
+          {/* ── Super Links tab ── */}
+          {activeTab === 'super-links' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Header row */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 'var(--font-size-caption)',
+                  lineHeight: 'var(--line-height-caption)',
+                  color: 'var(--neutral-500)',
+                }}>
+                  {sharesLoading ? 'Loading…' : `${shares.length} link${shares.length === 1 ? '' : 's'}`}
+                </span>
+              </div>
+
+              {/* Table header */}
+              {!sharesLoading && shares.length > 0 && (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 120px 160px',
+                  padding: '0 16px',
+                  gap: 12,
+                }}>
+                  {(['Persona', 'Status', 'Token budget'] as const).map(col => (
+                    <span key={col} style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: 'var(--font-size-caption)',
+                      lineHeight: 'var(--line-height-caption)',
+                      fontWeight: 'var(--font-weight-medium)',
+                      color: 'var(--neutral-500)',
+                      letterSpacing: '0.03em',
+                      textTransform: 'uppercase',
+                    }}>{col}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* Skeleton */}
+              {sharesLoading && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} style={{
+                      height: 80,
+                      borderRadius: 14,
+                      background: 'var(--neutral-100)',
+                      animation: 'pulse 0.9s ease-in-out infinite',
+                    }} />
+                  ))}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!sharesLoading && shares.length === 0 && (
+                <SuperLinksEmpty onBrowsePersonas={() => setActiveTab('my-personas')} />
+              )}
+
+              {/* Rows */}
+              {!sharesLoading && shares.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {shares.map(share => {
+                    const preview     = shareMeta[share.id]
+                    const personaInfo = versionToPersona[share.persona_id]
+                    // shareMeta (from getSharePreview) is the authoritative name/image source.
+                    // versionToPersona provides the repoId needed for navigation.
+                    const name     = preview?.name     ?? personaInfo?.name     ?? 'Persona'
+                    const imageUrl = preview?.imageUrl ?? personaInfo?.imageUrl ?? null
+                    const repoId   = personaInfo?.repoId ?? ''
+                    return (
+                      <SuperLinkRow
+                        key={share.id}
+                        personaName={name}
+                        avatarColor={colorFromName(name)}
+                        avatarUrl={imageUrl}
+                        url={share.share_url.replace(/^https?:\/\//, '')}
+                        tokenUsed={share.credit_used}
+                        tokenLimit={share.credit_limit ?? 0}
+                        status={shareStatus(share)}
+                        selected={selectedShareId === share.id}
+                        onClick={() => setSelectedShareId(share.id)}
+                        onConfigure={repoId ? (e) => {
+                          e.stopPropagation()
+                          push(`/persona/configure/sharing?repoId=${repoId}&name=${encodeURIComponent(name)}&versionId=${share.persona_id}`)
+                        } : undefined}
+                      />
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
       </div>
+
+      {/* ── Super Link drawer ── */}
+      <SuperLinkDrawer
+        link={selectedDrawerLink}
+        onClose={() => setSelectedShareId(null)}
+        onStatusChange={(next) => {
+          if (next === 'revoked' && selectedShareId) {
+            const id = selectedShareId
+            revokeShare(id)
+              .then(() => {
+                setShares(prev => prev.filter(s => s.id !== id))
+                setSelectedShareId(null)
+                toast.success('Super Link revoked')
+              })
+              .catch(() => toast.error('Failed to revoke link'))
+          }
+        }}
+      />
 
       {/* ── Delete confirmation ── */}
       {deleteTarget && (

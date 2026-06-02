@@ -12,6 +12,8 @@ import {
   type PersonaShare,
 } from '@/lib/api/persona-shares'
 import { ApiError } from '@/lib/api/client'
+import { useAuth } from '@/context/auth-context'
+import { getShareTokenLimit } from '@/lib/plan-config'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -209,6 +211,9 @@ function UsageBar({ percent }: { percent: number }) {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: SharingTabProps) {
+  const { user } = useAuth()
+  const maxTokenLimit = getShareTokenLimit(user?.planType)
+
   const [visibility, setVisibility] = useState<Visibility>('private')
 
   // ── Link share state ───────────────────────────────────────────────────────
@@ -216,14 +221,20 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
   const [linkShare, setLinkShare] = useState<PersonaShare | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isRevoking, setIsRevoking] = useState(false)
-  const [tokenLimit, setTokenLimit] = useState(10000)
+  const [tokenLimit, setTokenLimit] = useState(maxTokenLimit)
 
   // ── Email share state ──────────────────────────────────────────────────────
   const [emailShares, setEmailShares] = useState<PersonaShare[]>([])
   const [emailInput, setEmailInput] = useState('')
-  const [emailTokenLimit, setEmailTokenLimit] = useState(5000)
+  const [emailTokenLimit, setEmailTokenLimit] = useState(maxTokenLimit)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [revokingEmailId, setRevokingEmailId] = useState<string | null>(null)
+
+  // ── Sync token limit defaults when plan resolves ──────────────────────────
+  useEffect(() => {
+    setTokenLimit(maxTokenLimit)
+    setEmailTokenLimit(maxTokenLimit)
+  }, [maxTokenLimit])
 
   // ── Load existing shares on mount ─────────────────────────────────────────
   const loadShares = useCallback(async () => {
@@ -558,7 +569,8 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
                     type="number"
                     value={tokenLimit}
                     min={1}
-                    onChange={e => setTokenLimit(Math.max(1, parseInt(e.target.value) || 1))}
+                    max={maxTokenLimit}
+                    onChange={e => setTokenLimit(Math.min(maxTokenLimit, Math.max(1, parseInt(e.target.value) || 1)))}
                     style={{
                       width: 96,
                       border: 'none',
@@ -692,7 +704,8 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
               type="number"
               value={emailTokenLimit}
               min={1}
-              onChange={e => setEmailTokenLimit(Math.max(1, parseInt(e.target.value) || 1))}
+              max={maxTokenLimit}
+              onChange={e => setEmailTokenLimit(Math.min(maxTokenLimit, Math.max(1, parseInt(e.target.value) || 1)))}
               style={{
                 width: 80,
                 border: 'none',

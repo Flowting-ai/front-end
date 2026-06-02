@@ -68,7 +68,14 @@ function PersonaConfigureProfileContent() {
   const [isPublishing,         setIsPublishing]         = useState(false)
   const [isDirty,              setIsDirty]              = useState(false)
   const [republishModalOpen,   setRepublishModalOpen]   = useState(false)
+  const [publishedVersionId,   setPublishedVersionId]   = useState<string | null>(null)
   const isDirtyRef = useRef(false)
+
+  useEffect(() => {
+    if (!repoId) return
+    const stored = typeof window !== 'undefined' ? sessionStorage.getItem(publishedVersionKey(repoId)) : null
+    setPublishedVersionId(stored)
+  }, [repoId])
 
   // ProfileTab state — initialise from sessionStorage on first render
   const [avatarUrl,          setAvatarUrl]          = useState<string | null>(() => { const d = loadDraft(); return (d?.avatarUrl as string | null) ?? null })
@@ -253,13 +260,10 @@ function PersonaConfigureProfileContent() {
       await setActiveVersion(repoId, versionId)
       bustPersonasCache()
       if (typeof window !== 'undefined') sessionStorage.setItem(publishedVersionKey(repoId), versionId)
+      setPublishedVersionId(versionId)
 
-      if (wasPublished) {
-        toast.success(`"${personaName}" is now live with the latest changes`)
-        setRepublishModalOpen(true)
-      } else {
-        push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
-      }
+      const base = `/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${versionId}`
+      push(wasPublished ? `${base}&republished=true` : base)
     } catch (err) {
       console.error('[ProfilePage] publish error:', err)
       toast.error('Failed to publish')
@@ -412,7 +416,7 @@ function PersonaConfigureProfileContent() {
               onClick={handlePublish}
               disabled={!repoId || !versionId || isPublishing}
             >
-              {isPublishing ? 'Publishing…' : 'Publish'}
+              {isPublishing ? 'Publishing…' : publishedVersionId ? 'Republish' : 'Publish'}
             </Button>
           </div>
         </div>

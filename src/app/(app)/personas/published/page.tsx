@@ -1,12 +1,21 @@
 'use client'
-
-import React, { useState, Suspense } from 'react'
+// published persona confirmation page
+import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeftOneIcon, LinkSixIcon, ShareOneIcon, CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
-import { Switch } from '@/components/Switch'
+import { toast } from 'sonner'
+import { useAuth } from '@/context/auth-context'
+import { getShareTokenLimit } from '@/lib/plan-config'
+import { getPersonaRepo } from '@/lib/api/personas'
+import {
+  createShare,
+  revokeShare,
+  listShares,
+  type PersonaShare,
+} from '@/lib/api/persona-shares'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -59,180 +68,134 @@ function UsageBar({ percent }: { percent: number }) {
   )
 }
 
-// ── Super link section (design 2) ─────────────────────────────────────────────
+// ── Super link section ────────────────────────────────────────────────────────
 
 function SuperLinkSection({
-  url,
-  superLinkEnabled,
-  onToggle,
-  tokenLimit,
-  onTokenLimitChange,
-  tokensUsed,
+  share,
+  onRevoke,
+  isRevoking,
 }: {
-  url: string
-  superLinkEnabled: boolean
-  onToggle: (v: boolean) => void
-  tokenLimit: number
-  onTokenLimitChange: (v: number) => void
-  tokensUsed: number
+  share: PersonaShare
+  onRevoke: () => void
+  isRevoking: boolean
 }) {
-  const usagePercent = Math.round((tokensUsed / tokenLimit) * 100)
+  const displayUrl = share.share_url ? share.share_url.replace(/^https?:\/\//, '') : ''
+  const limit = share.credit_limit ?? 0
+  const used = share.credit_used
+  const usagePercent = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0
 
   function handleCopy() {
-    navigator.clipboard.writeText(`https://${url}`).catch(() => {})
+    if (!share.share_url) return
+    navigator.clipboard.writeText(share.share_url).catch(() => {})
+    toast.success('Link copied')
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12,
-        width: 719,
-      }}
-    >
-      {/* Toggle header row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 560 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 719 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 560 }}>
+        <span
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize: 14,
+            lineHeight: 1.5,
+            letterSpacing: '0.07px',
+            color: '#0a0a0a',
+          }}
+        >
+          Super Link
+        </span>
+        <span
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize: 12,
+            lineHeight: '16px',
+            color: '#6a625d',
+          }}
+        >
+          Generate a shareable URL anyone can chat without a Souvenir account. You cover the token cost.
+        </span>
+      </div>
+
+      {/* URL row */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: 'white',
+          border: '1px solid var(--neutral-200)',
+          borderRadius: 10,
+          padding: '8px 7px',
+          height: 46,
+        }}
+      >
+        <div style={{ flex: '1 0 0', minWidth: 0, overflow: 'hidden', paddingLeft: 8 }}>
           <span
             style={{
+              display: 'block',
               fontFamily: 'var(--font-body)',
               fontWeight: 500,
               fontSize: 14,
-              lineHeight: 1.5,
-              letterSpacing: '0.07px',
-              color: '#0a0a0a',
+              lineHeight: '22px',
+              color: 'var(--neutral-800)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
             }}
           >
-            Super Link
-          </span>
-          <span
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 12,
-              lineHeight: '16px',
-              color: '#6a625d',
-            }}
-          >
-            Generate a shareable URL anyone can chat without a Souvenir account. You cover the token cost.
+            {displayUrl}
           </span>
         </div>
-        <Switch checked={superLinkEnabled} onCheckedChange={onToggle} />
-      </div>
-
-      {/* URL input row */}
-      {superLinkEnabled && (
-        <>
-          <div
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <button
+            onClick={onRevoke}
+            disabled={isRevoking}
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: 'white',
-              border: '1px solid var(--neutral-200)',
-              borderRadius: 10,
-              padding: '8px 7px',
-              height: 46,
+              gap: 4,
+              padding: '5px 8px',
+              borderRadius: 8,
+              border: 'none',
+              cursor: isRevoking ? 'not-allowed' : 'pointer',
+              backgroundColor: 'transparent',
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: 14,
+              lineHeight: '22px',
+              color: isRevoking ? 'var(--neutral-400)' : '#ee3030',
+              opacity: isRevoking ? 0.6 : 1,
+              transition: 'opacity 150ms',
             }}
           >
-            {/* URL */}
-            <div style={{ flex: '1 0 0', minWidth: 0, overflow: 'hidden', paddingLeft: 8 }}>
-              <span
-                style={{
-                  display: 'block',
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 500,
-                  fontSize: 14,
-                  lineHeight: '22px',
-                  color: 'var(--neutral-800)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {url}
-              </span>
-            </div>
+            <CancelOneIcon size={16} color={isRevoking ? 'var(--neutral-400)' : '#ee3030'} />
+            {isRevoking ? 'Revoking…' : 'Revoke link'}
+          </button>
+          <Button variant="secondary" size="sm" onClick={handleCopy}>
+            Copy
+          </Button>
+        </div>
+      </div>
 
-            {/* Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              {/* Revoke */}
-              <button
-                onClick={() => onToggle(false)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  padding: '5px 8px',
-                  borderRadius: 8,
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: 'transparent',
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 500,
-                  fontSize: 14,
-                  lineHeight: '22px',
-                  color: '#ee3030',
-                }}
-              >
-                <CancelOneIcon size={16} color="#ee3030" />
-                Revoke link
-              </button>
-              {/* Copy */}
-              <Button variant="secondary" size="sm" onClick={handleCopy}>
-                Copy
-              </Button>
-            </div>
-          </div>
-
-          {/* Usage row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize: 14,
-                lineHeight: '22px',
-                color: 'var(--neutral-700)',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {usagePercent}% used · {tokensUsed.toLocaleString()} / {tokenLimit.toLocaleString()} tokens
-            </span>
-            <div
-              style={{
-                backgroundColor: 'white',
-                border: '1px solid var(--neutral-200)',
-                borderRadius: 8,
-                padding: 7,
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <input
-                type="number"
-                value={tokenLimit}
-                onChange={e => onTokenLimitChange(Math.max(1, parseInt(e.target.value) || 1))}
-                style={{
-                  width: 96,
-                  border: 'none',
-                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
-                  outline: 'none',
-                  backgroundColor: 'transparent',
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  fontSize: 12,
-                  lineHeight: 'normal',
-                  color: '#3b3632',
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Progress bar */}
+      {/* Usage */}
+      {limit > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 400,
+              fontSize: 14,
+              lineHeight: '22px',
+              color: 'var(--neutral-700)',
+            }}
+          >
+            {usagePercent}% used · {used.toLocaleString()} / {limit.toLocaleString()} tokens
+          </span>
           <UsageBar percent={usagePercent} />
-        </>
+        </div>
       )}
     </div>
   )
@@ -243,23 +206,74 @@ function SuperLinkSection({
 function PersonaPublishedContent() {
   const { push } = useRouter()
   const searchParams = useSearchParams()
-  const personaName = searchParams.get('name') ?? 'Persona'
+  const personaName  = searchParams.get('name')       ?? 'Persona'
+  const repoId       = searchParams.get('repoId')     ?? ''
+  const versionId    = searchParams.get('versionId')  ?? ''
+  const isRepublished = searchParams.get('republished') === 'true'
 
-  const [superLinkGenerated, setSuperLinkGenerated] = useState(false)
-  const [superLinkEnabled, setSuperLinkEnabled] = useState(true)
-  const [tokenLimit, setTokenLimit] = useState(10000)
+  const { user } = useAuth()
+  const maxTokenLimit = getShareTokenLimit(user?.planType)
 
-  const tokensUsed = 1400
-  const generatedUrl = `souvenir.app/p/${toHandle(personaName)}-a8b2c3`
+  const [linkShare,      setLinkShare]      = useState<PersonaShare | null>(null)
+  const [tokenLimit,     setTokenLimit]     = useState(maxTokenLimit)
+  const [isGenerating,   setIsGenerating]   = useState(false)
+  const [isRevoking,     setIsRevoking]     = useState(false)
+  const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null)
 
-  function handleGenerateSuperLink() {
-    setSuperLinkGenerated(true)
-    setSuperLinkEnabled(true)
+  // Fetch the persona's avatar from the API using repoId.
+  useEffect(() => {
+    if (!repoId) return
+    getPersonaRepo(repoId)
+      .then(repo => setPersonaImageUrl(repo.active_version?.image_url ?? null))
+      .catch(() => {})
+  }, [repoId])
+
+  // Sync token limit default when plan resolves
+  useEffect(() => {
+    setTokenLimit(maxTokenLimit)
+  }, [maxTokenLimit])
+
+  // Load existing link share on mount
+  useEffect(() => {
+    if (!versionId) return
+    listShares()
+      .then(all => {
+        const existing = all.find(
+          s => s.persona_id === versionId && s.share_type === 'link' && s.is_active,
+        )
+        if (existing) setLinkShare(existing)
+      })
+      .catch(() => {})
+  }, [versionId])
+
+  async function handleGenerateSuperLink() {
+    if (!repoId) return
+    setIsGenerating(true)
+    try {
+      const share = await createShare({
+        persona_repo_id: repoId,
+        share_type: 'link',
+        credit_limit: tokenLimit,
+      })
+      setLinkShare(share)
+    } catch {
+      toast.error('Failed to generate link')
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
-  function handleSuperLinkToggle(enabled: boolean) {
-    setSuperLinkEnabled(enabled)
-    if (!enabled) setSuperLinkGenerated(false)
+  async function handleRevokeLink() {
+    if (!linkShare) return
+    setIsRevoking(true)
+    try {
+      await revokeShare(linkShare.id)
+      setLinkShare(null)
+    } catch {
+      toast.error('Failed to revoke link')
+    } finally {
+      setIsRevoking(false)
+    }
   }
 
   return (
@@ -267,13 +281,9 @@ function PersonaPublishedContent() {
       style={{
         backgroundColor: '#f7f2ed',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingRight: 10,
-        paddingTop: 10,
-        paddingBottom: 10,
-        width: '100%',
-        height: '100%',
+        flexDirection: 'column',
+        flex: '1 0 0',
+        minHeight: 0,
         position: 'relative',
       }}
     >
@@ -287,8 +297,7 @@ function PersonaPublishedContent() {
           flexDirection: 'column',
           gap: 2,
           flex: '1 0 0',
-          height: '100%',
-          minWidth: 0,
+          minHeight: 0,
           overflow: 'hidden',
           paddingBottom: 12,
           paddingTop: 10,
@@ -308,7 +317,7 @@ function PersonaPublishedContent() {
               onClick={() => push('/personas')}
             />
           </div>
-          <div style={{ height: 32, flexShrink: 0 }} />
+          <div style={{ height: 8, flexShrink: 0 }} />
         </div>
 
         {/* ── Scrollable content ────────────────────────────────────────────── */}
@@ -360,12 +369,12 @@ function PersonaPublishedContent() {
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 47,
+                gap: 32,
                 alignItems: 'center',
                 width: 291,
                 position: 'relative',
                 zIndex: 1,
-                paddingTop: 80,
+                paddingTop: 32,
               }}
             >
               {/* Persona image */}
@@ -383,7 +392,7 @@ function PersonaPublishedContent() {
                 }}
               >
                 <Image
-                  src="/icons/persona-image.svg"
+                  src={personaImageUrl ?? '/icons/persona-image.svg'}
                   alt={personaName}
                   fill
                   sizes="152px"
@@ -423,8 +432,9 @@ function PersonaPublishedContent() {
                     width: 392,
                   }}
                 >
-                  &ldquo;{personaName}&rdquo; is now live for your team. Members can add it from the Add button in any
-                  conversation.
+                  {isRepublished
+                    ? `“${personaName}” is now live with your latest changes.`
+                    : `“${personaName}” is now live for your team. Members can add it from the Add button in any conversation.`}
                 </p>
               </div>
             </div>
@@ -440,32 +450,90 @@ function PersonaPublishedContent() {
                 zIndex: 1,
               }}
             >
-              {/* Super link section (shown after generating) */}
-              {superLinkGenerated && (
+              {/* Super link section — shown once the link is generated */}
+              {linkShare ? (
                 <SuperLinkSection
-                  url={generatedUrl}
-                  superLinkEnabled={superLinkEnabled}
-                  onToggle={handleSuperLinkToggle}
-                  tokenLimit={tokenLimit}
-                  onTokenLimitChange={setTokenLimit}
-                  tokensUsed={tokensUsed}
+                  share={linkShare}
+                  onRevoke={handleRevokeLink}
+                  isRevoking={isRevoking}
                 />
-              )}
-
-              {/* Generate Super Link (shown before generating) */}
-              {!superLinkGenerated && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  leftIcon={<LinkSixIcon size={16} />}
-                  style={{ width: 242, justifyContent: 'center' }}
-                  onClick={handleGenerateSuperLink}
+              ) : (
+                /* Pre-generation: token limit input + generate button */
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    alignItems: 'center',
+                    width: 242,
+                  }}
                 >
-                  Generate Super Link
-                </Button>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 400,
+                        fontSize: 13,
+                        color: 'var(--neutral-600)',
+                      }}
+                    >
+                      Token limit
+                    </span>
+                    <div
+                      style={{
+                        backgroundColor: 'white',
+                        border: '1px solid var(--neutral-200)',
+                        borderRadius: 8,
+                        padding: '4px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <input
+                        type="number"
+                        value={tokenLimit}
+                        min={1}
+                        max={maxTokenLimit}
+                        onChange={e =>
+                          setTokenLimit(Math.min(maxTokenLimit, Math.max(1, parseInt(e.target.value) || 1)))
+                        }
+                        style={{
+                          width: 72,
+                          border: 'none',
+                          // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
+                          outline: 'none',
+                          backgroundColor: 'transparent',
+                          fontFamily: 'var(--font-body)',
+                          fontWeight: 400,
+                          fontSize: 12,
+                          lineHeight: 'normal',
+                          color: '#3b3632',
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    leftIcon={<LinkSixIcon size={16} />}
+                    style={{ width: 242, justifyContent: 'center' }}
+                    onClick={handleGenerateSuperLink}
+                    loading={isGenerating}
+                    disabled={isGenerating}
+                  >
+                    Generate Super Link
+                  </Button>
+                </div>
               )}
 
-              {/* Share to community - disabled initially */}
+              {/* Share to community - disabled */}
               <Button
                 variant="secondary"
                 size="sm"

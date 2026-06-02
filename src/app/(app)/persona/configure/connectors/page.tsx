@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { updateVersion } from '@/lib/api/personas'
+import { updateVersion, setActiveVersion, bustPersonasCache } from '@/lib/api/personas'
 import {
   ArrowLeftOneIcon,
   MoreVerticalIcon,
@@ -14,6 +14,10 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import ConnectorsTab from '@/app/(app)/persona/configure/components/ConnectorsTab'
 import { usePersonaConfigure } from '@/app/(app)/persona/configure/context'
+
+function publishedVersionKey(repoId: string) {
+  return `persona_live_version_${repoId}`
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -38,11 +42,38 @@ function PersonaConfigureConnectorsContent() {
 
   const { anyPanelOpen, updatePersonaInfo } = usePersonaConfigure()
   const [isSaving,           setIsSaving]           = useState(false)
+  const [isPublishing,       setIsPublishing]       = useState(false)
+  const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!repoId) return
     updatePersonaInfo({ repoId, versionId })
   }, [repoId, versionId, updatePersonaInfo])
+
+  useEffect(() => {
+    if (!repoId) return
+    const stored = typeof window !== 'undefined' ? sessionStorage.getItem(publishedVersionKey(repoId)) : null
+    setPublishedVersionId(stored)
+  }, [repoId])
+
+  async function handlePublish() {
+    if (!repoId || !versionId) return
+    const wasPublished = !!publishedVersionId
+    setIsPublishing(true)
+    try {
+      await setActiveVersion(repoId, versionId)
+      bustPersonasCache()
+      if (typeof window !== 'undefined') sessionStorage.setItem(publishedVersionKey(repoId), versionId)
+      setPublishedVersionId(versionId)
+      const base = `/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${versionId}`
+      push(wasPublished ? `${base}&republished=true` : base)
+    } catch (err) {
+      console.error('[ConnectorsPage] publish error:', err)
+      toast.error('Failed to publish')
+    } finally {
+      setIsPublishing(false)
+    }
+  }
 
   async function handleSaveVersion() {
     if (!repoId || !versionId) return
@@ -195,8 +226,15 @@ function PersonaConfigureConnectorsContent() {
                   {isSaving ? 'Saving…' : 'Save version'}
                 </Button>
               )}
-              <Button variant="default" size="sm" rightIcon={<ArrowUpRightOneIcon size={16} />}>
-                Publish
+              <Button
+                variant="default"
+                size="sm"
+                rightIcon={<ArrowUpRightOneIcon size={16} />}
+                onClick={handlePublish}
+                disabled={!repoId || !versionId || isPublishing}
+                loading={isPublishing}
+              >
+                {isPublishing ? 'Publishing…' : publishedVersionId ? 'Republish' : 'Publish'}
               </Button>
             </div>
           </div>

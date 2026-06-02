@@ -75,6 +75,13 @@ function PersonaConfigureKnowledgeContent() {
   const [isPublishing,         setIsPublishing]         = useState(false)
   const [isDirty,              setIsDirty]              = useState(false)
   const [republishModalOpen,   setRepublishModalOpen]   = useState(false)
+  const [publishedVersionId,   setPublishedVersionId]   = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!repoId) return
+    const stored = typeof window !== 'undefined' ? sessionStorage.getItem(publishedVersionKey(repoId)) : null
+    setPublishedVersionId(stored)
+  }, [repoId])
   const [files, setFiles] = useState<KnowledgeFile[]>([])
   const [isLoading, setIsLoading] = useState(!!repoId && !!versionId)
 
@@ -346,12 +353,10 @@ function PersonaConfigureKnowledgeContent() {
       await setActiveVersion(repoId, versionId)
       bustPersonasCache()
       if (typeof window !== 'undefined') sessionStorage.setItem(publishedVersionKey(repoId), versionId)
-      if (wasPublished) {
-        toast.success(`"${personaName}" is now live with the latest changes`)
-        setRepublishModalOpen(true)
-      } else {
-        push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
-      }
+      setPublishedVersionId(versionId)
+
+      const base = `/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${versionId}`
+      push(wasPublished ? `${base}&republished=true` : base)
     } catch (err) {
       console.error('[KnowledgePage] publish error:', err)
       toast.error('Failed to publish')
@@ -473,7 +478,7 @@ function PersonaConfigureKnowledgeContent() {
               onClick={handlePublish}
               disabled={!repoId || !versionId || isPublishing}
             >
-              {isPublishing ? 'Publishing…' : 'Publish'}
+              {isPublishing ? 'Publishing…' : publishedVersionId ? 'Republish' : 'Publish'}
             </Button>
           </div>
         </div>

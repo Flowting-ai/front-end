@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { updateVersion } from '@/lib/api/personas'
+import { updateVersion, setActiveVersion, bustPersonasCache } from '@/lib/api/personas'
 import {
   ArrowLeftOneIcon,
   MoreVerticalIcon,
@@ -14,6 +14,10 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import SharingTab from '@/app/(app)/persona/configure/components/SharingTab'
 import { usePersonaConfigure } from '@/app/(app)/persona/configure/context'
+
+function publishedVersionKey(repoId: string) {
+  return `persona_live_version_${repoId}`
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -38,7 +42,9 @@ function PersonaConfigureSharingContent() {
   const repoId      = searchParams.get('repoId')    ?? ''
   const versionId   = searchParams.get('versionId') ?? ''
 
-  const [isSaving,        setIsSaving]        = useState(false)
+  const [isSaving,           setIsSaving]           = useState(false)
+  const [isPublishing,       setIsPublishing]       = useState(false)
+  const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
 
   const { anyPanelOpen, updatePersonaInfo } = usePersonaConfigure()
 
@@ -46,6 +52,31 @@ function PersonaConfigureSharingContent() {
     if (!repoId) return
     updatePersonaInfo({ repoId, versionId })
   }, [repoId, versionId, updatePersonaInfo])
+
+  useEffect(() => {
+    if (!repoId) return
+    const stored = typeof window !== 'undefined' ? sessionStorage.getItem(publishedVersionKey(repoId)) : null
+    setPublishedVersionId(stored)
+  }, [repoId])
+
+  async function handlePublish() {
+    if (!repoId || !versionId) return
+    const wasPublished = !!publishedVersionId
+    setIsPublishing(true)
+    try {
+      await setActiveVersion(repoId, versionId)
+      bustPersonasCache()
+      if (typeof window !== 'undefined') sessionStorage.setItem(publishedVersionKey(repoId), versionId)
+      setPublishedVersionId(versionId)
+      const base = `/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${versionId}`
+      push(wasPublished ? `${base}&republished=true` : base)
+    } catch (err) {
+      console.error('[SharingPage] publish error:', err)
+      toast.error('Failed to publish')
+    } finally {
+      setIsPublishing(false)
+    }
+  }
 
   async function handleSaveVersion() {
     if (!repoId || !versionId) return
@@ -203,8 +234,11 @@ function PersonaConfigureSharingContent() {
                 variant="default"
                 size="sm"
                 rightIcon={<ArrowUpRightOneIcon size={16} />}
+                onClick={handlePublish}
+                disabled={!repoId || !versionId || isPublishing}
+                loading={isPublishing}
               >
-                Publish
+                {isPublishing ? 'Publishing…' : publishedVersionId ? 'Republish' : 'Publish'}
               </Button>
             </div>
           </div>

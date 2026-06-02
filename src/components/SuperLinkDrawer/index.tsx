@@ -34,6 +34,10 @@ export interface SuperLinkDrawerLink {
   id:           string
   personaName:  string
   avatarColor:  string
+  /** Optional persona image URL — shown instead of initials when provided. */
+  avatarUrl?:   string | null
+  /** Persona repo ID — used to link to the sharing configuration tab. */
+  repoId?:      string
   url:          string
   tokenUsed:    number
   tokenLimit:   number
@@ -357,7 +361,15 @@ export function SuperLinkDrawer({ ref, link, onClose, onStatusChange, onLimitCha
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                <Avatar name={link.personaName} color={link.avatarColor} size="md" />
+                {link.avatarUrl ? (
+                  <img
+                    src={link.avatarUrl}
+                    alt={link.personaName}
+                    style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                  />
+                ) : (
+                  <Avatar name={link.personaName} color={link.avatarColor} size="md" />
+                )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                   <span
                     style={{

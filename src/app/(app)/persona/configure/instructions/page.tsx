@@ -862,14 +862,8 @@ function PersonaConfigureInstructionsContent() {
       }
       setPublishedVersionId(publishVersionId)
 
-      if (wasPublished) {
-        // Republish: show toast + confirm via modal, stay on page.
-        toast.success(`"${personaName}" is now live with the latest changes`)
-        setRepublishModalOpen(true)
-      } else {
-        // First publish: show the celebratory page.
-        push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
-      }
+      const base = `/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${publishVersionId}`
+      push(wasPublished ? `${base}&republished=true` : base)
     } catch (err) {
       console.error('[PersonaConfigure] publish error:', err)
       toast.error('Failed to publish persona')
@@ -1074,7 +1068,7 @@ function PersonaConfigureInstructionsContent() {
                 rightIcon={<ArrowUpRightOneIcon size={16} />}
                 onClick={handlePublish}
               >
-                {isPublishing ? 'Publishing…' : 'Publish'}
+                {isPublishing ? 'Publishing…' : publishedVersionId ? 'Republish' : 'Publish'}
               </Button>
             </div>
 

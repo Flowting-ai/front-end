@@ -2,13 +2,17 @@
 
 import React from 'react'
 import { AnimatePresence, m } from 'framer-motion'
-import { CopyOneIcon, TickTwoIcon } from '@strange-huge/icons'
+import { CopyOneIcon, TickTwoIcon, ArrowUpRightOneIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Badge, type BadgeColor } from '@/components/Badge'
 import { IconButton } from '@/components/IconButton'
 import { TokenBudgetBar } from '@/components/TokenBudgetBar'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
+
+function fmt(n: number): string {
+  return n.toLocaleString('en-US')
+}
 
 const COPIED_RESET_MS = 1500
 
@@ -26,12 +30,16 @@ const STATUS_BADGE: Record<SuperLinkStatus, { color: BadgeColor, label: string }
 export interface SuperLinkRowProps extends React.HTMLAttributes<HTMLDivElement> {
   personaName:  string
   avatarColor:  string
+  /** Optional persona image URL — shown instead of initials when provided. */
+  avatarUrl?:   string | null
   url:          string
   tokenUsed:    number
   tokenLimit:   number
   status:       SuperLinkStatus
   selected?:    boolean
   onCopyUrl?:   (e: React.MouseEvent<HTMLButtonElement>) => void
+  /** When provided, renders a configure button that navigates to the sharing tab. */
+  onConfigure?: (e: React.MouseEvent<HTMLButtonElement>) => void
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -39,8 +47,8 @@ export interface SuperLinkRowProps extends React.HTMLAttributes<HTMLDivElement> 
 export function SuperLinkRow(
   {
     ref,
-    personaName, avatarColor, url, tokenUsed, tokenLimit, status,
-    selected = false, onCopyUrl, onClick,
+    personaName, avatarColor, avatarUrl, url, tokenUsed, tokenLimit, status,
+    selected = false, onCopyUrl, onConfigure, onClick,
     className, style, ...props
   }: SuperLinkRowProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
@@ -99,7 +107,22 @@ export function SuperLinkRow(
         {...props}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <Avatar name={personaName} color={avatarColor} size="xs" />
+          {/* Avatar — image when available, initials fallback */}
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={personaName}
+              style={{
+                width: 24, height: 24,
+                borderRadius: '50%',
+                objectFit: 'cover',
+                flexShrink: 0,
+              }}
+            />
+          ) : (
+            <Avatar name={personaName} color={avatarColor} size="xs" />
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
               <span
@@ -132,29 +155,55 @@ export function SuperLinkRow(
               {url}
             </span>
           </div>
-          <IconButton
-            aria-label={copied ? 'Link copied' : 'Copy link URL'}
-            size="xs"
-            variant="ghost"
-            onClick={handleCopy}
-            icon={
-              <AnimatePresence mode="popLayout" initial={false}>
-                <m.span
-                  key={copied ? 'check' : 'copy'}
-                  initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-                  animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
-                  exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-                  transition={springs.fast}
-                  style={{ display: 'inline-flex', transformOrigin: 'center' }}
-                >
-                  {copied ? <TickTwoIcon size={14} /> : <CopyOneIcon size={14} />}
-                </m.span>
-              </AnimatePresence>
-            }
-          />
+
+          {/* Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+            {onConfigure && (
+              <IconButton
+                aria-label={`Open sharing settings for ${personaName}`}
+                size="xs"
+                variant="ghost"
+                onClick={(e) => { e.stopPropagation(); onConfigure(e) }}
+                icon={<ArrowUpRightOneIcon size={14} />}
+              />
+            )}
+            <IconButton
+              aria-label={copied ? 'Link copied' : 'Copy link URL'}
+              size="xs"
+              variant="ghost"
+              onClick={handleCopy}
+              icon={
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <m.span
+                    key={copied ? 'check' : 'copy'}
+                    initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                    animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+                    exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                    transition={springs.fast}
+                    style={{ display: 'inline-flex', transformOrigin: 'center' }}
+                  >
+                    {copied ? <TickTwoIcon size={14} /> : <CopyOneIcon size={14} />}
+                  </m.span>
+                </AnimatePresence>
+              }
+            />
+          </div>
         </div>
 
-        <TokenBudgetBar used={tokenUsed} limit={tokenLimit} size="sm" />
+        {/* Token usage — text line matching SuperLink component format */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            color:      'var(--neutral-500)',
+            lineHeight: 'var(--line-height-caption)',
+          }}>
+            {tokenLimit > 0
+              ? `${Math.min(100, Math.round((tokenUsed / tokenLimit) * 100))}% used · ${fmt(tokenUsed)} / ${fmt(tokenLimit)} tokens`
+              : `${fmt(tokenUsed)} tokens used`}
+          </span>
+          <TokenBudgetBar used={tokenUsed} limit={tokenLimit} size="sm" />
+        </div>
       </div>
     )
 }
