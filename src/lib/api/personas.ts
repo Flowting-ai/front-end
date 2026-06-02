@@ -916,21 +916,40 @@ export async function guidePersonaStream(
   callbacks: PersonaChatStreamCallbacks,
 ): Promise<() => void> {
   const controller = new AbortController();
+
+  // Resolve model_id: prefer the one passed in (from persona instructions tab),
+  // otherwise fetch from the persona's saved versions.
+  let resolvedModelId = params.model_id ?? null;
+  if (!resolvedModelId) {
+    try {
+      const versions = await listVersions(repoId);
+      const sorted   = versions.slice().sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      resolvedModelId =
+        sorted.find(v => v.is_active)?.model_id ??
+        sorted[0]?.model_id ??
+        null;
+    } catch { /* proceed with null */ }
+  }
+
+  const requestBody = {
+    question:    params.question,
+    prompt:      params.prompt      ?? "",
+    description: params.description ?? "",
+    name:        params.name        ?? null,
+    model_id:    resolvedModelId,
+    temperature: params.temperature ?? null,
+    connectors:  params.connectors  ?? [],
+    history:     params.history     ?? [],
+    web_search:  params.web_search  ?? false,
+  };
+
   let response: Response;
   try {
     response = await apiFetch(PERSONA_GUIDE_ENDPOINT(repoId), {
       method: "POST",
-      body: JSON.stringify({
-        question:    params.question,
-        prompt:      params.prompt      ?? "",
-        description: params.description ?? "",
-        name:        params.name        ?? null,
-        model_id:    params.model_id    ?? null,
-        temperature: params.temperature ?? null,
-        connectors:  params.connectors  ?? [],
-        history:     params.history     ?? [],
-        web_search:  params.web_search  ?? false,
-      }),
+      body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
   } catch (err) {
@@ -939,32 +958,40 @@ export async function guidePersonaStream(
     }
     return () => controller.abort();
   }
+
   if (!response.ok) {
-    if (response.status === 503) {
-      // "Guide model is not configured" — fetch the persona's own model_id from
-      // GET /persona/{repo_id}/versions and retry once with it explicitly set.
-      controller.abort();
-      try {
-        const versions = await listVersions(repoId);
-        const sorted   = versions.slice().sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        );
-        // Prefer the active version; fall back to the most-recently-saved draft.
-        const modelId =
-          sorted.find(v => v.is_active)?.model_id ??
-          sorted[0]?.model_id ??
-          null;
-        if (modelId) {
-          return guideRetryWithModel(repoId, { ...params, model_id: modelId }, callbacks);
-        }
-      } catch { /* fall through */ }
-      callbacks.onError?.("The guide model is not configured. Please contact your administrator.");
+    const errorText = await response.text().catch(() => "");
+    const errorLower = errorText.toLowerCase();
+    const isModelError =
+      response.status === 503 ||
+      (errorLower.includes("model") && errorLower.includes("not configured"));
+
+    if (isModelError) {
+      // If we didn't have a model_id from the caller, try fetching from versions and retry.
+      if (!params.model_id) {
+        controller.abort();
+        try {
+          const versions = await listVersions(repoId);
+          const sorted   = versions.slice().sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          );
+          const versionModelId =
+            sorted.find(v => v.is_active)?.model_id ??
+            sorted[0]?.model_id ??
+            null;
+          if (versionModelId && versionModelId !== resolvedModelId) {
+            return guideRetryWithModel(repoId, { ...params, model_id: versionModelId }, callbacks);
+          }
+        } catch { /* fall through */ }
+      }
+      // Show actionable error
+      callbacks.onError?.("Guide model is not configured. Please save your persona in the Instructions tab first, then try again.");
       return () => controller.abort();
     }
-    const text = await response.text().catch(() => "");
-    callbacks.onError?.(text || `HTTP ${response.status}`);
+    callbacks.onError?.(errorText || `HTTP ${response.status}`);
     return () => controller.abort();
   }
+
   const reader = response.body?.getReader();
   if (!reader) {
     callbacks.onError?.("No response body");
@@ -1009,7 +1036,12 @@ async function guideRetryWithModel(
   }
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    callbacks.onError?.(text || `HTTP ${response.status}`);
+    const textLower = text.toLowerCase();
+    if (textLower.includes("model") && textLower.includes("not configured")) {
+      callbacks.onError?.("Guide model is not configured. Please save your persona in the Instructions tab first, then try again.");
+    } else {
+      callbacks.onError?.(text || `HTTP ${response.status}`);
+    }
     return () => controller.abort();
   }
   const reader = response.body?.getReader();

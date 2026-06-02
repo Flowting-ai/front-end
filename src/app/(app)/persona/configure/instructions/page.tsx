@@ -503,6 +503,9 @@ function PersonaConfigureInstructionsContent() {
   const [allModels,      setAllModels]      = useState<AIModel[]>([])
   const [selectedModel,  setSelectedModel]  = useState<AIModel | null>(null)
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false)
+  // The raw model_id as stored by the backend — used for the guide endpoint
+  // which may not recognize the stableKey format.
+  const [backendModelId, setBackendModelId] = useState<string | null>(null)
   const [imageUrl,    setImageUrl]    = useState<string | null>(() => readProfileAvatar(repoIdParam))
   const [connectorSlugs, setConnectorSlugs] = useState<string[] | null>(null)
   const [isInitialising, setIsInitialising] = useState(true)
@@ -571,6 +574,7 @@ function PersonaConfigureInstructionsContent() {
         if (version.connectors.length > 0) setConnectorSlugs(version.connectors)
         const resolvedModel1 = matchModel(fetchedModels, version.model_id, repoIdParam, firstModel)
         setSelectedModel(resolvedModel1)
+        setBackendModelId(version.model_id ?? null)
         if (resolvedModel1) writePersonaModelCache(repoIdParam, resolvedModel1)
         // Restore example conversation cards from saved prompt text
         const examples = parseExampleConversations(prompt)
@@ -607,6 +611,7 @@ function PersonaConfigureInstructionsContent() {
           window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${fullVersion.id}`)
           const resolvedModel2 = matchModel(fetchedModels, fullVersion.model_id, repoIdParam, firstModel)
           setSelectedModel(resolvedModel2)
+          setBackendModelId(fullVersion.model_id ?? null)
           if (resolvedModel2) writePersonaModelCache(repoIdParam, resolvedModel2)
           const examples = parseExampleConversations(prompt)
           if (examples.length > 0) setExampleConversations(examples)
@@ -626,6 +631,7 @@ function PersonaConfigureInstructionsContent() {
           window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${repo.active_version.id}`)
           const resolvedModel3 = matchModel(fetchedModels, repo.active_version.model_id, repoIdParam, firstModel)
           setSelectedModel(resolvedModel3)
+          setBackendModelId(repo.active_version.model_id ?? null)
           if (resolvedModel3) writePersonaModelCache(repoIdParam, resolvedModel3)
           const examples = parseExampleConversations(prompt)
           if (examples.length > 0) setExampleConversations(examples)
@@ -678,6 +684,7 @@ function PersonaConfigureInstructionsContent() {
         setVersionId(newVersionId)
         setPersonaName(repo.name)
         resetInstructionHistory(initialPrompt)
+        setBackendModelId(repo.active_version?.model_id ?? chosenModelKey)
         writePersonaModelCache(newRepoId, chosenModel)
         savedSnapshotRef.current = {
           instruction: initialPrompt,
@@ -718,7 +725,9 @@ function PersonaConfigureInstructionsContent() {
   }, [initialise])
 
   useEffect(() => {
-    const modelId = selectedModel ? stableKey(selectedModel) : null
+    // Use the backend's stored model_id (exact format the guide endpoint expects).
+    // Fall back to stableKey only when no backend value is available (e.g. model changed but not yet saved).
+    const modelId = backendModelId ?? (selectedModel ? stableKey(selectedModel) : null)
     updatePersonaInfo({
       repoId,
       versionId,
@@ -730,7 +739,7 @@ function PersonaConfigureInstructionsContent() {
       guideTemperature: temperature,
       guideModelName:   selectedModel?.modelName ?? 'AI',
     })
-  }, [repoId, versionId, personaName, imageUrl, connectorSlugs, instruction, selectedModel, temperature, updatePersonaInfo])
+  }, [repoId, versionId, personaName, imageUrl, connectorSlugs, instruction, selectedModel, backendModelId, temperature, updatePersonaInfo])
 
   useEffect(() => {
     registerVersionRestoreCallback((full) => {
@@ -740,6 +749,7 @@ function PersonaConfigureInstructionsContent() {
       setTemperature(full.temperature ?? 0.5)
       const model = matchModel(allModels, full.model_id, repoId, null)
       if (model) { setSelectedModel(model); writePersonaModelCache(repoId, model) }
+      setBackendModelId(full.model_id ?? null)
       setExampleConversations(parseExampleConversations(prompt))
       setVersionId(full.id)
       savedSnapshotRef.current = null
@@ -778,6 +788,7 @@ function PersonaConfigureInstructionsContent() {
 
       setVersionId(version.id)
       if (version.image_url) setImageUrl(version.image_url)
+      setBackendModelId(version.model_id ?? modelId)
       updatePersonaInfo({ versionId: version.id })
       const params = new URLSearchParams(searchParams.toString())
       params.set('versionId', version.id)

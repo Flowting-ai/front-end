@@ -24,6 +24,7 @@ import {
   type PersonaPermissionPrompt,
   type PersonaActivityItem,
 } from '@/lib/api/personas'
+import { fetchModelsWithCache } from '@/lib/ai-models'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import type { PinFolder } from '@/lib/api/pins'
 import type { PendingAttachment } from '@/components/chat/AttachmentManager'
@@ -150,6 +151,42 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   // Keep a ref so handlers always read the latest values without stale closures
   const infoRef = useRef(personaInfo)
   useEffect(() => { infoRef.current = personaInfo }, [personaInfo])
+
+  // ── Eagerly bootstrap guide model from the saved version ────────────────────
+  // This ensures the AI suggestions panel has the correct model_id even before
+  // the instructions tab mounts (e.g. when the user is on the profile tab).
+  useEffect(() => {
+    const repoId    = personaInfo.repoId
+    const versionId = personaInfo.versionId
+    if (!repoId || !versionId) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [version, models] = await Promise.all([
+          getVersion(repoId, versionId),
+          fetchModelsWithCache(),
+        ])
+        if (cancelled) return
+        const vModelId = version.model_id ?? null
+        if (!vModelId) return
+
+        const matched = models.find(m =>
+          (m.modelId != null && String(m.modelId) !== 'undefined' && String(m.modelId) === vModelId) ||
+          (m.id     != null && String(m.id)      !== 'undefined' && String(m.id)      === vModelId),
+        )
+        const modelName = matched?.modelName ?? 'AI'
+
+        // Always use the raw version.model_id — that's the exact value the backend stored
+        // and expects back for the guide endpoint.
+        _setPersonaInfo(prev => {
+          if (prev.guideModelId) return prev
+          return { ...prev, guideModelId: vModelId, guideModelName: modelName }
+        })
+      } catch { /* version or models fetch failed — guide will rely on pre-fetch in guidePersonaStream */ }
+    })()
+    return () => { cancelled = true }
+  }, [personaInfo.repoId, personaInfo.versionId])
 
   // ── Panel state ─────────────────────────────────────────────────────────────
 

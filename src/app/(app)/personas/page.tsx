@@ -450,7 +450,8 @@ export default function PersonasPage() {
                   <Tabs.Trigger value="my-personas">My Personas ({personas.length})</Tabs.Trigger>
                   <Tabs.Trigger value="shared" disabled>Shared</Tabs.Trigger>
                   <Tabs.Trigger value="super-links" disabled>Super Links</Tabs.Trigger>
-                  <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger>
+                  {/* Disabled community section for now since we don't have a real source of recommended personas yet, and it was causing confusion having the mock data visible in the UI */}
+                  {/* <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger> */}
                 </Tabs.List>
               </Tabs>
 
