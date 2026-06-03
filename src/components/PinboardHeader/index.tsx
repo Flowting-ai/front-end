@@ -48,7 +48,7 @@ export function PinboardHeader({ fluid = false, onClose, onSearch, style, ref, .
           alignItems:     'center',
           justifyContent: 'flex-end',
           gap:            8,
-          height:         58,
+          minHeight:      58,
           paddingTop:     22,
           background:     'var(--neutral-50)',
           width:          fluid ? '100%' : 316,

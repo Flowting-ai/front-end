@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Chip } from "@/components/Chip";
 import { AnimatePresence, m } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
 import katex from "katex";
@@ -68,6 +69,22 @@ function extractDomain(url: string): string {
   }
 }
 
+// Derives a short human-readable site name from a domain string.
+// Strips common subdomains and TLDs, splits on hyphens/underscores,
+// and returns at most 3 words — appending "…" if more words were dropped.
+function siteLabel(domain: string): string {
+  const base = domain
+    .replace(/^(?:www|m|en|fr|de|es|it|pt)\./i, '')  // leading subdomains
+    .replace(/\.co\.[a-z]{2}$/i, '')                   // compound TLDs (.co.uk)
+    .replace(/\.[a-z]{2,}$/i, '')                      // TLD (.com .org .io …)
+    .replace(/[-_]/g, ' ')
+    .trim()
+  const words = base.split(/\s+/).filter(Boolean)
+  if (words.length === 0) return domain
+  const label = words.slice(0, 3).join(' ')
+  return words.length > 3 ? label + '…' : label
+}
+
 // â”€â”€ CitationChip - inline {1} reference chip with popover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function CitationChip({ n, citation }: { n: number; citation?: WebCitation }) {
@@ -80,6 +97,9 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
     ? `https://www.google.com/s2/favicons?domain=${effectiveDomain}&sz=32`
     : null;
 
+  // Label: site name derived from domain, falling back to the numeric index.
+  const chipLabel = effectiveDomain ? siteLabel(effectiveDomain) : String(n);
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -91,22 +111,22 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
 
   const showPopover = open || hovered;
   return (
-    <span ref={ref} style={{ position: "relative", display: "inline-block" }}
-      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
-      <span
-        role="button" tabIndex={0}
+    <span
+      ref={ref}
+      style={{ position: "relative", display: "inline-block", verticalAlign: "middle", marginLeft: 2, marginRight: 1 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <Chip
+        size="Small"
+        color="Brown"
+        label={chipLabel}
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((o) => !o)}
-        onKeyDown={(e) => e.key === "Enter" && setOpen((o) => !o)}
-        style={{
-          display: "inline-flex", alignItems: "center", justifyContent: "center",
-          width: 16, height: 16, borderRadius: 4, fontSize: 12, fontWeight: 700,
-          background: showPopover ? "#683D1B" : "rgba(104,61,27,0.12)",
-          color: showPopover ? "white" : "#683D1B",
-          cursor: "pointer", transition: "all 140ms", verticalAlign: "middle",
-          marginLeft: 2, marginRight: 1, lineHeight: 1, outline: "none",
-        }}>
-        {n}
-      </span>
+        onKeyDown={(e) => { if (e.key === "Enter") setOpen((o) => !o) }}
+        style={{ cursor: "pointer" }}
+      />
       <AnimatePresence>
         {showPopover && citation && (
           <m.span

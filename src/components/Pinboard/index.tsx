@@ -1023,6 +1023,7 @@ export function Pinboard(
       ...(projectFolders  ?? []).map(f => ({ id: f.id, label: f.label })),
     ]
     const currentView = allViewItems.find(v => v.id === currentViewId) ?? views[0]
+    const isViewingFolder = [...(personalFolders ?? []), ...(projectFolders ?? [])].some(f => f.id === currentViewId)
     const handleViewSelect = (id: string, item: PinboardView) => {
       setViewMenuOpen(false)
       if (view === undefined) setInternalViewId(id)
@@ -1404,7 +1405,7 @@ export function Pinboard(
                     transition={{ type: 'spring', stiffness: 500, damping: 32 }}
                     style={{ display: 'inline-flex', transformOrigin: 'center' }}
                   >
-                    <Tooltip content="Collapse all Pins">
+                    <Tooltip content="Collapse all Pins" side="bottom">
                       <IconButton
                         variant="secondary"
                         size="sm"
@@ -1422,7 +1423,7 @@ export function Pinboard(
                 style={{ display: 'inline-flex' }}
               >
                 {filterDisabled ? (
-                  <Tooltip content="Filter">
+                  <Tooltip content="Filter" side="bottom">
                     <IconButton
                       variant="secondary"
                       size="sm"
@@ -1440,7 +1441,7 @@ export function Pinboard(
                     onOpenChange={setFilterMenuOpen}
                     placement="bottom-end"
                     trigger={
-                      <Tooltip content="Filter">
+                      <Tooltip content="Filter" side="bottom">
                         <IconButton
                           variant="secondary"
                           size="sm"
@@ -1453,7 +1454,7 @@ export function Pinboard(
                     {filterMenu}
                   </Dropdown.Float>
                 ) : (
-                  <Tooltip content="Filter">
+                  <Tooltip content="Filter" side="bottom">
                     <IconButton
                       variant="secondary"
                       size="sm"
@@ -1477,7 +1478,7 @@ export function Pinboard(
                     onOpenChange={setSortMenuOpen}
                     placement="bottom-end"
                     trigger={
-                      <Tooltip content="Sort">
+                      <Tooltip content="Sort" side="bottom">
                         <IconButton
                           variant="secondary"
                           size="sm"
@@ -1490,7 +1491,7 @@ export function Pinboard(
                     {sortMenu}
                   </Dropdown.Float>
                 ) : (
-                  <Tooltip content="Sort">
+                  <Tooltip content="Sort" side="bottom">
                     <IconButton
                       variant="secondary"
                       size="sm"
@@ -1553,10 +1554,9 @@ export function Pinboard(
         >
           <div style={{ width: '100%' }}>
             {pins.length === 0 && hasActiveFilters ? (
-              // Empty result - filters returned no pins. Per user spec:
-              // "no pin match" copy in place of the list. The hasActiveFilters
-              // gate keeps the message off the screen when the consumer
-              // simply hasn't passed any pins yet (vacant pinboard).
+              // Empty result - tag / category / content-type filters returned
+              // no pins. The hasActiveFilters gate keeps this message off the
+              // screen when the consumer simply hasn't passed any pins yet.
               <div
                 role="status"
                 aria-live="polite"
@@ -1575,6 +1575,69 @@ export function Pinboard(
                 }}
               >
                 No pin match
+              </div>
+            ) : pins.length === 0 && isViewingFolder ? (
+              // Empty folder - the selected folder exists but has no pins yet.
+              <div
+                role="status"
+                aria-live="polite"
+                style={{
+                  display:        'flex',
+                  flexDirection:  'column',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  gap:            10,
+                  width:          '100%',
+                  padding:        '48px 24px',
+                  textAlign:      'center',
+                }}
+              >
+                <span style={{
+                  display:         'flex',
+                  alignItems:      'center',
+                  justifyContent:  'center',
+                  width:           40,
+                  height:          40,
+                  borderRadius:    12,
+                  backgroundColor: 'var(--neutral-100)',
+                }}>
+                  <FolderOneIcon size={20} color="var(--neutral-400)" />
+                </span>
+                <span style={{
+                  fontFamily:     'var(--font-body)',
+                  fontWeight:     'var(--font-weight-medium)',
+                  fontSize:       'var(--font-size-body)',
+                  lineHeight:     'var(--line-height-body)',
+                  color:          'var(--neutral-700)',
+                  display:        'flex',
+                  flexDirection:  'column',
+                  alignItems:     'center',
+                  gap:            2,
+                  width:          '100%',
+                }}>
+                  {currentView?.label ? (
+                    <>
+                      <span style={{ display: 'inline-flex', alignItems: 'baseline', maxWidth: '100%' }}>
+                        <span style={{ flexShrink: 0 }}>&ldquo;</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                          {currentView.label}
+                        </span>
+                        <span style={{ flexShrink: 0 }}>&rdquo;</span>
+                      </span>
+                      <span>is empty</span>
+                    </>
+                  ) : 'No pins yet'}
+                </span>
+                <span style={{
+                  fontFamily:  'var(--font-body)',
+                  fontWeight:  'var(--font-weight-regular)',
+                  fontSize:    'var(--font-size-caption)',
+                  lineHeight:  'var(--line-height-caption)',
+                  color:       'var(--neutral-400)',
+                  maxWidth:    180,
+                }}>
+                  Move pins here from organize mode to keep them together.
+                </span>
               </div>
             ) : (
               <div style={{ position: 'relative', width: '100%', height: pinVirtualizer.getTotalSize(), isolation: 'isolate' }}>

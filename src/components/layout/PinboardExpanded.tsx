@@ -21,7 +21,9 @@ import {
   StarIcon,
   SourceCodeSquareIcon,
   MessagePreviewOneIcon,
+  MoreVerticalIcon,
 } from '@strange-huge/icons'
+import { Dropdown } from '@/components/Dropdown'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
@@ -241,6 +243,7 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
   const [modalFolderName,       setModalFolderName]       = useState('')
   const [editingFolderId,       setEditingFolderId]       = useState<string | null>(null)
   const [editingFolderName,     setEditingFolderName]     = useState('')
+  const [deleteTargetFolder,    setDeleteTargetFolder]    = useState<PinFolder | null>(null)
 
   // ── View state ────────────────────────────────────────────────────────────
   const [activeTab,    setActiveTab]    = useState('all')
@@ -267,9 +270,7 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
   const [userTagsById,    setUserTagsById]    = useState<Record<string, { color: BadgeColor; text: string }[]>>({})
   const [deletedLabelsById, setDeletedLabelsById] = useState<Record<string, Set<number>>>({})
 
-  // ── Search slot width (collapses to icon, expands to input) ─────────────────
   const tabsContainerRef = useRef<HTMLDivElement>(null)
-  const searchSlotWidth  = searchOpen ? SEARCH_OPEN_W : ICON_BUTTON_W
 
   useEffect(() => {
     const root = tabsContainerRef.current
@@ -528,12 +529,13 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (showCreateFolderModal) { setShowCreateFolderModal(false); setModalFolderName('') }
+      else if (deleteTargetFolder) setDeleteTargetFolder(null)
       else if (isOrganizing) handleExitOrganize()
       else                   closeDrawer()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [showCreateFolderModal, isOrganizing])
+  }, [showCreateFolderModal, deleteTargetFolder, isOrganizing])
 
   const personalFolders = folders.filter(f => !f.type || f.type === 'personal')
   const projectFolders  = folders.filter(f => f.type === 'project')
@@ -690,7 +692,7 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                 </div>
 
                 {/* Your folders */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%' }}>
                   <SectionLabel>Your folders</SectionLabel>
                   <SidebarMenuItem
                     variant="default"
@@ -699,6 +701,7 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                     icon={<FolderAddIcon size={20} />}
                     onClick={() => { setModalFolderName(''); setShowCreateFolderModal(true) }}
                   />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 3 }}>
                   {personalFolders.map(folder =>
                     editingFolderId === folder.id ? (
                       <div key={folder.id} style={{ padding: '0 2px' }}>
@@ -724,16 +727,18 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                         active={activeFolderId === folder.id}
                         onClick={() => setActiveFolderId(folder.id)}
                         onRename={() => { setEditingFolderId(folder.id); setEditingFolderName(folder.name) }}
-                        onDelete={() => handleDeleteFolder(folder.id)}
+                        onDelete={() => setDeleteTargetFolder(folder)}
                       />
                     )
                   )}
+                  </div>
                 </div>
 
                 {/* Project folders */}
                 {projectFolders.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%' }}>
                     <SectionLabel>Project folders</SectionLabel>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 3 }}>
                     {projectFolders.map(folder =>
                       editingFolderId === folder.id ? (
                         <div key={folder.id} style={{ padding: '0 2px' }}>
@@ -759,10 +764,11 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                           active={activeFolderId === folder.id}
                           onClick={() => setActiveFolderId(folder.id)}
                           onRename={() => { setEditingFolderId(folder.id); setEditingFolderName(folder.name) }}
-                          onDelete={() => handleDeleteFolder(folder.id)}
+                          onDelete={() => setDeleteTargetFolder(folder)}
                         />
                       )
                     )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -940,81 +946,59 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                         flexShrink:     0,
                       }}
                     >
-                      {/* Search slot - snaps 32px ↔ 276px on toggle */}
+                      {/* Search slot — instant open/close, no animation */}
                       <Tooltip content="Search" disabled={searchOpen}>
-                        <m.div
-                          layout
-                          layoutDependency={hasExpanded}
-                          transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                        <div
                           style={{
-                            display:    'flex',
+                            display:    'inline-flex',
                             alignItems: 'center',
                             flexShrink: 0,
-                            minWidth:   0,
-                            width:      searchSlotWidth,
+                            width:      searchOpen ? SEARCH_OPEN_W : ICON_BUTTON_W,
+                            overflow:   'hidden',
                           }}
                         >
-                          <AnimatePresence initial={false} mode="popLayout">
-                            {!searchOpen ? (
-                              <m.span
-                                key="search-btn"
-                                layout
-                                initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
-                                animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
-                                exit={{    opacity: 0, scale: 0.25, filter: 'blur(4px)', transition: { type: 'spring', duration: 0.2, bounce: 0 } }}
-                                style={{ display: 'inline-flex', flexShrink: 0 }}
-                              >
-                                <IconButton
-                                  variant="ghost"
-                                  size="sm"
-                                  icon={<SearchOneIcon size={20} />}
-                                  aria-label="Open search"
-                                  onClick={() => setSearchOpen(true)}
-                                />
-                              </m.span>
-                            ) : (
-                              <m.div
-                                key="search-input"
-                                initial={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
-                                animate={{ opacity: 1, scale: 1,    filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
-                                exit={{    opacity: 0, scale: 0.95, filter: 'blur(4px)', transition: { duration: 0.15, ease: 'easeIn' } }}
-                                style={{ flex: '1 0 0', minWidth: 0 }}
-                              >
-                                <InputField
-                                  fluid
-                                  size="small"
-                                  showLabel={false}
-                                  showSubtitle={false}
-                                  label="Search pins"
-                                  leftIcon={<SearchOneIcon size={16} />}
-                                  rightIcon={
-                                    <span
-                                      role="button"
-                                      tabIndex={0}
-                                      aria-label="Close search"
-                                      onClick={() => { setSearchOpen(false); setRawSearch('') }}
-                                      onKeyDown={e => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                          setSearchOpen(false)
-                                          setRawSearch('')
-                                        }
-                                      }}
-                                      style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
-                                    >
-                                      <CancelCircleIcon size={16} />
-                                    </span>
-                                  }
-                                  placeholder="Search for your pin..."
-                                  value={rawSearch}
-                                  onChange={setRawSearch}
-                                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into search on user-triggered open
-                                  autoFocus
-                                  aria-label="Search pins"
-                                />
-                              </m.div>
-                            )}
-                          </AnimatePresence>
-                        </m.div>
+                          {!searchOpen ? (
+                            <IconButton
+                              variant="ghost"
+                              size="sm"
+                              icon={<SearchOneIcon size={20} />}
+                              aria-label="Open search"
+                              onClick={() => setSearchOpen(true)}
+                            />
+                          ) : (
+                            <InputField
+                              fluid
+                              size="small"
+                              showLabel={false}
+                              showSubtitle={false}
+                              label="Search pins"
+                              leftIcon={<SearchOneIcon size={16} />}
+                              rightIcon={
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-label="Close search"
+                                  onClick={() => { setSearchOpen(false); setRawSearch('') }}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      setSearchOpen(false)
+                                      setRawSearch('')
+                                    }
+                                  }}
+                                  style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
+                                >
+                                  <CancelCircleIcon size={16} />
+                                </span>
+                              }
+                              placeholder="Search for your pin..."
+                              value={rawSearch}
+                              onChange={setRawSearch}
+                              // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into search on user-triggered open
+                              autoFocus
+                              aria-label="Search pins"
+                            />
+                          )}
+                        </div>
                       </Tooltip>
 
                       {/* Export */}
@@ -1112,24 +1096,48 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                         overflowY:           'auto',
                         overflowX:           'hidden',
                         overscrollBehaviorY: 'contain',
-                        padding:             '2px',
+                        padding:             '2px 7px 2px 2px',
                         // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                         outline:             'none',
                       }}
                     >
-                      {visiblePins.length === 0 && emptyState ? (
+                      {visiblePins.length === 0 && activeFolderId !== 'all' && activeFolderId !== 'current-chat' && activeFolderId !== 'unorganized' ? (
+                        // Empty folder — folder exists but has no pins yet.
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, width: '100%', padding: '48px 24px', textAlign: 'center' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 12, backgroundColor: 'var(--neutral-100)' }}>
+                            <FolderOneIcon size={20} color="var(--neutral-400)" />
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'baseline', maxWidth: '100%', fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)', color: 'var(--neutral-700)' }}>
+                            {(() => {
+                              const name = folders.find(f => f.id === activeFolderId)?.name
+                              if (!name) return 'No pins yet'
+                              return (
+                                <>
+                                  <span style={{ flexShrink: 0 }}>&ldquo;</span>
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{name}</span>
+                                  <span style={{ flexShrink: 0 }}>&rdquo;</span>
+                                  <span style={{ flexShrink: 0, marginLeft: '0.25em' }}>is empty</span>
+                                </>
+                              )
+                            })()}
+                          </span>
+                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-regular)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-400)', maxWidth: 200 }}>
+                            Move pins here from organize mode to keep them together.
+                          </span>
+                        </div>
+                      ) : visiblePins.length === 0 && emptyState ? (
                         <EmptyState
                           title={emptyState.title}
                           description={'description' in emptyState ? emptyState.description : undefined}
                           action={'action' in emptyState ? emptyState.action : undefined}
                         />
                       ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', alignItems: 'start' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', alignItems: 'start', isolation: 'isolate' }}>
                           {visiblePins.map((p, i) => {
                             const { id } = p
                             const chunkIndex = i + 3
                             return (
-                              <EnterChunk key={id} cfg={enterAnimation} index={chunkIndex} style={{ minWidth: 0 }}>
+                              <EnterChunk key={id} cfg={enterAnimation} index={chunkIndex} style={{ minWidth: 0, zIndex: visiblePins.length - i }}>
                                 <PinGridCell
                                   pin={p}
                                   userTags={userTagsById[id] ?? EMPTY_TAGS}
@@ -1508,6 +1516,82 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
       </AnimatePresence>,
       document.body
     )}
+
+    {/* Delete folder confirmation — same portal level as create-folder modal */}
+    {createPortal(
+      <AnimatePresence>
+        {deleteTargetFolder && (
+          <m.div
+            key="delete-folder-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={() => setDeleteTargetFolder(null)}
+            style={{
+              position:        'fixed',
+              inset:           0,
+              zIndex:          51,
+              display:         'flex',
+              alignItems:      'center',
+              justifyContent:  'center',
+              backgroundColor: 'rgba(26,23,20,0.4)',
+              backdropFilter:  'blur(2px)',
+            }}
+          >
+            <m.div
+              key="delete-folder-dialog"
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1,    y: 0 }}
+              exit={{    opacity: 0, scale: 0.96, y: 8 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.8 }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                background:    'var(--neutral-white)',
+                borderRadius:  20,
+                boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
+                width:         360,
+                maxWidth:      'calc(100vw - 32px)',
+                display:       'flex',
+                flexDirection: 'column',
+                overflow:      'hidden',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 12px' }}>
+                <p style={{ margin: 0, fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 18, lineHeight: '26px', color: 'var(--neutral-900)' }}>
+                  Delete folder
+                </p>
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<CancelOneIcon size={20} />}
+                  aria-label="Close"
+                  onClick={() => setDeleteTargetFolder(null)}
+                />
+              </div>
+              <div style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-regular)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)', color: 'var(--neutral-600)' }}>
+                  Delete <strong style={{ color: 'var(--neutral-900)' }}>&ldquo;{deleteTargetFolder.name}&rdquo;</strong>? Pins inside will move to Unorganized.
+                </p>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <Button variant="ghost" size="sm" onClick={() => setDeleteTargetFolder(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => { handleDeleteFolder(deleteTargetFolder.id); setDeleteTargetFolder(null) }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </m.div>
+          </m.div>
+        )}
+      </AnimatePresence>,
+      document.body
+    )}
     </>
   )
 }
@@ -1528,36 +1612,36 @@ function SidebarFolderItem({
   onRename: () => void
   onDelete: () => void
 }) {
-  const [hovered,       setHovered]       = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [hovered,  setHovered]  = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <div
       style={{ position: 'relative' }}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setConfirmDelete(false) }}
+      onMouseLeave={() => { if (!menuOpen) setHovered(false) }}
     >
       <button
         onClick={onClick}
         onDoubleClick={onRename}
         style={{
-          display:         'flex',
-          alignItems:      'center',
-          gap:             8,
-          width:           '100%',
-          paddingLeft:     6,
-          paddingRight:    6,
-          paddingTop:      5,
-          paddingBottom:   5,
-          background:      active || hovered
+          display:       'flex',
+          alignItems:    'center',
+          gap:           8,
+          width:         '100%',
+          paddingLeft:   6,
+          paddingRight:  6,
+          paddingTop:    5,
+          paddingBottom: 5,
+          background:    active || hovered || menuOpen
             ? 'var(--sidebar-menu-item-hover-bg)'
             : 'transparent',
-          border:          'none',
-          cursor:          'pointer',
-          borderRadius:    10,
-          transition:      'background 150ms',
-          textAlign:       'left',
-          boxShadow:       active || hovered
+          border:        'none',
+          cursor:        'pointer',
+          borderRadius:  10,
+          transition:    'background 150ms',
+          textAlign:     'left',
+          boxShadow:     active || hovered || menuOpen
             ? 'var(--shadow-sidebar-item-hover)'
             : undefined,
         }}
@@ -1583,52 +1667,61 @@ function SidebarFolderItem({
         </span>
       </button>
 
-      {/* Hover delete overlay */}
+      {/* MoreVertical button — visible on hover or while menu is open */}
       <AnimatePresence initial={false}>
-        {hovered && (
+        {(hovered || menuOpen) && (
           <m.div
-            key="folder-actions"
+            key="folder-more"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{   opacity: 0 }}
             transition={{ duration: 0.1 }}
-            style={{
-              position:  'absolute',
-              right:     6,
-              top:       '50%',
-              transform: 'translateY(-50%)',
-              display:   'flex',
-              gap:       4,
-            }}
+            style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)' }}
           >
-            {confirmDelete ? (
-              <>
-                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setConfirmDelete(false) }}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => { e.stopPropagation(); onDelete(); setConfirmDelete(false) }}
-                >
-                  Delete
-                </Button>
-              </>
-            ) : (
-              <IconButton
-                variant="ghost"
-                size="sm"
-                icon={<CancelOneIcon size={16} />}
-                aria-label={`Delete folder ${folder.name}`}
-                onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
-              />
-            )}
+            {/* stopPropagation wrapper prevents the folder's own onClick firing
+                when the user clicks the three-dot button. Dropdown.Float
+                handles open/close internally via onOpenChange — no extra
+                onClick on the trigger to avoid double-toggle. */}
+            <div onClick={e => e.stopPropagation()}>
+              <Dropdown.Float
+                open={menuOpen}
+                onOpenChange={(next) => {
+                  setMenuOpen(next)
+                  if (!next) setHovered(false)
+                }}
+                placement="top-end"
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
+                    icon={<MoreVerticalIcon size={16} />}
+                    aria-label={`Options for ${folder.name}`}
+                  />
+                }
+              >
+                <Dropdown size="sm">
+                  <Dropdown.Section fluid>
+                    <Dropdown.Item
+                      label="Rename"
+                      fluid
+                      onClick={() => { setMenuOpen(false); setHovered(false); onRename() }}
+                    />
+                    <Dropdown.Item
+                      label="Delete"
+                      variant="danger"
+                      fluid
+                      onClick={() => { setMenuOpen(false); setHovered(false); onDelete() }}
+                    />
+                  </Dropdown.Section>
+                </Dropdown>
+              </Dropdown.Float>
+            </div>
           </m.div>
         )}
       </AnimatePresence>
 
       {/* Inner shadow - matches SidebarMenuItem active state */}
-      {(active || hovered) && (
+      {(active || hovered || menuOpen) && (
         <div
           aria-hidden
           style={{
@@ -1640,6 +1733,7 @@ function SidebarFolderItem({
           }}
         />
       )}
+
     </div>
   )
 }
