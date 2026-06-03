@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server"
 import { auth0 } from "@/lib/auth0"
 import { logger } from "@/lib/logger"
+import { forwardGeoHeaders } from "@/lib/geo-headers"
 
 export const dynamic = "force-dynamic"
 // Allow up to 5 minutes for Claude extended-thinking + agentic multi-round responses.
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "text/event-stream",
+        ...forwardGeoHeaders(request),
       },
       body: fd,
     })

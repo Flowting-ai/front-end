@@ -123,12 +123,14 @@ async function doFetch(path: string, options: ApiFetchOptions): Promise<Response
     headers.set(key, value);
   }
 
-  // Send timezone and locale info to the backend.
+  // Send the user's timezone + locale so the backend renders dates in their
+  // zone instead of UTC. Names must match the backend's extract_geo (X-User-*);
+  // the old X-Timezone / X-Locale were silently ignored.
   if (typeof window !== "undefined") {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (tz) headers.set("X-Timezone", tz);
+    if (tz) headers.set("X-User-Timezone", tz);
     const locale = navigator.language;
-    if (locale) headers.set("X-Locale", locale);
+    if (locale) headers.set("X-User-Locale", locale);
   }
 
   return fetch(url, { credentials: "include", ...options, headers });

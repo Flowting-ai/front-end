@@ -1253,6 +1253,13 @@ export function useStreamingChat({
 
         xhr.open("POST", endpoint)
 
+        // Forward the user's timezone/locale so the backend resolves "today" in
+        // their zone, not UTC. This XHR path bypasses apiClient, so set them
+        // here; the proxy route passes them through to the backend's extract_geo.
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+        if (tz) xhr.setRequestHeader("X-User-Timezone", tz)
+        if (navigator.language) xhr.setRequestHeader("X-User-Locale", navigator.language)
+
         // Report real browser→proxy upload progress per file byte count
         if (options?.files?.length && options.onUploadProgress) {
           xhr.upload.addEventListener("progress", (e) => {
