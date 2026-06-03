@@ -7,6 +7,8 @@ import { useHighlight } from '@/context/highlight-context'
 import { HighlightPanel } from '@/components/HighlightPanel'
 import { toast } from '@/components/Toast'
 import type { FilterMode } from '@/context/highlight-context'
+import { scrollToHighlight } from '@/lib/highlight-jump'
+import { scrollChatToMessage } from '@/lib/chat-scroller'
 
 function useCurrentChatId(): string | undefined {
   const pathname = usePathname()
@@ -34,7 +36,7 @@ function HighlightSidebarImpl() {
 
   // Stores a pending cross-chat scroll target when the user clicks "Open in chat"
   // on a highlight from a different chat. Cleared once the scroll succeeds.
-  const pendingJumpRef = useRef<{ messageId: string; highlightId: string; text: string } | null>(null)
+  const pendingJumpRef = useRef<{ messageId: string; highlightId: string; text: string; startOffset: number } | null>(null)
 
   // When filterMode changes, load the appropriate data.
   // Skip the loadForChat call if we're mid-navigation for a cross-chat jump —
@@ -67,40 +69,40 @@ function HighlightSidebarImpl() {
 
     let timerId: ReturnType<typeof setTimeout>
 
-    const tryScroll = (attempt = 0) => {
-      const msgEl = document.querySelector(`[data-message-id="${pending.messageId}"]`)
+    // Phase 1: wait up to 20 × 250 ms (5 s) for the message element to appear.
+    // Phase 2: once the message is in the DOM, wait up to 20 more × 250 ms (5 s)
+    //          for the precise highlight mark (highlights API may still be in flight).
+    //          Each phase has its own independent counter so a slow Phase 1 does
+    //          not eat into Phase 2's budget.
+    const tryScrollMark = (msgEl: Element, markAttempt = 0) => {
+      // Check if the precise mark is now in the DOM (highlights API may still be loading)
+      const hasMark = !!msgEl.querySelector(`[data-highlight-id="${pending.highlightId}"]`)
 
-      if (!msgEl) {
-        // Chat hasn't rendered the message yet — keep waiting
-        if (attempt < 20) timerId = setTimeout(() => tryScroll(attempt + 1), 250)
-        return
-      }
-
-      // Message is in DOM. Try to find the precise highlight mark.
-      const preciseMark =
-        msgEl.querySelector(`[data-highlight-id="${pending.highlightId}"]`) ??
-        Array.from(msgEl.querySelectorAll('mark')).find(
-          m => m.textContent?.trim() === pending.text.trim(),
-        ) ?? null
-
-      if (preciseMark) {
+      if (hasMark || markAttempt >= 20) {
         pendingJumpRef.current = null
-        preciseMark.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        scrollToHighlight(msgEl, {
+          id:          pending.highlightId,
+          text:        pending.text,
+          startOffset: pending.startOffset,
+        })
         toast.success('Jumped to highlight')
         return
       }
 
-      // Mark not rendered yet — highlights API call may still be in flight.
-      // Keep retrying for a precise scroll; fall back to message after 20 attempts.
-      if (attempt < 20) {
-        timerId = setTimeout(() => tryScroll(attempt + 1), 250)
+      timerId = setTimeout(() => tryScrollMark(msgEl, markAttempt + 1), 250)
+    }
+
+    const tryScroll = (attempt = 0) => {
+      const msgEl = document.querySelector(`[data-message-id="${pending.messageId}"]`)
+
+      if (!msgEl) {
+        // Chat hasn't rendered the message yet — keep waiting (Phase 1)
+        if (attempt < 20) timerId = setTimeout(() => tryScroll(attempt + 1), 250)
         return
       }
 
-      // Exhausted — scroll to message container as best effort
-      pendingJumpRef.current = null
-      msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      toast.success('Jumped to message')
+      // Message is in DOM — start Phase 2 with a fresh counter
+      tryScrollMark(msgEl)
     }
 
     // Brief initial delay to let the chat page begin rendering
@@ -117,7 +119,7 @@ function HighlightSidebarImpl() {
     const isCrossChat = h.chatId && (!currentChatId || h.chatId !== currentChatId)
 
     if (isCrossChat) {
-      pendingJumpRef.current = { messageId: h.messageId, highlightId: id, text: h.text }
+      pendingJumpRef.current = { messageId: h.messageId, highlightId: id, text: h.text, startOffset: h.startOffset }
       // Switch to 'this-chat' mode so the target chat's highlights load after
       // navigation (filterMode === 'all' blocks loadForChat in the context).
       // The filterMode effect skips loadForChat for the current chat because
@@ -127,19 +129,11 @@ function HighlightSidebarImpl() {
       return
     }
 
-    // Same chat — scroll directly
-    const msgEl = document.querySelector(`[data-message-id="${h.messageId}"]`)
-    if (!msgEl) return
-
-    const target =
-      msgEl.querySelector(`[data-highlight-id="${id}"]`) ??
-      Array.from(msgEl.querySelectorAll('mark')).find(
-        m => m.textContent?.trim() === h.text.trim(),
-      ) ??
-      msgEl
-
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    toast.success('Jumped to highlight')
+    // Same chat — virtualizer-aware scroll
+    scrollChatToMessage(h.messageId, (msgEl) => {
+      scrollToHighlight(msgEl, h)
+      toast.success('Jumped to highlight')
+    })
   }
 
   return (

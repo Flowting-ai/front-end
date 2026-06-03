@@ -30,7 +30,9 @@ type HastNodeAny = {
   children?:   HastNodeAny[]
 }
 
-const SKIP_TAGS = new Set(['code', 'pre'])
+// Only skip <pre> (fenced code blocks handled by LineRenderer/CodeBlock).
+// Inline <code> spans are allowed to receive highlight marks.
+const SKIP_TAGS = new Set(['pre'])
 
 function walkNode(node: HastNodeAny, specs: HighlightSpec[]): void {
   if (!node.children) return

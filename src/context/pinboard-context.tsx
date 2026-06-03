@@ -99,6 +99,8 @@ interface PinboardContextValue {
   pins: PinItem[];
   folders: PinFolderView[];
   isLoading: boolean;
+  /** True when the last load attempt failed. Cleared on next successful load. */
+  isError: boolean;
   isOpen: boolean;
   /** chatId currently being displayed (set by openForChat, cleared on open/close) */
   chatFilter: string | null;
@@ -147,6 +149,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   const [pins,       setPins]       = useState<PinItem[]>([]);
   const [folders,    setFolders]    = useState<PinFolderView[]>([]);
   const [isLoading,  setIsLoading]  = useState(true);
+  const [isError,    setIsError]    = useState(false);
   const [isOpen,     setIsOpen]     = useState(false);
   const [chatFilter, setChatFilter] = useState<string | null>(null);
 
@@ -190,11 +193,18 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
         setPins(items);
         setFolders(folderItems);
         setIsLoading(false);
+        setIsError(false);
         writeCache(items, folderItems);
       })
       .catch((err) => {
         console.error("[PinboardContext] Failed to load pins", err);
         setIsLoading(false);
+        setIsError(true);
+        // Do NOT call writeCache here — that would overwrite good cached data
+        // with empty arrays and cause pins to stay missing for up to 60 seconds.
+        toast.error("Couldn't load your pins. Tap to retry.", {
+          action: { label: "Retry", onClick: () => load(false) },
+        });
       })
       .finally(() => {
         fetchingRef.current = false;
@@ -222,14 +232,15 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 
   // Debounced cache write for mutations (add/remove/rename/tag updates).
   // 500 ms debounce batches rapid optimistic updates into a single write.
+  // Skip when in error state — don't overwrite good cached data with empty pins.
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || isError) return;
     if (cacheWriteRef.current) clearTimeout(cacheWriteRef.current);
     cacheWriteRef.current = setTimeout(() => writeCache(pins, folders), 500);
     return () => {
       if (cacheWriteRef.current) clearTimeout(cacheWriteRef.current);
     };
-  }, [pins, folders, isLoading]);
+  }, [pins, folders, isLoading, isError]);
 
   // Prefetch: start loading before the user clicks (e.g. on button hover).
   // No-op if data is fresh or a fetch is already in-flight.
@@ -430,7 +441,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 
   const contextValue = useMemo(
     () => ({
-      pins, folders, isLoading, isOpen, chatFilter,
+      pins, folders, isLoading, isError, isOpen, chatFilter,
       open, close, toggle, openForChat, clearChatFilter,
       addPin, clonePin, removePin, removePinByMessage, isPinned,
       updatePinCategory, updatePinFolder, updatePinTags, updatePinComment,
@@ -439,7 +450,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }),
     // primitives + stable callbacks — new object only when something actually changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pins, folders, isLoading, isOpen, chatFilter, isPinned],
+    [pins, folders, isLoading, isError, isOpen, chatFilter, isPinned],
   );
 
   // All three are useCallback([], []) — reference never changes, so this value

@@ -371,16 +371,27 @@ export default function PersonasPage() {
   }, [pathname])
 
   // Fetch link shares whenever the super-links tab is active.
-  // Enriches each share with persona name + image via getSharePreview so the
-  // display never depends on fragile version-ID cross-matching.
+  // Strategy:
+  //   1. Load shares + fresh personas in parallel (personas needed for revoked-share fallback).
+  //   2. For ACTIVE shares: getSharePreview returns persona_name + image_url directly.
+  //   3. For REVOKED shares: getSharePreview fails (share is no longer public), so
+  //      we fall back to versionToPersona which is built from the fresh personas list.
   useEffect(() => {
     if (activeTab !== 'super-links') return
     setSharesLoading(true)
-    listShares()
-      .then(allShares => {
+
+    // Bust cache so we always get the latest activeVersionId for every persona —
+    // this is the key fallback data for revoked shares whose preview endpoint 4xx-es.
+    bustPersonasCache()
+
+    Promise.all([listShares(), fetchPersonas()])
+      .then(([allShares, allPersonas]) => {
         const linkShares = allShares.filter(s => s.share_type === 'link')
         setShares(linkShares)
-        // Fetch preview data for every share in parallel; failures are silently skipped.
+        setPersonas(allPersonas)
+
+        // Fire preview requests for all shares; revoked ones will reject —
+        // those fall back to versionToPersona (populated from allPersonas above).
         Promise.allSettled(linkShares.map(s => getSharePreview(s.id))).then(results => {
           const meta: Record<string, { name: string; imageUrl: string | null }> = {}
           results.forEach((r, i) => {

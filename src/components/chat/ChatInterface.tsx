@@ -13,6 +13,7 @@ import {
 } from "./AttachmentManager";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import { registerChatScroller } from "@/lib/chat-scroller";
 import { useChatState, type UseChatStateOptions, type UIMessage } from "@/hooks/use-chat-state";
 import {
   useStreamingChat,
@@ -291,6 +292,27 @@ export function ChatInterface({
   });
 
   const { moveToTop } = { moveToTop: onChatMoveToTop ?? (() => {}) };
+
+  // Register the virtualizer-backed scroller so jump-gutter / highlight-panel
+  // can bring virtualized messages into view before querying the DOM.
+  useEffect(() => {
+    registerChatScroller((messageId, onRendered) => {
+      const idx = messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return
+      msgVirtualizer.scrollToIndex(idx, { align: 'center', behavior: 'smooth' })
+      // Poll until the row renders in the DOM (up to 40 × 50 ms = 2 s)
+      let attempts = 0
+      const poll = setInterval(() => {
+        const el = document.querySelector(`[data-message-id="${messageId}"]`)
+        if (el || attempts++ >= 40) {
+          clearInterval(poll)
+          if (el) onRendered(el)
+        }
+      }, 50)
+    })
+    return () => registerChatScroller(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, msgVirtualizer])
 
   // Wrap onChatCreated to mark the new ID as optimistic BEFORE the parent
   // updates the URL/chatId prop - prevents useChatState from wiping messages.

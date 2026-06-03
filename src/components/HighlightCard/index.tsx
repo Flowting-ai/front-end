@@ -29,12 +29,12 @@ const SHADOW_HOVER = '0px 6px 16px 0px rgba(59,54,50,0.14), 0px 2px 6px 0px rgba
 
 // ── Internal action button ─────────────────────────────────────────────────────
 
-function ActionButton({ icon, label, onClick, ref }: {
+function ActionButton({ icon, label, onClick, ref, ...rest }: {
   icon:    React.ReactNode
   label:   string
-  onClick: () => void
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void
   ref?:    React.Ref<HTMLButtonElement>
-}) {
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'>) {
   const [hovered, setHovered] = useState(false)
   return (
     <button
@@ -42,9 +42,13 @@ function ActionButton({ icon, label, onClick, ref }: {
       type="button"
       className="kds-highlight-action"
       aria-label={label}
-      onClick={e => { e.stopPropagation(); onClick() }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      // Spread Radix-injected props first (onPointerEnter, onPointerLeave, onFocus,
+      // onBlur, data-state…) so TooltipTrigger asChild can control open/close state.
+      {...rest}
+      // Our handlers override anything in rest that would conflict.
+      onClick={e => { e.stopPropagation(); onClick(e) }}
+      onMouseEnter={(e) => { setHovered(true);  rest.onMouseEnter?.(e) }}
+      onMouseLeave={(e) => { setHovered(false); rest.onMouseLeave?.(e) }}
       style={{
         display:         'inline-flex',
         alignItems:      'center',

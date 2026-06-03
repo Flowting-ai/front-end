@@ -28,7 +28,7 @@ import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognitio
 
 // â”€â”€ Design tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-type ChipColor = "neutral" | "green" | "brown" | "red" | "blue";
+type ChipColor = "neutral" | "green" | "brown" | "red" | "blue" | "purple";
 
 const CHIP_COLORS: Record<ChipColor, { bg: string; text: string }> = {
   neutral: { bg: "#EDE1D7", text: "#524B47" },
@@ -36,6 +36,7 @@ const CHIP_COLORS: Record<ChipColor, { bg: string; text: string }> = {
   brown:   { bg: "#E6D5CA", text: "#683D1B" },
   red:     { bg: "#FFBFB6", text: "#7A201C" },
   blue:    { bg: "#CADCF1", text: "#135487" },
+  purple:  { bg: "#EDE9FE", text: "#5B21B6" },
 };
 
 const CHIP_SHADOW: Record<ChipColor, string> = {
@@ -44,6 +45,7 @@ const CHIP_SHADOW: Record<ChipColor, string> = {
   red:     "0px 1px 1.5px 0px rgba(24,2,2,0.2),0px 0px 0px 1px rgba(159,38,35,0.5)",
   green:   "0px 1px 1.5px 0px rgba(17,25,1,0.2),0px 0px 0px 1px rgba(128,183,7,0.5)",
   blue:    "0px 1px 1.5px 0px rgba(2,15,24,0.2),0px 0px 0px 1px rgba(13,110,178,0.5)",
+  purple:  "0px 1px 1.5px 0px rgba(10,2,24,0.2),0px 0px 0px 1px rgba(109,40,217,0.5)",
 };
 
 const CHIP_INNER: Record<ChipColor, string> = {
@@ -52,6 +54,7 @@ const CHIP_INNER: Record<ChipColor, string> = {
   red:     "inset 0px 1px 0px 0px rgba(253,231,231,0.7),inset 0px -1px 0px 0px rgba(159,38,35,0.1)",
   green:   "inset 0px 1px 0px 0px rgba(247,254,230,0.7),inset 0px -1px 0px 0px rgba(128,183,7,0.1)",
   blue:    "inset 0px 1px 0px 0px rgba(231,244,253,0.7),inset 0px -1px 0px 0px rgba(13,110,178,0.1)",
+  purple:  "inset 0px 1px 0px 0px rgba(237,233,254,0.7),inset 0px -1px 0px 0px rgba(109,40,217,0.1)",
 };
 
 const CARD_SHADOW        = "0px 2px 2.8px 0px rgba(82,75,71,0.12),0px 0px 0px 1px #EDE1D7";
@@ -560,7 +563,7 @@ function ModelCard({
   const [isHovered, setIsHovered] = useState(false);
   const llmId    = getModelLlmId(model.companyName, model.rawModelName) ?? "";
   const isActive = isSelected || isHovered;
-  const tierColor: ChipColor = /^pro$/i.test(model.tierLabel) ? "blue" : "neutral";
+  const tierColor: ChipColor = /^power$/i.test(model.tierLabel) ? "purple" : /^pro$/i.test(model.tierLabel) ? "blue" : "neutral";
 
   return (
     <div
@@ -770,6 +773,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
         const t = (m.tierLabel ?? "").toLowerCase();
         if (selectedTiers.has("starter") && (t === "free" || t === "starter")) return true;
         if (selectedTiers.has("pro")     && (t === "paid" || t === "pro"))     return true;
+        if (selectedTiers.has("power")   && t === "power")                     return true;
         return false;
       });
     }
@@ -777,8 +781,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
       const q = searchQuery.toLowerCase();
       result = result.filter((m) =>
         m.modelName.toLowerCase().includes(q) ||
-        m.company.toLowerCase().includes(q) ||
-        m.description.toLowerCase().includes(q),
+        m.company.toLowerCase().includes(q),
       );
     }
     return result;
@@ -911,6 +914,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     if (!prompt.trim() || selectedModels.length < 2 || isTesting) return;
 
     setPromptInputCollapsed(true);
+    setPrompt("");
     setIsTesting(true);
     setTestResponses({});
     setTestCredits({});
@@ -1635,7 +1639,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                     {([
                       { id: "starter", label: "Starter" },
                       { id: "pro",     label: "Pro"     },
-                      { id: "power",   label: "Power",  disabled: true },
+                      { id: "power",   label: "Power"   },
                     ] as { id: string; label: string; disabled?: boolean }[]).map((tier, i) => (
                       <m.div key={tier.id} {...dropdownItemStagger(i)}>
                         <Dropdown.Item

@@ -11,6 +11,8 @@ import { springs } from '@/lib/springs'
 import { usePinboard } from '@/context/pinboard-context'
 import { useHighlight } from '@/context/highlight-context'
 import { useCompare } from '@/context/compare-context'
+import { scrollToHighlight } from '@/lib/highlight-jump'
+import { scrollChatToMessage } from '@/lib/chat-scroller'
 
 // Derives the active chat ID from the URL so the gutter can be filtered
 // per-chat. Handles both URL patterns used in the app:
@@ -44,19 +46,10 @@ function FloatingPanelImpl() {
     const h = highlights.find(h => h.id === id)
     if (!h?.messageId) return
 
-    const msgEl = document.querySelector(`[data-message-id="${h.messageId}"]`)
-    if (!msgEl) return
-
-    // Prefer the precise inline mark; fall back to text-content match; last
-    // resort is the message container itself.
-    const target =
-      msgEl.querySelector(`[data-highlight-id="${id}"]`) ??
-      Array.from(msgEl.querySelectorAll('mark')).find(
-        m => m.textContent?.trim() === h.text.trim(),
-      ) ??
-      msgEl
-
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // scrollChatToMessage handles both cases:
+    //  • message is already rendered → calls back immediately
+    //  • message is virtualised out → scrolls the virtualizer first, then calls back
+    scrollChatToMessage(h.messageId, (msgEl) => scrollToHighlight(msgEl, h))
   }
 
   // Only show marks for the current chat. With no chat open (new-chat page),

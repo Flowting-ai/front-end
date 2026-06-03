@@ -9,6 +9,7 @@ import React, {
 import { AnimatePresence, m } from "framer-motion";
 import {
   SearchOneIcon,
+  CancelOneIcon,
   AtomTwoIcon,
   TextIcon,
   SourceCodeSquareIcon,
@@ -17,6 +18,7 @@ import {
   AudioWaveOneIcon,
   GlobalSearchIcon,
 } from "@strange-huge/icons";
+import { IconButton } from "@/components/IconButton";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { getModelLlmId } from "@/lib/model-icons";
 import type { AIModel } from "@/types/ai-model";
@@ -28,9 +30,10 @@ import { InputField } from "@/components/InputField";
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TIER_TABS = [
-  { value: "all", label: "All" },
-  { value: "free", label: "Starter" },
-  { value: "pro", label: "Pro" },
+  { value: "all",   label: "All"     },
+  { value: "free",  label: "Starter" },
+  { value: "pro",   label: "Pro"     },
+  { value: "power", label: "Power"   },
 ] as const;
 
 const CATEGORY_TABS = [
@@ -137,8 +140,11 @@ function PresetModelSelectorContent({
       )
         return false;
     }
-    if (tier === "free" && m.modelType !== "free") return false;
-    if (tier === "pro" && m.modelType !== "paid") return false;
+    // Mirror CompareModels tierLabel logic: planType is the raw backend value.
+    const tl = ((m.planType ?? m.callType ?? m.modelType) as string ?? "").toLowerCase();
+    if (tier === "free"  && tl !== "free"  && tl !== "starter") return false;
+    if (tier === "pro"   && tl !== "paid"  && tl !== "pro")     return false;
+    if (tier === "power" && tl !== "power")                     return false;
 
     if (category !== "all") {
       const inputs  = m.inputModalities  ?? [];
@@ -194,13 +200,22 @@ function PresetModelSelectorContent({
             flexShrink: 0,
           }}
         >
-          <div style={{ flex: "1 0 0", minWidth: 0 }}>
+          <div style={{ flex: "1 1 0", minWidth: 100 }}>
             <InputField
               size="small"
               showLabel={false}
               label="Search models"
               showSubtitle={false}
               leftIcon={<SearchOneIcon size={16} />}
+              rightIcon={search ? (
+                <IconButton
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Clear search"
+                  icon={<CancelOneIcon size={12} />}
+                  onClick={() => setSearch("")}
+                />
+              ) : undefined}
               placeholder="Look up your model…"
               value={search}
               onChange={setSearch}

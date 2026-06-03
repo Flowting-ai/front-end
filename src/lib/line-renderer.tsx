@@ -19,6 +19,7 @@
 import React from "react"
 import katex from "katex"
 import { CodeBlock } from "@/components/chat/CodeBlock"
+import { applyMarksToHtml } from "@/lib/apply-marks"
 import { CitationChip } from "@/components/chat/ResponseBlocks"
 import { HighlightMark } from "@/components/HighlightMark"
 import { sanitizeKaTeX } from "@/lib/security"
@@ -27,15 +28,17 @@ import type { HighlightSpec } from "./markdown-utils"
 
 // ── KaTeX helpers ──────────────────────────────────────────────────────────────
 
-function renderKatex(math: string, display: boolean, key: string): React.ReactNode {
+function renderKatex(math: string, display: boolean, key: string, highlights?: HighlightSpec[]): React.ReactNode {
   try {
-    const html = katex.renderToString(math, { throwOnError: false, displayMode: display })
+    const rawHtml = katex.renderToString(math, { throwOnError: false, displayMode: display })
+    const sanitized = sanitizeKaTeX(rawHtml)
+    const html = highlights?.length ? applyMarksToHtml(sanitized, highlights, 'span') : sanitized
     return (
       <span
         key={key}
         style={{ display: display ? "block" : "inline-block", margin: display ? "8px 0" : "0 2px", overflowX: display ? "auto" : undefined }}
         // eslint-disable-next-line react/no-danger -- KaTeX output is library-generated and sanitized
-        dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }}
+        dangerouslySetInnerHTML={{ __html: html }}
       />
     )
   } catch {
@@ -50,6 +53,7 @@ function renderKatex(math: string, display: boolean, key: string): React.ReactNo
 type InlineCtx = {
   webCitations?: WebCitation[]
   urlMap?: Map<string, number>  // url → 0-based citation index
+  highlights?: HighlightSpec[]
 }
 
 function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): React.ReactNode[] {
@@ -141,10 +145,10 @@ function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): Reac
       nodes.push(<CitationChip key={key} n={n} citation={webCitations?.[n - 1]} />)
     } else if (m[10] !== undefined) {
       // $inline math$ — render with KaTeX
-      nodes.push(renderKatex(m[10], false, key))
+      nodes.push(renderKatex(m[10], false, key, ctx.highlights))
     } else if (m[12] !== undefined) {
       // \(inline math\) — LaTeX \(...\) delimiter, render with KaTeX
-      nodes.push(renderKatex(m[12], false, key))
+      nodes.push(renderKatex(m[12], false, key, ctx.highlights))
     } else if (m[11] !== undefined) {
       // bare https?:// URL — auto-link it
       const href = m[11]
@@ -448,7 +452,7 @@ export function LineRenderer({ content, webCitations, highlights }: LineRenderer
     return m
   }, [webCitations])
 
-  const ctx: InlineCtx = { webCitations, urlMap }
+  const ctx: InlineCtx = { webCitations, urlMap, highlights }
 
   const blocks = React.useMemo(() => parseBlocks(content), [content])
 
@@ -489,11 +493,12 @@ export function LineRenderer({ content, webCitations, highlights }: LineRenderer
             language={block.lang || undefined}
             value={block.lines.join("\n")}
             elementKey={k}
+            highlights={highlights}
           />
         )
 
       case "latex":
-        return renderKatex(block.content, block.display, k)
+        return renderKatex(block.content, block.display, k, highlights)
 
       case "table":
         return (

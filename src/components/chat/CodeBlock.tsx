@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Copy, Check, WrapText } from "lucide-react";
+import { HIGHLIGHT_COLORS } from "@/components/HighlightCard";
+import type { HighlightSpec } from "@/lib/markdown-utils";
+import { applyMarksToHtml } from "@/lib/apply-marks";
 
 // Module-level cache - one load shared across all CodeBlock instances
 let _hljsPromise: Promise<typeof import("@/lib/highlight").default> | null = null;
@@ -17,13 +20,64 @@ interface CodeBlockProps {
   language?: string;
   value: string;
   elementKey: string;
+  highlights?: HighlightSpec[];
 }
 
-export function CodeBlock({ language, value, elementKey }: CodeBlockProps) {
+// applyMarksToHtml is imported from @/lib/apply-marks
+
+/**
+ * Plain-text fallback (hljs not yet loaded): split the code string around
+ * highlight matches and return React nodes with <HighlightMark> elements.
+ */
+function renderPlainWithMarks(text: string, specs: HighlightSpec[]): React.ReactNode {
+  type M = { start: number; end: number; spec: HighlightSpec }
+  const matches: M[] = []
+  for (const spec of specs) {
+    let pos = 0
+    let idx: number
+    while ((idx = text.indexOf(spec.text, pos)) !== -1) {
+      matches.push({ start: idx, end: idx + spec.text.length, spec })
+      pos = idx + 1
+    }
+  }
+  if (!matches.length) return text
+
+  matches.sort((a, b) => a.start - b.start || b.end - a.end)
+  const resolved: M[] = []
+  let cursor = 0
+  for (const m of matches) {
+    if (m.start >= cursor) { resolved.push(m); cursor = m.end }
+  }
+
+  const nodes: React.ReactNode[] = []
+  let p = 0
+  for (const m of resolved) {
+    if (m.start > p) nodes.push(text.slice(p, m.start))
+    const { bg } = HIGHLIGHT_COLORS[m.spec.colorIndex]
+    nodes.push(
+      <mark
+        key={`mark-${m.spec.id}-${m.start}`}
+        data-highlight-id={m.spec.id}
+        style={{ backgroundColor: bg, color: 'inherit', borderRadius: 2, padding: '0 1px' }}
+      >
+        {text.slice(m.start, m.end)}
+      </mark>
+    )
+    p = m.end
+  }
+  if (p < text.length) nodes.push(text.slice(p))
+  return nodes
+}
+
+export function CodeBlock({ language, value, elementKey, highlights }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
+  // Raw hljs output — recomputed only when code content changes
+  const [rawHtml, setRawHtml] = useState<string | null>(null);
+  // Display HTML with highlight marks applied on top
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
 
+  // Run hljs whenever the code itself changes
   useEffect(() => {
     let cancelled = false;
     const trimmed = value.trimEnd();
@@ -35,16 +89,20 @@ export function CodeBlock({ language, value, elementKey }: CodeBlockProps) {
           language && hljs.getLanguage(language)
             ? hljs.highlight(trimmed, { language, ignoreIllegals: true })
             : hljs.highlightAuto(trimmed);
-        setHighlightedHtml(result.value);
+        setRawHtml(result.value);
       } catch {
-        setHighlightedHtml(null);
+        setRawHtml(null);
       }
     });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [value, language]);
+
+  // Re-apply marks whenever the raw syntax-highlighted HTML or specs change
+  useEffect(() => {
+    if (rawHtml === null) { setHighlightedHtml(null); return; }
+    setHighlightedHtml(highlights?.length ? applyMarksToHtml(rawHtml, highlights) : rawHtml);
+  }, [rawHtml, highlights]);
 
   const handleCopy = async () => {
     try {
@@ -167,13 +225,15 @@ export function CodeBlock({ language, value, elementKey }: CodeBlockProps) {
         {highlightedHtml != null ? (
           <code
             className={language ? `language-${language} hljs` : "hljs"}
-            // eslint-disable-next-line react/no-danger, react-doctor/no-danger -- highlight.js output is library-generated, not user content
+            // eslint-disable-next-line react/no-danger, react-doctor/no-danger -- hljs + mark output is library/app-generated, not user content
             dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             style={{ background: "transparent", padding: 0 }}
           />
         ) : (
           <code className={language ? `language-${language}` : ""}>
-            {value.trimEnd()}
+            {highlights?.length
+              ? renderPlainWithMarks(value.trimEnd(), highlights)
+              : value.trimEnd()}
           </code>
         )}
       </pre>

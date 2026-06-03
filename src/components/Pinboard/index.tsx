@@ -1577,7 +1577,7 @@ export function Pinboard(
                 No pin match
               </div>
             ) : (
-              <div style={{ position: 'relative', width: '100%', height: pinVirtualizer.getTotalSize() }}>
+              <div style={{ position: 'relative', width: '100%', height: pinVirtualizer.getTotalSize(), isolation: 'isolate' }}>
                 {pinVirtualizer.getVirtualItems().map((vRow) => {
                   const p = pins[vRow.index]
                   const { id, ...pinRest } = p
@@ -1593,6 +1593,15 @@ export function Pinboard(
                         width:     '100%',
                         transform: `translateY(${vRow.start}px)`,
                         paddingBottom: 8,
+                        // Cards higher in the list stack above cards below them.
+                        // Framer-motion updates card height directly (bypassing
+                        // React), so the virtualizer's translateY values for
+                        // cards below lag one frame behind an expanding card.
+                        // Without this, the lagging card below briefly paints
+                        // OVER the growing card. isolation:isolate on the
+                        // container keeps these z-indices from leaking out and
+                        // painting over the edge-blur overlays.
+                        zIndex: pins.length - vRow.index,
                       }}
                     >
                       <Pin

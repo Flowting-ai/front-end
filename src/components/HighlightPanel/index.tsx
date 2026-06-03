@@ -240,7 +240,7 @@ export function HighlightPanel({
                       label={mode === 'this-chat' ? 'This chat' : 'All highlights'}
                       fluid
                       selected={filterMode === mode}
-                      disabled={mode === 'all'}
+                      disabled={false}
                       rightIcon={filterMode === mode ? <TickTwoIcon /> : undefined}
                       onClick={() => { onFilterChange(mode); setFilterDropOpen(false) }}
                     />

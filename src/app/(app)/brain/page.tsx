@@ -604,16 +604,6 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     boxSizing:       'border-box',
     backgroundColor: 'var(--neutral-white)',
   }
-  const btnStyle = (primary: boolean, disabled: boolean): CSSProperties => ({
-    padding:         '6px 14px',
-    borderRadius:    999,
-    border:          primary ? 'none' : '1px solid var(--neutral-200)',
-    backgroundColor: primary ? (disabled ? 'var(--neutral-200)' : 'var(--neutral-900)') : 'transparent',
-    color:           primary ? (disabled ? 'var(--neutral-500)' : 'var(--neutral-white)') : 'var(--neutral-600)',
-    cursor:          disabled ? 'not-allowed' : 'pointer',
-    fontFamily:      'var(--font-body)',
-    fontSize:        'var(--font-size-caption)',
-  })
 
   const logoSrc = connectorLogoSrc(event.connector_slug) ?? connectorLogoSrc(event.display_name)
 
@@ -690,26 +680,28 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
             </div>
           ))}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
-            <button
-              type="button"
+            <Button
+              size="sm"
+              variant="default"
+              loading={busy}
+              disabled={done || !allFilled}
               onClick={() => void (event.auth_mode === 'api_key' ? handleApiKey() : handleOAuth(creds))}
-              disabled={busy || done || !allFilled}
-              style={btnStyle(true, busy || done || !allFilled)}
             >
-              {done ? 'Connected' : busy ? 'Connecting…' : `Connect ${event.display_name}`}
-            </button>
+              {done ? 'Connected' : `Connect ${event.display_name}`}
+            </Button>
           </div>
         </div>
       ) : (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="default"
+            loading={busy}
+            disabled={done}
             onClick={() => void handleOAuth()}
-            disabled={busy || done}
-            style={btnStyle(true, busy || done)}
           >
-            {done ? 'Connected' : busy ? 'Connecting…' : `Connect ${event.display_name}`}
-          </button>
+            {done ? 'Connected' : `Connect ${event.display_name}`}
+          </Button>
         </div>
       )}
     </div>
