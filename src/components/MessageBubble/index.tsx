@@ -7,7 +7,6 @@ import { Button } from '@/components/Button'
 import {
   PenOneIcon,
   CopyOneIcon,
-  RedoIcon,
   TickTwoIcon,
 } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
@@ -389,7 +388,7 @@ export function MessageBubble({
               display:       'flex',
               alignItems:    'center',
               gap:           2,
-              pointerEvents: hovered ? 'auto' : 'none',
+              pointerEvents: 'auto',
               zIndex:        10,
             }}
           >
@@ -409,12 +408,6 @@ export function MessageBubble({
               </span>
             )}
 
-            <IconButton
-              variant="ghost" size="xs"
-              aria-label="Retry message"
-              icon={<RedoIcon size={16} />}
-              onClick={onRetry}
-            />
             <IconButton
               variant="ghost" size="xs"
               aria-label="Edit message"

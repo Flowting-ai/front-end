@@ -78,9 +78,11 @@ export function ChatAddMenu({
     .filter(f => f.pinCount === undefined || f.pinCount > 0)
     .map(f => ({ id: f.id, name: f.label, pin_count: f.pinCount ?? 0 }))
 
-  const [styleMenuOpen,      setStyleMenuOpen]      = useState(false)
-  const [pinFoldersMenuOpen, setPinFoldersMenuOpen] = useState(false)
-  const [personaMenuOpen,    setPersonaMenuOpen]    = useState(false)
+  type OpenSubmenu = 'style' | 'persona' | 'pinFolders' | null
+  const [openSubmenu, setOpenSubmenu] = useState<OpenSubmenu>(null)
+  const styleMenuOpen      = openSubmenu === 'style'
+  const personaMenuOpen    = openSubmenu === 'persona'
+  const pinFoldersMenuOpen = openSubmenu === 'pinFolders'
   const [personas,           setPersonas]           = useState<Persona[]>([])
   const [loadingPersonas,    setLoadingPersonas]    = useState(false)
 
@@ -110,13 +112,13 @@ export function ChatAddMenu({
              close-on-click wrapper and dismissing the outer dropdown prematurely. */
           <Dropdown.Float
             open={styleMenuOpen}
-            onOpenChange={setStyleMenuOpen}
+            onOpenChange={(open) => setOpenSubmenu(open ? 'style' : null)}
             placement="right-start"
             trigger={
               <Dropdown.Item label="Use style" icon={<QuillWriteTwoIcon />} fluid rightIcon={<ArrowRightOneIcon />} />
             }
           >
-            <Dropdown size="md">
+            <Dropdown size="md" maxHeight="min(278px, calc(100dvh - 120px))">
               <Dropdown.Section fluid>
                 {USE_STYLE_OPTIONS.map((opt) => (
                   <Dropdown.Item
@@ -124,7 +126,7 @@ export function ChatAddMenu({
                     label={opt.label}
                     subLabel={opt.subLabel}
                     selected={opt.id === 'none' ? selectedStyleId === null : selectedStyleId === opt.id}
-                    onClick={() => { onStyleChange(opt.id === 'none' ? null : opt.id); setStyleMenuOpen(false) }}
+                    onClick={() => { onStyleChange(opt.id === 'none' ? null : opt.id); setOpenSubmenu(null) }}
                     fluid
                   />
                 ))}
@@ -135,7 +137,7 @@ export function ChatAddMenu({
         {!hidePersona && (
           <Dropdown.Float
             open={personaMenuOpen}
-            onOpenChange={setPersonaMenuOpen}
+            onOpenChange={(open) => setOpenSubmenu(open ? 'persona' : null)}
             placement="right-start"
             trigger={
               <Dropdown.Item
@@ -147,7 +149,7 @@ export function ChatAddMenu({
               />
             }
           >
-            <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
+            <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(248px, calc(100dvh - 120px))">
               <Dropdown.Section fluid>
                 {loadingPersonas
                   ? <Dropdown.Item label="Loading…" fluid disabled />
@@ -160,7 +162,7 @@ export function ChatAddMenu({
                           selected={selectedPersonaId === p.id}
                           onClick={() => {
                             onPersonaChange(selectedPersonaId === p.id ? null : { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null })
-                            setPersonaMenuOpen(false)
+                            setOpenSubmenu(null)
                           }}
                         />
                       ))
@@ -173,13 +175,13 @@ export function ChatAddMenu({
         {!hidePinFolders && (
         <Dropdown.Float
           open={pinFoldersMenuOpen}
-          onOpenChange={setPinFoldersMenuOpen}
+          onOpenChange={(open) => setOpenSubmenu(open ? 'pinFolders' : null)}
           placement="right-start"
           trigger={
             <Dropdown.Item label="Pin folders" icon={<FolderOneIcon />} fluid rightIcon={<ArrowRightOneIcon />} />
           }
         >
-          <Dropdown size="md" style={{ minWidth: 180 }} maxHeight="min(200px, calc(100dvh - 120px))">
+          <Dropdown size="md" style={{ minWidth: 180 }} maxHeight="min(280px, calc(100dvh - 120px))">
             <Dropdown.Section label="Your folders" fluid>
               {pinFolders.length > 0
                   ? pinFolders.map((f) => (

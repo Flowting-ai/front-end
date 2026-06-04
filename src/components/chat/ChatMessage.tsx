@@ -19,8 +19,6 @@ import { MessageBubble } from "@/components/MessageBubble";
 import {
   PinIcon,
   CopyOneIcon,
-  ThumbsUpIcon,
-  ThumbsDownIcon,
   RedoIcon,
   TickTwoIcon,
 } from "@strange-huge/icons";
@@ -192,6 +190,7 @@ export function ChatMessage({
   const [selectionOpen, setSelectionOpen] = useState(false);
   const [selectionAnchor, setSelectionAnchor] = useState<DOMRect | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { addPin, removePinByMessage, open: openPinboard } = usePinboardActions();
   const { addHighlight, open: openHighlightPanel, highlights } = useHighlight();
 
@@ -253,6 +252,19 @@ export function ChatMessage({
       document.removeEventListener('selectionchange', handleSelectionChange)
     }
   }, [isAssistant])
+
+  // Cleanup hover timer on unmount
+  useEffect(() => () => {
+    if (hoverLeaveTimer.current) clearTimeout(hoverLeaveTimer.current);
+  }, []);
+
+  const handleHoverEnter = () => {
+    if (hoverLeaveTimer.current) clearTimeout(hoverLeaveTimer.current);
+    setIsHovered(true);
+  };
+  const handleHoverLeave = () => {
+    hoverLeaveTimer.current = setTimeout(() => setIsHovered(false), 100);
+  };
 
   const handleCopy = async () => {
     try {
@@ -336,8 +348,8 @@ export function ChatMessage({
         padding: "12px 0",
         width: "100%",
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleHoverEnter}
+      onMouseLeave={handleHoverLeave}
     >
       {isUser ? (
         /* ── User message: right-aligned bubble ── */
@@ -889,6 +901,8 @@ export function ChatMessage({
         <m.div
           animate={{ opacity: isHovered && !message.isLoading ? 1 : 0 }}
           transition={{ duration: 0.15 }}
+          onMouseEnter={handleHoverEnter}
+          onMouseLeave={handleHoverLeave}
           style={{
             display: "flex",
             gap: 2,
@@ -907,16 +921,6 @@ export function ChatMessage({
             icon={copied ? <TickTwoIcon size={18} color="var(--success-600, #80B707)" /> : <CopyOneIcon size={18} color="var(--neutral-400)" />}
             label={copied ? "Copied" : "Copy"}
             onClick={handleCopy}
-          />
-          <ActionIconButton
-            icon={<ThumbsUpIcon size={18} color="var(--neutral-400)" />}
-            label="Like"
-            onClick={() => {/* wired later */}}
-          />
-          <ActionIconButton
-            icon={<ThumbsDownIcon size={18} color="var(--neutral-400)" />}
-            label="Dislike"
-            onClick={() => {/* wired later */}}
           />
           {isLast && onRegenerate && (
             <ActionIconButton

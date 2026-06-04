@@ -66,6 +66,8 @@ const DEFAULT_CONTEXT: PersonaContext = {
 
 const SCAN_DURATION_MS = 1800   // PRD §11
 const APPLY_TRANSITION_MS = 180
+// Max textarea height before internal scroll kicks in (container max = 534, minus 24px padding, 25px gap, 36px footer)
+const TEXTAREA_MAX_H = 449
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -94,10 +96,21 @@ export function EnhancePromptField(
     const [customText, setCustomText] = useState<Record<string, string>>({})  // questionId → in-progress custom string
     const [draftRewrite, setDraftRewrite] = useState<string>('')
 
-    const scanTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const scanTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
+
     useEffect(() => () => { if (scanTimer.current) clearTimeout(scanTimer.current) }, [])
 
     const isOpen = state !== 'idle'
+
+    useEffect(() => {
+      const ta = textareaRef.current
+      if (!ta || isOpen) return
+      ta.style.height = 'auto'
+      const newH = Math.min(ta.scrollHeight, TEXTAREA_MAX_H)
+      ta.style.height = `${newH}px`
+      ta.style.overflowY = ta.scrollHeight > TEXTAREA_MAX_H ? 'auto' : 'hidden'
+    }, [value, isOpen])
 
     // ── Open / close ───────────────────────────────────────────────────────────
 
@@ -254,7 +267,7 @@ export function EnhancePromptField(
             borderRadius:    18,
             borderStyle:     'solid',
             overflow:        'hidden',
-            height:          534,
+            ...(isOpen ? { height: 534 } : { minHeight: 120 }),
             // eslint-disable-next-line react-doctor/no-layout-transition-inline -- dynamic border-width animation requires inline style
             transition:      'background-color 200ms ease, border-color 200ms ease, border-width 200ms ease',
             ...containerStateStyle,
@@ -268,25 +281,25 @@ export function EnhancePromptField(
               display:       'flex',
               flexDirection: 'column',
               gap:           25,
-              height:        '100%',
               padding:       12,
               boxSizing:     'border-box',
             }}
           >
             <textarea
+              ref={textareaRef}
               aria-label={ariaLabel}
               className="kaya-enhance-textarea"
               placeholder={placeholder}
               value={value}
               onChange={e => onChange(e.target.value)}
               style={{
-                flex:       '1 1 0',
-                minHeight:  0,
                 width:      '100%',
+                minHeight:  100,
                 padding:    0,
                 border:     'none',
                 background: 'transparent',
                 resize:     'none',
+                overflow:   'hidden',
                 // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline:    'none',
                 fontFamily: 'Inter, var(--font-body)',

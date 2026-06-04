@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from 'next/image';
 import { usePathname, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useProjects } from "@/context/projects-context";
 import { LlmIcon } from "@strange-huge/icons/llm";
@@ -25,7 +26,7 @@ interface TopBarProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpen: _citationsOpen, onCitationsToggle: _onCitationsToggle }: TopBarProps) {
-  const { selectedModel, isOpen, open, museActive, museAdvanced } =
+  const { selectedModel, isOpen, open, museActive, museAdvanced, personaActive } =
     useModelSelectorContext();
   const { getProject, getChats } = useProjects();
   const pathname = usePathname();
@@ -72,11 +73,20 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
       variant="default"
       size="sm"
       rightIcon={<ArrowDownOneIcon />}
-      onClick={(e) => open(e.currentTarget)}
+      onClick={(e) => {
+        if (personaActive) {
+          toast.info("Model locked to persona", {
+            description:
+              "This chat uses the persona's model. Remove the persona chip to unlock model selection.",
+          });
+          return;
+        }
+        open(e.currentTarget);
+      }}
       aria-haspopup="listbox"
-      aria-expanded={isOpen}
+      aria-expanded={isOpen && !personaActive}
     >
-      <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <span style={{ display: "flex", alignItems: "center", gap: "8px", color: personaActive ? "var(--button-default-text-disabled)" : undefined }}>
         {(museActive || modelLlmId) && (
           <span
             style={{

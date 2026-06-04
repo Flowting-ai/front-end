@@ -68,6 +68,11 @@ interface ModelSelectorContextValue {
   // â”€â”€ Adaptive thinking â”€â”€
   enableReasoning: boolean;
   setEnableReasoning: (v: boolean) => void;
+  // ── Persona lock ──
+  /** True while a persona chip is active. Blocks open() and auto-closes the dialog. */
+  personaActive: boolean;
+  /** Called by the chat page to push persona-active state into the context. */
+  setPersonaActive: (active: boolean) => void;
 }
 
 // â”€â”€ Context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -94,6 +99,11 @@ export function ModelSelectorProvider({
 
   const [isOpen, setIsOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [personaActive, setPersonaActive] = useState(false);
+  // Ref so the open() callback always reads the latest value without needing
+  // personaActive in its dependency array (keeps the callback stable).
+  const personaActiveRef = useRef(false);
+  personaActiveRef.current = personaActive;
   // Start with server-safe defaults so SSR and client first render match.
   // localStorage is read in a useEffect after mount to avoid hydration mismatches.
   const [museActive, setMuseActive] = useState<boolean>(true);
@@ -125,6 +135,8 @@ export function ModelSelectorProvider({
   }, [user?.planType]);
 
   const open = useCallback((anchor: HTMLElement) => {
+    // Blocked while a persona is active — model must stay fixed to the persona's model.
+    if (personaActiveRef.current) return;
     setIsOpen((prev) => {
       if (prev && anchorEl === anchor) {
         setAnchorEl(null);
@@ -134,6 +146,14 @@ export function ModelSelectorProvider({
       return true;
     });
   }, [anchorEl]);
+
+  // If the dialog happens to be open when a persona is activated, close it immediately.
+  useEffect(() => {
+    if (personaActive && isOpen) {
+      setIsOpen(false);
+      setAnchorEl(null);
+    }
+  }, [personaActive, isOpen]);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -189,6 +209,8 @@ export function ModelSelectorProvider({
         setMuseAdvanced: setMuseAdvancedFn,
         enableReasoning,
         setEnableReasoning,
+        personaActive,
+        setPersonaActive,
       }}
     >
       {children}

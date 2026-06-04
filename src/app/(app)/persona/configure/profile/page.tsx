@@ -4,7 +4,6 @@ import React, { useState, useRef, Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
-  MoreVerticalIcon,
   QuillWriteOneIcon,
   ArrowUpRightOneIcon,
 } from '@strange-huge/icons'
@@ -63,7 +62,7 @@ function PersonaConfigureProfileContent() {
   }
 
   const [currentPrompt,      setCurrentPrompt]      = useState('')
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, registerAutoSave, setVersionsOpen } = usePersonaConfigure()
 
   const [isSaving,             setIsSaving]             = useState(false)
   const [isPublishing,         setIsPublishing]         = useState(false)
@@ -213,14 +212,8 @@ function PersonaConfigureProfileContent() {
     addPendingChangeTag('Profile')
   }
 
-  function safeNavigate(href: string) {
-    if (isDirty && !window.confirm('You have unsaved profile changes. Leave without saving?')) return
-    push(href)
-  }
-  function safeBack() {
-    if (isDirty && !window.confirm('You have unsaved profile changes. Leave without saving?')) return
-    back()
-  }
+  function safeNavigate(href: string) { ctxSafeNavigate(href) }
+  function safeBack()                 { ctxSafeBack() }
 
   async function handleSaveVersion() {
     if (!isDirty || !repoId || !versionId) return
@@ -243,6 +236,7 @@ function PersonaConfigureProfileContent() {
       setVersionTags(versionId, pendingChangeTags)
       setPendingChangeTags([])
       refreshVersions()
+      setVersionsOpen(true)
       toast.success('Profile saved')
     } catch (err) {
       console.error('[ProfilePage] save error:', err)
@@ -288,6 +282,32 @@ function PersonaConfigureProfileContent() {
       setIsPublishing(false)
     }
   }
+
+  // ── Auto-save on tab switch ────────────────────────────────────────────────
+
+  const profileAutoSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
+
+  profileAutoSaveRef.current = async () => {
+    if (!isDirtyRef.current || !repoId || !versionId) return
+    try {
+      let imageFile: File | undefined
+      if (avatarUrl?.startsWith('data:')) imageFile = dataUrlToFile(avatarUrl, 'avatar.jpg')
+      await updateVersion({
+        repoId, versionId,
+        name:     personaName,
+        prompt:   personaDescription,
+        image:    imageFile,
+        imageUrl: imageFile ? undefined : (avatarUrl ?? undefined),
+      })
+      isDirtyRef.current = false
+      setIsDirty(false)
+    } catch { /* silent */ }
+  }
+
+  useEffect(() => {
+    registerAutoSave(() => profileAutoSaveRef.current())
+    return () => registerAutoSave(null)
+  }, [registerAutoSave])
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
@@ -398,12 +418,6 @@ function PersonaConfigureProfileContent() {
 
           {/* Action buttons */}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: anyPanelOpen ? 'auto' : undefined }}>
-            <IconButton
-              variant="outline"
-              size="md"
-              icon={<MoreVerticalIcon size={20} />}
-              aria-label="More options"
-            />
             {anyPanelOpen ? (
               <IconButton
                 variant="outline"
@@ -463,6 +477,10 @@ function PersonaConfigureProfileContent() {
             paddingBottom: 32,
           }}
         >
+          {/* ── Tab hint (B) ──────────────────────────────────────────────── */}
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0 }}>
+            Add a name, avatar, and description so your agent is easy to recognise and find.
+          </p>
           <ProfileTab
             avatarUrl={avatarUrl}
             onAvatarChange={v => { setAvatarUrl(v); markDirty() }}

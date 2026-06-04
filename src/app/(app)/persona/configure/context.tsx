@@ -66,6 +66,32 @@ interface PersonaConfigureContextValue {
   personaInfo: PersonaInfo
   updatePersonaInfo: (patch: Partial<PersonaInfo>) => void
 
+  // Help panel open state — shared so the panels island and the tab card can be positioned independently
+  helpOpen: boolean
+  setHelpOpen: (v: boolean) => void
+  helpActiveId: string
+  setHelpActiveId: (id: string) => void
+
+  // Configure progress (A)
+  knowledgeFileCount: number
+  setKnowledgeFileCount: (n: number) => void
+  hasShareLink: boolean
+  setHasShareLink: (v: boolean) => void
+
+  // Auto-save on tab switch
+  registerAutoSave: (fn: (() => Promise<void>) | null) => void
+
+  // Leave-confirm guard (shared across all 5 configure tabs)
+  needsRepublish: boolean
+  setNeedsRepublish: (v: boolean) => void
+  leaveConfirmHref: string | null
+  setLeaveConfirmHref: (href: string | null) => void
+  safeNavigate: (href: string) => void
+  safeBack: () => void
+  hasPublishAndLeave: boolean
+  setOnPublishAndLeave: (fn: (() => void) | null) => void
+  handlePublishAndLeave: () => void
+
   // Panel state
   testChatOpen: boolean
   testChatExpanded: boolean
@@ -135,7 +161,7 @@ export function usePersonaConfigure() {
 // ── Provider (inner — uses hooks that need Suspense) ─────────────────────────
 
 function PersonaConfigureProviderInner({ children }: { children: React.ReactNode }) {
-  const { push } = useRouter()
+  const { push, back } = useRouter()
   const searchParams = useSearchParams()
 
   const [personaInfo, _setPersonaInfo] = useState<PersonaInfo>(() => ({
@@ -193,6 +219,69 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     })()
     return () => { cancelled = true }
   }, [personaInfo.repoId, personaInfo.versionId])
+
+  // ── Help panel state ─────────────────────────────────────────────────────────
+
+  const [helpOpen,    setHelpOpen]    = useState(false)
+  const [helpActiveId, setHelpActiveId] = useState('')
+
+  // ── Configure progress ───────────────────────────────────────────────────────
+
+  const [knowledgeFileCount, setKnowledgeFileCount] = useState(0)
+  const [hasShareLink,       setHasShareLink]       = useState(false)
+
+  // ── Auto-save on tab switch ──────────────────────────────────────────────────
+
+  const autoSaveRef = useRef<(() => Promise<void>) | null>(null)
+  const registerAutoSave = useCallback((fn: (() => Promise<void>) | null) => {
+    autoSaveRef.current = fn
+  }, [])
+
+  // ── Leave-confirm guard ──────────────────────────────────────────────────────
+
+  const needsRepublishRef = useRef(false)
+  const [needsRepublish,   _setNeedsRepublish]   = useState(false)
+  const [leaveConfirmHref, setLeaveConfirmHref]  = useState<string | null>(null)
+  const [hasPublishAndLeave, setHasPublishAndLeave] = useState(false)
+  const onPublishAndLeaveRef = useRef<(() => void) | null>(null)
+
+  const setNeedsRepublish = useCallback((v: boolean) => {
+    needsRepublishRef.current = v
+    _setNeedsRepublish(v)
+  }, [])
+
+  const setOnPublishAndLeave = useCallback((fn: (() => void) | null) => {
+    onPublishAndLeaveRef.current = fn
+    setHasPublishAndLeave(fn !== null)
+  }, [])
+
+  const handlePublishAndLeave = useCallback(() => {
+    onPublishAndLeaveRef.current?.()
+  }, [])
+
+  const safeNavigate = useCallback((href: string) => {
+    // Tab-to-tab navigation stays within configure — no publish guard needed
+    if (needsRepublishRef.current && !href.includes('/persona/configure/')) {
+      setLeaveConfirmHref(href)
+      return
+    }
+    const save = autoSaveRef.current
+    if (save) {
+      save().catch(() => {}).finally(() => push(href))
+    } else {
+      push(href)
+    }
+  }, [push])
+
+  const safeBack = useCallback(() => {
+    if (needsRepublishRef.current) { setLeaveConfirmHref('__back__'); return }
+    const save = autoSaveRef.current
+    if (save) {
+      save().catch(() => {}).finally(() => back())
+    } else {
+      back()
+    }
+  }, [back])
 
   // ── Panel state ─────────────────────────────────────────────────────────────
 
@@ -478,6 +567,28 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   const value: PersonaConfigureContextValue = {
     personaInfo,
     updatePersonaInfo,
+
+    helpOpen,
+    setHelpOpen,
+    helpActiveId,
+    setHelpActiveId,
+
+    knowledgeFileCount,
+    setKnowledgeFileCount,
+    hasShareLink,
+    setHasShareLink,
+
+    registerAutoSave,
+
+    needsRepublish,
+    setNeedsRepublish,
+    leaveConfirmHref,
+    setLeaveConfirmHref,
+    safeNavigate,
+    safeBack,
+    hasPublishAndLeave,
+    setOnPublishAndLeave,
+    handlePublishAndLeave,
 
     testChatOpen,
     testChatExpanded,

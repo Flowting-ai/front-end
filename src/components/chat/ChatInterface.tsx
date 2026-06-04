@@ -7,6 +7,7 @@ import { ChatMessageMemo } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CitationsPanel } from "./CitationsPanel";
 import { PinMentionDropdown } from "./PinMentionDropdown";
+import { PinChipStrip } from "./PinChipStrip";
 import {
   AttachmentManager,
   type PendingAttachment,
@@ -452,16 +453,16 @@ export function ChatInterface({
 
   // Absorb add-menu files into local attachments so AttachmentManager shows them.
   // onClearAddMenuFiles is intentionally NOT called here — it's called in handleSend
-  // so the files stay in addMenuFiles until the user actually sends. This also fixes
-  // a StrictMode issue where calling clear here would wipe addMenuFiles before the
-  // component remounts, preventing the second effect run from absorbing anything.
-  // Skip when initialPrompt is present: sendInitialPrompt handles files directly
-  // and absorbing here would duplicate them (causing "file already exists" toasts).
+  // so the files stay in addMenuFiles until the user actually sends.
+  // Skip only while initialPrompt is still pending: sendInitialPrompt consumes those
+  // files directly, so absorbing here would duplicate them. Once initialPrompt is
+  // cleared (in handleChatCreated on the page) this guard is lifted and subsequent
+  // uploads in the same chat session are absorbed normally.
   useEffect(() => {
     if (!addMenuFiles || addMenuFiles.length === 0) return;
-    if (initialPromptSentRef.current || initialPrompt) return;
+    if (initialPrompt) return;
     setAttachments((prev) => processFiles(addMenuFiles, prev));
-  }, [addMenuFiles]);
+  }, [addMenuFiles, initialPrompt]);
 
   // ── Pin-mention handlers ────────────────────────────────────────────────────
 
@@ -822,28 +823,32 @@ export function ChatInterface({
             addMenu={addMenu}
             modelMenu={modelMenu}
             disabledModelSelector={disabledModelSelector}
-            chips={
-              !hidePinActions && mentionedPins.length > 0 ? (
-                <>
-                  {mentionedPins.map((mp) => (
-                    <MentionChip
-                      key={mp.id}
-                      label={mp.label}
-                      onRemove={() => handleRemoveMention(mp.id)}
-                    />
-                  ))}
-                  {chips}
-                </>
-              ) : (
-                chips
-              )
-            }
+            chips={chips}
             attachmentsSlot={
-              <AttachmentManager
-                attachments={attachments}
-                onAttachmentsChange={setAttachments}
-                disabled={isStreaming}
-              />
+              !hidePinActions && mentionedPins.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <PinChipStrip>
+                    {mentionedPins.map((mp) => (
+                      <MentionChip
+                        key={mp.id}
+                        label={mp.label}
+                        onRemove={() => handleRemoveMention(mp.id)}
+                      />
+                    ))}
+                  </PinChipStrip>
+                  <AttachmentManager
+                    attachments={attachments}
+                    onAttachmentsChange={setAttachments}
+                    disabled={isStreaming}
+                  />
+                </div>
+              ) : (
+                <AttachmentManager
+                  attachments={attachments}
+                  onAttachmentsChange={setAttachments}
+                  disabled={isStreaming}
+                />
+              )
             }
             isStreaming={isStreaming}
             disabled={isStreaming}

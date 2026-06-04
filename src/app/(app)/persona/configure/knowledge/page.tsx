@@ -4,7 +4,6 @@ import React, { useState, Suspense, useEffect, useCallback, useRef } from 'react
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
-  MoreVerticalIcon,
   QuillWriteOneIcon,
   ArrowUpRightOneIcon,
 } from '@strange-huge/icons'
@@ -70,7 +69,7 @@ function PersonaConfigureKnowledgeContent() {
   const versionId = searchParams.get('versionId') ?? ''
   const personaName = searchParams.get('name') ?? ''
 
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setKnowledgeFileCount, setVersionsOpen } = usePersonaConfigure()
 
   const [isSaving,             setIsSaving]             = useState(false)
   const [isPublishing,         setIsPublishing]         = useState(false)
@@ -85,6 +84,9 @@ function PersonaConfigureKnowledgeContent() {
   }, [repoId])
   const [files, setFiles] = useState<KnowledgeFile[]>([])
   const [isLoading, setIsLoading] = useState(!!repoId && !!versionId)
+
+  // Sync file count to shared progress indicator
+  useEffect(() => { setKnowledgeFileCount(files.length) }, [files.length, setKnowledgeFileCount])
 
   // Tracks file sizes (bytes) by filename so the MB counter stays accurate
   // after an API reload (which strips size info). Uses a ref to avoid stale
@@ -340,6 +342,7 @@ function PersonaConfigureKnowledgeContent() {
       setVersionTags(versionId, pendingChangeTags)
       setPendingChangeTags([])
       refreshVersions()
+      setVersionsOpen(true)
       toast.success('Version saved')
     } catch (err) {
       console.error('[KnowledgePage] save error:', err)
@@ -372,14 +375,8 @@ function PersonaConfigureKnowledgeContent() {
 
   // ── Tab navigation ────────────────────────────────────────────────────────
 
-  function safeNavigate(href: string) {
-    if (isDirty && !window.confirm('You have unsaved knowledge changes. Leave without saving?')) return
-    push(href)
-  }
-  function safeBack() {
-    if (isDirty && !window.confirm('You have unsaved knowledge changes. Leave without saving?')) return
-    back()
-  }
+  function safeNavigate(href: string) { ctxSafeNavigate(href) }
+  function safeBack()                 { ctxSafeBack() }
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
@@ -453,7 +450,6 @@ function PersonaConfigureKnowledgeContent() {
 
           {/* Action buttons */}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: anyPanelOpen ? 'auto' : undefined }}>
-            <IconButton variant="outline" size="md" icon={<MoreVerticalIcon size={20} />} aria-label="More options" />
             {anyPanelOpen ? (
               <IconButton
                 variant="outline"
@@ -499,6 +495,10 @@ function PersonaConfigureKnowledgeContent() {
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', maxWidth: 714, paddingBottom: 32 }}>
+          {/* ── Tab hint (B) ──────────────────────────────────────────────── */}
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0 }}>
+            Upload files, PDFs, or paste text your agent should know — it can reference this during conversations.
+          </p>
           {isLoading ? (
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>Loading…</p>
           ) : (

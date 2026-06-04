@@ -5,17 +5,22 @@ import { AnimatePresence, m, Reorder } from 'framer-motion'
 import { ArrowLeftOneIcon, ArrowRightOneIcon, CancelOneIcon, ArrowUpTwoIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { OptionBadge } from '@/components/OptionBadge'
+import { Badge, type BadgeColor } from '@/components/Badge'
 import { OptionRow } from '@/components/OptionRow'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export type QuestionType = 'single' | 'multi' | 'rank'
+export type QuestionType = 'single' | 'multi' | 'rank' | 'info'
 
 export interface QuestionCardOption {
-  id:    string
-  label: string
+  id:           string
+  label:        string
+  /** Sub-heading description shown below the label in 'info' mode */
+  description?: string
+  /** Badge shown beside the heading in 'info' mode (e.g. Required / Optional) */
+  badge?: { label: string; color: BadgeColor }
 }
 
 export interface QuestionCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onSelect'> {
@@ -37,11 +42,23 @@ export interface QuestionCardProps extends Omit<React.HTMLAttributes<HTMLDivElem
   onClose?: () => void
   onPrev?: () => void
   onNext?: () => void
+  /** Badge shown beside the title in 'info' mode (e.g. Required / Optional for the whole tab) */
+  titleBadge?: { label: string; color: BadgeColor }
+  /** Shows a per-tab progress bar above the title in 'info' mode */
+  tabProgress?: { tabs: string[]; currentIndex: number }
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const CARD_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(59,54,50,0.1)'
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function parseInfoStep(label: string): { current: number; total: number } | null {
+  const [c, t] = label.split('/').map(Number)
+  if (!c || !t || isNaN(c) || isNaN(t)) return null
+  return { current: c - 1, total: t }
+}
 
 // ── SkipButton ────────────────────────────────────────────────────────────────
 
@@ -179,6 +196,8 @@ export function QuestionCard(
     onClose,
     onPrev,
     onNext,
+    titleBadge,
+    tabProgress,
     className,
     style,
     ref,
@@ -239,6 +258,8 @@ export function QuestionCard(
     // Badge exits on click (one step) - not deferred to when typing starts
     const showEditBadge = !openEndedOpen
 
+
+
     return (
       <m.div
         ref={ref}
@@ -261,14 +282,117 @@ export function QuestionCard(
         {...(props as any)}
       >
 
+        {/* ── Tab progress stepper (above main heading, info mode only) ────────── */}
+        {type === 'info' && tabProgress && (
+          <div style={{ display: 'flex' }}>
+            {tabProgress.tabs.map((tab, i) => {
+              const isCurrent          = i === tabProgress.currentIndex
+              const isPast             = i  <  tabProgress.currentIndex
+              // Half-line logic: left side filled when we're AT or PAST this tab;
+              // right side filled only when we've moved past this tab.
+              const leftFilled  = i > 0 && i <= tabProgress.currentIndex
+              const rightFilled = i < tabProgress.tabs.length - 1 && i < tabProgress.currentIndex
+              const BLUE = '#6e98cb'
+
+              return (
+                <div key={tab} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+
+                  {/* Circle flanked by symmetric half-lines that keep it centred */}
+                  <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                    {/* Left half-line */}
+                    <div style={{ flex: 1, height: 2, backgroundColor: leftFilled ? BLUE : i > 0 ? 'var(--neutral-200)' : 'transparent', transition: 'background-color 300ms' }} />
+
+                    {/* Numbered circle */}
+                    <div style={{
+                      width:           26,
+                      height:          26,
+                      borderRadius:    '50%',
+                      flexShrink:      0,
+                      display:         'flex',
+                      alignItems:      'center',
+                      justifyContent:  'center',
+                      backgroundColor: isCurrent ? BLUE : isPast ? 'rgba(110,152,203,0.14)' : 'var(--neutral-50)',
+                      boxShadow:       isCurrent
+                        ? `0 0 0 4px rgba(110,152,203,0.18)`
+                        : isPast
+                          ? `0 0 0 1.5px rgba(110,152,203,0.45)`
+                          : `0 0 0 1.5px var(--neutral-200)`,
+                      transition: 'all 250ms ease',
+                    }}>
+                      <span style={{
+                        fontFamily:  'var(--font-body)',
+                        fontWeight:  isCurrent ? 700 : 500,
+                        fontSize:    11,
+                        lineHeight:  '11px',
+                        display:     'block',
+                        color:       isCurrent ? 'white' : isPast ? BLUE : 'var(--neutral-400)',
+                        userSelect:  'none',
+                        transition:  'color 250ms',
+                        textAlign:   'center',
+                      }}>
+                        {i + 1}
+                      </span>
+                    </div>
+
+                    {/* Right half-line */}
+                    <div style={{ flex: 1, height: 2, backgroundColor: rightFilled ? BLUE : i < tabProgress.tabs.length - 1 ? 'var(--neutral-200)' : 'transparent', transition: 'background-color 300ms' }} />
+                  </div>
+
+                  {/* Label */}
+                  <span style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize:   10,
+                    lineHeight: '14px',
+                    fontWeight: isCurrent ? 600 : 400,
+                    color:      isCurrent ? BLUE : isPast ? 'rgba(110,152,203,0.7)' : 'var(--neutral-400)',
+                    textAlign:  'center',
+                    whiteSpace: 'nowrap',
+                    transition: 'color 250ms',
+                  }}>
+                    {tab}
+                  </span>
+
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         {/* ── Header ─────────────────────────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, width: '100%', flexShrink: 0 }}>
-          <p style={{ flex: '1 0 0', minWidth: 1, fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body-lg, 16px)', lineHeight: 'var(--line-height-body-lg, 22px)', color: 'var(--neutral-900, #26211e)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {type === 'info' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 0 0', minWidth: 1, flexWrap: 'wrap' }}>
+              <p style={{
+                fontFamily:   'var(--font-title)',
+                fontWeight:   400,
+                fontSize:     20,
+                lineHeight:   '28px',
+                color:        'var(--neutral-900, #26211e)',
+                margin:       0,
+              }}>
+                {question}
+              </p>
+              {titleBadge && <Badge label={titleBadge.label} color={titleBadge.color} />}
+            </div>
+          ) : (
+          <p style={{
+            flex:       '1 0 0',
+            minWidth:   1,
+            fontFamily: 'var(--font-body)',
+            fontWeight: 'var(--font-weight-medium)',
+            fontSize:   'var(--font-size-body-lg, 16px)',
+            lineHeight: 'var(--line-height-body-lg, 22px)',
+            color:      'var(--neutral-900, #26211e)',
+            margin:     0,
+            overflow:   'hidden',
+            textOverflow: 'ellipsis',
+          }}>
             {question}
           </p>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-            {hasPagination && (
+            {hasPagination && type !== 'info' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
                 <IconButton size="xs" variant="ghost" aria-label="Previous question" icon={<ArrowLeftOneIcon size={18} />} onClick={onPrev} />
                 <span style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body, 14px)', lineHeight: 'var(--line-height-body, 22px)', color: 'var(--neutral-600, #6a625d)', whiteSpace: 'nowrap', flexShrink: 0, padding: '0 2px' }}>
@@ -285,6 +409,7 @@ export function QuestionCard(
             <IconButton size="xs" variant="ghost" aria-label="Dismiss question" icon={<CancelOneIcon size={18} />} onClick={onClose} />
           </div>
         </div>
+
 
         {/* ── Wide section - options + footer, extends to 10px from card edges ─ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginLeft: -10, marginRight: -10 }}>
@@ -305,6 +430,92 @@ export function QuestionCard(
                 <RankableRow key={opt.id} option={opt} index={i} />
               ))}
             </Reorder.Group>
+          ) : type === 'info' ? (
+            /* Info mode — full selectable list; clicking an item selects it and highlights the related UI */
+            <div className="kaya-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3, maxHeight: 375, overflowY: 'auto', overscrollBehaviorY: 'contain' }}>
+              {options.map((opt, i) => {
+                const isActive = Array.isArray(selected)
+                  ? selected.includes(opt.id)
+                  : selected === opt.id
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => onSelect?.(opt.id)}
+                    style={{
+                      display:         'flex',
+                      alignItems:      'flex-start',
+                      gap:             10,
+                      padding:         '9px 10px',
+                      borderRadius:    10,
+                      border:          'none',
+                      cursor:          'pointer',
+                      textAlign:       'left',
+                      backgroundColor: isActive ? 'rgba(110,152,203,0.08)' : 'transparent',
+                      boxShadow:       isActive ? '0 0 0 1.5px rgba(110,152,203,0.35)' : 'none',
+                      transition:      'background-color 150ms, box-shadow 150ms',
+                      width:           '100%',
+                    }}
+                    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)' }}
+                    onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
+                  >
+                    {/* Number badge */}
+                    <div style={{
+                      width:           22,
+                      height:          22,
+                      borderRadius:    6,
+                      flexShrink:      0,
+                      display:         'flex',
+                      alignItems:      'center',
+                      justifyContent:  'center',
+                      backgroundColor: isActive ? '#6e98cb' : 'var(--neutral-100)',
+                      boxShadow:       isActive ? '0 0 0 1px rgba(110,152,203,0.5)' : '0 0 0 1px var(--neutral-200)',
+                      marginTop:       1,
+                      transition:      'background-color 150ms, box-shadow 150ms',
+                    }}>
+                      <span style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 600,
+                        fontSize:   11,
+                        lineHeight: '11px',
+                        display:    'block',
+                        textAlign:  'center',
+                        color:      isActive ? 'white' : 'var(--neutral-500)',
+                        userSelect: 'none',
+                        transition: 'color 150ms',
+                      }}>
+                        {i + 1}
+                      </span>
+                    </div>
+
+                    {/* Content */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
+                      <span style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 600,
+                        fontSize:   13,
+                        lineHeight: '18px',
+                        color:      isActive ? '#3b6fa8' : 'var(--neutral-900)',
+                        transition: 'color 150ms',
+                      }}>
+                        {opt.label}
+                      </span>
+                      {opt.description && (
+                        <span style={{
+                          fontFamily: 'var(--font-body)',
+                          fontWeight: 400,
+                          fontSize:   12,
+                          lineHeight: '17px',
+                          color:      'var(--neutral-600)',
+                        }}>
+                          {opt.description}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           ) : (
             <AnimatePresence mode="wait" initial={false}>
               <m.div
@@ -331,9 +542,8 @@ export function QuestionCard(
             </AnimatePresence>
           )}
 
-          {/* ─ Footer row - pencil badge + label/textarea + Skip + Send ───────── */}
-          {/* The ROW ITSELF transforms: label → inline textarea in the same flex slot */}
-          <div
+          {/* ─ Footer row — hidden in info mode ──────────────────────────────── */}
+          {type !== 'info' && <div
             style={{
               display:    'flex',
               alignItems: 'flex-end',
@@ -418,7 +628,7 @@ export function QuestionCard(
                 }
               />
             </div>
-          </div>
+          </div>}
 
         </div>
       </m.div>

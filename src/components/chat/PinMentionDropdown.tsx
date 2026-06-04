@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { ArrowDownTwoIcon, ArrowUpTwoIcon } from "@strange-huge/icons";
 import { PinInsert } from "@/components/PinInsert";
@@ -75,6 +75,13 @@ export interface PinMentionDropdownProps {
   onHighlight: (index: number) => void;
   /** Called when the user clicks or keyboard-confirms a pin. */
   onSelect: (pin: PinMentionable) => void;
+  /**
+   * When set, the scrollable list is capped to show exactly this many items
+   * (measured from the live DOM so varying content heights are handled correctly).
+   * Items beyond the cap are reachable by scrolling. Omit for the default
+   * uncapped behaviour.
+   */
+  maxVisibleItems?: number;
 }
 
 export function PinMentionDropdown({
@@ -84,8 +91,43 @@ export function PinMentionDropdown({
   highlightedIndex,
   onHighlight,
   onSelect,
+  maxVisibleItems,
 }: PinMentionDropdownProps) {
-  const listRef = useRef<HTMLDivElement>(null);
+  const listRef      = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Default 400 matches the current fixed value; updated before first paint when open.
+  const [computedMaxH, setComputedMaxH] = useState(400);
+  // Pixel cap for the list when maxVisibleItems is set; undefined = uncapped.
+  const [listMaxH, setListMaxH] = useState<number | undefined>(undefined);
+
+  // Before the dropdown paints, cap its height to the space available above its
+  // anchor. The anchor is the position:relative parent; the dropdown sits at
+  // bottom: calc(100% + 8px) so available space = parentTop - 8px gap - 8px margin.
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const parentTop = (el.parentElement?.getBoundingClientRect().top) ?? Infinity;
+    const available = parentTop - 8 - 8;
+    setComputedMaxH(Math.min(400, Math.max(120, available)));
+  }, [isOpen]);
+
+  // Cap the list to exactly maxVisibleItems rows by measuring their live heights.
+  // Runs before paint so the user never sees the uncapped state.
+  useLayoutEffect(() => {
+    if (!maxVisibleItems || !listRef.current) { setListMaxH(undefined); return; }
+    const items = listRef.current.querySelectorAll<HTMLElement>("[data-pin-index]");
+    if (items.length === 0) { setListMaxH(undefined); return; }
+    const GAP     = 4; // matches gap: "4px" on the list container
+    const PADDING = 8; // 4px top + 4px bottom list padding
+    const count   = Math.min(maxVisibleItems, items.length);
+    let height    = PADDING;
+    for (let i = 0; i < count; i++) {
+      height += items[i].offsetHeight;
+      if (i < count - 1) height += GAP;
+    }
+    setListMaxH(height);
+  }, [maxVisibleItems, pins, isOpen]);
 
   // Scroll the keyboard-highlighted row into view.
   useEffect(() => {
@@ -100,6 +142,7 @@ export function PinMentionDropdown({
     <AnimatePresence>
       {isOpen && (
         <m.div
+          ref={containerRef}
           initial={{ opacity: 0, scaleY: 0.95, y: 4 }}
           animate={{ opacity: 1, scaleY: 1, y: 0 }}
           exit={{ opacity: 0, scaleY: 0.95, y: 4 }}
@@ -110,7 +153,7 @@ export function PinMentionDropdown({
             left: 0,
             right: 0,
             zIndex: 60,
-            maxHeight: "400px",
+            maxHeight: computedMaxH,
             backgroundColor: "var(--neutral-white)",
             borderRadius: "12px",
             boxShadow:
@@ -192,6 +235,7 @@ export function PinMentionDropdown({
               flexDirection: "column",
               gap: "4px",
               minHeight: 0, // Ensure flex child respects overflow
+              ...(listMaxH !== undefined && { maxHeight: listMaxH }),
             }}
           >
             {pins.length === 0 ? (

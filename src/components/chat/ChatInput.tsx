@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
+import { toast } from "sonner";
 import { AudioWaveDisplay } from "@/components/shared/AudioWaveDisplay";
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
@@ -50,6 +51,12 @@ export interface ChatInputProps
    */
   modelMenu?: React.ReactNode;
   chips?: React.ReactNode;
+  /**
+   * Pin chips (@-mention pins and pin-folder selections) rendered in their
+   * own row above the regular chips row, so they stay visually separate from
+   * feature/setting badges.
+   */
+  pinChips?: React.ReactNode;
   /**
    * Content rendered inside the input box, above the textarea.
    * Intended for the AttachmentManager chip strip.
@@ -103,6 +110,7 @@ export function ChatInput(
     addMenu,
     modelMenu,
     chips,
+    pinChips,
     attachmentsSlot,
     isStreaming = false,
     disabled = false,
@@ -137,6 +145,12 @@ export function ChatInput(
     const streamRef = useRef<MediaStream | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const preRecordingTextRef = useRef<string>("");
+    const chipsScrollRef = useRef<HTMLDivElement>(null);
+    const [chipsScroll, setChipsScroll] = useState({ scrollLeft: 0, scrollWidth: 0, clientWidth: 0 });
+    const [isThumbDragging, setIsThumbDragging] = useState(false);
+    const isDraggingRef        = useRef(false);
+    const dragStartXRef        = useRef(0);
+    const dragStartScrollLeft  = useRef(0);
 
     // Stable ref for onChange to avoid stale closure in transcript effect
     const onChangeRef = useRef(onChange);
@@ -145,6 +159,74 @@ export function ChatInput(
     }, [onChange]);
 
     useEffect(() => { setMounted(true); }, []);
+
+    // Track chips scroll position + overflow so the indicator stays in sync.
+    useEffect(() => {
+      const el = chipsScrollRef.current;
+      if (!el) return;
+      const measure = () => setChipsScroll({
+        scrollLeft: el.scrollLeft,
+        scrollWidth: el.scrollWidth,
+        clientWidth: el.clientWidth,
+      });
+      measure();
+      el.addEventListener("scroll", measure, { passive: true });
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => {
+        el.removeEventListener("scroll", measure);
+        ro.disconnect();
+      };
+    }, [chips]);
+
+    // Global mouse handlers for thumb drag — attached once, use only refs.
+    useEffect(() => {
+      const onMouseMove = (e: MouseEvent) => {
+        if (!isDraggingRef.current || !chipsScrollRef.current) return;
+        const el = chipsScrollRef.current;
+        const thumbPx     = (el.clientWidth / el.scrollWidth) * el.clientWidth;
+        const maxThumbMove = el.clientWidth - thumbPx;
+        if (maxThumbMove <= 0) return;
+        const maxScroll = el.scrollWidth - el.clientWidth;
+        const dx = e.clientX - dragStartXRef.current;
+        el.scrollLeft = Math.max(0, Math.min(
+          dragStartScrollLeft.current + (dx / maxThumbMove) * maxScroll,
+          maxScroll,
+        ));
+      };
+      const onMouseUp = () => {
+        if (!isDraggingRef.current) return;
+        isDraggingRef.current = false;
+        setIsThumbDragging(false);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup",   onMouseUp);
+      return () => {
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup",   onMouseUp);
+      };
+    }, []);
+
+    const handleThumbMouseDown = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      isDraggingRef.current        = true;
+      dragStartXRef.current        = e.clientX;
+      dragStartScrollLeft.current  = chipsScrollRef.current?.scrollLeft ?? 0;
+      setIsThumbDragging(true);
+      document.body.style.cursor     = "grabbing";
+      document.body.style.userSelect = "none";
+    };
+
+    const handleTrackMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+      const el = chipsScrollRef.current;
+      if (!el) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const ratio = (e.clientX - rect.left) / rect.width;
+      el.scrollLeft = Math.max(0, Math.min(ratio * (el.scrollWidth - el.clientWidth), el.scrollWidth - el.clientWidth));
+    };
 
     const { transcript, resetTranscript, browserSupportsSpeechRecognition } =
       useSpeechRecognition();
@@ -340,6 +422,15 @@ export function ChatInput(
       (disabled && !isStreaming && !isRecording) ||
       (!value && !isRecording && !isStreaming && !(mounted && browserSupportsSpeechRecognition));
 
+    const isChipsOverflowing = chipsScroll.scrollWidth > chipsScroll.clientWidth;
+    const thumbWidthPct = chipsScroll.clientWidth > 0
+      ? (chipsScroll.clientWidth / chipsScroll.scrollWidth) * 100
+      : 100;
+    const maxScrollLeft = chipsScroll.scrollWidth - chipsScroll.clientWidth;
+    const thumbOffsetPct = maxScrollLeft > 0
+      ? (chipsScroll.scrollLeft / maxScrollLeft) * (100 - thumbWidthPct)
+      : 0;
+
     const szPadding    = compact ? "12px 16px"                  : "20px"
     const szGap        = compact ? "12px"                       : "24px"
     const szRadius     = compact ? "20px"                       : "24px"
@@ -474,79 +565,145 @@ export function ChatInput(
         </div>
 
         {/* ── Footer bar ── */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-            gap: "8px",
-          }}
-        >
-          {/* Left: attach button + chips slot — flex:1 so chips scroll without pushing the right side */}
-          <div style={{ display: "flex", gap: "8px", alignItems: "center", flex: 1, minWidth: 0 }}>
-            <div style={{ flexShrink: 0 }}>
-              {addMenu !== undefined ? (
-                <Dropdown.Float
-                  open={addMenuOpen}
-                  onOpenChange={setAddMenuOpen}
-                  placement="top-start"
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      size={szBtn}
-                      icon={<PlusSignIcon size={20} />}
-                      aria-label="Add attachment"
-                      disabled={disabled}
-                    />
-                  }
-                >
-                  {/* Wrap in a click handler so any menu action closes the dropdown immediately */}
-                  {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- click-only wrapper; keyboard users select items directly */}
-                  <div onClick={() => setAddMenuOpen(false)}>
-                    {addMenu}
+        <div style={{ display: "flex", flexDirection: "column", width: "100%", gap: "6px" }}>
+
+          {/* Pin items row — @-mention pins and pin-folder chips, separate from feature badges */}
+          {pinChips && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", paddingLeft: "3px", paddingRight: "3px" }}>
+              {pinChips}
+            </div>
+          )}
+
+          {/* Main action row */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              gap: "8px",
+            }}
+          >
+            {/* Left: attach button + chips column */}
+            <div style={{ display: "flex", gap: "8px", alignItems: "center", flex: 1, minWidth: 0 }}>
+              <div style={{ flexShrink: 0 }}>
+                {addMenu !== undefined ? (
+                  <Dropdown.Float
+                    open={addMenuOpen}
+                    onOpenChange={setAddMenuOpen}
+                    placement="top-start"
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        size={szBtn}
+                        icon={<PlusSignIcon size={20} />}
+                        aria-label="Add attachment"
+                        disabled={disabled}
+                      />
+                    }
+                  >
+                    {/* Wrap in a click handler so any menu action closes the dropdown immediately */}
+                    {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- click-only wrapper; keyboard users select items directly */}
+                    <div onClick={() => setAddMenuOpen(false)}>
+                      {addMenu}
+                    </div>
+                  </Dropdown.Float>
+                ) : (
+                  <IconButton
+                    variant="ghost"
+                    size={szBtn}
+                    icon={<PlusSignIcon size={20} />}
+                    aria-label="Add attachment"
+                    onClick={onAdd}
+                    disabled={disabled}
+                  />
+                )}
+              </div>
+              {chips && (
+                <div style={{ display: "flex", flexDirection: "column", flexShrink: 1, minWidth: 0, gap: "3px" }}>
+                  <div
+                    ref={chipsScrollRef}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      overflowX: "auto",
+                      scrollbarWidth: "none",
+                      flexShrink: 1,
+                      minWidth: 0,
+                      paddingTop: "3px",
+                      paddingBottom: "3px",
+                      paddingLeft: "3px",
+                      paddingRight: "3px",
+                    }}
+                  >
+                    {chips}
                   </div>
-                </Dropdown.Float>
-              ) : (
-                <IconButton
-                  variant="ghost"
-                  size={szBtn}
-                  icon={<PlusSignIcon size={20} />}
-                  aria-label="Add attachment"
-                  onClick={onAdd}
-                  disabled={disabled}
-                />
+                  {isChipsOverflowing && (
+                    // Padded hit zone so the 2 px visual track is easy to grab
+                    <div
+                      style={{
+                        paddingTop: "4px",
+                        paddingBottom: "4px",
+                        marginLeft: "3px",
+                        marginRight: "3px",
+                        userSelect: "none",
+                      }}
+                    >
+                      {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- scroll indicator; keyboard users scroll the chip row directly */}
+                      <div
+                        style={{
+                          height: 2,
+                          borderRadius: 999,
+                          backgroundColor: "rgba(59,54,50,0.06)",
+                          position: "relative",
+                          cursor: isThumbDragging ? "grabbing" : "pointer",
+                        }}
+                        onMouseDown={handleTrackMouseDown}
+                      >
+                        {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- draggable thumb */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            height: "100%",
+                            borderRadius: 999,
+                            backgroundColor: "var(--neutral-800-30)",
+                            width: `${thumbWidthPct}%`,
+                            left: `${thumbOffsetPct}%`,
+                            transition: isThumbDragging ? "none" : "left 60ms",
+                            cursor: isThumbDragging ? "grabbing" : "grab",
+                          }}
+                          onMouseDown={handleThumbMouseDown}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
-            {chips && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  overflowX: "auto",
-                  scrollbarWidth: "none",
-                  flexShrink: 1,
-                  minWidth: 0,
-                }}
-              >
-                {chips}
-              </div>
-            )}
-          </div>
 
-          {/* Right: model selector + action button — never shrinks */}
-          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
+            {/* Right: model selector + action button — never shrinks */}
+            <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
             {hideModelSelector ? null : disabledModelSelector ? (
-              <Button
-                variant="ghost"
-                size={szBtn}
-                rightIcon={<ArrowDownOneIcon size={16} />}
-                disabled
-                style={{ opacity: 0.45, pointerEvents: "none" }}
+              <span
+                style={{ display: "inline-flex", cursor: "pointer" }}
+                onClick={() =>
+                  toast.info("Model locked to persona", {
+                    description:
+                      "This chat uses the persona's model. Remove the persona chip to unlock model selection.",
+                  })
+                }
               >
-                {modelName}
-              </Button>
+                <Button
+                  variant="ghost"
+                  size={szBtn}
+                  rightIcon={<ArrowDownOneIcon size={16} />}
+                  style={{ opacity: 0.45, pointerEvents: "none" }}
+                >
+                  {modelName}
+                </Button>
+              </span>
             ) : modelMenu !== undefined ? (
               <Dropdown.Float
                 open={modelMenuOpen}
@@ -652,6 +809,7 @@ export function ChatInput(
               />
             </span>
           </div>
+        </div>
         </div>
       </div>
     );

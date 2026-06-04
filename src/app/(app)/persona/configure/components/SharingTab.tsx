@@ -14,6 +14,8 @@ import {
 import { ApiError } from '@/lib/api/client'
 import { useAuth } from '@/context/auth-context'
 import { getShareTokenLimit } from '@/lib/plan-config'
+import { canonicalShareUrl } from '@/lib/share-url'
+import { usePersonaConfigure } from '@/app/(app)/persona/configure/context'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -213,6 +215,7 @@ function UsageBar({ percent }: { percent: number }) {
 export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: SharingTabProps) {
   const { user } = useAuth()
   const maxTokenLimit = getShareTokenLimit(user?.planType)
+  const { setHasShareLink } = usePersonaConfigure()
 
   const [visibility, setVisibility] = useState<Visibility>('private')
 
@@ -222,6 +225,9 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
   const [isGenerating, setIsGenerating] = useState(false)
   const [isRevoking, setIsRevoking] = useState(false)
   const [tokenLimit, setTokenLimit] = useState(maxTokenLimit)
+
+  // Sync share-link existence to shared progress indicator
+  useEffect(() => { setHasShareLink(!!linkShare) }, [linkShare, setHasShareLink])
 
   // ── Email share state ──────────────────────────────────────────────────────
   const [emailShares, setEmailShares] = useState<PersonaShare[]>([])
@@ -294,7 +300,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
 
   function handleCopy() {
     if (!linkShare?.share_url) return
-    navigator.clipboard.writeText(linkShare.share_url).catch(() => {})
+    navigator.clipboard.writeText(canonicalShareUrl(linkShare.share_url)).catch(() => {})
     toast.success('Link copied')
   }
 
@@ -345,7 +351,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
   // ── Derived values ─────────────────────────────────────────────────────────
 
   const displayUrl = linkShare?.share_url
-    ? linkShare.share_url.replace(/^https?:\/\//, '')
+    ? canonicalShareUrl(linkShare.share_url).replace(/^https?:\/\//, '')
     : 'Your link will appear here'
 
   const usagePercent =
@@ -357,6 +363,11 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%' }}>
+
+      {/* ── Tab hint (B) ──────────────────────────────────────────────────── */}
+      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0 }}>
+        Generate a Super Link anyone can use to chat with this agent — no account required.
+      </p>
 
       {/* ── Heading ─────────────────────────────────────────────────────────── */}
       <h1
@@ -416,7 +427,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
       <div style={{ height: 1, width: '100%', backgroundColor: 'rgba(59,54,50,0.15)' }} />
 
       {/* ── Super Link ──────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div data-help-id="help-sharing-superlink" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
         {/* Toggle header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -538,6 +549,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
             {/* Token limit — shown before generation so the user can configure it */}
             {!linkShare && (
               <div
+                data-help-id="help-sharing-token"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -615,7 +627,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
       <div style={{ height: 1, width: '100%', backgroundColor: 'rgba(59,54,50,0.15)' }} />
 
       {/* ── Email sharing ────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div data-help-id="help-sharing-email" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span
             style={{

@@ -16,6 +16,7 @@ import {
   listShares,
   type PersonaShare,
 } from '@/lib/api/persona-shares'
+import { canonicalShareUrl } from '@/lib/share-url'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -79,14 +80,14 @@ function SuperLinkSection({
   onRevoke: () => void
   isRevoking: boolean
 }) {
-  const displayUrl = share.share_url ? share.share_url.replace(/^https?:\/\//, '') : ''
+  const displayUrl = share.share_url ? canonicalShareUrl(share.share_url).replace(/^https?:\/\//, '') : ''
   const limit = share.credit_limit ?? 0
   const used = share.credit_used
   const usagePercent = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0
 
   function handleCopy() {
     if (!share.share_url) return
-    navigator.clipboard.writeText(share.share_url).catch(() => {})
+    navigator.clipboard.writeText(canonicalShareUrl(share.share_url)).catch(() => {})
     toast.success('Link copied')
   }
 
@@ -439,17 +440,28 @@ function PersonaPublishedContent() {
               </div>
             </div>
 
-            {/* ── Action buttons ───────────────────────────────────────────── */}
+            {/* ── What's next ──────────────────────────────────────────────── */}
             <div
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 14,
-                alignItems: 'center',
-                position: 'relative',
-                zIndex: 1,
+                display:        'flex',
+                flexDirection:  'column',
+                gap:            14,
+                alignItems:     'center',
+                position:       'relative',
+                zIndex:         1,
               }}
             >
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: '0 0 4px' }}>
+                  What&apos;s next?
+                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: 0 }}>
+                  {linkShare
+                    ? 'Share this link with anyone — no account needed to chat with your agent.'
+                    : 'Generate a Super Link so anyone can chat with your agent — no account needed.'}
+                </p>
+              </div>
+
               {/* Super link section — shown once the link is generated */}
               {linkShare ? (
                 <SuperLinkSection
@@ -563,6 +575,29 @@ function PersonaPublishedContent() {
               >
                 Back to library
               </button>
+
+              {/* Configure sharing shortcut — visible when no super link yet */}
+              {!linkShare && repoId && versionId && (
+                <button
+                  onClick={() => push(`/persona/configure/sharing?repoId=${repoId}&versionId=${versionId}`)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 400,
+                    fontSize: 13,
+                    lineHeight: '20px',
+                    color: 'var(--neutral-400)',
+                    textAlign: 'center',
+                    padding: 0,
+                    textDecoration: 'underline',
+                    textUnderlineOffset: 2,
+                  }}
+                >
+                  Configure sharing settings →
+                </button>
+              )}
             </div>
           </div>
         </div>

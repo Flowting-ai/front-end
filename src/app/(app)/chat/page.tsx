@@ -12,6 +12,7 @@ import { AttachmentManager, type PendingAttachment } from "@/components/chat/Att
 import { InitialPrompts } from "@/components/chat/InitialPrompts";
 const ModelSwitchDialog = dynamic(() => import("@/components/chat/ModelSwitchDialog").then(m => ({ default: m.ModelSwitchDialog })), { ssr: false, loading: () => null });
 import { PinMentionDropdown } from "@/components/chat/PinMentionDropdown";
+import { PinChipStrip } from "@/components/chat/PinChipStrip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useHighlight } from "@/context/highlight-context";
@@ -35,6 +36,7 @@ import {
   CalendarFoldIcon,
   StickyNoteTwoIcon,
   AuctionIcon,
+  FolderOneIcon,
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
 import type { PinFolder } from "@/lib/api/pins";
@@ -241,6 +243,7 @@ function ChatPageInner() {
   const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null);
   const [styleChipOpen,       setStyleChipOpen]       = useState(false);
   const [personaChipOpen,     setPersonaChipOpen]     = useState(false);
+  const [openFolderChipId,    setOpenFolderChipId]    = useState<string | null>(null);
   const [chipPersonas,        setChipPersonas]        = useState<SelectedPersonaInfo[]>([]);
   const [loadingChipPersonas, setLoadingChipPersonas] = useState(false);
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
@@ -458,17 +461,43 @@ function ChatPageInner() {
     />
   ) : null;
 
-  // Expand each selected folder into individual pin chips (mirrors @ mention behaviour).
-  // Removing any pin chip deselects the entire folder it belongs to.
-  const folderPinChips = selectedFolders.flatMap(folder => {
+  // One chip per selected folder. Clicking the chevron opens a read-only dropup
+  // listing the pins in that folder (truncated via Dropdown item ellipsis).
+  const folderChips = selectedFolders.map(folder => {
     const folderPins = pins.filter(p => p.folderId === folder.id);
-    return folderPins.map(pin => (
-      <MentionChip
-        key={`folder-pin-${pin.id}`}
-        label={pin.title || pin.content.slice(0, 50) || pin.id}
-        onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
-      />
-    ));
+    const isOpen = openFolderChipId === folder.id;
+    return (
+      <Dropdown.Float
+        key={folder.id}
+        open={isOpen}
+        onOpenChange={(open) => setOpenFolderChipId(open ? folder.id : null)}
+        placement="top-start"
+        trigger={
+          <Chip
+            label={folder.name}
+            icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
+            onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
+            onExpand={() => setOpenFolderChipId(isOpen ? null : folder.id)}
+          />
+        }
+      >
+        <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
+          <Dropdown.Section label={`${folderPins.length} pin${folderPins.length !== 1 ? 's' : ''}`} fluid>
+            {folderPins.length > 0
+              ? folderPins.map(pin => (
+                  <Dropdown.Item
+                    key={pin.id}
+                    label={pin.title || pin.content.slice(0, 50) || 'Untitled'}
+                    fluid
+                    disabled
+                  />
+                ))
+              : <Dropdown.Item label="No pins in this folder" fluid disabled />
+            }
+          </Dropdown.Section>
+        </Dropdown>
+      </Dropdown.Float>
+    );
   });
 
   const personaChip = selectedPersona ? (
@@ -508,19 +537,17 @@ function ChatPageInner() {
     </Dropdown.Float>
   ) : null;
 
-  // Chips for ChatInterface (style + folder-expanded pin chips + web search + persona)
-  const chips: React.ReactNode = (styleChip || folderPinChips.length > 0 || webSearchChip || personaChip) ? (
-    <>{styleChip}{folderPinChips}{webSearchChip}{personaChip}</>
+  // Chips for ChatInterface (style + folder chips + web search + persona)
+  const chips: React.ReactNode = (styleChip || folderChips.length > 0 || webSearchChip || personaChip) ? (
+    <>{styleChip}{folderChips}{webSearchChip}{personaChip}</>
   ) : undefined;
 
-  // Chips for the new-chat input (style + folder-expanded pin chips + @-mention pin chips + web search + persona)
+  // Chips for the new-chat input (style + folder chips + web search + persona).
+  // @-mention pin chips are shown in the attachmentsSlot (top of input) instead.
   const newChatChips: React.ReactNode = (
     <>
       {styleChip}
-      {folderPinChips}
-      {newChatMentionedPins.map((mp) => (
-        <MentionChip key={mp.id} label={mp.label} onRemove={() => handleNewChatRemoveMention(mp.id)} />
-      ))}
+      {folderChips}
       {webSearchChip}
       {personaChip}
     </>
@@ -554,12 +581,20 @@ function ChatPageInner() {
     museActive,
     museAdvanced,
     enableReasoning,
+    setPersonaActive,
   } = useModelSelectorContext();
 
   // Keep a stable ref to selectModel so the effect below doesn't re-run every render
   // due to the context function being recreated on each render.
   const selectModelRef = useRef(selectModel)
   selectModelRef.current = selectModel
+
+  // Push persona-active state into the model selector context so the dialog is
+  // locked from ALL entry points (not just the button in ChatInput) while a
+  // persona chip is active.
+  useEffect(() => {
+    setPersonaActive(!!selectedPersona);
+  }, [selectedPersona, setPersonaActive]);
 
   useEffect(() => {
     if (!selectedPersona) return
@@ -677,6 +712,7 @@ function ChatPageInner() {
     newlyCreatedChatIdRef.current = chatId;
     setActiveChatId(chatId);
     setHasMessages(true);
+    setInitialPrompt(null);
     replace(`/chat?id=${chatId}`, { scroll: false });
     addOptimistic({
       id: chatId,
@@ -845,6 +881,7 @@ function ChatPageInner() {
                       highlightedIndex={newChatHighlightedPinIndex}
                       onHighlight={setNewChatHighlightedPinIndex}
                       onSelect={handleNewChatPinSelect}
+                      maxVisibleItems={2}
                     />
                     <ChatInput
                       value={newChatInput}
@@ -857,10 +894,28 @@ function ChatPageInner() {
                       disabledModelSelector={!!selectedPersona}
                       chips={newChatChips}
                       attachmentsSlot={
-                        <AttachmentManager
-                          attachments={newChatAttachments}
-                          onAttachmentsChange={setNewChatAttachments}
-                        />
+                        newChatMentionedPins.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            <PinChipStrip>
+                              {newChatMentionedPins.map((mp) => (
+                                <MentionChip
+                                  key={mp.id}
+                                  label={mp.label}
+                                  onRemove={() => handleNewChatRemoveMention(mp.id)}
+                                />
+                              ))}
+                            </PinChipStrip>
+                            <AttachmentManager
+                              attachments={newChatAttachments}
+                              onAttachmentsChange={setNewChatAttachments}
+                            />
+                          </div>
+                        ) : (
+                          <AttachmentManager
+                            attachments={newChatAttachments}
+                            onAttachmentsChange={setNewChatAttachments}
+                          />
+                        )
                       }
                       placeholder={
                         selectedMode
@@ -896,6 +951,7 @@ function ChatPageInner() {
                           size="sm"
                           leftIcon={btn.icon}
                           disabled={btn.disabled}
+                          active={selectedMode === btn.mode}
                           aria-pressed={selectedMode === btn.mode}
                           onClick={btn.disabled ? undefined : () =>
                             setSelectedMode((prev) => (prev === btn.mode ? null : btn.mode))

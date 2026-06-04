@@ -1,8 +1,10 @@
 'use client'
 
-import React, { Suspense } from 'react'
+import React, { Suspense, useState, useEffect } from 'react'
 import Image from 'next/image'
 import { AnimatePresence, m } from 'framer-motion'
+import { useRouter, usePathname } from 'next/navigation'
+import { QuestionCard } from '@/components/QuestionCard'
 import {
   UserAiIcon,
   AiIdeaIcon,
@@ -12,6 +14,11 @@ import {
   ArrowShrinkTwoIcon,
 } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
+import { Button } from '@/components/Button'
+import { FloatingMenu } from '@/components/FloatingMenu'
+import { FloatingMenuItem } from '@/components/FloatingMenuItem'
+import { Badge } from '@/components/Badge'
+import { InformationCircleIcon } from '@strange-huge/icons'
 import { ChatInput } from '@/components/ChatInput'
 import { ChatAddMenu } from '@/components/chat/AddMenu'
 import { AttachmentManager } from '@/components/chat/AttachmentManager'
@@ -37,69 +44,348 @@ const TAG_COLORS: Record<string, { bg: string; text: string; shadow: string }> =
 }
 const DEFAULT_TAG_COLOR = { bg: 'var(--color-tag-Neutral-bg)', text: 'var(--color-tag-Neutral-text)', shadow: 'var(--color-tag-Neutral-shadow)' }
 
-// ── Floating menu ─────────────────────────────────────────────────────────────
+// ── Per-tab help content ──────────────────────────────────────────────────────
 
-function FloatingMenuButton({
-  active,
-  title,
-  onClick,
-  children,
-}: {
-  active: boolean
-  title: string
-  onClick: () => void
-  children: React.ReactNode
-}) {
+type HelpItem = { heading: string; description: string; isRequired?: boolean; highlightId?: string }
+
+// Floating panel items are available on all 5 configure tabs
+const PANEL_ITEMS: HelpItem[] = [
+  { heading: 'Test Chat',      description: 'Open a live chat to test your agent before publishing. See exactly how it responds to real questions in real time.',           highlightId: 'help-test-chat'      },
+  { heading: 'AI Suggestions', description: 'Ask AI for tips on improving your system instruction, tone, or coverage. The AI reads your current draft before advising.',   highlightId: 'help-ai-suggestions' },
+  { heading: 'Versions',       description: 'Browse all saved versions of this agent and restore any previous state with one click. Versions are created via Save Version.', highlightId: 'help-versions'       },
+]
+
+const TAB_HELP: Record<string, { title: string; items: HelpItem[] }> = {
+  instructions: {
+    title: 'Instructions',
+    // Order mirrors the on-page layout: model dropdown → instruction → temperature → examples → action buttons
+    items: [
+      { heading: 'Model',                description: 'Choose the AI engine that powers this agent. Different models suit different tasks — some excel at reasoning, others at writing or speed.',              isRequired: false, highlightId: 'help-model'        },
+      { heading: 'System Instruction',   description: 'Tell the agent who it is and how to behave. Describe its role, tone, expertise, and any limits. The more specific you are, the better it performs.',   isRequired: true,  highlightId: 'help-instruction'  },
+      { heading: 'Creativity Level',     description: 'Controls how varied the responses are. Low = precise and consistent. High = imaginative and varied. 0.5 is a good starting point for most agents.',    isRequired: false, highlightId: 'help-temperature'  },
+      { heading: 'Example Conversations',description: 'Add sample exchanges to show the agent exactly how it should respond. Even 2–3 good examples dramatically improve response quality.',                   isRequired: false, highlightId: 'help-examples'     },
+      { heading: 'Save Version',         description: 'Creates a named checkpoint of your current instruction, model, and settings. Restore any version at any time from the Versions panel on the right.',   highlightId: 'help-save-version'  },
+      { heading: 'Publish',              description: 'Makes this agent live for your team. Once published, teammates can add it from the library or mention it in any conversation.',                         highlightId: 'help-publish'       },
+    ],
+  },
+  profile: {
+    title: 'Profile',
+    // Order mirrors the on-page layout: avatar → name → handle → description → tags
+    items: [
+      { heading: 'Avatar',      description: 'Upload an image to give the agent a distinct look. If no image is uploaded, the agent shows its initials as a fallback.',                                isRequired: false, highlightId: 'help-profile-avatar'      },
+      { heading: 'Name',        description: 'How the agent appears in the library, search, and at the top of chats. Use a clear, role-specific name like "HR Policy Assistant" or "Code Reviewer".', isRequired: true,  highlightId: 'help-profile-name'        },
+      { heading: 'Handle',      description: 'A unique @username for the agent. Used to reference or mention it directly in conversations.',                                                           isRequired: false, highlightId: 'help-profile-handle'      },
+      { heading: 'Description', description: "A short summary shown on the agent's library card. One sentence explaining what it does and who it is for.",                                             isRequired: false, highlightId: 'help-profile-description' },
+      { heading: 'Tags',        description: "Help teammates discover this agent when filtering or browsing the library. Add tags that reflect the agent's role or domain.",                            isRequired: false, highlightId: 'help-profile-tags'        },
+    ],
+  },
+  knowledge: {
+    title: 'Knowledge',
+    items: [
+      { heading: 'Uploaded Files',  description: 'Add documents, PDFs, spreadsheets, or images the agent should know about. It references this content when answering questions.', isRequired: false, highlightId: 'help-knowledge-upload' },
+      { heading: 'Add a URL',       description: 'Paste a webpage address to import its content as knowledge. Useful for documentation pages, FAQs, or product info.',             isRequired: false, highlightId: 'help-knowledge-url'    },
+      { heading: 'File Limits',     description: 'Up to 30 MB per file and 300 MB total. Remove files you no longer need to free up space.' },
+      { heading: 'Supported Types', description: 'PDF, Word, Excel, PowerPoint, CSV, plain text, Markdown, images, and more — the same file types supported in chat.' },
+      { heading: 'Version-specific', description: 'Knowledge is tied to the current version. Each saved version can have its own distinct set of files.' },
+    ],
+  },
+  connectors: {
+    title: 'Connectors',
+    items: [
+      { heading: 'Enabled for this Persona',   description: 'Connectors toggled on here are active for this agent only. Turning one off does not disconnect it from your account.',                                          isRequired: false, highlightId: 'help-connectors-enabled'   },
+      { heading: 'Available Connectors',        description: 'Shows tools you have already connected in Settings. Only linked connectors can be enabled for an agent.',                                                        isRequired: false, highlightId: 'help-connectors-available' },
+      { heading: 'Connect New Tools',           description: 'Use "Manage in Settings" to link accounts like Gmail, Slack, or HubSpot. Once connected they will appear in the Available list.' },
+      { heading: 'How Agents Use Connectors',   description: 'When the agent needs to take action — send an email, update a task — it uses the enabled connectors automatically during the conversation.' },
+      { heading: 'Per-Agent Isolation',         description: 'Each agent has its own connector settings. Enabling a tool for one agent does not affect any other agent.' },
+    ],
+  },
+  sharing: {
+    title: 'Sharing',
+    items: [
+      { heading: 'Super Link',      description: 'A shareable URL anyone can use to chat with this agent without an account. Ideal for external users, clients, or public-facing tools.', isRequired: false, highlightId: 'help-sharing-superlink' },
+      { heading: 'Token Limit',     description: 'Caps how many AI tokens each Super Link user can consume. Set a limit to prevent unexpected overuse.',                                   isRequired: false, highlightId: 'help-sharing-token'     },
+      { heading: 'Email Invite',    description: 'Send a personalised link to a specific email address. Only that recipient can access the agent via this link.',                          isRequired: false, highlightId: 'help-sharing-email'     },
+      { heading: 'Revoking Access', description: 'Disable any Super Link or email invite from this tab at any time. Access is cut off immediately.' },
+      { heading: 'Publish First',   description: 'The agent must be published before sharing works. Hit Publish on the Instructions tab to make it live, then return here to share.' },
+    ],
+  },
+}
+
+// ── Help button + info panel ──────────────────────────────────────────────────
+
+// ── Shared help logic hook ────────────────────────────────────────────────────
+
+const ALL_CONFIGURE_TABS   = ['instructions', 'profile', 'knowledge', 'connectors', 'sharing'] as const
+const ALL_CONFIGURE_LABELS = ['Instructions', 'Profile', 'Knowledge', 'Connectors', 'Sharing']
+const PANEL_IDS            = new Set(PANEL_ITEMS.map(it => it.highlightId))
+
+function useHelpState(pathname: string) {
+  const { helpOpen, setHelpOpen, helpActiveId, setHelpActiveId } = usePersonaConfigure()
+
+  const tabKey   = pathname.split('/configure/')[1]?.split('?')[0] ?? 'instructions'
+  const tabIndex = ALL_CONFIGURE_TABS.indexOf(tabKey as typeof ALL_CONFIGURE_TABS[number])
+  const helpData = TAB_HELP[tabKey] ?? TAB_HELP.instructions
+  const tabItemIds = helpData.items.map((it, i) => it.highlightId ?? `${tabKey}-item-${i}`)
+
+  const isPanelActive = PANEL_IDS.has(helpActiveId)
+
+  // Reset on tab switch
+  useEffect(() => {
+    setHelpOpen(false)
+    const nd = TAB_HELP[tabKey] ?? TAB_HELP.instructions
+    setHelpActiveId(nd.items[0]?.highlightId ?? `${tabKey}-item-0`)
+  }, [tabKey, setHelpOpen, setHelpActiveId])
+
+  // Scroll to highlighted element
+  useEffect(() => {
+    if (!helpOpen || !helpActiveId) return
+    const el = document.querySelector(`[data-help-id="${helpActiveId}"]`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [helpActiveId, helpOpen])
+
+  const titleBadge = tabKey === 'instructions'
+    ? { label: 'Required', color: 'Blue'    as const }
+    : { label: 'Optional', color: 'Neutral' as const }
+
+  return { helpOpen, setHelpOpen, helpActiveId, setHelpActiveId, tabKey, tabIndex, helpData, tabItemIds, isPanelActive, titleBadge }
+}
+
+// ── Help trigger button + main tab info card (bottom-left) ────────────────────
+
+function PersonaHelpButton() {
+  const pathname = usePathname()
+  const { helpOpen, setHelpOpen, helpActiveId, setHelpActiveId, tabKey, tabIndex, helpData, tabItemIds, isPanelActive, titleBadge } = useHelpState(pathname)
+
   return (
-    <button
-      onClick={onClick}
-      title={title}
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', position: 'relative',
-        backgroundColor: active ? 'rgba(237,225,215,0.6)' : 'transparent',
-        boxShadow: active
-          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
-          : 'none',
-        transition: 'background-color 150ms, box-shadow 150ms',
-      }}
-    >
-      {active && (
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none',
-            boxShadow: 'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
-          }}
-        />
+    <div style={{ position: 'absolute', bottom: 20, left: 16, zIndex: 20 }}>
+      {/* Highlight active element — no offset for small panel buttons */}
+      {helpOpen && helpActiveId && (
+        <style>{`
+          [data-help-id="${helpActiveId}"] {
+            outline: 2.5px solid rgba(110,152,203,0.85) !important;
+            outline-offset: ${isPanelActive ? '0px' : '5px'} !important;
+          }
+        `}</style>
       )}
-      {children}
-    </button>
+
+      <AnimatePresence>
+        {helpOpen && (
+          <m.div
+            key="help-main-card"
+            initial={{ opacity: 0, y: 8, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] } }}
+            exit={{ opacity: 0, y: 6, scale: 0.97, transition: { duration: 0.12, ease: 'easeIn' } }}
+            style={{ position: 'absolute', bottom: 48, left: 0, width: 320, maxWidth: 'calc(50vw - 32px)' }}
+          >
+            <QuestionCard
+              question={helpData.title}
+              type="info"
+              options={helpData.items.map((it, i) => ({ id: tabItemIds[i], label: it.heading, description: it.description }))}
+              selected={helpActiveId}
+              onSelect={(id) => setHelpActiveId(id)}
+              titleBadge={titleBadge}
+              tabProgress={{ tabs: ALL_CONFIGURE_LABELS, currentIndex: tabIndex >= 0 ? tabIndex : 0 }}
+              onClose={() => setHelpOpen(false)}
+              style={{ maxWidth: '100%' }}
+            />
+          </m.div>
+        )}
+      </AnimatePresence>
+
+      <IconButton
+        variant="outline"
+        size="md"
+        aria-label={helpOpen ? 'Close help' : `Help — ${helpData.title}`}
+        aria-expanded={helpOpen}
+        icon={<InformationCircleIcon size={20} animated />}
+        onClick={() => setHelpOpen(!helpOpen)}
+      />
+    </div>
   )
 }
 
-function FloatingMenu() {
+// ── Panels island (anchored to the left of the floating menu) ─────────────────
+
+function PersonaPanelIsland() {
+  const pathname = usePathname()
+  const { toggleTestChat, toggleAiSuggest, toggleVersions } = usePersonaConfigure()
+  const { helpOpen, helpActiveId, setHelpActiveId, tabKey } = useHelpState(pathname)
+
+  // Keep island in sync when tab changes (helpOpen is already reset in useHelpState)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- effect runs via useHelpState
+  if (!helpOpen) return null
+
+  return (
+    /* Outer div owns the absolute position + translateY so Framer Motion
+       doesn't conflict with the centering transform on the m.div below. */
+    <div style={{ position: 'absolute', right: 74, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+    <AnimatePresence>
+      <m.div
+        key={`panel-island-${tabKey}`}
+        initial={{ opacity: 0, x: 8, scale: 0.97 }}
+        animate={{ opacity: 1, x: 0, scale: 1, transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] } }}
+        exit={{ opacity: 0, x: 8, scale: 0.97, transition: { duration: 0.12, ease: 'easeIn' } }}
+        style={{
+          backgroundColor: 'var(--neutral-white)',
+          borderRadius:    16,
+          padding:         '10px 10px',
+          boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(59,54,50,0.1)',
+          display:         'flex',
+          flexDirection:   'column',
+          gap:             2,
+          width:           260,
+        }}
+      >
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 10, lineHeight: '14px', color: 'var(--neutral-400)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px 6px' }}>
+          Panels
+        </p>
+        {PANEL_ITEMS.map((it, i) => {
+          const isActive = helpActiveId === it.highlightId
+          function handlePanelClick() {
+            setHelpActiveId(it.highlightId!)
+            if      (it.highlightId === 'help-test-chat')       toggleTestChat()
+            else if (it.highlightId === 'help-ai-suggestions')  toggleAiSuggest()
+            else if (it.highlightId === 'help-versions')        toggleVersions()
+          }
+          return (
+            <button
+              key={it.highlightId}
+              type="button"
+              onClick={handlePanelClick}
+              style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 8px', borderRadius: 10, border: 'none', cursor: 'pointer', textAlign: 'left', backgroundColor: isActive ? 'rgba(110,152,203,0.08)' : 'transparent', boxShadow: isActive ? '0 0 0 1.5px rgba(110,152,203,0.35)' : 'none', transition: 'background-color 150ms, box-shadow 150ms', width: '100%' }}
+              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)' }}
+              onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
+            >
+              <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: isActive ? '#6e98cb' : 'var(--neutral-100)', boxShadow: isActive ? '0 0 0 1px rgba(110,152,203,0.5)' : '0 0 0 1px var(--neutral-200)', marginTop: 1, transition: 'background-color 150ms' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 11, lineHeight: '11px', display: 'block', textAlign: 'center', color: isActive ? 'white' : 'var(--neutral-500)', userSelect: 'none' }}>
+                  {i + 1}
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, lineHeight: '18px', color: isActive ? '#3b6fa8' : 'var(--neutral-900)', transition: 'color 150ms' }}>{it.heading}</span>
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '17px', color: 'var(--neutral-600)' }}>{it.description}</span>
+              </div>
+            </button>
+          )
+        })}
+      </m.div>
+    </AnimatePresence>
+    </div>
+  )
+}
+
+// ── Configure progress indicator (A) ─────────────────────────────────────────
+
+function ConfigureProgress() {
+  const { personaInfo, knowledgeFileCount, hasShareLink } = usePersonaConfigure()
+
+  const required: { label: string; done: boolean }[] = [
+    { label: 'Instructions', done: personaInfo.guidePrompt.trim().length > 0 },
+  ]
+
+  const optional: { label: string; done: boolean }[] = [
+    { label: 'Profile',    done: personaInfo.imageUrl !== null },
+    { label: 'Knowledge',  done: knowledgeFileCount > 0 },
+    { label: 'Connectors', done: personaInfo.connectorSlugs.length > 0 },
+    { label: 'Sharing',    done: hasShareLink },
+  ]
+
+  const anyDone = required.some(s => s.done) || optional.some(s => s.done)
+  if (!anyDone) return null
+
+  const dotStyle = (done: boolean): React.CSSProperties => ({
+    width:           7,
+    height:          7,
+    borderRadius:    '50%',
+    backgroundColor: done ? '#6e98cb' : 'var(--neutral-300)',
+    flexShrink:      0,
+    transition:      'background-color 400ms',
+  })
+
+  const labelStyle = (done: boolean): React.CSSProperties => ({
+    fontFamily: 'var(--font-body)',
+    fontSize:   11,
+    lineHeight: '16px',
+    fontWeight: done ? 500 : 400,
+    color:      done ? '#6e98cb' : 'var(--neutral-400)',
+    whiteSpace: 'nowrap',
+    transition: 'color 400ms',
+  })
+
+  const connectorStyle = (done: boolean): React.CSSProperties => ({
+    width:           16,
+    height:          1,
+    backgroundColor: done ? 'rgba(110,152,203,0.4)' : 'var(--neutral-200)',
+    flexShrink:      0,
+    transition:      'background-color 400ms',
+  })
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '2px 12px', flexShrink: 0 }}>
+
+      {/* Required group */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Badge color="Blue" label="Required" />
+        {required.map(step => (
+          <React.Fragment key={step.label}>
+            <div style={connectorStyle(step.done)} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={dotStyle(step.done)} />
+              <span style={labelStyle(step.done)}>{step.label}</span>
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Divider */}
+      <div style={{ width: 1, height: 14, backgroundColor: 'var(--neutral-200)', flexShrink: 0 }} />
+
+      {/* Optional group */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Badge color="Neutral" label="Optional" />
+        {optional.map((step, i) => (
+          <React.Fragment key={step.label}>
+            {i >= 0 && <div style={connectorStyle(step.done)} />}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={dotStyle(step.done)} />
+              <span style={labelStyle(step.done)}>{step.label}</span>
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+
+    </div>
+  )
+}
+
+// ── Floating menu ─────────────────────────────────────────────────────────────
+
+function PersonaFloatingMenu() {
   const { testChatOpen, toggleTestChat, aiSuggestOpen, toggleAiSuggest, versionsOpen, toggleVersions } = usePersonaConfigure()
   return (
-    <div
-      style={{
-        display: 'flex', flexDirection: 'column', gap: 4,
-        backgroundColor: 'var(--neutral-white)', borderRadius: 12, padding: '4px 4px 6px',
-        boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-200)',
-        position: 'relative',
-      }}
-    >
-      <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none', boxShadow: 'inset 0px -2.182px 0.364px 0px var(--neutral-100)' }} />
-      <FloatingMenuButton active={testChatOpen}  title={testChatOpen  ? 'Close test chat'      : 'Open test chat'}      onClick={toggleTestChat}>
-        <UserAiIcon        size={20} color="var(--neutral-700)" animated />
-      </FloatingMenuButton>
-      <FloatingMenuButton active={aiSuggestOpen} title={aiSuggestOpen ? 'Close AI suggestions' : 'AI suggestions'}      onClick={toggleAiSuggest}>
-        <AiIdeaIcon        size={20} color="var(--neutral-700)" animated />
-      </FloatingMenuButton>
-      <FloatingMenuButton active={versionsOpen}  title={versionsOpen  ? 'Close versions'       : 'View versions'}       onClick={toggleVersions}>
-        <FolderLibraryIcon size={20} color="var(--neutral-700)" animated />
-      </FloatingMenuButton>
-    </div>
+    <FloatingMenu aria-label="Configure actions">
+      <FloatingMenuItem
+        icon={<UserAiIcon size={20} animated />}
+        label="Test Chat"
+        active={testChatOpen}
+        onClick={toggleTestChat}
+        data-help-id="help-test-chat"
+      />
+      <FloatingMenuItem
+        icon={<AiIdeaIcon size={20} animated />}
+        label="AI Suggestions"
+        active={aiSuggestOpen}
+        onClick={toggleAiSuggest}
+        data-help-id="help-ai-suggestions"
+      />
+      <FloatingMenuItem
+        icon={<FolderLibraryIcon size={20} animated />}
+        label="Versions"
+        active={versionsOpen}
+        onClick={toggleVersions}
+        data-help-id="help-versions"
+      />
+    </FloatingMenu>
   )
 }
 
@@ -541,7 +827,10 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
     testChatOpen, testChatExpanded,
     aiSuggestOpen, guideExpanded,
     versionsOpen,
+    leaveConfirmHref, setLeaveConfirmHref,
+    hasPublishAndLeave, handlePublishAndLeave,
   } = usePersonaConfigure()
+  const { push, back } = useRouter()
 
   return (
     <div
@@ -550,12 +839,17 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
         width: '100%', height: '100%', position: 'relative',
       }}
     >
-      {/* Left configure panel (page content) with FloatingMenu overlay */}
+      {/* Left configure panel (page content) with FloatingMenu + help overlays */}
       <div style={{ flex: '1 0 0', minWidth: 0, position: 'relative' }}>
         {children}
+        {/* Floating action menu — right-centre */}
         <div style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
-          <FloatingMenu />
+          <PersonaFloatingMenu />
         </div>
+        {/* Panels island — to the left of the floating menu, same vertical centre */}
+        <PersonaPanelIsland />
+        {/* Help trigger + main tab info card — bottom-left */}
+        <PersonaHelpButton />
       </div>
 
       {/* ── Test chat panel (collapsed) ────────────────────────────────────── */}
@@ -604,6 +898,58 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
       <AnimatePresence>
         {versionsOpen && <VersionsPanel />}
       </AnimatePresence>
+
+      {/* ── Publish leave-confirm dialog (shared across all 5 configure tabs) ── */}
+      {leaveConfirmHref && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Unpublished changes"
+          onClick={() => setLeaveConfirmHref(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px rgba(0,0,0,0.15)' }}
+          >
+            <p style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 18, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
+              You have unpublished changes
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
+              Your changes haven&apos;t been published yet. What would you like to do?
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <Button variant="outline" size="sm" onClick={() => setLeaveConfirmHref(null)}>
+                Stay
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const href = leaveConfirmHref
+                  setLeaveConfirmHref(null)
+                  if (href === '__back__') back()
+                  else push(href)
+                }}
+              >
+                Leave without publishing
+              </Button>
+              {hasPublishAndLeave && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    setLeaveConfirmHref(null)
+                    handlePublishAndLeave()
+                  }}
+                >
+                  Publish &amp; leave
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

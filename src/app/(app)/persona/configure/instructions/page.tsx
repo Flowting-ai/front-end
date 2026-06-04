@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
   ArrowRightOneIcon,
-  MoreHorizontalIcon,
   QuillWriteOneIcon,
   ArrowUpRightOneIcon,
   ArrowDownOneIcon,
@@ -450,6 +449,10 @@ function publishedVersionKey(repoId: string) {
   return `persona_live_version_${repoId}`
 }
 
+function instructionsDraftKey(repoId: string) {
+  return `persona_instructions_draft_${repoId}`
+}
+
 // Reads the avatar data-URL saved by the Profile tab.
 // Falls back to the 'new' key in case the user uploaded before the repo was created.
 function readProfileAvatar(repoId: string): string | null {
@@ -514,17 +517,19 @@ function PersonaConfigureInstructionsContent() {
   const [isSaving,      setIsSaving]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
 
-  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag, setPendingChangeTags, refreshVersions, versions } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag, setPendingChangeTags, refreshVersions, versions, setNeedsRepublish, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setOnPublishAndLeave, registerAutoSave, setVersionsOpen } = usePersonaConfigure()
 
   const [exampleConvOpen, setExampleConvOpen] = useState(false)
   const [exampleConvExpanded, setExampleConvExpanded] = useState(false)
   const [exampleConversations, setExampleConversations] = useState<Array<{ id: string; userSays: string; personaReplies: string }>>([])
   const [republishModalOpen, setRepublishModalOpen] = useState(false)
-  const [leaveConfirmHref, setLeaveConfirmHref] = useState<string | null>(null)
 
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
-  const hasInitialisedRef = useRef(false)
-  const savedSnapshotRef  = useRef<{ instruction: string; modelId: string; temperature: number } | null>(null)
+  const hasInitialisedRef  = useRef(false)
+  const savedSnapshotRef   = useRef<{ instruction: string; modelId: string; temperature: number } | null>(null)
+  const hasDraftLoadedRef  = useRef(false)
+  const handlePublishRef   = useRef<() => void>(() => { /* set after mount */ })
+  const instructionAutoSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
 
   // ── Initialise: fetch models, then create or load persona ──────────────────
 
@@ -765,9 +770,33 @@ function PersonaConfigureInstructionsContent() {
       setExampleConversations(parseExampleConversations(prompt))
       setVersionId(full.id)
       savedSnapshotRef.current = null
+      // Clear draft — version was explicitly restored from history
+      try { sessionStorage.removeItem(instructionsDraftKey(repoId)) } catch { /* ignore */ }
     })
     return () => registerVersionRestoreCallback(null)
   }, [repoId, allModels, registerVersionRestoreCallback])
+
+  // ── Load auto-saved draft once after initialisation ───────────────────────
+  useEffect(() => {
+    if (isInitialising || !repoId || hasDraftLoadedRef.current) return
+    hasDraftLoadedRef.current = true
+    try {
+      const raw = sessionStorage.getItem(instructionsDraftKey(repoId))
+      if (!raw) return
+      const draft = JSON.parse(raw) as { instruction?: string; temperature?: number; modelId?: string | null }
+      if (typeof draft.instruction === 'string') {
+        setInstruction(draft.instruction)
+        resetInstructionHistory(draft.instruction)
+        setExampleConversations(parseExampleConversations(draft.instruction))
+      }
+      if (typeof draft.temperature === 'number') setTemperature(draft.temperature)
+      if (draft.modelId && allModels.length > 0) {
+        const m = allModels.find(mm => stableKey(mm) === draft.modelId)
+        if (m) { setSelectedModel(m); writePersonaModelCache(repoId, m) }
+      }
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally fire only when init completes; allModels captured from closure
+  }, [isInitialising, repoId])
 
   // ── Save version ─────────────────────────────────────────────────────────────
 
@@ -811,6 +840,8 @@ function PersonaConfigureInstructionsContent() {
       setPendingChangeTags([])
       bustPersonasCache()
       refreshVersions()
+      setVersionsOpen(true)
+      try { sessionStorage.removeItem(instructionsDraftKey(repoId)) } catch { /* ignore */ }
 
       toast.success('Version saved')
     } catch (err) {
@@ -904,6 +935,19 @@ function PersonaConfigureInstructionsContent() {
     if (!savedSnapshotRef.current) return
     if (currentModelId !== savedSnapshotRef.current.modelId || temperature !== savedSnapshotRef.current.temperature) addPendingChangeTag('Model')
   }, [currentModelId, temperature, addPendingChangeTag])
+
+  // ── Auto-save draft to sessionStorage ─────────────────────────────────────
+  useEffect(() => {
+    if (!repoId || isInitialising) return
+    try {
+      sessionStorage.setItem(instructionsDraftKey(repoId), JSON.stringify({
+        instruction,
+        temperature,
+        modelId: selectedModel ? stableKey(selectedModel) : null,
+      }))
+    } catch { /* ignore quota errors */ }
+  }, [repoId, instruction, temperature, selectedModel, isInitialising])
+
   const hasContent = instruction.trim().length > 0
 
   // isPublished: current version IS the published one with no pending changes.
@@ -914,6 +958,21 @@ function PersonaConfigureInstructionsContent() {
   const canPublish = hasContent && !!repoId && !!versionId && !!selectedModel && !isPublishing && !isPublished
   const canSave    = isDirty && hasContent && !!repoId && !!selectedModel && !isSaving
 
+  // Sync needsRepublish to shared context so the leave-guard works on all 5 tabs.
+  useEffect(() => {
+    setNeedsRepublish(needsRepublish)
+  }, [needsRepublish, setNeedsRepublish])
+
+  // Register handlePublish as the "Publish & leave" callback for the shared dialog.
+  const handlePublishStable = handlePublish  // captured each render; ref keeps it live
+  useEffect(() => {
+    handlePublishRef.current = handlePublishStable
+  })
+  useEffect(() => {
+    setOnPublishAndLeave(() => () => handlePublishRef.current())
+    return () => setOnPublishAndLeave(null)
+  }, [setOnPublishAndLeave])
+
   // Warn the browser when navigating away (tab close / external nav) if there are unpublished changes.
   useEffect(() => {
     if (!needsRepublish) return
@@ -922,14 +981,8 @@ function PersonaConfigureInstructionsContent() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [needsRepublish])
 
-  function safeNavigate(href: string) {
-    if (needsRepublish) { setLeaveConfirmHref(href); return }
-    push(href)
-  }
-  function safeBack() {
-    if (needsRepublish) { setLeaveConfirmHref('__back__'); return }
-    back()
-  }
+  const safeNavigate = ctxSafeNavigate
+  const safeBack     = ctxSafeBack
 
   const handleAddConversation = (userSays: string, personaReplies: string) => {
     setExampleConversations(prev => [...prev, { id: crypto.randomUUID(), userSays, personaReplies }])
@@ -945,6 +998,39 @@ function PersonaConfigureInstructionsContent() {
     if (conv) setInstruction(removeExampleBlock(instruction, conv.userSays, conv.personaReplies))
     setExampleConversations(prev => prev.filter(c => c.id !== id))
   }
+
+  // ── Auto-save on tab switch (updates current version in-place, no new version) ──
+
+  // Keep ref current so the closure always captures latest state values
+  instructionAutoSaveRef.current = async () => {
+    const modelId = selectedModel ? stableKey(selectedModel) : null
+    if (!isDirty || !repoId || !versionId || !modelId) return
+    try {
+      let imageFile: File | undefined
+      let preserveImageUrl: string | null = null
+      const avatarDataUrl = readProfileAvatar(repoId)
+      if (avatarDataUrl?.startsWith('data:')) {
+        imageFile = dataUrlToFile(avatarDataUrl, 'avatar.jpg')
+      } else if (imageUrl) {
+        preserveImageUrl = imageUrl
+      }
+      await updateVersion({
+        repoId, versionId,
+        name:        personaName,
+        modelId,
+        prompt:      instruction,
+        temperature,
+        image:       imageFile,
+        imageUrl:    preserveImageUrl ?? undefined,
+      })
+      savedSnapshotRef.current = { instruction, modelId, temperature }
+    } catch { /* silent — navigation proceeds regardless */ }
+  }
+
+  useEffect(() => {
+    registerAutoSave(() => instructionAutoSaveRef.current())
+    return () => registerAutoSave(null)
+  }, [registerAutoSave])
 
   // ── Tab navigation ────────────────────────────────────────────────────────────
 
@@ -1059,43 +1145,41 @@ function PersonaConfigureInstructionsContent() {
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: anyPanelOpen ? 'auto' : undefined }}>
-              <IconButton
-                variant="outline"
-                size="md"
-                icon={<MoreHorizontalIcon size={20} />}
-                aria-label="More options"
-              />
-              {anyPanelOpen ? (
-                <IconButton
-                  variant="outline"
-                  size="sm"
-                  icon={<QuillWriteOneIcon size={16} />}
-                  aria-label="Save version"
-                  onClick={handleSaveVersion}
-                  disabled={!canSave}
-                  loading={isSaving}
-                />
-              ) : (
+              <span data-help-id="help-save-version" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8 }}>
+                {anyPanelOpen ? (
+                  <IconButton
+                    variant="outline"
+                    size="sm"
+                    icon={<QuillWriteOneIcon size={16} />}
+                    aria-label="Save version"
+                    onClick={handleSaveVersion}
+                    disabled={!canSave}
+                    loading={isSaving}
+                  />
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<QuillWriteOneIcon size={16} />}
+                    onClick={handleSaveVersion}
+                    disabled={!canSave}
+                    loading={isSaving}
+                  >
+                    {isSaving ? 'Saving…' : 'Save version'}
+                  </Button>
+                )}
+              </span>
+              <span data-help-id="help-publish" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8 }}>
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
-                  leftIcon={<QuillWriteOneIcon size={16} />}
-                  onClick={handleSaveVersion}
-                  disabled={!canSave}
-                  loading={isSaving}
+                  disabled={!canPublish}
+                  rightIcon={<ArrowUpRightOneIcon size={16} />}
+                  onClick={handlePublish}
                 >
-                  {isSaving ? 'Saving…' : 'Save version'}
+                  {isPublishing ? 'Publishing…' : publishedVersionId ? 'Republish' : 'Publish'}
                 </Button>
-              )}
-              <Button
-                variant="default"
-                size="sm"
-                disabled={!canPublish}
-                rightIcon={<ArrowUpRightOneIcon size={16} />}
-                onClick={handlePublish}
-              >
-                {isPublishing ? 'Publishing…' : publishedVersionId ? 'Republish' : 'Publish'}
-              </Button>
+              </span>
             </div>
 
             {/* Live / Unpublished badge — centered below the tab bar */}
@@ -1154,6 +1238,11 @@ function PersonaConfigureInstructionsContent() {
             }}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', maxWidth: 714 }}>
+
+              {/* ── Tab hint (B) ──────────────────────────────────────────────── */}
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0 }}>
+                Define your agent&apos;s role, tone, and expertise. The more specific you are, the better it performs.
+              </p>
 
               {/* ── Persona header ────────────────────────────────────────────── */}
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -1220,16 +1309,19 @@ function PersonaConfigureInstructionsContent() {
               </div>
 
               {/* ── Model selector ────────────────────────────────────────────── */}
-              <ModelDropdown
-                models={allModels}
-                selectedModel={selectedModel}
-                open={modelSelectorOpen}
-                onOpenChange={setModelSelectorOpen}
-                onSelect={(m) => { setSelectedModel(m); setModelSelectorOpen(false) }}
-              />
+              <div data-help-id="help-model">
+                <ModelDropdown
+                  models={allModels}
+                  selectedModel={selectedModel}
+                  open={modelSelectorOpen}
+                  onOpenChange={setModelSelectorOpen}
+                  onSelect={(m) => { setSelectedModel(m); setModelSelectorOpen(false) }}
+                />
+              </div>
 
               {/* ── System instruction ────────────────────────────────────────── */}
               <EnhancePromptField
+                data-help-id="help-instruction"
                 value={instruction}
                 onChange={setInstruction}
                 footerLeft={
@@ -1243,7 +1335,7 @@ function PersonaConfigureInstructionsContent() {
               />
 
               {/* ── Temperature slider ────────────────────────────────────────── */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div data-help-id="help-temperature" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#0a0a0a' }}>
                     Creativity level (Temperature)
@@ -1273,7 +1365,7 @@ function PersonaConfigureInstructionsContent() {
               </div>
 
               {/* ── Example conversations ─────────────────────────────────────── */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+              <div data-help-id="help-examples" style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
                 <button
                   type="button"
                   onClick={() => setExampleConvExpanded(v => !v)}
@@ -1404,55 +1496,6 @@ function PersonaConfigureInstructionsContent() {
         />
       )}
 
-      {/* Leave confirmation dialog */}
-      {leaveConfirmHref && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Unsaved changes"
-          onClick={() => setLeaveConfirmHref(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px rgba(0,0,0,0.15)' }}
-          >
-            <p style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 18, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
-              You have unpublished changes
-            </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
-              Your changes haven&apos;t been published yet. What would you like to do?
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <Button variant="outline" size="sm" onClick={() => setLeaveConfirmHref(null)}>
-                Stay
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const href = leaveConfirmHref
-                  setLeaveConfirmHref(null)
-                  if (href === '__back__') back()
-                  else push(href)
-                }}
-              >
-                Leave without publishing
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => {
-                  setLeaveConfirmHref(null)
-                  handlePublish()
-                }}
-              >
-                Publish & leave
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   )
 }

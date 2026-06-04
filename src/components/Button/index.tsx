@@ -39,6 +39,8 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   image?: string
   loading?: boolean
   fluid?: boolean
+  /** Forces the hover visual state. Use for toggle buttons to show the selected state. */
+  active?: boolean
   children?: React.ReactNode
 }
 
@@ -80,6 +82,7 @@ export function Button({
   loading = false,
   disabled = false,
   fluid = false,
+  active = false,
   children = 'Button',
   className,
   onMouseEnter: externalMouseEnter,
@@ -106,6 +109,7 @@ export function Button({
 
   const [isHovered, setIsHovered] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
+  const isVisuallyHovered = isHovered || (active && !isDisabled)
 
   const cornerRadius = isMd ? 10 : 8
   const { ref: squircleRef, clipPath, strokeClipPath } = useSquircle(cornerRadius, 0.6, 1)
@@ -213,7 +217,7 @@ export function Button({
 
   const wrapperFilter = variant === 'default'
     ? SHADOW_OUTER
-    : isSubtle && isHovered
+    : isSubtle && isVisuallyHovered
       ? SHADOW_SUBTLE_OUTER_HOVER
       : undefined
 
@@ -243,8 +247,8 @@ export function Button({
       )}
 
       {isSubtle && strokeClipPath && clipPath && (
-        <div aria-hidden style={{ position: 'absolute', inset: -1, clipPath: strokeClipPath, backgroundColor: isHovered ? 'var(--button-subtle-border-hover)' : 'transparent', pointerEvents: 'none', transition: 'background-color 200ms' }}>
-          <div style={{ position: 'absolute', inset: 1, clipPath: clipPath, backgroundColor: isHovered ? 'var(--neutral-50)' : 'transparent', transition: 'background-color 200ms' }} />
+        <div aria-hidden style={{ position: 'absolute', inset: -1, clipPath: strokeClipPath, backgroundColor: isVisuallyHovered ? 'var(--button-subtle-border-hover)' : 'transparent', pointerEvents: 'none', transition: 'background-color 200ms' }}>
+          <div style={{ position: 'absolute', inset: 1, clipPath: clipPath, backgroundColor: isVisuallyHovered ? 'var(--neutral-50)' : 'transparent', transition: 'background-color 200ms' }} />
         </div>
       )}
 

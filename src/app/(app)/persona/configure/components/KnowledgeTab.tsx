@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { Plus, Search, Upload, MoreHorizontal, Eye, ArrowDownToLine, SlidersHorizontal, ChevronDown, ArrowUpToLine, ArrowUp } from "lucide-react";
+import { FILE_ACCEPT } from "@/hooks/use-file-upload";
 
 export type KnowledgeFile = {
   id: string;
@@ -35,8 +36,11 @@ const FILE_LIMIT = 10;
 const SIZE_LIMIT_MB = 300;
 const FILE_SIZE_LIMIT_MB = 30;
 
-// Backend only accepts PDF and PPTX
-const ALLOWED_EXTENSIONS = new Set(["pdf", "pptx"]);
+const ALLOWED_EXTENSIONS = new Set([
+  "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "csv",
+  "txt", "md", "json", "xml", "rtf", "html", "htm", "svg",
+  "tiff", "tif", "avif", "png", "jpg", "jpeg", "webp", "epub", "zip",
+]);
 
 const SOURCE_BUTTONS = [
   { label: "Google Drive", key: "drive" },
@@ -354,7 +358,7 @@ function DropOverlay({ visible }: { visible: boolean }) {
       <ArrowUp size={28} color="#0d6eb2" />
       <p style={{ margin: 0, fontSize: 16, fontWeight: 500 }}>Drop files to upload</p>
       <p style={{ margin: 0, fontSize: 12, color: "#3b3632" }}>
-        PDF or PPTX · max 30 MB per file
+        PDF, DOCX, XLSX, images and more · max 30 MB per file
       </p>
     </div>
   );
@@ -381,14 +385,14 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
   const ingestFiles = (raw: File[]) => {
     if (raw.length === 0) return;
 
-    // File type validation — backend only accepts PDF and PPTX
+    // File type validation
     const unsupported = raw.filter(f => {
       const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
       return !ALLOWED_EXTENSIONS.has(ext);
     });
     unsupported.forEach(f => {
       const ext = f.name.split(".").pop()?.toUpperCase() ?? "file";
-      toast.error(`"${f.name}" is not supported. Only PDF and PPTX files can be uploaded.`, { description: `Received: ${ext}` });
+      toast.error(`"${f.name}" is not a supported file type.`, { description: `Received: ${ext}` });
     });
 
     const typeOk = raw.filter(f => {
@@ -412,13 +416,16 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
     // Fallback: optimistic local state only
     const newFiles: KnowledgeFile[] = raw.map(file => {
       const ext = file.name.split(".").pop()?.toUpperCase() ?? "FILE";
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      const bytes = file.size
+      const sizeStr = bytes < 0.1 * 1024 * 1024
+        ? `${(bytes / 1024).toFixed(1)} KB`
+        : `${(bytes / (1024 * 1024)).toFixed(1)} MB`
       return {
         id: `${Date.now()}-${file.name}`,
         name: file.name,
         type: "file",
         fileType: ext,
-        size: `${sizeMB} MB`,
+        size: sizeStr,
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         url: URL.createObjectURL(file),
       };
@@ -533,7 +540,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
           </p>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div data-help-id="help-knowledge-upload" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div
             style={{
               backgroundColor: "#f7f2ed",
@@ -630,7 +637,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
+          <div data-help-id="help-knowledge-url" style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
             <label htmlFor="knowledge-url-input" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Paste URLs</label>
             <div
               style={{
@@ -682,7 +689,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
           </button>
         </div>
 
-        <input ref={fileInputRef} type="file" multiple accept=".pdf,.pptx" style={{ display: "none" }} onChange={handleFileUpload} />
+        <input ref={fileInputRef} type="file" multiple accept={FILE_ACCEPT} style={{ display: "none" }} onChange={handleFileUpload} />
       </div>
     );
   }
@@ -980,7 +987,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
         </button>
       </div>
 
-      <input ref={fileInputRef} type="file" multiple accept=".pdf,.pptx" style={{ display: "none" }} onChange={handleFileUpload} />
+      <input ref={fileInputRef} type="file" multiple accept={FILE_ACCEPT} style={{ display: "none" }} onChange={handleFileUpload} />
     </div>
   );
 }

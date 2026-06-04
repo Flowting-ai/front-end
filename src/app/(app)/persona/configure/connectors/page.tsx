@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import { updateVersion, setActiveVersion, bustPersonasCache } from '@/lib/api/personas'
 import {
   ArrowLeftOneIcon,
-  MoreVerticalIcon,
   QuillWriteOneIcon,
   ArrowUpRightOneIcon,
 } from '@strange-huge/icons'
@@ -35,13 +34,13 @@ const TAB_ROUTES: Partial<Record<Tab, string>> = {
 // ── Main page content ─────────────────────────────────────────────────────────
 
 function PersonaConfigureConnectorsContent() {
-  const { push, back } = useRouter()
+  const { push } = useRouter()
   const searchParams = useSearchParams()
   const personaName = searchParams.get('name')      ?? ''
   const repoId      = searchParams.get('repoId')    ?? ''
   const versionId   = searchParams.get('versionId') ?? ''
 
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen } = usePersonaConfigure()
   const [isSaving,           setIsSaving]           = useState(false)
   const [isPublishing,       setIsPublishing]       = useState(false)
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
@@ -85,6 +84,7 @@ function PersonaConfigureConnectorsContent() {
       setVersionTags(versionId, [...pendingChangeTags, 'Connectors'].filter((v, i, a) => a.indexOf(v) === i))
       setPendingChangeTags([])
       refreshVersions()
+      setVersionsOpen(true)
       toast.success('Version saved')
     } catch (err) {
       console.error('[ConnectorsPage] save error:', err)
@@ -96,7 +96,7 @@ function PersonaConfigureConnectorsContent() {
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
-    if (route) push(`${route}?${searchParams.toString()}`)
+    if (route) safeNavigate(`${route}?${searchParams.toString()}`)
   }
 
   return (
@@ -136,7 +136,7 @@ function PersonaConfigureConnectorsContent() {
                 size="md"
                 icon={<ArrowLeftOneIcon size={20} />}
                 aria-label="Go back"
-                onClick={() => back()}
+                onClick={() => safeBack()}
               />
             </div>
 
@@ -203,12 +203,6 @@ function PersonaConfigureConnectorsContent() {
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: anyPanelOpen ? 'auto' : undefined }}>
-              <IconButton
-                variant="outline"
-                size="md"
-                icon={<MoreVerticalIcon size={20} />}
-                aria-label="More options"
-              />
               {anyPanelOpen ? (
                 <IconButton
                   variant="outline"
@@ -270,7 +264,11 @@ function PersonaConfigureConnectorsContent() {
               paddingBottom: 32,
             }}
           >
-            <ConnectorsTab repoId={repoId || undefined} versionId={versionId || undefined} />
+            <ConnectorsTab
+              repoId={repoId || undefined}
+              versionId={versionId || undefined}
+              onConnectorsChange={(slugs) => updatePersonaInfo({ connectorSlugs: slugs })}
+            />
           </div>
         </div>
 

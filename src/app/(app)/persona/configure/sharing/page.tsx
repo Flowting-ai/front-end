@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import { updateVersion, setActiveVersion, bustPersonasCache } from '@/lib/api/personas'
 import {
   ArrowLeftOneIcon,
-  MoreVerticalIcon,
   QuillWriteOneIcon,
   ArrowUpRightOneIcon,
 } from '@strange-huge/icons'
@@ -37,7 +36,7 @@ const TAB_ROUTES: Partial<Record<Tab, string>> = {
 // ── Main page content ─────────────────────────────────────────────────────────
 
 function PersonaConfigureSharingContent() {
-  const { push, back } = useRouter()
+  const { push } = useRouter()
   const searchParams = useSearchParams()
   const personaName = searchParams.get('name')      ?? ''
   const repoId      = searchParams.get('repoId')    ?? ''
@@ -47,7 +46,7 @@ function PersonaConfigureSharingContent() {
   const [isPublishing,       setIsPublishing]       = useState(false)
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
 
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen } = usePersonaConfigure()
 
   useEffect(() => {
     if (!repoId) return
@@ -88,6 +87,7 @@ function PersonaConfigureSharingContent() {
       setVersionTags(versionId, [...pendingChangeTags, 'Sharing'].filter((v, i, a) => a.indexOf(v) === i))
       setPendingChangeTags([])
       refreshVersions()
+      setVersionsOpen(true)
       toast.success('Version saved')
     } catch (err) {
       console.error('[SharingPage] save error:', err)
@@ -99,9 +99,7 @@ function PersonaConfigureSharingContent() {
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
-    if (route) {
-      push(`${route}?${searchParams.toString()}`)
-    }
+    if (route) safeNavigate(`${route}?${searchParams.toString()}`)
   }
 
   return (
@@ -140,7 +138,7 @@ function PersonaConfigureSharingContent() {
                 size="md"
                 icon={<ArrowLeftOneIcon size={20} />}
                 aria-label="Go back"
-                onClick={() => back()}
+                onClick={() => safeBack()}
               />
             </div>
 
@@ -207,12 +205,6 @@ function PersonaConfigureSharingContent() {
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: anyPanelOpen ? 'auto' : undefined }}>
-              <IconButton
-                variant="outline"
-                size="md"
-                icon={<MoreVerticalIcon size={20} />}
-                aria-label="More options"
-              />
               {anyPanelOpen ? (
                 <IconButton
                   variant="outline"

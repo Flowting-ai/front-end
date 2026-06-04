@@ -18,6 +18,7 @@ import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, type Persona } from '@/lib/api/personas'
 import { listShares, revokeShare, getSharePreview, type PersonaShare } from '@/lib/api/persona-shares'
+import { canonicalShareUrl } from '@/lib/share-url'
 import Tabs from '@/components/Tabs'
 import { PersonaCard } from '@/components/PersonaCard'
 import { SuperLinkRow, type SuperLinkStatus } from '@/components/SuperLinkRow'
@@ -298,7 +299,7 @@ function toDrawerLink(
     avatarColor:    colorFromName(personaName),
     avatarUrl,
     repoId,
-    url:            share.share_url.replace(/^https?:\/\//, ''),
+    url:            canonicalShareUrl(share.share_url).replace(/^https?:\/\//, ''),
     tokenUsed:      share.credit_used,
     tokenLimit:     share.credit_limit ?? 0,
     conversations:  0,
@@ -813,7 +814,11 @@ export default function PersonasPage() {
                           variant={persona.status === 'draft' || !persona.hasSystemInstructions ? 'draft' : 'default'}
                           name={persona.name}
                           handle={persona.handle.replace(/^@/, '')}
-                          description={persona.description}
+                          description={
+                            (persona.status === 'draft' || !persona.hasSystemInstructions) && !persona.description
+                              ? 'Tap Edit to add a system instruction and publish this agent.'
+                              : persona.description
+                          }
                           avatarUrl={draftAvatarMap[persona.id] ?? persona.imageUrl ?? undefined}
                           tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
@@ -909,7 +914,7 @@ export default function PersonasPage() {
                         personaName={name}
                         avatarColor={colorFromName(name)}
                         avatarUrl={imageUrl}
-                        url={share.share_url.replace(/^https?:\/\//, '')}
+                        url={canonicalShareUrl(share.share_url).replace(/^https?:\/\//, '')}
                         tokenUsed={share.credit_used}
                         tokenLimit={share.credit_limit ?? 0}
                         status={shareStatus(share)}

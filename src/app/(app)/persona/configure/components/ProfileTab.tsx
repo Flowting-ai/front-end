@@ -195,7 +195,7 @@ export default function ProfileTab({
     <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%" }}>
 
       {/* Avatar */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div data-help-id="help-profile-avatar" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47", margin: 0 }}>Avatar</p>
         <div
           onDragEnter={(e) => { e.preventDefault(); dragCounter.current++; setIsDragOver(true) }}
@@ -255,7 +255,7 @@ export default function ProfileTab({
       </div>
 
       {/* Name */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px" }}>
+      <div data-help-id="help-profile-name" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px" }}>
         <label htmlFor="profile-persona-name" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Name</label>
         <div
           style={{
@@ -289,7 +289,7 @@ export default function ProfileTab({
       </div>
 
       {/* Handle — auto-generated from name by the backend, not directly editable */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px" }}>
+      <div data-help-id="help-profile-handle" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px" }}>
         <label htmlFor="profile-persona-handle" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Handle</label>
         <div
           style={{
@@ -327,7 +327,7 @@ export default function ProfileTab({
       </div>
 
       {/* Description */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px", position: "relative" }}>
+      <div data-help-id="help-profile-description" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px", position: "relative" }}>
         <label htmlFor="profile-persona-desc" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Description</label>
         <div
           style={{
@@ -376,7 +376,7 @@ export default function ProfileTab({
       </div>
 
       {/* Tags */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div data-help-id="help-profile-tags" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47", margin: 0 }}>Tags</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", padding: "8px 6px" }}>
           {personaTags.map((tag, idx) => {

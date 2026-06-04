@@ -32,6 +32,11 @@ export interface FloatingMenuItemProps extends React.ButtonHTMLAttributes<HTMLBu
   /** Label shown beside the icon when expanded. */
   label?: string
   /**
+   * Override the tooltip text. When omitted the tooltip uses `label`.
+   * Use for longer descriptions while keeping the expanded label short.
+   */
+  tooltip?: string
+  /**
    * Show the label inline.
    * When omitted, inherits from the parent `FloatingMenu`'s `opened` state via context.
    */
@@ -53,6 +58,7 @@ export function FloatingMenuItem(
     ref,
     icon,
     label = 'Label',
+    tooltip,
     showLabel,
     active = false,
     disabled = false,
@@ -89,7 +95,7 @@ export function FloatingMenuItem(
 
     return (
       <Tooltip
-        content={label}
+        content={tooltip ?? label}
         side="left"
         sideOffset={8}
         delayDuration={150}
