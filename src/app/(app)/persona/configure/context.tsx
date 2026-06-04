@@ -115,7 +115,13 @@ interface PersonaConfigureContextValue {
   versionsLoading: boolean
   restoringId: string | null
   handleRestoreVersion: (id: string) => void
+  refreshVersions: () => void
   registerVersionRestoreCallback: (fn: ((version: PersonaVersionResponse) => void) | null) => void
+
+  // Pending change tags (auto-detected as user edits)
+  pendingChangeTags: string[]
+  addPendingChangeTag: (tag: string) => void
+  setPendingChangeTags: (tags: string[]) => void
 }
 
 const PersonaConfigureContext = createContext<PersonaConfigureContextValue | null>(null)
@@ -383,11 +389,19 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
 
   // ── Versions state ──────────────────────────────────────────────────────────
 
-  const [versions,        setVersions]        = useState<PersonaVersionListItem[]>([])
-  const [versionsLoading, setVersionsLoading] = useState(false)
-  const [restoringId,     setRestoringId]     = useState<string | null>(null)
+  const [versions,          setVersions]          = useState<PersonaVersionListItem[]>([])
+  const [versionsLoading,   setVersionsLoading]   = useState(false)
+  const [restoringId,       setRestoringId]       = useState<string | null>(null)
+  const [pendingChangeTags, _setPendingChangeTags] = useState<string[]>([])
   const versionRestoreCallbackRef = useRef<((version: PersonaVersionResponse) => void) | null>(null)
   const restoringRef = useRef(false)
+
+  const addPendingChangeTag = useCallback((tag: string) => {
+    _setPendingChangeTags(prev => prev.includes(tag) ? prev : [...prev, tag])
+  }, [])
+  const setPendingChangeTags = useCallback((tags: string[]) => {
+    _setPendingChangeTags(tags)
+  }, [])
 
   const registerVersionRestoreCallback = useCallback(
     (fn: ((version: PersonaVersionResponse) => void) | null) => {
@@ -410,6 +424,18 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
       .catch(() => {})
       .finally(() => setVersionsLoading(false))
   }, [versionsOpen])
+
+  const refreshVersions = useCallback(() => {
+    const repoId = infoRef.current.repoId
+    if (!repoId) return
+    listVersions(repoId)
+      .then(v => setVersions(
+        v.slice()
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 5),
+      ))
+      .catch(() => {})
+  }, [])
 
   const handleRestoreVersion = useCallback(async (targetId: string) => {
     const repoId = infoRef.current.repoId
@@ -497,7 +523,12 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     versionsLoading,
     restoringId,
     handleRestoreVersion,
+    refreshVersions,
     registerVersionRestoreCallback,
+
+    pendingChangeTags,
+    addPendingChangeTag,
+    setPendingChangeTags,
   }
 
   return (

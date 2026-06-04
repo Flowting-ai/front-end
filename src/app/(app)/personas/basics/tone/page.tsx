@@ -13,7 +13,15 @@ const WIZARD_KEY = 'persona_wizard_draft'
 
 // ── Tone options ──────────────────────────────────────────────────────────────
 
-const TONES = [
+interface ToneOption {
+  id: string
+  label: string
+  subtitle: string
+  example?: string
+}
+
+// Fallback tones shown only when no starter data is available
+const FALLBACK_TONES: ToneOption[] = [
   {
     id:       'direct',
     label:    'Direct & confident',
@@ -40,6 +48,19 @@ const TONES = [
   },
 ]
 
+// Normalise the starter `sound` field (object today, array in future) → ToneOption[]
+function starterSoundsToTones(
+  starter: { sound?: { name: string; description: string } | Array<{ name: string; description: string }> } | null | undefined
+): ToneOption[] {
+  if (!starter?.sound) return []
+  const sounds = Array.isArray(starter.sound) ? starter.sound : [starter.sound]
+  return sounds.map(s => ({
+    id: s.name.toLowerCase().replace(/\s+/g, '-'),
+    label: s.name,
+    subtitle: s.description,
+  }))
+}
+
 // ── Tone card ─────────────────────────────────────────────────────────────────
 
 function ToneCard({
@@ -47,7 +68,7 @@ function ToneCard({
   selected,
   onSelect,
 }: {
-  tone: typeof TONES[number]
+  tone: ToneOption
   selected: boolean
   onSelect: () => void
 }) {
@@ -88,16 +109,18 @@ function ToneCard({
       {/* Divider */}
       <div style={{ height: 1, background: 'rgba(59,54,50,0.15)', width: '100%' }} />
 
-      {/* Example */}
-      <p style={{
-        fontFamily: 'var(--font-body)', fontWeight: 400,
-        fontSize: 14, lineHeight: '22px', color: '#857a72', margin: 0,
-        overflow: 'hidden', display: '-webkit-box',
-        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-      }}>
-        <span style={{ color: '#c4af9f' }}>Ex - </span>
-        {tone.example}
-      </p>
+      {/* Example (omitted when starter sounds don't include one) */}
+      {tone.example && (
+        <p style={{
+          fontFamily: 'var(--font-body)', fontWeight: 400,
+          fontSize: 14, lineHeight: '22px', color: '#857a72', margin: 0,
+          overflow: 'hidden', display: '-webkit-box',
+          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+        }}>
+          <span style={{ color: '#c4af9f' }}>Ex - </span>
+          {tone.example}
+        </p>
+      )}
     </button>
   )
 }
@@ -109,6 +132,17 @@ function TonePageContent() {
   const searchParams = useSearchParams()
   const template = searchParams.get('template') ?? ''
 
+  // Compute the available tone cards from starter sounds (or fallback to hardcoded)
+  const [tones] = useState<ToneOption[]>(() => {
+    if (typeof window === 'undefined') return FALLBACK_TONES
+    try {
+      if (template) return FALLBACK_TONES
+      const starter = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { sound?: { name: string; description: string } | Array<{ name: string; description: string }> } | null
+      const fromStarter = starterSoundsToTones(starter)
+      return fromStarter.length > 0 ? fromStarter : FALLBACK_TONES
+    } catch { return FALLBACK_TONES }
+  })
+
   const [selectedTone, setSelectedTone] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null
     try {
@@ -117,10 +151,19 @@ function TonePageContent() {
       if (draft.template === template && draft.tone) return draft.tone
       // Pre-select from template preset on first visit
       if (template) return TEMPLATE_PRESETS[template]?.tone ?? null
-      return null
+      // Auto-select the first starter sound (it's the backend's recommendation)
+      const starter = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { sound?: { name: string; description: string } | Array<{ name: string; description: string }> } | null
+      const fromStarter = starterSoundsToTones(starter)
+      return fromStarter[0]?.id ?? null
     } catch { return null }
   })
-  const [displayName, setDisplayName] = useState('{name}')
+  const [displayName, setDisplayName] = useState<string>(() => {
+    if (typeof window === 'undefined') return ''
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+      return draft.name ?? ''
+    } catch { return '' }
+  })
 
   // Read persona name from sessionStorage (stored by the name page)
   useEffect(() => {
@@ -157,7 +200,7 @@ function TonePageContent() {
             fontFamily: 'var(--font-title)', fontWeight: 400,
             fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0,
           }}>
-            How should <em style={{ fontStyle: 'normal' }}>{displayName}</em> sound?
+            How should <em style={{ fontStyle: 'normal' }}>{displayName || 'your agent'}</em> sound?
           </p>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 400,
@@ -169,16 +212,16 @@ function TonePageContent() {
 
         {/* Tone grid + footer */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {/* 2×2 grid */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 19 }}>
-              <ToneCard tone={TONES[0]} selected={selectedTone === TONES[0].id} onSelect={() => setSelectedTone(TONES[0].id)} />
-              <ToneCard tone={TONES[1]} selected={selectedTone === TONES[1].id} onSelect={() => setSelectedTone(TONES[1].id)} />
-            </div>
-            <div style={{ display: 'flex', gap: 19 }}>
-              <ToneCard tone={TONES[2]} selected={selectedTone === TONES[2].id} onSelect={() => setSelectedTone(TONES[2].id)} />
-              <ToneCard tone={TONES[3]} selected={selectedTone === TONES[3].id} onSelect={() => setSelectedTone(TONES[3].id)} />
-            </div>
+          {/* Tone cards — dynamic from starter sounds, or 2×2 fallback grid */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, maxWidth: 683 }}>
+            {tones.map(tone => (
+              <ToneCard
+                key={tone.id}
+                tone={tone}
+                selected={selectedTone === tone.id}
+                onSelect={() => setSelectedTone(tone.id)}
+              />
+            ))}
           </div>
 
           {/* Footer */}

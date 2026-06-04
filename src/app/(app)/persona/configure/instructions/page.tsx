@@ -28,6 +28,7 @@ import {
   getPersonaRepo,
   getVersion,
   setActiveVersion,
+  updateVersion,
   listVersions,
   bustPersonasCache,
 } from '@/lib/api/personas'
@@ -39,6 +40,7 @@ import { getModelLlmId } from '@/lib/model-icons'
 import { TEMPLATE_PRESETS } from '@/app/(app)/personas/_data/template-presets'
 import { pickTemplateAvatar } from '@/lib/persona-template-avatars'
 import { usePersonaConfigure } from '@/app/(app)/persona/configure/context'
+import { setVersionTags } from '@/lib/version-tags'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -489,7 +491,7 @@ function PersonaConfigureInstructionsContent() {
 
   const [repoId,    setRepoId]    = useState(repoIdParam)
   const [versionId, setVersionId] = useState(versionIdParam)
-  const [personaName, setPersonaName] = useState('Persona Name')
+  const [personaName, setPersonaName] = useState('Agent Name')
   const {
     currentInstruction: instruction,
     setInstruction,
@@ -512,12 +514,13 @@ function PersonaConfigureInstructionsContent() {
   const [isSaving,      setIsSaving]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
 
-  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag, setPendingChangeTags, refreshVersions, versions } = usePersonaConfigure()
 
   const [exampleConvOpen, setExampleConvOpen] = useState(false)
   const [exampleConvExpanded, setExampleConvExpanded] = useState(false)
   const [exampleConversations, setExampleConversations] = useState<Array<{ id: string; userSays: string; personaReplies: string }>>([])
   const [republishModalOpen, setRepublishModalOpen] = useState(false)
+  const [leaveConfirmHref, setLeaveConfirmHref] = useState<string | null>(null)
 
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
   const hasInitialisedRef = useRef(false)
@@ -658,17 +661,26 @@ function PersonaConfigureInstructionsContent() {
         // Resolve template preset (if the wizard was started from a template card)
         const templatePreset = wizardTemplate ? (TEMPLATE_PRESETS[wizardTemplate] ?? null) : null
 
-        // Use the template's system instruction, or start empty for blank personas
-        const initialPrompt = templatePreset?.systemInstruction ?? ''
+        // Use the template's system instruction, or the /persona/starter result for blank personas.
+        // The tone wizard page called /persona/starter before navigating here and stored the result.
+        let initialPrompt = templatePreset?.systemInstruction ?? ''
+        if (!initialPrompt && typeof window !== 'undefined') {
+          try {
+            const starterData = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { system_instruction?: string } | null
+            if (starterData?.system_instruction) initialPrompt = starterData.system_instruction
+          } catch { /* ignore */ }
+        }
 
-        // Pick the best model: try to match the template's model hint first, fall back to firstModel
+        // Pick the best model for the backend repo creation (firstModel or template hint),
+        // but leave the UI selector empty so the user explicitly chooses a model.
         let chosenModel = firstModel
         if (templatePreset?.modelHint && fetchedModels.length > 0) {
           const hint = templatePreset.modelHint.toLowerCase()
           const hinted = fetchedModels.find(m => m.modelName.toLowerCase().includes(hint))
           if (hinted) chosenModel = hinted
         }
-        setSelectedModel(chosenModel)
+        // Do NOT pre-select in the UI — user must choose explicitly.
+        setSelectedModel(null)
 
         const chosenModelKey = stableKey(chosenModel) ?? ''
         const repo = await createPersonaRepo({
@@ -688,7 +700,7 @@ function PersonaConfigureInstructionsContent() {
         writePersonaModelCache(newRepoId, chosenModel)
         savedSnapshotRef.current = {
           instruction: initialPrompt,
-          modelId:     chosenModelKey,
+          modelId:     '',
           temperature: 0.5,
         }
 
@@ -795,7 +807,10 @@ function PersonaConfigureInstructionsContent() {
       window.history.replaceState(null, '', `?${params.toString()}`)
 
       savedSnapshotRef.current = { instruction, modelId, temperature }
+      setVersionTags(version.id, pendingChangeTags)
+      setPendingChangeTags([])
       bustPersonasCache()
+      refreshVersions()
 
       toast.success('Version saved')
     } catch (err) {
@@ -806,9 +821,13 @@ function PersonaConfigureInstructionsContent() {
     }
   }
 
-  async function handleSaveVersion() {
+  function handleSaveVersion() {
     if (!canSave) return
-    await executeSave()
+    if (versions.length >= MAX_VERSIONS) {
+      toast.error('Max version limit reached (5). Please delete an older version first.')
+      return
+    }
+    void executeSave()
   }
 
   // ── Publish ───────────────────────────────────────────────────────────────────
@@ -820,9 +839,7 @@ function PersonaConfigureInstructionsContent() {
     setIsPublishing(true)
 
     try {
-      // If the editor has unsaved changes, save them as a new version first so the
-      // published persona always reflects exactly what the user sees in the editor.
-      let publishVersionId = versionId
+      // If dirty, update the current version in place (no new version created)
       if (isDirty && hasContent) {
         const modelId = selectedModel ? stableKey(selectedModel) : null
         if (modelId) {
@@ -834,35 +851,34 @@ function PersonaConfigureInstructionsContent() {
           } else if (imageUrl) {
             preserveImageUrl = imageUrl
           }
-          const version = await createVersion({
+          const updated = await updateVersion({
             repoId,
+            versionId,
             name:        personaName,
             modelId,
             prompt:      instruction,
             temperature,
-            image:       imageFile,
+            image:       imageFile ?? undefined,
             imageUrl:    preserveImageUrl,
           })
-          publishVersionId = version.id
-          setVersionId(version.id)
-          if (version.image_url) setImageUrl(version.image_url)
-          const params = new URLSearchParams(searchParams.toString())
-          params.set('versionId', version.id)
-          window.history.replaceState(null, '', `?${params.toString()}`)
+          if (updated.image_url) setImageUrl(updated.image_url)
           savedSnapshotRef.current = { instruction, modelId, temperature }
+          setVersionTags(versionId, pendingChangeTags)
+          setPendingChangeTags([])
         }
       }
 
       // Make the version live — this is what creates/updates the persona card in the library.
-      await setActiveVersion(repoId, publishVersionId)
+      await setActiveVersion(repoId, versionId)
       bustPersonasCache()
+      refreshVersions()
 
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem(publishedVersionKey(repoId), publishVersionId)
+        sessionStorage.setItem(publishedVersionKey(repoId), versionId)
       }
-      setPublishedVersionId(publishVersionId)
+      setPublishedVersionId(versionId)
 
-      const base = `/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${publishVersionId}`
+      const base = `/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${versionId}`
       push(wasPublished ? `${base}&republished=true` : base)
     } catch (err) {
       console.error('[PersonaConfigure] publish error:', err)
@@ -878,6 +894,16 @@ function PersonaConfigureInstructionsContent() {
     instruction !== savedSnapshotRef.current.instruction ||
     currentModelId !== savedSnapshotRef.current.modelId ||
     temperature !== savedSnapshotRef.current.temperature
+
+  // Auto-detect change tags
+  useEffect(() => {
+    if (!savedSnapshotRef.current) return
+    if (instruction !== savedSnapshotRef.current.instruction) addPendingChangeTag('Instructions')
+  }, [instruction, addPendingChangeTag])
+  useEffect(() => {
+    if (!savedSnapshotRef.current) return
+    if (currentModelId !== savedSnapshotRef.current.modelId || temperature !== savedSnapshotRef.current.temperature) addPendingChangeTag('Model')
+  }, [currentModelId, temperature, addPendingChangeTag])
   const hasContent = instruction.trim().length > 0
 
   // isPublished: current version IS the published one with no pending changes.
@@ -885,7 +911,7 @@ function PersonaConfigureInstructionsContent() {
   const isPublished    = !!publishedVersionId && publishedVersionId === versionId && !isDirty
   const needsRepublish = !!publishedVersionId && (publishedVersionId !== versionId || isDirty)
 
-  const canPublish = hasContent && !!repoId && !!versionId && !isPublishing && !isPublished
+  const canPublish = hasContent && !!repoId && !!versionId && !!selectedModel && !isPublishing && !isPublished
   const canSave    = isDirty && hasContent && !!repoId && !!selectedModel && !isSaving
 
   // Warn the browser when navigating away (tab close / external nav) if there are unpublished changes.
@@ -897,11 +923,11 @@ function PersonaConfigureInstructionsContent() {
   }, [needsRepublish])
 
   function safeNavigate(href: string) {
-    if (needsRepublish && !window.confirm('You have unpublished changes. Leave without publishing?')) return
+    if (needsRepublish) { setLeaveConfirmHref(href); return }
     push(href)
   }
   function safeBack() {
-    if (needsRepublish && !window.confirm('You have unpublished changes. Leave without publishing?')) return
+    if (needsRepublish) { setLeaveConfirmHref('__back__'); return }
     back()
   }
 
@@ -1376,6 +1402,56 @@ function PersonaConfigureInstructionsContent() {
             push('/personas')
           }}
         />
+      )}
+
+      {/* Leave confirmation dialog */}
+      {leaveConfirmHref && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Unsaved changes"
+          onClick={() => setLeaveConfirmHref(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px rgba(0,0,0,0.15)' }}
+          >
+            <p style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 18, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
+              You have unpublished changes
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
+              Your changes haven&apos;t been published yet. What would you like to do?
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <Button variant="outline" size="sm" onClick={() => setLeaveConfirmHref(null)}>
+                Stay
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const href = leaveConfirmHref
+                  setLeaveConfirmHref(null)
+                  if (href === '__back__') back()
+                  else push(href)
+                }}
+              >
+                Leave without publishing
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  setLeaveConfirmHref(null)
+                  handlePublish()
+                }}
+              >
+                Publish & leave
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

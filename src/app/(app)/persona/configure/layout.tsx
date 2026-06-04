@@ -21,6 +21,21 @@ import { ConnectorTogglesPanel } from '@/app/(app)/persona/configure/components/
 import { MessageBubble } from '@/components/MessageBubble'
 import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
 import { PersonaConfigureProvider, usePersonaConfigure } from './context'
+import { getAllVersionTags } from '@/lib/version-tags'
+import { deleteVersion } from '@/lib/api/personas'
+import { toast } from 'sonner'
+
+// ── Tag color map (matches Chip/Pinboard design tokens) ──────────────────────
+
+const TAG_COLORS: Record<string, { bg: string; text: string; shadow: string }> = {
+  Instructions: { bg: 'var(--color-tag-Blue-bg)',    text: 'var(--color-tag-Blue-text)',    shadow: 'var(--color-tag-Blue-shadow)' },
+  Model:        { bg: 'var(--color-tag-Purple-bg)',  text: 'var(--color-tag-Purple-text)',  shadow: 'var(--color-tag-Purple-shadow)' },
+  Profile:      { bg: 'var(--color-tag-Green-bg-soft)', text: 'var(--color-tag-Green-text)', shadow: 'var(--color-tag-Green-shadow)' },
+  Knowledge:    { bg: 'var(--color-tag-Yellow-bg)',  text: 'var(--color-tag-Yellow-text)',  shadow: 'var(--color-tag-Yellow-shadow)' },
+  Connectors:   { bg: 'var(--color-tag-Brown-bg)',   text: 'var(--color-tag-Brown-text)',   shadow: 'var(--color-tag-Brown-shadow)' },
+  Sharing:      { bg: 'var(--color-tag-Red-bg)',     text: 'var(--color-tag-Red-text)',     shadow: 'var(--color-tag-Red-shadow)' },
+}
+const DEFAULT_TAG_COLOR = { bg: 'var(--color-tag-Neutral-bg)', text: 'var(--color-tag-Neutral-text)', shadow: 'var(--color-tag-Neutral-shadow)' }
 
 // ── Floating menu ─────────────────────────────────────────────────────────────
 
@@ -144,7 +159,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
       <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
         {chatMessages.length === 0 ? (
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
-            Hi! I&apos;m your persona. Test me here while you configure.
+            Hi! I&apos;m your agent. Test me here while you configure.
           </p>
         ) : (
           chatMessages.map(msg => (
@@ -196,7 +211,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
           aria-hidden="true"
         />
         <ChatInput
-          placeholder="Test your persona..."
+          placeholder="Test your agent..."
           textareaLabel="Test message"
           modelName={guideModelName}
           hideModelSelector
@@ -256,7 +271,7 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
       <div ref={guideScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
         {guideMessages.length === 0 ? (
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-            Ask me anything about improving your persona — I&apos;ll review your current draft and give you tailored advice.
+            Ask me anything about improving your agent — I&apos;ll review your current draft and give you tailored advice.
           </p>
         ) : (
           guideMessages.map(msg => (
@@ -291,8 +306,27 @@ function VersionsPanel() {
   const {
     personaInfo, setVersionsOpen,
     versions, versionsLoading, restoringId, handleRestoreVersion,
+    pendingChangeTags, refreshVersions,
   } = usePersonaConfigure()
-  const { versionId, personaName } = personaInfo
+  const { versionId, personaName, repoId } = personaInfo
+  // Read all version tags from localStorage (client-only)
+  const allVersionTags = typeof window !== 'undefined' ? getAllVersionTags() : {}
+  const [deletingId, setDeletingId] = React.useState<string | null>(null)
+
+  async function handleDeleteVersion(id: string) {
+    if (!repoId || deletingId) return
+    setDeletingId(id)
+    try {
+      await deleteVersion(repoId, id)
+      toast.success('Version deleted')
+      refreshVersions()
+    } catch (err) {
+      console.error('[VersionsPanel] delete error:', err)
+      toast.error('Failed to delete version')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <m.div
@@ -314,6 +348,34 @@ function VersionsPanel() {
         </div>
         <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close versions" onClick={() => setVersionsOpen(false)} />
       </div>
+
+      {/* ── Pending changes indicator ── */}
+      {pendingChangeTags.length > 0 && (
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 12px', borderRadius: 12, backgroundColor: 'var(--blue-50, #eff6ff)', border: '1px solid var(--blue-200, #bfdbfe)' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--blue-600, #2563eb)', margin: 0, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Unsaved changes</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+            {pendingChangeTags.map(tag => {
+              const c = TAG_COLORS[tag] ?? DEFAULT_TAG_COLOR
+              return (
+                <span
+                  key={tag}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center',
+                    padding: '2px 8px', borderRadius: 6,
+                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px',
+                    color: c.text,
+                    backgroundColor: c.bg,
+                    boxShadow: c.shadow,
+                  }}
+                >
+                  {tag}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 4 }}>
         {versionsLoading ? (
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0 }}>Loading…</p>
@@ -325,9 +387,10 @@ function VersionsPanel() {
           const isCurrent = v.id === versionId
           const vNum      = versions.length - i
           const vLabel    = `v${String(vNum).padStart(3, '0')}`
-          const handle    = v.handler ? `@${v.handler}·${vLabel}` : vLabel
+          const handle    = v.handler ? `@${v.handler}\u00b7${vLabel}` : vLabel
           const dateStr   = formatVersionDate(v.created_at)
           const initials  = nameInitials(v.name || personaName)
+          const changeTags = allVersionTags[v.id] ?? []
           return (
             <div
               key={v.id}
@@ -356,22 +419,59 @@ function VersionsPanel() {
                   </p>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', width: '100%', gap: 8 }}>
+                {/* Change tags */}
+                {changeTags.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 0', minWidth: 0 }}>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>Changes</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {changeTags.map(tag => {
+                        const c = TAG_COLORS[tag] ?? DEFAULT_TAG_COLOR
+                        return (
+                          <span
+                            key={tag}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center',
+                              padding: '2px 7px', borderRadius: 6,
+                              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px',
+                              color: c.text,
+                              backgroundColor: c.bg,
+                              boxShadow: c.shadow,
+                            }}
+                          >
+                            {tag}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : <div style={{ flex: '1 1 0' }} />}
                 {isCurrent ? (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 8px 6px', borderRadius: 8, flexShrink: 0, cursor: 'default', background: 'linear-gradient(180deg, #524b47 0%, #26211e 100%)', boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)', position: 'relative' }}>
                     <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none', boxShadow: 'inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)' }} />
                     <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#f7f2ed', whiteSpace: 'nowrap', textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)' }}>Current</span>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => handleRestoreVersion(v.id)}
-                    disabled={!!restoringId}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: restoringId ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', opacity: restoringId ? 0.5 : 1, transition: 'opacity 150ms' }}
-                  >
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', whiteSpace: 'nowrap' }}>
-                      {restoringId === v.id ? 'Restoring…' : 'Restore'}
-                    </span>
-                  </button>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <button
+                      onClick={() => handleDeleteVersion(v.id)}
+                      disabled={!!deletingId || !!restoringId}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: (deletingId || restoringId) ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(220,38,38,0.4)', opacity: (deletingId || restoringId) ? 0.5 : 1, transition: 'opacity 150ms' }}
+                    >
+                      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-600, #dc2626)', whiteSpace: 'nowrap' }}>
+                        {deletingId === v.id ? 'Deleting…' : 'Delete'}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => handleRestoreVersion(v.id)}
+                      disabled={!!restoringId || !!deletingId}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: (restoringId || deletingId) ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', opacity: (restoringId || deletingId) ? 0.5 : 1, transition: 'opacity 150ms' }}
+                    >
+                      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', whiteSpace: 'nowrap' }}>
+                        {restoringId === v.id ? 'Restoring…' : 'Restore'}
+                      </span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

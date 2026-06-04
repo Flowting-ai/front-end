@@ -5,6 +5,7 @@ import {
   PERSONAS_ENDPOINT,
   PERSONA_DETAIL_ENDPOINT,
   PERSONA_ENHANCE_ENDPOINT,
+  PERSONA_STARTER_ENDPOINT,
   PERSONA_PAUSE_ENDPOINT,
   PERSONA_ACTIVE_ENDPOINT,
   PERSONA_GUIDE_ENDPOINT,
@@ -78,6 +79,23 @@ export interface EnhancePromptResponse {
   enhanced_prompt: string;
   dos: string[];
   donts: string[];
+}
+
+export interface PersonaStarterRequest {
+  name: string;
+  description: string;
+}
+
+export interface PersonaStarterSound {
+  name: string;
+  description: string;
+}
+
+export interface PersonaStarterResponse {
+  system_instruction: string;
+  /** Currently a single sound object; will become an array in a future API version. */
+  sound: PersonaStarterSound | PersonaStarterSound[];
+  persona_tags: string[];
 }
 
 // ── Normalised frontend type ──────────────────────────────────────────────────
@@ -339,6 +357,22 @@ export async function setVersionConnectors(
       body: JSON.stringify({ connector_slugs: connectorSlugs }),
     },
   );
+}
+
+// ── Persona starter ────────────────────────────────────────────────────────────
+
+/**
+ * POST /persona/starter
+ * Generate a starting system instruction, sound, and tags from a persona's
+ * name + description. Nothing is saved — the FE uses this to seed the editor.
+ */
+export async function personaStarter(
+  params: PersonaStarterRequest,
+): Promise<PersonaStarterResponse> {
+  return apiFetchJson<PersonaStarterResponse>(PERSONA_STARTER_ENDPOINT, {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
 }
 
 // ── Enhance prompt ────────────────────────────────────────────────────────────

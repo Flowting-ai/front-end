@@ -144,7 +144,7 @@ function BrainThreadsPageInner() {
         onNewChat={() => push('/brain')}
         onBrainClick={() => push('/brain/threads')}
         onChatsClick={() => { toast.info("Opening Chat Board"); push('/chats') }}
-        onPersonasClick={() => { toast.info("Opening Personas"); push('/personas') }}
+        onPersonasClick={() => { toast.info("Opening Agents"); push('/personas') }}
         onProjectsClick={() => { toast.info("Opening Projects"); push('/projects') }}
         accountMenu={(collapsed) => (
           <AccountMenu

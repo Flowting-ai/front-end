@@ -288,7 +288,7 @@ function synthesizeContextFromMessages(
     const resolvedName = pick.label || p?.name
     persona = {
       persona_id: pick.id,
-      name:       resolvedName || 'Persona',
+      name:       resolvedName || 'Agent',
       // Only emit a handle when we actually resolved a name — a raw id slice
       // ("@0c72c3e6") is meaningless to the user, so leave it blank otherwise.
       handler:    resolvedName ? resolvedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '',
@@ -2814,7 +2814,7 @@ function BrainPageInner() {
                     onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
                   />
                 ))
-              : <Dropdown.Item label="No personas yet" fluid disabled />
+              : <Dropdown.Item label="No agents yet" fluid disabled />
           }
         </Dropdown.Section>
       </Dropdown>
@@ -2989,7 +2989,7 @@ function BrainPageInner() {
         newChatLabel:    'New brain thread',
         onNewChat:       handleNewChat,
         onChatsClick:    () => { toast.info("Opening Chat Board"); push('/chats') },
-        onPersonasClick: () => { toast.info("Opening Personas"); push('/personas') },
+        onPersonasClick: () => { toast.info("Opening Agents"); push('/personas') },
         onProjectsClick: () => { toast.info("Opening Projects"); push('/projects') },
         onBrainClick:    () => push('/brain/threads'),
         accountMenu: (collapsed) => (

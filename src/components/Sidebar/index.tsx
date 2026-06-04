@@ -690,12 +690,12 @@ export function Sidebar({
                 onClick={() => { onSelectSection('chat-board'); onChatsClick?.() }}
               />
             </Tooltip>
-            <Tooltip content="Personas" side="right" disabled={!isCollapsed}>
+            <Tooltip content="Agents" side="right" disabled={!isCollapsed}>
               <SidebarMenuItem
                 {...(isCollapsed ? { collapsed: true } : { fluid: true })}
                 variant="default"
                 icon={<UserAiIcon size={20} />}
-                label="Persona"
+                label="Agents"
                 selected={selectedItem === 'persona'}
                 onClick={() => { onSelectSection('persona'); onPersonasClick?.() }}
               />

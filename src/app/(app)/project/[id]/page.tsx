@@ -369,7 +369,7 @@ export default function ProjectPage() {
                                     onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
                                   />
                                 ))
-                              : <Dropdown.Item label="No personas yet" fluid disabled />
+                              : <Dropdown.Item label="No agents yet" fluid disabled />
                           }
                         </Dropdown.Section>
                       </Dropdown>

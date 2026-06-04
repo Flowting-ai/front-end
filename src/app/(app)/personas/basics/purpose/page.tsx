@@ -62,7 +62,7 @@ function PurposePageContent() {
             fontFamily: 'var(--font-title)', fontWeight: 400,
             fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0,
           }}>
-            What should this persona do?
+            What should this agent do?
           </p>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 400,

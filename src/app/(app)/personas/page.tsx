@@ -257,7 +257,7 @@ function DeleteDialog({ name, onConfirm, onCancel }: { name: string; onConfirm: 
         gap: 16,
         boxShadow: '0px 20px 40px rgba(0,0,0,0.15)',
       }}>
-        <h2 style={{ fontFamily: 'var(--font-title)', fontSize: 20, fontWeight: 400, color: 'var(--neutral-900)', margin: 0 }}>Delete Persona</h2>
+        <h2 style={{ fontFamily: 'var(--font-title)', fontSize: 20, fontWeight: 400, color: 'var(--neutral-900)', margin: 0 }}>Delete Agent</h2>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600)', margin: 0 }}>
           Are you sure you want to delete &ldquo;{name}&rdquo;? This action cannot be undone.
         </p>
@@ -550,14 +550,14 @@ export default function PersonasPage() {
                 color: '#1a1916',
                 margin: 0,
               }}>
-                Persona
+                Agents
               </h1>
               <Button
                 variant="default"
                 leftIcon={<PlusSignIcon size={16} />}
                 onClick={() => push('/personas/templates')}
               >
-                New persona
+                New agent
               </Button>
             </div>
 
@@ -565,7 +565,7 @@ export default function PersonasPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
                 <Tabs.List>
-                  <Tabs.Trigger value="my-personas">My Personas ({personas.length})</Tabs.Trigger>
+                  <Tabs.Trigger value="my-personas">My Agents ({personas.length})</Tabs.Trigger>
                   <Tabs.Trigger value="shared" disabled>Shared</Tabs.Trigger>
                   <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
                   {/* Disabled community section for now since we don't have a real source of recommended personas yet, and it was causing confusion having the mock data visible in the UI */}
@@ -613,7 +613,7 @@ export default function PersonasPage() {
                       type="text"
                       value={search}
                       onChange={e => setSearch(e.target.value)}
-                      placeholder="Search persona"
+                      placeholder="Search agent"
                       style={{
                         flex: '1 0 0',
                         border: 'none',
@@ -747,7 +747,7 @@ export default function PersonasPage() {
                       textAlign: 'center',
                       margin: 0,
                     }}>
-                      No personas matching &ldquo;{search}&rdquo;
+                      No agents matching &ldquo;{search}&rdquo;
                     </p>
                   </div>
                 ) : (
@@ -769,7 +769,7 @@ export default function PersonasPage() {
                         margin: 0,
                         whiteSpace: 'nowrap',
                       }}>
-                        No personas yet
+                        No agents yet
                       </p>
                       <p style={{
                         fontFamily: 'var(--font-body)',
@@ -781,11 +781,11 @@ export default function PersonasPage() {
                         maxWidth: 427,
                         margin: 0,
                       }}>
-                        Personas are your custom AI configurations - define behavior, connect knowledge, and share via link.
+                        Agents are your custom AI configurations - define behavior, connect knowledge, and share via link.
                       </p>
                     </div>
                     <Button variant="default" onClick={() => push('/personas/templates')}>
-                      Create your first persona
+                      Create your first agent
                     </Button>
                   </div>
                 )
@@ -859,7 +859,7 @@ export default function PersonasPage() {
                   padding: '0 16px',
                   gap: 12,
                 }}>
-                  {(['Persona', 'Status', 'Token budget'] as const).map(col => (
+                  {(['Agent', 'Status', 'Token budget'] as const).map(col => (
                     <span key={col} style={{
                       fontFamily: 'var(--font-body)',
                       fontSize: 'var(--font-size-caption)',

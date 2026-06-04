@@ -67,6 +67,7 @@ export const PERSONAS_ENDPOINT = withBase("/persona");
 export const PERSONA_DETAIL_ENDPOINT = (repoId: string) =>
   withBase(`/persona/${repoId}`);
 export const PERSONA_ENHANCE_ENDPOINT = withBase("/persona/enhance-prompt");
+export const PERSONA_STARTER_ENDPOINT = withBase("/persona/starter");
 export const PERSONA_PAUSE_ENDPOINT = (repoId: string) =>
   withBase(`/persona/${repoId}/pause`);
 export const PERSONA_ACTIVE_ENDPOINT = (repoId: string) =>

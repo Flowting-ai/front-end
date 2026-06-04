@@ -23,6 +23,7 @@ import {
 } from '@/lib/api/personas'
 import RepublishModal from '@/app/(app)/persona/configure/components/RepublishModal'
 import { usePersonaConfigure } from '@/app/(app)/persona/configure/context'
+import { setVersionTags } from '@/lib/version-tags'
 
 function publishedVersionKey(repoId: string) {
   return `persona_live_version_${repoId}`
@@ -69,7 +70,7 @@ function PersonaConfigureKnowledgeContent() {
   const versionId = searchParams.get('versionId') ?? ''
   const personaName = searchParams.get('name') ?? ''
 
-  const { anyPanelOpen, updatePersonaInfo } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions } = usePersonaConfigure()
 
   const [isSaving,             setIsSaving]             = useState(false)
   const [isPublishing,         setIsPublishing]         = useState(false)
@@ -272,7 +273,7 @@ function PersonaConfigureKnowledgeContent() {
         toast.error(`Failed to upload ${rawFiles[i].name}`)
       }
     })
-    if (anyUploaded) setIsDirty(true)
+    if (anyUploaded) { setIsDirty(true); addPendingChangeTag('Knowledge') }
   }
 
   // ── Preview a file ─────────────────────────────────────────────────────────
@@ -320,6 +321,7 @@ function PersonaConfigureKnowledgeContent() {
       setFiles(docsToFilesWithSizes(updatedVersion))
       toast.success(`Removed "${file.name}"`)
       setIsDirty(true)
+      addPendingChangeTag('Knowledge')
     } catch (err) {
       console.error('[KnowledgePage] delete error:', err)
       setFiles(prev => [...prev, file])   // restore optimistic removal
@@ -335,6 +337,9 @@ function PersonaConfigureKnowledgeContent() {
     try {
       await updateVersion({ repoId, versionId, name: personaName || undefined })
       setIsDirty(false)
+      setVersionTags(versionId, pendingChangeTags)
+      setPendingChangeTags([])
+      refreshVersions()
       toast.success('Version saved')
     } catch (err) {
       console.error('[KnowledgePage] save error:', err)
@@ -510,7 +515,7 @@ function PersonaConfigureKnowledgeContent() {
 
       {republishModalOpen && (
         <RepublishModal
-          personaName={personaName || 'Persona'}
+          personaName={personaName || 'Agent'}
           superLinkActive={false}
           onClose={() => setRepublishModalOpen(false)}
           onDone={() => { setRepublishModalOpen(false); push('/personas') }}

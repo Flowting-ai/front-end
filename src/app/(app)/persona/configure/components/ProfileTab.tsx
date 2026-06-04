@@ -29,28 +29,18 @@ async function compressImage(file: File, maxW: number, maxH: number, quality: nu
   });
 }
 
-const TAG_COLORS: Record<string, { bg: string; border: string; text: string; innerShadow: string }> = {
-  Internal: {
-    bg: "#cadcf1",
-    border: "rgba(13,110,178,0.5)",
-    text: "#135487",
-    innerShadow: "inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)",
-  },
-  Legal: {
-    bg: "#e9dfc9",
-    border: "rgba(143,116,39,0.5)",
-    text: "#6d5921",
-    innerShadow: "inset 0px 1px 0px 0px rgba(250,246,235,0.7), inset 0px -1px 0px 0px rgba(143,116,39,0.1)",
-  },
-};
+const PROFILE_TAG_PALETTE = [
+  { bg: 'var(--color-tag-Blue-bg)',       text: 'var(--color-tag-Blue-text)',    shadow: 'var(--color-tag-Blue-shadow)',    innerShadow: 'var(--color-tag-Blue-inner-shadow)' },
+  { bg: 'var(--color-tag-Purple-bg)',     text: 'var(--color-tag-Purple-text)',  shadow: 'var(--color-tag-Purple-shadow)',  innerShadow: 'var(--color-tag-Purple-inner-shadow)' },
+  { bg: 'var(--color-tag-Green-bg-soft)', text: 'var(--color-tag-Green-text)',   shadow: 'var(--color-tag-Green-shadow)',   innerShadow: 'var(--color-tag-Green-inner-shadow)' },
+  { bg: 'var(--color-tag-Yellow-bg)',     text: 'var(--color-tag-Yellow-text)',  shadow: 'var(--color-tag-Yellow-shadow)',  innerShadow: 'var(--color-tag-Yellow-inner-shadow)' },
+  { bg: 'var(--color-tag-Brown-bg)',      text: 'var(--color-tag-Brown-text)',   shadow: 'var(--color-tag-Brown-shadow)',   innerShadow: 'var(--color-tag-Brown-inner-shadow)' },
+  { bg: 'var(--color-tag-Red-bg)',        text: 'var(--color-tag-Red-text)',     shadow: 'var(--color-tag-Red-shadow)',     innerShadow: 'var(--color-tag-Red-inner-shadow)' },
+  { bg: 'var(--color-tag-Neutral-bg)',    text: 'var(--color-tag-Neutral-text)', shadow: 'var(--color-tag-Neutral-shadow)', innerShadow: 'var(--color-tag-Neutral-inner-shadow)' },
+] as const
 
-function defaultTagColor() {
-  return {
-    bg: "#ede1d7",
-    border: "rgba(106,98,93,0.5)",
-    text: "#524b47",
-    innerShadow: "inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)",
-  };
+function getTagColor(index: number) {
+  return PROFILE_TAG_PALETTE[index % PROFILE_TAG_PALETTE.length]
 }
 
 type ProfileTabProps = {
@@ -389,8 +379,8 @@ export default function ProfileTab({
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47", margin: 0 }}>Tags</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", padding: "8px 6px" }}>
-          {personaTags.map((tag) => {
-            const color = TAG_COLORS[tag] ?? defaultTagColor();
+          {personaTags.map((tag, idx) => {
+            const color = getTagColor(idx);
             return (
               <span
                 key={tag}
@@ -405,7 +395,7 @@ export default function ProfileTab({
                   fontWeight: 500,
                   backgroundColor: color.bg,
                   color: color.text,
-                  boxShadow: `0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px ${color.border}, ${color.innerShadow}`,
+                  boxShadow: color.shadow,
                 }}
               >
                 <button

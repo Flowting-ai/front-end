@@ -14,6 +14,7 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import ConnectorsTab from '@/app/(app)/persona/configure/components/ConnectorsTab'
 import { usePersonaConfigure } from '@/app/(app)/persona/configure/context'
+import { setVersionTags } from '@/lib/version-tags'
 
 function publishedVersionKey(repoId: string) {
   return `persona_live_version_${repoId}`
@@ -40,7 +41,7 @@ function PersonaConfigureConnectorsContent() {
   const repoId      = searchParams.get('repoId')    ?? ''
   const versionId   = searchParams.get('versionId') ?? ''
 
-  const { anyPanelOpen, updatePersonaInfo } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions } = usePersonaConfigure()
   const [isSaving,           setIsSaving]           = useState(false)
   const [isPublishing,       setIsPublishing]       = useState(false)
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
@@ -77,9 +78,13 @@ function PersonaConfigureConnectorsContent() {
 
   async function handleSaveVersion() {
     if (!repoId || !versionId) return
+    addPendingChangeTag('Connectors')
     setIsSaving(true)
     try {
       await updateVersion({ repoId, versionId, name: personaName || undefined })
+      setVersionTags(versionId, [...pendingChangeTags, 'Connectors'].filter((v, i, a) => a.indexOf(v) === i))
+      setPendingChangeTags([])
+      refreshVersions()
       toast.success('Version saved')
     } catch (err) {
       console.error('[ConnectorsPage] save error:', err)

@@ -20,6 +20,7 @@ import {
   bustPersonasCache,
 } from '@/lib/api/personas'
 import { usePersonaConfigure } from '@/app/(app)/persona/configure/context'
+import { setVersionTags } from '@/lib/version-tags'
 
 function publishedVersionKey(repoId: string) {
   return `persona_live_version_${repoId}`
@@ -62,7 +63,7 @@ function PersonaConfigureProfileContent() {
   }
 
   const [currentPrompt,      setCurrentPrompt]      = useState('')
-  const { anyPanelOpen, updatePersonaInfo } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions } = usePersonaConfigure()
 
   const [isSaving,             setIsSaving]             = useState(false)
   const [isPublishing,         setIsPublishing]         = useState(false)
@@ -93,7 +94,18 @@ function PersonaConfigureProfileContent() {
     }
     return ''
   })
-  const [personaTags,        setPersonaTags]        = useState<string[]>(() => { const d = loadDraft(); return (d?.personaTags as string[]) ?? ['Internal', 'Legal'] })
+  const [personaTags,        setPersonaTags]        = useState<string[]>(() => {
+    const d = loadDraft()
+    if (d?.personaTags) return d.personaTags as string[]
+    // Seed tags from the /persona/starter result stored by the tone wizard page
+    if (typeof window !== 'undefined') {
+      try {
+        const starter = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { persona_tags?: string[] } | null
+        if (starter?.persona_tags?.length) return starter.persona_tags
+      } catch { /* ignore */ }
+    }
+    return []
+  })
   const [isMultilingual,     setIsMultilingual]     = useState<boolean>(() => { const d = loadDraft(); return (d?.isMultilingual as boolean) ?? false })
   const [selectedLanguages,  setSelectedLanguages]  = useState<Set<string>>(() => {
     const d = loadDraft()
@@ -116,7 +128,7 @@ function PersonaConfigureProfileContent() {
   useEffect(() => {
     if (!repoId) { isInitializedRef.current = true; setIsInitialized(true); return }
 
-    // Wizard purpose has been consumed into state — clean up the one-shot key
+    // Clean up one-shot wizard keys
     try { sessionStorage.removeItem(`persona_wizard_purpose_${repoId}`) } catch { /* ignore */ }
 
     // If the user already has meaningful profile data saved, skip overwriting text fields
@@ -133,19 +145,20 @@ function PersonaConfigureProfileContent() {
         const v = repo.active_version
         // Always refresh avatar — draft may have been set from text fields only, leaving avatar null
         if (v?.image_url && !avatarUrl) setAvatarUrl(v.image_url)
-        if (hasMeaningfulDraft) {
-          // Text fields are already correct from the draft — just finish initializing
-          isInitializedRef.current = true; setIsInitialized(true); return
+        if (!hasMeaningfulDraft) {
+          // No meaningful draft — overwrite all fields with real API data
+          setPersonaName(repo.name || 'Persona Name')
+          if (v?.handler)   setPersonaHandle(`@${v.handler}`)
+          if (v?.image_url) setAvatarUrl(v.image_url)
+          // Use the prompt as description only if it's short enough — on a brand-new
+          // persona the prompt is just the one-sentence wizard purpose.
+          if (v?.prompt && v.prompt.trim().length <= 120) {
+            setPersonaDescription(v.prompt.trim())
+          }
         }
-        // No meaningful draft — overwrite all fields with real API data
-        setPersonaName(repo.name || 'Persona Name')
-        if (v?.handler)   setPersonaHandle(`@${v.handler}`)
-        if (v?.image_url) setAvatarUrl(v.image_url)
-        // Use the prompt as description only if it's short enough — on a brand-new
-        // persona the prompt is just the one-sentence wizard purpose.
-        if (v?.prompt && v.prompt.trim().length <= 120) {
-          setPersonaDescription(v.prompt.trim())
-        }
+        // Tags were already seeded from persona_wizard_starter in the useState initializer.
+        // Clear it now so stale data doesn’t bleed into the next wizard run.
+        try { sessionStorage.removeItem('persona_wizard_starter') } catch { /* ignore */ }
       })
       .catch(err => console.error('[ProfilePage] API load error:', err))
       .finally(() => { isInitializedRef.current = true; setIsInitialized(true) })
@@ -197,6 +210,7 @@ function PersonaConfigureProfileContent() {
   function markDirty() {
     if (!isInitializedRef.current) return
     if (!isDirtyRef.current) { isDirtyRef.current = true; setIsDirty(true) }
+    addPendingChangeTag('Profile')
   }
 
   function safeNavigate(href: string) {
@@ -226,6 +240,9 @@ function PersonaConfigureProfileContent() {
       })
       isDirtyRef.current = false
       setIsDirty(false)
+      setVersionTags(versionId, pendingChangeTags)
+      setPendingChangeTags([])
+      refreshVersions()
       toast.success('Profile saved')
     } catch (err) {
       console.error('[ProfilePage] save error:', err)

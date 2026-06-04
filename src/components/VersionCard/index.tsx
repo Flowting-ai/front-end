@@ -69,7 +69,7 @@ export function VersionCard({
     const Comp      = (asChild ? Slot : 'div') as React.ElementType
     const isCurrent = variant === 'default'
     const badgeColor: BadgeColor = isCurrent ? 'Blue' : 'Neutral'
-    const resolvedAlt = avatarAlt ?? (personaName ? `${personaName} avatar` : 'Persona avatar')
+    const resolvedAlt = avatarAlt ?? (personaName ? `${personaName} avatar` : 'Agent avatar')
 
     return (
       <Comp

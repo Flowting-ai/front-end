@@ -6,6 +6,7 @@ import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 import { TEMPLATE_PRESETS } from '../../_data/template-presets'
+import { personaStarter } from '@/lib/api/personas'
 
 // ── Session-storage key (shared across wizard pages) ─────────────────────────
 
@@ -43,11 +44,35 @@ function NamePageContent() {
     return qs ? `?${qs}` : ''
   }
 
-  function handleContinue() {
+  const [isLoading, setIsLoading] = useState(false)
+
+  function saveName() {
     try {
       const existing = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
       sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ ...existing, name }))
     } catch { /* ignore */ }
+  }
+
+  async function handleContinue() {
+    if (!name.trim() || isLoading) return
+    saveName()
+
+    // Call /persona/starter now so the result is ready before the instructions
+    // page mounts. We read name + purpose from the wizard draft.
+    setIsLoading(true)
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+      const description = (draft.purpose as string | undefined) ?? ''
+      const starter = await personaStarter({ name: name.trim(), description })
+      try {
+        sessionStorage.setItem('persona_wizard_starter', JSON.stringify(starter))
+      } catch { /* storage quota — ignore */ }
+    } catch {
+      // Non-critical — instructions page will start blank if call fails
+    } finally {
+      setIsLoading(false)
+    }
+
     push(`/personas/basics/tone${buildQuery()}`)
   }
 
@@ -122,7 +147,7 @@ function NamePageContent() {
               variant="outline"
               size="sm"
               leftIcon={<ArrowLeftOneIcon size={16} />}
-              onClick={() => push(`/personas/basics/purpose${buildQuery()}`)}
+              onClick={() => { saveName(); push(`/personas/basics/purpose${buildQuery()}`) }}
             >
               Back
             </Button>
@@ -131,7 +156,8 @@ function NamePageContent() {
               variant="default"
               size="sm"
               rightIcon={<ArrowRightOneIcon size={16} />}
-              disabled={name.trim().length === 0}
+              disabled={name.trim().length === 0 || isLoading}
+              loading={isLoading}
               onClick={handleContinue}
             >
               Continue

@@ -431,7 +431,7 @@ function ProjectChatPageInner() {
               personaImage={selectedPersona.imageUrl ?? undefined}
               onRemove={() => setSelectedPersona(null)}
               onExpand={() => setPersonaChipOpen(v => !v)}
-              title={!personaApplied ? "Persona model is active — system instructions apply to new chats only" : undefined}
+              title={!personaApplied ? "Agent model is active — system instructions apply to new chats only" : undefined}
               style={!personaApplied ? { opacity: 0.65 } : undefined}
             />
           }
@@ -450,7 +450,7 @@ function ProjectChatPageInner() {
                         onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
                       />
                     ))
-                  : <Dropdown.Item label="No personas yet" fluid disabled />
+                  : <Dropdown.Item label="No agents yet" fluid disabled />
               }
             </Dropdown.Section>
           </Dropdown>

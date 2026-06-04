@@ -134,7 +134,7 @@ function PersonaSearchInput({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Search your persona..."
+        placeholder="Search your agent..."
         autoComplete="off"
         spellCheck={false}
         style={{

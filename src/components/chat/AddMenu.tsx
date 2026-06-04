@@ -139,7 +139,7 @@ export function ChatAddMenu({
             placement="right-start"
             trigger={
               <Dropdown.Item
-                label="Add persona"
+                label="Add agent"
                 icon={<UserAiIcon />}
                 fluid
                 rightIcon={<ArrowRightOneIcon />}
@@ -164,7 +164,7 @@ export function ChatAddMenu({
                           }}
                         />
                       ))
-                    : <Dropdown.Item label="No personas yet" fluid disabled />
+                    : <Dropdown.Item label="No agents yet" fluid disabled />
                 }
               </Dropdown.Section>
             </Dropdown>

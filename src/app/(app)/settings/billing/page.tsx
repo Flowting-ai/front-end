@@ -672,7 +672,7 @@ export default function BillingPage() {
                   Monthly Limits
                 </p>
                 <UsageRow label="Chat Board"    used={chatCredits}    total={creditsTotal} value={`${fmtNum(chatCredits)} / ${fmtNum(creditsTotal)}`} />
-                <UsageRow label="AI Assistants" used={personaCredits} total={creditsTotal} value={`${fmtNum(personaCredits)} / ${fmtNum(creditsTotal)}`} />
+                <UsageRow label="AI Agents" used={personaCredits} total={creditsTotal} value={`${fmtNum(personaCredits)} / ${fmtNum(creditsTotal)}`} />
                 <UsageRow label="Brain"          used={brainCredits}   total={creditsTotal} value={`${fmtNum(brainCredits)} / ${fmtNum(creditsTotal)}`} />
               </div>
             </SectionCard>

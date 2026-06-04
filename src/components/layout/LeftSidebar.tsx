@@ -45,7 +45,7 @@ interface NavPage {
 const NAV_PAGES: NavPage[] = [
   { id: "page-chats",      title: "Chat Board",      subtitle: "All chats",      route: "/chats",               keywords: "chats history conversations board recents" },
   { id: "page-projects",   title: "Projects",        subtitle: "Workspaces",     route: "/projects",            keywords: "projects folders workspaces" },
-  { id: "page-personas",   title: "Personas",        subtitle: "AI agents",      route: "/personas",            keywords: "personas agents assistants bots ai" },
+  { id: "page-personas",   title: "Agents",          subtitle: "AI agents",      route: "/personas",            keywords: "personas agents assistants bots ai" },
   { id: "page-brain",      title: "Brain",           subtitle: "Knowledge",      route: "/brain",               keywords: "brain knowledge agent memory context" },
   { id: "page-schedules",  title: "Schedules",       subtitle: "Brain",          route: "/brain/schedules",     keywords: "schedules scheduled tasks automation cron jobs brain" },
   { id: "page-account",    title: "Account",         subtitle: "Settings",       route: "/settings/account",    keywords: "account profile settings me user" },
@@ -779,7 +779,7 @@ function PersonasSectionAll() {
       <SidebarMenuItem
         fluid
         variant="header"
-        label="Personas"
+        label="Agents"
         shown={shown}
         onShowClick={() => setShown(s => !s)}
       />
@@ -805,7 +805,7 @@ function PersonasSectionAll() {
                 color:      "var(--neutral-400)",
               }}
             >
-              No personas yet
+              No agents yet
             </div>
           )}
 
@@ -1127,7 +1127,7 @@ function LeftSidebarImpl({
       onSearch={() => setSearchOpen(true)}
       onChatsClick={() => { toast.info("Opening Chat Board"); push("/chats") }}
       onProjectsClick={() => { toast.info("Opening Projects"); push("/projects") }}
-      onPersonasClick={() => { toast.info("Opening Personas"); push("/personas") }}
+      onPersonasClick={() => { toast.info("Opening Agents"); push("/personas") }}
       onBrainClick={() => { toast.info("Opening Brain"); push("/brain/threads") }}
       accountMenu={(collapsed) => (
         <AccountMenu

@@ -84,7 +84,7 @@ function ShareAcceptContent() {
     try {
       const result = await acceptShare(params.id)
       setState('accepted')
-      toast.success(`"${result.name}" added to your personas`)
+      toast.success(`"${result.name}" added to your agents`)
       // Navigate to the new persona's instructions page
       setTimeout(() => {
         push(
@@ -96,12 +96,12 @@ function ShareAcceptContent() {
         if (err.status === 410) {
           setState('expired')
         } else if (err.status === 402) {
-          toast.error('This share has no credits remaining — the persona can no longer be accepted.')
+          toast.error('This share has no credits remaining — the agent can no longer be accepted.')
         } else {
           toast.error(err.message)
         }
       } else {
-        toast.error('Failed to accept persona. Please try again.')
+        toast.error('Failed to accept agent. Please try again.')
       }
     } finally {
       setIsAccepting(false)
@@ -207,8 +207,8 @@ function ShareAcceptContent() {
           >
             ✓
           </div>
-          <p style={headingStyle}>Persona added!</p>
-          <p style={subtextStyle}>Redirecting to your new persona…</p>
+          <p style={headingStyle}>Agent added!</p>
+          <p style={subtextStyle}>Redirecting to your new agent…</p>
         </div>
       </div>
     )
@@ -356,7 +356,7 @@ function ShareAcceptContent() {
             margin: 0,
           }}
         >
-          Accepting adds a copy of this persona to your account. Usage is billed to the sharer up to their credit limit — you won&apos;t be charged.
+          Accepting adds a copy of this agent to your account. Usage is billed to the sharer up to their credit limit — you won&apos;t be charged.
         </p>
       </div>
 
@@ -372,7 +372,7 @@ function ShareAcceptContent() {
           loading={isAccepting}
           disabled={isAccepting}
         >
-          Accept &amp; copy persona
+          Accept &amp; copy agent
         </Button>
       </div>
     </div>

@@ -14,6 +14,7 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import SharingTab from '@/app/(app)/persona/configure/components/SharingTab'
 import { usePersonaConfigure } from '@/app/(app)/persona/configure/context'
+import { setVersionTags } from '@/lib/version-tags'
 
 function publishedVersionKey(repoId: string) {
   return `persona_live_version_${repoId}`
@@ -46,7 +47,7 @@ function PersonaConfigureSharingContent() {
   const [isPublishing,       setIsPublishing]       = useState(false)
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
 
-  const { anyPanelOpen, updatePersonaInfo } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions } = usePersonaConfigure()
 
   useEffect(() => {
     if (!repoId) return
@@ -80,9 +81,13 @@ function PersonaConfigureSharingContent() {
 
   async function handleSaveVersion() {
     if (!repoId || !versionId) return
+    addPendingChangeTag('Sharing')
     setIsSaving(true)
     try {
       await updateVersion({ repoId, versionId, name: personaName || undefined })
+      setVersionTags(versionId, [...pendingChangeTags, 'Sharing'].filter((v, i, a) => a.indexOf(v) === i))
+      setPendingChangeTags([])
+      refreshVersions()
       toast.success('Version saved')
     } catch (err) {
       console.error('[SharingPage] save error:', err)
