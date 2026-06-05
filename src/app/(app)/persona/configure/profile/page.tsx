@@ -12,7 +12,6 @@ import { IconButton } from '@/components/IconButton'
 import { toast } from 'sonner'
 import ProfileTab from '@/app/(app)/persona/configure/components/ProfileTab'
 import RepublishModal from '@/app/(app)/persona/configure/components/RepublishModal'
-import { DEFAULT_LANGUAGE } from '@/app/(app)/personas/new/constants'
 import {
   getPersonaRepo, updateVersion, setActiveVersion,
   getVersion,
@@ -105,12 +104,6 @@ function PersonaConfigureProfileContent() {
     }
     return []
   })
-  const [isMultilingual,     setIsMultilingual]     = useState<boolean>(() => { const d = loadDraft(); return (d?.isMultilingual as boolean) ?? false })
-  const [selectedLanguages,  setSelectedLanguages]  = useState<Set<string>>(() => {
-    const d = loadDraft()
-    const arr = d?.selectedLanguages as string[] | undefined
-    return arr ? new Set(arr) : new Set([DEFAULT_LANGUAGE])
-  })
 
   // Gate auto-save so we never persist placeholder defaults before the API has
   // had a chance to load the real persona data.
@@ -176,11 +169,9 @@ function PersonaConfigureProfileContent() {
         personaHandle,
         personaDescription,
         personaTags,
-        isMultilingual,
-        selectedLanguages: [...selectedLanguages],
       }))
     } catch { /* storage quota exceeded — ignore */ }
-  }, [PROFILE_KEY, avatarUrl, personaName, personaHandle, personaDescription, personaTags, isMultilingual, selectedLanguages])
+  }, [PROFILE_KEY, avatarUrl, personaName, personaHandle, personaDescription, personaTags])
 
   useEffect(() => {
     if (!repoId || !versionId) return
@@ -252,11 +243,14 @@ function PersonaConfigureProfileContent() {
     const wasPublished = !!storedLiveId
     setIsPublishing(true)
     try {
-      let imageFile: File | undefined
-      if (avatarUrl?.startsWith('data:')) {
-        imageFile = dataUrlToFile(avatarUrl, 'avatar.jpg')
-      }
-      if (isDirty || imageFile || avatarUrl) {
+      // If profile data is dirty, flush it to the current version in-place before publishing.
+      // This mirrors the Instructions tab behaviour: no new version is created — unsaved changes
+      // are written into the existing version so nothing is lost when the user publishes directly.
+      if (isDirty) {
+        let imageFile: File | undefined
+        if (avatarUrl?.startsWith('data:')) {
+          imageFile = dataUrlToFile(avatarUrl, 'avatar.jpg')
+        }
         await updateVersion({
           repoId,
           versionId,
@@ -267,10 +261,16 @@ function PersonaConfigureProfileContent() {
         })
         isDirtyRef.current = false
         setIsDirty(false)
+        setVersionTags(versionId, pendingChangeTags)
+        setPendingChangeTags([])
       }
       await setActiveVersion(repoId, versionId)
       bustPersonasCache()
-      if (typeof window !== 'undefined') sessionStorage.setItem(publishedVersionKey(repoId), versionId)
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(publishedVersionKey(repoId), versionId)
+        try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
+        try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
+      }
       setPublishedVersionId(versionId)
 
       const base = `/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${versionId}`
@@ -287,22 +287,9 @@ function PersonaConfigureProfileContent() {
 
   const profileAutoSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
 
-  profileAutoSaveRef.current = async () => {
-    if (!isDirtyRef.current || !repoId || !versionId) return
-    try {
-      let imageFile: File | undefined
-      if (avatarUrl?.startsWith('data:')) imageFile = dataUrlToFile(avatarUrl, 'avatar.jpg')
-      await updateVersion({
-        repoId, versionId,
-        name:     personaName,
-        prompt:   personaDescription,
-        image:    imageFile,
-        imageUrl: imageFile ? undefined : (avatarUrl ?? undefined),
-      })
-      isDirtyRef.current = false
-      setIsDirty(false)
-    } catch { /* silent */ }
-  }
+  // Tab switching preserves state via sessionStorage (written on every field change above).
+  // No backend save on tab switch — data is only written to the server on explicit Save Version or Publish.
+  profileAutoSaveRef.current = async () => Promise.resolve()
 
   useEffect(() => {
     registerAutoSave(() => profileAutoSaveRef.current())
@@ -452,7 +439,7 @@ function PersonaConfigureProfileContent() {
           </div>
         </div>
 
-        <div style={{ height: 32, flexShrink: 0 }} />
+        <div style={{ height: 35, flexShrink: 0 }} />
       </div>
 
       {/* ── Scrollable profile form ─────────────────────────────────────────────── */}
@@ -477,10 +464,6 @@ function PersonaConfigureProfileContent() {
             paddingBottom: 32,
           }}
         >
-          {/* ── Tab hint (B) ──────────────────────────────────────────────── */}
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0 }}>
-            Add a name, avatar, and description so your agent is easy to recognise and find.
-          </p>
           <ProfileTab
             avatarUrl={avatarUrl}
             onAvatarChange={v => { setAvatarUrl(v); markDirty() }}
@@ -492,10 +475,6 @@ function PersonaConfigureProfileContent() {
             onPersonaDescriptionChange={v => { setPersonaDescription(v); markDirty() }}
             personaTags={personaTags}
             onPersonaTagsChange={v => { setPersonaTags(v); markDirty() }}
-            isMultilingual={isMultilingual}
-            onIsMultilingualChange={v => { setIsMultilingual(v); markDirty() }}
-            selectedLanguages={selectedLanguages}
-            onSelectedLanguagesChange={v => { setSelectedLanguages(v); markDirty() }}
           />
           <div style={{ height: 24, flexShrink: 0 }} />
         </div>

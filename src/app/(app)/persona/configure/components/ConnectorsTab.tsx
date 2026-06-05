@@ -271,7 +271,7 @@ export default function ConnectorsTab({
   repoId?:             string
   versionId?:          string
   personaName?:        string
-  onConnectorsChange?: (slugs: string[]) => void
+  onConnectorsChange?: (enabled: string[], disabled: string[]) => void
 }) {
   const { push } = useRouter()
 
@@ -310,7 +310,8 @@ export default function ConnectorsTab({
 
       // Set UI immediately so toggles are visible regardless of save outcome.
       setPersonaSlugs(desired)
-      onChangeRef.current?.([...desired])
+      const disabledOnLoad = linkedConnectors.map(c => c.slug).filter(s => !desired.has(s))
+      onChangeRef.current?.([...desired], disabledOnLoad)
 
       // Persist the auto-added slugs in the background (fire-and-forget).
       // Do NOT update state from the response — the optimistic UI is already
@@ -349,7 +350,8 @@ export default function ConnectorsTab({
       clearUserRemovedSlug(versionId, slug)
     }
     setPersonaSlugs(next)
-    onChangeRef.current?.([...next])
+    const disabledNext = linked.map(c => c.slug).filter(s => !next.has(s))
+    onChangeRef.current?.([...next], disabledNext)
     try {
       const updated = await setVersionConnectors(repoId, versionId, [...next])
       // Do NOT overwrite state from the backend response — the optimistic `next`
@@ -366,7 +368,8 @@ export default function ConnectorsTab({
     } catch (err) {
       // Revert only this connector's toggle, not the entire set.
       setPersonaSlugs(prev)
-      onChangeRef.current?.([...prev])
+      const disabledPrev = linked.map(c => c.slug).filter(s => !prev.has(s))
+      onChangeRef.current?.([...prev], disabledPrev)
       toast.error(err instanceof Error ? err.message : 'Failed to update connector')
     } finally {
       setSavingSlug(null)
@@ -384,16 +387,11 @@ export default function ConnectorsTab({
     )
   }, [searchQuery])
 
-  const enabledForPersona = linked.filter(c => personaSlugs.has(c.slug) && matchesSearch(c))
-  const available         = linked.filter(c => !personaSlugs.has(c.slug) && matchesSearch(c))
+  const enabledForPersona  = linked.filter(c => personaSlugs.has(c.slug) && matchesSearch(c))
+  const disabledForPersona = linked.filter(c => !personaSlugs.has(c.slug) && matchesSearch(c))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', paddingTop: 3 }}>
-
-      {/* Tab hint (B) */}
-      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0 }}>
-        Enable tools so your agent can take real actions — read emails, update tasks, query databases, and more.
-      </p>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
@@ -461,11 +459,23 @@ export default function ConnectorsTab({
           {/* ── Section 1: Connectors enabled for this persona ──────────────── */}
           <section data-help-id="help-connectors-enabled" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <p style={SECTION_LABEL}>Connectors enabled for this persona</p>
-            {enabledForPersona.length === 0 ? (
+            {linked.length === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 12px' }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>
+                  No connectors have been connected yet. Activate connectors in Settings to use them in this persona.
+                </p>
+                <button
+                  onClick={() => push('/settings/connectors')}
+                  style={{ alignSelf: 'flex-start', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--neutral-200)', backgroundColor: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-700)' }}
+                >
+                  Go to Settings
+                </button>
+              </div>
+            ) : enabledForPersona.length === 0 ? (
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '16px 12px' }}>
                 {searchQuery
                   ? `No enabled connectors match "${searchQuery}".`
-                  : 'No connectors enabled for this persona yet. Toggle one from the available list below.'}
+                  : 'All connected connectors have been disabled for this persona.'}
               </p>
             ) : (
               <div style={{ backgroundColor: 'var(--neutral-50, #f7f2ed)', borderRadius: 10, overflow: 'hidden' }}>
@@ -482,43 +492,29 @@ export default function ConnectorsTab({
             )}
           </section>
 
-          {/* ── Section 2: Available connectors (linked in Settings) ─────────── */}
-          <section data-help-id="help-connectors-available" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <p style={SECTION_LABEL}>Available Connectors</p>
-            {linked.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 12px' }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>
-                  No connectors have been connected yet. Activate connectors in Settings to use them in this persona.
+          {/* ── Section 2: Connectors disabled for this persona ─────────────── */}
+          {disabledForPersona.length > 0 && (
+            <section data-help-id="help-connectors-disabled" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={SECTION_LABEL}>Connectors disabled for this persona</p>
+              {disabledForPersona.length === 0 && searchQuery ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '16px 12px' }}>
+                  No disabled connectors match &ldquo;{searchQuery}&rdquo;.
                 </p>
-                <button
-                  onClick={() => push('/settings/connectors')}
-                  style={{ alignSelf: 'flex-start', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--neutral-200)', backgroundColor: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-700)' }}
-                >
-                  Go to Settings
-                </button>
-              </div>
-            ) : available.length === 0 && !searchQuery ? (
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '16px 12px' }}>
-                All connected connectors are already enabled for this persona.
-              </p>
-            ) : available.length === 0 ? (
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '16px 12px' }}>
-                No available connectors match &ldquo;{searchQuery}&rdquo;.
-              </p>
-            ) : (
-              <div style={{ backgroundColor: 'var(--neutral-50, #f7f2ed)', borderRadius: 10, overflow: 'hidden' }}>
-                {available.map(c => (
-                  <PersonaConnectorRow
-                    key={c.slug}
-                    entry={c}
-                    enabled={false}
-                    saving={savingSlug === c.slug}
-                    onToggle={() => void handleToggle(c.slug)}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
+              ) : (
+                <div style={{ backgroundColor: 'var(--neutral-50, #f7f2ed)', borderRadius: 10, overflow: 'hidden' }}>
+                  {disabledForPersona.map(c => (
+                    <PersonaConnectorRow
+                      key={c.slug}
+                      entry={c}
+                      enabled={false}
+                      saving={savingSlug === c.slug}
+                      onToggle={() => void handleToggle(c.slug)}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
         </>
       )}
     </div>

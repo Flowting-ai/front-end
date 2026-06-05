@@ -56,6 +56,7 @@ export interface PersonaInfo {
   personaName: string
   imageUrl: string | null
   connectorSlugs: string[]
+  disabledConnectorSlugs: string[]
   guidePrompt: string
   guideModelId: string | null
   guideTemperature: number
@@ -107,7 +108,7 @@ interface PersonaConfigureContextValue {
   setTestChatOpen: React.Dispatch<React.SetStateAction<boolean>>
   setTestChatExpanded: React.Dispatch<React.SetStateAction<boolean>>
   setGuideExpanded: React.Dispatch<React.SetStateAction<boolean>>
-  setVersionsOpen: React.Dispatch<React.SetStateAction<boolean>>
+  setVersionsOpen: (open: boolean) => void
   setAiSuggestOpen: React.Dispatch<React.SetStateAction<boolean>>
 
   // Guide
@@ -169,7 +170,8 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     versionId:        searchParams.get('versionId') ?? '',
     personaName:      '',
     imageUrl:         null,
-    connectorSlugs:   [],
+    connectorSlugs:          [],
+    disabledConnectorSlugs:  [],
     guidePrompt:      '',
     guideModelId:     null,
     guideTemperature: 0.5,
@@ -285,23 +287,30 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
 
   // ── Panel state ─────────────────────────────────────────────────────────────
 
-  const [testChatOpen,     setTestChatOpen]     = useState(false)
-  const [testChatExpanded, setTestChatExpanded] = useState(false)
-  const [aiSuggestOpen,    setAiSuggestOpen]    = useState(false)
-  const [guideExpanded,    setGuideExpanded]    = useState(false)
-  const [versionsOpen,     setVersionsOpen]     = useState(false)
+  const [testChatOpen,     setTestChatOpen]      = useState(false)
+  const [testChatExpanded, setTestChatExpanded]  = useState(false)
+  const [aiSuggestOpen,    setAiSuggestOpen]     = useState(false)
+  const [guideExpanded,    setGuideExpanded]     = useState(false)
+  const [versionsOpen,     _setVersionsOpen]     = useState(false)
   const anyPanelOpen = testChatOpen || aiSuggestOpen || versionsOpen
 
+  // Wrapped setter: opening versions always closes test-chat and AI-suggest first
+  // so at most one panel is visible at any time (including after Save Version).
+  const setVersionsOpen = useCallback((open: boolean) => {
+    if (open) { setTestChatOpen(false); setAiSuggestOpen(false) }
+    _setVersionsOpen(open)
+  }, [])
+
   const toggleTestChat = useCallback(() => {
-    setTestChatOpen(prev => { const next = !prev; if (next) { setAiSuggestOpen(false); setVersionsOpen(false) }; return next })
+    setTestChatOpen(prev => { const next = !prev; if (next) { setAiSuggestOpen(false); _setVersionsOpen(false) }; return next })
   }, [])
 
   const toggleAiSuggest = useCallback(() => {
-    setAiSuggestOpen(prev => { const next = !prev; if (next) { setTestChatOpen(false); setVersionsOpen(false) }; return next })
+    setAiSuggestOpen(prev => { const next = !prev; if (next) { setTestChatOpen(false); _setVersionsOpen(false) }; return next })
   }, [])
 
   const toggleVersions = useCallback(() => {
-    setVersionsOpen(prev => { const next = !prev; if (next) { setTestChatOpen(false); setAiSuggestOpen(false) }; return next })
+    _setVersionsOpen(prev => { const next = !prev; if (next) { setTestChatOpen(false); setAiSuggestOpen(false) }; return next })
   }, [])
 
   // ── Guide state ─────────────────────────────────────────────────────────────
@@ -428,7 +437,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
 
   const handleTestChatSend = useCallback(async (value: string) => {
     const trimmedValue = value.trim()
-    const { repoId, versionId, connectorSlugs } = infoRef.current
+    const { repoId, versionId, connectorSlugs, disabledConnectorSlugs } = infoRef.current
     const { attachments } = testChatOptsRef.current
     const filesToSend = attachments.map(a => a.file)
     if ((!trimmedValue && filesToSend.length === 0) || !repoId || !versionId || chatStreamingRef.current) return
@@ -469,7 +478,11 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     try {
       abortStreamRef.current = await testVersionStream(
         repoId, versionId, trimmedValue, callbacks,
-        { files: filesToSend.length > 0 ? filesToSend : undefined, connectorSlugs: connectorSlugs ?? undefined },
+        {
+          files:                filesToSend.length > 0 ? filesToSend : undefined,
+          connectorSlugs:       connectorSlugs.length > 0 ? connectorSlugs : undefined,
+          disabledConnectors:   disabledConnectorSlugs.length > 0 ? disabledConnectorSlugs : undefined,
+        },
       )
     } catch (err) {
       callbacks.onError?.((err as Error).message ?? 'Failed to send message')

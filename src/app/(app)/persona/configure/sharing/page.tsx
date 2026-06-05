@@ -64,9 +64,20 @@ function PersonaConfigureSharingContent() {
     const wasPublished = !!publishedVersionId
     setIsPublishing(true)
     try {
+      // Sharing actions (links, invites) are saved immediately to the API — no dirty data to flush.
+      // Stamp any accumulated change tags onto the version before going live.
+      if (pendingChangeTags.length > 0) {
+        await updateVersion({ repoId, versionId, name: personaName || undefined })
+        setVersionTags(versionId, pendingChangeTags)
+        setPendingChangeTags([])
+      }
       await setActiveVersion(repoId, versionId)
       bustPersonasCache()
-      if (typeof window !== 'undefined') sessionStorage.setItem(publishedVersionKey(repoId), versionId)
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(publishedVersionKey(repoId), versionId)
+        try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
+        try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
+      }
       setPublishedVersionId(versionId)
       const base = `/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${versionId}`
       push(wasPublished ? `${base}&republished=true` : base)
@@ -241,7 +252,7 @@ function PersonaConfigureSharingContent() {
           </div>
 
           {/* Spacer below nav */}
-          <div style={{ height: 32, flexShrink: 0 }} />
+          <div style={{ height: 35, flexShrink: 0 }} />
         </div>
 
         {/* ── Scrollable content area ────────────────────────────────────────── */}

@@ -51,7 +51,6 @@ const TEXT_STYLE: React.CSSProperties = {
   fontSize:     'var(--font-size-body-lg)',
   lineHeight:   'var(--line-height-body-lg)',
   color:        'var(--message-bubble-user-text)',
-  wordBreak:    'break-word',
   overflowWrap: 'break-word',
   whiteSpace:   'pre-wrap',
   margin:       0,

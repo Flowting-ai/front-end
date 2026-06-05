@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { m, AnimatePresence, useIsPresent } from 'framer-motion'
 import { Slot } from '@radix-ui/react-slot'
@@ -25,6 +25,11 @@ const SHADOW_CARD          = '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0
 const SHADOW_CARD_TEMPLATE = '0px 2px 2.8px 0px var(--blue-100), 0px 0px 0px 1px var(--neutral-100)'
 
 const EMPTY_PERSONA_TAGS: string[] = []
+
+// ── Tag color palette ─────────────────────────────────────────────────────────
+// Deterministic: same tag string always resolves to the same color across renders.
+
+const TAG_BADGE_COLORS = ['Blue', 'Purple', 'Green', 'Yellow', 'Brown', 'Red'] as const
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -540,6 +545,32 @@ function PersonaCardInner({
       setMenuOpen(v => !v)
     }, [])
 
+    // ── Drag-to-scroll for the tag row ────────────────────────────────────────
+    const tagRowRef   = useRef<HTMLDivElement>(null)
+    const dragState   = useRef({ active: false, startX: 0, scrollLeft: 0 })
+
+    const onTagRowMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+      const el = tagRowRef.current
+      if (!el) return
+      dragState.current = { active: true, startX: e.pageX - el.offsetLeft, scrollLeft: el.scrollLeft }
+      el.style.cursor = 'grabbing'
+    }, [])
+
+    const onTagRowMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+      const el = tagRowRef.current
+      if (!dragState.current.active || !el) return
+      e.preventDefault()
+      const x    = e.pageX - el.offsetLeft
+      const walk = x - dragState.current.startX
+      el.scrollLeft = dragState.current.scrollLeft - walk
+    }, [])
+
+    const onTagRowMouseUp = useCallback(() => {
+      const el = tagRowRef.current
+      dragState.current.active = false
+      if (el) el.style.cursor = 'grab'
+    }, [])
+
     const Comp = (asChild ? Slot : 'div') as React.ElementType
 
     return (
@@ -764,18 +795,24 @@ function PersonaCardInner({
                 </span>
               </div>
 
-              {/* Badge row — single line, horizontally scrollable, no wrap */}
+              {/* Badge row — single line, horizontally scrollable, drag-to-scroll */}
               <div
+                ref={tagRowRef}
+                onMouseDown={onTagRowMouseDown}
+                onMouseMove={onTagRowMouseMove}
+                onMouseUp={onTagRowMouseUp}
+                onMouseLeave={onTagRowMouseUp}
                 style={{
                   display:             'flex',
                   flexWrap:            'nowrap',
                   gap:                 4,
-                  marginTop:           6,
                   overflowX:           'auto',
                   overscrollBehaviorX: 'contain',
                   scrollbarWidth:      'none',
                   padding:             '1px',
-                  margin:              `5px -1px 0`,
+                  margin:              '5px -1px 0',
+                  cursor:              'grab',
+                  userSelect:          'none',
                 }}
               >
                 {variant === 'community-imported' && (
@@ -795,8 +832,8 @@ function PersonaCardInner({
                 )}
                 {visibility === 'private' && <Badge color="Neutral" label="Private" />}
                 {visibility === 'team'    && <Badge color="Neutral" label="Team"    />}
-                {tags.map(tag => (
-                  <Badge key={tag} color="Neutral" label={tag} />
+                {tags.map((tag, i) => (
+                  <Badge key={tag} color={TAG_BADGE_COLORS[i % TAG_BADGE_COLORS.length]} label={tag} />
                 ))}
               </div>
 

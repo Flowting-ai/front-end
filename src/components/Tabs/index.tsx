@@ -22,6 +22,18 @@ export interface TabsListProps
   scrollable?: boolean
   /** Size variant - medium (default) or small. Propagates to all TabsTrigger children via context. */
   size?: TabsSize
+  /** How triggers are distributed along the main axis. Defaults to flex-start. */
+  justify?: 'start' | 'center' | 'space-evenly' | 'space-between'
+  /**
+   * Top offset of the active pill from the row top edge.
+   * Negative = extends beyond; positive = inset. Default: -0.5.
+   */
+  pillTopInset?: number
+  /**
+   * Bottom offset of the active pill from the row bottom edge.
+   * Negative = extends beyond; positive = inset. Default: -0.5.
+   */
+  pillBottomInset?: number
 }
 
 export interface TabsTriggerProps
@@ -58,7 +70,7 @@ const PILL_TRANSITION = 'transform 300ms cubic-bezier(0.16,1,0.3,1), width 300ms
 //   • Tab switch → spring via animate(from, to, { onUpdate }) → style.transform / style.width
 //   • Scroll     → shadowEl.style.transform directly - frame-perfect, zero lag
 
-export function TabsList({ ref, children, className, scrollable, size = 'medium', ...props }: TabsListProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.List>> }) {
+export function TabsList({ ref, children, className, scrollable, size = 'medium', justify, pillTopInset = -0.5, pillBottomInset = -0.5, ...props }: TabsListProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.List>> }) {
   const isSmall  = size === 'small'
   const radius   = isSmall ? '8px' : '10px'
 
@@ -238,8 +250,8 @@ export function TabsList({ ref, children, className, scrollable, size = 'medium'
 
   const pillBase: React.CSSProperties = {
     position:      'absolute',
-    top:           0,
-    bottom:        0,
+    top:           pillTopInset,
+    bottom:        pillBottomInset,
     borderRadius:  radius,
     pointerEvents: 'none',
   }
@@ -296,11 +308,12 @@ export function TabsList({ ref, children, className, scrollable, size = 'medium'
           data-draggable={scrollable && overflowing ? 'true' : undefined}
           data-dragging={dragging ? 'true' : undefined}
           style={{
-            position:   'relative',
-            display:    'flex',
-            gap:        '4px',
-            alignItems: 'center',
-            flexShrink: 0,
+            position:       'relative',
+            display:        'flex',
+            gap:            '4px',
+            alignItems:     'center',
+            flexShrink:     0,
+            ...(justify && { justifyContent: justify, width: '100%' }),
             ...(scrollable && {
               overflowX:           'auto',
               overscrollBehaviorX: 'contain',

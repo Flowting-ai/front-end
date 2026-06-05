@@ -18,6 +18,7 @@ import {
   AudioWaveOneIcon,
   GlobalSearchIcon,
 } from "@strange-huge/icons";
+import { LlmIcon } from "@strange-huge/icons/llm";
 import { IconButton } from "@/components/IconButton";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { getModelLlmId } from "@/lib/model-icons";
@@ -121,8 +122,16 @@ function PresetModelSelectorContent({
   const [search, setSearch] = useState("");
   const [tier, setTier] = useState("all");
   const [category, setCategory] = useState("all");
+  const [provider, setProvider] = useState("all");
   const [atTop, setAtTop] = useState(true);
   const [atBottom, setAtBottom] = useState(false);
+
+  // Derive sorted company list (most models first) — same logic as CompareModels
+  const companies = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const m of models) counts[m.companyName] = (counts[m.companyName] ?? 0) + 1;
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c]) => c);
+  }, [models]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
@@ -130,8 +139,9 @@ function PresetModelSelectorContent({
     setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8);
   };
 
-  // Filter models by search + tier + category
+  // Filter models by search + tier + category + provider
   const filtered = models.filter((m) => {
+    if (provider !== "all" && m.companyName !== provider) return false;
     if (search) {
       const q = search.toLowerCase();
       if (
@@ -186,8 +196,8 @@ function PresetModelSelectorContent({
           display: "flex",
           flexDirection: "column",
           gap: "16px",
-          height: "440px",
-          maxHeight: "440px",
+          height: "500px",
+          maxHeight: "500px",
         }}
       >
         {/* ── Header: search + tier tabs ── */}
@@ -240,6 +250,32 @@ function PresetModelSelectorContent({
           onAdvancedSelect={onAdvancedSelect}
         />
 
+        {/* ── Provider / company filter tabs (below Muse buttons) ── */}
+        {companies.length > 0 && (
+          <div style={{ flexShrink: 0 }}>
+            <Tabs value={provider} onValueChange={setProvider}>
+              <TabsList size="small" scrollable justify="space-evenly" pillTopInset={0.5} pillBottomInset={1}>
+                <TabsTrigger value="all" icon={<AtomTwoIcon size={16} />}>
+                  All
+                </TabsTrigger>
+                {companies.map((company) => {
+                  const rep   = models.find((m) => m.companyName === company);
+                  const llmId = rep ? (getModelLlmId(rep.companyName, rep.modelName) ?? "") : "";
+                  return (
+                    <TabsTrigger
+                      key={company}
+                      value={company}
+                      icon={llmId ? <LlmIcon id={llmId} variant="color" size={16} /> : undefined}
+                    >
+                      {company}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </Tabs>
+          </div>
+        )}
+
         {/* ── Category tabs + model list ── */}
         <div
           style={{
@@ -254,7 +290,7 @@ function PresetModelSelectorContent({
           {/* Category tabs */}
           <div style={{ flexShrink: 0 }}>
             <Tabs value={category} onValueChange={setCategory}>
-              <TabsList size="small" scrollable>
+              <TabsList size="small" scrollable pillTopInset={0.5} pillBottomInset={1}>
                 {CATEGORY_TABS.map((t) => (
                   <TabsTrigger key={t.value} value={t.value} icon={t.icon}>
                     {t.label}
@@ -460,8 +496,8 @@ function PresetModelSelectorContent({
 
 // ── PresetModelSelectorDialog ──────────────────────────────────────────────────
 
-// Approximate rendered height of PresetModelSelectorContent (440px inner + 16px padding)
-const DROPDOWN_HEIGHT = 456;
+// Approximate rendered height of PresetModelSelectorContent (500px inner + 16px padding)
+const DROPDOWN_HEIGHT = 516;
 const DROPDOWN_WIDTH = 432;
 const GAP = 8;
 

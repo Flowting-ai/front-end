@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -53,10 +53,21 @@ const TEMPLATE_ROWS: string[][] = [
 
 export default function PersonaTemplatesPage() {
   const { push } = useRouter()
-  const [selected, setSelected] = useState<string | null>(null)
 
-  function continueToBasics() {
-    const q = selected ? `?template=${encodeURIComponent(selected)}` : ''
+  // Only show the Continue button when the user has already stepped into the wizard
+  // (i.e. navigated back from the purpose page mid-flow).
+  const [hasWizardDraft, setHasWizardDraft] = useState(false)
+  useEffect(() => {
+    try {
+      const draft = JSON.parse(sessionStorage.getItem('persona_wizard_draft') ?? '{}')
+      setHasWizardDraft(!!(draft.name || draft.purpose || draft.template))
+    } catch { /* ignore */ }
+  }, [])
+
+  function continueToBasics(name?: string) {
+    // Starting fresh — clear any previously created wizard repo so a new one is made.
+    try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
+    const q = name ? `?template=${encodeURIComponent(name)}` : ''
     push(`/personas/basics/purpose${q}`)
   }
 
@@ -119,18 +130,14 @@ export default function PersonaTemplatesPage() {
                 {row.map(name => (
                   <button
                     key={name}
-                    onClick={() => setSelected(selected === name ? null : name)}
+                    onClick={() => continueToBasics(name)}
                     style={{
                       background: 'var(--neutral-white)',
-                      border: selected === name
-                        ? '1.274px solid var(--blue-400)'
-                        : '1.274px solid var(--neutral-100)',
+                      border: '1.274px solid var(--neutral-100)',
                       borderRadius: 15,
                       padding: 20,
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
-                      boxShadow: selected === name
-                        ? '0px 2.548px 3.821px 0px rgba(202,220,241,0.6)'
-                        : '0px 2.548px 3.821px 0px rgba(202,220,241,0.4)',
+                      boxShadow: '0px 2.548px 3.821px 0px rgba(202,220,241,0.4)',
                       cursor: 'pointer',
                       width: 179,
                       transition: 'border-color 150ms, box-shadow 150ms',
@@ -169,15 +176,17 @@ export default function PersonaTemplatesPage() {
           >
             Library
           </Button>
-          {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- wizard step: "Continue" advances to persona details; flow context makes action clear */}
-          <Button
-            variant="default"
-            size="sm"
-            rightIcon={<ArrowRightOneIcon size={16} />}
-            onClick={continueToBasics}
-          >
-            Continue
-          </Button>
+          {hasWizardDraft && (
+            // eslint-disable-next-line react-doctor/design-no-vague-button-label -- wizard step: "Continue" advances to persona details; flow context makes action clear
+            <Button
+              variant="default"
+              size="sm"
+              rightIcon={<ArrowRightOneIcon size={16} />}
+              onClick={() => continueToBasics()}
+            >
+              Continue
+            </Button>
+          )}
         </div>
 
       </div>

@@ -1,6 +1,7 @@
 'use client'
 
-import React, { Suspense, useState, useEffect } from 'react'
+import React, { Suspense, useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { AnimatePresence, m } from 'framer-motion'
 import { useRouter, usePathname } from 'next/navigation'
@@ -24,7 +25,8 @@ import { ChatAddMenu } from '@/components/chat/AddMenu'
 import { AttachmentManager } from '@/components/chat/AttachmentManager'
 import { ConnectPromptCard, PermissionPromptCard } from '@/components/chat/ConnectorPrompts'
 import { ActivitiesSection } from '@/components/chat/ActivityRow'
-import { ConnectorTogglesPanel } from '@/app/(app)/persona/configure/components/ConnectorTogglesPanel'
+import { BreathingDot } from '@/components/BreathingDot'
+import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { MessageBubble } from '@/components/MessageBubble'
 import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
 import { PersonaConfigureProvider, usePersonaConfigure } from './context'
@@ -92,21 +94,22 @@ const TAB_HELP: Record<string, { title: string; items: HelpItem[] }> = {
   connectors: {
     title: 'Connectors',
     items: [
-      { heading: 'Enabled for this Persona',   description: 'Connectors toggled on here are active for this agent only. Turning one off does not disconnect it from your account.',                                          isRequired: false, highlightId: 'help-connectors-enabled'   },
-      { heading: 'Available Connectors',        description: 'Shows tools you have already connected in Settings. Only linked connectors can be enabled for an agent.',                                                        isRequired: false, highlightId: 'help-connectors-available' },
-      { heading: 'Connect New Tools',           description: 'Use "Manage in Settings" to link accounts like Gmail, Slack, or HubSpot. Once connected they will appear in the Available list.' },
-      { heading: 'How Agents Use Connectors',   description: 'When the agent needs to take action — send an email, update a task — it uses the enabled connectors automatically during the conversation.' },
-      { heading: 'Per-Agent Isolation',         description: 'Each agent has its own connector settings. Enabling a tool for one agent does not affect any other agent.' },
+      { heading: 'Enabled for this Persona',  description: 'All connectors active in Settings are enabled for this persona by default. Toggling one off disables it only for this persona — your account connection stays intact.', isRequired: false, highlightId: 'help-connectors-enabled'  },
+      { heading: 'Disabled for this Persona', description: 'Connectors you have turned off for this persona appear here. Toggle them back on at any time to re-enable them.',                                                         isRequired: false, highlightId: 'help-connectors-disabled' },
+      { heading: 'Connect New Tools',         description: 'Use "Manage in Settings" to link accounts like Gmail, Slack, or HubSpot. Once connected they are automatically enabled for all personas.' },
+      { heading: 'How Agents Use Connectors', description: 'When the agent needs to take action — send an email, update a task — it uses the enabled connectors automatically during the conversation.' },
+      { heading: 'Per-Agent Isolation',       description: 'Each agent has its own connector settings. Disabling a tool for one persona does not affect any other persona or your account.' },
     ],
   },
   sharing: {
     title: 'Sharing',
     items: [
-      { heading: 'Super Link',      description: 'A shareable URL anyone can use to chat with this agent without an account. Ideal for external users, clients, or public-facing tools.', isRequired: false, highlightId: 'help-sharing-superlink' },
-      { heading: 'Token Limit',     description: 'Caps how many AI tokens each Super Link user can consume. Set a limit to prevent unexpected overuse.',                                   isRequired: false, highlightId: 'help-sharing-token'     },
-      { heading: 'Email Invite',    description: 'Send a personalised link to a specific email address. Only that recipient can access the agent via this link.',                          isRequired: false, highlightId: 'help-sharing-email'     },
-      { heading: 'Revoking Access', description: 'Disable any Super Link or email invite from this tab at any time. Access is cut off immediately.' },
-      { heading: 'Publish First',   description: 'The agent must be published before sharing works. Hit Publish on the Instructions tab to make it live, then return here to share.' },
+      { heading: 'Visibility Level', description: 'Controls who can discover and access this agent — private (only you), team (workspace members), or public (anyone with the link). Set this before sharing.', isRequired: false, highlightId: 'help-sharing-visibility' },
+      { heading: 'Super Link',       description: 'A shareable URL anyone can use to chat with this agent without an account. Ideal for external users, clients, or public-facing tools.',                      isRequired: false, highlightId: 'help-sharing-superlink' },
+      { heading: 'Token Limit (for Super Link)', description: 'Caps how many AI tokens each Super Link user can consume. Set a limit to prevent unexpected overuse. Super Link must be enabled first.', isRequired: false, highlightId: 'help-sharing-token'     },
+      { heading: 'Email Invite',     description: 'Send a personalised link to a specific email address. Only that recipient can access the agent via this link.',                                               isRequired: false, highlightId: 'help-sharing-email'     },
+      { heading: 'Revoking Access',  description: 'Disable any Super Link or email invite from this tab at any time. Access is cut off immediately.' },
+      { heading: 'Publish First',    description: 'The agent must be published before sharing works. Hit Publish on the Instructions tab to make it live, then return here to share.', highlightId: 'help-publish' },
     ],
   },
 }
@@ -155,17 +158,116 @@ function useHelpState(pathname: string) {
 function PersonaHelpButton() {
   const pathname = usePathname()
   const { helpOpen, setHelpOpen, helpActiveId, setHelpActiveId, tabKey, tabIndex, helpData, tabItemIds, isPanelActive, titleBadge } = useHelpState(pathname)
+  const { setTestChatOpen, setAiSuggestOpen, setVersionsOpen } = usePersonaConfigure()
+
+  const [activeInfoTab, setActiveInfoTab] = useState<'main' | 'panels'>('main')
+  // Remembers whether the sidebar was open when help opened so we can restore it on close.
+  const sidebarWasOpenRef = useRef(false)
+
+  // Collapse sidebar on open, restore on close.
+  // LeftSidebar persists state in localStorage and listens for Ctrl+B on document.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const isCollapsed = () => localStorage.getItem('sidebar_collapsed') === 'true'
+
+    if (helpOpen) {
+      setActiveInfoTab('main')
+      sidebarWasOpenRef.current = !isCollapsed()
+      if (sidebarWasOpenRef.current) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', ctrlKey: true, bubbles: true, cancelable: true }))
+      }
+    } else {
+      // Restore sidebar only if it was open before we collapsed it
+      if (sidebarWasOpenRef.current && isCollapsed()) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', ctrlKey: true, bubbles: true, cancelable: true }))
+      }
+    }
+  }, [helpOpen])
+
+  function openPanelById(id: string) {
+    setTestChatOpen(id === 'help-test-chat')
+    setAiSuggestOpen(id === 'help-ai-suggestions')
+    setVersionsOpen(id === 'help-versions')
+  }
+
+  function handleTabChange(tab: string) {
+    const t = tab as 'main' | 'panels'
+    setActiveInfoTab(t)
+    if (t === 'panels') {
+      const firstId = PANEL_ITEMS[0].highlightId!
+      setHelpActiveId(firstId)
+      openPanelById(firstId)
+    } else {
+      setHelpActiveId(tabItemIds[0])
+    }
+  }
+
+  const isMain = activeInfoTab === 'main'
+
+  const cardOptions = isMain
+    ? helpData.items.map((it, i) => ({ id: tabItemIds[i], label: it.heading, description: it.description }))
+    : PANEL_ITEMS.map(it => ({ id: it.highlightId!, label: it.heading, description: it.description }))
+
+  const cardQuestion    = isMain ? helpData.title : 'Panels'
+  const cardTitleBadge  = isMain ? titleBadge : undefined
+  const cardTabProgress = isMain
+    ? { tabs: ALL_CONFIGURE_LABELS, currentIndex: tabIndex >= 0 ? tabIndex : 0 }
+    : undefined
+
+  function handleSelect(id: string) {
+    setHelpActiveId(id)
+    if (!isMain) openPanelById(id)
+  }
+
+  const tabSwitcher = (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Tabs value={activeInfoTab} onValueChange={handleTabChange}>
+        <TabsList size="small">
+          <TabsTrigger value="main">Main</TabsTrigger>
+          <TabsTrigger value="panels">Panels</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      <IconButton
+        size="xs"
+        variant="ghost"
+        aria-label="Close help"
+        icon={<CancelOneIcon size={18} />}
+        onClick={() => setHelpOpen(false)}
+      />
+    </div>
+  )
 
   return (
     <div style={{ position: 'absolute', bottom: 20, left: 16, zIndex: 20 }}>
-      {/* Highlight active element — no offset for small panel buttons */}
+      {/* Highlight active element + elevate it above the overlay */}
       {helpOpen && helpActiveId && (
         <style>{`
           [data-help-id="${helpActiveId}"] {
             outline: 2.5px solid rgba(110,152,203,0.85) !important;
             outline-offset: ${isPanelActive ? '0px' : '5px'} !important;
+            background-color: white !important;
+            border-radius: 5px !important;
+            box-shadow: 0 0 0 ${isPanelActive ? '0px' : '5px'} white !important;
+            ${!isPanelActive ? 'position: relative !important; z-index: 18 !important;' : ''}
           }
+          ${isPanelActive ? '[data-panel-container] { z-index: 19 !important; }' : ''}
+          ${isPanelActive ? `[data-help-panel="${helpActiveId}"] { position: relative !important; z-index: 18 !important; outline: 2.5px solid rgba(110,152,203,0.85) !important; outline-offset: 0px !important; border-radius: 16px !important; }` : ''}
         `}</style>
+      )}
+
+      {/* Dark spotlight overlay — dims everything except the highlighted element */}
+      {helpOpen && helpActiveId && typeof document !== 'undefined' && createPortal(
+        <div
+          aria-hidden
+          style={{
+            position:        'fixed',
+            inset:           0,
+            backgroundColor: 'rgba(0,0,0,0.45)',
+            zIndex:          17,
+            pointerEvents:   'none',
+          }}
+        />,
+        document.body,
       )}
 
       <AnimatePresence>
@@ -178,13 +280,14 @@ function PersonaHelpButton() {
             style={{ position: 'absolute', bottom: 48, left: 0, width: 320, maxWidth: 'calc(50vw - 32px)' }}
           >
             <QuestionCard
-              question={helpData.title}
+              question={cardQuestion}
               type="info"
-              options={helpData.items.map((it, i) => ({ id: tabItemIds[i], label: it.heading, description: it.description }))}
+              options={cardOptions}
               selected={helpActiveId}
-              onSelect={(id) => setHelpActiveId(id)}
-              titleBadge={titleBadge}
-              tabProgress={{ tabs: ALL_CONFIGURE_LABELS, currentIndex: tabIndex >= 0 ? tabIndex : 0 }}
+              onSelect={handleSelect}
+              titleBadge={cardTitleBadge}
+              tabProgress={cardTabProgress}
+              topSlot={tabSwitcher}
               onClose={() => setHelpOpen(false)}
               style={{ maxWidth: '100%' }}
             />
@@ -192,14 +295,16 @@ function PersonaHelpButton() {
         )}
       </AnimatePresence>
 
-      <IconButton
-        variant="outline"
-        size="md"
-        aria-label={helpOpen ? 'Close help' : `Help — ${helpData.title}`}
-        aria-expanded={helpOpen}
-        icon={<InformationCircleIcon size={20} animated />}
-        onClick={() => setHelpOpen(!helpOpen)}
-      />
+      <span style={{ backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderRadius: 10, display: 'inline-flex' }}>
+        <IconButton
+          variant="outline"
+          size="md"
+          aria-label={helpOpen ? 'Close help' : `Help — ${helpData.title}`}
+          aria-expanded={helpOpen}
+          icon={<InformationCircleIcon size={20} animated />}
+          onClick={() => setHelpOpen(!helpOpen)}
+        />
+      </span>
     </div>
   )
 }
@@ -402,14 +507,16 @@ function nameInitials(name: string) {
 
 function TestChatPanelContent({ expanded }: { expanded: boolean }) {
   const {
-    personaInfo, setTestChatExpanded, setTestChatOpen, updatePersonaInfo,
+    personaInfo, setTestChatExpanded, setTestChatOpen,
     chatMessages, isStreaming, chatScrollRef, handleTestChatSend,
     testChatWebSearch, setTestChatWebSearch, testChatStyleId, setTestChatStyleId,
     testChatFolders, setTestChatFolders, testChatPersonaId, setTestChatPersonaId,
     testChatAttachments, setTestChatAttachments, handleTestChatAddFiles, handleTestChatFileChange,
     testChatFileInputRef, FILE_ACCEPT,
+    versions,
   } = usePersonaConfigure()
   const { repoId, versionId, personaName, imageUrl, guideModelName } = personaInfo
+  const hasSavedVersion = versions.length > 0
 
   return (
     <>
@@ -432,27 +539,27 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
         </div>
       </div>
 
-      {/* Connector toggles (updates connectorSlugs in context) */}
-      {repoId && versionId && (
-        <ConnectorTogglesPanel
-          repoId={repoId}
-          versionId={versionId}
-          onConnectorsChange={(slugs) => updatePersonaInfo({ connectorSlugs: slugs })}
-        />
-      )}
-
       {/* Messages */}
       <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
         {chatMessages.length === 0 ? (
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
-            Hi! I&apos;m your agent. Test me here while you configure.
-          </p>
+          !hasSavedVersion ? (
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-400)', margin: 0 }}>
+              Save a version first to test your agent here.
+            </p>
+          ) : (
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
+              Hi! I&apos;m your agent. Test me here while you configure.
+            </p>
+          )
         ) : (
           chatMessages.map(msg => (
             <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
               {msg.role === 'assistant' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
                   {msg.activities && msg.activities.length > 0 && <ActivitiesSection activities={msg.activities} />}
+                  {msg.isStreaming && !msg.text && (
+                    <BreathingDot size="md" style={{ marginLeft: 4, backgroundColor: 'var(--neutral-400)' }} />
+                  )}
                   {msg.text && <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />}
                   {msg.connectPrompts?.map(p => <ConnectPromptCard key={p.request_id} prompt={p} />)}
                   {msg.permissionPrompts?.map(p => <PermissionPromptCard key={p.request_id} prompt={p} />)}
@@ -617,11 +724,12 @@ function VersionsPanel() {
   return (
     <m.div
       key="versions-panel"
+      data-help-panel="help-versions"
       initial={{ width: 0, opacity: 0 }}
       animate={{ width: 400, opacity: 1 }}
       exit={{ width: 0, opacity: 0 }}
       transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
-      style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, height: '100%', paddingLeft: 5, paddingRight: 5, paddingTop: 12, paddingBottom: 12, overflow: 'hidden' }}
+      style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, height: '100%', paddingLeft: 5, paddingRight: 5, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', backgroundColor: 'var(--neutral-white)', borderRadius: 16 }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
@@ -662,7 +770,7 @@ function VersionsPanel() {
         </div>
       )}
 
-      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 4 }}>
+      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: 3 }}>
         {versionsLoading ? (
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0 }}>Loading…</p>
         ) : versions.length === 0 ? (
@@ -779,7 +887,7 @@ function TestChatExpandedOverlay() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
-      style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', padding: 3 }}
       onClick={(e) => { if (e.target === e.currentTarget) setTestChatExpanded(false) }}
     >
       <m.div
@@ -804,7 +912,7 @@ function AiSuggestExpandedOverlay() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
-      style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', padding: 3 }}
       onClick={(e) => { if (e.target === e.currentTarget) setGuideExpanded(false) }}
     >
       <m.div
@@ -828,7 +936,6 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
     aiSuggestOpen, guideExpanded,
     versionsOpen,
     leaveConfirmHref, setLeaveConfirmHref,
-    hasPublishAndLeave, handlePublishAndLeave,
   } = usePersonaConfigure()
   const { push, back } = useRouter()
 
@@ -843,11 +950,9 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
       <div style={{ flex: '1 0 0', minWidth: 0, position: 'relative' }}>
         {children}
         {/* Floating action menu — right-centre */}
-        <div style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+        <div data-panel-container style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
           <PersonaFloatingMenu />
         </div>
-        {/* Panels island — to the left of the floating menu, same vertical centre */}
-        <PersonaPanelIsland />
         {/* Help trigger + main tab info card — bottom-left */}
         <PersonaHelpButton />
       </div>
@@ -857,11 +962,12 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
         {testChatOpen && !testChatExpanded && (
           <m.div
             key="test-chat"
+            data-help-panel="help-test-chat"
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 448, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
-            style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, height: '100%', backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12, overflow: 'hidden' }}
+            style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, margin: 3, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 15, overflow: 'hidden' }}
           >
             <TestChatPanelContent expanded={false} />
           </m.div>
@@ -878,11 +984,12 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
         {aiSuggestOpen && !guideExpanded && (
           <m.div
             key="ai-suggest-panel"
+            data-help-panel="help-ai-suggestions"
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 400, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
-            style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, height: '100%', backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12, overflow: 'hidden' }}
+            style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, margin: 3, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 15, overflow: 'hidden' }}
           >
             <AiSuggestPanelContent expanded={false} />
           </m.div>
@@ -899,7 +1006,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
         {versionsOpen && <VersionsPanel />}
       </AnimatePresence>
 
-      {/* ── Publish leave-confirm dialog (shared across all 5 configure tabs) ── */}
+      {/* ── Leave-confirm dialog — shown when exiting with unpublished changes ── */}
       {leaveConfirmHref && (
         <div
           role="dialog"
@@ -913,17 +1020,17 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
             style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px rgba(0,0,0,0.15)' }}
           >
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 18, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
-              You have unpublished changes
+              This persona isn&apos;t published yet
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
-              Your changes haven&apos;t been published yet. What would you like to do?
+              Your changes haven&apos;t been published. If you leave now, they won&apos;t be available to use until you publish.
             </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <Button variant="outline" size="sm" onClick={() => setLeaveConfirmHref(null)}>
                 Stay
               </Button>
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
                 onClick={() => {
                   const href = leaveConfirmHref
@@ -932,20 +1039,8 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
                   else push(href)
                 }}
               >
-                Leave without publishing
+                Leave
               </Button>
-              {hasPublishAndLeave && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => {
-                    setLeaveConfirmHref(null)
-                    handlePublishAndLeave()
-                  }}
-                >
-                  Publish &amp; leave
-                </Button>
-              )}
             </div>
           </div>
         </div>

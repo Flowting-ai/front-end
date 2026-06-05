@@ -12,6 +12,7 @@ import {
   FolderOneIcon,
   FolderAddIcon,
   LinkSixIcon,
+  UserAddOneIcon,
 } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { IconButton } from '@/components/IconButton'
@@ -33,10 +34,14 @@ const MY_SETTINGS_ITEMS = [
 ]
 
 const ORG_ITEMS = [
-  { id: 'general',   label: 'General',           href: '/settings/org/general',   icon: <UserAiIcon        size={20} />, disabled: true },
-  { id: 'members',   label: 'Members',           href: '/settings/org/members',   icon: <FolderAddIcon     size={20} />, disabled: true },
-  { id: 'plans',     label: 'Plans & Billing',   href: '/settings/org/plans',     icon: <AbacusIcon        size={20} />, disabled: true },
-  { id: 'analytics', label: 'Usage & Analytics', href: '/settings/org/analytics', icon: <FolderLibraryIcon size={20} />, disabled: true },
+  { id: 'general',    label: 'General',           href: '/settings/org/general',    icon: <UserAiIcon        size={20} />, disabled: false },
+  { id: 'members',    label: 'Members',           href: '/settings/org/members',    icon: <UserAddOneIcon    size={20} />, disabled: false },
+  { id: 'teams',      label: 'Teams',             href: '/settings/org/teams',      icon: <FolderAddIcon     size={20} />, disabled: false },
+  { id: 'plans',      label: 'Plans & Billing',   href: '/settings/org/plans',      icon: <AbacusIcon        size={20} />, disabled: false },
+  { id: 'analytics',  label: 'Usage & Analytics', href: '/settings/org/analytics',  icon: <FolderLibraryIcon size={20} />, disabled: false },
+  { id: 'connectors', label: 'Connectors',        href: '/settings/org/connectors', icon: <LinkSixIcon       size={20} />, disabled: false },
+  { id: 'security',   label: 'Security',          href: '/settings/org/security',   icon: <UserAiIcon        size={20} />, disabled: false },
+  { id: 'activity',   label: 'Activity Log',      href: '/settings/org/activity',   icon: <FolderLibraryIcon size={20} />, disabled: false },
 ]
 
 export function SettingsSidebar() {
@@ -153,7 +158,7 @@ export function SettingsSidebar() {
           </div>
         </div>
 
-        {/* Organization section — hidden for now
+        {/* Organization section */}
         <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -171,31 +176,18 @@ export function SettingsSidebar() {
               <Badge label="Teams" color="Purple" />
             </div>
             {ORG_ITEMS.map(item => (
-              item.disabled ? (
-                <div key={item.id} style={{ opacity: 0.4, pointerEvents: 'none' }}>
-                  <SidebarMenuItem
-                    fluid
-                    variant="default"
-                    icon={item.icon}
-                    label={item.label}
-                    selected={false}
-                  />
-                </div>
-              ) : (
-                <SidebarMenuItem
-                  key={item.id}
-                  fluid
-                  variant="default"
-                  icon={item.icon}
-                  label={item.label}
-                  selected={pathname === item.href}
-                  onClick={() => push(item.href)}
-                />
-              )
+              <SidebarMenuItem
+                key={item.id}
+                fluid
+                variant="default"
+                icon={item.icon}
+                label={item.label}
+                selected={pathname.startsWith(item.href)}
+                onClick={() => push(item.href)}
+              />
             ))}
           </div>
         </div>
-        */}
       </div>
 
       {/* ── Account menu — fixed ── */}

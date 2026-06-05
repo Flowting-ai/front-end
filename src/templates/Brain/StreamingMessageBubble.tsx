@@ -5,6 +5,7 @@ import { m } from 'framer-motion'
 import { CopyOneIcon } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
 import { BrainContentRenderer } from './BrainContentRenderer'
+import { BreathingDot } from '@/components/BreathingDot'
 
 // ── Streaming typewriter hook ─────────────────────────────────────────────────
 // Ported from front-end/src/components/chat/chat-message.tsx.
@@ -334,7 +335,12 @@ export function StreamingMessageBubble({
       transition={springs.moderate}
     >
       <BrainContentRenderer content={content} />
-      {!isComplete && <StreamCursor />}
+      {!isComplete && (
+        <BreathingDot
+          size="sm"
+          style={{ marginLeft: 3, backgroundColor: 'var(--neutral-500)' }}
+        />
+      )}
     </m.div>
   )
 }

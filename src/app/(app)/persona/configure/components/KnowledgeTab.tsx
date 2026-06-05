@@ -30,6 +30,7 @@ type KnowledgeTabProps = {
   onRawFilesSelected?: (files: File[]) => void;
   onRemoveFile?: (id: string) => void;
   onPreviewFile?: (file: KnowledgeFile) => void;
+  onAddUrl?: (url: string) => void;
 };
 
 const FILE_LIMIT = 10;
@@ -364,7 +365,7 @@ function DropOverlay({ visible }: { visible: boolean }) {
   );
 }
 
-export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected, onRemoveFile, onPreviewFile }: KnowledgeTabProps) {
+export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected, onRemoveFile, onPreviewFile, onAddUrl }: KnowledgeTabProps) {
   const [urlInput, setUrlInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeConnectorFilter, setActiveConnectorFilter] = useState<string | null>(null);
@@ -475,20 +476,25 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
   const handleAddUrl = () => {
     const url = urlInput.trim();
     if (!url || !url.startsWith("http")) return;
-    const name = url.replace(/^https?:\/\//, "").split("/")[0];
-    onFilesChange([
-      ...files,
-      {
-        id: `url-${Date.now()}`,
-        name,
-        url,
-        type: "url",
-        fileType: "URLs",
-        size: "-",
-        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      },
-    ]);
     setUrlInput("");
+    if (onAddUrl) {
+      onAddUrl(url);
+    } else {
+      // Fallback for standalone / story usage without a parent handler
+      const name = url.replace(/^https?:\/\//, "").split("/")[0];
+      onFilesChange([
+        ...files,
+        {
+          id: `url-${Date.now()}`,
+          name,
+          url,
+          type: "url",
+          fileType: "URL",
+          size: "-",
+          date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        },
+      ]);
+    }
   };
 
   const handleRemoveFile = (id: string) => {

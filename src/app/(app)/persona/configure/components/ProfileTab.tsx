@@ -2,9 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import NextImage from "next/image";
-import { Switch } from "@/components/Switch";
-import { ChevronDown, X, Plus } from "lucide-react";
-import { LANGUAGES, DEFAULT_LANGUAGE } from "@/app/(app)/personas/new/constants";
+import { X, Plus } from "lucide-react";
 
 async function compressImage(file: File, maxW: number, maxH: number, quality: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -54,10 +52,6 @@ type ProfileTabProps = {
   onPersonaDescriptionChange: (desc: string) => void;
   personaTags: string[];
   onPersonaTagsChange: (tags: string[]) => void;
-  isMultilingual: boolean;
-  onIsMultilingualChange: (v: boolean) => void;
-  selectedLanguages: Set<string>;
-  onSelectedLanguagesChange: (langs: Set<string>) => void;
 };
 
 export default function ProfileTab({
@@ -71,16 +65,9 @@ export default function ProfileTab({
   onPersonaDescriptionChange,
   personaTags,
   onPersonaTagsChange,
-  isMultilingual,
-  onIsMultilingualChange,
-  selectedLanguages,
-  onSelectedLanguagesChange,
 }: ProfileTabProps) {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [isCompressing, setIsCompressing] = useState(false);
-  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
-  const langDropdownRef = useRef<HTMLDivElement>(null);
-  const langTriggerRef = useRef<HTMLDivElement>(null);
   const [newTagInput, setNewTagInput] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
   const tagInputRef = useRef<HTMLInputElement>(null);
@@ -88,30 +75,6 @@ export default function ProfileTab({
   const dragCounter = useRef(0);
 
   const DESCRIPTION_MAX = 120;
-
-  useEffect(() => {
-    if (!isMultilingual) {
-      onSelectedLanguagesChange(new Set([DEFAULT_LANGUAGE]));
-      setIsLangDropdownOpen(false);
-    }
-  }, [isMultilingual]);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        langDropdownRef.current &&
-        !langDropdownRef.current.contains(e.target as Node) &&
-        langTriggerRef.current &&
-        !langTriggerRef.current.contains(e.target as Node)
-      ) {
-        setIsLangDropdownOpen(false);
-      }
-    };
-    if (isLangDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isLangDropdownOpen]);
 
   useEffect(() => {
     if (showTagInput) tagInputRef.current?.focus();
@@ -145,27 +108,6 @@ export default function ProfileTab({
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) processAvatar(file);
-  };
-
-  const handleLangToggle = (lang: string) => {
-    const next = new Set(selectedLanguages);
-    if (next.has(lang)) {
-      if (next.size > 1) next.delete(lang);
-    } else {
-      next.add(lang);
-    }
-    onSelectedLanguagesChange(next);
-  };
-
-  const getLangLabel = (value: string) =>
-    LANGUAGES.find((l) => l.value === value)?.label ?? value;
-
-  const getLanguageDisplayText = () => {
-    const arr = Array.from(selectedLanguages);
-    if (arr.length === 0) return getLangLabel(DEFAULT_LANGUAGE);
-    if (arr.length === 1) return getLangLabel(arr[0]);
-    if (arr.length === 2) return arr.map(getLangLabel).join(", ");
-    return `${getLangLabel(arr[0])}, ${getLangLabel(arr[1])} +${arr.length - 2}`;
   };
 
   const removeTag = (tag: string) => {
@@ -470,109 +412,6 @@ export default function ProfileTab({
               <Plus size={11} strokeWidth={2.5} />
               Add tag
             </button>
-          )}
-        </div>
-      </div>
-
-      {/* Language */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 7, padding: "8px 0" }}>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47", margin: 0 }}>Language</p>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <Switch checked={isMultilingual} onCheckedChange={onIsMultilingualChange} />
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#000", margin: 0 }}>
-            {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
-            Do you want the persona to be multilingual?
-          </p>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <div
-            ref={langTriggerRef}
-            onClick={() => isMultilingual && setIsLangDropdownOpen((p) => !p)}
-            style={{
-              backgroundColor: "white",
-              border: "1px solid #d1c6bd",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "8px 12px",
-              borderRadius: 6,
-              cursor: isMultilingual ? "pointer" : "default",
-              userSelect: "none",
-              opacity: isMultilingual ? 1 : 0.6,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: 6,
-                  backgroundColor: "#ede1d7",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#524b47" strokeWidth="1.5">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                </svg>
-              </div>
-              <span
-                style={{
-                  fontFamily: "var(--font-body)",
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "#524b47",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {getLanguageDisplayText()}
-              </span>
-            </div>
-            <ChevronDown size={20} color="#524b47" style={{ flexShrink: 0 }} />
-          </div>
-
-          {isMultilingual && isLangDropdownOpen && (
-            <div
-              ref={langDropdownRef}
-              className="kaya-scrollbar"
-              style={{
-                border: "1px solid #d1c6bd",
-                borderRadius: 8,
-                backgroundColor: "white",
-                boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-                zIndex: 20,
-                maxHeight: 220,
-                overflowY: "auto",
-                marginTop: 4,
-              }}
-            >
-              {LANGUAGES.map((lang) => (
-                <div
-                  key={lang.value}
-                  onClick={() => handleLangToggle(lang.value)}
-                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px", cursor: "pointer" }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedLanguages.has(lang.value)}
-                    readOnly
-                    style={{ accentColor: "#524b47", width: 16, height: 16, cursor: "pointer" }}
-                  />
-                  <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>{lang.label}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {isMultilingual && (
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#d97757", margin: 0 }}>
-              Only models supporting these languages will be shown in the next step.
-            </p>
           )}
         </div>
       </div>

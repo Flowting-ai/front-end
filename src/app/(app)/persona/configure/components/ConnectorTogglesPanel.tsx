@@ -141,7 +141,12 @@ export function ConnectorTogglesPanel({
     onConnectorsChange?.([...next])
     try {
       const updated = await setVersionConnectors(repoId, versionId, [...next])
-      const confirmed = new Set<string>(updated.connectors)
+      // The PUT response returns connectors:[] due to a backend serialisation bug —
+      // only reconcile if the server actually echoes back a non-empty list, otherwise
+      // keep the optimistic `next` that was already applied above.
+      const confirmed = updated.connectors.length > 0
+        ? new Set<string>(updated.connectors)
+        : next
       setEnabled(confirmed)
       onConnectorsChange?.([...confirmed])
     } catch (err) {

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { InputField } from '@/components/InputField'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
@@ -12,7 +12,11 @@ import {
   ImageTwoIcon,
   SearchOneIcon,
 } from '@strange-huge/icons'
+import { LlmIcon } from '@strange-huge/icons/llm'
 import { cn } from '@/lib/utils'
+import { fetchModelsWithCache } from '@/lib/ai-models'
+import { getModelLlmId } from '@/lib/model-icons'
+import type { AIModel } from '@/types/ai-model'
 
 
 // ── Hardcoded data ────────────────────────────────────────────────────────────
@@ -37,7 +41,7 @@ const CATEGORY_TABS = [
 // IconButton when the Favorites category is active - the whole list IS the
 // favorites set, so the per-row toggle would be redundant.
 
-export const ModelSelectorContext = React.createContext<{ category: string } | null>(null)
+export const ModelSelectorContext = React.createContext<{ category: string; provider: string; tier: string; search: string } | null>(null)
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -116,8 +120,22 @@ export function ModelSelector({
     const [search,    setSearch]    = useState('')
     const [tier,      setTier]      = useState('free')
     const [category,  setCategory]  = useState('all')
+    const [provider,  setProvider]  = useState('all')
     const [atTop,    setAtTop]    = useState(true)
     const [atBottom, setAtBottom] = useState(false)
+    const [allModels, setAllModels] = useState<AIModel[]>([])
+
+    // Fetch models once to build the provider tab list
+    useEffect(() => {
+      fetchModelsWithCache().then(setAllModels).catch(() => {})
+    }, [])
+
+    // Derive sorted company list (most models first), same logic as CompareModels
+    const companies = useMemo(() => {
+      const counts: Record<string, number> = {}
+      for (const m of allModels) counts[m.companyName] = (counts[m.companyName] ?? 0) + 1
+      return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c]) => c)
+    }, [allModels])
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
       const el = e.currentTarget
@@ -181,6 +199,31 @@ export function ModelSelector({
              behave as a radio pair - selecting one deselects the other. */}
           <FeaturedModeRow />
 
+          {/* ── Provider filter tabs (below Muse buttons) ── */}
+          {companies.length > 0 && (
+            <div style={{ flexShrink: 0 }}>
+              <Tabs value={provider} onValueChange={setProvider}>
+                <TabsList size="small" scrollable>
+                  <TabsTrigger value="all" icon={<AtomTwoIcon size={16} />}>
+                    All
+                  </TabsTrigger>
+                  {companies.map((company) => {
+                    const rep   = allModels.find(m => m.companyName === company)
+                    const llmId = rep ? (getModelLlmId(rep.companyName, rep.modelName) ?? '') : ''
+                    return (
+                      <TabsTrigger
+                        key={company}
+                        value={company}
+                        icon={llmId ? <LlmIcon id={llmId} variant="color" size={16} /> : undefined}
+                      >
+                        {company}
+                      </TabsTrigger>
+                    )
+                  })}
+                </TabsList>
+              </Tabs>
+            </div>
+          )}
 
           {/* ── Models: category tabs + list ── */}
           <div style={{
@@ -239,7 +282,7 @@ export function ModelSelector({
                     }}
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginRight: '-6px' }}>
-                      <ModelSelectorContext.Provider value={{ category }}>
+                      <ModelSelectorContext.Provider value={{ category, provider, tier, search }}>
                         {children}
                       </ModelSelectorContext.Provider>
                     </div>

@@ -763,7 +763,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   const companies = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const m of models) counts[m.company] = (counts[m.company] ?? 0) + 1;
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c]) => c);
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c]) => c);
   }, [models]);
 
   const filteredModels = useMemo(() => {

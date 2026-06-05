@@ -14,6 +14,7 @@ import {
   PERSONA_VERSION_TEST_ENDPOINT,
   PERSONA_VERSION_DOCUMENT_ENDPOINT,
   PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT,
+  PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT,
   PERSONA_VERSION_CONNECTORS_ENDPOINT,
   PERSONA_CHATS_ENDPOINT,
   PERSONA_CHATS_CREATE_ENDPOINT,
@@ -323,6 +324,25 @@ export async function uploadDocument(repoId: string, versionId: string, file: Fi
     PERSONA_VERSION_DOCUMENT_ENDPOINT(repoId, versionId),
     { method: "POST", body: form },
   );
+}
+
+/**
+ * POST /persona/{repo_id}/versions/{version_id}/knowledge-url
+ * Saves a URL as a knowledge source for this version.
+ * Returns the updated PersonaVersionResponse so the caller can refresh the file list.
+ */
+export async function addKnowledgeUrl(
+  repoId: string,
+  versionId: string,
+  url: string,
+): Promise<PersonaVersionResponse> {
+  return apiFetchJson<PersonaVersionResponse>(
+    PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT(repoId, versionId),
+    {
+      method: 'POST',
+      body:   JSON.stringify({ url }),
+    },
+  )
 }
 
 export async function deleteDocument(
@@ -724,7 +744,15 @@ async function readPersonaSSEStream(
                 callbacks.onImage?.({ url: parsed.url, s3_key: parsed.s3_key });
               }
               break;
-            case "done":
+            case "done": {
+              const finishReason =
+                typeof parsed.finish_reason === "string" ? parsed.finish_reason : null;
+              if (finishReason === "tool_calls") {
+                // Agentic intermediate round — backend is executing tools and will
+                // emit more events on this same stream. Mirror use-streaming-chat.ts
+                // behaviour and keep reading instead of finalising.
+                break;
+              }
               doneSeen = true;
               armPostDoneCancel();
               callbacks.onDone?.({
@@ -735,10 +763,10 @@ async function readPersonaSSEStream(
                 tool_calls: Array.isArray(parsed.tool_calls)
                   ? (parsed.tool_calls as Array<Record<string, unknown>>)
                   : null,
-                finish_reason:
-                  typeof parsed.finish_reason === "string" ? parsed.finish_reason : null,
+                finish_reason: finishReason,
               });
               break;
+            }
             case "tool_calls_streaming":
               break; // partial args — no UI update needed
             case "tool_executing": {

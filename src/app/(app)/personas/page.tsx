@@ -322,8 +322,9 @@ export default function PersonasPage() {
 
   const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')
   const [personas,     setPersonas]     = useState<Persona[]>([])
-  const [draftAvatarMap, setDraftAvatarMap] = useState<Record<string, string>>({})
-  const [draftTagsMap,   setDraftTagsMap]   = useState<Record<string, string[]>>({})
+  const [draftAvatarMap,   setDraftAvatarMap]   = useState<Record<string, string>>({})
+  const [draftTagsMap,     setDraftTagsMap]     = useState<Record<string, string[]>>({})
+  const [unpublishedMap,   setUnpublishedMap]   = useState<Record<string, boolean>>({})
   const [isLoading,    setIsLoading]    = useState(true)
   const [search,       setSearch]       = useState('')
   const [sort,         setSort]         = useState<SortKey>('activity')
@@ -354,8 +355,9 @@ export default function PersonasPage() {
         setPersonas(list)
         // Build draft-avatar overrides from sessionStorage (covers the case
         // where the user uploaded an image but hasn't saved to the API yet).
-        const avatarOverrides: Record<string, string>   = {}
-        const tagOverrides:    Record<string, string[]> = {}
+        const avatarOverrides:     Record<string, string>   = {}
+        const tagOverrides:        Record<string, string[]> = {}
+        const unpublishedOverrides: Record<string, boolean>  = {}
         for (const p of list) {
           try {
             const raw = sessionStorage.getItem(`persona_profile_${p.id}`)
@@ -363,9 +365,15 @@ export default function PersonasPage() {
             if (typeof draft?.avatarUrl === 'string') avatarOverrides[p.id] = draft.avatarUrl
             if (Array.isArray(draft?.personaTags))   tagOverrides[p.id]    = draft.personaTags as string[]
           } catch { /* ignore quota / parse errors */ }
+          try {
+            if (localStorage.getItem(`persona_needs_publish_${p.id}`) === '1') {
+              unpublishedOverrides[p.id] = true
+            }
+          } catch { /* ignore quota / storage errors */ }
         }
         setDraftAvatarMap(avatarOverrides)
         setDraftTagsMap(tagOverrides)
+        setUnpublishedMap(unpublishedOverrides)
       })
       .catch(console.error)
       .finally(() => setIsLoading(false))
@@ -811,11 +819,11 @@ export default function PersonasPage() {
                       {gridRows[vRow.index].map(persona => (
                         <PersonaCard
                           key={persona.id}
-                          variant={persona.status === 'draft' || !persona.hasSystemInstructions ? 'draft' : 'default'}
+                          variant={persona.status === 'draft' || !persona.hasSystemInstructions || unpublishedMap[persona.id] ? 'draft' : 'default'}
                           name={persona.name}
                           handle={persona.handle.replace(/^@/, '')}
                           description={
-                            (persona.status === 'draft' || !persona.hasSystemInstructions) && !persona.description
+                            (persona.status === 'draft' || !persona.hasSystemInstructions || unpublishedMap[persona.id]) && !persona.description
                               ? 'Tap Edit to add a system instruction and publish this agent.'
                               : persona.description
                           }

@@ -364,11 +364,6 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%' }}>
 
-      {/* ── Tab hint (B) ──────────────────────────────────────────────────── */}
-      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0 }}>
-        Generate a Super Link anyone can use to chat with this agent — no account required.
-      </p>
-
       {/* ── Heading ─────────────────────────────────────────────────────────── */}
       <h1
         style={{
@@ -384,7 +379,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
       </h1>
 
       {/* ── Visibility ──────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div data-help-id="help-sharing-visibility" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <span
           style={{
             fontFamily: 'var(--font-body)',

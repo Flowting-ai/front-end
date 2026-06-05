@@ -654,6 +654,18 @@ function PersonaConfigureInstructionsContent() {
         setPublishedVersionId(repo.active_version?.id ?? null)
       } else {
         // ── New persona - create repo + initial version ───────────────────────
+
+        // Guard: if the user navigated back from this page through the wizard and
+        // then clicked Continue again, a repo was already created. Redirect to it
+        // instead of creating a second one.
+        try {
+          const wizardRepo = JSON.parse(sessionStorage.getItem('persona_wizard_repo') ?? 'null') as { repoId?: string; versionId?: string } | null
+          if (wizardRepo?.repoId && wizardRepo?.versionId) {
+            push(`/persona/configure/instructions?repoId=${wizardRepo.repoId}&versionId=${wizardRepo.versionId}`)
+            return
+          }
+        } catch { /* ignore */ }
+
         if (!firstModel) {
           toast.error('No AI models available. Please contact support.')
           push('/personas')
@@ -711,6 +723,15 @@ function PersonaConfigureInstructionsContent() {
 
         // Update URL with IDs only - no user data in the URL
         window.history.replaceState(null, '', `?repoId=${newRepoId}&versionId=${newVersionId}`)
+
+        // Persist the new repo so if the user presses back through the wizard and
+        // continues again, we redirect to this repo instead of creating another one.
+        try { sessionStorage.setItem('persona_wizard_repo', JSON.stringify({ repoId: newRepoId, versionId: newVersionId })) } catch { /* ignore */ }
+
+        // Mark as needing explicit publish so the /personas card shows as draft
+        // until the user clicks Publish. (createPersonaRepo auto-sets active_version
+        // on the backend, but we treat it as unpublished until the user publishes.)
+        try { localStorage.setItem(`persona_needs_publish_${newRepoId}`, '1') } catch { /* ignore */ }
 
         // Preserve wizard purpose for the Profile tab to use as description
         if (wizardPurpose) {
@@ -853,7 +874,15 @@ function PersonaConfigureInstructionsContent() {
   }
 
   function handleSaveVersion() {
-    if (!canSave) return
+    if (!selectedModel) {
+      toast.error('Please select a model before saving a version.')
+      return
+    }
+    if (!hasContent) {
+      toast.error('Please add system instructions before saving a version.')
+      return
+    }
+    if (!isDirty) return
     if (versions.length >= MAX_VERSIONS) {
       toast.error('Max version limit reached (5). Please delete an older version first.')
       return
@@ -906,6 +935,9 @@ function PersonaConfigureInstructionsContent() {
 
       if (typeof window !== 'undefined') {
         sessionStorage.setItem(publishedVersionKey(repoId), versionId)
+        // Clear wizard-session markers now that the persona has been explicitly published.
+        try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
+        try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
       }
       setPublishedVersionId(versionId)
 
@@ -951,9 +983,10 @@ function PersonaConfigureInstructionsContent() {
   const hasContent = instruction.trim().length > 0
 
   // isPublished: current version IS the published one with no pending changes.
-  // needsRepublish: user has published before but the editor is now ahead of what's live.
+  // needsRepublish: persona has content/exists but is not in a fully-published state —
+  //   covers both first-time publish (never published) and re-publish (changes since last publish).
   const isPublished    = !!publishedVersionId && publishedVersionId === versionId && !isDirty
-  const needsRepublish = !!publishedVersionId && (publishedVersionId !== versionId || isDirty)
+  const needsRepublish = !!repoId && !isPublished && (hasContent || !!publishedVersionId)
 
   const canPublish = hasContent && !!repoId && !!versionId && !!selectedModel && !isPublishing && !isPublished
   const canSave    = isDirty && hasContent && !!repoId && !!selectedModel && !isSaving
@@ -999,33 +1032,9 @@ function PersonaConfigureInstructionsContent() {
     setExampleConversations(prev => prev.filter(c => c.id !== id))
   }
 
-  // ── Auto-save on tab switch (updates current version in-place, no new version) ──
-
-  // Keep ref current so the closure always captures latest state values
-  instructionAutoSaveRef.current = async () => {
-    const modelId = selectedModel ? stableKey(selectedModel) : null
-    if (!isDirty || !repoId || !versionId || !modelId) return
-    try {
-      let imageFile: File | undefined
-      let preserveImageUrl: string | null = null
-      const avatarDataUrl = readProfileAvatar(repoId)
-      if (avatarDataUrl?.startsWith('data:')) {
-        imageFile = dataUrlToFile(avatarDataUrl, 'avatar.jpg')
-      } else if (imageUrl) {
-        preserveImageUrl = imageUrl
-      }
-      await updateVersion({
-        repoId, versionId,
-        name:        personaName,
-        modelId,
-        prompt:      instruction,
-        temperature,
-        image:       imageFile,
-        imageUrl:    preserveImageUrl ?? undefined,
-      })
-      savedSnapshotRef.current = { instruction, modelId, temperature }
-    } catch { /* silent — navigation proceeds regardless */ }
-  }
+  // Tab switching preserves state via sessionStorage (written on every change above).
+  // No backend save on tab switch — data is only written to the server on explicit Save Version or Publish.
+  instructionAutoSaveRef.current = async () => Promise.resolve()
 
   useEffect(() => {
     registerAutoSave(() => instructionAutoSaveRef.current())
@@ -1037,6 +1046,17 @@ function PersonaConfigureInstructionsContent() {
   function navigateTab(tab: Tab) {
     const route = TAB_ROUTES[tab]
     if (!route) return
+    // Block tab switching until required fields are filled (only relevant for new/custom personas)
+    if (!isInitialising) {
+      if (!selectedModel) {
+        toast.error('Please select a model before switching tabs.')
+        return
+      }
+      if (!hasContent) {
+        toast.error('Please add system instructions before switching tabs.')
+        return
+      }
+    }
     const params = new URLSearchParams(searchParams.toString())
     if (repoId)    params.set('repoId',    repoId)
     if (versionId) params.set('versionId', versionId)
@@ -1215,7 +1235,7 @@ function PersonaConfigureInstructionsContent() {
             )}
           </div>
 
-          <div style={{ height: 32, flexShrink: 0 }} />
+          <div style={{ height: 35, flexShrink: 0 }} />
         </div>
 
         {/* ── Scrollable content area ────────────────────────────────────────── */}
@@ -1238,11 +1258,6 @@ function PersonaConfigureInstructionsContent() {
             }}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', maxWidth: 714 }}>
-
-              {/* ── Tab hint (B) ──────────────────────────────────────────────── */}
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0 }}>
-                Define your agent&apos;s role, tone, and expertise. The more specific you are, the better it performs.
-              </p>
 
               {/* ── Persona header ────────────────────────────────────────────── */}
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>

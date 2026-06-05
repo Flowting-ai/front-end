@@ -16,6 +16,7 @@ import {
   updateVersion,
   uploadDocument,
   deleteDocument,
+  addKnowledgeUrl,
   setActiveVersion,
   bustPersonasCache,
   type PersonaVersionResponse,
@@ -46,14 +47,26 @@ const TAB_ROUTES: Partial<Record<Tab, string>> = {
 
 function docsToFiles(version: PersonaVersionResponse): KnowledgeFile[] {
   return (version.documents ?? []).map(doc => {
-    const ext = doc.document_filename.split('.').pop()?.toUpperCase() ?? 'FILE'
-    const size = (doc as any).size_bytes ? `${((doc as any).size_bytes / 1024 / 1024).toFixed(1)} MB` : '-'
+    const isUrl = doc.document_filename.startsWith('http')
+    if (isUrl) {
+      return {
+        id:       doc.id,
+        name:     doc.document_filename.replace(/^https?:\/\//, '').split('/')[0],
+        url:      doc.document_filename,
+        type:     'url' as const,
+        fileType: 'URL',
+        size:     '-',
+        date:     new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      }
+    }
+    const ext  = doc.document_filename.split('.').pop()?.toUpperCase() ?? 'FILE'
+    const size = doc.size_bytes ? `${(doc.size_bytes / 1024 / 1024).toFixed(1)} MB` : '-'
     return {
       id:       doc.id,
       name:     doc.document_filename,
       type:     'file' as const,
       fileType: ext,
-      size:     size,
+      size,
       date:     new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     }
   })
@@ -331,6 +344,34 @@ function PersonaConfigureKnowledgeContent() {
     }
   }
 
+  // ── Add URL as knowledge source ──────────────────────────────────────────
+
+  async function handleAddUrl(url: string) {
+    if (!repoId || !versionId) return
+    // Optimistic placeholder so the row appears immediately
+    const placeholder: KnowledgeFile = {
+      id:       `url-pending-${Date.now()}`,
+      name:     url.replace(/^https?:\/\//, '').split('/')[0],
+      url,
+      type:     'url',
+      fileType: 'URL',
+      size:     '-',
+      date:     new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    }
+    setFiles(prev => [...prev, placeholder])
+    try {
+      const version = await addKnowledgeUrl(repoId, versionId, url)
+      setFiles(docsToFilesWithSizes(version))
+      toast.success(`Added ${url}`)
+      setIsDirty(true)
+      addPendingChangeTag('Knowledge')
+    } catch (err) {
+      console.error('[KnowledgePage] URL add error:', err)
+      setFiles(prev => prev.filter(f => f.id !== placeholder.id))
+      toast.error('Failed to add URL')
+    }
+  }
+
   // ── Save version ─────────────────────────────────────────────────────────
 
   async function handleSaveVersion() {
@@ -358,9 +399,21 @@ function PersonaConfigureKnowledgeContent() {
     const wasPublished = !!storedLiveId
     setIsPublishing(true)
     try {
+      // Flush any unsaved knowledge changes (file uploads/deletes mark isDirty) into the
+      // current version before publishing — no new version is created.
+      if (isDirty) {
+        await updateVersion({ repoId, versionId, name: personaName || undefined })
+        setIsDirty(false)
+        setVersionTags(versionId, pendingChangeTags)
+        setPendingChangeTags([])
+      }
       await setActiveVersion(repoId, versionId)
       bustPersonasCache()
-      if (typeof window !== 'undefined') sessionStorage.setItem(publishedVersionKey(repoId), versionId)
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(publishedVersionKey(repoId), versionId)
+        try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
+        try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
+      }
       setPublishedVersionId(versionId)
 
       const base = `/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${versionId}`
@@ -483,7 +536,7 @@ function PersonaConfigureKnowledgeContent() {
             </Button>
           </div>
         </div>
-        <div style={{ height: 32, flexShrink: 0 }} />
+        <div style={{ height: 35, flexShrink: 0 }} />
       </div>
 
       {/* ── Scrollable content area ────────────────────────────────────────── */}
@@ -495,10 +548,6 @@ function PersonaConfigureKnowledgeContent() {
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', maxWidth: 714, paddingBottom: 32 }}>
-          {/* ── Tab hint (B) ──────────────────────────────────────────────── */}
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0 }}>
-            Upload files, PDFs, or paste text your agent should know — it can reference this during conversations.
-          </p>
           {isLoading ? (
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>Loading…</p>
           ) : (
@@ -508,6 +557,7 @@ function PersonaConfigureKnowledgeContent() {
               onRawFilesSelected={uploadFiles}
               onRemoveFile={handleDeleteFile}
               onPreviewFile={handlePreviewFile}
+              onAddUrl={handleAddUrl}
             />
           )}
         </div>

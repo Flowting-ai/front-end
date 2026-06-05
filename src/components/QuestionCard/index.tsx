@@ -46,6 +46,8 @@ export interface QuestionCardProps extends Omit<React.HTMLAttributes<HTMLDivElem
   titleBadge?: { label: string; color: BadgeColor }
   /** Shows a per-tab progress bar above the title in 'info' mode */
   tabProgress?: { tabs: string[]; currentIndex: number }
+  /** Slot rendered at the very top of the card, above the tabProgress stepper (info mode only) */
+  topSlot?: React.ReactNode
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -177,6 +179,135 @@ function RankableRow({ option, index }: { option: QuestionCardOption; index: num
   )
 }
 
+// ── InfoCardBody ──────────────────────────────────────────────────────────────
+// Shows info-mode options one at a time with animated transitions and dot
+// indicators. Navigation calls onSelect with the adjacent option's id so the
+// parent's selected state stays the single source of truth.
+
+function InfoCardBody({ options, selected, onSelect }: {
+  options:  QuestionCardOption[]
+  selected?: string | string[]
+  onSelect?: (id: string) => void
+}) {
+  const rawIdx     = options.findIndex(o =>
+    Array.isArray(selected) ? selected.includes(o.id) : selected === o.id,
+  )
+  const currentIdx = rawIdx < 0 ? 0 : rawIdx
+  const opt        = options[currentIdx]
+  const isFirst    = currentIdx === 0
+  const isLast     = currentIdx === options.length - 1
+
+  function goTo(idx: number) {
+    if (idx >= 0 && idx < options.length) onSelect?.(options[idx].id)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+      {/* Animated single-item content */}
+      <AnimatePresence mode="wait" initial={false}>
+        <m.div
+          key={opt?.id ?? currentIdx}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0, transition: { duration: 0.15, ease: 'easeOut' } }}
+          exit={{ opacity: 0, y: -4, transition: { duration: 0.1, ease: 'easeIn' } }}
+          style={{
+            padding:         '10px 12px',
+            minHeight:       56,
+            display:         'flex',
+            flexDirection:   'column',
+            gap:             6,
+            backgroundColor: 'rgba(110,152,203,0.08)',
+            borderRadius:    10,
+            border:          '1px solid rgba(110,152,203,0.18)',
+          }}
+        >
+          {/* Number badge + label row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              width:           22,
+              height:          22,
+              borderRadius:    6,
+              flexShrink:      0,
+              display:         'flex',
+              alignItems:      'center',
+              justifyContent:  'center',
+              backgroundColor: '#6e98cb',
+              boxShadow:       '0 0 0 1px rgba(110,152,203,0.5)',
+            }}>
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 600,
+                fontSize:   11,
+                lineHeight: '11px',
+                display:    'block',
+                textAlign:  'center',
+                color:      'white',
+                userSelect: 'none',
+              }}>
+                {currentIdx + 1}
+              </span>
+            </div>
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 600,
+              fontSize:   13,
+              lineHeight: '18px',
+              color:      '#3b6fa8',
+            }}>
+              {opt?.label}
+            </span>
+          </div>
+          {opt?.description && (
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 400,
+              fontSize:   12,
+              lineHeight: '17px',
+              color:      'var(--neutral-700)',
+            }}>
+              {opt.description}
+            </span>
+          )}
+        </m.div>
+      </AnimatePresence>
+
+      {/* Prev / dot indicators / next */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+        <div style={{ opacity: isFirst ? 0.28 : 1, pointerEvents: isFirst ? 'none' : 'auto', transition: 'opacity 150ms' }}>
+          <IconButton size="xs" variant="ghost" aria-label="Previous" icon={<ArrowLeftOneIcon size={18} />} onClick={() => goTo(currentIdx - 1)} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          {options.map((o, i) => (
+            <button
+              key={o.id}
+              type="button"
+              aria-label={`Go to ${o.label}`}
+              onClick={() => goTo(i)}
+              style={{
+                width:           i === currentIdx ? 18 : 6,
+                height:          6,
+                borderRadius:    3,
+                border:          'none',
+                padding:         0,
+                cursor:          'pointer',
+                backgroundColor: i === currentIdx ? '#6e98cb' : 'var(--neutral-300)',
+                transition:      'width 220ms ease, background-color 220ms ease',
+              }}
+            />
+          ))}
+        </div>
+
+        <div style={{ opacity: isLast ? 0.28 : 1, pointerEvents: isLast ? 'none' : 'auto', transition: 'opacity 150ms' }}>
+          <IconButton size="xs" variant="ghost" aria-label="Next" icon={<ArrowRightOneIcon size={18} />} onClick={() => goTo(currentIdx + 1)} />
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function QuestionCard(
@@ -198,6 +329,7 @@ export function QuestionCard(
     onNext,
     titleBadge,
     tabProgress,
+    topSlot,
     className,
     style,
     ref,
@@ -281,6 +413,9 @@ export function QuestionCard(
         }}
         {...(props as any)}
       >
+
+        {/* ── Top slot (info mode only — e.g. Main / Panels tab switcher) ────── */}
+        {type === 'info' && topSlot}
 
         {/* ── Tab progress stepper (above main heading, info mode only) ────────── */}
         {type === 'info' && tabProgress && (
@@ -406,7 +541,9 @@ export function QuestionCard(
                 {selectionCount} Selected
               </span>
             )}
-            <IconButton size="xs" variant="ghost" aria-label="Dismiss question" icon={<CancelOneIcon size={18} />} onClick={onClose} />
+            {!(type === 'info' && topSlot) && (
+              <IconButton size="xs" variant="ghost" aria-label="Dismiss question" icon={<CancelOneIcon size={18} />} onClick={onClose} />
+            )}
           </div>
         </div>
 
@@ -431,91 +568,7 @@ export function QuestionCard(
               ))}
             </Reorder.Group>
           ) : type === 'info' ? (
-            /* Info mode — full selectable list; clicking an item selects it and highlights the related UI */
-            <div className="kaya-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3, maxHeight: 375, overflowY: 'auto', overscrollBehaviorY: 'contain' }}>
-              {options.map((opt, i) => {
-                const isActive = Array.isArray(selected)
-                  ? selected.includes(opt.id)
-                  : selected === opt.id
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => onSelect?.(opt.id)}
-                    style={{
-                      display:         'flex',
-                      alignItems:      'flex-start',
-                      gap:             10,
-                      padding:         '9px 10px',
-                      borderRadius:    10,
-                      border:          'none',
-                      cursor:          'pointer',
-                      textAlign:       'left',
-                      backgroundColor: isActive ? 'rgba(110,152,203,0.08)' : 'transparent',
-                      boxShadow:       isActive ? '0 0 0 1.5px rgba(110,152,203,0.35)' : 'none',
-                      transition:      'background-color 150ms, box-shadow 150ms',
-                      width:           '100%',
-                    }}
-                    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)' }}
-                    onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
-                  >
-                    {/* Number badge */}
-                    <div style={{
-                      width:           22,
-                      height:          22,
-                      borderRadius:    6,
-                      flexShrink:      0,
-                      display:         'flex',
-                      alignItems:      'center',
-                      justifyContent:  'center',
-                      backgroundColor: isActive ? '#6e98cb' : 'var(--neutral-100)',
-                      boxShadow:       isActive ? '0 0 0 1px rgba(110,152,203,0.5)' : '0 0 0 1px var(--neutral-200)',
-                      marginTop:       1,
-                      transition:      'background-color 150ms, box-shadow 150ms',
-                    }}>
-                      <span style={{
-                        fontFamily: 'var(--font-body)',
-                        fontWeight: 600,
-                        fontSize:   11,
-                        lineHeight: '11px',
-                        display:    'block',
-                        textAlign:  'center',
-                        color:      isActive ? 'white' : 'var(--neutral-500)',
-                        userSelect: 'none',
-                        transition: 'color 150ms',
-                      }}>
-                        {i + 1}
-                      </span>
-                    </div>
-
-                    {/* Content */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
-                      <span style={{
-                        fontFamily: 'var(--font-body)',
-                        fontWeight: 600,
-                        fontSize:   13,
-                        lineHeight: '18px',
-                        color:      isActive ? '#3b6fa8' : 'var(--neutral-900)',
-                        transition: 'color 150ms',
-                      }}>
-                        {opt.label}
-                      </span>
-                      {opt.description && (
-                        <span style={{
-                          fontFamily: 'var(--font-body)',
-                          fontWeight: 400,
-                          fontSize:   12,
-                          lineHeight: '17px',
-                          color:      'var(--neutral-600)',
-                        }}>
-                          {opt.description}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+            <InfoCardBody options={options} selected={selected} onSelect={onSelect} />
           ) : (
             <AnimatePresence mode="wait" initial={false}>
               <m.div
