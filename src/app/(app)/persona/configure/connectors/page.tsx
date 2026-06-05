@@ -267,6 +267,7 @@ function PersonaConfigureConnectorsContent() {
             <ConnectorsTab
               repoId={repoId || undefined}
               versionId={versionId || undefined}
+              personaName={personaName || undefined}
               onConnectorsChange={(slugs) => updatePersonaInfo({ connectorSlugs: slugs })}
             />
           </div>

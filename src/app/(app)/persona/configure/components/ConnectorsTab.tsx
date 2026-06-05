@@ -224,15 +224,53 @@ const SECTION_LABEL: React.CSSProperties = {
   margin:     0,
 }
 
+// ── User-removed connector tracking (per version) ─────────────────────────────
+// Tracks connectors the user explicitly toggled OFF so they don't get
+// auto-enabled again when linked connectors are synced from Settings.
+
+function removedKey(versionId: string) {
+  return `persona_conn_removed_${versionId}`
+}
+
+function getUserRemovedSlugs(versionId: string): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const raw = localStorage.getItem(removedKey(versionId))
+    return raw ? new Set<string>(JSON.parse(raw) as string[]) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function saveUserRemovedSlug(versionId: string, slug: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const s = getUserRemovedSlugs(versionId)
+    s.add(slug)
+    localStorage.setItem(removedKey(versionId), JSON.stringify([...s]))
+  } catch {}
+}
+
+function clearUserRemovedSlug(versionId: string, slug: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const s = getUserRemovedSlugs(versionId)
+    s.delete(slug)
+    localStorage.setItem(removedKey(versionId), JSON.stringify([...s]))
+  } catch {}
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ConnectorsTab({
   repoId,
   versionId,
+  personaName,
   onConnectorsChange,
 }: {
   repoId?:             string
   versionId?:          string
+  personaName?:        string
   onConnectorsChange?: (slugs: string[]) => void
 }) {
   const { push } = useRouter()
@@ -257,10 +295,33 @@ export default function ConnectorsTab({
         listConnectors(),
         getVersion(repoId, versionId),
       ])
-      setLinked(catalog.filter(c => c.linked))
-      const initial = new Set<string>(version.connectors)
-      setPersonaSlugs(initial)
-      onChangeRef.current?.([...initial])
+      const linkedConnectors = catalog.filter(c => c.linked)
+      setLinked(linkedConnectors)
+
+      const existing    = new Set<string>(version.connectors)
+      const userRemoved = getUserRemovedSlugs(versionId)
+
+      // Compute the full desired set: existing slugs + every linked connector
+      // that the user hasn't explicitly turned off.
+      const toAutoAdd = linkedConnectors.filter(
+        c => !existing.has(c.slug) && !userRemoved.has(c.slug),
+      )
+      const desired = new Set<string>([...existing, ...toAutoAdd.map(c => c.slug)])
+
+      // Set UI immediately so toggles are visible regardless of save outcome.
+      setPersonaSlugs(desired)
+      onChangeRef.current?.([...desired])
+
+      // Persist the auto-added slugs in the background (fire-and-forget).
+      // Do NOT update state from the response — the optimistic UI is already
+      // correct, and overwriting it with a stale/empty server response is what
+      // caused the 2-second revert.
+      if (toAutoAdd.length > 0) {
+        setVersionConnectors(repoId, versionId, [...desired]).catch(() => {
+          // Silent failure is acceptable here; the user can toggle any
+          // connector to force a re-save.
+        })
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load connectors'
       setLoadError(msg)
@@ -277,22 +338,40 @@ export default function ConnectorsTab({
     setSavingSlug(slug)
     const prev = new Set(personaSlugs)
     const next = new Set(personaSlugs)
-    if (next.has(slug)) { next.delete(slug) } else { next.add(slug) }
+    const isRemoving = next.has(slug)
+    if (isRemoving) {
+      next.delete(slug)
+      // Remember user explicitly disabled this connector so it won't auto-re-enable
+      saveUserRemovedSlug(versionId, slug)
+    } else {
+      next.add(slug)
+      // User re-enabled it – clear the explicit-remove flag
+      clearUserRemovedSlug(versionId, slug)
+    }
     setPersonaSlugs(next)
     onChangeRef.current?.([...next])
     try {
       const updated = await setVersionConnectors(repoId, versionId, [...next])
-      const confirmed = new Set<string>(updated.connectors)
-      setPersonaSlugs(confirmed)
-      onChangeRef.current?.([...confirmed])
+      // Do NOT overwrite state from the backend response — the optimistic `next`
+      // is already correct. Overwriting with `updated.connectors` caused all
+      // other connectors to disappear when the backend returned a partial list.
+      void updated // acknowledge the response without using it
+      const displayName = linked.find(c => c.slug === slug)?.display_name ?? slug
+      const agentLabel  = personaName ? ` for ${personaName}` : ''
+      if (isRemoving) {
+        toast.success(`${displayName} disconnected${agentLabel}`)
+      } else {
+        toast.success(`${displayName} connected${agentLabel}`)
+      }
     } catch (err) {
+      // Revert only this connector's toggle, not the entire set.
       setPersonaSlugs(prev)
       onChangeRef.current?.([...prev])
       toast.error(err instanceof Error ? err.message : 'Failed to update connector')
     } finally {
       setSavingSlug(null)
     }
-  }, [repoId, versionId, personaSlugs, savingSlug])
+  }, [repoId, versionId, personaSlugs, savingSlug, linked, personaName])
 
   // Filter by search query
   const matchesSearch = useCallback((c: ConnectorCatalogEntry) => {
