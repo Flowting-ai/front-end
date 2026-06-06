@@ -14,6 +14,7 @@ import {
   PERSONA_VERSION_TEST_ENDPOINT,
   PERSONA_VERSION_DOCUMENT_ENDPOINT,
   PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT,
+  PERSONA_VERSION_FILES_ENDPOINT,
   PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT,
   PERSONA_VERSION_CONNECTORS_ENDPOINT,
   PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT,
@@ -32,10 +33,17 @@ import {
 export interface PersonaDocumentResponse {
   id: string;
   document_filename: string;
+  source_url?: string | null;
   created_at: string;
   size_bytes?: number | null;
   content_type?: string | null;
   download_url?: string | null;
+}
+
+export interface EnhanceQuestion {
+  question: string;
+  options: string[];
+  multi_select: boolean;
 }
 
 export interface PersonaVersionResponse {
@@ -50,9 +58,13 @@ export interface PersonaVersionResponse {
   image_s3_key: string | null;
   temperature: number | null;
   documents: PersonaDocumentResponse[];
+  links: PersonaDocumentResponse[];
   total_usage: number;
-  /** Slugs of connectors enabled for this version. Empty array = none assigned. */
-  connectors: string[];
+  /** Slugs of connectors that are BLOCKED (disabled) for this version. */
+  blocked_connectors: string[];
+  source_share_id: string | null;
+  version_tags: string[];
+  persona_tags: string[];
   created_at: string;
   updated_at: string;
 }
@@ -74,14 +86,15 @@ export interface PersonaVersionListItem {
   handler: string;
   model_id: string | null;
   is_active: boolean;
+  version_tags: string[];
+  persona_tags: string[];
   created_at: string;
   updated_at: string;
 }
 
 export interface EnhancePromptResponse {
   enhanced_prompt: string;
-  dos: string[];
-  donts: string[];
+  questions: EnhanceQuestion[];
 }
 
 export interface PersonaStarterRequest {
@@ -96,8 +109,7 @@ export interface PersonaStarterSound {
 
 export interface PersonaStarterResponse {
   system_instruction: string;
-  /** Currently a single sound object; will become an array in a future API version. */
-  sound: PersonaStarterSound | PersonaStarterSound[];
+  sounds: PersonaStarterSound[];
   persona_tags: string[];
 }
 
@@ -121,6 +133,8 @@ export interface Persona {
   versionCount: number;
   /** True when the active version has a non-empty system prompt. */
   hasSystemInstructions: boolean;
+  /** Non-null when this persona was accepted from a Super Link shared by another user. */
+  sourceShareId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -153,6 +167,7 @@ function normalizeRepo(repo: PersonaRepoResponse): Persona {
     // instructions. Only mark false when we have the version object and the
     // prompt is genuinely blank, or when there's no active version at all.
     hasSystemInstructions: v !== null ? !!(v.prompt?.trim()) : repo.active_version_id !== null,
+    sourceShareId: v?.source_share_id ?? null,
     createdAt: repo.created_at,
     updatedAt: repo.updated_at,
   };
@@ -294,22 +309,36 @@ export async function updateVersion(params: {
   files?: File[];
   removeDocumentIds?: string[];
 }): Promise<PersonaVersionResponse> {
-  const form = new FormData();
-  if (params.name != null) form.append("name", params.name);
-  if (params.prompt != null) form.append("prompt", params.prompt);
-  if (params.modelId != null) form.append("model_id", params.modelId);
-  if (params.temperature != null) form.append("temperature", String(params.temperature));
+  // PATCH accepts JSON-only metadata (UpdatePersona schema).
+  const patchBody: Record<string, unknown> = {};
+  if (params.name != null)        patchBody.name        = params.name;
+  if (params.prompt != null)      patchBody.prompt      = params.prompt;
+  if (params.modelId != null)     patchBody.model_id    = params.modelId;
+  if (params.temperature != null) patchBody.temperature = params.temperature;
+
+  let result = await apiFetchJson<PersonaVersionResponse>(
+    PERSONA_VERSION_DETAIL_ENDPOINT(params.repoId, params.versionId),
+    { method: "PATCH", body: JSON.stringify(patchBody) },
+  );
+
+  // Files, image, and removeDocumentIds go through PUT /files (separate endpoint).
   let image: File | null = params.image ?? null;
   if (!image && params.imageUrl) image = await urlToImageFile(params.imageUrl);
-  if (image) form.append("image", image);
-  params.files?.forEach(f => form.append("files", f));
-  if (params.removeDocumentIds && params.removeDocumentIds.length > 0) {
-    form.append("remove_document_ids", params.removeDocumentIds.join(","));
+  const hasFiles = image || (params.files?.length ?? 0) > 0 || (params.removeDocumentIds?.length ?? 0) > 0;
+  if (hasFiles) {
+    const form = new FormData();
+    if (image) form.append("image", image);
+    params.files?.forEach(f => form.append("files", f));
+    if (params.removeDocumentIds && params.removeDocumentIds.length > 0) {
+      form.append("remove_document_ids", params.removeDocumentIds.join(","));
+    }
+    result = await apiFetchJson<PersonaVersionResponse>(
+      PERSONA_VERSION_FILES_ENDPOINT(params.repoId, params.versionId),
+      { method: "PUT", body: form },
+    );
   }
-  return apiFetchJson<PersonaVersionResponse>(
-    PERSONA_VERSION_DETAIL_ENDPOINT(params.repoId, params.versionId),
-    { method: "PATCH", body: form },
-  );
+
+  return result;
 }
 
 /** DELETE /persona/{repo_id}/versions/{persona_id} */
@@ -395,7 +424,7 @@ export async function setVersionBlockedConnectors(
     PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT(repoId, versionId),
     {
       method: 'PATCH',
-      body: JSON.stringify({ connector_slugs: blockedSlugs }),
+      body: JSON.stringify({ slugs: blockedSlugs }),
     },
   );
 }
@@ -433,13 +462,10 @@ export async function personaStarter(
 
 // ── Enhance prompt ────────────────────────────────────────────────────────────
 
-export async function enhancePrompt(prompt: string): Promise<EnhancePromptResponse> {
-  const form = new URLSearchParams();
-  form.append("prompt", prompt);
+export async function enhancePrompt(prompt: string, answers: string[] = []): Promise<EnhancePromptResponse> {
   return apiFetchJson<EnhancePromptResponse>(PERSONA_ENHANCE_ENDPOINT, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: form.toString(),
+    body: JSON.stringify({ prompt, answers }),
   });
 }
 
@@ -612,12 +638,14 @@ export interface PersonaConnectPrompt {
 }
 
 export interface PersonaPermissionPrompt {
+  /** prompt_id from the backend — POST this to /chats/prompts/{id} to unblock the stream. */
   request_id:      string
   connector_slug:  string
   display_name:    string
   tool_name:       string
   suggested_args?: Record<string, unknown>
   icon_url?:       string
+  respond_url?:    string
 }
 
 export interface PersonaChatStreamCallbacks {
@@ -867,18 +895,22 @@ async function readPersonaSSEStream(
               })
               break
             }
-            case "tool_permission_prompt":
-              callbacks.onPermissionPrompt?.({
-                request_id:     typeof parsed.request_id === 'string' ? parsed.request_id : `cpp-${Date.now()}`,
+            case "permission_prompt":
+            case "tool_permission_prompt": {
+              const permPrompt = {
+                request_id:     str(parsed.prompt_id ?? parsed.request_id) || `cpp-${Date.now()}`,
                 connector_slug: str(parsed.connector_slug),
                 display_name:   str(parsed.display_name) || str(parsed.connector_slug),
-                tool_name:      str(parsed.tool_name),
+                tool_name:      str(parsed.tool_slug ?? parsed.tool_name),
                 suggested_args: typeof parsed.suggested_args === 'object' && parsed.suggested_args !== null
                   ? (parsed.suggested_args as Record<string, unknown>)
                   : undefined,
                 icon_url:       str(parsed.icon_url) || undefined,
-              })
+                respond_url:    str(parsed.respond_url) || undefined,
+              }
+              callbacks.onPermissionPrompt?.(permPrompt)
               break
+            }
             case "error":
               callbacks.onError?.(str(parsed.error) || "Stream error");
               return;
@@ -1014,7 +1046,6 @@ export async function guidePersonaStream(
     name?: string | null;
     model_id?: string | null;
     temperature?: number | null;
-    connectors?: string[];
     history?: GuideMessage[];
     web_search?: boolean;
   },
@@ -1045,7 +1076,6 @@ export async function guidePersonaStream(
     name:        params.name        ?? null,
     model_id:    resolvedModelId,
     temperature: params.temperature ?? null,
-    connectors:  params.connectors  ?? [],
     history:     params.history     ?? [],
     web_search:  params.web_search  ?? false,
   };
@@ -1127,7 +1157,6 @@ async function guideRetryWithModel(
         name:        params.name        ?? null,
         model_id:    params.model_id    ?? null,
         temperature: params.temperature ?? null,
-        connectors:  params.connectors  ?? [],
         history:     params.history     ?? [],
         web_search:  params.web_search  ?? false,
       }),

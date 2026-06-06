@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { X } from "lucide-react";
+import { ArrowDownOneIcon } from "@strange-huge/icons";
+import { IconButton } from "@/components/IconButton";
 import { ChatMessageMemo } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CitationsPanel } from "./CitationsPanel";
@@ -235,6 +238,7 @@ export function ChatInterface({
   const [pinQuery, setPinQuery] = useState("");
   const [highlightedPinIndex, setHighlightedPinIndex] = useState(0);
   const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
+  const [atBottom, setAtBottom] = useState(true);
 
   const messagesEndRef       = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -288,8 +292,8 @@ export function ChatInterface({
   const msgVirtualizer = useVirtualizer({
     count:            messages.length,
     getScrollElement: () => messagesContainerRef.current,
-    estimateSize:     () => 200,
-    overscan:         3,
+    estimateSize:     () => 600,
+    overscan:         5,
   });
 
   const { moveToTop } = { moveToTop: onChatMoveToTop ?? (() => {}) };
@@ -424,24 +428,34 @@ export function ChatInterface({
     }
   }, [isLoadingMessages, messages, scrollToMessageId, msgVirtualizer]);
 
-  // Scroll to bottom smoothly as new streaming content arrives.
+  // Scroll to bottom as new streaming content arrives.
+  // Use msgVirtualizer.scrollToIndex (not messagesEndRef.scrollIntoView) so the
+  // scroll target is always consistent with getTotalSize() — scrollIntoView races
+  // with the virtualizer's height recalculation and causes oscillation.
   const lastMessageContent = messages.length > 0
     ? messages[messages.length - 1]?.content?.length ?? 0
     : 0;
   useEffect(() => {
     if (!isLoadingMessages && messages.length > 0 && isStreaming) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
     }
-  }, [isStreaming, messages.length, lastMessageContent, isLoadingMessages]);
+  }, [isStreaming, messages.length, lastMessageContent, isLoadingMessages, msgVirtualizer]);
 
-  // Scroll-to-top for pagination
+  // Scroll-to-top for pagination + track whether user is at bottom
   const handleScroll = () => {
     const container = messagesContainerRef.current;
     if (!container) return;
     if (container.scrollTop === 0 && hasMoreMessages) {
       loadMoreMessages();
     }
+    const dist = container.scrollHeight - container.scrollTop - container.clientHeight;
+    setAtBottom(dist < 80);
   };
+
+  const scrollToBottom = useCallback(() => {
+    if (messages.length === 0) return;
+    msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
+  }, [messages.length, msgVirtualizer]);
 
   // File drop (drag-and-drop into the chat area)
   const { isDragging } = useFileDrop({
@@ -696,7 +710,16 @@ export function ChatInterface({
         </div>
       )}
 
-      {/* Messages area */}
+      {/* Messages area + scroll-to-bottom button, wrapped so the button can be absolutely positioned at the bottom of the scroll area */}
+      <div
+        style={{
+          position: 'relative',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+        }}
+      >
       <div
         ref={messagesContainerRef}
         className="kaya-scrollbar"
@@ -785,6 +808,35 @@ export function ChatInterface({
 
           <div ref={messagesEndRef} />
         </div>
+      </div>
+
+      {/* Scroll-to-bottom button */}
+      <AnimatePresence>
+        {!atBottom && (
+          <m.div
+            key="scroll-to-bottom"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            style={{
+              position: 'absolute',
+              bottom: 16,
+              left: '50%',
+              x: '-50%',
+              zIndex: 10,
+            }}
+          >
+            <IconButton
+              variant="secondary"
+              size="sm"
+              aria-label="Scroll to bottom"
+              icon={<ArrowDownOneIcon size={16} />}
+              onClick={scrollToBottom}
+            />
+          </m.div>
+        )}
+      </AnimatePresence>
       </div>
 
       {/* Input area */}

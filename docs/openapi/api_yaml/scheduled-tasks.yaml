@@ -286,35 +286,6 @@ components:
         - success_rate
       title: ScheduledTaskListItem
       description: Row returned by GET /tasks.
-    ScheduledTaskLogResponse:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        level:
-          type: string
-          title: Level
-        node_id:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Node Id
-        message:
-          type: string
-          title: Message
-        created_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Created At
-      type: object
-      required:
-        - id
-        - level
-        - message
-      title: ScheduledTaskLogResponse
     ScheduledTaskRunResponse:
       properties:
         id:
@@ -341,12 +312,6 @@ components:
             - type: string
             - type: 'null'
           title: Error
-        node_outputs:
-          anyOf:
-            - additionalProperties: true
-              type: object
-            - type: 'null'
-          title: Node Outputs
         synthesis:
           anyOf:
             - type: string
@@ -358,12 +323,6 @@ components:
               format: date-time
             - type: 'null'
           title: Created At
-        logs:
-          items:
-            $ref: '#/components/schemas/ScheduledTaskLogResponse'
-          type: array
-          title: Logs
-          default: []
       type: object
       required:
         - id

@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { ArrowUpRightOneIcon } from '@strange-huge/icons'
 import { listConnectors } from '@/lib/api/connectors'
-import { getVersion, setVersionConnectors, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
+import { getVersion, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
 import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 
 // ── Connector logo map ────────────────────────────────────────────────────────
@@ -300,38 +300,16 @@ export default function ConnectorsTab({
       const linkedConnectors = catalog.filter(c => c.linked)
       setLinked(linkedConnectors)
 
-      const existing    = new Set<string>(version.connectors)
-      const userRemoved = getUserRemovedSlugs(versionId)
-
-      // Compute the full desired set: existing slugs + every linked connector
-      // that the user hasn't explicitly turned off.
-      const toAutoAdd = linkedConnectors.filter(
-        c => !existing.has(c.slug) && !userRemoved.has(c.slug),
+      // blocked_connectors is a block-list: slugs in it are disabled; all
+      // other linked connectors are considered enabled.
+      const existingBlocked = new Set<string>(version.blocked_connectors ?? [])
+      const desired = new Set<string>(
+        linkedConnectors.filter(c => !existingBlocked.has(c.slug)).map(c => c.slug),
       )
-      const desired = new Set<string>([...existing, ...toAutoAdd.map(c => c.slug)])
 
-      // Set UI immediately so toggles are visible regardless of save outcome.
       setPersonaSlugs(desired)
-      // Slugs that are linked globally but not in the desired set are treated
-      // as blocked for this persona. Initialise the blocked set so doDisable
-      // always has the correct list when calling PATCH /blocked-connectors.
-      const initialBlocked = new Set<string>(
-        linkedConnectors.map(c => c.slug).filter(s => !desired.has(s)),
-      )
-      setBlockedSlugs(initialBlocked)
-      const disabledOnLoad = [...initialBlocked]
-      onChangeRef.current?.([...desired], disabledOnLoad)
-
-      // Persist the auto-added slugs in the background (fire-and-forget).
-      // Do NOT update state from the response — the optimistic UI is already
-      // correct, and overwriting it with a stale/empty server response is what
-      // caused the 2-second revert.
-      if (toAutoAdd.length > 0) {
-        setVersionConnectors(repoId, versionId, [...desired]).catch(() => {
-          // Silent failure is acceptable here; the user can toggle any
-          // connector to force a re-save.
-        })
-      }
+      setBlockedSlugs(existingBlocked)
+      onChangeRef.current?.([...desired], [...existingBlocked])
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load connectors'
       setLoadError(msg)

@@ -88,7 +88,7 @@ function FloatingPanelImpl() {
       <div
         style={{
           position:  'absolute',
-          right:     16,
+          right:     26,
           top:       '50%',
           transform: 'translateY(-50%)',
           zIndex:    10,

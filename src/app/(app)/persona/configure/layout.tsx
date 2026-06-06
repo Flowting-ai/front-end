@@ -32,6 +32,7 @@ import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble
 import { PersonaConfigureProvider, usePersonaConfigure } from './context'
 import { getAllVersionTags } from '@/lib/version-tags'
 import { deleteVersion } from '@/lib/api/personas'
+import { respondToChatPrompt } from '@/lib/api/chat'
 import { toast } from 'sonner'
 
 // ── Tag color map (matches Chip/Pinboard design tokens) ──────────────────────
@@ -106,7 +107,7 @@ const TAB_HELP: Record<string, { title: string; items: HelpItem[] }> = {
     items: [
       { heading: 'Visibility Level', description: 'Controls who can discover and access this agent — private (only you), team (workspace members), or public (anyone with the link). Set this before sharing.', isRequired: false, highlightId: 'help-sharing-visibility' },
       { heading: 'Super Link',       description: 'A shareable URL anyone can use to chat with this agent without an account. Ideal for external users, clients, or public-facing tools.',                      isRequired: false, highlightId: 'help-sharing-superlink' },
-      { heading: 'Token Limit (for Super Link)', description: 'Caps how many AI tokens each Super Link user can consume. Set a limit to prevent unexpected overuse. Super Link must be enabled first.', isRequired: false, highlightId: 'help-sharing-token'     },
+      { heading: 'Credit Limit (for Super Link)', description: 'Caps how many credits each Super Link user can consume. Set a limit to prevent unexpected overuse. Super Link must be enabled first.', isRequired: false, highlightId: 'help-sharing-token'     },
       { heading: 'Email Invite',     description: 'Send a personalised link to a specific email address. Only that recipient can access the agent via this link.',                                               isRequired: false, highlightId: 'help-sharing-email'     },
       { heading: 'Revoking Access',  description: 'Disable any Super Link or email invite from this tab at any time. Access is cut off immediately.' },
       { heading: 'Publish First',    description: 'The agent must be published before sharing works. Hit Publish on the Instructions tab to make it live, then return here to share.', highlightId: 'help-publish' },
@@ -562,7 +563,14 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
                   )}
                   {msg.text && <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />}
                   {msg.connectPrompts?.map(p => <ConnectPromptCard key={p.request_id} prompt={p} />)}
-                  {msg.permissionPrompts?.map(p => <PermissionPromptCard key={p.request_id} prompt={p} />)}
+                  {msg.permissionPrompts?.map(p => (
+                    <PermissionPromptCard
+                      key={p.request_id}
+                      prompt={p}
+                      skipSave
+                      onDecided={(policy) => { respondToChatPrompt(p.request_id, policy, p.respond_url).catch(() => {}) }}
+                    />
+                  ))}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>

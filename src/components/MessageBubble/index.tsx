@@ -370,25 +370,23 @@ export function MessageBubble({
         </AnimatePresence>
 
         {/* ── Hover action bar ── */}
-        {/* position:absolute - zero layout shift. paddingTop bridges the gap so   */}
-        {/* mouseleave never fires between bubble bottom and button hit area.       */}
-        {!editing && !hideActions && (
+        {/* Always in-flow so its area is inside the root wrapper's border box -   */}
+        {/* hovering directly over the buttons triggers onMouseEnter on the root   */}
+        {/* wrapper without needing to hover the bubble first (same pattern as the */}
+        {/* AI actions bar in ChatMessage). opacity/pointerEvents gate visibility. */}
+        {!hideActions && (
           <m.div
-            animate={{ opacity: hovered ? 1 : 0 }}
+            animate={{ opacity: !editing && hovered ? 1 : 0 }}
             transition={{ duration: fadeDuration, ease: 'easeOut' }}
             onMouseEnter={handleHoverEnter}
             onMouseLeave={handleHoverLeave}
             style={{
-              position:      'absolute',
-              top:           '100%',
-              right:         0,
-              paddingTop:    4,
-              paddingRight:  2,
               display:       'flex',
               alignItems:    'center',
+              alignSelf:     'flex-end',
               gap:           2,
-              pointerEvents: 'auto',
-              zIndex:        10,
+              marginTop:     4,
+              pointerEvents: !editing && hovered ? 'auto' : 'none',
             }}
           >
             {timestamp && (

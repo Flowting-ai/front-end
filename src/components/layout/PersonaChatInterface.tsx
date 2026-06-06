@@ -202,7 +202,7 @@ export function PersonaChatInterface({
           .then(v => {
             if (cancelled) return;
             if (v.image_url) setPersonaImageUrl(prev => prev ?? v.image_url);
-            setConnectorSlugs(v.connectors ?? []);
+            setConnectorSlugs(v.blocked_connectors ?? []);
           })
           .catch(() => {});
       }
@@ -213,7 +213,7 @@ export function PersonaChatInterface({
         getVersion(p.id, p.activeVersionId)
           .then(v => {
             if (cancelled) return;
-            setConnectorSlugs(v.connectors ?? []);
+            setConnectorSlugs(v.blocked_connectors ?? []);
           })
           .catch(() => {});
       }).catch(() => {});

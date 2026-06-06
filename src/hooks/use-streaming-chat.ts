@@ -920,18 +920,20 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "tool_permission_prompt") {
-            // Backend requests permission to run a connector tool (policy is "ask").
-            // Schema: { connector_slug, display_name, tool_name, request_id, suggested_args?, icon_url? }
+          if (eventName === "permission_prompt" || eventName === "tool_permission_prompt") {
+            // Backend emits `prompt_id` + `respond_url` (spec fields). POST to respond_url
+            // (or /chats/prompts/{prompt_id}) with {"response":"allow"|"allow_once"|"block"}
+            // to unblock the stream. Falls back to legacy `request_id`/`tool_name`.
             const prompt: import("@/hooks/use-chat-state").ConnectorPermissionPrompt = {
-              request_id:     asString(parsed.request_id) ?? `cpp-${Date.now()}`,
+              request_id:     asString(parsed.prompt_id ?? parsed.request_id) ?? `cpp-${Date.now()}`,
               connector_slug: asString(parsed.connector_slug) ?? "",
               display_name:   asString(parsed.display_name) ?? asString(parsed.connector_slug) ?? "",
-              tool_name:      asString(parsed.tool_name) ?? "",
+              tool_name:      asString(parsed.tool_slug ?? parsed.tool_name) ?? "",
               suggested_args: typeof parsed.suggested_args === 'object' && parsed.suggested_args !== null
                 ? (parsed.suggested_args as Record<string, unknown>)
                 : undefined,
               icon_url:       asString(parsed.icon_url),
+              respond_url:    asString(parsed.respond_url) ?? undefined,
             }
             const msgId = loadingMessageIdRef.current
             if (msgId) {

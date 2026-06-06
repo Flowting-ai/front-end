@@ -185,7 +185,7 @@ export function SuperLinks(
             }}
           >
             <StatCard
-              label="Tokens this month"
+              label="Credits this month"
               value={fmtK(summaryDerived.tokensThisMonth)}
               delta={summaryDerived.deltaTokens ?? '+8.2%'}
               deltaTrend="up"
@@ -225,7 +225,7 @@ export function SuperLinks(
             }}
           >
             <ChartCard
-              label="Token usage · daily"
+              label="Credit usage · daily"
               value={fmtK(summaryDerived.tokensThisMonth)}
               delta={summaryDerived.deltaTokens ?? '+8.2%'}
               deltaTrend="up"

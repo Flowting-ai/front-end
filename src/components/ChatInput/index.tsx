@@ -13,6 +13,7 @@ import {
   FolderOneIcon,
   GlobalSearchIcon,
   QuillWriteTwoIcon,
+  UserAddOneIcon,
 } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
@@ -336,6 +337,22 @@ function DefaultAddMenu({
               ))}
             </Dropdown.Section>
           </Dropdown>
+        </Dropdown.Submenu>
+        <Dropdown.Submenu
+          trigger={
+            <Dropdown.Item
+              label="Add persona"
+              icon={<UserAddOneIcon />}
+              rightIcon={<ArrowRightOneIcon />}
+              fluid
+            />
+          }
+        >
+          <PersonaSubmenu
+            personas={personas}
+            selectedId={selectedPersonaId}
+            onSelect={onSelectedPersonaChange}
+          />
         </Dropdown.Submenu>
         <Dropdown.Submenu
           trigger={

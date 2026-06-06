@@ -148,6 +148,12 @@ components:
         model_description:
           type: string
           title: Model Description
+        model_thinking_efforts:
+          items:
+            type: string
+          type: array
+          title: Model Thinking Efforts
+          default: []
       type: object
       required:
         - model_id
@@ -206,6 +212,12 @@ components:
         model_description:
           type: string
           title: Model Description
+        model_thinking_efforts:
+          items:
+            type: string
+          type: array
+          title: Model Thinking Efforts
+          default: []
         blocked:
           type: boolean
           title: Blocked

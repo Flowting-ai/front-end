@@ -55,9 +55,9 @@ paths:
       operationId: enhance_persona_enhance_prompt_post
       requestBody:
         content:
-          application/x-www-form-urlencoded:
+          application/json:
             schema:
-              $ref: '#/components/schemas/Body_enhance_persona_enhance_prompt_post'
+              $ref: '#/components/schemas/EnhancePromptRequest'
         required: true
       responses:
         '200':
@@ -66,6 +66,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EnhancePromptResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - HTTPBearer: []
+  /persona/starter:
+    post:
+      tags:
+        - persona
+      summary: Starter
+      description: |-
+        Generate a starting system instruction, sound, and tags from a persona's
+        name + description. Nothing is saved — the FE uses this to seed the editor.
+      operationId: starter_persona_starter_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonaStarterRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaStarterResponse'
         '422':
           description: Validation Error
           content:
@@ -528,6 +558,9 @@ paths:
       tags:
         - persona
       summary: Update Version
+      description: |-
+        Update metadata-only fields (no files). File uploads / knowledge changes
+        go through PUT.
       operationId: update_version_persona__repo_id__versions__persona_id__patch
       security:
         - HTTPBearer: []
@@ -547,10 +580,11 @@ paths:
             format: uuid
             title: Persona Id
       requestBody:
+        required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
-              $ref: '#/components/schemas/Body_update_version_persona__repo_id__versions__persona_id__patch'
+              $ref: '#/components/schemas/UpdatePersona'
       responses:
         '200':
           description: Successful Response
@@ -598,6 +632,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /persona/{repo_id}/versions/{persona_id}/files:
+    put:
+      tags:
+        - persona
+      summary: Update Version Files
+      description: |-
+        Upload version files/image, add knowledge URLs, and/or remove existing
+        documents. Metadata fields go through PATCH.
+      operationId: update_version_files_persona__repo_id__versions__persona_id__files_put
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: repo_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Repo Id
+        - name: persona_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Persona Id
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_update_version_files_persona__repo_id__versions__persona_id__files_put'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /persona/{repo_id}/versions/{persona_id}/document:
     post:
       tags:
@@ -627,6 +705,48 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/Body_upload_version_document_persona__repo_id__versions__persona_id__document_post'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /persona/{repo_id}/versions/{persona_id}/knowledge-url:
+    post:
+      tags:
+        - persona
+      summary: Add Version Knowledge Url
+      operationId: add_version_knowledge_url_persona__repo_id__versions__persona_id__knowledge_url_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: repo_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Repo Id
+        - name: persona_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Persona Id
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Body_add_version_knowledge_url_persona__repo_id__versions__persona_id__knowledge_url_post'
       responses:
         '200':
           description: Successful Response
@@ -683,12 +803,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /persona/{repo_id}/versions/{persona_id}/connectors:
-    put:
+  /persona/{repo_id}/versions/{persona_id}/blocked-connectors:
+    patch:
       tags:
         - persona
-      summary: Set Version Connectors
-      operationId: set_version_connectors_persona__repo_id__versions__persona_id__connectors_put
+      summary: Set Version Blocked Connectors
+      operationId: set_version_blocked_connectors_persona__repo_id__versions__persona_id__blocked_connectors_patch
       security:
         - HTTPBearer: []
       parameters:
@@ -711,7 +831,49 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetPersonaConnectors'
+              $ref: '#/components/schemas/SetBlockedConnectors'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /persona/{repo_id}/versions/{persona_id}/blocked-connectors/{slug}:
+    delete:
+      tags:
+        - persona
+      summary: Unblock Version Connector
+      operationId: unblock_version_connector_persona__repo_id__versions__persona_id__blocked_connectors__slug__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: repo_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Repo Id
+        - name: persona_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Persona Id
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Slug
       responses:
         '200':
           description: Successful Response
@@ -1440,6 +1602,15 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
+    Body_add_version_knowledge_url_persona__repo_id__versions__persona_id__knowledge_url_post:
+      properties:
+        url:
+          type: string
+          title: Url
+      type: object
+      required:
+        - url
+      title: Body_add_version_knowledge_url_persona__repo_id__versions__persona_id__knowledge_url_post
     Body_create_new_persona_repo_persona_post:
       properties:
         name:
@@ -1463,11 +1634,21 @@ components:
             - type: number
             - type: 'null'
           title: Temperature
-        tags:
+        version_tags:
           anyOf:
             - type: string
             - type: 'null'
-          title: Tags
+          title: Version Tags
+        persona_tags:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Persona Tags
+        knowledge_urls:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Knowledge Urls
         files:
           anyOf:
             - items:
@@ -1510,11 +1691,21 @@ components:
             - type: number
             - type: 'null'
           title: Temperature
-        tags:
+        version_tags:
           anyOf:
             - type: string
             - type: 'null'
-          title: Tags
+          title: Version Tags
+        persona_tags:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Persona Tags
+        knowledge_urls:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Knowledge Urls
         files:
           anyOf:
             - items:
@@ -1555,15 +1746,6 @@ components:
       required:
         - input
       title: Body_create_repo_chat_persona__repo_id__chats_create_post
-    Body_enhance_persona_enhance_prompt_post:
-      properties:
-        prompt:
-          type: string
-          title: Prompt
-      type: object
-      required:
-        - prompt
-      title: Body_enhance_persona_enhance_prompt_post
     Body_stream_persona_message_persona__repo_id__chats__chat_id__stream_post:
       properties:
         input:
@@ -1602,39 +1784,13 @@ components:
       required:
         - input
       title: Body_test_version_stream_persona__repo_id__versions__persona_id__test_post
-    Body_update_version_persona__repo_id__versions__persona_id__patch:
+    Body_update_version_files_persona__repo_id__versions__persona_id__files_put:
       properties:
-        name:
+        knowledge_urls:
           anyOf:
             - type: string
             - type: 'null'
-          title: Name
-        prompt:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Prompt
-        description:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Description
-        model_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Model Id
-        temperature:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Temperature
-        tags:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Tags
+          title: Knowledge Urls
         image:
           anyOf:
             - type: string
@@ -1655,7 +1811,7 @@ components:
             - type: 'null'
           title: Remove Document Ids
       type: object
-      title: Body_update_version_persona__repo_id__versions__persona_id__patch
+      title: Body_update_version_files_persona__repo_id__versions__persona_id__files_put
     Body_upload_version_document_persona__repo_id__versions__persona_id__document_post:
       properties:
         file:
@@ -1676,27 +1832,82 @@ components:
       required:
         - chat_id
       title: DeletePersonaChat
+    EnhanceAnswer:
+      properties:
+        question:
+          type: string
+          title: Question
+        answer:
+          type: string
+          title: Answer
+      type: object
+      required:
+        - question
+        - answer
+      title: EnhanceAnswer
+      description: A question the model previously asked, plus the user's answer to it.
+    EnhanceOption:
+      properties:
+        label:
+          type: string
+          title: Label
+        description:
+          type: string
+          title: Description
+      type: object
+      required:
+        - label
+        - description
+      title: EnhanceOption
+    EnhancePromptRequest:
+      properties:
+        prompt:
+          type: string
+          title: Prompt
+        answers:
+          items:
+            $ref: '#/components/schemas/EnhanceAnswer'
+          type: array
+          title: Answers
+          default: []
+      type: object
+      required:
+        - prompt
+      title: EnhancePromptRequest
     EnhancePromptResponse:
       properties:
         enhanced_prompt:
           type: string
           title: Enhanced Prompt
-        dos:
+        questions:
           items:
-            type: string
+            $ref: '#/components/schemas/EnhanceQuestion'
           type: array
-          title: Dos
-        donts:
-          items:
-            type: string
-          type: array
-          title: Donts
+          title: Questions
+          default: []
       type: object
       required:
         - enhanced_prompt
-        - dos
-        - donts
       title: EnhancePromptResponse
+    EnhanceQuestion:
+      properties:
+        question:
+          type: string
+          title: Question
+        options:
+          items:
+            $ref: '#/components/schemas/EnhanceOption'
+          type: array
+          title: Options
+          default: []
+        multi_select:
+          type: boolean
+          title: Multi Select
+          default: false
+      type: object
+      required:
+        - question
+      title: EnhanceQuestion
     GetPersonaMessages:
       properties:
         id:
@@ -1786,6 +1997,11 @@ components:
         document_filename:
           type: string
           title: Document Filename
+        source_url:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Source Url
         created_at:
           type: string
           format: date-time
@@ -1861,12 +2077,6 @@ components:
             - type: number
             - type: 'null'
           title: Temperature
-        connectors:
-          items:
-            type: string
-          type: array
-          title: Connectors
-          default: []
         history:
           items:
             $ref: '#/components/schemas/GuideMessage'
@@ -1976,11 +2186,23 @@ components:
             - type: number
             - type: 'null'
           title: Temperature
-        tags:
+        version_tags:
           items:
             type: string
           type: array
-          title: Tags
+          title: Version Tags
+          default: []
+        persona_tags:
+          items:
+            type: string
+          type: array
+          title: Persona Tags
+          default: []
+        blocked_connectors:
+          items:
+            type: string
+          type: array
+          title: Blocked Connectors
           default: []
         documents:
           items:
@@ -1988,16 +2210,22 @@ components:
           type: array
           title: Documents
           default: []
-        connectors:
+        links:
           items:
-            type: string
+            $ref: '#/components/schemas/PersonaDocumentResponse'
           type: array
-          title: Connectors
+          title: Links
           default: []
         total_usage:
           type: number
           title: Total Usage
           default: 0
+        source_share_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Source Share Id
         created_at:
           type: string
           format: date-time
@@ -2017,6 +2245,54 @@ components:
         - created_at
         - updated_at
       title: PersonaResponse
+    PersonaSound:
+      properties:
+        name:
+          type: string
+          title: Name
+        description:
+          type: string
+          title: Description
+      type: object
+      required:
+        - name
+        - description
+      title: PersonaSound
+      description: 'How the persona should sound: a one-word label plus a sentence.'
+    PersonaStarterRequest:
+      properties:
+        name:
+          type: string
+          title: Name
+        description:
+          type: string
+          title: Description
+      type: object
+      required:
+        - name
+        - description
+      title: PersonaStarterRequest
+    PersonaStarterResponse:
+      properties:
+        system_instruction:
+          type: string
+          title: System Instruction
+        sounds:
+          items:
+            $ref: '#/components/schemas/PersonaSound'
+          type: array
+          title: Sounds
+          default: []
+        persona_tags:
+          items:
+            type: string
+          type: array
+          title: Persona Tags
+          default: []
+      type: object
+      required:
+        - system_instruction
+      title: PersonaStarterResponse
     PersonaVersionListItem:
       properties:
         id:
@@ -2038,11 +2314,17 @@ components:
         is_active:
           type: boolean
           title: Is Active
-        tags:
+        version_tags:
           items:
             type: string
           type: array
-          title: Tags
+          title: Version Tags
+          default: []
+        persona_tags:
+          items:
+            type: string
+          type: array
+          title: Persona Tags
           default: []
         created_at:
           type: string
@@ -2085,7 +2367,7 @@ components:
       required:
         - persona_id
       title: SetActiveVersion
-    SetPersonaConnectors:
+    SetBlockedConnectors:
       properties:
         slugs:
           items:
@@ -2094,8 +2376,55 @@ components:
           title: Slugs
           default: []
       type: object
-      title: SetPersonaConnectors
-      description: Replace a persona version's assigned connector set with `slugs`.
+      title: SetBlockedConnectors
+      description: |-
+        Replace a persona version's blocked-connector set with `slugs`. The
+        persona keeps full access to every connected service EXCEPT these.
+    UpdatePersona:
+      properties:
+        name:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Name
+        prompt:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Prompt
+        description:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Description
+        model_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Model Id
+        temperature:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Temperature
+        version_tags:
+          anyOf:
+            - items:
+                type: string
+              type: array
+            - type: 'null'
+          title: Version Tags
+        persona_tags:
+          anyOf:
+            - items:
+                type: string
+              type: array
+            - type: 'null'
+          title: Persona Tags
+      type: object
+      title: UpdatePersona
+      description: Metadata-only fields for the PATCH route. Files/knowledge go through PUT.
     ValidationError:
       properties:
         loc:

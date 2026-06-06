@@ -44,10 +44,10 @@ function parseTableXml(xml: string): ParsedTable | null {
   }
 }
 
-function AnimatedTable({ data }: { data: ParsedTable }) {
-  const [skeletonVisible, setSkeletonVisible] = useState(true)
-  const [revealedRows, setRevealedRows] = useState(0)
-  const [isDone, setIsDone] = useState(false)
+function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: boolean }) {
+  const [skeletonVisible, setSkeletonVisible] = useState(() => animate)
+  const [revealedRows, setRevealedRows] = useState(() => animate ? 0 : data.rows.length)
+  const [isDone, setIsDone] = useState(() => !animate)
   const [mdCopied, setMdCopied] = useState(false)
   const { headers, rows } = data
   const colCount = Math.max(headers.length, ...rows.map((r) => r.length), 1)
@@ -59,6 +59,7 @@ function AnimatedTable({ data }: { data: ParsedTable }) {
 
   // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
+    if (!animate) return
     const skelTimer = setTimeout(() => {
       setSkeletonVisible(false)
       let idx = 0
@@ -70,7 +71,7 @@ function AnimatedTable({ data }: { data: ParsedTable }) {
       return () => clearInterval(iv)
     }, 500)
     return () => clearTimeout(skelTimer)
-  }, [rows.length])
+  }, [rows.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const rowBorderBottom = (ri: number) =>
     ri < rows.length - 1 ? "1px solid var(--neutral-700-12)" : "none"
@@ -175,9 +176,10 @@ function TableActionButton({ onClick, children }: { onClick: () => void; childre
 
 interface XmlTableProps {
   xml: string
+  animate?: boolean
 }
 
-export function XmlTable({ xml }: XmlTableProps) {
+export function XmlTable({ xml, animate = true }: XmlTableProps) {
   const data = useMemo(() => parseTableXml(xml) ?? "error", [xml])
   const [mounted, setMounted] = useState(false)
 
@@ -200,5 +202,5 @@ export function XmlTable({ xml }: XmlTableProps) {
     )
   }
 
-  return <AnimatedTable data={data} />
+  return <AnimatedTable data={data} animate={animate} />
 }

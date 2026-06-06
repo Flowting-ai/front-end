@@ -13,6 +13,7 @@ import { usePinboardActions } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import type { UIMessage, ActivityItem, WebCitation, ModelSelectedMeta } from "@/hooks/use-chat-state";
+import { respondToChatPrompt } from "@/lib/api/chat";
 import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
 import { MessageBubble } from "@/components/MessageBubble";
@@ -578,32 +579,16 @@ export function ChatMessage({
         )}
 
         {/* Message content - assistant only (user handled above) */}
-        {/* When responseBlocks are present, use BlockSequenceRenderer */}
-        {message.responseBlocks && message.responseBlocks.length > 0 ? (
+        {/* Text content always renders via ContentRenderer→LineRenderer so that
+            markdown links, bold, code, and citation chips are handled uniformly
+            regardless of whether the backend also sends a text responseBlock. */}
+        {message.content ? (
           <m.div
             ref={contentRef}
             initial={isNewMessage ? { opacity: 0, y: 5 } : false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           >
-            <BlockSequenceRenderer
-              blocks={message.responseBlocks}
-              static={!message.isLoading}
-              onFollowUp={onFollowUp}
-              onRetry={onRetry}
-            />
-          </m.div>
-        ) : message.content ? (
-          <m.div
-            ref={contentRef}
-            initial={isNewMessage ? { opacity: 0, y: 5 } : false}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-          >
-            {/* During active streaming on a new message: use renderTextBlock so
-                content renders inline with a trailing BreathingDot rather than
-                as block-level markdown (which "snaps" whole paragraphs in).
-                For completed messages: MarkdownRenderer handles GFM tables etc. */}
             {isNewMessage && message.isLoading
               ? <StreamingTextContent content={message.content} citations={message.webCitations} />
               : <ContentRenderer content={message.content} webCitations={message.webCitations} highlights={messageHighlights} />}
@@ -612,6 +597,21 @@ export function ChatMessage({
             )}
           </m.div>
         ) : null}
+        {/* Structural blocks (tables, charts, steps, follow-ups, tags, etc.) come
+            from responseBlocks. Text blocks are skipped here because message.content
+            already carries the full text rendered above. */}
+        {(() => {
+          const structuralBlocks = (message.responseBlocks ?? []).filter(b => b.kind !== 'text')
+          return structuralBlocks.length > 0 ? (
+            <BlockSequenceRenderer
+              blocks={structuralBlocks}
+              static={!message.isLoading}
+              onFollowUp={onFollowUp}
+              onRetry={onRetry}
+              webCitations={message.webCitations}
+            />
+          ) : null
+        })()}
 
         {/* Citation sources - shown below response when citations are present */}
         {message.webCitations && message.webCitations.length > 0 && !message.isLoading && (
@@ -631,7 +631,11 @@ export function ChatMessage({
         {message.connectorPermissionPrompts && message.connectorPermissionPrompts.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {message.connectorPermissionPrompts.map((prompt) => (
-              <PermissionPromptCard key={prompt.request_id} prompt={prompt} />
+              <PermissionPromptCard
+                key={prompt.request_id}
+                prompt={prompt}
+                onDecided={(policy) => { respondToChatPrompt(prompt.request_id, policy, prompt.respond_url).catch(() => {}) }}
+              />
             ))}
           </div>
         )}

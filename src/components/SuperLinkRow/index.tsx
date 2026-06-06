@@ -93,6 +93,7 @@ export function SuperLinkRow(
           padding:         '14px 16px',
           borderRadius:    14,
           backgroundColor: selected ? 'var(--neutral-50)' : 'var(--neutral-white)',
+          border:          '1px solid var(--neutral-100)',
           boxShadow:       selected
                              ? 'var(--shadow-surface-card-selected)'
                              : hovered
@@ -100,7 +101,7 @@ export function SuperLinkRow(
                                : 'var(--shadow-surface-card)',
           cursor:          dimmed ? 'default' : 'pointer',
           opacity:         dimmed ? 0.55 : 1,
-          transition:      'box-shadow 150ms ease, background-color 150ms ease',
+          transition:      'box-shadow 150ms ease, background-color 150ms ease, border-color 150ms ease',
           outline:         'none',
           ...style,
         }}
@@ -199,8 +200,8 @@ export function SuperLinkRow(
             lineHeight: 'var(--line-height-caption)',
           }}>
             {tokenLimit > 0
-              ? `${Math.min(100, Math.round((tokenUsed / tokenLimit) * 100))}% used · ${fmt(tokenUsed)} / ${fmt(tokenLimit)} tokens`
-              : `${fmt(tokenUsed)} tokens used`}
+              ? `${Math.min(100, Math.round((tokenUsed / tokenLimit) * 100))}% used · ${fmt(tokenUsed)} / ${fmt(tokenLimit)} credits`
+              : `${fmt(tokenUsed)} credits`}
           </span>
           <TokenBudgetBar used={tokenUsed} limit={tokenLimit} size="sm" />
         </div>

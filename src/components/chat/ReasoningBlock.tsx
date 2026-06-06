@@ -188,7 +188,7 @@ const chevronBtnStyle: React.CSSProperties = {
 };
 
 const COLLAPSE_TRANSITION = {
-  height: springs.moderate,
+  height: { duration: 0.25, ease: "easeInOut" as const },
   opacity: { duration: 0.2, ease: "easeInOut" as const },
 };
 
@@ -414,13 +414,9 @@ function ReasoningSections({
       {valid.map((s, i) => (
         <m.div
           key={s.heading}
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }}
-          transition={{
-            height: { type: "spring", stiffness: 300, damping: 28 },
-            opacity: { duration: 0.24, delay: 0.06, ease: "easeOut" },
-          }}
-          style={{ overflow: "hidden" }}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
         >
           <ReasoningStep
             section={s}

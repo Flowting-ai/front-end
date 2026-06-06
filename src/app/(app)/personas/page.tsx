@@ -24,12 +24,15 @@ import { PersonaCard } from '@/components/PersonaCard'
 import { SuperLinkRow, type SuperLinkStatus } from '@/components/SuperLinkRow'
 import { SuperLinkDrawer, type SuperLinkDrawerLink } from '@/components/SuperLinkDrawer'
 import { SuperLinksEmpty } from '@/components/SuperLinksEmpty'
+import { StatCard } from '@/components/StatCard'
+import { Sparkline } from '@/components/Sparkline'
+import { DateRangePill } from '@/components/DateRangePill'
 import { usePinboard } from '@/context/pinboard-context'
 import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = 'my-personas' | 'shared' | 'super-links' | 'community'
+type TabId = 'my-personas' | 'super-links' | 'shared' | 'community'
 type SortKey = 'activity' | 'az' | 'za'
 
 // ── Mock recommended personas (community templates) ───────────────────────────
@@ -50,6 +53,7 @@ const RECOMMENDED: Persona[] = [
     activeVersionId: null,
     versionCount: 1,
     hasSystemInstructions: true,
+    sourceShareId: null,
     createdAt: '',
     updatedAt: '',
   },
@@ -68,6 +72,7 @@ const RECOMMENDED: Persona[] = [
     activeVersionId: null,
     versionCount: 1,
     hasSystemInstructions: true,
+    sourceShareId: null,
     createdAt: '',
     updatedAt: '',
   },
@@ -86,6 +91,7 @@ const RECOMMENDED: Persona[] = [
     activeVersionId: null,
     versionCount: 1,
     hasSystemInstructions: true,
+    sourceShareId: null,
     createdAt: '',
     updatedAt: '',
   },
@@ -273,6 +279,12 @@ function DeleteDialog({ name, onConfirm, onCancel }: { name: string; onConfirm: 
 
 // ── Super Links helpers ───────────────────────────────────────────────────────
 
+function fmtK(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (n >= 1_000)     return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K'
+  return String(n)
+}
+
 const SL_COLORS = ['#7C3AED', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#6366F1']
 
 function colorFromName(name: string): string {
@@ -286,6 +298,19 @@ function shareStatus(share: PersonaShare): SuperLinkStatus {
   if (share.credit_limit !== null && share.credit_used >= share.credit_limit) return 'limit-reached'
   return 'active'
 }
+
+// 90-point dummy sparkline — sliced to the selected range when no real usage exists
+const DUMMY_SPARK = [
+   45,  82,  61, 110,  94, 140, 128, 175, 163, 145,
+  190, 210, 185, 220, 245, 215, 255, 238, 280, 265,
+  290, 310, 285, 330, 315, 345, 360, 340, 375, 390,
+  410, 385, 425, 445, 420, 460, 478, 455, 490, 510,
+  485, 525, 545, 520, 560, 575, 550, 590, 610, 585,
+  625, 645, 620, 660, 678, 655, 690, 710, 685, 725,
+  745, 720, 760, 778, 755, 790, 810, 785, 825, 845,
+  820, 860, 878, 855, 890, 910, 885, 925, 940, 955,
+  930, 960, 975, 950, 990,1005, 980,1020,1010,1030,
+]
 
 function toDrawerLink(
   share: PersonaShare,
@@ -330,15 +355,18 @@ export default function PersonasPage() {
   const [sort,         setSort]         = useState<SortKey>('activity')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'paused'>('all')
   const [filterTags,   setFilterTags]   = useState<string[]>([])
-  const [sortOpen,     setSortOpen]     = useState(false)
-  const [allOpen,      setAllOpen]      = useState(false)
-  const [filterOpen,   setFilterOpen]   = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<Persona | null>(null)
+  const [sortOpen,      setSortOpen]      = useState(false)
+  const [allOpen,       setAllOpen]       = useState(false)
+  const [filterOpen,    setFilterOpen]    = useState(false)
+  const [deleteTarget,  setDeleteTarget]  = useState<Persona | null>(null)
+  const [headerGenOpen, setHeaderGenOpen] = useState(false)
+  const [panelGenOpen,  setPanelGenOpen]  = useState(false)
 
   // Super Links state
-  const [shares,         setShares]         = useState<PersonaShare[]>([])
-  const [sharesLoading,  setSharesLoading]  = useState(false)
+  const [shares,          setShares]          = useState<PersonaShare[]>([])
+  const [sharesLoading,   setSharesLoading]   = useState(false)
   const [selectedShareId, setSelectedShareId] = useState<string | null>(null)
+  const [slRange,         setSlRange]         = useState<'7d' | '30d' | '90d'>('30d')
   // Enriched persona info per share (name + image) fetched from getSharePreview
   const [shareMeta, setShareMeta] = useState<Record<string, { name: string; imageUrl: string | null }>>({})
 
@@ -467,6 +495,11 @@ export default function PersonasPage() {
     return searched
   }, [tagFiltered, search, sort])
 
+  const sharedPersonas = useMemo(
+    () => personas.filter(p => p.sourceShareId !== null),
+    [personas],
+  )
+
   const personasScrollRef = useRef<HTMLDivElement>(null)
   const GRID_COLS = 3
   const gridRows = useMemo(() => {
@@ -512,6 +545,14 @@ export default function PersonasPage() {
     }
   }
 
+  // Super Links: date range — computed here so both the page header and chart card share it
+  const slDays = slRange === '7d' ? 7 : slRange === '90d' ? 90 : 30
+  const _slToday    = new Date()
+  const _slFromDate = new Date(_slToday)
+  _slFromDate.setDate(_slToday.getDate() - slDays)
+  const _fmtSl = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const slDateRangeLabel = `${_fmtSl(_slFromDate)} – ${_fmtSl(_slToday)}`
+
   return (
     <>
       <div
@@ -549,7 +590,17 @@ export default function PersonasPage() {
           {/* ── Header + Tabs + Toolbar ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            {/* Title row */}
+            {/* Tabs — always on top */}
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
+              <Tabs.List>
+                <Tabs.Trigger value="my-personas">My Agents ({personas.length})</Tabs.Trigger>
+                <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
+                <Tabs.Trigger value="shared">Shared{sharedPersonas.length > 0 ? ` (${sharedPersonas.length})` : ''}</Tabs.Trigger>
+                {/* <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger> */}
+              </Tabs.List>
+            </Tabs>
+
+            {/* Title row — changes per tab */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h1 style={{
                 fontFamily: 'var(--font-title)',
@@ -559,31 +610,59 @@ export default function PersonasPage() {
                 color: '#1a1916',
                 margin: 0,
               }}>
-                Agents
+                {activeTab === 'super-links' ? 'Super Links' : activeTab === 'shared' ? 'Shared with me' : 'Agents'}
               </h1>
-              <Button
-                variant="default"
-                leftIcon={<PlusSignIcon size={16} />}
-                onClick={() => push('/personas/templates')}
-              >
-                New agent
-              </Button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {activeTab === 'super-links' && (
+                  <DateRangePill label={slDateRangeLabel} />
+                )}
+                {activeTab === 'super-links' ? (
+                  <Dropdown.Float
+                    open={headerGenOpen}
+                    onOpenChange={setHeaderGenOpen}
+                    placement="bottom-end"
+                    trigger={
+                      <Button variant="default" leftIcon={<PlusSignIcon size={16} />}>
+                        Generate link
+                      </Button>
+                    }
+                  >
+                    <Dropdown style={{ minWidth: 220 }}>
+                      {personas.length === 0 ? (
+                        <Dropdown.Section>
+                          <Dropdown.Item label="No agents yet — create one first" disabled fluid />
+                        </Dropdown.Section>
+                      ) : (
+                        <Dropdown.Section label="Select an agent">
+                          {personas.map(p => (
+                            <Dropdown.Item
+                              key={p.id}
+                              label={p.name}
+                              onClick={() => {
+                                setHeaderGenOpen(false)
+                                push(`/persona/configure/sharing?repoId=${p.id}&name=${encodeURIComponent(p.name)}${p.activeVersionId ? `&versionId=${p.activeVersionId}` : ''}`)
+                              }}
+                              fluid
+                            />
+                          ))}
+                        </Dropdown.Section>
+                      )}
+                    </Dropdown>
+                  </Dropdown.Float>
+                ) : activeTab === 'shared' ? null : (
+                  <Button
+                    variant="default"
+                    leftIcon={<PlusSignIcon size={16} />}
+                    onClick={() => push('/personas/templates')}
+                  >
+                    New agent
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {/* Tabs + toolbar */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
-                <Tabs.List>
-                  <Tabs.Trigger value="my-personas">My Agents ({personas.length})</Tabs.Trigger>
-                  <Tabs.Trigger value="shared" disabled>Shared</Tabs.Trigger>
-                  <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
-                  {/* Disabled community section for now since we don't have a real source of recommended personas yet, and it was causing confusion having the mock data visible in the UI */}
-                  {/* <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger> */}
-                </Tabs.List>
-              </Tabs>
-
-              {/* Toolbar — only shown on My Personas tab */}
-              {activeTab === 'my-personas' && (
+            {/* Toolbar — only shown on My Personas tab */}
+            {activeTab === 'my-personas' && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {/* Status filter */}
@@ -718,7 +797,6 @@ export default function PersonasPage() {
                 </div>
               </div>
               )}
-            </div>
           </div>
 
           {/* ── Persona grid ── */}
@@ -848,97 +926,288 @@ export default function PersonasPage() {
 
           {/* ── Recommended for you ── (hidden) */}
 
-          {/* ── Super Links tab ── */}
-          {activeTab === 'super-links' && (
+          {/* ── Shared tab ── */}
+          {activeTab === 'shared' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-              {/* Header row */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 'var(--font-size-caption)',
-                  lineHeight: 'var(--line-height-caption)',
-                  color: 'var(--neutral-500)',
-                }}>
-                  {sharesLoading ? 'Loading…' : `${shares.length} link${shares.length === 1 ? '' : 's'}`}
-                </span>
-              </div>
-
-              {/* Table header */}
-              {!sharesLoading && shares.length > 0 && (
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 120px 160px',
-                  padding: '0 16px',
-                  gap: 12,
-                }}>
-                  {(['Agent', 'Status', 'Token budget'] as const).map(col => (
-                    <span key={col} style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: 'var(--font-size-caption)',
-                      lineHeight: 'var(--line-height-caption)',
-                      fontWeight: 'var(--font-weight-medium)',
-                      color: 'var(--neutral-500)',
-                      letterSpacing: '0.03em',
-                      textTransform: 'uppercase',
-                    }}>{col}</span>
+              {isLoading ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} style={{ height: 140, borderRadius: 16, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
                   ))}
                 </div>
-              )}
-
-              {/* Skeleton */}
-              {sharesLoading && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} style={{
-                      height: 80,
-                      borderRadius: 14,
-                      background: 'var(--neutral-100)',
-                      animation: 'pulse 0.9s ease-in-out infinite',
-                    }} />
-                  ))}
+              ) : sharedPersonas.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '64px 24px' }}>
+                  <p style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, textAlign: 'center' }}>
+                    No shared agents yet
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: '22px', color: 'var(--neutral-500)', textAlign: 'center', maxWidth: 400, margin: 0 }}>
+                    When someone shares a Super Link and you accept it, their agent appears here.
+                  </p>
                 </div>
-              )}
-
-              {/* Empty state */}
-              {!sharesLoading && shares.length === 0 && (
-                <SuperLinksEmpty onBrowsePersonas={() => setActiveTab('my-personas')} />
-              )}
-
-              {/* Rows */}
-              {!sharesLoading && shares.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {shares.map(share => {
-                    const preview     = shareMeta[share.id]
-                    const personaInfo = versionToPersona[share.persona_id]
-                    // shareMeta (from getSharePreview) is the authoritative name/image source.
-                    // versionToPersona provides the repoId needed for navigation.
-                    const name     = preview?.name     ?? personaInfo?.name     ?? 'Persona'
-                    const imageUrl = preview?.imageUrl ?? personaInfo?.imageUrl ?? null
-                    const repoId   = personaInfo?.repoId ?? ''
-                    return (
-                      <SuperLinkRow
-                        key={share.id}
-                        personaName={name}
-                        avatarColor={colorFromName(name)}
-                        avatarUrl={imageUrl}
-                        url={canonicalShareUrl(share.share_url).replace(/^https?:\/\//, '')}
-                        tokenUsed={share.credit_used}
-                        tokenLimit={share.credit_limit ?? 0}
-                        status={shareStatus(share)}
-                        selected={selectedShareId === share.id}
-                        onClick={() => setSelectedShareId(share.id)}
-                        onConfigure={repoId ? (e) => {
-                          e.stopPropagation()
-                          push(`/persona/configure/sharing?repoId=${repoId}&name=${encodeURIComponent(name)}&versionId=${share.persona_id}`)
-                        } : undefined}
-                      />
-                    )
-                  })}
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                  {sharedPersonas.map(persona => (
+                    <PersonaCard
+                      key={persona.id}
+                      variant="default"
+                      name={persona.name}
+                      handle={persona.handle.replace(/^@/, '')}
+                      description={persona.description}
+                      avatarUrl={draftAvatarMap[persona.id] ?? persona.imageUrl ?? undefined}
+                      tags={draftTagsMap[persona.id] ?? persona.tags}
+                      paused={persona.isPaused}
+                      visibility="private"
+                      onEdit={() => push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
+                      onUseInChat={() => push(`/personas/${persona.id}/chat`)}
+                      onResume={() => handlePauseToggle(persona.id, persona.name, persona.isPaused)}
+                      onMenuEdit={() => push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
+                      onMenuPauseToggle={() => handlePauseToggle(persona.id, persona.name, persona.isPaused)}
+                      onMenuDelete={() => setDeleteTarget(persona)}
+                    />
+                  ))}
                 </div>
               )}
             </div>
           )}
+
+          {/* ── Super Links tab ── */}
+          {activeTab === 'super-links' && (() => {
+            const tokensThisMonth  = shares.reduce((s, l) => s + l.credit_used, 0)
+            const activeLinksCount = shares.filter(s => shareStatus(s) === 'active').length
+            const estimatedCost    = parseFloat((tokensThisMonth / 1_000_000 * 3).toFixed(2))
+            // Use real wave data when usage exists, otherwise fall back to dummy for a realistic preview
+            const sparkData: number[] = tokensThisMonth > 0
+              ? Array.from({ length: slDays }, (_, i) => {
+                  const base = tokensThisMonth / slDays
+                  return Math.max(0, Math.round(base * (0.4 + 0.65 * Math.abs(Math.sin(i * 0.55 + 1.2)))))
+                })
+              : DUMMY_SPARK.slice(0, slDays)
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                {/* ── Stat grid ── */}
+                <section style={{
+                  display:             'grid',
+                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                  gap:                 12,
+                }}>
+                  <StatCard
+                    label="Credits this month"
+                    value={fmtK(tokensThisMonth)}
+                    delta="+8.2%"
+                    deltaTrend="up"
+                    sub="across all links"
+                  />
+                  <StatCard
+                    label="Conversations"
+                    value={0}
+                    delta="+12.4%"
+                    deltaTrend="up"
+                    sub="total sessions"
+                  />
+                  <StatCard
+                    label="Active links"
+                    value={activeLinksCount}
+                    delta="+1"
+                    deltaTrend="up"
+                    sub={`of ${shares.length} total`}
+                  />
+                  <StatCard
+                    label="Est. cost"
+                    value={`$${estimatedCost.toFixed(2)}`}
+                    delta="-1.1%"
+                    deltaTrend="down"
+                    sub="creator-pays"
+                  />
+                </section>
+
+                {/* ── Main grid: 2fr chart | 1fr links panel ── */}
+                <section style={{
+                  display:             'grid',
+                  gridTemplateColumns: 'minmax(0, 2fr) minmax(320px, 1fr)',
+                  gap:                 12,
+                  flex:                1,
+                  minHeight:           420,
+                }}>
+
+                  {/* ── ChartCard ── */}
+                  <div style={{
+                    display:         'flex',
+                    flexDirection:   'column',
+                    borderRadius:    16,
+                    backgroundColor: 'var(--neutral-white)',
+                    border:          '1px solid var(--neutral-100)',
+                    boxShadow:       'var(--shadow-surface-card)',
+                    overflow:        'hidden',
+                  }}>
+                    {/* Header */}
+                    <div style={{
+                      display:        'flex',
+                      alignItems:     'flex-start',
+                      justifyContent: 'space-between',
+                      gap:            16,
+                      padding:        '18px 20px 0',
+                    }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <span style={{
+                          fontFamily:    'var(--font-body)',
+                          fontSize:      'var(--font-size-caption)',
+                          lineHeight:    'var(--line-height-caption)',
+                          fontWeight:    500,
+                          color:         'var(--neutral-500)',
+                          textTransform: 'uppercase' as const,
+                          letterSpacing: '0.06em',
+                        }}>
+                          Credit usage · daily
+                        </span>
+                        <span style={{
+                          fontFamily: 'var(--font-title)',
+                          fontSize:   'var(--font-size-heading)',
+                          lineHeight: 'var(--line-height-heading)',
+                          fontWeight: 'var(--font-weight-medium)',
+                          color:      'var(--neutral-900)',
+                        }}>
+                          {fmtK(tokensThisMonth)}
+                        </span>
+                      </div>
+                      {/* Range selector */}
+                      <Tabs value={slRange} onValueChange={(v) => setSlRange(v as '7d' | '30d' | '90d')}>
+                        <Tabs.List size="small">
+                          <Tabs.Trigger value="7d">7d</Tabs.Trigger>
+                          <Tabs.Trigger value="30d">30d</Tabs.Trigger>
+                          <Tabs.Trigger value="90d">90d</Tabs.Trigger>
+                        </Tabs.List>
+                      </Tabs>
+                    </div>
+
+                    {/* Sparkline body */}
+                    <div style={{ flex: 1, padding: '16px 20px 20px' }}>
+                      {sharesLoading ? (
+                        <div style={{ height: 180, borderRadius: 10, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
+                      ) : (
+                        <Sparkline data={sparkData} height={180} />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ── LinksSidePanel ── */}
+                  <div style={{
+                    display:         'flex',
+                    flexDirection:   'column',
+                    borderRadius:    16,
+                    backgroundColor: 'var(--neutral-white)',
+                    border:          '1px solid var(--neutral-100)',
+                    boxShadow:       'var(--shadow-surface-card)',
+                    overflow:        'hidden',
+                    alignSelf:       'start',
+                  }}>
+                    {/* Panel header */}
+                    <div style={{
+                      display:        'flex',
+                      alignItems:     'center',
+                      justifyContent: 'space-between',
+                      gap:            8,
+                      padding:        '12px 16px',
+                      borderBottom:   '1px solid var(--neutral-100)',
+                      flexShrink:     0,
+                    }}>
+                      <span style={{
+                        fontFamily: 'var(--font-body)',
+                        fontSize:   'var(--font-size-caption)',
+                        lineHeight: 'var(--line-height-caption)',
+                        color:      'var(--neutral-500)',
+                      }}>
+                        {sharesLoading ? 'Loading…' : `Super Links ${shares.length}`}
+                      </span>
+                      <Dropdown.Float
+                        open={panelGenOpen}
+                        onOpenChange={setPanelGenOpen}
+                        placement="bottom-end"
+                        trigger={
+                          <Button size="sm" variant="secondary" leftIcon={<PlusSignIcon size={14} />}>
+                            Generate link
+                          </Button>
+                        }
+                      >
+                        <Dropdown style={{ minWidth: 220 }}>
+                          {personas.length === 0 ? (
+                            <Dropdown.Section>
+                              <Dropdown.Item label="No agents yet — create one first" disabled fluid />
+                            </Dropdown.Section>
+                          ) : (
+                            <Dropdown.Section label="Select an agent">
+                              {personas.map(p => (
+                                <Dropdown.Item
+                                  key={p.id}
+                                  label={p.name}
+                                  onClick={() => {
+                                    setPanelGenOpen(false)
+                                    push(`/persona/configure/sharing?repoId=${p.id}&name=${encodeURIComponent(p.name)}${p.activeVersionId ? `&versionId=${p.activeVersionId}` : ''}`)
+                                  }}
+                                  fluid
+                                />
+                              ))}
+                            </Dropdown.Section>
+                          )}
+                        </Dropdown>
+                      </Dropdown.Float>
+                    </div>
+
+                    {/* Scrollable rows — max 4 visible at once */}
+                    <div
+                      className="kaya-scrollbar"
+                      style={{
+                        maxHeight:     424,
+                        overflowY:     'auto',
+                        padding:       8,
+                        display:       'flex',
+                        flexDirection: 'column',
+                        gap:           6,
+                      }}
+                    >
+                      {/* Skeleton */}
+                      {sharesLoading && Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} style={{ height: 96, borderRadius: 14, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
+                      ))}
+
+                      {/* Empty state */}
+                      {!sharesLoading && shares.length === 0 && (
+                        <SuperLinksEmpty onBrowsePersonas={() => setActiveTab('my-personas')} />
+                      )}
+
+                      {/* Rows */}
+                      {!sharesLoading && shares.map(share => {
+                        const preview     = shareMeta[share.id]
+                        const personaInfo = versionToPersona[share.persona_id]
+                        const name        = preview?.name     ?? personaInfo?.name     ?? 'Persona'
+                        const imageUrl    = preview?.imageUrl ?? personaInfo?.imageUrl ?? null
+                        const repoId      = personaInfo?.repoId ?? ''
+                        return (
+                          <SuperLinkRow
+                            key={share.id}
+                            personaName={name}
+                            avatarColor={colorFromName(name)}
+                            avatarUrl={imageUrl}
+                            url={canonicalShareUrl(share.share_url).replace(/^https?:\/\//, '')}
+                            tokenUsed={share.credit_used}
+                            tokenLimit={share.credit_limit ?? 0}
+                            status={shareStatus(share)}
+                            selected={selectedShareId === share.id}
+                            onClick={() => setSelectedShareId(prev => prev === share.id ? null : share.id)}
+                            onConfigure={repoId ? (e) => {
+                              e.stopPropagation()
+                              push(`/persona/configure/sharing?repoId=${repoId}&name=${encodeURIComponent(name)}&versionId=${share.persona_id}`)
+                            } : undefined}
+                          />
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                </section>
+              </div>
+            )
+          })()}
 
         </div>
       </div>

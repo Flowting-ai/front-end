@@ -116,7 +116,7 @@ function SuperLinkSection({
             color: '#6a625d',
           }}
         >
-          Generate a shareable URL anyone can chat without a Souvenir account. You cover the token cost.
+          Generate a shareable URL anyone can chat without a Souvenir account. You cover the credit cost.
         </span>
       </div>
 
@@ -193,7 +193,7 @@ function SuperLinkSection({
               color: 'var(--neutral-700)',
             }}
           >
-            {usagePercent}% used · {used.toLocaleString()} / {limit.toLocaleString()} tokens
+            {usagePercent}% used · {used.toLocaleString()} / {limit.toLocaleString()} credits
           </span>
           <UsageBar percent={usagePercent} />
         </div>
@@ -496,7 +496,7 @@ function PersonaPublishedContent() {
                         color: 'var(--neutral-600)',
                       }}
                     >
-                      Token limit
+                      Credit limit
                     </span>
                     <div
                       style={{

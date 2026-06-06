@@ -98,7 +98,7 @@ export function ContentRenderer({
     switch (seg.type) {
       case "table":
         // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- segment index is stable; no other unique key available
-        return <XmlTable key={i} xml={seg.xml} />
+        return <XmlTable key={i} xml={seg.xml} animate={isStreaming} />
 
       case "chart":
         // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- segment index is stable; no other unique key available

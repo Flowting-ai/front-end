@@ -27,6 +27,7 @@ export function DateRangePill({ ref, label, dotColor, className, style, ...props
           padding:         '6px 12px',
           borderRadius:    8,
           backgroundColor: 'var(--neutral-white)',
+          border:          '1px solid var(--neutral-100)',
           boxShadow:       'var(--shadow-surface-card)',
           color:           'var(--neutral-700)',
           fontFamily:      'var(--font-body)',
@@ -46,7 +47,7 @@ export function DateRangePill({ ref, label, dotColor, className, style, ...props
             width:           6,
             height:          6,
             borderRadius:    '50%',
-            backgroundColor: dotColor ?? 'var(--color-status-success-dot)',
+            backgroundColor: dotColor ?? '#22c55e',
             flexShrink:      0,
           }}
         />

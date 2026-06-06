@@ -85,7 +85,7 @@ export function SessionRow({ num, time, messages, tokens, status, className, sty
                 color:      'var(--neutral-500)',
               }}
             >
-              {messages} messages · {fmtK(tokens)} tokens
+              {messages} messages · {fmtK(tokens)} credits
             </span>
           </div>
         </div>

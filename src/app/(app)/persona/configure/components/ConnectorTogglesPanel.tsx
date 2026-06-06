@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { listConnectors } from '@/lib/api/connectors'
-import { getVersion, setVersionConnectors } from '@/lib/api/personas'
+import { getVersion, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
 import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 
 const CONNECTOR_LOGO_MAP: Record<string, string> = {
@@ -121,8 +121,10 @@ export function ConnectorTogglesPanel({
       getVersion(repoId, versionId),
     ]).then(([catalog, version]) => {
       if (cancelled) return
-      setLinked(catalog.filter(c => c.linked))
-      const initial = new Set<string>(version.connectors)
+      const linkedConnectors = catalog.filter(c => c.linked)
+      setLinked(linkedConnectors)
+      const blockedSet = new Set<string>(version.blocked_connectors ?? [])
+      const initial = new Set<string>(linkedConnectors.filter(c => !blockedSet.has(c.slug)).map(c => c.slug))
       setEnabled(initial)
       onConnectorsChange?.([...initial])
       setLoaded(true)
@@ -140,15 +142,17 @@ export function ConnectorTogglesPanel({
     setEnabled(next)
     onConnectorsChange?.([...next])
     try {
-      const updated = await setVersionConnectors(repoId, versionId, [...next])
-      // The PUT response returns connectors:[] due to a backend serialisation bug —
-      // only reconcile if the server actually echoes back a non-empty list, otherwise
-      // keep the optimistic `next` that was already applied above.
-      const confirmed = updated.connectors.length > 0
-        ? new Set<string>(updated.connectors)
-        : next
-      setEnabled(confirmed)
-      onConnectorsChange?.([...confirmed])
+      if (next.has(slug)) {
+        // Enabling: remove from block-list
+        await unblockVersionConnector(repoId, versionId, slug)
+      } else {
+        // Disabling: add to block-list (send full blocked set)
+        const linked_ = linked.map(c => c.slug)
+        const blocked = linked_.filter(s => !next.has(s))
+        await setVersionBlockedConnectors(repoId, versionId, blocked)
+      }
+      setEnabled(next)
+      onConnectorsChange?.([...next])
     } catch (err) {
       setEnabled(prev)
       onConnectorsChange?.([...prev])

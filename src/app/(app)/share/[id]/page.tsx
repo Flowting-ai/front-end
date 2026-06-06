@@ -327,7 +327,7 @@ function ShareAcceptContent() {
         {creditsRemaining !== null ? (
           <MetaRow
             label="Credits available"
-            value={`${creditsRemaining.toLocaleString()} tokens`}
+            value={`${creditsRemaining.toLocaleString()} credits`}
           />
         ) : (
           <MetaRow label="Credits" value="No limit" />

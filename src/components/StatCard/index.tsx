@@ -41,6 +41,7 @@ export function StatCard(
           padding:         '16px 18px',
           borderRadius:    16,
           backgroundColor: 'var(--neutral-white)',
+          border:          '1px solid var(--neutral-100)',
           boxShadow:       hovered ? 'var(--shadow-surface-card-hover)' : 'var(--shadow-surface-card)',
           transition:      'box-shadow 150ms ease',
           minWidth:        0,

@@ -74,9 +74,9 @@ function DrawerOverview({ link }: { link: SuperLinkDrawerLink }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <StatCard
-          label="Tokens used"
+          label="Credits used"
           value={fmtK(link.tokenUsed)}
-          sub={`of ${fmtK(link.tokenLimit)} limit`}
+          sub={`of ${fmtK(link.tokenLimit)} credit limit`}
         />
         <StatCard
           label="Conversations"
@@ -86,7 +86,7 @@ function DrawerOverview({ link }: { link: SuperLinkDrawerLink }) {
         <StatCard
           label="Avg / convo"
           value={fmtK(link.tokensPerConvo)}
-          sub="tokens"
+          sub="credits"
         />
         <StatCard
           label="Budget left"
@@ -98,7 +98,7 @@ function DrawerOverview({ link }: { link: SuperLinkDrawerLink }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)', fontWeight: 'var(--font-weight-medium)', color: 'var(--neutral-700)' }}>
-            Token budget
+            Credit budget
           </span>
         </div>
         <TokenBudgetBar used={link.tokenUsed} limit={link.tokenLimit} size="lg" showLabel />
@@ -154,7 +154,7 @@ function DrawerSettings({
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 16 }}>
         <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)', fontWeight: 'var(--font-weight-medium)', color: 'var(--neutral-700)' }}>
-          Token limit
+          Credit limit
         </span>
         {editing ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
@@ -164,7 +164,7 @@ function DrawerSettings({
                 size="small"
                 showLabel={false}
                 showSubtitle={false}
-                label="Token limit"
+                label="Credit limit"
                 placeholder="50000"
                 value={limitDraft}
                 onChange={setLimitDraft}
@@ -189,7 +189,7 @@ function DrawerSettings({
                 color:           'var(--neutral-900)',
               }}
             >
-              {parseInt(limitDraft, 10).toLocaleString()} tokens
+              {parseInt(limitDraft, 10).toLocaleString()} credits
             </div>
             <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Edit</Button>
           </div>

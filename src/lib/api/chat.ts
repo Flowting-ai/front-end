@@ -2,6 +2,7 @@
 
 import { apiFetch, apiFetchJson, ApiError } from "./client";
 import {
+  API_BASE_URL,
   CHATS_ENDPOINT,
   CHATS_RENAME_ENDPOINT,
   CHAT_MESSAGES_ENDPOINT,
@@ -435,14 +436,19 @@ export async function saveFileToDrive(
 }
 
 /**
- * POST /chats/prompts/{prompt_id} — submit the user's reply to a mid-stream
- * `user_prompt` SSE event. Handles permission asks, confirmations, choices, etc.
+ * POST to the backend's prompt gate to unblock a mid-stream permission/confirmation prompt.
+ * Uses `respondUrl` (backend-relative path from the SSE event) when provided; falls back to
+ * the standard /chats/prompts/{promptId} endpoint.
  */
 export async function respondToChatPrompt(
   promptId: string,
   response: unknown,
+  respondUrl?: string,
 ): Promise<void> {
-  const res = await apiFetch(CHAT_PROMPT_RESPOND_ENDPOINT(promptId), {
+  const path = respondUrl
+    ? `${API_BASE_URL}${respondUrl}`
+    : CHAT_PROMPT_RESPOND_ENDPOINT(promptId);
+  const res = await apiFetch(path, {
     method: "POST",
     body:   JSON.stringify({ response }),
   });

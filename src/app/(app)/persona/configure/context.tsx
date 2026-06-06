@@ -378,7 +378,6 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
           name:        info.personaName || null,
           model_id:    info.guideModelId,
           temperature: info.guideTemperature,
-          connectors:  info.connectorSlugs,
           history:     historySnapshot,
         },
         callbacks,

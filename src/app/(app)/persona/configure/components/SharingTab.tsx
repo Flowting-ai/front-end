@@ -560,7 +560,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
                     color: 'var(--neutral-700)',
                   }}
                 >
-                  Token limit
+                  Credit limit
                 </span>
                 <div
                   style={{
@@ -608,8 +608,8 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
                   }}
                 >
                   {linkShare.credit_limit !== null
-                    ? `${usagePercent}% used · ${linkShare.credit_used.toLocaleString()} / ${linkShare.credit_limit.toLocaleString()} tokens`
-                    : `${linkShare.credit_used.toLocaleString()} tokens used · No limit`}
+                    ? `${usagePercent}% used · ${linkShare.credit_used.toLocaleString()} / ${linkShare.credit_limit.toLocaleString()} credits`
+                    : `${linkShare.credit_used.toLocaleString()} credits used · No limit`}
                 </span>
                 {linkShare.credit_limit !== null && <UsageBar percent={usagePercent} />}
               </div>
@@ -736,7 +736,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
                 flexShrink: 0,
               }}
             >
-              tokens
+              credits
             </span>
           </div>
 
@@ -801,8 +801,8 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
                       }}
                     >
                       {share.credit_limit !== null
-                        ? `${share.credit_used.toLocaleString()} / ${share.credit_limit.toLocaleString()} tokens${pct !== null ? ` · ${pct}% used` : ''}`
-                        : `${share.credit_used.toLocaleString()} tokens used · No limit`}
+                        ? `${share.credit_used.toLocaleString()} / ${share.credit_limit.toLocaleString()} credits${pct !== null ? ` · ${pct}% used` : ''}`
+                        : `${share.credit_used.toLocaleString()} credits used · No limit`}
                     </span>
                   </div>
 

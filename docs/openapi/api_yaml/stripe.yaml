@@ -96,7 +96,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SubscriptionActionResponse'
+                $ref: '#/components/schemas/UsageResponse'
       security:
         - HTTPBearer: []
   /stripe/subscription:
@@ -196,6 +196,16 @@ components:
           anyOf:
             - $ref: '#/components/schemas/UpcomingInvoiceInfo'
             - type: 'null'
+        credits:
+          $ref: '#/components/schemas/CreditSummary'
+          default:
+            total_credits: 0
+            plan_credits: 0
+            topup_credits: 0
+            used:
+              brain: 0
+              chat: 0
+              persona: 0
       type: object
       title: BillingInfo
     BillingPortalResponse:
@@ -207,6 +217,22 @@ components:
       required:
         - portal_url
       title: BillingPortalResponse
+    CategoryUsage:
+      properties:
+        chat:
+          type: number
+          title: Chat
+          default: 0
+        persona:
+          type: number
+          title: Persona
+          default: 0
+        brain:
+          type: number
+          title: Brain
+          default: 0
+      type: object
+      title: CategoryUsage
     CreateCheckoutSessionRequest:
       properties:
         plan_type:
@@ -257,6 +283,32 @@ components:
       required:
         - checkout_url
       title: CreateTopUpSessionResponse
+    CreditSummary:
+      properties:
+        total_credits:
+          type: number
+          title: Total Credits
+          default: 0
+        plan_credits:
+          type: number
+          title: Plan Credits
+          default: 0
+        topup_credits:
+          type: number
+          title: Topup Credits
+          default: 0
+        trial:
+          anyOf:
+            - $ref: '#/components/schemas/TrialCreditInfo'
+            - type: 'null'
+        used:
+          $ref: '#/components/schemas/UsageBreakdown'
+          default:
+            chat: 0
+            persona: 0
+            brain: 0
+      type: object
+      title: CreditSummary
     HTTPValidationError:
       properties:
         detail:
@@ -369,6 +421,45 @@ components:
       required:
         - status
       title: TopUpChargeResponse
+    TrialCreditInfo:
+      properties:
+        amount:
+          type: number
+          title: Amount
+        remaining:
+          type: number
+          title: Remaining
+        used:
+          type: number
+          title: Used
+        starts_at:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Starts At
+        expires_at:
+          type: string
+          title: Expires At
+      type: object
+      required:
+        - amount
+        - remaining
+        - used
+        - expires_at
+      title: TrialCreditInfo
+    TrialSummary:
+      properties:
+        remaining:
+          type: number
+          title: Remaining
+        expires_at:
+          type: string
+          title: Expires At
+      type: object
+      required:
+        - remaining
+        - expires_at
+      title: TrialSummary
     UpcomingInvoiceInfo:
       properties:
         amount_due:
@@ -387,6 +478,58 @@ components:
         - amount_due
         - currency
       title: UpcomingInvoiceInfo
+    UsageBreakdown:
+      properties:
+        chat:
+          type: number
+          title: Chat
+          default: 0
+        persona:
+          type: number
+          title: Persona
+          default: 0
+        brain:
+          type: number
+          title: Brain
+          default: 0
+      type: object
+      title: UsageBreakdown
+      description: Credits spent this period, by source area.
+    UsageResponse:
+      properties:
+        credits:
+          type: number
+          title: Credits
+        plan_credits:
+          type: number
+          title: Plan Credits
+          default: 0
+        topup_credits:
+          type: number
+          title: Topup Credits
+          default: 0
+        used:
+          type: number
+          title: Used
+          default: 0
+        trial:
+          anyOf:
+            - $ref: '#/components/schemas/TrialSummary'
+            - type: 'null'
+        spent_this_period:
+          type: number
+          title: Spent This Period
+          default: 0
+        by_category:
+          $ref: '#/components/schemas/CategoryUsage'
+          default:
+            chat: 0
+            persona: 0
+            brain: 0
+      type: object
+      required:
+        - credits
+      title: UsageResponse
     ValidationError:
       properties:
         loc:

@@ -48,13 +48,11 @@ const FALLBACK_TONES: ToneOption[] = [
   },
 ]
 
-// Normalise the starter `sound` field (object today, array in future) → ToneOption[]
 function starterSoundsToTones(
-  starter: { sound?: { name: string; description: string } | Array<{ name: string; description: string }> } | null | undefined
+  starter: { sounds?: Array<{ name: string; description: string }> } | null | undefined
 ): ToneOption[] {
-  if (!starter?.sound) return []
-  const sounds = Array.isArray(starter.sound) ? starter.sound : [starter.sound]
-  return sounds.map(s => ({
+  if (!starter?.sounds?.length) return []
+  return starter.sounds.map(s => ({
     id: s.name.toLowerCase().replace(/\s+/g, '-'),
     label: s.name,
     subtitle: s.description,
@@ -137,7 +135,7 @@ function TonePageContent() {
     if (typeof window === 'undefined') return FALLBACK_TONES
     try {
       if (template) return FALLBACK_TONES
-      const starter = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { sound?: { name: string; description: string } | Array<{ name: string; description: string }> } | null
+      const starter = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { sounds?: Array<{ name: string; description: string }> } | null
       const fromStarter = starterSoundsToTones(starter)
       return fromStarter.length > 0 ? fromStarter : FALLBACK_TONES
     } catch { return FALLBACK_TONES }
@@ -152,7 +150,7 @@ function TonePageContent() {
       // Pre-select from template preset on first visit
       if (template) return TEMPLATE_PRESETS[template]?.tone ?? null
       // Auto-select the first starter sound (it's the backend's recommendation)
-      const starter = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { sound?: { name: string; description: string } | Array<{ name: string; description: string }> } | null
+      const starter = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { sounds?: Array<{ name: string; description: string }> } | null
       const fromStarter = starterSoundsToTones(starter)
       return fromStarter[0]?.id ?? null
     } catch { return null }

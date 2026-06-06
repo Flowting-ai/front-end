@@ -985,6 +985,7 @@ export function Pinboard(
       getScrollElement: () => scrollRef.current,
       estimateSize:     () => 120,
       overscan:         4,
+      getItemKey:       (index) => pins[index]?.id ?? index,
     })
     const bottomBarRef = useRef<HTMLDivElement>(null)
     const topOverlayRef = useRef<HTMLDivElement>(null)

@@ -455,7 +455,7 @@ export function ChatBoard({
             style={{
               position:  'absolute',
               top:       'calc(50% - 0.5px)',
-              right:     '11px',
+              right:     '21px',
               transform: 'translateY(-50%)',
               zIndex:    1,
             }}

@@ -346,9 +346,11 @@ type PermissionPolicy = 'allow' | 'block' | 'allow_once'
 interface PermissionPromptCardProps {
   prompt:       ConnectorPermissionPrompt
   onDecided?:   (policy: PermissionPolicy) => void
+  /** When true, skip saving to connector settings and immediately unblock the stream gate. */
+  skipSave?:    boolean
 }
 
-export function PermissionPromptCard({ prompt, onDecided }: PermissionPromptCardProps) {
+export function PermissionPromptCard({ prompt, onDecided, skipSave = false }: PermissionPromptCardProps) {
   const [state,    setState]    = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
   const [decided,  setDecided]  = useState<PermissionPolicy | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
@@ -361,6 +363,16 @@ export function PermissionPromptCard({ prompt, onDecided }: PermissionPromptCard
   const handlePolicy = useCallback((policy: PermissionPolicy) => {
     setState('saving')
     setErrorMsg('')
+
+    if (skipSave) {
+      setDecided(policy)
+      setState('done')
+      onDecided?.(policy)
+      const label = policy === 'allow' ? 'Allowed' : policy === 'block' ? 'Blocked' : 'Allowed once'
+      toast.success(`${label} — ${prompt.tool_name}`)
+      return
+    }
+
     updateConnector(prompt.connector_slug, {
       permissions: [{ slug: prompt.tool_name, policy }],
     })
@@ -379,7 +391,7 @@ export function PermissionPromptCard({ prompt, onDecided }: PermissionPromptCard
         setErrorMsg(msg)
         toast.error('Failed to update permission')
       })
-  }, [prompt, onDecided])
+  }, [prompt, onDecided, skipSave])
 
   if (state === 'done' && decided) {
     const labelMap: Record<PermissionPolicy, string> = {

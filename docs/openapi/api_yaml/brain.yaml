@@ -54,7 +54,7 @@ paths:
       operationId: create_brain_chat_brain_create_post
       requestBody:
         content:
-          application/x-www-form-urlencoded:
+          multipart/form-data:
             schema:
               $ref: '#/components/schemas/Body_create_brain_chat_brain_create_post'
         required: true
@@ -258,6 +258,13 @@ paths:
                     request_id:
                       title: Request Id
                       type: string
+                    api_key_fields:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Api Key Fields
+                      type: array
                   required:
                     - connector_slug
                     - display_name
@@ -780,7 +787,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/x-www-form-urlencoded:
+          multipart/form-data:
             schema:
               $ref: '#/components/schemas/Body_stream_brain_message_brain__chat_id__stream_post'
       responses:
@@ -983,6 +990,13 @@ paths:
                     request_id:
                       title: Request Id
                       type: string
+                    api_key_fields:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Api Key Fields
+                      type: array
                   required:
                     - connector_slug
                     - display_name
@@ -1652,6 +1666,14 @@ components:
           type: boolean
           title: Use Mistral Ocr
           default: false
+        files:
+          anyOf:
+            - items:
+                type: string
+                contentMediaType: application/octet-stream
+              type: array
+            - type: 'null'
+          title: Files
       type: object
       required:
         - input
@@ -1676,6 +1698,14 @@ components:
           type: boolean
           title: Use Mistral Ocr
           default: false
+        files:
+          anyOf:
+            - items:
+                type: string
+                contentMediaType: application/octet-stream
+              type: array
+            - type: 'null'
+          title: Files
       type: object
       required:
         - input

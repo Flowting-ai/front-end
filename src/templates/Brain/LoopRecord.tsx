@@ -36,6 +36,12 @@ export interface LoopRecordProps {
   externalActions?:  ExternalOutputAction[]
   /** Completed loops default to collapsed */
   defaultCollapsed?: boolean
+  /**
+   * When true, renders D-1 Level 2 "needs input" treatment:
+   * 3px amber left-border accent + "Waiting" status badge replaces the normal
+   * status icon. Use when a Brain run is paused awaiting HITL approval.
+   */
+  needsInput?: boolean
 }
 
 // ── Status indicator ──────────────────────────────────────────────────────────
@@ -61,6 +67,7 @@ export function LoopRecord({
   artifactTitle,
   externalActions,
   defaultCollapsed = true,
+  needsInput       = false,
 }: LoopRecordProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const [headerHovered, setHeaderHovered] = useState(false)
@@ -71,6 +78,8 @@ export function LoopRecord({
       borderRadius:    12,
       boxShadow:       CARD_SHADOW,
       overflow:        'hidden',
+      // D-1 Level 2 — 3px amber left-border accent when awaiting approval
+      borderLeft:      needsInput ? '3px solid var(--color-tag-Yellow-text)' : undefined,
     }}>
 
       {/* ── Collapsed header row ── */}
@@ -93,7 +102,27 @@ export function LoopRecord({
           transition:      'background-color 150ms ease',
         }}
       >
-        <LoopStatusIcon status={status} />
+        {needsInput ? (
+          <span style={{
+            display:         'inline-flex',
+            alignItems:      'center',
+            padding:         '1px 6px',
+            borderRadius:    6,
+            backgroundColor: 'var(--color-tag-Yellow-bg)',
+            boxShadow:       'var(--color-tag-Yellow-shadow)',
+            fontFamily:      'var(--font-body)',
+            fontWeight:      500,
+            fontSize:        10,
+            lineHeight:      '16px',
+            color:           'var(--color-tag-Yellow-text)',
+            whiteSpace:      'nowrap',
+            flexShrink:      0,
+          }}>
+            Waiting
+          </span>
+        ) : (
+          <LoopStatusIcon status={status} />
+        )}
 
         {/* Loop label */}
         <span style={{

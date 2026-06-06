@@ -364,7 +364,7 @@ export function SuperLink(
                   whiteSpace: 'nowrap',
                 }}
               >
-                {pct}% used · {fmt(tokenUsed)} / {fmt(tokenLimit)} tokens
+                {pct}% used · {fmt(tokenUsed)} / {fmt(tokenLimit)} credits
               </span>
 
               {/* Editable token budget */}
@@ -372,7 +372,7 @@ export function SuperLink(
                 type="text"
                 inputMode="numeric"
                 value={limitRaw ? limitDraft : fmt(tokenLimit)}
-                aria-label="Token budget limit"
+                aria-label="Credit budget limit"
                 onChange={handleLimitChange}
                 onFocus={handleLimitFocus}
                 onBlur={handleLimitBlur}
@@ -415,7 +415,7 @@ export function SuperLink(
                 fluid
                 fillColor="var(--blue-600)"
                 onValueChange={handleSliderChange}
-                aria-label="Token budget limit"
+                aria-label="Credit budget limit"
               />
             </m.div>
           )}

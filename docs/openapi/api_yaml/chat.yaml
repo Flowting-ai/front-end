@@ -358,6 +358,13 @@ paths:
                     request_id:
                       title: Request Id
                       type: string
+                    api_key_fields:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Api Key Fields
+                      type: array
                   required:
                     - connector_slug
                     - display_name
@@ -1032,6 +1039,13 @@ paths:
                     request_id:
                       title: Request Id
                       type: string
+                    api_key_fields:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Api Key Fields
+                      type: array
                   required:
                     - connector_slug
                     - display_name

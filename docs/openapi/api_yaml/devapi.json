@@ -533,6 +533,15 @@
                       "request_id": {
                         "title": "Request Id",
                         "type": "string"
+                      },
+                      "api_key_fields": {
+                        "default": [],
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "title": "Api Key Fields",
+                        "type": "array"
                       }
                     },
                     "required": [
@@ -1470,6 +1479,15 @@
                       "request_id": {
                         "title": "Request Id",
                         "type": "string"
+                      },
+                      "api_key_fields": {
+                        "default": [],
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "title": "Api Key Fields",
+                        "type": "array"
                       }
                     },
                     "required": [
@@ -2416,9 +2434,9 @@
         "operationId": "enhance_persona_enhance_prompt_post",
         "requestBody": {
           "content": {
-            "application/x-www-form-urlencoded": {
+            "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_enhance_persona_enhance_prompt_post"
+                "$ref": "#/components/schemas/EnhancePromptRequest"
               }
             }
           },
@@ -2431,6 +2449,53 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EnhancePromptResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/persona/starter": {
+      "post": {
+        "tags": [
+          "persona"
+        ],
+        "summary": "Starter",
+        "description": "Generate a starting system instruction, sound, and tags from a persona's\nname + description. Nothing is saved — the FE uses this to seed the editor.",
+        "operationId": "starter_persona_starter_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonaStarterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaStarterResponse"
                 }
               }
             }
@@ -3136,6 +3201,7 @@
           "persona"
         ],
         "summary": "Update Version",
+        "description": "Update metadata-only fields (no files). File uploads / knowledge changes\ngo through PUT.",
         "operationId": "update_version_persona__repo_id__versions__persona_id__patch",
         "security": [
           {
@@ -3165,10 +3231,11 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
-            "multipart/form-data": {
+            "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_update_version_persona__repo_id__versions__persona_id__patch"
+                "$ref": "#/components/schemas/UpdatePersona"
               }
             }
           }
@@ -3253,6 +3320,74 @@
         }
       }
     },
+    "/persona/{repo_id}/versions/{persona_id}/files": {
+      "put": {
+        "tags": [
+          "persona"
+        ],
+        "summary": "Update Version Files",
+        "description": "Upload version files/image, add knowledge URLs, and/or remove existing\ndocuments. Metadata fields go through PATCH.",
+        "operationId": "update_version_files_persona__repo_id__versions__persona_id__files_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Repo Id"
+            }
+          },
+          {
+            "name": "persona_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Persona Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_update_version_files_persona__repo_id__versions__persona_id__files_put"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/persona/{repo_id}/versions/{persona_id}/document": {
       "post": {
         "tags": [
@@ -3293,6 +3428,74 @@
             "multipart/form-data": {
               "schema": {
                 "$ref": "#/components/schemas/Body_upload_version_document_persona__repo_id__versions__persona_id__document_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/persona/{repo_id}/versions/{persona_id}/knowledge-url": {
+      "post": {
+        "tags": [
+          "persona"
+        ],
+        "summary": "Add Version Knowledge Url",
+        "operationId": "add_version_knowledge_url_persona__repo_id__versions__persona_id__knowledge_url_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Repo Id"
+            }
+          },
+          {
+            "name": "persona_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Persona Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_add_version_knowledge_url_persona__repo_id__versions__persona_id__knowledge_url_post"
               }
             }
           }
@@ -3389,13 +3592,13 @@
         }
       }
     },
-    "/persona/{repo_id}/versions/{persona_id}/connectors": {
-      "put": {
+    "/persona/{repo_id}/versions/{persona_id}/blocked-connectors": {
+      "patch": {
         "tags": [
           "persona"
         ],
-        "summary": "Set Version Connectors",
-        "operationId": "set_version_connectors_persona__repo_id__versions__persona_id__connectors_put",
+        "summary": "Set Version Blocked Connectors",
+        "operationId": "set_version_blocked_connectors_persona__repo_id__versions__persona_id__blocked_connectors_patch",
         "security": [
           {
             "HTTPBearer": []
@@ -3428,11 +3631,78 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPersonaConnectors"
+                "$ref": "#/components/schemas/SetBlockedConnectors"
               }
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/persona/{repo_id}/versions/{persona_id}/blocked-connectors/{slug}": {
+      "delete": {
+        "tags": [
+          "persona"
+        ],
+        "summary": "Unblock Version Connector",
+        "operationId": "unblock_version_connector_persona__repo_id__versions__persona_id__blocked_connectors__slug__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Repo Id"
+            }
+          },
+          {
+            "name": "persona_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Persona Id"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4496,6 +4766,284 @@
               "application/json": {
                 "schema": {
 
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/persona-shares": {
+      "get": {
+        "tags": [
+          "persona-shares"
+        ],
+        "summary": "List Shares",
+        "operationId": "list_shares_persona_shares_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PersonaShareResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Shares Persona Shares Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "persona-shares"
+        ],
+        "summary": "Create Share",
+        "operationId": "create_share_persona_shares_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonaShareCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaShareResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/persona-shares/received": {
+      "get": {
+        "tags": [
+          "persona-shares"
+        ],
+        "summary": "List Received",
+        "description": "Personas in my account that I accepted from someone else's share.",
+        "operationId": "list_received_persona_shares_received_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReceivedShareResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Received Persona Shares Received Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/persona-shares/sent": {
+      "get": {
+        "tags": [
+          "persona-shares"
+        ],
+        "summary": "List Sent",
+        "description": "Recipients of my shares — who got which persona, and their usage.",
+        "operationId": "list_sent_persona_shares_sent_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SentShareResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Sent Persona Shares Sent Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/persona-shares/{share_id}": {
+      "get": {
+        "tags": [
+          "persona-shares"
+        ],
+        "summary": "Preview Share",
+        "operationId": "preview_share_persona_shares__share_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Share Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaSharePreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "persona-shares"
+        ],
+        "summary": "Revoke Share",
+        "operationId": "revoke_share_persona_shares__share_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Share Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/persona-shares/{share_id}/accept": {
+      "post": {
+        "tags": [
+          "persona-shares"
+        ],
+        "summary": "Accept Share",
+        "operationId": "accept_share_persona_shares__share_id__accept_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Share Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaResponse"
                 }
               }
             }
@@ -5589,7 +6137,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SubscriptionActionResponse"
+                  "$ref": "#/components/schemas/UsageResponse"
                 }
               }
             }
@@ -6524,7 +7072,7 @@
         "operationId": "create_brain_chat_brain_create_post",
         "requestBody": {
           "content": {
-            "application/x-www-form-urlencoded": {
+            "multipart/form-data": {
               "schema": {
                 "$ref": "#/components/schemas/Body_create_brain_chat_brain_create_post"
               }
@@ -6789,6 +7337,15 @@
                       "request_id": {
                         "title": "Request Id",
                         "type": "string"
+                      },
+                      "api_key_fields": {
+                        "default": [],
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "title": "Api Key Fields",
+                        "type": "array"
                       }
                     },
                     "required": [
@@ -7478,7 +8035,7 @@
         "requestBody": {
           "required": true,
           "content": {
-            "application/x-www-form-urlencoded": {
+            "multipart/form-data": {
               "schema": {
                 "$ref": "#/components/schemas/Body_stream_brain_message_brain__chat_id__stream_post"
               }
@@ -7742,6 +8299,15 @@
                       "request_id": {
                         "title": "Request Id",
                         "type": "string"
+                      },
+                      "api_key_fields": {
+                        "default": [],
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "title": "Api Key Fields",
+                        "type": "array"
                       }
                     },
                     "required": [
@@ -8828,6 +9394,52 @@
         }
       }
     },
+    "/memory/user": {
+      "post": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Set My Memory",
+        "operationId": "set_my_memory_memory_user_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetUserMemoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserMemoryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -8950,6 +9562,19 @@
                 "type": "null"
               }
             ]
+          },
+          "credits": {
+            "$ref": "#/components/schemas/CreditSummary",
+            "default": {
+              "total_credits": 0,
+              "plan_credits": 0,
+              "topup_credits": 0,
+              "used": {
+                "brain": 0,
+                "chat": 0,
+                "persona": 0
+              }
+            }
           }
         },
         "type": "object",
@@ -8999,6 +9624,19 @@
         ],
         "title": "Body_add_project_files_projects__project_id__files_put"
       },
+      "Body_add_version_knowledge_url_persona__repo_id__versions__persona_id__knowledge_url_post": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "Body_add_version_knowledge_url_persona__repo_id__versions__persona_id__knowledge_url_post"
+      },
       "Body_create_brain_chat_brain_create_post": {
         "properties": {
           "input": {
@@ -9032,6 +9670,21 @@
             "type": "boolean",
             "title": "Use Mistral Ocr",
             "default": false
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
           }
         },
         "type": "object",
@@ -9180,7 +9833,7 @@
             ],
             "title": "Temperature"
           },
-          "tags": {
+          "version_tags": {
             "anyOf": [
               {
                 "type": "string"
@@ -9189,7 +9842,29 @@
                 "type": "null"
               }
             ],
-            "title": "Tags"
+            "title": "Version Tags"
+          },
+          "persona_tags": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persona Tags"
+          },
+          "knowledge_urls": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Knowledge Urls"
           },
           "files": {
             "anyOf": [
@@ -9264,7 +9939,7 @@
             ],
             "title": "Temperature"
           },
-          "tags": {
+          "version_tags": {
             "anyOf": [
               {
                 "type": "string"
@@ -9273,7 +9948,29 @@
                 "type": "null"
               }
             ],
-            "title": "Tags"
+            "title": "Version Tags"
+          },
+          "persona_tags": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persona Tags"
+          },
+          "knowledge_urls": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Knowledge Urls"
           },
           "files": {
             "anyOf": [
@@ -9392,19 +10089,6 @@
         ],
         "title": "Body_create_repo_chat_persona__repo_id__chats_create_post"
       },
-      "Body_enhance_persona_enhance_prompt_post": {
-        "properties": {
-          "prompt": {
-            "type": "string",
-            "title": "Prompt"
-          }
-        },
-        "type": "object",
-        "required": [
-          "prompt"
-        ],
-        "title": "Body_enhance_persona_enhance_prompt_post"
-      },
       "Body_stream_brain_message_brain__chat_id__stream_post": {
         "properties": {
           "input": {
@@ -9438,6 +10122,21 @@
             "type": "boolean",
             "title": "Use Mistral Ocr",
             "default": false
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
           }
         },
         "type": "object",
@@ -9671,9 +10370,9 @@
         "type": "object",
         "title": "Body_update_project_projects__project_id__patch"
       },
-      "Body_update_version_persona__repo_id__versions__persona_id__patch": {
+      "Body_update_version_files_persona__repo_id__versions__persona_id__files_put": {
         "properties": {
-          "name": {
+          "knowledge_urls": {
             "anyOf": [
               {
                 "type": "string"
@@ -9682,63 +10381,7 @@
                 "type": "null"
               }
             ],
-            "title": "Name"
-          },
-          "prompt": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Prompt"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "model_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Model Id"
-          },
-          "temperature": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Temperature"
-          },
-          "tags": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tags"
+            "title": "Knowledge Urls"
           },
           "image": {
             "anyOf": [
@@ -9780,7 +10423,7 @@
           }
         },
         "type": "object",
-        "title": "Body_update_version_persona__repo_id__versions__persona_id__patch"
+        "title": "Body_update_version_files_persona__repo_id__versions__persona_id__files_put"
       },
       "Body_upload_version_document_persona__repo_id__versions__persona_id__document_post": {
         "properties": {
@@ -10038,6 +10681,11 @@
           "persona": {
             "type": "number",
             "title": "Persona",
+            "default": 0
+          },
+          "brain": {
+            "type": "number",
+            "title": "Brain",
             "default": 0
           }
         },
@@ -10304,6 +10952,45 @@
         ],
         "title": "CreateTopUpSessionResponse"
       },
+      "CreditSummary": {
+        "properties": {
+          "total_credits": {
+            "type": "number",
+            "title": "Total Credits",
+            "default": 0
+          },
+          "plan_credits": {
+            "type": "number",
+            "title": "Plan Credits",
+            "default": 0
+          },
+          "topup_credits": {
+            "type": "number",
+            "title": "Topup Credits",
+            "default": 0
+          },
+          "trial": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrialCreditInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "used": {
+            "$ref": "#/components/schemas/UsageBreakdown",
+            "default": {
+              "chat": 0,
+              "persona": 0,
+              "brain": 0
+            }
+          }
+        },
+        "type": "object",
+        "title": "CreditSummary"
+      },
       "DeleteChat": {
         "properties": {
           "chat_id": {
@@ -10332,34 +11019,110 @@
         ],
         "title": "DeletePersonaChat"
       },
+      "EnhanceAnswer": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "answer"
+        ],
+        "title": "EnhanceAnswer",
+        "description": "A question the model previously asked, plus the user's answer to it."
+      },
+      "EnhanceOption": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "description"
+        ],
+        "title": "EnhanceOption"
+      },
+      "EnhancePromptRequest": {
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/EnhanceAnswer"
+            },
+            "type": "array",
+            "title": "Answers",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "title": "EnhancePromptRequest"
+      },
       "EnhancePromptResponse": {
         "properties": {
           "enhanced_prompt": {
             "type": "string",
             "title": "Enhanced Prompt"
           },
-          "dos": {
+          "questions": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/EnhanceQuestion"
             },
             "type": "array",
-            "title": "Dos"
-          },
-          "donts": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Donts"
+            "title": "Questions",
+            "default": []
           }
         },
         "type": "object",
         "required": [
-          "enhanced_prompt",
-          "dos",
-          "donts"
+          "enhanced_prompt"
         ],
         "title": "EnhancePromptResponse"
+      },
+      "EnhanceQuestion": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/EnhanceOption"
+            },
+            "type": "array",
+            "title": "Options",
+            "default": []
+          },
+          "multi_select": {
+            "type": "boolean",
+            "title": "Multi Select",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "EnhanceQuestion"
       },
       "FileAttachment": {
         "properties": {
@@ -11234,6 +11997,17 @@
             "type": "string",
             "title": "Document Filename"
           },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -11358,14 +12132,6 @@
               }
             ],
             "title": "Temperature"
-          },
-          "connectors": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Connectors",
-            "default": []
           },
           "history": {
             "items": {
@@ -11536,12 +12302,28 @@
             ],
             "title": "Temperature"
           },
-          "tags": {
+          "version_tags": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Tags",
+            "title": "Version Tags",
+            "default": []
+          },
+          "persona_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Persona Tags",
+            "default": []
+          },
+          "blocked_connectors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocked Connectors",
             "default": []
           },
           "documents": {
@@ -11552,18 +12334,30 @@
             "title": "Documents",
             "default": []
           },
-          "connectors": {
+          "links": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/PersonaDocumentResponse"
             },
             "type": "array",
-            "title": "Connectors",
+            "title": "Links",
             "default": []
           },
           "total_usage": {
             "type": "number",
             "title": "Total Usage",
             "default": 0
+          },
+          "source_share_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Share Id"
           },
           "created_at": {
             "type": "string",
@@ -11588,6 +12382,345 @@
           "updated_at"
         ],
         "title": "PersonaResponse"
+      },
+      "PersonaShareCreate": {
+        "properties": {
+          "persona_repo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Persona Repo Id"
+          },
+          "share_type": {
+            "type": "string",
+            "enum": [
+              "link",
+              "email"
+            ],
+            "title": "Share Type"
+          },
+          "recipient_emails": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Emails"
+          },
+          "credit_limit": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Limit"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona_repo_id",
+          "share_type"
+        ],
+        "title": "PersonaShareCreate"
+      },
+      "PersonaSharePreview": {
+        "properties": {
+          "share_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Share Id"
+          },
+          "persona_name": {
+            "type": "string",
+            "title": "Persona Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "shared_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared By Name"
+          },
+          "shared_by_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared By Email"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "credit_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Limit"
+          },
+          "credit_remaining": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Remaining"
+          }
+        },
+        "type": "object",
+        "required": [
+          "share_id",
+          "persona_name",
+          "prompt",
+          "expires_at"
+        ],
+        "title": "PersonaSharePreview"
+      },
+      "PersonaShareResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "persona_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Persona Id"
+          },
+          "shared_by_user_id": {
+            "type": "string",
+            "title": "Shared By User Id"
+          },
+          "share_type": {
+            "type": "string",
+            "title": "Share Type"
+          },
+          "recipient_emails": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Emails"
+          },
+          "credit_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Limit"
+          },
+          "credit_used": {
+            "type": "number",
+            "title": "Credit Used"
+          },
+          "credit_remaining": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Remaining"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "share_url": {
+            "type": "string",
+            "title": "Share Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "persona_id",
+          "shared_by_user_id",
+          "share_type",
+          "credit_used",
+          "expires_at",
+          "is_active",
+          "created_at",
+          "share_url"
+        ],
+        "title": "PersonaShareResponse"
+      },
+      "PersonaSound": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description"
+        ],
+        "title": "PersonaSound",
+        "description": "How the persona should sound: a one-word label plus a sentence."
+      },
+      "PersonaStarterRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description"
+        ],
+        "title": "PersonaStarterRequest"
+      },
+      "PersonaStarterResponse": {
+        "properties": {
+          "system_instruction": {
+            "type": "string",
+            "title": "System Instruction"
+          },
+          "sounds": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaSound"
+            },
+            "type": "array",
+            "title": "Sounds",
+            "default": []
+          },
+          "persona_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Persona Tags",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "system_instruction"
+        ],
+        "title": "PersonaStarterResponse"
       },
       "PersonaVersionListItem": {
         "properties": {
@@ -11620,12 +12753,20 @@
             "type": "boolean",
             "title": "Is Active"
           },
-          "tags": {
+          "version_tags": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Tags",
+            "title": "Version Tags",
+            "default": []
+          },
+          "persona_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Persona Tags",
             "default": []
           },
           "created_at": {
@@ -11979,6 +13120,119 @@
         "type": "object",
         "title": "ReasoningSection"
       },
+      "ReceivedShareResponse": {
+        "properties": {
+          "persona_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Persona Id"
+          },
+          "persona_repo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Persona Repo Id"
+          },
+          "share_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Share Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "shared_by_name": {
+            "type": "string",
+            "title": "Shared By Name"
+          },
+          "shared_by_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared By Email"
+          },
+          "credit_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Limit"
+          },
+          "credit_used": {
+            "type": "number",
+            "title": "Credit Used"
+          },
+          "credit_remaining": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Remaining"
+          },
+          "is_available": {
+            "type": "boolean",
+            "title": "Is Available"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona_id",
+          "persona_repo_id",
+          "share_id",
+          "name",
+          "shared_by_name",
+          "credit_used",
+          "is_available",
+          "is_active",
+          "expires_at"
+        ],
+        "title": "ReceivedShareResponse",
+        "description": "A persona in my account that I accepted from someone else's share."
+      },
       "RenameChat": {
         "properties": {
           "chat_id": {
@@ -12302,53 +13556,6 @@
         "title": "ScheduledTaskListItem",
         "description": "Row returned by GET /tasks."
       },
-      "ScheduledTaskLogResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "level": {
-            "type": "string",
-            "title": "Level"
-          },
-          "node_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Node Id"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "level",
-          "message"
-        ],
-        "title": "ScheduledTaskLogResponse"
-      },
       "ScheduledTaskRunResponse": {
         "properties": {
           "id": {
@@ -12395,18 +13602,6 @@
             ],
             "title": "Error"
           },
-          "node_outputs": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Node Outputs"
-          },
           "synthesis": {
             "anyOf": [
               {
@@ -12429,14 +13624,6 @@
               }
             ],
             "title": "Created At"
-          },
-          "logs": {
-            "items": {
-              "$ref": "#/components/schemas/ScheduledTaskLogResponse"
-            },
-            "type": "array",
-            "title": "Logs",
-            "default": []
           }
         },
         "type": "object",
@@ -12460,6 +13647,86 @@
         "title": "ScheduledTaskUpdate",
         "description": "PATCH /tasks/{id} — pause/resume from the UI."
       },
+      "SentShareResponse": {
+        "properties": {
+          "share_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Share Id"
+          },
+          "persona_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Persona Id"
+          },
+          "recipient_user_id": {
+            "type": "string",
+            "title": "Recipient User Id"
+          },
+          "recipient_name": {
+            "type": "string",
+            "title": "Recipient Name"
+          },
+          "recipient_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Email"
+          },
+          "credit_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Limit"
+          },
+          "credit_used": {
+            "type": "number",
+            "title": "Credit Used"
+          },
+          "credit_remaining": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Remaining"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "accepted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Accepted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "share_id",
+          "persona_id",
+          "recipient_user_id",
+          "recipient_name",
+          "credit_used",
+          "is_active",
+          "accepted_at"
+        ],
+        "title": "SentShareResponse",
+        "description": "A recipient of one of my shares — who got which persona, and their usage."
+      },
       "SetActiveVersion": {
         "properties": {
           "persona_id": {
@@ -12474,7 +13741,7 @@
         ],
         "title": "SetActiveVersion"
       },
-      "SetPersonaConnectors": {
+      "SetBlockedConnectors": {
         "properties": {
           "slugs": {
             "items": {
@@ -12486,8 +13753,22 @@
           }
         },
         "type": "object",
-        "title": "SetPersonaConnectors",
-        "description": "Replace a persona version's assigned connector set with `slugs`."
+        "title": "SetBlockedConnectors",
+        "description": "Replace a persona version's blocked-connector set with `slugs`. The\npersona keeps full access to every connected service EXCEPT these."
+      },
+      "SetUserMemoryRequest": {
+        "properties": {
+          "memory": {
+            "type": "string",
+            "title": "Memory",
+            "description": "The complete memory text; fully replaces the current value."
+          }
+        },
+        "type": "object",
+        "required": [
+          "memory"
+        ],
+        "title": "SetUserMemoryRequest"
       },
       "SubscriptionActionResponse": {
         "properties": {
@@ -12615,6 +13896,63 @@
         ],
         "title": "TopUpChargeResponse"
       },
+      "TrialCreditInfo": {
+        "properties": {
+          "amount": {
+            "type": "number",
+            "title": "Amount"
+          },
+          "remaining": {
+            "type": "number",
+            "title": "Remaining"
+          },
+          "used": {
+            "type": "number",
+            "title": "Used"
+          },
+          "starts_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts At"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "remaining",
+          "used",
+          "expires_at"
+        ],
+        "title": "TrialCreditInfo"
+      },
+      "TrialSummary": {
+        "properties": {
+          "remaining": {
+            "type": "number",
+            "title": "Remaining"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "remaining",
+          "expires_at"
+        ],
+        "title": "TrialSummary"
+      },
       "UpcomingInvoiceInfo": {
         "properties": {
           "amount_due": {
@@ -12728,6 +14066,97 @@
         "type": "object",
         "title": "UpdateOnboarding"
       },
+      "UpdatePersona": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "version_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Tags"
+          },
+          "persona_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persona Tags"
+          }
+        },
+        "type": "object",
+        "title": "UpdatePersona",
+        "description": "Metadata-only fields for the PATCH route. Files/knowledge go through PUT."
+      },
       "UpdateUser": {
         "properties": {
           "first_name": {
@@ -12751,6 +14180,17 @@
               }
             ],
             "title": "Last Name"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
           },
           "phone_number": {
             "anyOf": [
@@ -12778,11 +14218,58 @@
         "type": "object",
         "title": "UpdateUser"
       },
+      "UsageBreakdown": {
+        "properties": {
+          "chat": {
+            "type": "number",
+            "title": "Chat",
+            "default": 0
+          },
+          "persona": {
+            "type": "number",
+            "title": "Persona",
+            "default": 0
+          },
+          "brain": {
+            "type": "number",
+            "title": "Brain",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "UsageBreakdown",
+        "description": "Credits spent this period, by source area."
+      },
       "UsageResponse": {
         "properties": {
           "credits": {
             "type": "number",
             "title": "Credits"
+          },
+          "plan_credits": {
+            "type": "number",
+            "title": "Plan Credits",
+            "default": 0
+          },
+          "topup_credits": {
+            "type": "number",
+            "title": "Topup Credits",
+            "default": 0
+          },
+          "used": {
+            "type": "number",
+            "title": "Used",
+            "default": 0
+          },
+          "trial": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrialSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "spent_this_period": {
             "type": "number",
@@ -12793,7 +14280,8 @@
             "$ref": "#/components/schemas/CategoryUsage",
             "default": {
               "chat": 0,
-              "persona": 0
+              "persona": 0,
+              "brain": 0
             }
           }
         },
@@ -12812,6 +14300,17 @@
           "last_name": {
             "type": "string",
             "title": "Last Name"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
           },
           "email": {
             "type": "string",
@@ -12883,6 +14382,24 @@
         ],
         "title": "UserAccountResponse"
       },
+      "UserMemoryResponse": {
+        "properties": {
+          "memory": {
+            "type": "string",
+            "title": "Memory"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "memory",
+          "version"
+        ],
+        "title": "UserMemoryResponse"
+      },
       "UserPromptResponse": {
         "properties": {
           "response": {
@@ -12905,6 +14422,17 @@
           "last_name": {
             "type": "string",
             "title": "Last Name"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
           },
           "email": {
             "type": "string",

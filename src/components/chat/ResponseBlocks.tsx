@@ -1,8 +1,9 @@
-﻿"use client";
+﻿﻿"use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Chip } from "@/components/Chip";
 import { AnimatePresence, m } from "framer-motion";
+import { SourceCitation, SourceList as SourceListUI } from "@/components/SourceCitation";
+import type { SourceItem } from "@/components/SourceCitation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import katex from "katex";
 import { sanitizeKaTeX } from "@/lib/security";
@@ -35,7 +36,7 @@ import type {
   SearchTimeoutData,
 } from "@/hooks/use-chat-state";
 
-// â”€â”€ Shared helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Shared helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function HIcon({ icon, size = 14, color = "#827A74", strokeWidth = 1.5 }: { icon: any; size?: number; color?: string; strokeWidth?: number }) {
@@ -53,198 +54,55 @@ const INLINE_CODE_STYLE: React.CSSProperties = {
   whiteSpace: "pre",
 };
 
-// Module-level cache so URL parsing runs once per domain across all renders.
-const domainCache = new Map<string, string>()
+// ── CitationChip — inline numbered chip backed by SourceCitation hover card ────
 
-function extractDomain(url: string): string {
-  const cached = domainCache.get(url)
-  if (cached !== undefined) return cached
-  try {
-    const d = new URL(url).hostname.replace(/^www\./, '')
-    domainCache.set(url, d)
-    return d
-  } catch {
-    domainCache.set(url, '')
-    return ''
+function webCitationToSourceItem(citation: WebCitation, n: number): SourceItem {
+  return {
+    id: citation.url ?? n,
+    title: citation.title || citation.domain || `Source ${n}`,
+    url: citation.url,
   }
 }
 
-// Derives a short human-readable site name from a domain string.
-// Strips common subdomains and TLDs, splits on hyphens/underscores,
-// and returns at most 3 words — appending "…" if more words were dropped.
-function siteLabel(domain: string): string {
-  const base = domain
-    .replace(/^(?:www|m|en|fr|de|es|it|pt)\./i, '')  // leading subdomains
-    .replace(/\.co\.[a-z]{2}$/i, '')                   // compound TLDs (.co.uk)
-    .replace(/\.[a-z]{2,}$/i, '')                      // TLD (.com .org .io …)
-    .replace(/[-_]/g, ' ')
-    .trim()
-  const words = base.split(/\s+/).filter(Boolean)
-  if (words.length === 0) return domain
-  const label = words.slice(0, 3).join(' ')
-  return words.length > 3 ? label + '…' : label
-}
-
-// â”€â”€ CitationChip - inline {1} reference chip with popover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 export function CitationChip({ n, citation }: { n: number; citation?: WebCitation }) {
-  const [open, setOpen] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-  const isPinned = citation?.domain === "pin";
-  const effectiveDomain = citation?.domain || (citation?.url ? extractDomain(citation.url) || undefined : undefined);
-  const faviconUrl = citation && !isPinned && effectiveDomain
-    ? `https://www.google.com/s2/favicons?domain=${effectiveDomain}&sz=32`
-    : null;
-
-  // Label: site name derived from domain, falling back to the numeric index.
-  const chipLabel = effectiveDomain ? siteLabel(effectiveDomain) : String(n);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const showPopover = open || hovered;
+  if (!citation) {
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        verticalAlign: 'text-bottom', width: 18, height: 18, borderRadius: '999px',
+        backgroundColor: 'var(--neutral-200)', fontFamily: 'var(--font-body)',
+        fontWeight: 600, fontSize: 10, lineHeight: 1, color: 'var(--neutral-600)',
+        marginLeft: 2, flexShrink: 0,
+      }}>
+        {n}
+      </span>
+    )
+  }
   return (
-    <span
-      ref={ref}
-      style={{ position: "relative", display: "inline-block", verticalAlign: "middle", marginLeft: 2, marginRight: 1 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <Chip
-        size="Small"
-        color="Brown"
-        label={chipLabel}
-        role="button"
-        tabIndex={0}
-        onClick={() => setOpen((o) => !o)}
-        onKeyDown={(e) => { if (e.key === "Enter") setOpen((o) => !o) }}
-        style={{ cursor: "pointer" }}
-      />
-      <AnimatePresence>
-        {showPopover && citation && (
-          <m.span
-            initial={{ opacity: 0, y: 4, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.96 }}
-            transition={{ duration: 0.14, ease: "easeOut" }}
-            style={{
-              position: "absolute", bottom: "calc(100% + 8px)", left: "50%",
-              transform: "translateX(-50%)",
-              background: "white", borderRadius: 10, padding: "8px 10px",
-              zIndex: 20, boxShadow: "0 4px 16px rgba(59,54,50,0.14), 0 0 0 1px #EDE1D7",
-              display: "flex", alignItems: "center", gap: 8,
-              minWidth: 180, maxWidth: 280, whiteSpace: "nowrap",
-            }}>
-            {faviconUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- external favicon URL, next/image doesn't support arbitrary external domains without config
-              <img src={faviconUrl} width={16} height={16}
-                style={{ borderRadius: 3, flexShrink: 0, display: "block" }}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} alt="" />
-            ) : (
-              <span style={{ fontSize: 12, flexShrink: 0 }}>ðŸ“Œ</span>
-            )}
-            <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
-              {citation.url ? (
-                <a
-                  href={citation.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontSize: 12, fontWeight: 500, color: "#26211E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}
-                >
-                  {citation.title}
-                </a>
-              ) : (
-                <span style={{ fontSize: 12, fontWeight: 500, color: "#26211E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {citation.title}
-                </span>
-              )}
-              {!isPinned && (
-                <span style={{ fontSize: 12, color: "#B6ACA4" }}>{citation.domain}</span>
-              )}
-            </span>
-          </m.span>
-        )}
-      </AnimatePresence>
-    </span>
-  );
+    <SourceCitation
+      index={n}
+      source={webCitationToSourceItem(citation, n)}
+      onOpen={(s) => { if (s.url) window.open(s.url, '_blank', 'noopener,noreferrer') }}
+    />
+  )
 }
 
-// â”€â”€ SourceList - horizontal scroll row of source cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-const SourceCard = React.memo(function SourceCard({ citation, index }: { citation: WebCitation; index: number }) {
-  const [hovered, setHovered] = useState(false);
-  const isPinned = citation.domain === "pin";
-  const effectiveDomain = citation.domain || (citation.url ? extractDomain(citation.url) || undefined : undefined);
-  const faviconUrl = !isPinned && effectiveDomain
-    ? `https://www.google.com/s2/favicons?domain=${effectiveDomain}&sz=32`
-    : null;
-  return (
-    <m.a
-      href={citation.url || "#"}
-      target="_blank"
-      rel="noopener noreferrer"
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1], delay: 0.18 + index * 0.07 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        flexShrink: 0, display: "flex", alignItems: "center", gap: 8,
-        padding: "7px 10px",
-        background: hovered ? "rgba(104,61,27,0.06)" : "white",
-        border: `1px solid ${hovered ? "rgba(104,61,27,0.2)" : "#EDE1D7"}`,
-        borderRadius: 10, cursor: "pointer",
-        maxWidth: 220, minWidth: 140,
-        transition: "background 150ms, border-color 150ms",
-        textDecoration: "none",
-      }}>
-      {faviconUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- external favicon URL, next/image doesn't support arbitrary external domains without config
-        <img src={faviconUrl} width={14} height={14}
-          style={{ borderRadius: 3, flexShrink: 0, display: "block" }}
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} alt="" />
-      ) : (
-        <span style={{ fontSize: 12, lineHeight: 1, flexShrink: 0 }}>ðŸ“Œ</span>
-      )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
-        <span style={{ fontSize: 12, fontWeight: 500, color: "#26211E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {citation.title}
-        </span>
-        {!isPinned && (
-          <span style={{ fontSize: 12, color: "#B6ACA4", whiteSpace: "nowrap" }}>{citation.domain}</span>
-        )}
-      </div>
-    </m.a>
-  );
-})
+// ── SourceList — footnote list of web citations backed by SourceListUI ─────────
 
 export function SourceList({ citations }: { citations: WebCitation[] }) {
+  const sources = citations.map((c, i) => webCitationToSourceItem(c, i + 1))
   return (
     <m.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1], delay: 0.12 }}
-      style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: "#9C938B", letterSpacing: "0.5px", textTransform: "uppercase" }}>
-        Sources
-      </div>
-      <div className="kaya-scrollbar" style={{ display: "flex", gap: 8, overflowX: "auto", overscrollBehaviorX: "contain", paddingBottom: 6 }}>
-        {citations.map((c, i) => (
-          <SourceCard key={c.url ?? c.title} citation={c} index={i} />
-        ))}
-      </div>
+    >
+      <SourceListUI sources={sources} />
     </m.div>
-  );
+  )
 }
 
-// â”€â”€ KaTeX helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ KaTeX helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 /** Render a KaTeX inline span, falling back to the raw source on error. */
 function renderKatexInline(math: string, key: number | string): React.ReactNode {
@@ -285,12 +143,17 @@ function renderKatexBlock(
   }
 }
 
-// â”€â”€ Inline markdown renderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Inline markdown renderer â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function renderInlineRich(line: string, citations?: WebCitation[]): React.ReactNode[] {
+  // Build url→index map for citation chip lookup (same logic as LineRenderer).
+  const urlMap = citations && citations.length > 0
+    ? new Map(citations.map((c, i) => [c.url, i] as [string | undefined, number]).filter(([u]) => u))
+    : null
+
   // Match (in priority order): \(...\) inline math, $...$ inline math,
-  // **bold**, `code`, {N} citation chip, [label](url) link.
-  const regex = /\\\([\s\S]+?\\\)|\$[^$\n]+?\$|(\*\*[^*]+\*\*)|(`[^`\n]+`)|(\{\d+\})|(\[[^\]]+\]\(https?:\/\/[^)]+\))/g;
+  // **bold**, `code`, {N} citation chip, [label](url) link, bare https?:// URL.
+  const regex = /\\\([\s\S]+?\\\)|\$[^$\n]+?\$|(\*\*[^*]+\*\*)|(`[^`\n]+`)|(\{\d+\})|(\[[^\]]+\]\(https?:\/\/[^)]+\))|(https?:\/\/[^\s\])\n>"']+)/g;
   const nodes: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -321,8 +184,26 @@ function renderInlineRich(line: string, citations?: WebCitation[]): React.ReactN
     } else if (match[4] !== undefined) {
       // [label](url)
       const lm = match[4].match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
-      if (lm)
-        nodes.push(<a key={count++} href={lm[2]} target="_blank" rel="noopener noreferrer" style={{ color: "#8B5523", textDecoration: "underline", textUnderlineOffset: 2 }}>{lm[1]}</a>);
+      if (lm) {
+        const href = lm[2]
+        const cidx = urlMap?.get(href)
+        if (cidx !== undefined) {
+          nodes.push(<CitationChip key={count++} n={cidx + 1} citation={citations?.[cidx]} />)
+        } else {
+          nodes.push(<a key={count++} href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#8B5523", textDecoration: "underline", textUnderlineOffset: 2 }}>{lm[1]}</a>);
+        }
+      }
+    } else if (match[5] !== undefined) {
+      // bare https?:// URL
+      const href = match[5]
+      const cidx = urlMap?.get(href)
+      let display = href
+      try { display = new URL(href).hostname + new URL(href).pathname.replace(/\/$/, "") } catch { /* use raw */ }
+      if (cidx !== undefined) {
+        nodes.push(<CitationChip key={count++} n={cidx + 1} citation={citations?.[cidx]} />)
+      } else {
+        nodes.push(<a key={count++} href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#8B5523", textDecoration: "underline", textUnderlineOffset: 2 }}>{display}</a>)
+      }
     }
 
     lastIndex = match.index + match[0].length;
@@ -395,18 +276,18 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
         const tail = isLast ? cursor : null;
         const trimmedBlock = block.trim();
 
-        // â”€â”€ Display math block: \[...\] â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â"€â"€ Display math block: \[...\] â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         if (trimmedBlock.startsWith("\\[")) {
           const closeIdx = trimmedBlock.indexOf("\\]", 2);
           if (closeIdx !== -1) {
             const math = trimmedBlock.slice(2, closeIdx).trim();
             return renderKatexBlock(math, bi, tail);
           }
-          // Unclosed \[ during streaming â€” render nothing until it closes
+          // Unclosed \[ during streaming â€" render nothing until it closes
           return null;
         }
 
-        // â”€â”€ Display math block: $$...$$ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â"€â"€ Display math block: $$...$$ â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         if (trimmedBlock.startsWith("$$")) {
           const rest = trimmedBlock.slice(2);
           const closeIdx = rest.indexOf("$$");
@@ -414,7 +295,7 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
             const math = rest.slice(0, closeIdx).trim();
             return renderKatexBlock(math, bi, tail);
           }
-          // Unclosed $$ during streaming â€” render nothing until it closes
+          // Unclosed $$ during streaming â€" render nothing until it closes
           return null;
         }
 
@@ -511,7 +392,7 @@ export function TextBlockContent({ text, citations, cursor }: { text: string; ci
   return <>{renderTextBlock(text, citations, cursor)}</>
 }
 
-// â”€â”€ BreathingDot - streaming cursor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ BreathingDot - streaming cursor â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function BreathingDot() {
   return (
@@ -523,7 +404,7 @@ function BreathingDot() {
   );
 }
 
-// â”€â”€ StructuredResponseWrapper - breathing dot until block starts animating â”€â”€â”€
+// â"€â"€ StructuredResponseWrapper - breathing dot until block starts animating â"€â"€â"€
 
 function StructuredResponseWrapper({ firstTokenDelay, onComplete, children }: {
   firstTokenDelay: number;
@@ -542,7 +423,7 @@ function StructuredResponseWrapper({ firstTokenDelay, onComplete, children }: {
   return <>{children(onComplete)}</>;
 }
 
-// â”€â”€ TableCell renderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ TableCell renderer â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"]): React.ReactNode {
   if (typeof cell === "object") {
@@ -589,7 +470,7 @@ function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"])
       </span>
     );
   }
-  if (strVal === "âœ“") return <span style={{ color: "#80B707", fontWeight: 700 }}>âœ“</span>;
+  if (strVal === "âœ“") return <span style={{ color: "#80B707", fontWeight: 700 }}>âœ"</span>;
   if (strVal === "-") return <span style={{ color: "#C0B5AD", fontWeight: 400 }}>-</span>;
   return strVal;
 }
@@ -608,12 +489,12 @@ function sortableValue(cell: TableCellValue): string | number {
   return "";
 }
 
-// â”€â”€ AnimatedTable â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ AnimatedTable â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
-function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () => void }) {
-  const [skeletonVisible, setSkeletonVisible] = useState(true);
-  const [revealedRows, setRevealedRows] = useState(0);
-  const [isDone, setIsDone] = useState(false);
+function AnimatedTable({ data, onComplete, animate = true }: { data: TableData; onComplete: () => void; animate?: boolean }) {
+  const [skeletonVisible, setSkeletonVisible] = useState(() => animate);
+  const [revealedRows, setRevealedRows] = useState(() => animate ? 0 : data.rows.length);
+  const [isDone, setIsDone] = useState(() => !animate);
   const [sortCol, setSortCol] = useState<number | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [mdCopied, setMdCopied] = useState(false);
@@ -649,6 +530,7 @@ function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () =
   }, [data.rows, sortCol, sortDir]);
 
   useEffect(() => {
+    if (!animate) return;
     const rowDelay = isCompact ? 52 : 72;
     const skT = setTimeout(() => {
       setSkeletonVisible(false);
@@ -729,7 +611,7 @@ function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () =
               <span>{h}</span>
               {data.sortable && (
                 <span style={{ fontSize: 12, lineHeight: 1, color: sortCol === ci ? "#683D1B" : "#C0B5AD" }}>
-                  {sortCol === ci ? (sortDir === "asc" ? "â†‘" : "â†“") : "â†•"}
+                  {sortCol === ci ? (sortDir === "asc" ? "â†'" : "â†“") : "â†•"}
                 </span>
               )}
             </div>
@@ -836,7 +718,7 @@ function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () =
   );
 }
 
-// â”€â”€ AnimatedBarChart - 6 variants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ AnimatedBarChart - 6 variants â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 const BAR_PALETTE = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B", "#A28847", "#524B47"];
 
@@ -1137,7 +1019,7 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
   return null;
 }
 
-// â”€â”€ AnimatedSteps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ AnimatedSteps â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function AnimatedSteps({ data, onComplete }: { data: StepsData; onComplete: () => void }) {
   const [revealedSteps, setRevealedSteps] = useState(0);
@@ -1185,7 +1067,7 @@ function AnimatedSteps({ data, onComplete }: { data: StepsData; onComplete: () =
   );
 }
 
-// â”€â”€ AnimatedCodeBlock â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ AnimatedCodeBlock â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function highlightCode(line: string): React.ReactNode[] {
   const KW_COLOR = "#7BB8F5";
@@ -1332,7 +1214,7 @@ function AnimatedCodeBlock({ data, onComplete }: { data: CodeData; onComplete: (
   );
 }
 
-// â”€â”€ AnimatedCallout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ AnimatedCallout â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 const CALLOUT_CFG = {
   info:    { bg: "rgba(13,110,178,0.07)",  border: "#0D6EB2", icon: InformationCircleIcon, color: "#0D6EB2" },
@@ -1360,7 +1242,7 @@ function AnimatedCallout({ data, onComplete }: { data: CalloutData; onComplete: 
   );
 }
 
-// â”€â”€ AnimatedTags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ AnimatedTags â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 const TAG_PALETTES = [
   { bg: "rgba(104,61,27,0.1)",   text: "#683D1B",  border: "rgba(104,61,27,0.2)" },
@@ -1405,7 +1287,7 @@ function AnimatedTags({ data, onComplete }: { data: TagsData; onComplete: () => 
   );
 }
 
-// â”€â”€ AnimatedPieChart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ AnimatedPieChart â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 const PIE_COLORS_HEX = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B", "#524B47", "#A28847"];
 
@@ -1488,7 +1370,7 @@ function AnimatedPieChart({ data, onComplete }: { data: PieChartData; onComplete
   );
 }
 
-// â”€â”€ AnimatedLineChart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ AnimatedLineChart â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function AnimatedLineChart({ data, onComplete }: { data: LineChartData; onComplete: () => void }) {
   const [revealed, setRevealed] = useState(false);
@@ -1621,7 +1503,7 @@ function AnimatedLineChart({ data, onComplete }: { data: LineChartData; onComple
   );
 }
 
-// â”€â”€ AnimatedCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ AnimatedCard â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function AnimatedCard({ data, onComplete }: { data: CardData; onComplete: () => void }) {
   useEffect(() => { const t = setTimeout(onComplete, 380); return () => clearTimeout(t); }, []); // eslint-disable-line
@@ -1640,7 +1522,7 @@ function AnimatedCard({ data, onComplete }: { data: CardData; onComplete: () => 
   );
 }
 
-// â”€â”€ AnimatedConnectorError â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ AnimatedConnectorError â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function AnimatedConnectorError({ data, onComplete, onRetry }: { data: ConnectorErrorData; onComplete: () => void; onRetry?: () => void }) {
   useEffect(() => { const t = setTimeout(onComplete, 420); return () => clearTimeout(t); }, []); // eslint-disable-line
@@ -1668,7 +1550,7 @@ function AnimatedConnectorError({ data, onComplete, onRetry }: { data: Connector
   );
 }
 
-// â”€â”€ AnimatedSearchTimeout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ AnimatedSearchTimeout â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function AnimatedSearchTimeout({ data, onComplete, onRetry }: { data: SearchTimeoutData; onComplete: () => void; onRetry?: () => void }) {
   useEffect(() => { const t = setTimeout(onComplete, 420); return () => clearTimeout(t); }, []); // eslint-disable-line
@@ -1697,7 +1579,7 @@ function AnimatedSearchTimeout({ data, onComplete, onRetry }: { data: SearchTime
   );
 }
 
-// â”€â”€ FollowUps renderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ FollowUps renderer â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function AnimatedFollowUps({ data, onComplete, onFollowUp }: {
   data: FollowUpsData;
@@ -1730,7 +1612,7 @@ function AnimatedFollowUps({ data, onComplete, onFollowUp }: {
             style={{ display: "flex", alignItems: "center", gap: 8, background: "white", border: "1px solid #EDE1D7", borderRadius: 10, padding: "10px 14px", fontSize: 14, color: "#524B47", cursor: "pointer", textAlign: "left", width: "100%", transition: "all 140ms", fontFamily: "var(--font-body)" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(104,61,27,0.04)"; e.currentTarget.style.borderColor = "rgba(104,61,27,0.2)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "white"; e.currentTarget.style.borderColor = "#EDE1D7"; }}>
-            <span style={{ color: "#C0B5AD", flexShrink: 0 }}>â†’</span>
+            <span style={{ color: "#C0B5AD", flexShrink: 0 }}>â†'</span>
             {prompt}
           </m.button>
         ))}
@@ -1739,7 +1621,7 @@ function AnimatedFollowUps({ data, onComplete, onFollowUp }: {
   );
 }
 
-// â”€â”€ BlockSequenceRenderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ BlockSequenceRenderer â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 // Animates each block in sequence - each block calls onComplete to advance.
 
 export interface BlockSequenceRendererProps {
@@ -1751,6 +1633,8 @@ export interface BlockSequenceRendererProps {
   onRetry?: () => void;
   /** If true, all blocks are rendered static immediately (no sequential animation) */
   static?: boolean;
+  /** Message-level web citations — used as fallback when a text block has no per-block citations */
+  webCitations?: WebCitation[];
 }
 
 export function BlockSequenceRenderer({
@@ -1760,6 +1644,7 @@ export function BlockSequenceRenderer({
   onFollowUp,
   onRetry,
   static: isStatic = false,
+  webCitations,
 }: BlockSequenceRendererProps) {
   const [activeIdx, setActiveIdx] = useState(isStatic ? blocks.length : 0);
   const [allDone, setAllDone] = useState(isStatic);
@@ -1787,7 +1672,7 @@ export function BlockSequenceRenderer({
         if (block.kind === "text") {
           return (
             <div key={`b${i}`}>
-              <TextBlockContent text={block.content} citations={block.webCitations} />
+              <TextBlockContent text={block.content} citations={block.webCitations ?? webCitations} />
               {!isDone && <BreathingDot />}
             </div>
           );
@@ -1802,7 +1687,7 @@ export function BlockSequenceRenderer({
             </StructuredResponseWrapper>
           );
 
-        if (block.kind === "table")           return wrap((d) => <AnimatedTable    data={block.data} onComplete={d} />);
+        if (block.kind === "table")           return wrap((d) => <AnimatedTable    data={block.data} onComplete={d} animate={!isDone} />);
         if (block.kind === "bar-chart")        return wrap((d) => <AnimatedBarChart data={block.data} onComplete={d} />);
         if (block.kind === "steps")            return wrap((d) => <AnimatedSteps    data={block.data} onComplete={d} />);
         if (block.kind === "code")             return wrap((d) => <AnimatedCodeBlock data={block.data} onComplete={d} />);

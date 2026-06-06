@@ -26,14 +26,16 @@ export interface ConnectorConnectPrompt {
 
 /** Emitted when the LLM tries to call a connector tool whose policy is "ask". */
 export interface ConnectorPermissionPrompt {
-  /** Unique request ID from the backend (for deduplication). */
-  request_id:     string
-  connector_slug: string
-  display_name:   string
-  tool_name:      string
+  /** prompt_id from the backend — POST to /chats/prompts/{id} to unblock the stream. */
+  request_id:      string
+  connector_slug:  string
+  display_name:    string
+  tool_name:       string
   suggested_args?: Record<string, unknown>
   /** Optional icon URL for the connector. */
-  icon_url?:      string
+  icon_url?:       string
+  /** Absolute respond URL supplied by the backend (alternative to /chats/prompts/{id}). */
+  respond_url?:    string
 }
 
 /** Extends the API Message with transient streaming-only UI state. */

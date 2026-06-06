@@ -27,15 +27,15 @@ function fmtK(n: number): string {
 }
 
 function colourForPct(pct: number): { fill: string, text: string } {
-  if (pct >= 0.85) return { fill: 'var(--color-status-danger-dot)',  text: 'var(--color-status-danger-text)'  }
-  if (pct >= 0.60) return { fill: 'var(--color-status-warning-dot)', text: 'var(--color-status-warning-text)' }
-  return                 { fill: 'var(--color-status-success-dot)', text: 'var(--color-status-success-text)' }
+  if (pct >= 0.85) return { fill: '#ef4444', text: '#b91c1c' }
+  if (pct >= 0.60) return { fill: '#f59e0b', text: '#b45309' }
+  return                 { fill: '#22c55e', text: '#15803d' }
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function TokenBudgetBar({ ref, used, limit, size = 'sm', showLabel = false, className, style, ...props }: TokenBudgetBarProps & { ref?: React.Ref<HTMLDivElement> }) {
-    const pct  = Math.max(0, Math.min(used / limit, 1))
+    const pct  = limit > 0 ? Math.max(0, Math.min(used / limit, 1)) : 0
     const col  = colourForPct(pct)
     const h    = size === 'lg' ? 10 : 6
 
@@ -46,7 +46,7 @@ export function TokenBudgetBar({ ref, used, limit, size = 'sm', showLabel = fals
         aria-valuemin={0}
         aria-valuemax={limit}
         aria-valuenow={used}
-        aria-label={`${Math.round(pct * 100)}% of token budget used`}
+        aria-label={`${Math.round(pct * 100)}% of credit budget used`}
         className={cn(className)}
         style={{ display: 'flex', flexDirection: 'column', gap: showLabel ? 4 : 0, width: '100%', ...style }}
         {...props}
@@ -55,7 +55,7 @@ export function TokenBudgetBar({ ref, used, limit, size = 'sm', showLabel = fals
           style={{
             height:          h,
             borderRadius:    999,
-            backgroundColor: 'var(--color-chart-track)',
+            backgroundColor: 'var(--neutral-100)',
             overflow:        'hidden',
           }}
         >

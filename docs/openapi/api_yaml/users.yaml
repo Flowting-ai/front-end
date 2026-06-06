@@ -108,6 +108,10 @@ components:
           type: number
           title: Persona
           default: 0
+        brain:
+          type: number
+          title: Brain
+          default: 0
       type: object
       title: CategoryUsage
     HTTPValidationError:
@@ -162,6 +166,19 @@ components:
           title: Current Period End
       type: object
       title: PlanSummary
+    TrialSummary:
+      properties:
+        remaining:
+          type: number
+          title: Remaining
+        expires_at:
+          type: string
+          title: Expires At
+      type: object
+      required:
+        - remaining
+        - expires_at
+      title: TrialSummary
     UpdateOnboarding:
       properties:
         user_role:
@@ -198,6 +215,11 @@ components:
             - type: string
             - type: 'null'
           title: Last Name
+        nickname:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Nickname
         phone_number:
           anyOf:
             - type: string
@@ -215,6 +237,22 @@ components:
         credits:
           type: number
           title: Credits
+        plan_credits:
+          type: number
+          title: Plan Credits
+          default: 0
+        topup_credits:
+          type: number
+          title: Topup Credits
+          default: 0
+        used:
+          type: number
+          title: Used
+          default: 0
+        trial:
+          anyOf:
+            - $ref: '#/components/schemas/TrialSummary'
+            - type: 'null'
         spent_this_period:
           type: number
           title: Spent This Period
@@ -224,6 +262,7 @@ components:
           default:
             chat: 0
             persona: 0
+            brain: 0
       type: object
       required:
         - credits
@@ -236,6 +275,11 @@ components:
         last_name:
           type: string
           title: Last Name
+        nickname:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Nickname
         email:
           type: string
           title: Email
@@ -283,6 +327,11 @@ components:
         last_name:
           type: string
           title: Last Name
+        nickname:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Nickname
         email:
           type: string
           title: Email
