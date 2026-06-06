@@ -16,6 +16,8 @@ import {
   PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT,
   PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT,
   PERSONA_VERSION_CONNECTORS_ENDPOINT,
+  PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT,
+  PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT,
   PERSONA_CHATS_ENDPOINT,
   PERSONA_CHATS_CREATE_ENDPOINT,
   PERSONA_CHAT_MESSAGES_ENDPOINT,
@@ -376,6 +378,41 @@ export async function setVersionConnectors(
       method: 'PUT',
       body: JSON.stringify({ connector_slugs: connectorSlugs }),
     },
+  );
+}
+
+/**
+ * PATCH /persona/{repo_id}/versions/{persona_id}/blocked-connectors
+ * Replace the set of connector slugs that are blocked (disabled) for this
+ * persona version. The backend stores the block-list independently of the
+ * enabled connectors set — pass an empty array to unblock everything.
+ */
+export async function setVersionBlockedConnectors(
+  repoId: string,
+  versionId: string,
+  blockedSlugs: string[],
+): Promise<PersonaVersionResponse> {
+  return apiFetchJson<PersonaVersionResponse>(
+    PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT(repoId, versionId),
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ connector_slugs: blockedSlugs }),
+    },
+  );
+}
+
+/**
+ * DELETE /persona/{repo_id}/versions/{persona_id}/blocked-connectors/{slug}
+ * Unblock a single connector slug, re-enabling it for this persona version.
+ */
+export async function unblockVersionConnector(
+  repoId: string,
+  versionId: string,
+  slug: string,
+): Promise<void> {
+  await apiFetch(
+    PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT(repoId, versionId, slug),
+    { method: 'DELETE' },
   );
 }
 
@@ -855,6 +892,10 @@ async function readPersonaSSEStream(
   } catch (err) {
     if ((err as Error).name !== "AbortError") {
       callbacks.onError?.((err as Error).message ?? "Stream read error");
+    } else if (!doneSeen) {
+      // Abort clears the stream without an error event — still need to
+      // finalise the message so the streaming lock is released.
+      callbacks.onDone?.();
     }
   } finally {
     if (postDoneTimer) clearTimeout(postDoneTimer);
@@ -887,6 +928,9 @@ export async function testVersionStream(
   } catch (err) {
     if ((err as Error).name !== "AbortError") {
       callbacks.onError?.((err as Error).message ?? "Failed to test persona");
+    } else {
+      // Request aborted before connecting — finalise so the streaming lock is released.
+      callbacks.onDone?.();
     }
     return () => controller.abort();
   }

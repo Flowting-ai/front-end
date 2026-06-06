@@ -308,11 +308,12 @@ function ToolPermissionsModal({
 }) {
   // local copy of tools so UI updates optimistically
   // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
-  const [tools,       setTools]       = useState<ConnectorTool[]>(entry.tools ?? [])
-  const [saving,      setSaving]      = useState<string | null>(null)  // slug being saved
-  const [unlinking,   setUnlinking]   = useState(false)
-  const [allowingAll, setAllowingAll] = useState(false)
-  const [expanded,    setExpanded]    = useState(false)
+  const [tools,              setTools]              = useState<ConnectorTool[]>(entry.tools ?? [])
+  const [saving,             setSaving]             = useState<string | null>(null)  // slug being saved
+  const [unlinking,          setUnlinking]          = useState(false)
+  const [allowingAll,        setAllowingAll]        = useState(false)
+  const [expanded,           setExpanded]           = useState(false)
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
   const abortedRef = useRef(false)
   // Reset on every effect setup so React StrictMode's mount→cleanup→mount
   // cycle doesn't leave abortedRef stuck at true (which would silently bail
@@ -596,18 +597,44 @@ function ToolPermissionsModal({
         <div style={{
           padding:        '16px 24px',
           borderTop:      '1px solid var(--neutral-100)',
-          display:        'flex',
-          justifyContent: 'flex-end',
         }}>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={unlinking || allowingAll}
-            loading={unlinking}
-            onClick={() => void handleDisconnect()}
-          >
-            <span style={{ color: 'var(--red-600, #DC2626)' }}>Disconnect</span>
-          </Button>
+          {showDisconnectConfirm ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)' }}>
+                Disconnecting <strong>{entry.display_name}</strong> will remove it from your account and disable it for all agents currently using it. This cannot be undone without reconnecting.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={unlinking}
+                  onClick={() => setShowDisconnectConfirm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={unlinking}
+                  loading={unlinking}
+                  onClick={() => void handleDisconnect()}
+                >
+                  <span style={{ color: 'var(--red-600, #DC2626)' }}>Yes, disconnect</span>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={unlinking || allowingAll}
+                onClick={() => setShowDisconnectConfirm(true)}
+              >
+                <span style={{ color: 'var(--red-600, #DC2626)' }}>Disconnect</span>
+              </Button>
+            </div>
+          )}
         </div>
 
       </div>

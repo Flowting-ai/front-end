@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { updateVersion, setActiveVersion, bustPersonasCache } from '@/lib/api/personas'
+import { updateVersion, setActiveVersion, bustPersonasCache, listVersions } from '@/lib/api/personas'
 import {
   ArrowLeftOneIcon,
   QuillWriteOneIcon,
@@ -38,17 +38,35 @@ function PersonaConfigureConnectorsContent() {
   const searchParams = useSearchParams()
   const personaName = searchParams.get('name')      ?? ''
   const repoId      = searchParams.get('repoId')    ?? ''
-  const versionId   = searchParams.get('versionId') ?? ''
+  const versionIdParam = searchParams.get('versionId') ?? ''
+  const [versionId, setVersionId] = useState(versionIdParam)
 
   const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen } = usePersonaConfigure()
   const [isSaving,           setIsSaving]           = useState(false)
   const [isPublishing,       setIsPublishing]       = useState(false)
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
 
+  // Resolve versionId from URL; if absent, load the latest saved version.
   useEffect(() => {
     if (!repoId) return
-    updatePersonaInfo({ repoId, versionId })
-  }, [repoId, versionId, updatePersonaInfo])
+    if (versionIdParam) {
+      updatePersonaInfo({ repoId, versionId: versionIdParam })
+      return
+    }
+    listVersions(repoId).then(list => {
+      const sorted = list.slice().sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      )
+      const latest = sorted[0]
+      if (latest) {
+        setVersionId(latest.id)
+        window.history.replaceState(null, '', `?repoId=${repoId}&name=${encodeURIComponent(personaName)}&versionId=${latest.id}`)
+        updatePersonaInfo({ repoId, versionId: latest.id })
+      } else {
+        updatePersonaInfo({ repoId, versionId: '' })
+      }
+    }).catch(() => updatePersonaInfo({ repoId, versionId: '' }))
+  }, [repoId, versionIdParam, personaName, updatePersonaInfo])
 
   useEffect(() => {
     if (!repoId) return

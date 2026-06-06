@@ -13,6 +13,7 @@ import type { UIMessage } from "@/hooks/use-chat-state";
 import {
   getPersona,
   getVersion,
+  listVersions,
   fetchPersonaChatMessages,
   type Persona,
 } from "@/lib/api/personas";
@@ -123,6 +124,7 @@ export function PersonaChatInterface({
   const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
   const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null);
   const [connectorSlugs, setConnectorSlugs] = useState<string[] | null>(null);
+  const [latestVersionModelId, setLatestVersionModelId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -172,32 +174,65 @@ export function PersonaChatInterface({
 
   useEffect(() => {
     let cancelled = false;
+    // Load persona first (fast — single object) so the name/avatar render
+    // immediately, then fire listVersions in parallel for the latest version's
+    // connectors/model without blocking the persona display.
     getPersona(personaId).then(p => {
       if (cancelled) return;
       setPersona(p);
       if (p.imageUrl) setPersonaImageUrl(p.imageUrl);
-      if (p.activeVersionId) {
-        getVersion(p.id, p.activeVersionId)
+    }).catch(err => logger.error("[PersonaChat] Failed to load persona", err));
+
+    listVersions(personaId).then(versionList => {
+      if (cancelled) return;
+      // Pick the latest version (highest created_at) — matches how the
+      // configure test chat resolves persona configuration.
+      const sorted = versionList.slice().sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      const latest = sorted[0];
+
+      // Use latest version's model_id so the TopBar tag reflects the draft
+      if (latest?.model_id) setLatestVersionModelId(latest.model_id);
+
+      // Fetch full version for connector slugs (not included in list items)
+      const versionIdToLoad = latest?.id ?? null;
+      if (versionIdToLoad) {
+        getVersion(personaId, versionIdToLoad)
           .then(v => {
             if (cancelled) return;
-            if (!p.imageUrl && v.image_url) setPersonaImageUrl(v.image_url);
+            if (v.image_url) setPersonaImageUrl(prev => prev ?? v.image_url);
             setConnectorSlugs(v.connectors ?? []);
           })
           .catch(() => {});
       }
-    }).catch(err => logger.error("[PersonaChat] Failed to load persona", err));
+    }).catch(() => {
+      // listVersions failed — fall back to active version for connectors
+      getPersona(personaId).then(p => {
+        if (cancelled || !p.activeVersionId) return;
+        getVersion(p.id, p.activeVersionId)
+          .then(v => {
+            if (cancelled) return;
+            setConnectorSlugs(v.connectors ?? []);
+          })
+          .catch(() => {});
+      }).catch(() => {});
+    });
+
     return () => { cancelled = true; };
   }, [personaId]);
 
   useEffect(() => {
-    const target = persona?.modelId;
+    // Prefer the latest version's model_id; fall back to the active version's
+    // model from the persona object if the version list returned nothing.
+    const target = latestVersionModelId ?? persona?.modelId;
     if (!target || !models.length) return;
     const current = selectedModel ? String(selectedModel.modelId ?? selectedModel.id) : null;
     if (current === target) return;
     const match = models.find(m => String(m.modelId ?? m.id) === target);
     if (match) selectModelRef.current(match);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persona?.modelId, models, selectedModel]);
+  }, [latestVersionModelId, persona?.modelId, models, selectedModel]);
 
   // ── Load chat history ─────────────────────────────────────────────────────
 

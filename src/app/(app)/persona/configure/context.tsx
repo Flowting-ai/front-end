@@ -440,7 +440,12 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     const { repoId, versionId, connectorSlugs, disabledConnectorSlugs } = infoRef.current
     const { attachments } = testChatOptsRef.current
     const filesToSend = attachments.map(a => a.file)
-    if ((!trimmedValue && filesToSend.length === 0) || !repoId || !versionId || chatStreamingRef.current) return
+    if (!trimmedValue && filesToSend.length === 0) return
+    if (!repoId || !versionId) {
+      toast.error('Save your persona first to test the chat.')
+      return
+    }
+    if (chatStreamingRef.current) return
 
     setTestChatAttachments([])
 

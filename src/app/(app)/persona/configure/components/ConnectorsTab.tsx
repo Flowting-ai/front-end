@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { ArrowUpRightOneIcon } from '@strange-huge/icons'
 import { listConnectors } from '@/lib/api/connectors'
-import { getVersion, setVersionConnectors } from '@/lib/api/personas'
+import { getVersion, setVersionConnectors, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
 import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 
 // ── Connector logo map ────────────────────────────────────────────────────────
@@ -277,6 +277,8 @@ export default function ConnectorsTab({
 
   const [linked,       setLinked]       = useState<ConnectorCatalogEntry[]>([])
   const [personaSlugs, setPersonaSlugs] = useState<Set<string>>(new Set())
+  const [blockedSlugs, setBlockedSlugs] = useState<Set<string>>(new Set())
+  const [confirmSlug,  setConfirmSlug]  = useState<string | null>(null)
   const [loading,      setLoading]      = useState(true)
   const [loadError,    setLoadError]    = useState('')
   const [savingSlug,   setSavingSlug]   = useState<string | null>(null)
@@ -287,7 +289,7 @@ export default function ConnectorsTab({
   useEffect(() => { onChangeRef.current = onConnectorsChange })
 
   const load = useCallback(async () => {
-    if (!repoId || !versionId) return
+    if (!repoId || !versionId) { setLoading(false); return }
     setLoading(true)
     setLoadError('')
     try {
@@ -310,7 +312,14 @@ export default function ConnectorsTab({
 
       // Set UI immediately so toggles are visible regardless of save outcome.
       setPersonaSlugs(desired)
-      const disabledOnLoad = linkedConnectors.map(c => c.slug).filter(s => !desired.has(s))
+      // Slugs that are linked globally but not in the desired set are treated
+      // as blocked for this persona. Initialise the blocked set so doDisable
+      // always has the correct list when calling PATCH /blocked-connectors.
+      const initialBlocked = new Set<string>(
+        linkedConnectors.map(c => c.slug).filter(s => !desired.has(s)),
+      )
+      setBlockedSlugs(initialBlocked)
+      const disabledOnLoad = [...initialBlocked]
       onChangeRef.current?.([...desired], disabledOnLoad)
 
       // Persist the auto-added slugs in the background (fire-and-forget).
@@ -334,47 +343,76 @@ export default function ConnectorsTab({
 
   useEffect(() => { void load() }, [load])
 
-  const handleToggle = useCallback(async (slug: string) => {
+  const handleToggle = useCallback((slug: string) => {
     if (savingSlug || !repoId || !versionId) return
-    setSavingSlug(slug)
-    const prev = new Set(personaSlugs)
-    const next = new Set(personaSlugs)
-    const isRemoving = next.has(slug)
-    if (isRemoving) {
-      next.delete(slug)
-      // Remember user explicitly disabled this connector so it won't auto-re-enable
-      saveUserRemovedSlug(versionId, slug)
+    if (personaSlugs.has(slug)) {
+      // Show confirmation before disabling
+      setConfirmSlug(slug)
     } else {
-      next.add(slug)
-      // User re-enabled it – clear the explicit-remove flag
-      clearUserRemovedSlug(versionId, slug)
+      // Re-enable immediately (no confirmation needed)
+      void doEnable(slug)
     }
-    setPersonaSlugs(next)
-    const disabledNext = linked.map(c => c.slug).filter(s => !next.has(s))
-    onChangeRef.current?.([...next], disabledNext)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- doEnable captured below
+  }, [savingSlug, repoId, versionId, personaSlugs])
+
+  // Re-enable a connector: unblock it for this persona version
+  const doEnable = useCallback(async (slug: string) => {
+    if (!repoId || !versionId) return
+    setSavingSlug(slug)
+    const prevPersona  = new Set(personaSlugs)
+    const prevBlocked  = new Set(blockedSlugs)
+    const nextPersona  = new Set(personaSlugs)
+    const nextBlocked  = new Set(blockedSlugs)
+    nextPersona.add(slug)
+    nextBlocked.delete(slug)
+    clearUserRemovedSlug(versionId, slug)
+    setPersonaSlugs(nextPersona)
+    setBlockedSlugs(nextBlocked)
+    onChangeRef.current?.([...nextPersona], [...nextBlocked])
     try {
-      const updated = await setVersionConnectors(repoId, versionId, [...next])
-      // Do NOT overwrite state from the backend response — the optimistic `next`
-      // is already correct. Overwriting with `updated.connectors` caused all
-      // other connectors to disappear when the backend returned a partial list.
-      void updated // acknowledge the response without using it
+      await unblockVersionConnector(repoId, versionId, slug)
       const displayName = linked.find(c => c.slug === slug)?.display_name ?? slug
       const agentLabel  = personaName ? ` for ${personaName}` : ''
-      if (isRemoving) {
-        toast.success(`${displayName} disconnected${agentLabel}`)
-      } else {
-        toast.success(`${displayName} connected${agentLabel}`)
-      }
+      toast.success(`${displayName} enabled${agentLabel}`)
     } catch (err) {
-      // Revert only this connector's toggle, not the entire set.
-      setPersonaSlugs(prev)
-      const disabledPrev = linked.map(c => c.slug).filter(s => !prev.has(s))
-      onChangeRef.current?.([...prev], disabledPrev)
-      toast.error(err instanceof Error ? err.message : 'Failed to update connector')
+      setPersonaSlugs(prevPersona)
+      setBlockedSlugs(prevBlocked)
+      onChangeRef.current?.([...prevPersona], [...prevBlocked])
+      toast.error(err instanceof Error ? err.message : 'Failed to enable connector')
     } finally {
       setSavingSlug(null)
     }
-  }, [repoId, versionId, personaSlugs, savingSlug, linked, personaName])
+  }, [repoId, versionId, personaSlugs, blockedSlugs, linked, personaName])
+
+  // Disable a connector (called after confirm dialog confirms)
+  const doDisable = useCallback(async (slug: string) => {
+    setConfirmSlug(null)
+    if (!repoId || !versionId) return
+    setSavingSlug(slug)
+    const prevPersona  = new Set(personaSlugs)
+    const prevBlocked  = new Set(blockedSlugs)
+    const nextPersona  = new Set(personaSlugs)
+    const nextBlocked  = new Set(blockedSlugs)
+    nextPersona.delete(slug)
+    nextBlocked.add(slug)
+    saveUserRemovedSlug(versionId, slug)
+    setPersonaSlugs(nextPersona)
+    setBlockedSlugs(nextBlocked)
+    onChangeRef.current?.([...nextPersona], [...nextBlocked])
+    try {
+      await setVersionBlockedConnectors(repoId, versionId, [...nextBlocked])
+      const displayName = linked.find(c => c.slug === slug)?.display_name ?? slug
+      const agentLabel  = personaName ? ` for ${personaName}` : ''
+      toast.success(`${displayName} removed${agentLabel}`)
+    } catch (err) {
+      setPersonaSlugs(prevPersona)
+      setBlockedSlugs(prevBlocked)
+      onChangeRef.current?.([...prevPersona], [...prevBlocked])
+      toast.error(err instanceof Error ? err.message : 'Failed to remove connector')
+    } finally {
+      setSavingSlug(null)
+    }
+  }, [repoId, versionId, personaSlugs, blockedSlugs, linked, personaName])
 
   // Filter by search query
   const matchesSearch = useCallback((c: ConnectorCatalogEntry) => {
@@ -392,6 +430,52 @@ export default function ConnectorsTab({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', paddingTop: 3 }}>
+
+      {/* ── Confirm-remove dialog ───────────────────────────────────────── */}
+      {confirmSlug && (() => {
+        const entry = linked.find(c => c.slug === confirmSlug)
+        const displayName = entry?.display_name ?? confirmSlug
+        return (
+          <>
+            {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop */}
+            <div
+              onClick={() => setConfirmSlug(null)}
+              style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(38,33,30,0.32)', zIndex: 50 }}
+            />
+            <div style={{
+              position:        'fixed',
+              top:             '50%',
+              left:            '50%',
+              transform:       'translate(-50%, -50%)',
+              zIndex:          51,
+              backgroundColor: 'white',
+              borderRadius:    16,
+              boxShadow:       '0px 8px 32px 0px rgba(38,33,30,0.18), 0px 0px 0px 1px var(--neutral-100)',
+              width:           400,
+              maxWidth:        'calc(100vw - 48px)',
+              padding:         24,
+              display:         'flex',
+              flexDirection:   'column',
+              gap:             16,
+            }}>
+              <div>
+                <p style={{ margin: '0 0 8px', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)' }}>
+                  Remove {displayName}?
+                </p>
+                <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
+                  This will disable <strong>{displayName}</strong> for this agent. Are you sure you want to remove this connector access?.
+                </p>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <Button variant="outline" size="sm" onClick={() => setConfirmSlug(null)}>Cancel</Button>
+                <Button size="sm" onClick={() => void doDisable(confirmSlug)}>
+                  <span style={{ color: 'var(--red-600, #DC2626)' }}>Remove</span>
+                </Button>
+              </div>
+            </div>
+          </>
+        )
+      })()}
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>

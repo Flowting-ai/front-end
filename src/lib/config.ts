@@ -89,6 +89,10 @@ export const PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT = (repoId: string, versionId
   withBase(`/persona/${repoId}/versions/${versionId}/knowledge-url`);
 export const PERSONA_VERSION_CONNECTORS_ENDPOINT = (repoId: string, versionId: string) =>
   withBase(`/persona/${repoId}/versions/${versionId}/connectors`);
+export const PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT = (repoId: string, versionId: string) =>
+  withBase(`/persona/${repoId}/versions/${versionId}/blocked-connectors`);
+export const PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT = (repoId: string, versionId: string, slug: string) =>
+  withBase(`/persona/${repoId}/versions/${versionId}/blocked-connectors/${encodeURIComponent(slug)}`);
 export const PERSONA_CHATS_ENDPOINT = (personaId: string) =>
   withBase(`/persona/${personaId}/chats`);
 export const PERSONA_CHATS_CREATE_ENDPOINT = (personaId: string) =>
