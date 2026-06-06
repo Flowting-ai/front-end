@@ -220,7 +220,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
             <path d="M4.5 8.5L7 11L11.5 6" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--neutral-800)' }}>
-            {prompt.display_name} connected: you can resend your message.
+            {prompt.display_name} connected
           </span>
         </div>
       </PromptCard>
@@ -351,9 +351,7 @@ interface PermissionPromptCardProps {
 }
 
 export function PermissionPromptCard({ prompt, onDecided, skipSave = false }: PermissionPromptCardProps) {
-  const [state,    setState]    = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
-  const [decided,  setDecided]  = useState<PermissionPolicy | null>(null)
-  const [errorMsg, setErrorMsg] = useState('')
+  const [state,    setState]    = useState<'idle' | 'done'>('idle')
   const abortedRef = useRef(false)
 
   useEffect(() => {
@@ -361,65 +359,32 @@ export function PermissionPromptCard({ prompt, onDecided, skipSave = false }: Pe
   }, [])
 
   const handlePolicy = useCallback((policy: PermissionPolicy) => {
-    setState('saving')
-    setErrorMsg('')
+    // Unblock the backend stream immediately — do NOT wait for the preference
+    // save before calling onDecided. The backend holds the SSE connection open
+    // while awaiting the respond POST; saving first would deadlock (PATCH
+    // can't complete while SSE is held open on the same server connection).
+    const label = policy === 'allow' ? 'Allowed' : policy === 'block' ? 'Blocked' : 'Allowed once'
+    setState('done')
+    onDecided?.(policy)
+    toast.success(`${label} — ${prompt.tool_name}`)
 
-    if (skipSave) {
-      setDecided(policy)
-      setState('done')
-      onDecided?.(policy)
-      const label = policy === 'allow' ? 'Allowed' : policy === 'block' ? 'Blocked' : 'Allowed once'
-      toast.success(`${label} — ${prompt.tool_name}`)
-      return
-    }
+    if (skipSave) return
 
+    // Save preference in the background — non-blocking.
     updateConnector(prompt.connector_slug, {
       permissions: [{ slug: prompt.tool_name, policy }],
+    }).catch((err: unknown) => {
+      if (abortedRef.current) return
+      const msg = err instanceof Error ? err.message : 'Failed to save permission'
+      toast.error(`Failed to save permission preference: ${msg}`)
     })
-      .then(() => {
-        if (abortedRef.current) return
-        setDecided(policy)
-        setState('done')
-        onDecided?.(policy)
-        const label = policy === 'allow' ? 'Allowed' : policy === 'block' ? 'Blocked' : 'Allowed once'
-        toast.success(`${label} — ${prompt.tool_name}`)
-      })
-      .catch((err: unknown) => {
-        if (abortedRef.current) return
-        setState('error')
-        const msg = err instanceof Error ? err.message : 'Failed to save permission'
-        setErrorMsg(msg)
-        toast.error('Failed to update permission')
-      })
   }, [prompt, onDecided, skipSave])
 
-  if (state === 'done' && decided) {
-    const labelMap: Record<PermissionPolicy, string> = {
-      allow:       'Allowed',
-      block:       'Blocked',
-      allow_once:  'Allowed once',
-    }
-    return (
-      <PromptCard>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="8" r="8" fill={decided === 'block' ? '#EF4444' : '#22C55E'} />
-            {decided === 'block' ? (
-              <path d="M5 5L11 11M11 5L5 11" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
-            ) : (
-              <path d="M4.5 8.5L7 11L11.5 6" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            )}
-          </svg>
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--neutral-800)' }}>
-            {labelMap[decided]}: {decided !== 'block' ? 'you can resend your message.' : 'tool will not run.'}
-          </span>
-        </div>
-      </PromptCard>
-    )
-  }
+  if (state === 'done') return null
 
   return (
     <PromptCard>
+      {/* Connector permission prompts body */}
       <div>
         <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--neutral-800)' }}>
           Allow {prompt.display_name} to run?
@@ -429,25 +394,16 @@ export function PermissionPromptCard({ prompt, onDecided, skipSave = false }: Pe
         </p>
       </div>
 
-      {state === 'error' && (
-        <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--red-600, #DC2626)' }}>
-          {errorMsg || 'Failed to save permission.'} Try again.
-        </p>
-      )}
-
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <PromptButton onClick={() => handlePolicy('allow')} disabled={state === 'saving'}>
+        <PromptButton onClick={() => handlePolicy('allow')}>
           Allow
         </PromptButton>
-        <PromptButton variant="outline" onClick={() => handlePolicy('allow_once')} disabled={state === 'saving'}>
+        <PromptButton variant="outline" onClick={() => handlePolicy('allow_once')}>
           Allow once
         </PromptButton>
-        <PromptButton variant="danger" onClick={() => handlePolicy('block')} disabled={state === 'saving'}>
+        <PromptButton variant="danger" onClick={() => handlePolicy('block')}>
           Block
         </PromptButton>
-        {state === 'saving' && (
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)' }}>Saving…</span>
-        )}
       </div>
     </PromptCard>
   )

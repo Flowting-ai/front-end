@@ -66,7 +66,7 @@ function ActivityIcon({ type, isDone }: { type: ActivityType; isDone: boolean })
 function SpinnerIcon() {
   return (
     <m.span
-      animate={{ rotate: 360 }}
+      animate={{ rotate: [0, 360] }}
       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
       style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}
     >

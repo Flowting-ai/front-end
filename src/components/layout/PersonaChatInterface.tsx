@@ -123,7 +123,6 @@ export function PersonaChatInterface({
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
   const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null);
-  const [connectorSlugs, setConnectorSlugs] = useState<string[] | null>(null);
   const [latestVersionModelId, setLatestVersionModelId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -195,25 +194,25 @@ export function PersonaChatInterface({
       // Use latest version's model_id so the TopBar tag reflects the draft
       if (latest?.model_id) setLatestVersionModelId(latest.model_id);
 
-      // Fetch full version for connector slugs (not included in list items)
+      // Fetch full version for the image URL (connectors are managed
+      // server-side by the backend from the persona version config).
       const versionIdToLoad = latest?.id ?? null;
       if (versionIdToLoad) {
         getVersion(personaId, versionIdToLoad)
           .then(v => {
             if (cancelled) return;
             if (v.image_url) setPersonaImageUrl(prev => prev ?? v.image_url);
-            setConnectorSlugs(v.blocked_connectors ?? []);
           })
           .catch(() => {});
       }
     }).catch(() => {
-      // listVersions failed — fall back to active version for connectors
+      // listVersions failed — image URL fallback via active version
       getPersona(personaId).then(p => {
         if (cancelled || !p.activeVersionId) return;
         getVersion(p.id, p.activeVersionId)
           .then(v => {
             if (cancelled) return;
-            setConnectorSlugs(v.blocked_connectors ?? []);
+            if (v.image_url) setPersonaImageUrl(prev => prev ?? v.image_url);
           })
           .catch(() => {});
       }).catch(() => {});
@@ -363,7 +362,6 @@ export function PersonaChatInterface({
           files: filesToSend.length > 0 ? filesToSend : undefined,
           userMessageId: userMsgId,
           personaId: personaId,
-          connectorSlugs: connectorSlugs ?? undefined,
           onUploadProgress: filesToSend.length > 0 ? (pct) => {
             setMessages(prev => prev.map(msg =>
               msg.id !== userMsgId ? msg : {
@@ -381,7 +379,7 @@ export function PersonaChatInterface({
     } catch {
       setMessages(prev => prev.slice(0, prev.length - 2));
     }
-  }, [personaId, activeChatId, isStreaming, attachments, connectorSlugs, fetchAiResponse]);
+  }, [personaId, activeChatId, isStreaming, attachments, fetchAiResponse]);
 
   const chatId = activeChatId ?? "";
 
