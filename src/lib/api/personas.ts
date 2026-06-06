@@ -330,15 +330,14 @@ export async function uploadDocument(repoId: string, versionId: string, file: Fi
 
 /**
  * POST /persona/{repo_id}/versions/{version_id}/knowledge-url
- * Saves a URL as a knowledge source for this version.
- * Returns the updated PersonaVersionResponse so the caller can refresh the file list.
+ * Registers a URL as a knowledge source for this version.
  */
 export async function addKnowledgeUrl(
   repoId: string,
   versionId: string,
   url: string,
-): Promise<PersonaVersionResponse> {
-  return apiFetchJson<PersonaVersionResponse>(
+): Promise<void> {
+  await apiFetch(
     PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT(repoId, versionId),
     {
       method: 'POST',

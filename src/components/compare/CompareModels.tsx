@@ -25,6 +25,7 @@ import "katex/dist/katex.min.css";
 import { sanitizeKaTeX, sanitizeURL } from "@/lib/security";
 import { isValidUUID, normalizeUuid } from "@/lib/normalizers/normalize-utils";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
+import { BreathingDot } from "@/components/BreathingDot";
 
 // â”€â”€ Design tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -943,167 +944,179 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
       abortControllerRef.current = controller;
 
       const trimmedPrompt = prompt.trim();
-      const response = await apiFetch(`${MODELS_ENDPOINT}/test`, {
-        method: "POST",
-        body: JSON.stringify({
-          model_ids: validModelIds,
-          prompt:    trimmedPrompt,
-          modelIds:  validModelIds,
-          message:   trimmedPrompt,
-        }),
-        signal:  controller.signal,
-        headers: { Accept: "text/event-stream" },
-      });
 
-      if (!response.ok) throw new Error(`Failed to test models: ${response.status}`);
+      const streamingResponses: Record<string, string> = {};
+      const selectedModelSet = new Set(selectedModels);
+      selectedModels.forEach((id) => { streamingResponses[id] = ""; });
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No response body");
+      const resolveModelIdFromPayload = (payload: Record<string, unknown>): string | null => {
+        const raw = payload.model_id ?? payload.modelId ?? null;
+        if (raw === null || raw === undefined) return null;
+        const resolved = String(raw).trim();
+        return resolved.length > 0 ? resolved : null;
+      };
 
-      try {
-        const decoder = new TextDecoder();
-        let buffer = "";
-        const streamingResponses: Record<string, string> = {};
-        const selectedModelSet = new Set(selectedModels);
-        selectedModels.forEach((id) => { streamingResponses[id] = ""; });
+      const resolveEventType = (explicit: string, payload: Record<string, unknown>): string => {
+        if (explicit) return explicit;
+        const raw = payload.type;
+        return typeof raw === "string" ? raw.trim().toLowerCase() : "";
+      };
 
-        const resolveModelIdFromPayload = (payload: Record<string, unknown>): string | null => {
-          const raw = payload.model_id ?? payload.modelId ?? null;
-          if (raw === null || raw === undefined) return null;
-          const resolved = String(raw).trim();
-          return resolved.length > 0 ? resolved : null;
-        };
+      const handleEvent = (eventType: string, payload: Record<string, unknown>, fallbackModelId?: string) => {
+        const modelIdStr = resolveModelIdFromPayload(payload) ?? fallbackModelId ?? null;
+        if (!modelIdStr || !selectedModelSet.has(modelIdStr)) return;
+        if (!(modelIdStr in streamingResponses)) streamingResponses[modelIdStr] = "";
 
-        const resolveEventType = (explicit: string, payload: Record<string, unknown>): string => {
-          if (explicit) return explicit;
-          const raw = payload.type;
-          return typeof raw === "string" ? raw.trim().toLowerCase() : "";
-        };
-
-        const handleEvent = (eventType: string, payload: Record<string, unknown>) => {
-          const modelIdStr = resolveModelIdFromPayload(payload);
-          if (!modelIdStr || !selectedModelSet.has(modelIdStr)) return;
-          if (!(modelIdStr in streamingResponses)) streamingResponses[modelIdStr] = "";
-
-          // Extract message_id from any event that carries it
-          const rawMsgId = payload.message_id ?? payload.messageId ?? null;
-          if (typeof rawMsgId === "string" && rawMsgId.trim()) {
-            setTestMessageIds((prev) =>
-              prev[modelIdStr] === rawMsgId.trim() ? prev : { ...prev, [modelIdStr]: rawMsgId.trim() },
-            );
-          }
-
-          switch (eventType) {
-            case "metadata":
-            case "start":
-              setStreamingModels((prev) => new Set(prev).add(modelIdStr));
-              break;
-            case "content":
-            case "chunk": {
-              const chunk =
-                typeof payload.content === "string" ? payload.content
-                : typeof payload.delta  === "string" ? payload.delta
-                : "";
-              if (!chunk) return;
-              streamingResponses[modelIdStr] = (streamingResponses[modelIdStr] || "") + chunk;
-              setStreamingModels((prev) => new Set(prev).add(modelIdStr));
-              setTestResponses({ ...streamingResponses });
-              break;
-            }
-            case "reasoning": break;
-            case "image": {
-              const imageUrl = typeof payload.url === "string" ? payload.url.trim() : "";
-              if (!imageUrl) return;
-              streamingResponses[modelIdStr] = `${streamingResponses[modelIdStr] || ""}\n\n![image](${imageUrl})`;
-              setTestResponses({ ...streamingResponses });
-              break;
-            }
-            case "done":
-            case "end": {
-              const final = typeof payload.response === "string" ? payload.response : "";
-              if (final) { streamingResponses[modelIdStr] = final; setTestResponses({ ...streamingResponses }); }
-              const creditsRaw =
-                typeof payload.credits_used  === "number" ? payload.credits_used  :
-                typeof payload.creditsUsed   === "number" ? payload.creditsUsed   :
-                typeof payload.credits       === "number" ? payload.credits       :
-                typeof payload.cost          === "number" ? payload.cost          :
-                null;
-              if (creditsRaw !== null) setTestCredits((prev) => ({ ...prev, [modelIdStr]: creditsRaw }));
-              setStreamingModels((prev) => { const n = new Set(prev); n.delete(modelIdStr); return n; });
-              break;
-            }
-            case "error": {
-              const errText = typeof payload.error === "string" ? payload.error : "Unknown error";
-              streamingResponses[modelIdStr] = `Error: ${errText}`;
-              setTestResponses({ ...streamingResponses });
-              setStreamingModels((prev) => { const n = new Set(prev); n.delete(modelIdStr); return n; });
-              break;
-            }
-            case "tool_connect_prompt": {
-              const prompt: ConnectorConnectPrompt = {
-                request_id:     typeof payload.request_id     === "string" ? payload.request_id     : `ccp-${Date.now()}`,
-                connector_slug: typeof payload.connector_slug === "string" ? payload.connector_slug : "",
-                display_name:   typeof payload.display_name   === "string" ? payload.display_name   : (typeof payload.connector_slug === "string" ? payload.connector_slug : ""),
-                auth_mode:      (typeof payload.auth_mode     === "string" ? payload.auth_mode      : "oauth2") as "oauth2" | "api_key",
-                tool_name:      typeof payload.tool_name      === "string" ? payload.tool_name      : "",
-                icon_url:       typeof payload.icon_url       === "string" ? payload.icon_url       : undefined,
-              };
-              setConnectPromptsPerModel((prev) => ({
-                ...prev,
-                [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],
-              }));
-              break;
-            }
-            case "tool_permission_prompt": {
-              const prompt: ConnectorPermissionPrompt = {
-                request_id:     typeof payload.request_id     === "string" ? payload.request_id     : `cpp-${Date.now()}`,
-                connector_slug: typeof payload.connector_slug === "string" ? payload.connector_slug : "",
-                display_name:   typeof payload.display_name   === "string" ? payload.display_name   : (typeof payload.connector_slug === "string" ? payload.connector_slug : ""),
-                tool_name:      typeof payload.tool_name      === "string" ? payload.tool_name      : "",
-                icon_url:       typeof payload.icon_url       === "string" ? payload.icon_url       : undefined,
-              };
-              setPermissionPromptsPerModel((prev) => ({
-                ...prev,
-                [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],
-              }));
-              break;
-            }
-          }
-        };
-
-        const processChunk = (chunk: string) => {
-          const lines = chunk.split("\n");
-          let explicitEvent = "";
-          const dataLines: string[] = [];
-          for (const line of lines) {
-            const trimmedLine = line.replace(/\r$/, "");
-            if (trimmedLine.startsWith("event:")) explicitEvent = trimmedLine.slice(6).trim().toLowerCase();
-            else if (trimmedLine.startsWith("data:")) dataLines.push(trimmedLine.slice(5));
-          }
-          if (dataLines.length === 0) return;
-          const dataStr = dataLines.join("\n").trim();
-          if (!dataStr || dataStr === "[DONE]") return;
-          try {
-            const payload = JSON.parse(dataStr) as Record<string, unknown>;
-            handleEvent(resolveEventType(explicitEvent, payload), payload);
-          } catch { /* ignore incomplete chunks */ }
-        };
-
-        // eslint-disable-next-line no-await-in-loop -- sequential SSE stream reader; chunks must arrive in order
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-          const events = buffer.split("\n\n");
-          buffer = events.pop() || "";
-          for (const ev of events) processChunk(ev);
+        // Extract message_id from any event that carries it
+        const rawMsgId = payload.message_id ?? payload.messageId ?? null;
+        if (typeof rawMsgId === "string" && rawMsgId.trim()) {
+          setTestMessageIds((prev) =>
+            prev[modelIdStr] === rawMsgId.trim() ? prev : { ...prev, [modelIdStr]: rawMsgId.trim() },
+          );
         }
-        if (buffer.trim()) for (const ev of `${buffer}\n\n`.split("\n\n")) processChunk(ev);
-        setStreamingModels(new Set());
-      } finally {
-        reader.cancel().catch(() => {});
-      }
-      reader.cancel().catch(() => {});
+
+        switch (eventType) {
+          case "metadata":
+          case "start":
+            setStreamingModels((prev) => new Set(prev).add(modelIdStr));
+            break;
+          case "content":
+          case "chunk": {
+            const chunk =
+              typeof payload.content === "string" ? payload.content
+              : typeof payload.delta  === "string" ? payload.delta
+              : "";
+            if (!chunk) return;
+            streamingResponses[modelIdStr] = (streamingResponses[modelIdStr] || "") + chunk;
+            setStreamingModels((prev) => new Set(prev).add(modelIdStr));
+            setTestResponses({ ...streamingResponses });
+            break;
+          }
+          case "reasoning": break;
+          case "image": {
+            const imageUrl = typeof payload.url === "string" ? payload.url.trim() : "";
+            if (!imageUrl) return;
+            streamingResponses[modelIdStr] = `${streamingResponses[modelIdStr] || ""}\n\n![image](${imageUrl})`;
+            setTestResponses({ ...streamingResponses });
+            break;
+          }
+          case "done":
+          case "end": {
+            const final = typeof payload.response === "string" ? payload.response : "";
+            if (final) { streamingResponses[modelIdStr] = final; setTestResponses({ ...streamingResponses }); }
+            const creditsRaw =
+              typeof payload.credits_used  === "number" ? payload.credits_used  :
+              typeof payload.creditsUsed   === "number" ? payload.creditsUsed   :
+              typeof payload.credits       === "number" ? payload.credits       :
+              typeof payload.cost          === "number" ? payload.cost          :
+              null;
+            if (creditsRaw !== null) setTestCredits((prev) => ({ ...prev, [modelIdStr]: creditsRaw }));
+            setStreamingModels((prev) => { const n = new Set(prev); n.delete(modelIdStr); return n; });
+            break;
+          }
+          case "error": {
+            const errText = typeof payload.error === "string" ? payload.error : "Unknown error";
+            streamingResponses[modelIdStr] = `Error: ${errText}`;
+            setTestResponses({ ...streamingResponses });
+            setStreamingModels((prev) => { const n = new Set(prev); n.delete(modelIdStr); return n; });
+            break;
+          }
+          case "tool_connect_prompt": {
+            const prompt: ConnectorConnectPrompt = {
+              request_id:     typeof payload.request_id     === "string" ? payload.request_id     : `ccp-${Date.now()}`,
+              connector_slug: typeof payload.connector_slug === "string" ? payload.connector_slug : "",
+              display_name:   typeof payload.display_name   === "string" ? payload.display_name   : (typeof payload.connector_slug === "string" ? payload.connector_slug : ""),
+              auth_mode:      (typeof payload.auth_mode     === "string" ? payload.auth_mode      : "oauth2") as "oauth2" | "api_key",
+              tool_name:      typeof payload.tool_name      === "string" ? payload.tool_name      : "",
+              icon_url:       typeof payload.icon_url       === "string" ? payload.icon_url       : undefined,
+            };
+            setConnectPromptsPerModel((prev) => ({
+              ...prev,
+              [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],
+            }));
+            break;
+          }
+          case "tool_permission_prompt": {
+            const prompt: ConnectorPermissionPrompt = {
+              request_id:     typeof payload.request_id     === "string" ? payload.request_id     : `cpp-${Date.now()}`,
+              connector_slug: typeof payload.connector_slug === "string" ? payload.connector_slug : "",
+              display_name:   typeof payload.display_name   === "string" ? payload.display_name   : (typeof payload.connector_slug === "string" ? payload.connector_slug : ""),
+              tool_name:      typeof payload.tool_name      === "string" ? payload.tool_name      : "",
+              icon_url:       typeof payload.icon_url       === "string" ? payload.icon_url       : undefined,
+            };
+            setPermissionPromptsPerModel((prev) => ({
+              ...prev,
+              [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],
+            }));
+            break;
+          }
+        }
+      };
+
+      const processChunk = (chunk: string, fallbackModelId?: string) => {
+        const lines = chunk.split("\n");
+        let explicitEvent = "";
+        const dataLines: string[] = [];
+        for (const line of lines) {
+          const trimmedLine = line.replace(/\r$/, "");
+          if (trimmedLine.startsWith("event:")) explicitEvent = trimmedLine.slice(6).trim().toLowerCase();
+          else if (trimmedLine.startsWith("data:")) dataLines.push(trimmedLine.slice(5));
+        }
+        if (dataLines.length === 0) return;
+        const dataStr = dataLines.join("\n").trim();
+        if (!dataStr || dataStr === "[DONE]") return;
+        try {
+          const payload = JSON.parse(dataStr) as Record<string, unknown>;
+          handleEvent(resolveEventType(explicitEvent, payload), payload, fallbackModelId);
+        } catch { /* ignore incomplete chunks */ }
+      };
+
+      // Fire one request per model in parallel so all columns stream simultaneously
+      await Promise.all(validModelIds.map(async (modelId) => {
+        const resp = await apiFetch(`${MODELS_ENDPOINT}/test`, {
+          method: "POST",
+          body: JSON.stringify({
+            model_ids: [modelId],
+            prompt:    trimmedPrompt,
+            modelIds:  [modelId],
+            message:   trimmedPrompt,
+          }),
+          signal:  controller.signal,
+          headers: { Accept: "text/event-stream" },
+        });
+
+        if (!resp.ok) {
+          streamingResponses[modelId] = `Error: ${resp.status}`;
+          setTestResponses({ ...streamingResponses });
+          setStreamingModels((prev) => { const n = new Set(prev); n.delete(modelId); return n; });
+          return;
+        }
+
+        const reader = resp.body?.getReader();
+        if (!reader) {
+          streamingResponses[modelId] = "Error: No response body";
+          setTestResponses({ ...streamingResponses });
+          return;
+        }
+
+        try {
+          const decoder = new TextDecoder();
+          let buffer = "";
+          while (true) {
+            // eslint-disable-next-line no-await-in-loop -- sequential SSE stream reader; chunks must arrive in order
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+            const events = buffer.split("\n\n");
+            buffer = events.pop() || "";
+            for (const ev of events) processChunk(ev, modelId);
+          }
+          if (buffer.trim()) for (const ev of `${buffer}\n\n`.split("\n\n")) processChunk(ev, modelId);
+        } finally {
+          reader.cancel().catch(() => {});
+        }
+      }));
+      setStreamingModels(new Set());
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") return;
       console.error("Error testing models:", error);
@@ -1260,7 +1273,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                       <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10, paddingLeft: 10, paddingRight: 10 }}>
                         {isModelStreaming ? (
                           <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
-                            {modelResponse || ""}<span className={styles.streamingCursor} />
+                            {modelResponse || ""}<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />
                           </div>
                         ) : isTesting && !modelResponse ? (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8 }}>
@@ -1357,7 +1370,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                       <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, padding: 10, display: "flex", flexDirection: "column", alignItems: modelResponse ? "flex-start" : "center", justifyContent: modelResponse ? "flex-start" : "center" }}>
                         {isModelStreaming ? (
                           <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
-                            {modelResponse || ""}<span className={styles.streamingCursor} />
+                            {modelResponse || ""}<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />
                           </div>
                         ) : isTesting && !modelResponse ? (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>

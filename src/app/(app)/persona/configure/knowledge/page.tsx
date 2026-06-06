@@ -360,7 +360,9 @@ function PersonaConfigureKnowledgeContent() {
     }
     setFiles(prev => [...prev, placeholder])
     try {
-      const version = await addKnowledgeUrl(repoId, versionId, url)
+      await addKnowledgeUrl(repoId, versionId, url)
+      // Reload from API to get the authoritative file list
+      const version = await getVersion(repoId, versionId)
       setFiles(docsToFilesWithSizes(version))
       toast.success(`Added ${url}`)
       setIsDirty(true)

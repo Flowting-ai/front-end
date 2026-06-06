@@ -83,6 +83,10 @@ const CONNECTOR_LOGO_MAP: Record<string, string> = {
   'googleads':            '/connector-logos/google-ads.svg',
   'google-ads':           '/connector-logos/google-ads.svg',
   'google_ads':           '/connector-logos/google-ads.svg',
+  // Google Analytics
+  'googleanalytics':      '/connector-logos/google-analytics.svg',
+  'google-analytics':     '/connector-logos/google-analytics.svg',
+  'google_analytics':     '/connector-logos/google-analytics.svg',
   // Google Calendar
   'googlecalendar':       '/connector-logos/google-calendar.svg',
   'google-calendar':      '/connector-logos/google-calendar.svg',
@@ -123,9 +127,15 @@ const CONNECTOR_LOGO_MAP: Record<string, string> = {
   'microsoft-outlook':    '/connector-logos/outlook.svg',
   // Salesforce
   'salesforce':           '/connector-logos/salesforce.svg',
+  // Klaviyo
+  'klaviyo':              '/connector-logos/klaviyo.svg',
   // ShipEngine
   'shipengine':           '/connector-logos/shipengine.jpeg',
   'ship-engine':          '/connector-logos/shipengine.jpeg',
+  // ShipStation
+  'shipstation':          '/connector-logos/ship-station.png',
+  'ship-station':         '/connector-logos/ship-station.png',
+  'ship_station':         '/connector-logos/ship-station.png',
   // Shopify
   'shopify':              '/connector-logos/shopify.svg',
   // Slack

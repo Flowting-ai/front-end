@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Copy, Check, WrapText } from "lucide-react";
+import { Copy, Check } from "lucide-react";
 import { HIGHLIGHT_COLORS } from "@/components/HighlightCard";
 import type { HighlightSpec } from "@/lib/markdown-utils";
 import { applyMarksToHtml } from "@/lib/apply-marks";
@@ -71,8 +71,7 @@ function renderPlainWithMarks(text: string, specs: HighlightSpec[]): React.React
 
 export function CodeBlock({ language, value, elementKey, highlights }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
-  const [wordWrap, setWordWrap] = useState(false);
-  // Raw hljs output — recomputed only when code content changes
+// Raw hljs output — recomputed only when code content changes
   const [rawHtml, setRawHtml] = useState<string | null>(null);
   // Display HTML with highlight marks applied on top
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
@@ -160,28 +159,7 @@ export function CodeBlock({ language, value, elementKey, highlights }: CodeBlock
         )}
         {!language && <span />}
         <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-          <button
-            type="button"
-            onClick={() => setWordWrap(!wordWrap)}
-            aria-label={wordWrap ? "Disable word wrap" : "Enable word wrap"}
-            aria-pressed={wordWrap}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "28px",
-              height: "28px",
-              borderRadius: "6px",
-              border: "none",
-              backgroundColor: wordWrap ? "var(--neutral-200)" : "transparent",
-              color: "var(--neutral-600)",
-              cursor: "pointer",
-              transition: "background-color 150ms",
-            }}
-          >
-            <WrapText size={14} />
-          </button>
-          <button
+<button
             type="button"
             onClick={handleCopy}
             aria-label={copied ? "Copied" : "Copy code"}
@@ -211,14 +189,14 @@ export function CodeBlock({ language, value, elementKey, highlights }: CodeBlock
       <pre
         className="kaya-scrollbar"
         style={{
-          overflowX: wordWrap ? "visible" : "auto",
+          overflowX: "auto",
           padding: "16px",
           margin: 0,
           fontFamily: "var(--font-mono, ui-monospace, monospace)",
           fontSize: "13px",
           lineHeight: "1.6",
-          whiteSpace: wordWrap ? "pre-wrap" : "pre",
-          wordBreak: wordWrap ? "break-all" : "normal",
+          whiteSpace: "pre",
+          wordBreak: "normal",
           background: "transparent",
         }}
       >
