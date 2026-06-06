@@ -513,7 +513,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
     testChatWebSearch, setTestChatWebSearch, testChatStyleId, setTestChatStyleId,
     testChatFolders, setTestChatFolders, testChatPersonaId, setTestChatPersonaId,
     testChatAttachments, setTestChatAttachments, handleTestChatAddFiles, handleTestChatFileChange,
-    testChatFileInputRef, FILE_ACCEPT,
+    handleTestChatFilePaste, testChatFileInputRef, FILE_ACCEPT,
     versions,
   } = usePersonaConfigure()
   const { repoId, versionId, personaName, imageUrl, guideModelName } = personaInfo
@@ -639,6 +639,8 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
               onAttachmentsChange={setTestChatAttachments}
             />
           }
+          onFilePaste={handleTestChatFilePaste}
+          isStreaming={isStreaming}
           onSend={handleTestChatSend}
         />
       </div>
@@ -694,6 +696,7 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
           textareaLabel="Ask for AI guidance"
           modelName={personaInfo.guideModelName}
           hideModelSelector
+          isStreaming={guideIsStreaming}
           onSend={handleGuideSend}
         />
       </div>

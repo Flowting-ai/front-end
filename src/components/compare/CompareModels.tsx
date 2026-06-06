@@ -723,6 +723,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   const [permissionPromptsPerModel, setPermissionPromptsPerModel] = useState<Record<string, import('@/hooks/use-chat-state').ConnectorPermissionPrompt[]>>({});
   const [filterOpen,      setFilterOpen]      = useState(false);
   const [selectedTiers,   setSelectedTiers]   = useState<Set<string>>(new Set());
+  const [pastedImages,    setPastedImages]     = useState<string[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const promptInputRef     = useRef<HTMLTextAreaElement>(null);
   const gridScrollRef      = useRef<HTMLDivElement>(null);
@@ -891,6 +892,18 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     else startRecording();
   };
 
+  const handlePromptPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItems = items.filter((item) => item.kind === "file" && item.type.startsWith("image/"));
+    if (imageItems.length === 0) return;
+    e.preventDefault();
+    const urls = imageItems
+      .map((item) => item.getAsFile())
+      .filter((f): f is File => f !== null)
+      .map((f) => URL.createObjectURL(f));
+    setPastedImages((prev) => [...prev, ...urls]);
+  };
+
   const handleSelectModel = (modelId: string) => {
     const fullModel = fullModels.find((m) => resolveRequestModelId(m) === modelId);
     if (fullModel && onModelSelect) {
@@ -923,6 +936,8 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     setStreamingModels(new Set());
     setConnectPromptsPerModel({});
     setPermissionPromptsPerModel({});
+    // Revoke object URLs for pasted images to avoid memory leaks
+    setPastedImages((prev) => { prev.forEach((url) => URL.revokeObjectURL(url)); return []; });
 
     try {
       const modelIds      = selectedModels.map((id) => id.trim()).filter((id) => id.length > 0);
@@ -1414,13 +1429,34 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
 
           {/* Chat input */}
           <div style={{ flexShrink: 0, paddingLeft: 9, paddingRight: 9 }}>
-            <div style={{ borderRadius: 12, border: "1px solid rgba(59,54,50,0.1)", boxShadow: CARD_SHADOW, backgroundColor: "#FFFFFF", padding: 20, display: "flex", alignItems: "center", gap: 24 }}>
+            <div style={{ borderRadius: 12, border: "1px solid rgba(59,54,50,0.1)", boxShadow: CARD_SHADOW, backgroundColor: "#FFFFFF", padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Pasted image thumbnails */}
+              {pastedImages.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {pastedImages.map((url, i) => (
+                    <div key={url} style={{ position: "relative", width: 56, height: 56, borderRadius: 8, overflow: "hidden", flexShrink: 0, boxShadow: "0 0 0 1px rgba(59,54,50,0.12)" }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- object URL, not a remote URL */}
+                      <img src={url} alt={`Pasted image ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <button
+                        type="button"
+                        onClick={() => setPastedImages((prev) => { URL.revokeObjectURL(url); return prev.filter((u) => u !== url); })}
+                        aria-label="Remove pasted image"
+                        style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", border: "none", background: "rgba(38,33,30,0.7)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, fontSize: 10, lineHeight: 1 }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
               <textarea
                 ref={promptInputRef}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onFocus={() => setPromptInputCollapsed(false)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!isTesting) handleTestModels(); } }}
+                onPaste={handlePromptPaste}
                 placeholder={isRecording ? "Listening..." : "How can I help you today?"}
                 disabled={isTesting}
                 rows={1}
@@ -1471,6 +1507,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                   }
                 />
               </span>
+              </div>
             </div>
           </div>
 

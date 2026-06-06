@@ -629,6 +629,19 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
   /** When true, hides the model-selector button entirely. */
   hideModelSelector?: boolean
   /**
+   * When true, the model is generating a response. The send button and Enter
+   * key are blocked so the user cannot dispatch a new message, but the
+   * textarea remains editable so they can queue their next prompt.
+   */
+  isStreaming?: boolean
+  /**
+   * Called when the user pastes image files from the clipboard (Ctrl+V / Ctrl+Shift+V).
+   * Receives the array of pasted File objects (always images). Wire this up to your
+   * attachment state so screenshots land directly in the attachments strip.
+   * Text paste is handled natively by the textarea and does not trigger this callback.
+   */
+  onFilePaste?: (files: File[]) => void
+  /**
    * Props forwarded directly to the internal `<textarea>` element.
    * Use this to wire ARIA combobox attributes when a pin-picker dropdown
    * is open: `role`, `aria-expanded`, `aria-haspopup`, `aria-controls`,
@@ -665,9 +678,11 @@ export function ChatInput({
       onSelectedPersonaChange,
       attachmentsSlot,
       hideModelSelector = false,
+      isStreaming = false,
       chips,
       pinCards,
       textareaProps,
+      onFilePaste,
       className,
       onMouseEnter: externalMouseEnter,
       onMouseLeave: externalMouseLeave,
@@ -883,8 +898,8 @@ export function ChatInput({
 
     const handleMicClick = () => {
       if (isRecording) stopRecording()
-      else if (value) handleSend()
-      else startRecording()
+      else if (value && !isStreaming) handleSend()
+      else if (!isStreaming) startRecording()
     }
 
     const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -893,7 +908,7 @@ export function ChatInput({
     }
 
     const handleSend = () => {
-      if (!value) return
+      if (!value || isStreaming) return
       const text = value
       // Clear the textarea
       if (!isControlled) setInternalValue('')
@@ -903,8 +918,21 @@ export function ChatInput({
       onSend?.(text)
     }
 
+    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      if (!onFilePaste) return
+      const items = Array.from(e.clipboardData.items)
+      const files = items
+        .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+        .map((item) => item.getAsFile())
+        .filter((f): f is File => f !== null)
+      if (files.length > 0) {
+        e.preventDefault()
+        onFilePaste(files)
+      }
+    }
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey && value) {
+      if (e.key === 'Enter' && !e.shiftKey && value && !isStreaming) {
         e.preventDefault()
         handleSend()
       }
@@ -1035,6 +1063,7 @@ export function ChatInput({
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             {...textareaProps}
             aria-label={textareaLabel}
             aria-multiline="true"

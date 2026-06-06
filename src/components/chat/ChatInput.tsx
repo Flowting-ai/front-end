@@ -92,6 +92,13 @@ export interface ChatInputProps
    * Use in persona chat where the model is fully managed by the persona.
    */
   hideModelSelector?: boolean;
+  /**
+   * Called when the user pastes image files from the clipboard (Ctrl+V / Ctrl+Shift+V).
+   * Receives the array of pasted File objects (always images). Wire this up to your
+   * attachment state so screenshots land directly in the attachments strip.
+   * Text paste is handled natively by the textarea and does not trigger this callback.
+   */
+  onFilePaste?: (files: File[]) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -120,6 +127,7 @@ export function ChatInput(
     onPinNavigate,
     disabledModelSelector = false,
     hideModelSelector = false,
+    onFilePaste,
     className,
     onMouseEnter: externalMouseEnter,
     onMouseLeave: externalMouseLeave,
@@ -356,6 +364,21 @@ export function ChatInput(
       onSend?.(text);
     };
 
+    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      if (!onFilePaste) return;
+      const items = Array.from(e.clipboardData.items);
+      const files = items
+        .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+        .map((item) => item.getAsFile())
+        .filter((f): f is File => f !== null);
+      if (files.length > 0) {
+        // Prevent the browser inserting a broken text/html representation of the image
+        e.preventDefault();
+        onFilePaste(files);
+      }
+      // Text paste: no preventDefault — let the textarea handle it natively
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       // While the pin dropdown is open, delegate arrow keys / Enter / Escape
       // to the parent so it can move the highlighted selection or confirm.
@@ -539,7 +562,7 @@ export function ChatInput(
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             onKeyDown={handleKeyDown}
-            disabled={disabled}
+            onPaste={handlePaste}
             readOnly={isRecording}
             aria-label={textareaLabel}
             aria-multiline="true"
@@ -559,7 +582,6 @@ export function ChatInput(
               lineHeight: szLineHeight,
               color: "var(--chat-input-text)",
               caretColor: "var(--focus-ring)",
-              cursor: disabled ? "not-allowed" : undefined,
             }}
           />
         </div>

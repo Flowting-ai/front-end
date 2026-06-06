@@ -13,7 +13,7 @@
  * See: docs/frontend-rendering.md - Charts section.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, m } from "framer-motion"
 
 // ---------------------------------------------------------------------------
@@ -586,7 +586,7 @@ export function XmlChart({ xml }: XmlChartProps) {
   const [mounted, setMounted] = useState(false)
 
   // eslint-disable-next-line react-doctor/rendering-hydration-no-flicker -- intentional SSR skeleton; chart animations need client-only render
-  useEffect(() => {
+  useLayoutEffect(() => {
     setMounted(true)
   }, [])
 

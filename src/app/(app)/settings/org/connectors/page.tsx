@@ -118,7 +118,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
         display:        'flex',
         alignItems:     'flex-start',
         justifyContent: 'center',
-        padding:        '96px 155px 48px',
+        padding:        '64px 24px 48px',
       }}
     >
       <div

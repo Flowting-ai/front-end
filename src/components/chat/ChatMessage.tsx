@@ -205,6 +205,13 @@ export function ChatMessage({
     [highlights, message.id],
   )
 
+  // Stable reference so BlockSequenceRenderer (React.memo) doesn't re-render
+  // on every text token during streaming — only recomputes when responseBlocks changes.
+  const structuralBlocks = useMemo(
+    () => (message.responseBlocks ?? []).filter(b => b.kind !== 'text'),
+    [message.responseBlocks],
+  )
+
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
   const hasThinking = Boolean(message.thinking);
@@ -600,18 +607,15 @@ export function ChatMessage({
         {/* Structural blocks (tables, charts, steps, follow-ups, tags, etc.) come
             from responseBlocks. Text blocks are skipped here because message.content
             already carries the full text rendered above. */}
-        {(() => {
-          const structuralBlocks = (message.responseBlocks ?? []).filter(b => b.kind !== 'text')
-          return structuralBlocks.length > 0 ? (
-            <BlockSequenceRenderer
-              blocks={structuralBlocks}
-              static={!message.isLoading}
-              onFollowUp={onFollowUp}
-              onRetry={onRetry}
-              webCitations={message.webCitations}
-            />
-          ) : null
-        })()}
+        {structuralBlocks.length > 0 ? (
+          <BlockSequenceRenderer
+            blocks={structuralBlocks}
+            static={!message.isLoading}
+            onFollowUp={onFollowUp}
+            onRetry={onRetry}
+            webCitations={message.webCitations}
+          />
+        ) : null}
 
         {/* Citation sources - shown below response when citations are present */}
         {message.webCitations && message.webCitations.length > 0 && !message.isLoading && (

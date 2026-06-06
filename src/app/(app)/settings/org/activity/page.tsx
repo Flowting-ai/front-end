@@ -142,10 +142,10 @@ export default function OrgActivityPage() {
         display:        'flex',
         alignItems:     'flex-start',
         justifyContent: 'center',
-        padding:        '96px 155px 48px',
+        padding:        '64px 24px 48px',
       }}
     >
-      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: 4 }}>
             <h1 style={{ flex: '1 0 0', fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

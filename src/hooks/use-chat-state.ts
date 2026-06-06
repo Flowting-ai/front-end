@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { getChatMessages } from "@/lib/api/chat"
 import { toUIMessages } from "@/lib/normalizers/message-transformer"
 import { logger } from "@/lib/logger"
+import { getStreamCompletion } from "@/lib/stream-registry"
 import type { Message } from "@/types/chat"
 
 // ── UIMessage ─────────────────────────────────────────────────────────────────
@@ -268,6 +269,9 @@ export interface UseChatStateResult {
   clearMessages: () => void
   /** Mark a chat ID as optimistically created (prevents fetch-and-clear on navigate). */
   markChatAsOptimistic: (id: string) => void
+  /** Re-fetch the current chat's messages from the API without clearing chatId state.
+   *  Used after recovering from a dropped stream connection. */
+  refreshMessages: () => Promise<void>
 }
 
 // ── Implementation ────────────────────────────────────────────────────────────
@@ -317,6 +321,49 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     if (optimisticChatIdsRef.current.has(chatId)) {
       optimisticChatIdsRef.current.delete(chatId)
       return
+    }
+
+    // If a background stream is still running for this chat (the user navigated
+    // away while it was generating), wait for it to finish before reloading
+    // from the API so the complete response is always shown.
+    const pendingStream = getStreamCompletion(chatId)
+    if (pendingStream) {
+      let cancelled = false
+      loadingRef.current = true
+      setIsLoadingMessages(true)
+      setMessages([])
+      cursorRef.current = undefined
+
+      // Cap the wait at 90 s so a hung stream never blocks the UI indefinitely.
+      const streamTimeout = new Promise<void>((resolve) => setTimeout(resolve, 90_000))
+      void Promise.race([pendingStream, streamTimeout]).then(async () => {
+        if (cancelled) return
+        try {
+          if (options?.loadMessages) {
+            const msgs = await options.loadMessages(chatId)
+            if (!cancelled) {
+              setMessages(msgs)
+              setHasMoreMessages(false)
+            }
+          } else {
+            const res = await getChatMessages(chatId)
+            if (!cancelled) {
+              setMessages(toUIMessages(res.messages))
+              setHasMoreMessages(res.has_more)
+              cursorRef.current = res.next_cursor ?? undefined
+            }
+          }
+        } catch (err) {
+          logger.error("[useChatState] Failed to reload after background stream", err)
+        } finally {
+          if (!cancelled) setIsLoadingMessages(false)
+          loadingRef.current = false
+        }
+      })
+
+      return () => {
+        cancelled = true
+      }
     }
 
     let cancelled = false
@@ -422,6 +469,32 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     optimisticChatIdsRef.current.add(id)
   }, [])
 
+  /** Re-fetch the current chat's messages from the API (e.g. after recovering
+   *  from a dropped background-stream connection). */
+  const refreshMessages = useCallback(async () => {
+    if (!chatId || loadingRef.current) return
+    loadingRef.current = true
+    setIsLoadingMessages(true)
+    try {
+      if (options?.loadMessages) {
+        const msgs = await options.loadMessages(chatId)
+        setMessages(msgs)
+        setHasMoreMessages(false)
+      } else {
+        const res = await getChatMessages(chatId)
+        setMessages(toUIMessages(res.messages))
+        setHasMoreMessages(res.has_more)
+        cursorRef.current = res.next_cursor ?? undefined
+      }
+    } catch (err) {
+      logger.error("[useChatState] Failed to refresh messages", err)
+    } finally {
+      setIsLoadingMessages(false)
+      loadingRef.current = false
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- options is stable for each hook consumer
+  }, [chatId])
+
   return {
     messages,
     setMessages,
@@ -433,5 +506,6 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     rollbackLast,
     clearMessages,
     markChatAsOptimistic,
+    refreshMessages,
   }
 }

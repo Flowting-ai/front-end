@@ -13,7 +13,7 @@
  * See: docs/frontend-rendering.md - Tables section.
  */
 
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useLayoutEffect, useMemo, useState } from "react"
 import { AnimatePresence, m } from "framer-motion"
 
 interface ParsedTable {
@@ -184,7 +184,7 @@ export function XmlTable({ xml, animate = true }: XmlTableProps) {
   const [mounted, setMounted] = useState(false)
 
   // eslint-disable-next-line react-doctor/rendering-hydration-no-flicker -- intentional SSR skeleton; chart animations need client-only render
-  useEffect(() => {
+  useLayoutEffect(() => {
     setMounted(true)
   }, [])
 

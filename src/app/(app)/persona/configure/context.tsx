@@ -134,6 +134,7 @@ interface PersonaConfigureContextValue {
   setTestChatAttachments: React.Dispatch<React.SetStateAction<PendingAttachment[]>>
   handleTestChatAddFiles: () => void
   handleTestChatFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  handleTestChatFilePaste: (files: File[]) => void
   testChatFileInputRef: React.RefObject<HTMLInputElement | null>
   FILE_ACCEPT: string
 
@@ -434,6 +435,10 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     }
   }, [processFiles])
 
+  const handleTestChatFilePaste = useCallback((files: File[]) => {
+    setTestChatAttachments(prev => processFiles(files, prev))
+  }, [processFiles])
+
   const handleTestChatSend = useCallback(async (value: string) => {
     const trimmedValue = value.trim()
     const { repoId, versionId, connectorSlugs, disabledConnectorSlugs } = infoRef.current
@@ -644,6 +649,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     setTestChatAttachments,
     handleTestChatAddFiles,
     handleTestChatFileChange,
+    handleTestChatFilePaste,
     testChatFileInputRef,
     FILE_ACCEPT,
 

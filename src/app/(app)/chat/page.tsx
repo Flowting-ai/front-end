@@ -887,6 +887,7 @@ function ChatPageInner() {
                       value={newChatInput}
                       onChange={setNewChatInput}
                       onSend={handleNewChatSend}
+                      onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
                       modelName={modelButtonLabel}
                       onModelClick={selectedPersona ? undefined : handleModelClick}
                       addMenu={addMenu}

@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api/client"
 import { CHAT_STOP_ENDPOINT } from "@/lib/config"
 import { logger } from "@/lib/logger"
 import type { UIMessage } from "@/hooks/use-chat-state"
+import { registerStream, completeStream } from "@/lib/stream-registry"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,9 @@ export interface UseStreamingChatParams {
   /** Custom stop handler. When provided, called instead of the default CHAT_STOP_ENDPOINT call.
    *  Receives the resolved chatId. Use for persona chat stop endpoints. */
   onStopBackend?: (chatId: string) => void
+  /** Ref to the chatId currently displayed in the UI. When provided, setStreamState calls are
+   *  suppressed for background streams whose chatId no longer matches what is displayed. */
+  currentChatIdRef?: React.RefObject<string | undefined>
 }
 
 // ── Batch-flush interval ──────────────────────────────────────────────────────
@@ -47,6 +51,7 @@ export function useStreamingChat({
   onStreamDone,
   endpoint = "/api/chat",
   onStopBackend,
+  currentChatIdRef,
 }: UseStreamingChatParams) {
   const xhrRef = useRef<XMLHttpRequest | null>(null)
   const stopRequestedRef = useRef(false)
@@ -116,6 +121,7 @@ export function useStreamingChat({
     xhrRef.current?.abort()
     stopFlushInterval()
     flushPending()
+    completeStream(resolvedChatIdRef.current)
     setStreamState?.("aborted")
 
     const msgId = loadingMessageIdRef.current
@@ -168,6 +174,15 @@ export function useStreamingChat({
     loadingMessageIdRef.current = loadingMessageId
     userMessageIdRef.current = options?.userMessageId ?? null
     resolvedChatIdRef.current = chatId
+    registerStream(chatId)
+
+    // Returns true if this stream's chat is still the one the user is viewing.
+    // Used to suppress setStreamState calls for background (unfocused) streams.
+    const isActiveStream = () => {
+      if (!currentChatIdRef?.current) return true
+      const streamId = resolvedChatIdRef.current
+      return streamId === null || streamId === currentChatIdRef.current
+    }
 
     setStreamState?.("waiting")
 
@@ -274,7 +289,7 @@ export function useStreamingChat({
               isThinkingInProgress: stillThinking && !reasoningContent,
               isLoading: true,
             }, wasEmpty)
-            setStreamState?.("streaming")
+            if (isActiveStream()) setStreamState?.("streaming")
             continue
           }
 
@@ -1275,7 +1290,7 @@ export function useStreamingChat({
         // Upload finished → signal 100%, enter SSE streaming phase
         xhr.upload.addEventListener("loadend", () => {
           options?.onUploadProgress?.(100)
-          setStreamState?.("streaming")
+          if (isActiveStream()) setStreamState?.("streaming")
           startFlushInterval()
         })
 
@@ -1376,11 +1391,13 @@ export function useStreamingChat({
         }
       }
 
+      completeStream(resolvedChatIdRef.current)
       setStreamState?.("done")
       onStreamDone?.()
     } catch (error) {
       stopFlushInterval()
       flushPending()
+      completeStream(resolvedChatIdRef.current)
 
       // User-initiated stop - not an error
       if (stopRequestedRef.current) {
@@ -1425,6 +1442,7 @@ export function useStreamingChat({
     if (resolvedChatIdRef.current === chatId) return
     if (resolvedChatIdRef.current && !resolvedChatIdRef.current.startsWith("temp-")) return
     resolvedChatIdRef.current = chatId
+    registerStream(chatId)
     onChatCreated?.(chatId)
   }
 

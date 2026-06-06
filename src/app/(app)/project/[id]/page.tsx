@@ -273,6 +273,7 @@ export default function ProjectPage() {
               value={chatInputValue}
               onChange={setChatInputValue}
               onSend={handleSendChat}
+              onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
               modelName={modelButtonLabel}
               onModelClick={handleModelClick}
               modelMenu={<ModelMenu />}

@@ -1,4 +1,4 @@
-﻿﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, m } from "framer-motion";
@@ -36,7 +36,7 @@ import type {
   SearchTimeoutData,
 } from "@/hooks/use-chat-state";
 
-// â"€â"€ Shared helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� Shared helpers �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function HIcon({ icon, size = 14, color = "#827A74", strokeWidth = 1.5 }: { icon: any; size?: number; color?: string; strokeWidth?: number }) {
@@ -54,7 +54,7 @@ const INLINE_CODE_STYLE: React.CSSProperties = {
   whiteSpace: "pre",
 };
 
-// ── CitationChip — inline numbered chip backed by SourceCitation hover card ────
+// -- CitationChip � inline numbered chip backed by SourceCitation hover card ----
 
 function webCitationToSourceItem(citation: WebCitation, n: number): SourceItem {
   return {
@@ -87,7 +87,7 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
   )
 }
 
-// ── SourceList — footnote list of web citations backed by SourceListUI ─────────
+// -- SourceList � footnote list of web citations backed by SourceListUI ---------
 
 export function SourceList({ citations }: { citations: WebCitation[] }) {
   const sources = citations.map((c, i) => webCitationToSourceItem(c, i + 1))
@@ -102,7 +102,7 @@ export function SourceList({ citations }: { citations: WebCitation[] }) {
   )
 }
 
-// â"€â"€ KaTeX helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� KaTeX helpers �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 /** Render a KaTeX inline span, falling back to the raw source on error. */
 function renderKatexInline(math: string, key: number | string): React.ReactNode {
@@ -143,10 +143,10 @@ function renderKatexBlock(
   }
 }
 
-// â"€â"€ Inline markdown renderer â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� Inline markdown renderer �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 function renderInlineRich(line: string, citations?: WebCitation[]): React.ReactNode[] {
-  // Build url→index map for citation chip lookup (same logic as LineRenderer).
+  // Build url?index map for citation chip lookup (same logic as LineRenderer).
   const urlMap = citations && citations.length > 0
     ? new Map(citations.map((c, i) => [c.url, i] as [string | undefined, number]).filter(([u]) => u))
     : null
@@ -253,9 +253,9 @@ const GAP = 14;
 function normalizeBoldTitles(text: string): string {
   return text
     // Collapse bold markers split across line breaks (LLM sometimes puts ** on its own line):
-    // **text\n**  →  **text**
+    // **text\n**  ?  **text**
     .replace(/(\*\*[^*\n]+)\n\s*(\*\*)/g, '$1$2')
-    // **\ntext**  →  **text**
+    // **\ntext**  ?  **text**
     .replace(/(\*\*)\n+([^*\n]+\*\*)/g, '$1$2')
     // Insert blank line BEFORE **..** when immediately preceded by a non-whitespace char
     .replace(/([^\s\n])(\*\*[^*\n]+\*\*)/g, '$1\n\n$2')
@@ -276,18 +276,18 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
         const tail = isLast ? cursor : null;
         const trimmedBlock = block.trim();
 
-        // â"€â"€ Display math block: \[...\] â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // �"��"� Display math block: \[...\] �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
         if (trimmedBlock.startsWith("\\[")) {
           const closeIdx = trimmedBlock.indexOf("\\]", 2);
           if (closeIdx !== -1) {
             const math = trimmedBlock.slice(2, closeIdx).trim();
             return renderKatexBlock(math, bi, tail);
           }
-          // Unclosed \[ during streaming â€" render nothing until it closes
+          // Unclosed \[ during streaming �" render nothing until it closes
           return null;
         }
 
-        // â"€â"€ Display math block: $$...$$ â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // �"��"� Display math block: $$...$$ �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
         if (trimmedBlock.startsWith("$$")) {
           const rest = trimmedBlock.slice(2);
           const closeIdx = rest.indexOf("$$");
@@ -295,7 +295,7 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
             const math = rest.slice(0, closeIdx).trim();
             return renderKatexBlock(math, bi, tail);
           }
-          // Unclosed $$ during streaming â€" render nothing until it closes
+          // Unclosed $$ during streaming �" render nothing until it closes
           return null;
         }
 
@@ -392,7 +392,7 @@ export function TextBlockContent({ text, citations, cursor }: { text: string; ci
   return <>{renderTextBlock(text, citations, cursor)}</>
 }
 
-// â"€â"€ BreathingDot - streaming cursor â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� BreathingDot - streaming cursor �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 function BreathingDot() {
   return (
@@ -404,7 +404,7 @@ function BreathingDot() {
   );
 }
 
-// â"€â"€ StructuredResponseWrapper - breathing dot until block starts animating â"€â"€â"€
+// �"��"� StructuredResponseWrapper - breathing dot until block starts animating �"��"��"�
 
 function StructuredResponseWrapper({ firstTokenDelay, onComplete, children }: {
   firstTokenDelay: number;
@@ -423,13 +423,13 @@ function StructuredResponseWrapper({ firstTokenDelay, onComplete, children }: {
   return <>{children(onComplete)}</>;
 }
 
-// â"€â"€ TableCell renderer â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� TableCell renderer �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"]): React.ReactNode {
   if (typeof cell === "object") {
     if (cell.type === "check") return (
       <span style={{ fontWeight: 600, fontSize: 14, color: cell.value ? "#80B707" : "#C0B5AD" }}>
-        {cell.value ? "âœ“" : "-"}
+        {cell.value ? "✓" : "-"}
       </span>
     );
     if (cell.type === "badge") return (
@@ -470,7 +470,7 @@ function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"])
       </span>
     );
   }
-  if (strVal === "âœ“") return <span style={{ color: "#80B707", fontWeight: 700 }}>âœ"</span>;
+  if (strVal === "✓") return <span style={{ color: "#80B707", fontWeight: 700 }}>�"</span>;
   if (strVal === "-") return <span style={{ color: "#C0B5AD", fontWeight: 400 }}>-</span>;
   return strVal;
 }
@@ -489,7 +489,7 @@ function sortableValue(cell: TableCellValue): string | number {
   return "";
 }
 
-// â"€â"€ AnimatedTable â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� AnimatedTable �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 function AnimatedTable({ data, onComplete, animate = true }: { data: TableData; onComplete: () => void; animate?: boolean }) {
   const [skeletonVisible, setSkeletonVisible] = useState(() => animate);
@@ -611,14 +611,15 @@ function AnimatedTable({ data, onComplete, animate = true }: { data: TableData; 
               <span>{h}</span>
               {data.sortable && (
                 <span style={{ fontSize: 12, lineHeight: 1, color: sortCol === ci ? "#683D1B" : "#C0B5AD" }}>
-                  {sortCol === ci ? (sortDir === "asc" ? "â†'" : "â†“") : "â†•"}
+                  {sortCol === ci ? (sortDir === "asc" ? "�'" : "↓") : "↕"}
                 </span>
               )}
             </div>
           ))}
         </div>
 
-        {/* Skeleton */}
+        {/* Skeleton: use a CSS-only pulse animation so the shimmer runs on the GPU
+             and causes zero JS-thread work or layout recalculations during streaming. */}
         <AnimatePresence>
           {skeletonVisible && (
             <m.div key="skeleton" exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
@@ -633,14 +634,11 @@ function AnimatedTable({ data, onComplete, animate = true }: { data: TableData; 
                     <div key={ci} style={{ padding: cellPad, borderLeft: cellBorderLeft(ci), display: "flex", justifyContent: (isFinancial && ci > 0) ? "flex-end" : (v === "feature-comparison" && ci > 0) ? "center" : "flex-start" }}>
                       {isMixed && ci === 0 ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: 5, width: "100%" }}>
-                          <m.div animate={{ opacity: [0.35, 0.85, 0.35] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: (ri + ci) * 0.06 }}
-                            style={{ height: 11, width: `${skelW(ri, ci)}%`, background: "rgba(59,54,50,0.10)", borderRadius: 3 }} />
-                          <m.div animate={{ opacity: [0.25, 0.65, 0.25] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: (ri + ci) * 0.06 + 0.1 }}
-                            style={{ height: 8, width: `${skelW(ri, ci) * 0.6}%`, background: "rgba(59,54,50,0.05)", borderRadius: 3 }} />
+                          <div style={{ height: 11, width: `${skelW(ri, ci)}%`, background: "rgba(59,54,50,0.10)", borderRadius: 3, animation: `kaya-skeleton-pulse 1.4s ease-in-out infinite`, animationDelay: `${(ri + ci) * 0.06}s` }} />
+                          <div style={{ height: 8, width: `${skelW(ri, ci) * 0.6}%`, background: "rgba(59,54,50,0.05)", borderRadius: 3, animation: `kaya-skeleton-pulse 1.4s ease-in-out infinite`, animationDelay: `${(ri + ci) * 0.06 + 0.1}s` }} />
                         </div>
                       ) : (
-                        <m.div animate={{ opacity: [0.35, 0.85, 0.35] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: (ri + ci) * 0.06 }}
-                          style={{ height: skelH, width: `${skelW(ri, ci)}%`, background: "rgba(59,54,50,0.10)", borderRadius: 4 }} />
+                        <div style={{ height: skelH, width: `${skelW(ri, ci)}%`, background: "rgba(59,54,50,0.10)", borderRadius: 4, animation: `kaya-skeleton-pulse 1.4s ease-in-out infinite`, animationDelay: `${(ri + ci) * 0.06}s` }} />
                       )}
                     </div>
                   ))}
@@ -698,7 +696,7 @@ function AnimatedTable({ data, onComplete, animate = true }: { data: TableData; 
           <m.div key="actions" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}
             style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, paddingLeft: 1 }}>
             <span style={{ fontSize: 12, color: "#C0B5AD", flex: 1 }}>
-              {data.rows.length} rows Â· {data.headers.length} col
+              {data.rows.length} rows · {data.headers.length} col
             </span>
             <button onClick={copyMarkdown} style={{
               display: "flex", alignItems: "center", gap: 5, padding: "3px 9px",
@@ -718,7 +716,7 @@ function AnimatedTable({ data, onComplete, animate = true }: { data: TableData; 
   );
 }
 
-// â"€â"€ AnimatedBarChart - 6 variants â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� AnimatedBarChart - 6 variants �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 const BAR_PALETTE = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B", "#A28847", "#524B47"];
 
@@ -734,8 +732,8 @@ function BarChartShell({ title, variant, children }: { title?: string; variant: 
   );
 }
 
-function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete: () => void }) {
-  const [revealed, setRevealed] = useState(false);
+function AnimatedBarChart({ data, onComplete, animate = true }: { data: BarChartData; onComplete: () => void; animate?: boolean }) {
+  const [revealed, setRevealed] = useState(!animate);
   const v = data.variant ?? "vertical";
 
   const chartH: number = (() => {
@@ -760,6 +758,7 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
   }
 
   useEffect(() => {
+    if (!animate) { onComplete(); return; }
     const t = setTimeout(() => { setRevealed(true); setTimeout(onComplete, totalDelay); }, 140);
     return () => clearTimeout(t);
   }, []); // eslint-disable-line
@@ -1019,12 +1018,13 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
   return null;
 }
 
-// â"€â"€ AnimatedSteps â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� AnimatedSteps �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
-function AnimatedSteps({ data, onComplete }: { data: StepsData; onComplete: () => void }) {
-  const [revealedSteps, setRevealedSteps] = useState(0);
+function AnimatedSteps({ data, onComplete, animate = true }: { data: StepsData; onComplete: () => void; animate?: boolean }) {
+  const [revealedSteps, setRevealedSteps] = useState(() => animate ? 0 : data.steps.length);
 
   useEffect(() => {
+    if (!animate) { onComplete(); return; }
     let idx = 0;
     const interval = setInterval(() => {
       idx++;
@@ -1067,7 +1067,7 @@ function AnimatedSteps({ data, onComplete }: { data: StepsData; onComplete: () =
   );
 }
 
-// â"€â"€ AnimatedCodeBlock â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� AnimatedCodeBlock �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 function highlightCode(line: string): React.ReactNode[] {
   const KW_COLOR = "#7BB8F5";
@@ -1108,14 +1108,14 @@ function highlightCode(line: string): React.ReactNode[] {
 
 const CODE_COLLAPSE_THRESHOLD = 20;
 
-function AnimatedCodeBlock({ data, onComplete }: { data: CodeData; onComplete: () => void }) {
+function AnimatedCodeBlock({ data, onComplete, animate = true }: { data: CodeData; onComplete: () => void; animate?: boolean }) {
   const lines = data.code.split("\n");
   const totalLines = lines.length;
   const isLong = totalLines > CODE_COLLAPSE_THRESHOLD;
 
-  const [revealedLines, setRevealedLines] = useState(0);
+  const [revealedLines, setRevealedLines] = useState(() => animate ? 0 : totalLines);
   const [copied, setCopied] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(!animate && isLong);
   const [copyHovered, setCopyHovered] = useState(false);
 
   const streamDone = revealedLines >= totalLines;
@@ -1125,6 +1125,7 @@ function AnimatedCodeBlock({ data, onComplete }: { data: CodeData; onComplete: (
   const hiddenCount = totalLines - CODE_COLLAPSE_THRESHOLD;
 
   useEffect(() => {
+    if (!animate) { onComplete(); return; }
     let idx = 0;
     const interval = Math.min(55, Math.round(1400 / totalLines));
     const t = setInterval(() => {
@@ -1214,7 +1215,7 @@ function AnimatedCodeBlock({ data, onComplete }: { data: CodeData; onComplete: (
   );
 }
 
-// â"€â"€ AnimatedCallout â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� AnimatedCallout �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 const CALLOUT_CFG = {
   info:    { bg: "rgba(13,110,178,0.07)",  border: "#0D6EB2", icon: InformationCircleIcon, color: "#0D6EB2" },
@@ -1242,7 +1243,7 @@ function AnimatedCallout({ data, onComplete }: { data: CalloutData; onComplete: 
   );
 }
 
-// â"€â"€ AnimatedTags â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� AnimatedTags �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 const TAG_PALETTES = [
   { bg: "rgba(104,61,27,0.1)",   text: "#683D1B",  border: "rgba(104,61,27,0.2)" },
@@ -1252,9 +1253,10 @@ const TAG_PALETTES = [
   { bg: "rgba(156,147,139,0.12)",text: "#6A625D",  border: "rgba(156,147,139,0.24)" },
 ];
 
-function AnimatedTags({ data, onComplete }: { data: TagsData; onComplete: () => void }) {
-  const [revealedTags, setRevealedTags] = useState(0);
+function AnimatedTags({ data, onComplete, animate = true }: { data: TagsData; onComplete: () => void; animate?: boolean }) {
+  const [revealedTags, setRevealedTags] = useState(() => animate ? 0 : data.tags.length);
   useEffect(() => {
+    if (!animate) { onComplete(); return; }
     let idx = 0;
     const t = setInterval(() => {
       idx++;
@@ -1287,12 +1289,12 @@ function AnimatedTags({ data, onComplete }: { data: TagsData; onComplete: () => 
   );
 }
 
-// â"€â"€ AnimatedPieChart â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� AnimatedPieChart �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 const PIE_COLORS_HEX = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B", "#524B47", "#A28847"];
 
-function AnimatedPieChart({ data, onComplete }: { data: PieChartData; onComplete: () => void }) {
-  const [revealedCount, setRevealedCount] = useState(0);
+function AnimatedPieChart({ data, onComplete, animate = true }: { data: PieChartData; onComplete: () => void; animate?: boolean }) {
+  const [revealedCount, setRevealedCount] = useState(() => animate ? 0 : data.segments.length);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const R = 90, CX = 110, CY = 110, SW = 26;
   const circ = 2 * Math.PI * R;
@@ -1307,6 +1309,7 @@ function AnimatedPieChart({ data, onComplete }: { data: PieChartData; onComplete
   });
 
   useEffect(() => {
+    if (!animate) { onComplete(); return; }
     let idx = 0;
     const t = setInterval(() => {
       idx++;
@@ -1370,10 +1373,10 @@ function AnimatedPieChart({ data, onComplete }: { data: PieChartData; onComplete
   );
 }
 
-// â"€â"€ AnimatedLineChart â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� AnimatedLineChart �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
-function AnimatedLineChart({ data, onComplete }: { data: LineChartData; onComplete: () => void }) {
-  const [revealed, setRevealed] = useState(false);
+function AnimatedLineChart({ data, onComplete, animate = true }: { data: LineChartData; onComplete: () => void; animate?: boolean }) {
+  const [revealed, setRevealed] = useState(!animate);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [hoverContainerX, setHoverContainerX] = useState(0);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -1397,6 +1400,7 @@ function AnimatedLineChart({ data, onComplete }: { data: LineChartData; onComple
   });
 
   useEffect(() => {
+    if (!animate) { onComplete(); return; }
     const t = setTimeout(() => { setRevealed(true); setTimeout(onComplete, 1300); }, 120);
     return () => clearTimeout(t);
   }, []); // eslint-disable-line
@@ -1503,7 +1507,7 @@ function AnimatedLineChart({ data, onComplete }: { data: LineChartData; onComple
   );
 }
 
-// â"€â"€ AnimatedCard â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� AnimatedCard �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 function AnimatedCard({ data, onComplete }: { data: CardData; onComplete: () => void }) {
   useEffect(() => { const t = setTimeout(onComplete, 380); return () => clearTimeout(t); }, []); // eslint-disable-line
@@ -1522,7 +1526,7 @@ function AnimatedCard({ data, onComplete }: { data: CardData; onComplete: () => 
   );
 }
 
-// â"€â"€ AnimatedConnectorError â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� AnimatedConnectorError �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 function AnimatedConnectorError({ data, onComplete, onRetry }: { data: ConnectorErrorData; onComplete: () => void; onRetry?: () => void }) {
   useEffect(() => { const t = setTimeout(onComplete, 420); return () => clearTimeout(t); }, []); // eslint-disable-line
@@ -1534,7 +1538,7 @@ function AnimatedConnectorError({ data, onComplete, onRetry }: { data: Connector
       <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flex: 1, minWidth: 0 }}>
-            <span style={{ fontSize: 14 }}>{data.icon ?? "âš ï¸"}</span>
+            <span style={{ fontSize: 14 }}>{data.icon ?? "⚠️"}</span>
             <span style={{ fontSize: 14, fontWeight: 600, color: "#26211E" }}>{data.connector}</span>
             <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.4px", textTransform: "uppercase", color: "#A82E2E", background: "rgba(195,56,56,0.1)", border: "1px solid rgba(195,56,56,0.2)", borderRadius: 5, padding: "1px 6px", flexShrink: 0 }}>Auth expired</span>
           </div>
@@ -1550,7 +1554,7 @@ function AnimatedConnectorError({ data, onComplete, onRetry }: { data: Connector
   );
 }
 
-// â"€â"€ AnimatedSearchTimeout â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� AnimatedSearchTimeout �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
 function AnimatedSearchTimeout({ data, onComplete, onRetry }: { data: SearchTimeoutData; onComplete: () => void; onRetry?: () => void }) {
   useEffect(() => { const t = setTimeout(onComplete, 420); return () => clearTimeout(t); }, []); // eslint-disable-line
@@ -1579,16 +1583,18 @@ function AnimatedSearchTimeout({ data, onComplete, onRetry }: { data: SearchTime
   );
 }
 
-// â"€â"€ FollowUps renderer â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� FollowUps renderer �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
-function AnimatedFollowUps({ data, onComplete, onFollowUp }: {
+function AnimatedFollowUps({ data, onComplete, onFollowUp, animate = true }: {
   data: FollowUpsData;
   onComplete: () => void;
   onFollowUp?: (prompt: string) => void;
+  animate?: boolean;
 }) {
-  const [revealed, setRevealed] = useState(0);
+  const [revealed, setRevealed] = useState(() => animate ? 0 : data.prompts.length);
 
   useEffect(() => {
+    if (!animate) { onComplete(); return; }
     let idx = 0;
     const t = setInterval(() => {
       idx++;
@@ -1612,7 +1618,7 @@ function AnimatedFollowUps({ data, onComplete, onFollowUp }: {
             style={{ display: "flex", alignItems: "center", gap: 8, background: "white", border: "1px solid #EDE1D7", borderRadius: 10, padding: "10px 14px", fontSize: 14, color: "#524B47", cursor: "pointer", textAlign: "left", width: "100%", transition: "all 140ms", fontFamily: "var(--font-body)" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(104,61,27,0.04)"; e.currentTarget.style.borderColor = "rgba(104,61,27,0.2)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "white"; e.currentTarget.style.borderColor = "#EDE1D7"; }}>
-            <span style={{ color: "#C0B5AD", flexShrink: 0 }}>â†'</span>
+            <span style={{ color: "#C0B5AD", flexShrink: 0 }}>�'</span>
             {prompt}
           </m.button>
         ))}
@@ -1621,7 +1627,7 @@ function AnimatedFollowUps({ data, onComplete, onFollowUp }: {
   );
 }
 
-// â"€â"€ BlockSequenceRenderer â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// �"��"� BlockSequenceRenderer �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 // Animates each block in sequence - each block calls onComplete to advance.
 
 export interface BlockSequenceRendererProps {
@@ -1633,11 +1639,11 @@ export interface BlockSequenceRendererProps {
   onRetry?: () => void;
   /** If true, all blocks are rendered static immediately (no sequential animation) */
   static?: boolean;
-  /** Message-level web citations — used as fallback when a text block has no per-block citations */
+  /** Message-level web citations � used as fallback when a text block has no per-block citations */
   webCitations?: WebCitation[];
 }
 
-export function BlockSequenceRenderer({
+export const BlockSequenceRenderer = React.memo(function BlockSequenceRenderer({
   blocks,
   firstTokenDelay = 0,
   onAllComplete,
@@ -1687,22 +1693,22 @@ export function BlockSequenceRenderer({
             </StructuredResponseWrapper>
           );
 
-        if (block.kind === "table")           return wrap((d) => <AnimatedTable    data={block.data} onComplete={d} animate={!isDone} />);
-        if (block.kind === "bar-chart")        return wrap((d) => <AnimatedBarChart data={block.data} onComplete={d} />);
-        if (block.kind === "steps")            return wrap((d) => <AnimatedSteps    data={block.data} onComplete={d} />);
-        if (block.kind === "code")             return wrap((d) => <AnimatedCodeBlock data={block.data} onComplete={d} />);
-        if (block.kind === "callout")          return wrap((d) => <AnimatedCallout  data={block.data} onComplete={d} />);
-        if (block.kind === "tags")             return wrap((d) => <AnimatedTags     data={block.data} onComplete={d} />);
-        if (block.kind === "pie-chart")        return wrap((d) => <AnimatedPieChart data={block.data} onComplete={d} />);
-        if (block.kind === "line-chart")       return wrap((d) => <AnimatedLineChart data={block.data} onComplete={d} />);
-        if (block.kind === "card")             return wrap((d) => <AnimatedCard     data={block.data} onComplete={d} />);
+        if (block.kind === "table")           return wrap((d) => <AnimatedTable       data={block.data} onComplete={d} animate={!isDone} />);
+        if (block.kind === "bar-chart")        return wrap((d) => <AnimatedBarChart    data={block.data} onComplete={d} animate={!isDone} />);
+        if (block.kind === "steps")            return wrap((d) => <AnimatedSteps       data={block.data} onComplete={d} animate={!isDone} />);
+        if (block.kind === "code")             return wrap((d) => <AnimatedCodeBlock   data={block.data} onComplete={d} animate={!isDone} />);
+        if (block.kind === "callout")          return wrap((d) => <AnimatedCallout     data={block.data} onComplete={d} />);
+        if (block.kind === "tags")             return wrap((d) => <AnimatedTags        data={block.data} onComplete={d} animate={!isDone} />);
+        if (block.kind === "pie-chart")        return wrap((d) => <AnimatedPieChart    data={block.data} onComplete={d} animate={!isDone} />);
+        if (block.kind === "line-chart")       return wrap((d) => <AnimatedLineChart   data={block.data} onComplete={d} animate={!isDone} />);
+        if (block.kind === "card")             return wrap((d) => <AnimatedCard        data={block.data} onComplete={d} />);
         if (block.kind === "connector-error")  return wrap((d) => <AnimatedConnectorError data={block.data} onComplete={d} onRetry={onRetry} />);
         if (block.kind === "search-timeout")   return wrap((d) => <AnimatedSearchTimeout  data={block.data} onComplete={d} onRetry={onRetry} />);
         if (block.kind === "follow-ups") {
-          return wrap((d) => <AnimatedFollowUps data={block.data} onComplete={d} onFollowUp={onFollowUp} />);
+          return wrap((d) => <AnimatedFollowUps data={block.data} onComplete={d} onFollowUp={onFollowUp} animate={!isDone} />);
         }
         return null;
       })}
     </div>
   );
-}
+});

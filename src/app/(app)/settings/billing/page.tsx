@@ -504,10 +504,10 @@ export default function BillingPage() {
         className="kaya-scrollbar"
         style={{
           flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden',
-          display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '96px 155px 48px',
+          display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding:        '64px 24px 48px',
         }}
       >
-        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           {/* ── Page header (static) ── */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>

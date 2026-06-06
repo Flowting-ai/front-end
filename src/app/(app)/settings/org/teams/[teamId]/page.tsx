@@ -312,7 +312,7 @@ export default function TeamSettingsPage() {
         display:        'flex',
         alignItems:     'flex-start',
         justifyContent: 'center',
-        padding:        '96px 155px 48px',
+        padding:        '64px 24px 48px',
       }}
     >
       <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 1114 }}>

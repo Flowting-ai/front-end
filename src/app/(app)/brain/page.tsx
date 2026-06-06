@@ -2962,6 +2962,7 @@ function BrainPageInner() {
         isStreaming: brainIsStreaming,
         disabled: brainIsStreaming,
         onStop: handleStop,
+        onFilePaste: (files) => setBrainAttachments((prev) => processFiles(files, prev)),
         addMenu,
         modelMenu: <ModelMenu />,
         modelName: modelButtonLabel,

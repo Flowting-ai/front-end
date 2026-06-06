@@ -239,6 +239,37 @@ export function ChatInterface({
   const [highlightedPinIndex, setHighlightedPinIndex] = useState(0);
   const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
   const [atBottom, setAtBottom] = useState(true);
+  // Mirror of atBottom as a ref so the streaming scroll effect can read the
+  // latest value without needing it as a dependency (which would re-fire the
+  // effect on every scroll event, defeating the purpose).
+  const atBottomRef = useRef(true);
+
+  // Reset composed-but-unsent input whenever the user switches to a different chat.
+  // Safe on new-chat creation: handleSend already clears inputValue before onChatCreated fires.
+  const prevChatIdRef = useRef<string | null | undefined>(chatId)
+  useEffect(() => {
+    const prev = prevChatIdRef.current
+    prevChatIdRef.current = chatId ?? null
+    // Switching to a different real chat: reset streamState so the new chat's
+    // input doesn't inherit a streaming indicator from the previous chat's
+    // background stream. Exclude the null→realId transition for new chats.
+    if (prev !== chatId && prev !== null && prev !== undefined) {
+      setStreamState("idle")
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only run when chatId identity changes
+  }, [chatId])
+
+  useEffect(() => {
+    setInputValue("");
+    setAttachments([]);
+    setMentionedPins([]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only run when chatId identity changes
+  }, [chatId]);
+
+  // Ref always pointing to the currently displayed chatId.
+  // Passed to useStreamingChat to suppress setStreamState calls for background streams.
+  const currentChatIdRef = useRef<string | undefined>(chatId ?? undefined)
+  currentChatIdRef.current = chatId ?? undefined
 
   const messagesEndRef       = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -285,15 +316,64 @@ export function ChatInterface({
     addLoadingAssistantMessage,
     rollbackLast,
     markChatAsOptimistic,
+    refreshMessages,
   } = useChatState(chatId, chatStateOptions);
 
   const messages = rawMessages ?? [];
 
+  // ── Tab / page-reload resilience ──────────────────────────────────────────
+
+  // Warn before page reload when a stream is active so the user doesn't
+  // accidentally lose a response that's still being generated.
+  useEffect(() => {
+    const isActive = streamState === "streaming" || streamState === "waiting"
+    if (!isActive) return
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [streamState])
+
+  // When the browser tab regains focus, check if the SSE connection died
+  // silently while the tab was hidden (e.g. server timeout, proxy close).
+  // If there's a stuck loading message but no active stream, reload from the
+  // API so the user sees whatever the backend managed to save.
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return
+      const hasStuckMsg = messages.some((m) => m.isLoading)
+      const streamNotActive = streamState !== "streaming" && streamState !== "waiting"
+      if (hasStuckMsg && streamNotActive) {
+        void refreshMessages()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshMessages is stable; messages/streamState intentional deps
+  }, [messages, streamState, refreshMessages])
+
   const msgVirtualizer = useVirtualizer({
     count:            messages.length,
     getScrollElement: () => messagesContainerRef.current,
-    estimateSize:     () => 600,
-    overscan:         5,
+    // Role-aware size estimates so corrections when items are first measured
+    // are small, preventing scroll-position jumps when scrolling upward.
+    // User bubbles: short (≈80px base). AI messages scale with content length.
+    // These are estimates only — measureElement always wins once rendered.
+    estimateSize: (i) => {
+      const msg = messages[i]
+      if (!msg) return 200
+      if (msg.role === "user") {
+        // Base height for the bubble + padding; add ~16px per 80 chars
+        return 80 + Math.ceil((msg.content?.length ?? 0) / 80) * 16
+      }
+      // Assistant: base 120px + rough line estimate from content length
+      const contentLen = msg.content?.length ?? 0
+      const hasBlocks = (msg.responseBlocks?.length ?? 0) > 0
+      return Math.min(120 + Math.ceil(contentLen / 60) * 20 + (hasBlocks ? 300 : 0), 2000)
+    },
+    overscan:         10,
   });
 
   const { moveToTop } = { moveToTop: onChatMoveToTop ?? (() => {}) };
@@ -333,6 +413,7 @@ export function ChatInterface({
     onChatMoveToTop: (id) => moveToTop(id),
     setStreamState,
     onStreamDone: refreshUser,
+    currentChatIdRef,
     ...(endpoint ? { endpoint } : {}),
     ...(onStopBackend ? { onStopBackend } : {}),
   });
@@ -423,25 +504,30 @@ export function ChatInterface({
           return;
         }
       }
-      // Use instant scroll - smooth scroll can leave the user mid-thread.
-      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+      // Scroll to the last message using the virtualizer so the correct
+      // absolute position is used — scrollIntoView doesn't work reliably
+      // with virtualized lists where most items are not in the DOM yet.
+      msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
     }
   }, [isLoadingMessages, messages, scrollToMessageId, msgVirtualizer]);
 
-  // Scroll to bottom as new streaming content arrives.
-  // Use msgVirtualizer.scrollToIndex (not messagesEndRef.scrollIntoView) so the
-  // scroll target is always consistent with getTotalSize() — scrollIntoView races
-  // with the virtualizer's height recalculation and causes oscillation.
+  // Scroll to bottom as new streaming content arrives — but only when the
+  // user is already at (or near) the bottom. If they scrolled up to read
+  // earlier messages while the model is generating, we must NOT force them
+  // back down. atBottomRef always reflects the latest scroll position without
+  // creating a dependency cycle.
   const lastMessageContent = messages.length > 0
     ? messages[messages.length - 1]?.content?.length ?? 0
     : 0;
   useEffect(() => {
-    if (!isLoadingMessages && messages.length > 0 && isStreaming) {
+    if (!isLoadingMessages && messages.length > 0 && isStreaming && atBottomRef.current) {
       msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
     }
   }, [isStreaming, messages.length, lastMessageContent, isLoadingMessages, msgVirtualizer]);
 
-  // Scroll-to-top for pagination + track whether user is at bottom
+  // Scroll-to-top for pagination + track whether user is at bottom.
+  // We gate setAtBottom behind a threshold comparison against the ref value
+  // to avoid triggering React re-renders on every scroll pixel during streaming.
   const handleScroll = () => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -449,11 +535,17 @@ export function ChatInterface({
       loadMoreMessages();
     }
     const dist = container.scrollHeight - container.scrollTop - container.clientHeight;
-    setAtBottom(dist < 80);
+    const nowAtBottom = dist < 80;
+    // Always update the ref synchronously so the streaming effect sees it immediately.
+    atBottomRef.current = nowAtBottom;
+    // Only update state (and trigger a re-render) when the boolean value flips.
+    setAtBottom((prev) => (prev === nowAtBottom ? prev : nowAtBottom));
   };
 
   const scrollToBottom = useCallback(() => {
     if (messages.length === 0) return;
+    atBottomRef.current = true;
+    setAtBottom(true);
     msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
   }, [messages.length, msgVirtualizer]);
 
@@ -761,11 +853,18 @@ export function ChatInterface({
                   data-index={vRow.index}
                   ref={msgVirtualizer.measureElement}
                   style={{
-                    position:  'absolute',
-                    top:       0,
-                    left:      0,
-                    width:     '100%',
-                    transform: `translateY(${vRow.start}px)`,
+                    position:   'absolute',
+                    top:        0,
+                    left:       0,
+                    width:      '100%',
+                    transform:  `translateY(${vRow.start}px)`,
+                    // Promote each row to its own compositor layer so
+                    // translateY updates don't trigger a full-page repaint.
+                    willChange: 'transform',
+                    // Contain layout so height changes to this row (e.g. the
+                    // last streaming message growing) don't cause ancestor
+                    // reflows that disturb the scroll position of other rows.
+                    contain:    'layout',
                   }}
                 >
                   <ChatMessageMemo
@@ -870,6 +969,7 @@ export function ChatInterface({
             onSend={handleSend}
             onStop={handleStopGeneration}
             onAdd={handleAdd}
+            onFilePaste={(files) => setAttachments((prev) => processFiles(files, prev))}
             onModelClick={onModelClick}
             modelName={selectedModel ?? "Souvenir"}
             addMenu={addMenu}

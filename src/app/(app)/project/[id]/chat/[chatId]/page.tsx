@@ -613,6 +613,7 @@ function ProjectChatPageInner() {
                       value={newChatInput}
                       onChange={setNewChatInput}
                       onSend={handleSend}
+                      onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
                       modelName={modelButtonLabel}
                       onModelClick={handleModelClick}
                       addMenu={addMenu}

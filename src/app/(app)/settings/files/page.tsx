@@ -460,10 +460,10 @@ export default function FilesPage() {
         display:        'flex',
         alignItems:     'flex-start',
         justifyContent: 'center',
-        padding:        '96px 155px 48px',
+        padding:        '64px 24px 48px',
       }}
     >
-      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
         {/* ── Page header ── */}
         <div style={{ paddingLeft: 4, marginBottom: 4 }}>
@@ -497,7 +497,7 @@ export default function FilesPage() {
           {/* Header */}
           <CardSection divider padTop={12} padBottom={24}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
-              <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <p style={{
                   fontFamily:   'var(--font-body)',
                   fontWeight:   500,
