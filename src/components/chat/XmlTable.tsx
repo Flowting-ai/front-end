@@ -13,7 +13,7 @@
  * See: docs/frontend-rendering.md - Tables section.
  */
 
-import React, { useEffect, useLayoutEffect, useMemo, useState } from "react"
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, m } from "framer-motion"
 
 interface ParsedTable {
@@ -57,21 +57,35 @@ function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: 
       ? headers.map((_, ci) => (ci === 0 ? "1.6fr" : "1fr")).join(" ")
       : Array.from({ length: colCount }, (_, ci) => (ci === 0 ? "1.6fr" : "1fr")).join(" ")
 
+  // Keep a ref so the interval can always read the latest row count even as
+  // streaming appends new rows — avoids stale-closure capture.
+  const rowsLenRef = useRef(rows.length)
+  rowsLenRef.current = rows.length
+
   // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!animate) return
+    // Hoist iv outside setTimeout so the cleanup function can always cancel it,
+    // even if the timeout fires but the component unmounts before the interval ends.
+    let iv: ReturnType<typeof setInterval> | null = null
     const skelTimer = setTimeout(() => {
       setSkeletonVisible(false)
       let idx = 0
-      const iv = setInterval(() => {
+      iv = setInterval(() => {
         idx++
         setRevealedRows(idx)
-        if (idx >= rows.length) { clearInterval(iv); setIsDone(true) }
+        if (idx >= rowsLenRef.current) {
+          clearInterval(iv!)
+          iv = null
+          setIsDone(true)
+        }
       }, 72)
-      return () => clearInterval(iv)
     }, 500)
-    return () => clearTimeout(skelTimer)
-  }, [rows.length]) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      clearTimeout(skelTimer)
+      if (iv !== null) clearInterval(iv)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const rowBorderBottom = (ri: number) =>
     ri < rows.length - 1 ? "1px solid var(--neutral-700-12)" : "none"

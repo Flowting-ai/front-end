@@ -239,6 +239,10 @@ export function ChatInterface({
   const [highlightedPinIndex, setHighlightedPinIndex] = useState(0);
   const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
   const [atBottom, setAtBottom] = useState(true);
+  // True during the brief window after messages load while the virtualizer
+  // measures all rendered items. Keeps the spinner up and content hidden so
+  // the first visible frame is already at settled positions (no jitter).
+  const [isSettling, setIsSettling] = useState(false);
   // Mirror of atBottom as a ref so the streaming scroll effect can read the
   // latest value without needing it as a dependency (which would re-fire the
   // effect on every scroll event, defeating the purpose).
@@ -495,19 +499,30 @@ export function ChatInterface({
     const wasLoading = prevIsLoadingRef.current;
     prevIsLoadingRef.current = isLoadingMessages;
     if (wasLoading && !isLoadingMessages && messages.length > 0) {
-      // If a specific message was requested, scroll to it instead of the bottom.
+      // Enter settling: keep spinner up while the virtualizer renders and
+      // measures all initial items. Two RAF frames give the browser time to
+      // complete its layout pass so the first visible frame has no jitter.
+      setIsSettling(true);
+
+      // Scroll to target position while content is still hidden so the
+      // virtualizer places items at correct offsets before reveal.
       if (scrollToMessageId && scrolledToMessageRef.current !== scrollToMessageId) {
         const idx = messages.findIndex((m) => m.id === scrollToMessageId);
         if (idx !== -1) {
           scrolledToMessageRef.current = scrollToMessageId;
-          msgVirtualizer.scrollToIndex(idx, { align: 'start', behavior: 'smooth' });
-          return;
+          msgVirtualizer.scrollToIndex(idx, { align: 'start', behavior: 'auto' });
         }
+      } else {
+        msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
       }
-      // Scroll to the last message using the virtualizer so the correct
-      // absolute position is used — scrollIntoView doesn't work reliably
-      // with virtualized lists where most items are not in the DOM yet.
-      msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
+
+      const raf1 = requestAnimationFrame(() => {
+        const raf2 = requestAnimationFrame(() => {
+          setIsSettling(false);
+        });
+        return () => cancelAnimationFrame(raf2);
+      });
+      return () => cancelAnimationFrame(raf1);
     }
   }, [isLoadingMessages, messages, scrollToMessageId, msgVirtualizer]);
 
@@ -736,6 +751,64 @@ export function ChatInterface({
     );
   };
 
+  // Edit user message — replaces the message content, removes all subsequent
+  // messages, then re-streams an assistant response using the backend's
+  // replace_message_id edit API.
+  //
+  // Stable-ref pattern: the useCallback wrapper always has the same identity so
+  // ChatMessageMemo never gets a stale onEdit=undefined due to memoization.
+  // The real impl is stored in a ref and refreshed every render, so it always
+  // closes over the latest isStreaming, chatId, model settings, etc.
+  const _handleEditMessageImpl = useRef<(messageId: string, newContent: string) => void>(() => {})
+  // Update the ref synchronously during render (safe: only read in event handlers)
+  _handleEditMessageImpl.current = (messageId: string, newContent: string) => {
+    if (isStreaming) return  // never edit while a stream is in-flight
+
+    // User messages loaded from history have IDs like "{uuid}-prompt" (added by
+    // normalizeMessages). The backend requires a bare UUID for replace_message_id,
+    // so we strip the "-prompt" suffix before forwarding.
+    const bareMessageId = messageId.endsWith("-prompt")
+      ? messageId.slice(0, messageId.length - "-prompt".length)
+      : messageId
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const replaceMessageId =
+      bareMessageId &&
+      !bareMessageId.startsWith("temp-") &&
+      !bareMessageId.startsWith("optimistic-") &&
+      UUID_RE.test(bareMessageId)
+        ? bareMessageId
+        : undefined
+
+    // findIndex runs inside the functional updater so it always sees the current
+    // messages array — not a stale snapshot from the render closure.
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.id === messageId)
+      if (idx === -1) return prev
+      return prev
+        .map((m, i) => (i === idx ? { ...m, content: newContent } : m))
+        .slice(0, idx + 1)
+    })
+    const loadingId = addLoadingAssistantMessage()
+    const algorithm = museActive ? (museAdvanced ? "pro" : "base") : null
+
+    fetchAiResponse(newContent, chatId ?? null, loadingId, algorithm ? null : selectedModelId, {
+      webSearch: webSearchEnabled,
+      enableReasoning,
+      algorithm: algorithm ?? undefined,
+      personaId: selectedPersonaId ?? undefined,
+      systemPrompt: selectedPersonaSystemPrompt ?? undefined,
+      temperature: selectedPersonaTemperature ?? undefined,
+      toneId: selectedStyleId ?? undefined,
+      connectorSlugs: connectorSlugs && connectorSlugs.length > 0 ? connectorSlugs : undefined,
+      ...(replaceMessageId ? { replaceMessageId } : {}),
+    })
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stable wrapper; impl updates via ref
+  const handleEditMessage = useCallback(
+    (messageId: string, newContent: string) => _handleEditMessageImpl.current(messageId, newContent),
+    [],
+  )
+
   // Citations
   const handleCitationsClick = (sources: Source[]) => {
     setCitationsSources(sources);
@@ -826,8 +899,9 @@ export function ChatInterface({
         }}
       >
         <div style={{ width: "100%", maxWidth: "720px" }}>
-          {/* Loading indicator */}
-          {isLoadingMessages && (
+          {/* Loading indicator — shown while fetching AND while the virtualizer
+              settles its initial measurements so the first visible frame is jitter-free */}
+          {(isLoadingMessages || isSettling) && (
             <div
               style={{
                 display: "flex",
@@ -840,10 +914,12 @@ export function ChatInterface({
           )}
 
           {/* Empty state — shown when no messages and not loading */}
-          {!isLoadingMessages && messages.length === 0 && emptyState}
+          {!isLoadingMessages && !isSettling && messages.length === 0 && emptyState}
 
-          {/* Messages — virtualised: only renders visible rows */}
-          <div style={{ position: 'relative', height: msgVirtualizer.getTotalSize() }}>
+          {/* Messages — virtualised: only renders visible rows.
+              Hidden (not unmounted) during settling so the virtualizer can
+              measure items while the spinner is still shown. */}
+          <div style={{ position: 'relative', height: msgVirtualizer.getTotalSize(), visibility: isSettling ? 'hidden' : 'visible' }}>
             {msgVirtualizer.getVirtualItems().map((vRow) => {
               const message = messages[vRow.index];
               const idx     = vRow.index;
@@ -882,16 +958,8 @@ export function ChatInterface({
                         : undefined
                     }
                     onEdit={
-                      message.role === "user" && !isStreaming
-                        ? (_, newContent) => {
-                            setMessages((prev) =>
-                              prev.map((m) =>
-                                m.id === message.id
-                                  ? { ...m, content: newContent }
-                                  : m,
-                              ),
-                            );
-                          }
+                      message.role === "user"
+                        ? handleEditMessage
                         : undefined
                     }
                     onCitationsClick={

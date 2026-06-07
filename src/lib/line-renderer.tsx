@@ -71,7 +71,7 @@ function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): Reac
   //  8. bare https?:// URL  — auto-linked if not already inside [](…)
   //  9. \(inline math\)  — LaTeX \(...\) delimiter, rendered via KaTeX
   const re =
-    /\*\*([^*\n]+?)\*\*|__([^_\n]+?)__|(?<!\*)\*([^*\n]+?)\*(?!\*)|(?<!_)_([^_\n]+?)_(?!_)|`([^`\n]+?)`|\[([^\]\n]+?)\]\((https?:\/\/[^\)\n]+?)\)|~~([^~\n]+?)~~|\{(\d+)\}|\$([^$\n]+?)\$|(https?:\/\/[^\s\])\n>"']+)|\\\((.+?)\\\)/g
+    /\*\*([^*\n]+?)\*\*|__([^_\n]+?)__|(?<!\*)\*([^*\n]+?)\*(?!\*)|(?<!_)_([^_\n]+?)_(?!_)|`([^`\n]+?)`|\[([^\]\n]+?)\]\((https?:\/\/[^\)\n]+?)\)|~~([^~\n]+?)~~|\{(\d+)\}|\$([^$\n]+?)\$|(https?:\/\/[^\s\])\n>"']+|www\.[^\s\])\n>"']+|(?:[a-zA-Z0-9][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}\/[^\s\])\n>"']*)|\\\((.+?)\\\)/g
 
   let last = 0
   let idx = 0
@@ -114,28 +114,22 @@ function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): Reac
         </code>,
       )
     } else if (m[6] !== undefined && m[7] !== undefined) {
-      // [link](url)
-      const href = m[7]
-      if (urlMap?.has(href)) {
-        const n = urlMap.get(href)!
-        nodes.push(<CitationChip key={key} n={n + 1} citation={webCitations?.[n]} />)
-      } else {
-        nodes.push(
-          <a
-            key={key}
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: "var(--brown-500)",
-              textDecoration: "underline",
-              textUnderlineOffset: "2px",
-            }}
-          >
-            {m[6]}
-          </a>,
-        )
-      }
+      // [link](url) — always render as a proper link, never as a citation chip
+      nodes.push(
+        <a
+          key={key}
+          href={m[7]}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            color: "var(--brown-500)",
+            textDecoration: "underline",
+            textUnderlineOffset: "2px",
+          }}
+        >
+          {m[6]}
+        </a>,
+      )
     } else if (m[8] !== undefined) {
       // ~~strikethrough~~
       nodes.push(<s key={key}>{m[8]}</s>)
@@ -150,10 +144,14 @@ function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): Reac
       // \(inline math\) — LaTeX \(...\) delimiter, render with KaTeX
       nodes.push(renderKatex(m[12], false, key, ctx.highlights))
     } else if (m[11] !== undefined) {
-      // bare https?:// URL — auto-link it
-      const href = m[11]
-      let display = href
-      try { display = new URL(href).hostname + new URL(href).pathname.replace(/\/$/, "") } catch { /* use raw */ }
+      // bare URL (https?://, www., or domain/path) — auto-link it
+      const raw = m[11]
+      const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+      let display = raw
+      try {
+        const u = new URL(href)
+        display = u.hostname.replace(/^www\./, "") + u.pathname.replace(/\/$/, "")
+      } catch { /* use raw */ }
       if (urlMap?.has(href)) {
         const n = urlMap.get(href)!
         nodes.push(<CitationChip key={key} n={n + 1} citation={webCitations?.[n]} />)

@@ -10,6 +10,7 @@ import {
   TickTwoIcon,
 } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
+import { ContentRenderer } from '@/lib/content-renderer'
 
 // ── Animation constants (KDS in-place swap pattern) ────────────────────────────
 const SPRING       = { type: 'spring', stiffness: 500, damping: 30 } as const
@@ -201,7 +202,7 @@ export function MessageBubble({
               boxShadow:       '0px 1px 2px rgba(59,54,50,0.08), 0px 0px 0px 1px var(--neutral-200)',
             }}
           >
-            <p style={{ ...TEXT_STYLE, color: 'var(--neutral-900)', margin: 0 }}>{content}</p>
+            <ContentRenderer content={content} />
           </div>
         </div>
       )

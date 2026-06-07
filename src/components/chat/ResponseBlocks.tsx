@@ -58,9 +58,10 @@ const INLINE_CODE_STYLE: React.CSSProperties = {
 
 function webCitationToSourceItem(citation: WebCitation, n: number): SourceItem {
   return {
-    id: citation.url ?? n,
+    id:    citation.url ?? n,
     title: citation.title || citation.domain || `Source ${n}`,
-    url: citation.url,
+    url:   citation.url,
+    meta:  citation.domain || undefined,
   }
 }
 
@@ -152,8 +153,8 @@ function renderInlineRich(line: string, citations?: WebCitation[]): React.ReactN
     : null
 
   // Match (in priority order): \(...\) inline math, $...$ inline math,
-  // **bold**, `code`, {N} citation chip, [label](url) link, bare https?:// URL.
-  const regex = /\\\([\s\S]+?\\\)|\$[^$\n]+?\$|(\*\*[^*]+\*\*)|(`[^`\n]+`)|(\{\d+\})|(\[[^\]]+\]\(https?:\/\/[^)]+\))|(https?:\/\/[^\s\])\n>"']+)/g;
+  // **bold**, `code`, {N} citation chip, [label](url) link, bare URL (https?://, www., or domain/path).
+  const regex = /\\\([\s\S]+?\\\)|\$[^$\n]+?\$|(\*\*[^*]+\*\*)|(`[^`\n]+`)|(\{\d+\})|(\[[^\]]+\]\(https?:\/\/[^)]+\))|(https?:\/\/[^\s\])\n>"']+|www\.[^\s\])\n>"']+|(?:[a-zA-Z0-9][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}\/[^\s\])\n>"']*)/g;
   const nodes: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -182,23 +183,21 @@ function renderInlineRich(line: string, citations?: WebCitation[]): React.ReactN
       const n = parseInt(match[3].slice(1, -1), 10);
       nodes.push(<CitationChip key={count++} n={n} citation={citations?.[n - 1]} />);
     } else if (match[4] !== undefined) {
-      // [label](url)
+      // [label](url) — always render as a proper link, never as a citation chip
       const lm = match[4].match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
       if (lm) {
-        const href = lm[2]
-        const cidx = urlMap?.get(href)
-        if (cidx !== undefined) {
-          nodes.push(<CitationChip key={count++} n={cidx + 1} citation={citations?.[cidx]} />)
-        } else {
-          nodes.push(<a key={count++} href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#8B5523", textDecoration: "underline", textUnderlineOffset: 2 }}>{lm[1]}</a>);
-        }
+        nodes.push(<a key={count++} href={lm[2]} target="_blank" rel="noopener noreferrer" style={{ color: "#8B5523", textDecoration: "underline", textUnderlineOffset: 2 }}>{lm[1]}</a>);
       }
     } else if (match[5] !== undefined) {
-      // bare https?:// URL
-      const href = match[5]
+      // bare URL (https?://, www., or domain/path) — auto-link it
+      const raw = match[5]
+      const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
       const cidx = urlMap?.get(href)
-      let display = href
-      try { display = new URL(href).hostname + new URL(href).pathname.replace(/\/$/, "") } catch { /* use raw */ }
+      let display = raw
+      try {
+        const u = new URL(href)
+        display = u.hostname.replace(/^www\./, "") + u.pathname.replace(/\/$/, "")
+      } catch { /* use raw */ }
       if (cidx !== undefined) {
         nodes.push(<CitationChip key={count++} n={cidx + 1} citation={citations?.[cidx]} />)
       } else {
@@ -532,20 +531,25 @@ function AnimatedTable({ data, onComplete, animate = true }: { data: TableData; 
   useEffect(() => {
     if (!animate) return;
     const rowDelay = isCompact ? 52 : 72;
+    let iv: ReturnType<typeof setInterval> | null = null;
     const skT = setTimeout(() => {
       setSkeletonVisible(false);
       let idx = 0;
-      const iv = setInterval(() => {
+      iv = setInterval(() => {
         idx++;
         setRevealedRows(idx);
         if (idx >= data.rows.length) {
-          clearInterval(iv);
+          clearInterval(iv!);
+          iv = null;
           setIsDone(true);
           setTimeout(onComplete, 280);
         }
       }, rowDelay);
     }, 500);
-    return () => clearTimeout(skT);
+    return () => {
+      clearTimeout(skT);
+      if (iv !== null) clearInterval(iv);
+    };
   }, []); // eslint-disable-line
 
   const handleSort = (ci: number) => {

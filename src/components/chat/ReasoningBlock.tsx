@@ -46,7 +46,7 @@ function CyclingLabel({ words, textStyle }: { words: string[]; textStyle?: React
       {/* eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- cycling label segments; positionally stable */}
       <m.span key={idx}
         initial={{ scale: 0.82, opacity: 0, filter: "blur(5px)" }}
-        animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+        animate={{ scale: 1, opacity: 1, filter: "none" }}
         exit={{ scale: 0.82, opacity: 0, filter: "blur(5px)" }}
         transition={{ type: "spring", stiffness: 520, damping: 32 }}
         style={{ display: "block", transformOrigin: "left center", ...textStyle }}
@@ -92,7 +92,7 @@ export function ModelLogo({
 
 // ── AnimatedLogo - Souvenir mark → model icon swing-in with glow burst ────────
 
-function AnimatedLogo({
+export function AnimatedLogo({
   modelMeta,
   modelName,
   isThinkingInProgress,
@@ -120,7 +120,7 @@ function AnimatedLogo({
         {!showModel ? (
           <m.div key="souvenir"
             initial={{ opacity: 0, scale: 0.5, rotate: -8, filter: "blur(6px)" }}
-            animate={{ opacity: 1, scale: 1, rotate: 0, filter: "blur(0px)" }}
+            animate={{ opacity: 1, scale: 1, rotate: 0, filter: "none" }}
             exit={{ opacity: 0, scale: 0.25, rotate: -20, y: -5, filter: "blur(10px)" }}
             transition={{ type: "spring", stiffness: 420, damping: 26 }}
             style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -129,7 +129,7 @@ function AnimatedLogo({
         ) : (
           <m.div key={`model-${llmId}`}
             initial={{ opacity: 0, scale: 0.15, rotate: 14, filter: "blur(8px)" }}
-            animate={{ opacity: 1, scale: 1, rotate: 0, filter: "blur(0px)" }}
+            animate={{ opacity: 1, scale: 1, rotate: 0, filter: "none" }}
             transition={{ type: "spring", stiffness: 220, damping: 11, mass: 0.9 }}
             style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             {llmId
@@ -314,12 +314,17 @@ function ReasoningStep({
             lineHeight: 0, flexShrink: 0,
           }}
         >
-          <HugeiconsIcon
-            icon={icon}
-            size={15}
-            color={isActive ? "#A89488" : "#C0B5AD"}
-            strokeWidth={1.6}
-          />
+          {isActive ? (
+            <m.span
+              animate={{ rotate: [0, 360] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 0 }}
+            >
+              <HugeiconsIcon icon={icon} size={15} color="#A89488" strokeWidth={1.6} />
+            </m.span>
+          ) : (
+            <HugeiconsIcon icon={icon} size={15} color="#C0B5AD" strokeWidth={1.6} />
+          )}
         </span>
         <AnimatePresence>
           {!isLast && (
@@ -578,7 +583,7 @@ export function ReasoningBlock({
             <m.div
               key="souvenir"
               initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-              animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
+              animate={{ opacity: 1, filter: "none", scale: 1 }}
               exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
               transition={{ type: "spring", stiffness: 520, damping: 32 }}
               style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 500, lineHeight: "18px" }}
@@ -589,7 +594,7 @@ export function ReasoningBlock({
             <m.div
               key={`thinking-${modelMeta?.modelName || modelName}`}
               initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-              animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
+              animate={{ opacity: 1, filter: "none", scale: 1 }}
               exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
               transition={{ type: "spring", stiffness: 520, damping: 32 }}
               style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 500, lineHeight: "18px", color: "var(--neutral-600, #524B47)" }}
@@ -601,7 +606,7 @@ export function ReasoningBlock({
             <m.span
               key="done"
               initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82, y: 5 }}
-              animate={{ opacity: 1, filter: "blur(0px)", scale: 1, y: 0 }}
+              animate={{ opacity: 1, filter: "none", scale: 1, y: 0 }}
               exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82, y: -5 }}
               transition={{ type: "spring", stiffness: 520, damping: 32 }}
               style={{

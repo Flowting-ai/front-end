@@ -2,10 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
-import { ShareOneIcon } from '@strange-huge/icons'
 import { Sidebar, type SidebarProps } from '@/components/Sidebar'
 import { ChatInput, type ChatInputProps } from '@/components/chat/ChatInput'
-import { IconButton } from '@/components/IconButton'
 import { BrainHome } from './BrainHome'
 import { ClarificationCard, type ClarificationCardProps } from './ClarificationCard'
 export { ClarificationCard, type ClarificationCardProps }
@@ -152,8 +150,6 @@ export interface BrainShellProps {
   clarificationProps?: ClarificationCardProps
   /** Called when the user submits a message. Receives the text that was sent. */
   onSend?: (value: string) => void
-  /** Called when the share icon is clicked. */
-  onShare?: React.MouseEventHandler<HTMLButtonElement>
   /** Real content for the ContextRail — persona, pins, connectors. */
   contextRailData?: ContextRailData
   /** Ref forwarded to the scrollable thread container — used by the page for auto-scroll. */
@@ -185,7 +181,6 @@ export function BrainShell({
   chatInputProps,
   clarificationProps,
   onSend,
-  onShare,
   contextRailData,
   threadRef,
   initialInputValue,
@@ -243,7 +238,7 @@ export function BrainShell({
         display:         'flex',
         flexDirection:   'column',
         backgroundColor: 'var(--neutral-50)',
-        padding:         '10px 0',
+        padding:         '10px 10px 10px 0',
       }}>
 
         {/* Inner glass card — identical spec to ChatBoard Figma 3220:33871 */}
@@ -261,29 +256,6 @@ export function BrainShell({
             backgroundColor: 'var(--color-surface-glass)',
             isolation:       'isolate',
         }}>
-
-          {/* Top bar — absolute, overlaps the 1px border on three sides */}
-          <div style={{
-            position:        'absolute',
-            top:             -1,
-            left:            -1,
-            right:           -1,
-            display:         'flex',
-            alignItems:      'center',
-            justifyContent:  'flex-end',
-            paddingTop:      '12px',
-            paddingLeft:     '12px',
-            paddingRight:    '12px',
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            zIndex:          1,
-          }}>
-            <IconButton
-              variant="ghost"
-              aria-label="Share"
-              icon={<ShareOneIcon />}
-              onClick={onShare}
-            />
-          </div>
 
           {/* Content area — no horizontal padding; thread slot + bottom area each own theirs */}
           <div style={{

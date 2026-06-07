@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { AnimatePresence, m } from "framer-motion";
-import { ReasoningBlock, ModelLogo } from "./ReasoningBlock";
+import { ReasoningBlock, ModelLogo, AnimatedLogo } from "./ReasoningBlock";
 import { ActivitiesSection } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
 import { BlockSequenceRenderer, SourceList } from "./ResponseBlocks";
@@ -22,7 +22,101 @@ import {
   CopyOneIcon,
   RedoIcon,
   TickTwoIcon,
+  ImageDownloadTwoIcon,
 } from "@strange-huge/icons";
+
+// ── Generated Image Card with download button ──────────────────────────────────
+
+function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string }; index: number }) {
+  const [hovered, setHovered] = useState(false);
+
+  function handleDownload() {
+    fetch(img.url)
+      .then((res) => res.blob())
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = img.s3Key ? img.s3Key.split("/").pop() ?? "image.png" : `image-${index + 1}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      })
+      .catch(() => {
+        // Fallback: open in new tab so the user can save manually
+        window.open(img.url, "_blank");
+      });
+  }
+
+  return (
+    <m.div
+      key={img.url}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position: "relative",
+        borderRadius: "10px",
+        overflow: "hidden",
+        border: "1px solid var(--neutral-200)",
+        maxWidth: "320px",
+      }}
+    >
+      <Image
+        src={img.url}
+        alt="Generated image"
+        width={0}
+        height={0}
+        sizes="100%"
+        unoptimized
+        style={{
+          display: "block",
+          width: "100%",
+          height: "auto",
+          maxHeight: "300px",
+          objectFit: "cover",
+        }}
+      />
+      <AnimatePresence>
+        {hovered && (
+          <m.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position: "absolute",
+              top: "8px",
+              right: "8px",
+            }}
+          >
+            <Tooltip content="Download image">
+              <IconButton
+                onClick={handleDownload}
+                aria-label="Download image"
+                style={{
+                  background: "rgba(0,0,0,0.55)",
+                  backdropFilter: "blur(4px)",
+                  borderRadius: "8px",
+                  color: "#fff",
+                  border: "none",
+                  padding: "6px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <ImageDownloadTwoIcon size={16} animated />
+              </IconButton>
+            </Tooltip>
+          </m.div>
+        )}
+      </AnimatePresence>
+    </m.div>
+  );
+}
 
 // ── Standalone Activities Block (collapsible, used when no reasoning) ─────────
 
@@ -37,10 +131,15 @@ function StandaloneActivitiesBlock({
 }) {
   const [isOpen, setIsOpen] = useState(true);
   const displayName = (() => {
+    const complexity = modelMeta?.complexity
+    if (complexity === 'basic') return 'Souvenir Muse (Basic)'
+    if (complexity === 'advanced') return 'Souvenir Muse (Advanced)'
     const raw = modelMeta?.modelName ?? modelName
     if (!raw) return null
     const l = raw.toLowerCase()
-    return (l === 'souvenir' || l.startsWith('souvenir') || l === 'muse') ? null : raw
+    if (l === 'muse') return 'Souvenir Muse'
+    if (l === 'souvenir' || l.startsWith('souvenir')) return null
+    return raw
   })()
 
   // Derive summary for collapsed state
@@ -190,8 +289,10 @@ export function ChatMessage({
   const [copied, setCopied] = useState(false);
   const [selectionOpen, setSelectionOpen] = useState(false);
   const [selectionAnchor, setSelectionAnchor] = useState<DOMRect | null>(null);
+  const [justModelSelected, setJustModelSelected] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevModelKeyRef = useRef<string | undefined>(undefined);
   const { addPin, removePinByMessage, open: openPinboard } = usePinboardActions();
   const { addHighlight, open: openHighlightPanel, highlights } = useHighlight();
 
@@ -217,15 +318,30 @@ export function ChatMessage({
   const hasThinking = Boolean(message.thinking);
   const pinned = isAssistant && pinnedProp;
 
-  // Resolve the actual model display name — never expose "souvenir" as a model label.
-  // "souvenir" is a routing algorithm, not a model; show the real selected model name instead.
+  // Resolve the actual model display name — never expose "souvenir" as a routing label.
   const modelDisplayName = (() => {
+    const complexity = message.modelMeta?.complexity
+    if (complexity === 'basic') return 'Souvenir Muse (Basic)'
+    if (complexity === 'advanced') return 'Souvenir Muse (Advanced)'
     const raw = message.modelMeta?.modelName ?? message.modelName ?? message.model_name ?? message.model
     if (!raw) return null
     const l = raw.toLowerCase()
-    if (l === 'souvenir' || l.startsWith('souvenir') || l === 'muse') return null
+    if (l === 'muse') return 'Souvenir Muse'
+    if (l === 'souvenir' || l.startsWith('souvenir')) return null
     return raw
   })()
+
+  // Trigger glow burst on the logo the instant model_selected fires (streaming only).
+  const currentModelKey = message.modelMeta?.modelName || message.modelName || message.model_name || message.model
+  useEffect(() => {
+    if (!isNewMessage) return
+    if (currentModelKey && currentModelKey !== prevModelKeyRef.current) {
+      prevModelKeyRef.current = currentModelKey
+      setJustModelSelected(true)
+      const t = setTimeout(() => setJustModelSelected(false), 1200)
+      return () => clearTimeout(t)
+    }
+  }, [currentModelKey, isNewMessage])
 
   // ── Text selection → SelectionPopover (assistant messages only) ──────────
   // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
@@ -343,8 +459,10 @@ export function ChatMessage({
   return (
     <m.div
       data-message-id={message.id}
-      initial={isUser ? { opacity: 0, y: 10, scale: 0.97 } : { opacity: 0, y: 10, filter: "blur(4px)" }}
-      animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+      initial={isNewMessage
+        ? (isUser ? { opacity: 0, y: 10, scale: 0.97 } : { opacity: 0, y: 10 })
+        : false}
+      animate={isUser ? { opacity: 1, y: 0, scale: 1 } : { opacity: 1, y: 0, scale: 1 }}
       transition={isUser
         ? { type: "spring", stiffness: 380, damping: 28 }
         : { duration: 0.4, ease: [0.2, 0, 0, 1] }
@@ -515,32 +633,49 @@ export function ChatMessage({
         <div style={{ width: "100%", minWidth: 0 }}>
 
         {/* Assistant role label when no thinking/reasoning present */}
-        {!hasThinking && !(message.activities && message.activities.length > 0) && (message.modelName || !message.isLoading) && (
-          <div
-            draggable={false}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              marginBottom: "4px",
-              userSelect: "none",
-            }}
-          >
-            <ModelLogo modelMeta={message.modelMeta} modelName={message.modelName || message.model_name || message.model} size={16} />
-            {modelDisplayName && (
-              <span
-                style={{
-                  fontFamily: "var(--font-body)",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                  color: "var(--neutral-600, #524B47)",
-                }}
-              >
-                {modelDisplayName}
-              </span>
-            )}
-          </div>
-        )}
+        <AnimatePresence initial={false}>
+          {!hasThinking && !(message.activities && message.activities.length > 0) && (message.modelName || !message.isLoading) && (
+            <m.div
+              key="model-header"
+              initial={{ opacity: 0, y: -4, filter: "blur(4px)" }}
+              animate={{ opacity: 1, y: 0, filter: "none" }}
+              transition={{ type: "spring", stiffness: 420, damping: 30 }}
+              draggable={false}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                marginBottom: "4px",
+                userSelect: "none",
+              }}
+            >
+              <AnimatedLogo
+                modelMeta={message.modelMeta}
+                modelName={message.modelName || message.model_name || message.model}
+                isThinkingInProgress={false}
+                justSelected={justModelSelected}
+              />
+              <AnimatePresence mode="popLayout" initial={false}>
+                {modelDisplayName && (
+                  <m.span
+                    key={modelDisplayName}
+                    initial={{ opacity: 0, filter: "blur(4px)" }}
+                    animate={{ opacity: 1, filter: "none" }}
+                    transition={{ type: "spring", stiffness: 520, damping: 32 }}
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                      color: "var(--neutral-600, #524B47)",
+                    }}
+                  >
+                    {modelDisplayName}
+                  </m.span>
+                )}
+              </AnimatePresence>
+            </m.div>
+          )}
+        </AnimatePresence>
 
         {/* Assistant model label when activities exist but no thinking */}
         {!hasThinking && message.activities && message.activities.length > 0 && (
@@ -655,34 +790,7 @@ export function ChatMessage({
             }}
           >
             {message.images.map((img, i) => (
-              <m.div
-                key={img.url}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3, delay: i * 0.1 }}
-                style={{
-                  borderRadius: "10px",
-                  overflow: "hidden",
-                  border: "1px solid var(--neutral-200)",
-                  maxWidth: "320px",
-                }}
-              >
-                <Image
-                  src={img.url}
-                  alt="Generated image"
-                  width={0}
-                  height={0}
-                  sizes="100%"
-                  unoptimized
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    height: "auto",
-                    maxHeight: "300px",
-                    objectFit: "cover",
-                  }}
-                />
-              </m.div>
+              <GeneratedImageCard key={img.url} img={img} index={i} />
             ))}
           </div>
         )}
@@ -984,7 +1092,12 @@ function areMessagePropsEqual(prev: ChatMessageProps, next: ChatMessageProps): b
     prev.chatId === next.chatId &&
     prev.showReasoning === next.showReasoning &&
     prev.pinned === next.pinned &&
-    prev.hidePinAction === next.hidePinAction
+    prev.hidePinAction === next.hidePinAction &&
+    // onEdit is a stable ref-backed callback (same identity for the component's
+    // lifetime), so we only check null-ness to gate assistant regen button.
+    (prev.onEdit == null) === (next.onEdit == null) &&
+    // Re-render when regen availability flips (streaming starts/ends).
+    (prev.onRegenerate == null) === (next.onRegenerate == null)
   )
 }
 

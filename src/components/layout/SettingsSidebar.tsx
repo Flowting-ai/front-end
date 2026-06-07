@@ -8,11 +8,8 @@ import {
   AbacusIcon,
   NeuralNetworkIcon,
   FolderLibraryIcon,
-  BubbleChatIcon,
   FolderOneIcon,
-  FolderAddIcon,
   LinkSixIcon,
-  UserAddOneIcon,
 } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { IconButton } from '@/components/IconButton'
@@ -33,16 +30,6 @@ const MY_SETTINGS_ITEMS = [
   { id: 'help',          label: 'Help & Legal',     href: '/settings/help',          icon: <FolderOneIcon     size={20} />, disabled: false },
 ]
 
-const ORG_ITEMS = [
-  { id: 'general',    label: 'General',           href: '/settings/org/general',    icon: <UserAiIcon        size={20} />, disabled: false },
-  { id: 'members',    label: 'Members',           href: '/settings/org/members',    icon: <UserAddOneIcon    size={20} />, disabled: false },
-  { id: 'teams',      label: 'Teams',             href: '/settings/org/teams',      icon: <FolderAddIcon     size={20} />, disabled: false },
-  { id: 'plans',      label: 'Plans & Billing',   href: '/settings/org/plans',      icon: <AbacusIcon        size={20} />, disabled: false },
-  { id: 'analytics',  label: 'Usage & Analytics', href: '/settings/org/analytics',  icon: <FolderLibraryIcon size={20} />, disabled: false },
-  { id: 'connectors', label: 'Connectors',        href: '/settings/org/connectors', icon: <LinkSixIcon       size={20} />, disabled: false },
-  { id: 'security',   label: 'Security',          href: '/settings/org/security',   icon: <UserAiIcon        size={20} />, disabled: false },
-  { id: 'activity',   label: 'Activity Log',      href: '/settings/org/activity',   icon: <FolderLibraryIcon size={20} />, disabled: false },
-]
 
 export function SettingsSidebar() {
   const { push } = useRouter()
@@ -158,36 +145,6 @@ export function SettingsSidebar() {
           </div>
         </div>
 
-        {/* Organization section */}
-        <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize:   14,
-                lineHeight: '22px',
-                color:      'var(--neutral-500)',
-                margin:     0,
-                whiteSpace: 'nowrap',
-              }}>
-                Organization
-              </p>
-              <Badge label="Teams" color="Purple" />
-            </div>
-            {ORG_ITEMS.map(item => (
-              <SidebarMenuItem
-                key={item.id}
-                fluid
-                variant="default"
-                icon={item.icon}
-                label={item.label}
-                selected={pathname.startsWith(item.href)}
-                onClick={() => push(item.href)}
-              />
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* ── Account menu — fixed ── */}

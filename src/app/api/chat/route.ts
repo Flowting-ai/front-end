@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
   const algorithm          = formData.get("algorithm") as string | null
   const pinIds             = formData.get("pinIds") as string | null
   const referenceMessageId = formData.get("referenceMessageId") as string | null
+  const replaceMessageId   = formData.get("replaceMessageId") as string | null
   const webSearch          = formData.get("webSearch") === "true"
   const personaId          = formData.get("personaId") as string | null
   const systemPrompt       = formData.get("systemPrompt") as string | null
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest) {
   if (algorithm) fd.append("algorithm", algorithm)
   if (pinIds)  fd.append("pin_ids", pinIds)
   if (referenceMessageId && isExistingChat) fd.append("reference_message_id", referenceMessageId)
+  if (replaceMessageId && isExistingChat) fd.append("replace_message_id", replaceMessageId)
   if (webSearch) fd.append("web_search", "true")
   if (personaId) fd.append("persona_id", personaId)
   if (systemPrompt) fd.append("system_prompt", systemPrompt)

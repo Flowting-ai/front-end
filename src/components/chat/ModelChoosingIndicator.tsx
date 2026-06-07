@@ -62,7 +62,7 @@ export function ModelChoosingIndicator({
               <m.span
                 key={modelName ?? "model"}
                 initial={{ opacity: 0, filter: "blur(3px)" }}
-                animate={{ opacity: 1, filter: "blur(0px)" }}
+                animate={{ opacity: 1, filter: "none" }}
                 exit={{ opacity: 0, filter: "blur(3px)" }}
                 transition={{ duration: 0.2 }}
                 style={{ fontWeight: "var(--font-weight-semibold)", color: "var(--neutral-800)" }}

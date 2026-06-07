@@ -167,7 +167,7 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[] },
+    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string },
   ): Promise<void> => {
     stopRequestedRef.current = false
     xhrRef.current = null
@@ -222,6 +222,7 @@ export function useStreamingChat({
       if (options?.temperature != null) fd.append("temperature", String(options.temperature))
       if (options?.toneId) fd.append("toneId", options.toneId)
       options?.connectorSlugs?.forEach((s) => fd.append("connectorSlugs", s))
+      if (options?.replaceMessageId) fd.append("replaceMessageId", options.replaceMessageId)
       options?.files?.forEach((f) => fd.append("files", f))
 
       let buffer = ""

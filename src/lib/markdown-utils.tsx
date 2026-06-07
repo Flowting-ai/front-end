@@ -130,11 +130,7 @@ function makeAComponent(webCitations?: WebCitation[]): Components["a"] {
       const n = parseInt(citRef[1], 10);
       return <CitationChip n={n} citation={webCitations[n - 1]} />;
     }
-    // URL matches a known webCitation → replace with numbered chip
-    if (href && urlMap.has(href)) {
-      const idx = urlMap.get(href)!;
-      return <CitationChip n={idx + 1} citation={webCitations[idx]} />;
-    }
+    // All other links render as proper clickable links
     return <BaseLink href={href}>{children}</BaseLink>;
   };
 }

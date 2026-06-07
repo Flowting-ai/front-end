@@ -11,7 +11,9 @@ import {
   CopyOneIcon,
   DownloadThreeIcon,
   DeleteTwoIcon,
+  TickTwoIcon,
 } from '@strange-huge/icons'
+import { toast } from 'sonner'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { PinCategory, type PinCategoryType } from '@/components/PinCategory'
 import { Checkbox } from '@/components/Checkbox'
@@ -618,6 +620,20 @@ export function Pin({
 
     const commentFieldRef    = useRef<HTMLTextAreaElement>(null)
     const focusCommentRef    = useRef(false)
+
+    // Comment draft — tracks unsaved edits so the Save button can appear.
+    const savedComment = comments?.[0]?.content ?? ''
+    const [commentDraft,     setCommentDraft]     = useState(savedComment)
+    const [commentSavedAnim, setCommentSavedAnim] = useState(false)
+    const commentSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    const handleSaveComment = () => {
+      onSaveComment?.(commentDraft)
+      toast.success('Comment saved')
+      setCommentSavedAnim(true)
+      if (commentSavedTimerRef.current) clearTimeout(commentSavedTimerRef.current)
+      commentSavedTimerRef.current = setTimeout(() => setCommentSavedAnim(false), 1500)
+    }
     const cardRef            = useRef<HTMLDivElement>(null)
     const dragInfo           = useRef({ startY: 0, startHeight: 0 })
     const rafRef             = useRef<number>(0)
@@ -1386,12 +1402,55 @@ export function Pin({
                   placeholder="Add a comment…"
                   aria-label="Add a comment"
                   defaultValue={comments?.[0]?.content ?? ''}
-                  onBlur={(e) => {
-                    const next = e.target.value
-                    const prev = comments?.[0]?.content ?? ''
-                    if (next !== prev) onSaveComment?.(next)
-                  }}
+                  onChange={(e) => setCommentDraft(e.target.value)}
                 />
+
+                {/* Save row — only visible when the draft differs from the saved value */}
+                <AnimatePresence>
+                  {(commentDraft !== savedComment || commentSavedAnim) && (
+                    <m.div
+                      key="comment-save-row"
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0, transition: { duration: 0.15 } }}
+                      exit={{   opacity: 0, y: -4, transition: { duration: 0.1 } }}
+                      style={{ display: 'flex', justifyContent: 'flex-end' }}
+                    >
+                      <Button
+                        variant={commentSavedAnim ? 'ghost' : 'default'}
+                        size="sm"
+                        onClick={handleSaveComment}
+                        disabled={commentSavedAnim || commentDraft === savedComment}
+                        style={{ gap: 4, minWidth: 64 }}
+                      >
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          {commentSavedAnim ? (
+                            <m.span
+                              key="saved"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{   opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.15 }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                            >
+                              <TickTwoIcon size={14} />
+                              Saved
+                            </m.span>
+                          ) : (
+                            <m.span
+                              key="save"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{   opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.15 }}
+                            >
+                              Save
+                            </m.span>
+                          )}
+                        </AnimatePresence>
+                      </Button>
+                    </m.div>
+                  )}
+                </AnimatePresence>
               </m.div>
             )}
           </AnimatePresence>

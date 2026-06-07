@@ -541,7 +541,7 @@ export function ChatInput(
                   <m.span
                     key={isRecording ? "listening" : "default"}
                     initial={{ scale: 0.75, opacity: 0, filter: "blur(4px)" }}
-                    animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+                    animate={{ scale: 1, opacity: 1, filter: "none" }}
                     exit={{ scale: 0.75, opacity: 0, filter: "blur(4px)" }}
                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
                     style={{ display: "block", transformOrigin: "left center" }}

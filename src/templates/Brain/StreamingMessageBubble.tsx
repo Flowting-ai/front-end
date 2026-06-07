@@ -76,22 +76,58 @@ export function StreamCursor() {
 }
 
 // ── Inline content ─────────────────────────────────────────────────────────────
-// Renders bold (**text**) and plain text segments within a line.
+// Renders bold (**text**), markdown links ([text](url)), bare URLs, and plain text.
 
-const renderBoldInline = (text: string, keyPrefix: string): Array<string | JSX.Element> => {
-  const boldRegex = /(\*\*|__)(.+?)\1/g
+const INLINE_RE = /(\*\*|__)(.+?)\1|\[([^\]\n]+?)\]\((https?:\/\/[^\)\n]+?)\)|(https?:\/\/[^\s\])\n>"']+)/g
+
+const renderInline = (text: string, keyPrefix: string): Array<string | JSX.Element> => {
+  INLINE_RE.lastIndex = 0
   const nodes: Array<string | JSX.Element> = []
   let lastIndex = 0
   let match: RegExpExecArray | null
   let i = 0
 
-  while ((match = boldRegex.exec(text)) !== null) {
+  while ((match = INLINE_RE.exec(text)) !== null) {
     if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index))
-    nodes.push(
-      <strong key={`${keyPrefix}-b-${i++}`} style={{ fontWeight: 'var(--font-weight-medium)' as string }}>
-        {match[2]}
-      </strong>
-    )
+
+    if (match[1] !== undefined) {
+      // **bold** or __bold__
+      nodes.push(
+        <strong key={`${keyPrefix}-b-${i++}`} style={{ fontWeight: 'var(--font-weight-medium)' as string }}>
+          {match[2]}
+        </strong>
+      )
+    } else if (match[3] !== undefined && match[4] !== undefined) {
+      // [link text](url)
+      nodes.push(
+        <a
+          key={`${keyPrefix}-a-${i++}`}
+          href={match[4]}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--brown-500)', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+        >
+          {match[3]}
+        </a>
+      )
+    } else if (match[5] !== undefined) {
+      // bare https?:// URL
+      const href = match[5]
+      let display = href
+      try { display = new URL(href).hostname + (new URL(href).pathname !== '/' ? new URL(href).pathname : '') } catch { /* use raw */ }
+      nodes.push(
+        <a
+          key={`${keyPrefix}-a-${i++}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--brown-500)', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+        >
+          {display}
+        </a>
+      )
+    }
+
     lastIndex = match.index + match[0].length
   }
   if (lastIndex < text.length) nodes.push(text.slice(lastIndex))
@@ -99,9 +135,9 @@ const renderBoldInline = (text: string, keyPrefix: string): Array<string | JSX.E
   return nodes
 }
 
-function BoldInline({ text, keyPrefix }: { text: string; keyPrefix: string }) {
-  // eslint-disable-next-line react-doctor/no-render-in-render -- renderBoldInline is a stable module-level helper, not an inline component
-  return <>{renderBoldInline(text, keyPrefix)}</>
+function InlineContent({ text, keyPrefix }: { text: string; keyPrefix: string }) {
+  // eslint-disable-next-line react-doctor/no-render-in-render -- renderInline is a stable module-level helper, not an inline component
+  return <>{renderInline(text, keyPrefix)}</>
 }
 
 // ── Markdown renderer ──────────────────────────────────────────────────────────
@@ -138,7 +174,7 @@ export function renderBrainContent(value: string, keyPrefix: string): JSX.Elemen
             color:        'var(--neutral-800)',
             listStyleType:'disc',
           }}>
-            <BoldInline text={item} keyPrefix={`${k}-${idx}`} />
+            <InlineContent text={item} keyPrefix={`${k}-${idx}`} />
           </li>
         ))}
       </ul>
@@ -171,7 +207,7 @@ export function renderBrainContent(value: string, keyPrefix: string): JSX.Elemen
           margin:      '8px 0 2px',
           wordBreak:   'break-word',
         }}>
-          <BoldInline text={headingMatch[2]} keyPrefix={`${keyPrefix}-h-${lineIndex}`} />
+          <InlineContent text={headingMatch[2]} keyPrefix={`${keyPrefix}-h-${lineIndex}`} />
         </p>
       )
       continue
@@ -211,7 +247,7 @@ export function renderBrainContent(value: string, keyPrefix: string): JSX.Elemen
         overflowWrap: 'break-word',
         whiteSpace:   'pre-wrap',
       }}>
-        <BoldInline text={line} keyPrefix={`${keyPrefix}-p-${lineIndex}`} />
+        <InlineContent text={line} keyPrefix={`${keyPrefix}-p-${lineIndex}`} />
       </p>
     )
   }
