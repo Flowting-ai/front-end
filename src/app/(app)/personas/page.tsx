@@ -17,7 +17,9 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, type Persona } from '@/lib/api/personas'
-import { listShares, revokeShare, getSharePreview, type PersonaShare } from '@/lib/api/persona-shares'
+import { listShares, listReceived, revokeShare, getSharePreview, type PersonaShare, type ReceivedShareResponse } from '@/lib/api/persona-shares'
+import { Badge } from '@/components/Badge'
+import { TokenBudgetBar } from '@/components/TokenBudgetBar'
 import { canonicalShareUrl } from '@/lib/share-url'
 import Tabs from '@/components/Tabs'
 import { PersonaCard } from '@/components/PersonaCard'
@@ -246,6 +248,131 @@ function RecommendedCard({ persona }: { persona: Persona }) {
   )
 }
 
+// ── Received-share helpers ────────────────────────────────────────────────────
+
+type ReceivedStatus = 'active' | 'expired' | 'limit-reached' | 'revoked'
+
+function receivedShareStatus(share: ReceivedShareResponse): ReceivedStatus {
+  if (!share.is_active)    return 'revoked'
+  if (!share.is_available) return share.credit_limit !== null && share.credit_used >= share.credit_limit ? 'limit-reached' : 'expired'
+  return 'active'
+}
+
+const RECEIVED_STATUS_BADGE: Record<ReceivedStatus, { color: 'Green' | 'Red' | 'Yellow' | 'Neutral'; label: string }> = {
+  'active':        { color: 'Green',   label: 'Active'        },
+  'expired':       { color: 'Neutral', label: 'Expired'       },
+  'limit-reached': { color: 'Red',     label: 'Limit reached' },
+  'revoked':       { color: 'Neutral', label: 'Revoked'       },
+}
+
+function fmtExpiry(isoDate: string): string {
+  return new Date(isoDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// ── SharedAgentCard ───────────────────────────────────────────────────────────
+
+function SharedAgentCard({
+  share,
+  persona,
+  onEdit,
+  onUseInChat,
+  onPauseToggle,
+  onDelete,
+}: {
+  share:        ReceivedShareResponse
+  persona:      Persona | undefined
+  onEdit:       () => void
+  onUseInChat:  () => void
+  onPauseToggle: () => void
+  onDelete:     () => void
+}) {
+  const status  = receivedShareStatus(share)
+  const badge   = RECEIVED_STATUS_BADGE[status]
+  const initial = share.shared_by_name.slice(0, 1).toUpperCase()
+  const avatarBg = colorFromName(share.shared_by_name)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <PersonaCard
+        variant="default"
+        name={share.name}
+        handle={persona?.handle.replace(/^@/, '') ?? ''}
+        description={share.description ?? undefined}
+        avatarUrl={share.image_url ?? undefined}
+        tags={persona?.tags}
+        paused={persona?.isPaused}
+        visibility="private"
+        onEdit={onEdit}
+        onUseInChat={onUseInChat}
+        onResume={onPauseToggle}
+        onMenuEdit={onEdit}
+        onMenuPauseToggle={onPauseToggle}
+        onMenuDelete={onDelete}
+      />
+
+      {/* ── Share context strip ── */}
+      <div style={{
+        display:    'flex',
+        alignItems: 'center',
+        gap:        6,
+        padding:    '0 4px',
+        flexWrap:   'wrap',
+        rowGap:     4,
+      }}>
+        {/* Sharer initials bubble */}
+        <div style={{
+          width:           18,
+          height:          18,
+          borderRadius:    '50%',
+          background:      avatarBg,
+          display:         'flex',
+          alignItems:      'center',
+          justifyContent:  'center',
+          fontSize:        9,
+          fontWeight:      600,
+          color:           'white',
+          flexShrink:      0,
+          letterSpacing:   0,
+        }}>
+          {initial}
+        </div>
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize:   12,
+          lineHeight: '16px',
+          color:      'var(--neutral-600)',
+          flexShrink: 0,
+        }}>
+          {share.shared_by_name}
+        </span>
+        <span style={{ color: 'var(--neutral-300)', fontSize: 12, flexShrink: 0 }}>·</span>
+        <Badge color={badge.color}>{badge.label}</Badge>
+        <span style={{
+          marginLeft:  'auto',
+          fontFamily:  'var(--font-body)',
+          fontSize:    11,
+          color:       'var(--neutral-400)',
+          flexShrink:  0,
+        }}>
+          {fmtExpiry(share.expires_at)}
+        </span>
+      </div>
+
+      {/* ── Credit bar — only when a cap is set ── */}
+      {share.credit_limit !== null && (
+        <div style={{ padding: '0 4px' }}>
+          <TokenBudgetBar
+            used={share.credit_used}
+            limit={share.credit_limit}
+            size="sm"
+            showLabel
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Delete confirmation dialog ────────────────────────────────────────────────
 
 function DeleteDialog({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }) {
@@ -370,6 +497,10 @@ export default function PersonasPage() {
   // Enriched persona info per share (name + image) fetched from getSharePreview
   const [shareMeta, setShareMeta] = useState<Record<string, { name: string; imageUrl: string | null }>>({})
 
+  // Shared tab state — received shares from /persona-shares/received
+  const [receivedShares,   setReceivedShares]   = useState<ReceivedShareResponse[]>([])
+  const [receivedLoading,  setReceivedLoading]  = useState(false)
+
   // Close the pinboard whenever the personas page is mounted.
   useEffect(() => { closePinboard() }, [closePinboard])
 
@@ -444,6 +575,16 @@ export default function PersonasPage() {
       .finally(() => setSharesLoading(false))
   }, [activeTab, pathname])
 
+  // Fetch received shares whenever the shared tab becomes active.
+  useEffect(() => {
+    if (activeTab !== 'shared') return
+    setReceivedLoading(true)
+    listReceived()
+      .then(setReceivedShares)
+      .catch(console.error)
+      .finally(() => setReceivedLoading(false))
+  }, [activeTab, pathname])
+
   // Map share persona_id → persona info.
   // Indexed by BOTH activeVersionId (version frozen at publish time) and repo id
   // so a match is found regardless of whether the share was created before or
@@ -495,10 +636,12 @@ export default function PersonasPage() {
     return searched
   }, [tagFiltered, search, sort])
 
-  const sharedPersonas = useMemo(
-    () => personas.filter(p => p.sourceShareId !== null),
-    [personas],
-  )
+  // Lookup map for shared-tab — keyed by persona repo id for actions/navigation.
+  const personaByRepoId = useMemo(() => {
+    const map: Record<string, Persona> = {}
+    for (const p of personas) map[p.id] = p
+    return map
+  }, [personas])
 
   const personasScrollRef = useRef<HTMLDivElement>(null)
   const GRID_COLS = 3
@@ -595,7 +738,7 @@ export default function PersonasPage() {
               <Tabs.List>
                 <Tabs.Trigger value="my-personas">My Agents ({personas.length})</Tabs.Trigger>
                 <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
-                <Tabs.Trigger value="shared">Shared{sharedPersonas.length > 0 ? ` (${sharedPersonas.length})` : ''}</Tabs.Trigger>
+                <Tabs.Trigger value="shared">Shared{receivedShares.length > 0 ? ` (${receivedShares.length})` : ''}</Tabs.Trigger>
                 {/* <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger> */}
               </Tabs.List>
             </Tabs>
@@ -929,13 +1072,17 @@ export default function PersonasPage() {
           {/* ── Shared tab ── */}
           {activeTab === 'shared' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {isLoading ? (
+              {receivedLoading ? (
+                /* Skeleton — card (140px) + strip (~30px) + gap (8px) = ~178px per cell */
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} style={{ height: 140, borderRadius: 16, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
+                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ height: 140, borderRadius: 16, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
+                      <div style={{ height: 18, borderRadius: 8, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite', width: '60%' }} />
+                    </div>
                   ))}
                 </div>
-              ) : sharedPersonas.length === 0 ? (
+              ) : receivedShares.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '64px 24px' }}>
                   <p style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, textAlign: 'center' }}>
                     No shared agents yet
@@ -946,25 +1093,20 @@ export default function PersonasPage() {
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-                  {sharedPersonas.map(persona => (
-                    <PersonaCard
-                      key={persona.id}
-                      variant="default"
-                      name={persona.name}
-                      handle={persona.handle.replace(/^@/, '')}
-                      description={persona.description}
-                      avatarUrl={draftAvatarMap[persona.id] ?? persona.imageUrl ?? undefined}
-                      tags={draftTagsMap[persona.id] ?? persona.tags}
-                      paused={persona.isPaused}
-                      visibility="private"
-                      onEdit={() => push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
-                      onUseInChat={() => push(`/personas/${persona.id}/chat`)}
-                      onResume={() => handlePauseToggle(persona.id, persona.name, persona.isPaused)}
-                      onMenuEdit={() => push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
-                      onMenuPauseToggle={() => handlePauseToggle(persona.id, persona.name, persona.isPaused)}
-                      onMenuDelete={() => setDeleteTarget(persona)}
-                    />
-                  ))}
+                  {receivedShares.map(share => {
+                    const persona = personaByRepoId[share.persona_repo_id]
+                    return (
+                      <SharedAgentCard
+                        key={share.share_id}
+                        share={share}
+                        persona={persona}
+                        onEdit={() => push(`/persona/configure/instructions?repoId=${share.persona_repo_id}&name=${encodeURIComponent(share.name)}`)}
+                        onUseInChat={() => push(`/personas/${share.persona_repo_id}/chat`)}
+                        onPauseToggle={() => persona && handlePauseToggle(persona.id, share.name, persona.isPaused)}
+                        onDelete={() => persona && setDeleteTarget(persona)}
+                      />
+                    )
+                  })}
                 </div>
               )}
             </div>

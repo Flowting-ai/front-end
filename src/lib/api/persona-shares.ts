@@ -3,6 +3,8 @@
 import { apiFetch, apiFetchJson, ApiError, friendlyApiError } from "./client";
 import {
   PERSONA_SHARES_ENDPOINT,
+  PERSONA_SHARES_RECEIVED_ENDPOINT,
+  PERSONA_SHARES_SENT_ENDPOINT,
   PERSONA_SHARE_DETAIL_ENDPOINT,
   PERSONA_SHARE_ACCEPT_ENDPOINT,
 } from "@/lib/config";
@@ -54,6 +56,42 @@ export interface AcceptShareResponse {
   source_share_id: string;
 }
 
+/** Row returned by GET /persona-shares/received */
+export interface ReceivedShareResponse {
+  /** The frozen persona VERSION id. */
+  persona_id:       string
+  /** The persona REPO id — use this for navigation and actions. */
+  persona_repo_id:  string
+  share_id:         string
+  name:             string
+  description:      string | null
+  image_url:        string | null
+  shared_by_name:   string
+  shared_by_email:  string | null
+  credit_limit:     number | null
+  credit_used:      number
+  credit_remaining: number | null
+  /** false when expired or limit exhausted */
+  is_available:     boolean
+  /** false when revoked by the sender */
+  is_active:        boolean
+  expires_at:       string
+}
+
+/** Row returned by GET /persona-shares/sent */
+export interface SentShareResponse {
+  share_id:          string
+  persona_id:        string
+  recipient_user_id: string
+  recipient_name:    string
+  recipient_email:   string | null
+  credit_limit:      number | null
+  credit_used:       number
+  credit_remaining:  number | null
+  is_active:         boolean
+  accepted_at:       string
+}
+
 export interface CreateShareParams {
   /** The persona REPO id — backend freezes the active version at share time. */
   persona_repo_id: string;
@@ -86,6 +124,14 @@ export async function acceptShare(id: string): Promise<AcceptShareResponse> {
   return apiFetchJson<AcceptShareResponse>(PERSONA_SHARE_ACCEPT_ENDPOINT(id), {
     method: "POST",
   });
+}
+
+export async function listReceived(): Promise<ReceivedShareResponse[]> {
+  return apiFetchJson<ReceivedShareResponse[]>(PERSONA_SHARES_RECEIVED_ENDPOINT)
+}
+
+export async function listSent(): Promise<SentShareResponse[]> {
+  return apiFetchJson<SentShareResponse[]>(PERSONA_SHARES_SENT_ENDPOINT)
 }
 
 export async function revokeShare(id: string): Promise<void> {
