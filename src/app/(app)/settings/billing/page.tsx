@@ -6,9 +6,7 @@ import { createPortal } from 'react-dom'
 import { useAuth } from '@/context/auth-context'
 import {
   cancelSubscription,
-  chargeTopUp,
   createCheckoutSession,
-  createTopUpSession,
   fetchBilling,
   openBillingPortal,
   resumeSubscription,
@@ -18,6 +16,7 @@ import {
 import { Button } from '@/components/Button'
 import { CardBrandLogo } from '@/components/CardBrandLogo'
 import type { CardBrand } from '@/components/CardBrandLogo'
+import { BuyCreditsModal } from '@/components/BuyCreditsModal'
 import { toast } from 'sonner'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -58,8 +57,6 @@ const PLAN_OPTIONS: { id: UserPlanType; label: string; price: number }[] = [
   { id: 'pro',     label: 'Pro',     price: 25  },
   { id: 'power',   label: 'Power',   price: 100 },
 ]
-
-const TOP_UP_USD = 10
 
 // sessionStorage keys — last-known snapshot so returning from Stripe paints
 // instantly instead of flashing an empty "No Plan" state while data reloads.
@@ -204,7 +201,7 @@ export default function BillingPage() {
   const [snap]                                        = useState<BillingSnapshot | null>(() => readCache<BillingSnapshot>(SNAP_KEY))
   const [showChangePlanDialog, setShowChangePlanDialog] = useState(false)
   const [changingToPlan,       setChangingToPlan]       = useState<UserPlanType | null>(null)
-  const [isBuyingCredits,      setIsBuyingCredits]      = useState(false)
+  const [showBuyCreditsModal,  setShowBuyCreditsModal]  = useState(false)
   const [openingPortal,        setOpeningPortal]        = useState(false)
   const [showCancelDialog,     setShowCancelDialog]     = useState(false)
   const [isCanceling,          setIsCanceling]          = useState(false)
@@ -333,29 +330,6 @@ export default function BillingPage() {
   const resetDate      = nextBilling !== '-' ? nextBilling : fmtDate(nextMonthStart.toISOString())
 
   // ── Handlers ─────────────────────────────────────────────────────────────
-
-  const handleBuyCredits = async () => {
-    setIsBuyingCredits(true)
-    try {
-      // If user has a saved payment method, charge instantly
-      if (billing?.payment_method) {
-        const result = await chargeTopUp(TOP_UP_USD)
-        if (result.status === 'succeeded' || result.status === 'ok') {
-          toast.success('Credits added successfully!')
-          await reload()
-          setIsBuyingCredits(false)
-          return
-        }
-      }
-      // Otherwise redirect to Stripe checkout
-      const session = await createTopUpSession(TOP_UP_USD)
-      document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
-      window.location.href = session.checkout_url
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to start credit purchase')
-      setIsBuyingCredits(false)
-    }
-  }
 
   const handleChangePlan = async (targetPlan: UserPlanType) => {
     if (targetPlan === planType || changingToPlan) return
@@ -499,6 +473,12 @@ export default function BillingPage() {
     <>
       {changePlanDialog}
       {cancelDialog}
+      <BuyCreditsModal
+        open={showBuyCreditsModal}
+        onClose={() => setShowBuyCreditsModal(false)}
+        billing={billing}
+        onSuccess={() => { void reload() }}
+      />
 
       <div
         className="kaya-scrollbar"
@@ -652,7 +632,7 @@ export default function BillingPage() {
                     <p style={regMuted}>Top-up packs. Unused credits roll 1 billing cycle.</p>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button variant="secondary" size="md" loading={isBuyingCredits} onClick={() => { void handleBuyCredits() }}>
+                    <Button variant="secondary" size="md" onClick={() => setShowBuyCreditsModal(true)}>
                       Buy more Credits
                     </Button>
                   </div>
