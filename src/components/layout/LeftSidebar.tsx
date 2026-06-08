@@ -19,6 +19,7 @@ import { openDeleteChatDialog } from "./AppDialogs";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
 import type { ProjectChat } from "@/context/projects-context";
 import { GlobalSearchModal, type SearchResult } from "@/components/GlobalSearchModal";
+import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
 
 // ── Collapse state persistence ────────────────────────────────────────────────
@@ -823,6 +824,9 @@ function PersonasSectionAll() {
                 expanded={isExpanded}
                 onClick={() => push(`/personas/${persona.id}/chat`)}
                 onExpandedChange={(v) => handleExpand(persona.id, v)}
+                badge={persona.sourceShareId !== null ? (
+                  <Badge color="Blue" label="Shared" />
+                ) : undefined}
               >
                 {/* New chat button */}
                 <SidebarMenuItem
@@ -912,11 +916,11 @@ function LeftSidebarImpl({
     : 'chat-board';
 
   const computedDefaultBodySection = (
-    isPersonaPage ? 'persona'
+    isPersonaPage ? 'agents'
     : isProjectPage ? 'projects'
     : isNewChatPage ? 'new-chat'
-    : 'chat-board'
-  ) as 'chat-board' | 'persona' | 'workflow' | 'new-chat' | 'projects';
+    : 'chats'
+  ) as 'chats' | 'agents' | 'brain' | 'new-chat' | 'projects';
 
   const collapsedRef = useRef<boolean>(readCollapsed());
 

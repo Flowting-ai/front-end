@@ -1,6 +1,6 @@
 # Component Sync: may-day-chai → front-end-new
 
-**Last synced:** 2026-05-28  
+**Last synced:** 2026-06-09  
 **Source:** `may-day-chai/src/components/`  
 **Target:** `front-end-new/src/components/`
 
@@ -65,6 +65,7 @@ Only components marked **🆕 New in may-day-chai** need action — skip everyth
 | InputGroup | ✅ Identical | — |
 | JumpTimestampGutter | 🔷 front-end-new ahead | 10-line diff — front-end-new modified |
 | LinksSidePanel | ✅ Identical | — |
+| MemberRow | 🆕 New in may-day-chai | New component (Jun 9) — teams member row with role, token usage, and actions |
 | MessageBubble | 🔷 front-end-new ahead | 24-line diff — front-end-new modified |
 | ModelFeaturedCard | 🔷 front-end-new ahead | 14-line diff — front-end-new modified |
 | ModelSelectItem | 🔷 front-end-new ahead | Synced from may-day-chai; front-end-new further extended (40-line diff) |
@@ -95,10 +96,11 @@ Only components marked **🆕 New in may-day-chai** need action — skip everyth
 | QuestionCard | 🔷 front-end-new ahead | 24-line diff — front-end-new modified |
 | SelectionPopover | 🔷 front-end-new ahead | Synced from may-day-chai; front-end-new further extended (16-line diff) |
 | SessionRow | ✅ Identical | — |
+| SettingsTable | 🆕 New in may-day-chai | New component (Jun 9) — generic settings table for teams/plan settings |
 | ShareModal | ✅ Identical | — |
-| Sidebar | 🔷 front-end-new ahead | Synced from may-day-chai; front-end-new significantly extended (102-line diff) |
+| Sidebar | 🔷 front-end-new ahead | Synced from may-day-chai; front-end-new significantly extended. May-day received major 463-line update (Jun 9) — review before next merge |
 | SidebarInset | ✅ Identical | — |
-| SidebarMenuItem | 🔷 front-end-new ahead | Synced from may-day-chai; front-end-new further extended (45-line diff) |
+| SidebarMenuItem | 🔷 front-end-new ahead | Synced from may-day-chai; front-end-new further extended. May-day received 94-line update (Jun 9) — review before next merge |
 | SidebarMenuSkeleton | 🔷 front-end-new ahead | 4-line diff — front-end-new modified |
 | SidebarProjectsSection | 🔷 front-end-new ahead | 34-line diff — front-end-new modified |
 | Slider | 🔷 front-end-new ahead | Synced from may-day-chai; front-end-new further extended (16-line diff) |
@@ -112,14 +114,17 @@ Only components marked **🆕 New in may-day-chai** need action — skip everyth
 | SuperLinksEmpty | ✅ Identical | — |
 | Switch | 🔷 front-end-new ahead | 10-line diff — front-end-new modified |
 | SystemInstructionsModal | ⭐ front-end-new only | Keep; not in may-day-chai |
-| TabItem | 🔷 front-end-new ahead | Synced from may-day-chai; front-end-new further extended (8-line diff) |
-| Tabs | 🔷 front-end-new ahead | Synced from may-day-chai; front-end-new further extended (22-line diff) |
+| TabItem | 🔷 front-end-new ahead | Synced from may-day-chai; front-end-new further extended (8-line diff). May-day received 5-line update (Jun 9) |
+| Tabs | 🔷 front-end-new ahead | Synced from may-day-chai; front-end-new further extended (22-line diff). May-day received 24-line update (Jun 9) |
+| TeamRow | 🆕 New in may-day-chai | New component (Jun 9) — teams team row with member count and workspace info |
 | Toast | 🔷 front-end-new ahead | 8-line diff — front-end-new modified |
 | TokenBudgetBar | ✅ Identical | — |
 | Tooltip | 🔷 front-end-new ahead | 8-line diff — front-end-new modified |
 | UsageBarChart | ✅ Identical | — |
 | VersionCard | ✅ Identical | — |
 | VisibilityRow | ✅ Identical | — |
+| WorkspaceBadge | 🆕 New in may-day-chai | New component (Jun 9) — workspace identity badge |
+| WorkspaceConnectorCard | 🆕 New in may-day-chai | New component (Jun 9) — connector card for workspace integrations |
 | chat/ | ⭐ front-end-new only | Keep; not in may-day-chai |
 | compare/ | ⭐ front-end-new only | Keep; not in may-day-chai |
 | layout/ | ⭐ front-end-new only | Keep; not in may-day-chai |
@@ -133,7 +138,7 @@ Only components marked **🆕 New in may-day-chai** need action — skip everyth
 
 | Template | Status | Notes |
 |----------|--------|-------|
-| Brain | 🔷 front-end-new ahead | Synced 2026-05-28 — 7 new files added (BrainDigestCard, BrainProjectView, ExternalOutputCard, FixProposalCard, LoopRecord, ProjectConfigPanel, StuckCard); lib/phase.ts extended with fix-proposed + stuck phases; index.tsx has front-end-new specific logic (do not overwrite) |
+| Brain | 🔷 front-end-new ahead | Synced 2026-05-28 — 7 new files added (BrainDigestCard, BrainProjectView, ExternalOutputCard, FixProposalCard, LoopRecord, ProjectConfigPanel, StuckCard); lib/phase.ts extended with fix-proposed + stuck phases; index.tsx has front-end-new specific logic (do not overwrite). May-day index.tsx received 33-line update (Jun 9) — review before next merge |
 | ChatBoard | ✅ Identical | Synced 2026-05-19 — was may-day-chai only; now copied to front-end-new |
 | SuperLinks | ✅ Identical | Synced; present in both `may-day-chai` and `front-end-new` |
 
@@ -152,6 +157,7 @@ Only components marked **🆕 New in may-day-chai** need action — skip everyth
 
 | Date | Source | What changed |
 |------|--------|-------------|
+| 2026-06-09 | may-day-chai | 5 new components: MemberRow, SettingsTable, TeamRow, WorkspaceBadge, WorkspaceConnectorCard. Major Sidebar update (463 lines), SidebarMenuItem update (94 lines), Tabs update (24 lines), TabItem update (5 lines), Brain/index.tsx update (33 lines). New src/types/teams.ts. New stories: teams/AnalyticsPage, teams/MemberRow, teams/RoleBadge, teams/TeamRow, teams/TokenPoolBar, teams/WorkspaceBadge, teams/WorkspaceConnectorCard, molecules/ProjectColumn. New docs: TEAMS_PLAN_SETTINGS_SPEC.md, SUPERLINKS_SPEC.md. |
 | 2026-05-28 | may-day-chai | Source renamed from may-day to may-day-chai. Copied 1 new component: ConnectorRow. Copied 7 new Brain template files: BrainDigestCard, BrainProjectView, ExternalOutputCard, FixProposalCard, LoopRecord, ProjectConfigPanel, StuckCard. Extended lib/phase.ts with fix-proposed + stuck phases + new PlanStep fields. Added new exports to Brain index.tsx (existing shell logic preserved). Registered MotionProvider, ProjectDocumentCard, ProjectInstructionsPanel as front-end-new only. |
 | 2026-05-19 | may-day | Scanned for new additions. Copied 2 new templates: Brain (31 files — BrainHome, BrainTimeline, ActivityBlock, ArtifactCard, ScheduleCard, ContextRail, and 25 more) and ChatBoard (previously skipped, now synced). All component directories already present in front-end-new. |
 | 2026-05-18 | may-day | Scanned full codebase. All 4 new may-day components (ChatRow, ChatSelectionBar, GlobalSearchModal, MoveToProjectModal) already present in front-end-new and identical. All previously 🆕/🔄 entries now confirmed synced. Updated legend to include 🔷 (front-end-new ahead). 53 components marked 🔷 — front-end-new has been further developed beyond may-day baseline; do not overwrite. 30 components confirmed ✅ Identical. |

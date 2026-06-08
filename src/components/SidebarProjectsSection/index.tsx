@@ -80,6 +80,11 @@ export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDi
    */
   icon?: React.ReactElement<{ triggered?: boolean }>
   /**
+   * Optional badge rendered between the label and the expand arrow.
+   * Use for status indicators (e.g. a "Shared" pill).
+   */
+  badge?: React.ReactNode
+  /**
    * Called when the user commits a rename (Enter or blur).
    * Receives the new label. Parent should update the label prop.
    */
@@ -94,7 +99,7 @@ export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDi
 
 export function SidebarProjectsSection({
     ref,
-    label = 'Folder name', defaultOpen = false, active = false, expanded: expandedProp, onExpandedChange, fluid = false, icon, children, className, onClick, onCommit, onCancel, ...props
+    label = 'Folder name', defaultOpen = false, active = false, expanded: expandedProp, onExpandedChange, fluid = false, icon, badge, children, className, onClick, onCommit, onCancel, ...props
   // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
   }: SidebarProjectsSectionProps & { ref?: React.Ref<HTMLDivElement> }) {
     // isExpanded - icon-driven; can be controlled via `expanded` prop
@@ -321,31 +326,34 @@ export function SidebarProjectsSection({
             )}
           </div>
 
-          {/* ── Expand / collapse arrow ── */}
+          {/* ── Badge + expand / collapse arrow ── */}
           {!isEditing && (
-            <m.div
-              role="button"
-              tabIndex={0}
-              aria-expanded={isExpanded}
-              aria-label={isExpanded ? 'Collapse' : 'Expand'}
-              onClick={(e) => { e.stopPropagation(); toggle() }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle() } }}
-              animate={{ rotate: isExpanded ? 0 : -90 }}
-              transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-              style={{
-                flexShrink:     0,
-                lineHeight:     0,
-                cursor:         'pointer',
-                color:          'var(--sidebar-menu-item-text)',
-                opacity:        isActive ? 0.7 : 0,
-                transition:     'opacity 150ms',
-                display:        'flex',
-                alignItems:     'center',
-                justifyContent: 'center',
-              }}
-            >
-              <ArrowDownOneIcon size={16} animated />
-            </m.div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+              {badge}
+              <m.div
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
+                aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                onClick={(e) => { e.stopPropagation(); toggle() }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle() } }}
+                animate={{ rotate: isExpanded ? 0 : -90 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                style={{
+                  flexShrink:     0,
+                  lineHeight:     0,
+                  cursor:         'pointer',
+                  color:          'var(--sidebar-menu-item-text)',
+                  opacity:        isActive ? 0.7 : 0,
+                  transition:     'opacity 150ms',
+                  display:        'flex',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <ArrowDownOneIcon size={16} animated />
+              </m.div>
+            </div>
           )}
 
           {/* Inner depth shadow - active + hover (not shown when editing) */}

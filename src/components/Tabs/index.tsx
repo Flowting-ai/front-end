@@ -8,7 +8,8 @@ import { TabItem } from '@/components/TabItem'
 // ── Size context - set by TabsList, consumed by TabsTrigger ───────────────────
 
 type TabsSize = 'medium' | 'small'
-const TabsSizeContext = React.createContext<TabsSize>('medium')
+const TabsSizeContext  = React.createContext<TabsSize>('medium')
+const TabsFluidContext = React.createContext(false)
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ export interface TabsListProps
   scrollable?: boolean
   /** Size variant - medium (default) or small. Propagates to all TabsTrigger children via context. */
   size?: TabsSize
+  /** When true, the list fills its parent width and each trigger grows equally (sidebar tab strip). */
+  fluid?: boolean
   /** How triggers are distributed along the main axis. Defaults to flex-start. */
   justify?: 'start' | 'center' | 'space-evenly' | 'space-between'
   /**
@@ -70,7 +73,7 @@ const PILL_TRANSITION = 'transform 300ms cubic-bezier(0.16,1,0.3,1), width 300ms
 //   • Tab switch → spring via animate(from, to, { onUpdate }) → style.transform / style.width
 //   • Scroll     → shadowEl.style.transform directly - frame-perfect, zero lag
 
-export function TabsList({ ref, children, className, scrollable, size = 'medium', justify, pillTopInset = -0.5, pillBottomInset = -0.5, ...props }: TabsListProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.List>> }) {
+export function TabsList({ ref, children, className, scrollable, fluid, size = 'medium', justify, pillTopInset = -0.5, pillBottomInset = -0.5, ...props }: TabsListProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.List>> }) {
   const isSmall  = size === 'small'
   const radius   = isSmall ? '8px' : '10px'
 
@@ -257,14 +260,16 @@ export function TabsList({ ref, children, className, scrollable, size = 'medium'
   }
 
   return (
+    <TabsFluidContext.Provider value={!!fluid}>
     <TabsSizeContext.Provider value={size}>
       <TabsPrimitive.List
         ref={ref}
         className={cn(className)}
         style={{
           position:   'relative',
-          display:    scrollable ? 'block' : 'inline-flex',
+          display:    scrollable ? 'block' : fluid ? 'flex' : 'inline-flex',
           alignItems: 'flex-start',
+          ...(fluid && { width: '100%' }),
           ...(scrollable && {
             overflowX:          'clip' as React.CSSProperties['overflowX'],
             overflowY:          'visible',
@@ -308,11 +313,12 @@ export function TabsList({ ref, children, className, scrollable, size = 'medium'
           data-draggable={scrollable && overflowing ? 'true' : undefined}
           data-dragging={dragging ? 'true' : undefined}
           style={{
-            position:       'relative',
-            display:        'flex',
-            gap:            '4px',
-            alignItems:     'center',
-            flexShrink:     0,
+            position:   'relative',
+            display:    'flex',
+            gap:        '4px',
+            alignItems: 'center',
+            ...(fluid  && { flex: '1 0 0' }),
+            ...(!fluid && { flexShrink: 0 }),
             ...(justify && { justifyContent: justify, width: '100%' }),
             ...(scrollable && {
               overflowX:           'auto',
@@ -349,6 +355,7 @@ export function TabsList({ ref, children, className, scrollable, size = 'medium'
         </div>
       </TabsPrimitive.List>
     </TabsSizeContext.Provider>
+    </TabsFluidContext.Provider>
   )
 }
 
@@ -357,14 +364,15 @@ TabsList.displayName = 'TabsList'
 // ── Trigger ───────────────────────────────────────────────────────────────────
 
 export function TabsTrigger({ ref, children, icon, className, ...props }: TabsTriggerProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.Trigger>> }) {
-  const size = use(TabsSizeContext)
+  const size    = use(TabsSizeContext)
+  const isFluid = use(TabsFluidContext)
   return (
     // asChild makes Radix use Slot - it merges data-state, aria-selected, role="tab"
     // etc. onto TabItem, which reads data-state to derive its selected visual state.
     // disableSelectedStyle suppresses TabItem's own bg/shadow since TabsList's
     // animated pill handles the selected treatment.
     <TabsPrimitive.Trigger asChild ref={ref} {...props}>
-      <TabItem icon={icon} size={size} disableSelectedStyle className={className}>
+      <TabItem icon={icon} size={size} disableSelectedStyle fluid={isFluid} className={className}>
         {children}
       </TabItem>
     </TabsPrimitive.Trigger>

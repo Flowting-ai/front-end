@@ -5,15 +5,15 @@ import { m, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
   SearchOneIcon,
-  UserAiIcon,
-  NeuralNetworkIcon,
   FolderAddIcon,
-  FolderLibraryIcon,
-  FolderOneIcon,
   SidebarLeftIcon,
   MoreHorizontalIcon,
   BubbleChatIcon,
+  UserAiIcon,
+  NeuralNetworkIcon,
+  CalendarThreeIcon,
 } from '@strange-huge/icons'
+import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarProjectsSection } from '@/components/SidebarProjectsSection'
 import { IconButton } from '@/components/IconButton'
@@ -41,6 +41,16 @@ function SouvenirWordmark() {
       <path d="M33.21 15.73V8.30C33.21 8.13 33.19 8.01 33.15 7.95C33.11 7.89 33.01 7.86 32.86 7.86H31.37C31.20 7.86 31.08 7.84 31.01 7.81C30.95 7.77 30.91 7.66 30.91 7.49V6.75C30.91 6.55 30.94 6.42 30.99 6.36C31.05 6.30 31.18 6.27 31.37 6.27H35.45C35.65 6.27 35.78 6.29 35.83 6.34C35.90 6.38 35.94 6.50 35.94 6.68V15.43C35.94 16.34 36.12 17.07 36.47 17.61C36.84 18.16 37.41 18.43 38.19 18.43C38.95 18.43 39.62 18.21 40.2 17.77C40.77 17.31 41.23 16.72 41.55 15.97C41.87 15.22 42.04 14.40 42.04 13.52V8.31C42.04 8.11 41.99 7.98 41.91 7.94C41.83 7.89 41.70 7.86 41.51 7.86H40.18C40.05 7.86 39.96 7.85 39.89 7.82C39.83 7.79 39.80 7.71 39.80 7.59V6.66C39.80 6.51 39.82 6.41 39.85 6.36C39.89 6.30 39.99 6.27 40.13 6.27H44.44C44.59 6.27 44.67 6.30 44.71 6.36C44.74 6.41 44.76 6.52 44.76 6.67V17.56C44.76 17.76 44.79 17.88 44.84 17.93C44.89 17.98 45.02 18.01 45.22 18.01H46.64C46.77 18.01 46.87 18.03 46.95 18.07C47.02 18.11 47.06 18.19 47.06 18.33V19.16C47.06 19.33 47.04 19.45 47.01 19.51C46.98 19.57 46.87 19.60 46.70 19.60H42.55C42.35 19.60 42.23 19.57 42.18 19.51C42.13 19.44 42.10 19.30 42.10 19.10V17.65C42.10 17.55 42.07 17.48 42.01 17.43C41.95 17.38 41.87 17.44 41.77 17.60C41.37 18.27 40.82 18.82 40.13 19.25C39.44 19.68 38.54 19.89 37.42 19.89C36.35 19.89 35.52 19.73 34.90 19.42C34.29 19.10 33.85 18.64 33.60 18.02C33.34 17.41 33.21 16.64 33.21 15.73Z" fill="var(--neutral-700)"/>
       <path d="M20.05 12.68C20.05 13.71 20.13 14.67 20.30 15.56C20.47 16.45 20.79 17.17 21.25 17.71C21.72 18.26 22.39 18.53 23.26 18.53C23.91 18.53 24.45 18.38 24.87 18.07C25.29 17.77 25.61 17.36 25.84 16.84C26.08 16.32 26.24 15.75 26.33 15.11C26.42 14.48 26.47 13.84 26.47 13.19C26.47 12.16 26.38 11.20 26.21 10.31C26.04 9.42 25.72 8.70 25.25 8.16C24.79 7.61 24.13 7.34 23.26 7.34C22.61 7.34 22.07 7.49 21.65 7.80C21.23 8.11 20.90 8.52 20.67 9.04C20.44 9.55 20.28 10.13 20.19 10.76C20.09 11.39 20.05 12.03 20.05 12.68ZM16.93 13.20C16.93 11.84 17.16 10.61 17.63 9.53C18.10 8.43 18.80 7.57 19.74 6.94C20.68 6.30 21.85 5.98 23.26 5.98C24.66 5.98 25.84 6.29 26.77 6.91C27.71 7.53 28.41 8.34 28.88 9.36C29.35 10.38 29.59 11.48 29.59 12.68C29.59 14.05 29.35 15.27 28.88 16.36C28.41 17.44 27.71 18.30 26.77 18.94C25.84 19.58 24.66 19.89 23.26 19.89C21.85 19.89 20.68 19.59 19.74 18.97C18.80 18.36 18.10 17.54 17.63 16.52C17.16 15.51 16.93 14.40 16.93 13.20Z" fill="var(--neutral-700)"/>
       <path d="M12.33 6.23C12.26 5.32 11.99 4.53 11.53 3.85C11.08 3.17 10.49 2.64 9.76 2.26C9.05 1.89 8.25 1.70 7.37 1.70C5.97 1.70 4.97 1.98 4.37 2.54C3.77 3.11 3.47 3.80 3.47 4.63C3.47 5.36 3.67 5.94 4.07 6.38C4.48 6.80 5.02 7.14 5.68 7.40C6.36 7.66 7.10 7.89 7.90 8.09C8.70 8.30 9.50 8.53 10.30 8.78C11.10 9.04 11.84 9.38 12.50 9.80C13.17 10.21 13.71 10.77 14.11 11.46C14.52 12.15 14.73 13.05 14.73 14.14C14.73 15.40 14.44 16.46 13.88 17.34C13.32 18.21 12.51 18.88 11.45 19.33C10.39 19.77 9.13 20 7.67 20C6.68 20 5.77 19.83 4.94 19.50C4.12 19.16 3.42 18.74 2.85 18.24C2.65 18.06 2.51 17.99 2.42 18.02C2.35 18.05 2.25 18.19 2.14 18.46L1.76 19.37C1.69 19.54 1.62 19.64 1.54 19.67C1.47 19.71 1.32 19.73 1.07 19.73H0.51C0.30 19.73 0.17 19.70 0.10 19.64C0.03 19.59 0 19.46 0 19.26V13.32C0 13.13 0.03 13.02 0.10 12.99C0.17 12.94 0.30 12.92 0.49 12.92H1.21C1.40 12.92 1.51 12.96 1.55 13.04C1.61 13.11 1.64 13.22 1.64 13.38C1.72 14.19 1.99 14.97 2.45 15.74C2.92 16.51 3.56 17.15 4.37 17.65C5.19 18.15 6.16 18.41 7.30 18.41C8.40 18.41 9.29 18.23 9.97 17.88C10.65 17.52 11.15 17.07 11.46 16.52C11.78 15.98 11.94 15.42 11.94 14.86C11.94 14.05 11.74 13.42 11.34 12.95C10.94 12.48 10.40 12.10 9.73 11.82C9.06 11.53 8.33 11.29 7.53 11.09C6.72 10.89 5.92 10.67 5.12 10.44C4.32 10.21 3.59 9.90 2.92 9.51C2.26 9.13 1.72 8.62 1.31 7.98C0.91 7.34 0.71 6.50 0.71 5.47C0.71 4.54 0.88 3.75 1.21 3.08C1.54 2.41 2.00 1.85 2.58 1.40C3.17 0.96 3.84 0.64 4.59 0.43C5.34 0.22 6.14 0.11 6.98 0.11C7.80 0.11 8.58 0.24 9.30 0.51C10.03 0.76 10.65 1.11 11.17 1.56C11.32 1.69 11.45 1.77 11.55 1.78C11.66 1.78 11.78 1.66 11.89 1.42L12.27 0.56C12.31 0.48 12.35 0.43 12.37 0.42C12.41 0.39 12.48 0.38 12.60 0.38H13.59C13.76 0.38 13.86 0.41 13.91 0.47C13.96 0.53 13.98 0.65 13.98 0.83V6.38C13.98 6.56 13.95 6.67 13.88 6.71C13.81 6.74 13.69 6.76 13.50 6.76H12.82C12.56 6.76 12.42 6.73 12.40 6.67C12.38 6.61 12.36 6.47 12.33 6.23Z" fill="var(--neutral-700)"/>
+    </svg>
+  )
+}
+
+// ── Organisation building icon (Figma 4010:3389 — not yet in @strange-huge/icons) ──
+
+function OrgBuildingIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden style={{ display: 'block', flexShrink: 0 }}>
+      <path d="M2.5 17.5h15M4.5 17.5V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v12.5M8 17.5v-3.5h4v3.5M7.25 7.5h1.5M11.25 7.5h1.5M7.25 11h1.5M11.25 11h1.5" stroke="var(--neutral-600)" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -105,7 +115,11 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onPersonasClick?: () => void
   /** Called when the Brain nav item is clicked */
   onBrainClick?: () => void
-  /** When true, the Projects nav item and Projects body section are hidden. Use on brain pages. */
+  /** Called when Organisation nav item is clicked (Chats section only) */
+  onOrganisationClick?: () => void
+  /** Called when Schedules nav item is clicked (Brain section only) */
+  onSchedulesClick?: () => void
+  /** When true, the Projects section is hidden inside the Chats tab. Use on brain pages. */
   hideProjects?: boolean
   /** Called when "Show" is clicked on the Recents section header */
   onShowAllRecents?: React.MouseEventHandler<HTMLButtonElement>
@@ -139,15 +153,12 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
    */
   defaultCollapsed?: boolean
   /**
-   * Initial body section shown on first mount.
-   * Useful when a consuming page (e.g. a persona chat page) needs the sidebar
-   * to start on a specific section. Respects the remount-on-key pattern so each
-   * page type gets the right default without fighting internal state.
-   * 'new-chat' and 'projects' map to the 'chat-board' body section but highlight
-   * their respective nav items.
-   * @default 'chat-board'
+   * Initial tab shown on first mount. 'new-chat' and 'projects' map to the
+   * 'chats' tab. Respects the remount-on-key pattern so each page type gets
+   * the right default without fighting internal state.
+   * @default 'chats'
    */
-  defaultBodySection?: 'chat-board' | 'persona' | 'workflow' | 'new-chat' | 'projects'
+  defaultBodySection?: 'chats' | 'agents' | 'brain' | 'new-chat' | 'projects'
   /** When true, the Search nav item is shown as selected (e.g. while the search modal is open). */
   searchActive?: boolean
   /**
@@ -418,13 +429,15 @@ export function Sidebar({
       onLogoutClick,
       isAuthenticated = false,
       onNewChat,
-      newChatLabel = 'New chat',
+      newChatLabel,
       onSearch,
       onCollapse,
       onChatsClick,
       onProjectsClick,
       onPersonasClick,
       onBrainClick,
+      onOrganisationClick,
+      onSchedulesClick,
       hideProjects   = false,
       projects       = DEFAULT_PROJECTS,
       onShowAllProjects,
@@ -481,18 +494,16 @@ export function Sidebar({
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
     const [selectedItem,    setSelectedItem]    = useState<string | null>(defaultBodySection ?? null)
     // bodySection controls which content area is shown in the scrollable body.
-    // 'chat-board' → Projects + Recents; 'persona' / 'workflow' → Recents only.
-    // 'new-chat' and 'projects' share the chat-board layout but highlight different nav items.
-    const [bodySection, setBodySection] = useState<'chat-board' | 'persona' | 'workflow'>(
-      defaultBodySection === 'persona' ? 'persona'
-      : defaultBodySection === 'workflow' ? 'workflow'
-      : 'chat-board'
+    // 'chats' → Projects + Recents; 'agents' / 'brain' → Recents only.
+    const [bodySection, setBodySection] = useState<'chats' | 'agents' | 'brain'>(
+      defaultBodySection === 'agents' ? 'agents'
+      : defaultBodySection === 'brain' ? 'brain'
+      : 'chats'
     )
 
-    // Select a section nav item (Chat board / Persona / Workflow)
-    const onSelectSection = (section: 'chat-board' | 'persona' | 'workflow') => {
+    // Select a section tab (Chats / Agents / Brain)
+    const onSelectSection = (section: 'chats' | 'agents' | 'brain') => {
       setBodySection(section)
-      setSelectedItem(section)
       setActiveFolder(null)
     }
     // Select any non-section item (chat items, new-project, etc.) - preserves bodySection
@@ -551,15 +562,23 @@ export function Sidebar({
       return () => document.removeEventListener('keydown', onKey)
     }, [handleCollapse])
 
+    const computedNewChatLabel = newChatLabel ?? (
+      bodySection === 'agents' ? 'New Agents Chat' :
+      bodySection === 'brain'  ? 'New Brain threads' :
+      'New chat'
+    )
+
     return (
       <div
         ref={ref}
+        role="navigation"
+        aria-label="Main navigation"
         className={cn(className)}
         style={{
           position:        'relative',
           display:         'flex',
           flexDirection:   'column',
-          width:           isCollapsed ? '52px' : '294px',
+          width:           isCollapsed ? '48px' : '294px',
           height:          '100%',
           backgroundColor: 'var(--neutral-50)',
           overflowX:       'hidden',
@@ -617,7 +636,26 @@ export function Sidebar({
             </Tooltip>
           </div>
 
-          {/* ── Nav strip - New chat + Search ── */}
+          {/* ── Tab strip — Chats / Agents / Brain (hidden when collapsed) ── */}
+          {!isCollapsed && (
+            <div style={{ paddingLeft: '12px', paddingRight: '12px' }}>
+              <Tabs value={bodySection} onValueChange={(v) => {
+                const s = v as 'chats' | 'agents' | 'brain'
+                onSelectSection(s)
+                if (s === 'chats') onChatsClick?.()
+                else if (s === 'agents') onPersonasClick?.()
+                else if (s === 'brain') onBrainClick?.()
+              }}>
+                <TabsList size="small" fluid>
+                  <TabsTrigger value="chats"  icon={<BubbleChatIcon    size={16} />}>Chats</TabsTrigger>
+                  <TabsTrigger value="agents" icon={<UserAiIcon        size={16} />}>Agents</TabsTrigger>
+                  <TabsTrigger value="brain"  icon={<NeuralNetworkIcon size={16} />}>Brain</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          )}
+
+          {/* ── Nav strip — Primary action + Search + 3rd item + collapsed section icons ── */}
           <div style={{
             display:       'flex',
             flexDirection: 'column',
@@ -629,13 +667,13 @@ export function Sidebar({
             paddingRight:  '8px',
             overflow:      'hidden',
           }}>
-            <Tooltip content={newChatLabel} side="right" disabled={!isCollapsed}>
+            <Tooltip content={computedNewChatLabel} side="right" disabled={!isCollapsed}>
               <SidebarMenuItem
                 {...(isCollapsed ? { collapsed: true } : { fluid: true })}
                 variant="new-chat"
-                label={newChatLabel}
+                label={computedNewChatLabel}
                 selected={selectedItem === 'new-chat'}
-                onClick={() => { setBodySection('chat-board'); setSelectedItem('new-chat'); setActiveFolder(null); onNewChat?.() }}
+                onClick={() => { setSelectedItem('new-chat'); setActiveFolder(null); onNewChat?.() }}
               />
             </Tooltip>
             <Tooltip content="Search" side="right" disabled={!isCollapsed}>
@@ -649,13 +687,63 @@ export function Sidebar({
                 onClick={(e) => { (e.currentTarget as HTMLElement).blur(); onSearch?.() }}
               />
             </Tooltip>
+            {bodySection === 'chats' && (
+              <Tooltip content="Organisation" side="right" disabled={!isCollapsed}>
+                <SidebarMenuItem
+                  {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                  variant="default"
+                  icon={<OrgBuildingIcon />}
+                  label="Organisation"
+                  onClick={onOrganisationClick}
+                />
+              </Tooltip>
+            )}
+            {bodySection === 'brain' && (
+              <Tooltip content="Schedules" side="right" disabled={!isCollapsed}>
+                <SidebarMenuItem
+                  {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                  variant="default"
+                  icon={<CalendarThreeIcon size={20} />}
+                  label="Schedules"
+                  onClick={onSchedulesClick}
+                />
+              </Tooltip>
+            )}
+            {isCollapsed && (
+              <>
+                <SidebarMenuItem
+                  collapsed
+                  variant="default"
+                  icon={<BubbleChatIcon size={20} />}
+                  label="Chats"
+                  selected={bodySection === 'chats'}
+                  onClick={() => onSelectSection('chats')}
+                />
+                <SidebarMenuItem
+                  collapsed
+                  variant="default"
+                  icon={<UserAiIcon size={20} />}
+                  label="Agents"
+                  selected={bodySection === 'agents'}
+                  onClick={() => onSelectSection('agents')}
+                />
+                <SidebarMenuItem
+                  collapsed
+                  variant="default"
+                  icon={<NeuralNetworkIcon size={20} />}
+                  label="Brain"
+                  selected={bodySection === 'brain'}
+                  onClick={() => onSelectSection('brain')}
+                />
+              </>
+            )}
           </div>
         </div>
 
         {/* ── Scrollable body ── */}
         <div ref={bodyScrollRef} className={isCollapsed ? undefined : 'kaya-scrollbar'} onScroll={handleBodyScroll} style={{
           position:      'absolute',
-          top:           '148px',
+          top:           bodySection === 'agents' ? '174px' : '210px',
           bottom:        '68px',
           left:          0,
           right:         0,
@@ -668,60 +756,6 @@ export function Sidebar({
           gap:           '4px',
         }}>
 
-          {/* Chat board + Persona + Workflow */}
-          <div style={{
-            display:       'flex',
-            flexDirection: 'column',
-            alignItems:    isCollapsed ? 'center' : 'stretch',
-            gap:           '4px',
-            paddingTop:    '12px',
-            paddingLeft:   '8px',
-            paddingRight:  '8px',
-            paddingBottom: '8px',
-            flexShrink:    0,
-          }}>
-            <Tooltip content="Chat board" side="right" disabled={!isCollapsed}>
-              <SidebarMenuItem
-                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                variant="default"
-                icon={<BubbleChatIcon size={20} />}
-                label="Chat board"
-                selected={selectedItem === 'chat-board'}
-                onClick={() => { onSelectSection('chat-board'); onChatsClick?.() }}
-              />
-            </Tooltip>
-            <Tooltip content="Agents" side="right" disabled={!isCollapsed}>
-              <SidebarMenuItem
-                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                variant="default"
-                icon={<UserAiIcon size={20} />}
-                label="Agents"
-                selected={selectedItem === 'persona'}
-                onClick={() => { onSelectSection('persona'); onPersonasClick?.() }}
-              />
-            </Tooltip>
-            <Tooltip content="Brain" side="right" disabled={!isCollapsed}>
-              <SidebarMenuItem
-                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                variant="default"
-                icon={<NeuralNetworkIcon size={20} animated />}
-                label="Brain"
-                selected={selectedItem === 'workflow'}
-                onClick={() => { onSelectSection('workflow'); onBrainClick?.() }}
-              />
-            </Tooltip>
-            <Tooltip content="Projects" side="right" disabled={!isCollapsed}>
-              <SidebarMenuItem
-                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                variant="default"
-                icon={<FolderLibraryIcon size={20} />}
-                label="Projects"
-                selected={selectedItem === 'projects'}
-                onClick={() => { onSelect('projects'); onProjectsClick?.() }}
-              />
-            </Tooltip>
-          </div>
-
           {/* Projects + Recents - always mounted so shown/scroll state survives collapse/expand.
               m.div animates opacity+blur in/out on collapse/expand; pointerEvents:none when invisible. */}
           <m.div
@@ -730,9 +764,9 @@ export function Sidebar({
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             style={{ display: 'flex', flexDirection: 'column', pointerEvents: isCollapsed ? 'none' : 'auto' }}
           >
-            {/* Projects - only visible in chat-board section, and never on brain pages */}
+            {/* Projects - only visible in the Chats tab, and never on brain pages */}
             <AnimatePresence initial={false}>
-              {!hideProjects && bodySection === 'chat-board' && (
+              {!hideProjects && bodySection === 'chats' && (
                 <div key="projects-section" style={{
                   display:       'flex',
                   flexDirection: 'column',
@@ -789,7 +823,8 @@ export function Sidebar({
         ].map(({ height, blur }) => (
           <div key={blur} aria-hidden style={{
             position:            'absolute',
-            top:                 '148px',
+            top:                 bodySection === 'agents' ? '174px' : '210px',
+            transition:          'opacity 150ms ease',
             left:                0, right: 0,
             height:              `${height}px`,
             backdropFilter:      `blur(${blur}px)`,
@@ -799,19 +834,18 @@ export function Sidebar({
             pointerEvents:       'none',
             zIndex:              5,
             opacity:             atScrollTop ? 0 : 1,
-            transition:          'opacity 150ms ease',
           }} />
         ))}
         <div aria-hidden style={{
           position:      'absolute',
-          top:           '148px',
+          top:           bodySection === 'agents' ? '174px' : '210px',
+          transition:    'opacity 150ms ease',
           left:          0, right: 0,
           height:        '40px',
           background:    'linear-gradient(to bottom, var(--neutral-50) 0%, transparent 100%)',
           pointerEvents: 'none',
           zIndex:        6,
           opacity:       atScrollTop ? 0 : 1,
-          transition:    'opacity 150ms ease',
         }} />
 
         {/* ── Bottom scroll fade - blur (behind) + gradient (on top) ── */}
@@ -855,7 +889,7 @@ export function Sidebar({
           left:            isCollapsed ? '50%' : 0,
           right:           isCollapsed ? 'auto' : 0,
           transform:       isCollapsed ? 'translateX(-50%)' : undefined,
-          width:           isCollapsed ? '52px' : undefined,
+          width:           isCollapsed ? '48px' : undefined,
           zIndex:          10,
           backgroundColor: 'var(--neutral-50)',
           paddingLeft:     isCollapsed ? '4px' : '10px',

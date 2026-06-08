@@ -305,6 +305,8 @@ export interface PersonaCardProps extends React.HTMLAttributes<HTMLDivElement> {
   visibility?: 'private' | 'team'
   /** Additional Neutral tag badges shown in the badge row (e.g. ["Research"]). */
   tags?: string[]
+  /** Shows a Blue "Shared" chip — use for personas accepted from another user's share. */
+  shared?: boolean
 
   // ── Community-specific ────────────────────────────────────────────────────
   /** Community author handle (without @). */
@@ -405,21 +407,21 @@ function ActionBar({
     >
       {type === 'hover' && (
         <>
-          <IconButton variant="ghost" size="sm" aria-label="Edit persona" icon={<PenOneIcon />} onClick={onEdit} />
+          {onEdit && <IconButton variant="ghost" size="sm" aria-label="Edit persona" icon={<PenOneIcon />} onClick={onEdit} />}
           <div style={{ flex: 1 }} />
           <Button variant="secondary" size="sm" onClick={onUseInChat}>Use in chat</Button>
         </>
       )}
 
-      {type === 'resume' && (
+      {type === 'resume' && onResume && (
         <Button variant="outline" size="sm" style={{ flex: 1 }} onClick={onResume}>Resume</Button>
       )}
 
       {type === 'draft' && (
         <>
-          <IconButton variant="ghost" size="sm" aria-label="Edit draft" icon={<PenOneIcon />} onClick={onEdit} />
+          {onEdit && <IconButton variant="ghost" size="sm" aria-label="Edit draft" icon={<PenOneIcon />} onClick={onEdit} />}
           <div style={{ flex: 1 }} />
-          <Button variant="outline" size="sm" onClick={onEdit}>Continue building</Button>
+          {onEdit && <Button variant="outline" size="sm" onClick={onEdit}>Continue building</Button>}
         </>
       )}
 
@@ -493,6 +495,7 @@ function PersonaCardInner({
       modelName      = 'Claude : Sonnet',
       visibility,
       tags           = EMPTY_PERSONA_TAGS,
+      shared         = false,
       authorHandle,
       authorAvatarUrl,
       useCount,
@@ -745,18 +748,22 @@ function PersonaCardInner({
                           >
                             <Dropdown size="sm">
                               <Dropdown.Section fluid>
-                                <Dropdown.Item
-                                  label="Edit"
-                                  icon={<PenOneIcon />}
-                                  fluid
-                                  onClick={() => { setMenuOpen(false); onMenuEdit?.() }}
-                                />
-                                <Dropdown.Item
-                                  label={paused ? 'Resume' : 'Pause'}
-                                  icon={paused ? <ArrowRightTwoIcon /> : <StopCircleIcon />}
-                                  fluid
-                                  onClick={() => { setMenuOpen(false); onMenuPauseToggle?.() }}
-                                />
+                                {onMenuEdit && (
+                                  <Dropdown.Item
+                                    label="Edit"
+                                    icon={<PenOneIcon />}
+                                    fluid
+                                    onClick={() => { setMenuOpen(false); onMenuEdit() }}
+                                  />
+                                )}
+                                {onMenuPauseToggle && (
+                                  <Dropdown.Item
+                                    label={paused ? 'Resume' : 'Pause'}
+                                    icon={paused ? <ArrowRightTwoIcon /> : <StopCircleIcon />}
+                                    fluid
+                                    onClick={() => { setMenuOpen(false); onMenuPauseToggle() }}
+                                  />
+                                )}
                               </Dropdown.Section>
                               <Dropdown.Section fluid divider>
                                 <Dropdown.Item
@@ -820,6 +827,9 @@ function PersonaCardInner({
                 )}
                 {isDraft && (
                   <Badge color="Yellow" label="Draft" />
+                )}
+                {shared && (
+                  <Badge color="Blue" label="Shared" />
                 )}
                 {modelVisible && (
                   <Badge color="Red" label={modelName} />

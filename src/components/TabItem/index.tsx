@@ -23,6 +23,8 @@ export interface TabItemProps
   disableSelectedStyle?: boolean
   /** Injected by Radix Tabs - 'active' when this tab is selected */
   'data-state'?: string
+  /** When true, the item grows to fill its flex parent equally (fluid TabsList) */
+  fluid?: boolean
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -37,6 +39,7 @@ export function TabItem(
     disabled,
     asChild = false,
     disableSelectedStyle = false,
+    fluid = false,
     className,
     'data-state': dataState,
     ...props
@@ -71,6 +74,8 @@ export function TabItem(
           // ── Layout ──────────────────────────────────────────────────────────
           display:        'inline-flex',
           alignItems:     'center',
+          justifyContent: fluid ? 'center' : undefined,
+          flex:           fluid ? '1 0 0' : undefined,
           gap:            isSmall ? '2px' : '4px',
           padding:        isSmall ? '7px' : '7px 8px',
           borderRadius:   isSmall ? '8px' : '10px',

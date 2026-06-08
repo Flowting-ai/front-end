@@ -203,6 +203,13 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
           fetchModelsWithCache(),
         ])
         if (cancelled) return
+
+        // Received personas are read-only — redirect to chat
+        if (version.source_share_id) {
+          push(`/personas/${repoId}/chat`)
+          return
+        }
+
         const vModelId = version.model_id ?? null
         if (!vModelId) return
 

@@ -129,7 +129,7 @@ function BrainThreadsPageInner() {
 
       {/* ── Left sidebar ── */}
       <Sidebar
-        defaultBodySection="workflow"
+        defaultBodySection="brain"
         defaultCollapsed={sidebarCollapsedRef.current}
         onCollapse={handleSidebarCollapse}
         recentItems={

@@ -2976,7 +2976,7 @@ function BrainPageInner() {
         ),
       }}
       sidebarProps={{
-        defaultBodySection: 'workflow',
+        defaultBodySection: 'brain',
         hideProjects:       true,
         defaultCollapsed:   sidebarCollapsedRef.current,
         onCollapse:         handleSidebarCollapse,

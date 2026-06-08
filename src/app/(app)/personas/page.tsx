@@ -274,17 +274,13 @@ function fmtExpiry(isoDate: string): string {
 function SharedAgentCard({
   share,
   persona,
-  onEdit,
   onUseInChat,
-  onPauseToggle,
   onDelete,
 }: {
-  share:        ReceivedShareResponse
-  persona:      Persona | undefined
-  onEdit:       () => void
-  onUseInChat:  () => void
-  onPauseToggle: () => void
-  onDelete:     () => void
+  share:       ReceivedShareResponse
+  persona:     Persona | undefined
+  onUseInChat: () => void
+  onDelete:    () => void
 }) {
   const status  = receivedShareStatus(share)
   const badge   = RECEIVED_STATUS_BADGE[status]
@@ -299,14 +295,11 @@ function SharedAgentCard({
         handle={persona?.handle.replace(/^@/, '') ?? ''}
         description={share.description ?? undefined}
         avatarUrl={share.image_url ?? undefined}
+        shared
         tags={persona?.tags}
         paused={persona?.isPaused}
         visibility="private"
-        onEdit={onEdit}
         onUseInChat={onUseInChat}
-        onResume={onPauseToggle}
-        onMenuEdit={onEdit}
-        onMenuPauseToggle={onPauseToggle}
         onMenuDelete={onDelete}
       />
 
@@ -737,8 +730,8 @@ export default function PersonasPage() {
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
               <Tabs.List>
                 <Tabs.Trigger value="my-personas">My Agents ({personas.length})</Tabs.Trigger>
-                <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
-                <Tabs.Trigger value="shared">Shared{receivedShares.length > 0 ? ` (${receivedShares.length})` : ''}</Tabs.Trigger>
+                <Tabs.Trigger value="super-links">Super Links ({shares.length})</Tabs.Trigger>
+                <Tabs.Trigger value="shared">Shared ({receivedShares.length})</Tabs.Trigger>
                 {/* <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger> */}
               </Tabs.List>
             </Tabs>
@@ -1052,11 +1045,12 @@ export default function PersonasPage() {
                           tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
                           visibility="private"
-                          onEdit={() => { toast.success(`Editing "${persona.name}"`); push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) }}
+                          shared={persona.sourceShareId !== null}
+                          onEdit={persona.sourceShareId === null ? () => { toast.success(`Editing "${persona.name}"`); push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined}
                           onUseInChat={() => push(`/personas/${persona.id}/chat`)}
-                          onResume={() => handlePauseToggle(persona.id, persona.name, persona.isPaused)}
-                          onMenuEdit={() => { toast.success(`Editing "${persona.name}"`); push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) }}
-                          onMenuPauseToggle={() => handlePauseToggle(persona.id, persona.name, persona.isPaused)}
+                          onResume={persona.sourceShareId === null ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined}
+                          onMenuEdit={persona.sourceShareId === null ? () => { toast.success(`Editing "${persona.name}"`); push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined}
+                          onMenuPauseToggle={persona.sourceShareId === null ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined}
                           onMenuDelete={() => setDeleteTarget(persona)}
                         />
                       ))}
@@ -1100,9 +1094,7 @@ export default function PersonasPage() {
                         key={share.share_id}
                         share={share}
                         persona={persona}
-                        onEdit={() => push(`/persona/configure/instructions?repoId=${share.persona_repo_id}&name=${encodeURIComponent(share.name)}`)}
                         onUseInChat={() => push(`/personas/${share.persona_repo_id}/chat`)}
-                        onPauseToggle={() => persona && handlePauseToggle(persona.id, share.name, persona.isPaused)}
                         onDelete={() => persona && setDeleteTarget(persona)}
                       />
                     )
