@@ -30,9 +30,9 @@ export interface SidebarMenuItemProps extends React.HTMLAttributes<HTMLDivElemen
   /** Subtitle / email - account-item only */
   sublabel?: string
   /**
-   * Icon for the `default` variant. Must be a `@strange-huge/icons` component
-   * that accepts a `triggered` prop - it will fire when the item is hovered.
-   * Defaults to `<LogoIcon size={20} />`.
+   * Icon for the `default` and `new-chat` variants. Overrides the default icon.
+   * For `default`: defaults to `<LogoIcon size={20} />`.
+   * For `new-chat`: defaults to `<BubbleChatAddIcon size={20} />`.
    */
   icon?: React.ReactElement<{ triggered?: boolean }>
   /** Avatar image URL - account-item only */
@@ -383,7 +383,7 @@ export function SidebarMenuItem({
                 />
               )}
               <div style={{ position: 'relative', color: 'var(--sidebar-menu-item-text)', lineHeight: 0 }}>
-                <BubbleChatAddIcon size={20} triggered={isHovered} />
+                {icon ?? <BubbleChatAddIcon size={20} triggered={isHovered} />}
               </div>
             </div>
             <AnimatePresence mode="popLayout" initial={false}>

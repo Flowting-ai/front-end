@@ -9,13 +9,16 @@ import {
   NeuralNetworkIcon,
   FolderLibraryIcon,
   FolderOneIcon,
+  FolderAddIcon,
   LinkSixIcon,
+  UserAddOneIcon,
 } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { IconButton } from '@/components/IconButton'
 import { AccountMenu } from '@/components/AccountMenu'
 import { Badge } from '@/components/Badge'
 import { useAuth } from '@/context/auth-context'
+import { useOrg } from '@/context/org-context'
 import { toast } from 'sonner'
 
 const MY_SETTINGS_ITEMS = [
@@ -30,11 +33,24 @@ const MY_SETTINGS_ITEMS = [
   { id: 'help',          label: 'Help & Legal',     href: '/settings/help',          icon: <FolderOneIcon     size={20} />, disabled: false },
 ]
 
+const ORG_ITEMS = [
+  { id: 'general',    label: 'General',           href: '/settings/org/general',    icon: <UserAiIcon        size={20} /> },
+  { id: 'members',    label: 'Members',           href: '/settings/org/members',    icon: <UserAddOneIcon    size={20} /> },
+  { id: 'teams',      label: 'Teams',             href: '/settings/org/teams',      icon: <FolderAddIcon     size={20} /> },
+  { id: 'plans',      label: 'Plans & Billing',   href: '/settings/org/plans',      icon: <AbacusIcon        size={20} /> },
+  { id: 'analytics',  label: 'Usage & Analytics', href: '/settings/org/analytics',  icon: <AbacusIcon        size={20} /> },
+  { id: 'connectors', label: 'Connectors',        href: '/settings/org/connectors', icon: <LinkSixIcon       size={20} /> },
+  { id: 'security',   label: 'Security',          href: '/settings/org/security',   icon: <UserAiIcon        size={20} /> },
+  { id: 'activity',   label: 'Activity Log',      href: '/settings/org/activity',   icon: <FolderLibraryIcon size={20} /> },
+]
+
 
 export function SettingsSidebar() {
   const { push } = useRouter()
   const pathname = usePathname()
   const { user, logout, isAuthenticated } = useAuth()
+  const { currentUserRole } = useOrg()
+  const isAdmin = currentUserRole === 'admin'
 
   const displayName = user
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
@@ -144,6 +160,38 @@ export function SettingsSidebar() {
             ))}
           </div>
         </div>
+
+        {/* Organization section — Admin only */}
+        {isAdmin && (
+          <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ padding: '5px 6px' }}>
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 500,
+                  fontSize:   14,
+                  lineHeight: '22px',
+                  color:      'var(--neutral-500)',
+                  margin:     0,
+                  whiteSpace: 'nowrap',
+                }}>
+                  Organization
+                </p>
+              </div>
+              {ORG_ITEMS.map(item => (
+                <SidebarMenuItem
+                  key={item.id}
+                  fluid
+                  variant="default"
+                  icon={item.icon}
+                  label={item.label}
+                  selected={pathname.startsWith(item.href)}
+                  onClick={() => push(item.href)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
 

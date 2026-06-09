@@ -148,7 +148,7 @@ export function PersonaChatInterface({
     optimisticChatIdsRef.current.add(chatId);
     justCreatedChatRef.current = true;
     setActiveChatId(chatId);
-    window.history.replaceState(null, "", `/personas/${personaIdRef.current}/chat?chatId=${chatId}`);
+    window.history.replaceState(null, "", `/agents/${personaIdRef.current}/chat?chatId=${chatId}`);
     emitPersonaChatCreated({ personaId: personaIdRef.current, chatId, title: "New chat" });
   }, []);
 

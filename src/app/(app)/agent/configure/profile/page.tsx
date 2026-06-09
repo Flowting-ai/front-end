@@ -14,7 +14,6 @@ import ProfileTab from '@/app/(app)/agent/configure/components/ProfileTab'
 import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModal'
 import {
   getPersonaRepo, updateVersion, setActiveVersion,
-  getVersion,
   bustPersonasCache,
 } from '@/lib/api/personas'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
@@ -60,8 +59,7 @@ function PersonaConfigureProfileContent() {
     catch { return null }
   }
 
-  const [currentPrompt,      setCurrentPrompt]      = useState('')
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, registerAutoSave, setVersionsOpen } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, personaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, registerAutoSave, setVersionsOpen } = usePersonaConfigure()
 
   const [isSaving,             setIsSaving]             = useState(false)
   const [isPublishing,         setIsPublishing]         = useState(false)
@@ -78,7 +76,7 @@ function PersonaConfigureProfileContent() {
 
   // ProfileTab state — initialise from sessionStorage on first render
   const [avatarUrl,          setAvatarUrl]          = useState<string | null>(() => { const d = loadDraft(); return (d?.avatarUrl as string | null) ?? null })
-  const [personaName,        setPersonaName]        = useState<string>(() => { const d = loadDraft(); return (d?.personaName as string) || nameParam || 'Persona Name' })
+  const [personaName,        setPersonaName]        = useState<string>(() => { const d = loadDraft(); return (d?.personaName as string) || nameParam || 'Agent Name' })
   const [personaHandle,      setPersonaHandle]      = useState<string>(() => { const d = loadDraft(); return (d?.personaHandle as string) ?? '' })
   const [personaDescription, setPersonaDescription] = useState<string>(() => {
     const d = loadDraft()
@@ -129,7 +127,7 @@ function PersonaConfigureProfileContent() {
     const hasMeaningfulDraft = !!draft && (
       !!(draft.personaHandle as string | undefined) ||
       !!(draft.personaDescription as string | undefined) ||
-      ((draft.personaName as string | undefined) ?? 'Persona Name') !== 'Persona Name'
+      ((draft.personaName as string | undefined) ?? 'Agent Name') !== 'Agent Name'
     )
 
     getPersonaRepo(repoId)
@@ -137,19 +135,19 @@ function PersonaConfigureProfileContent() {
         const v = repo.active_version
         // Always refresh avatar — draft may have been set from text fields only, leaving avatar null
         if (v?.image_url && !avatarUrl) setAvatarUrl(v.image_url)
+        // Always set handle from API when not already in the draft — even when hasMeaningfulDraft
+        // is true (wizard data exists), the handle is generated server-side and won't be in the draft.
+        if (v?.handler && !personaHandle) setPersonaHandle(`@${v.handler}`)
+        // Always load tags from API when the local state is empty (edit flow / no wizard draft).
+        if (v?.persona_tags?.length && !personaTags.length) setPersonaTags(v.persona_tags)
         if (!hasMeaningfulDraft) {
           // No meaningful draft — overwrite all fields with real API data
-          setPersonaName(repo.name || 'Persona Name')
-          if (v?.handler)   setPersonaHandle(`@${v.handler}`)
+          setPersonaName(repo.name || 'Agent Name')
           if (v?.image_url) setAvatarUrl(v.image_url)
-          // Use the prompt as description only if it's short enough — on a brand-new
-          // persona the prompt is just the one-sentence wizard purpose.
-          if (v?.prompt && v.prompt.trim().length <= 120) {
-            setPersonaDescription(v.prompt.trim())
-          }
+          // Description is already seeded from persona_wizard_purpose_{repoId} in the
+          // useState initializer — do NOT overwrite it with the system instruction here.
         }
-        // Tags were already seeded from persona_wizard_starter in the useState initializer.
-        // Clear it now so stale data doesn’t bleed into the next wizard run.
+        // Clear one-shot wizard key so stale data doesn't bleed into the next wizard run.
         try { sessionStorage.removeItem('persona_wizard_starter') } catch { /* ignore */ }
       })
       .catch(err => console.error('[ProfilePage] API load error:', err))
@@ -173,15 +171,6 @@ function PersonaConfigureProfileContent() {
     } catch { /* storage quota exceeded — ignore */ }
   }, [PROFILE_KEY, avatarUrl, personaName, personaHandle, personaDescription, personaTags])
 
-  useEffect(() => {
-    if (!repoId || !versionId) return
-    getVersion(repoId, versionId)
-      .then(v => {
-        setCurrentPrompt(v.prompt ?? '')
-      })
-      .catch(() => {})
-  }, [repoId, versionId])
-
   // Push persona info to shared layout context
   useEffect(() => {
     if (!repoId) return
@@ -193,10 +182,6 @@ function PersonaConfigureProfileContent() {
     })
   }, [repoId, versionId, personaName, avatarUrl, updatePersonaInfo])
 
-  useEffect(() => {
-    if (currentPrompt) updatePersonaInfo({ guidePrompt: currentPrompt })
-  }, [currentPrompt, updatePersonaInfo])
-
   function markDirty() {
     if (!isInitializedRef.current) return
     if (!isDirtyRef.current) { isDirtyRef.current = true; setIsDirty(true) }
@@ -205,6 +190,9 @@ function PersonaConfigureProfileContent() {
 
   function safeNavigate(href: string) { ctxSafeNavigate(href) }
   function safeBack()                 { ctxSafeBack() }
+
+  const isPublished    = !!publishedVersionId && publishedVersionId === versionId && pendingChangeTags.length === 0
+  const needsRepublish = !!repoId && !!versionId && !isPublished
 
   async function handleSaveVersion() {
     if (!isDirty || !repoId || !versionId) return
@@ -217,10 +205,11 @@ function PersonaConfigureProfileContent() {
       await updateVersion({
         repoId,
         versionId,
-        name:     personaName,
-        prompt:   personaDescription,
-        image:    imageFile,
-        imageUrl: imageFile ? undefined : (avatarUrl ?? undefined),
+        name:         personaName,
+        prompt:       personaDescription,
+        persona_tags: personaTags,
+        image:        imageFile,
+        imageUrl:     imageFile ? undefined : (avatarUrl ?? undefined),
       })
       isDirtyRef.current = false
       setIsDirty(false)
@@ -254,10 +243,11 @@ function PersonaConfigureProfileContent() {
         await updateVersion({
           repoId,
           versionId,
-          name:     personaName,
-          prompt:   personaDescription,
-          image:    imageFile,
-          imageUrl: imageFile ? undefined : (avatarUrl ?? undefined),
+          name:         personaName,
+          prompt:       personaDescription,
+          persona_tags: personaTags,
+          image:        imageFile,
+          imageUrl:     imageFile ? undefined : (avatarUrl ?? undefined),
         })
         isDirtyRef.current = false
         setIsDirty(false)
@@ -338,7 +328,7 @@ function PersonaConfigureProfileContent() {
               size="md"
               icon={<ArrowLeftOneIcon size={20} />}
               aria-label="Go back"
-              onClick={safeBack}
+              onClick={() => safeNavigate('/agents')}
             />
           </div>
 
@@ -369,7 +359,7 @@ function PersonaConfigureProfileContent() {
                       padding: '7px 8px',
                       borderRadius: 10,
                       border: 'none',
-                      cursor: TAB_ROUTES[tab] || !isActive ? 'pointer' : 'default',
+                      cursor: TAB_ROUTES[tab] ? 'pointer' : 'default',
                       backgroundColor: isActive ? 'var(--neutral-white)' : 'transparent',
                       boxShadow: isActive
                         ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 0px 0px rgba(38,33,30,0.1)'
@@ -412,7 +402,7 @@ function PersonaConfigureProfileContent() {
                 icon={<QuillWriteOneIcon size={16} />}
                 aria-label="Save version"
                 onClick={handleSaveVersion}
-                disabled={!isDirty || !repoId || !versionId || isSaving}
+                disabled={pendingChangeTags.length === 0 || !repoId || !versionId || isSaving}
                 loading={isSaving}
               />
             ) : (
@@ -421,7 +411,7 @@ function PersonaConfigureProfileContent() {
                 size="sm"
                 leftIcon={<QuillWriteOneIcon size={16} />}
                 onClick={handleSaveVersion}
-                disabled={!isDirty || !repoId || !versionId || isSaving}
+                disabled={pendingChangeTags.length === 0 || !repoId || !versionId || isSaving}
                 loading={isSaving}
               >
                 {isSaving ? 'Saving…' : 'Save version'}
@@ -437,6 +427,15 @@ function PersonaConfigureProfileContent() {
               {isPublishing ? 'Publishing…' : publishedVersionId ? 'Republish' : 'Publish'}
             </Button>
           </div>
+
+          {/* Live / Unpublished badge — centered below the tab bar */}
+          {(isPublished || needsRepublish) && (
+            <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 6, pointerEvents: 'none', zIndex: 1 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', whiteSpace: 'nowrap', ...(isPublished ? { backgroundColor: '#d1fae5', color: '#065f46', boxShadow: '0px 0px 0px 1px rgba(6,95,70,0.2)' } : { backgroundColor: '#fef3c7', color: '#92400e', boxShadow: '0px 1px 1.5px 0px rgba(24,15,2,0.15), 0px 0px 0px 1px rgba(146,64,14,0.3)' }) }}>
+                {isPublished ? 'Live' : 'Unpublished'}
+              </span>
+            </div>
+          )}
         </div>
 
         <div style={{ height: 35, flexShrink: 0 }} />
@@ -461,6 +460,7 @@ function PersonaConfigureProfileContent() {
             gap: 24,
             width: '100%',
             maxWidth: 429,
+            paddingTop: 3,
             paddingBottom: 32,
           }}
         >

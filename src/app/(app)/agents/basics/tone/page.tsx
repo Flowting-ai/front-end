@@ -1,11 +1,16 @@
-﻿'use client'
+'use client'
 
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
+import { toast } from 'sonner'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 import { TEMPLATE_PRESETS } from '../../_data/template-presets'
+import { personaStarter, createPersonaRepo } from '@/lib/api/personas'
+import { fetchModelsWithCache } from '@/lib/ai-models'
+import { stableKey } from '@/hooks/use-model-selection'
+import { pickTemplateAvatar } from '@/lib/persona-template-avatars'
 
 // ── Session-storage key ────────────────────────────────────────────────────
 
@@ -20,7 +25,7 @@ interface ToneOption {
   example?: string
 }
 
-// Fallback tones shown only when no starter data is available
+// Shown while the API fetch is in-flight, or if the fetch fails
 const FALLBACK_TONES: ToneOption[] = [
   {
     id:       'direct',
@@ -53,8 +58,8 @@ function starterSoundsToTones(
 ): ToneOption[] {
   if (!starter?.sounds?.length) return []
   return starter.sounds.map(s => ({
-    id: s.name.toLowerCase().replace(/\s+/g, '-'),
-    label: s.name,
+    id:       s.name.toLowerCase().replace(/\s+/g, '-'),
+    label:    s.name,
     subtitle: s.description,
   }))
 }
@@ -88,7 +93,6 @@ function ToneCard({
         transition: 'border-color 150ms, box-shadow 150ms',
       }}
     >
-      {/* Header */}
       <div>
         <p style={{
           fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
@@ -104,10 +108,8 @@ function ToneCard({
         </p>
       </div>
 
-      {/* Divider */}
       <div style={{ height: 1, background: 'rgba(59,54,50,0.15)', width: '100%' }} />
 
-      {/* Example (omitted when starter sounds don't include one) */}
       {tone.example && (
         <p style={{
           fontFamily: 'var(--font-body)', fontWeight: 400,
@@ -123,6 +125,20 @@ function ToneCard({
   )
 }
 
+function ToneCardSkeleton() {
+  return (
+    <div style={{
+      background: 'var(--neutral-50)',
+      border: '1px solid var(--neutral-100)',
+      borderRadius: 16,
+      padding: 12,
+      width: 332,
+      height: 108,
+      animation: 'pulse 1.5s ease-in-out infinite',
+    }} />
+  )
+}
+
 // ── Inner page ────────────────────────────────────────────────────────────────
 
 function TonePageContent() {
@@ -130,31 +146,39 @@ function TonePageContent() {
   const searchParams = useSearchParams()
   const template = searchParams.get('template') ?? ''
 
-  // Compute the available tone cards from starter sounds (or fallback to hardcoded)
-  const [tones] = useState<ToneOption[]>(() => {
-    if (typeof window === 'undefined') return FALLBACK_TONES
+  // Tones: synchronously pre-populate from cached starter sounds (handles back-navigation
+  // — IDs stay consistent with the saved draft.tone). Falls back to FALLBACK_TONES while
+  // the API fetch runs on first visit.
+  const [tones, setTones] = useState<ToneOption[]>(() => {
+    if (typeof window === 'undefined' || template) return FALLBACK_TONES
     try {
-      if (template) return FALLBACK_TONES
-      const starter = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { sounds?: Array<{ name: string; description: string }> } | null
-      const fromStarter = starterSoundsToTones(starter)
-      return fromStarter.length > 0 ? fromStarter : FALLBACK_TONES
-    } catch { return FALLBACK_TONES }
+      const cached = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { sounds?: Array<{ name: string; description: string }> } | null
+      const fromCached = starterSoundsToTones(cached)
+      if (fromCached.length > 0) return fromCached
+    } catch { }
+    return FALLBACK_TONES
+  })
+
+  // Only show loading state when we need a fresh API fetch (no cached sounds yet)
+  const [isLoadingTones, setIsLoadingTones] = useState(() => {
+    if (typeof window === 'undefined' || template) return false
+    try {
+      const cached = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { sounds?: Array<{ name: string; description: string }> } | null
+      return starterSoundsToTones(cached).length === 0
+    } catch { return true }
   })
 
   const [selectedTone, setSelectedTone] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null
     try {
       const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
-      // Restore if same template (back navigation)
-      if (draft.template === template && draft.tone) return draft.tone
-      // Pre-select from template preset on first visit
+      // Restore on back navigation — stored ID always matches the loaded tone set
+      if ((draft.template ?? '') === template && draft.tone) return draft.tone
       if (template) return TEMPLATE_PRESETS[template]?.tone ?? null
-      // Auto-select the first starter sound (it's the backend's recommendation)
-      const starter = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { sounds?: Array<{ name: string; description: string }> } | null
-      const fromStarter = starterSoundsToTones(starter)
-      return fromStarter[0]?.id ?? null
+      return null
     } catch { return null }
   })
+
   const [displayName, setDisplayName] = useState<string>(() => {
     if (typeof window === 'undefined') return ''
     try {
@@ -163,7 +187,6 @@ function TonePageContent() {
     } catch { return '' }
   })
 
-  // Read persona name from sessionStorage (stored by the name page)
   useEffect(() => {
     if (typeof window === 'undefined') return
     try {
@@ -172,6 +195,37 @@ function TonePageContent() {
     } catch { /* ignore */ }
   }, [])
 
+  // Fetch dynamic tone options from the backend on first visit.
+  // Skipped when cached sounds are already available (back-navigation case).
+  useEffect(() => {
+    if (!isLoadingTones) return
+
+    let cancelled = false
+    const draft = (() => {
+      try { return JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}') } catch { return {} }
+    })()
+
+    personaStarter({
+      name:        (draft.name    as string | undefined) ?? '',
+      description: (draft.purpose as string | undefined) ?? '',
+      tone:        undefined,
+    })
+      .then(starter => {
+        if (cancelled) return
+        try { sessionStorage.setItem('persona_wizard_starter', JSON.stringify(starter)) } catch { /* quota */ }
+        const fromStarter = starterSoundsToTones(starter)
+        if (fromStarter.length > 0) {
+          setTones(fromStarter)
+          // Clear any draft tone that no longer matches the new tone set
+          setSelectedTone(prev => fromStarter.some(t => t.id === prev) ? prev : null)
+        }
+      })
+      .catch(() => { /* keep FALLBACK_TONES on error */ })
+      .finally(() => { if (!cancelled) setIsLoadingTones(false) })
+
+    return () => { cancelled = true }
+  }, [isLoadingTones])
+
   function buildQuery() {
     const p = new URLSearchParams()
     if (template) p.set('template', template)
@@ -179,13 +233,105 @@ function TonePageContent() {
     return qs ? `?${qs}` : ''
   }
 
-  function handleContinue() {
-    if (!selectedTone) return
+  const [isLoading, setIsLoading] = useState(false)
+
+  async function handleContinue() {
+    if (!selectedTone || isLoading) return
+
+    // Save tone to wizard draft
     try {
       const existing = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
       sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ ...existing, tone: selectedTone }))
     } catch { /* ignore */ }
-    push('/agent/configure/instructions')
+
+    // If repo was already created on a prior Continue (back-nav from instructions),
+    // navigate straight to it — don't create a duplicate.
+    try {
+      const existingRepo = JSON.parse(sessionStorage.getItem('persona_wizard_repo') ?? 'null') as { repoId?: string; versionId?: string } | null
+      if (existingRepo?.repoId && existingRepo?.versionId) {
+        push(`/agent/configure/instructions?repoId=${existingRepo.repoId}&versionId=${existingRepo.versionId}`)
+        return
+      }
+    } catch { /* ignore */ }
+
+    setIsLoading(true)
+    try {
+      const draft          = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+      const effectiveName  = (draft.name    as string | undefined) || 'Untitled Agent'
+      const wizardPurpose  = (draft.purpose as string | undefined) || ''
+      const wizardTemplate = (draft.template as string | undefined) || ''
+      const templatePreset = wizardTemplate ? (TEMPLATE_PRESETS[wizardTemplate] ?? null) : null
+
+      // Get full starter (personalized instruction + persona tags).
+      // For templates, the preset instruction takes precedence; we still call for tags.
+      let initialPrompt      = templatePreset?.systemInstruction ?? ''
+      let starterPersonaTags: string[] = []
+      try {
+        const starter = await personaStarter({
+          name:        effectiveName,
+          description: wizardPurpose,
+          tone:        selectedTone,
+        })
+        try { sessionStorage.setItem('persona_wizard_starter', JSON.stringify(starter)) } catch { /* quota */ }
+        if (!initialPrompt) initialPrompt = starter.system_instruction ?? ''
+        starterPersonaTags = starter.persona_tags ?? []
+      } catch {
+        // Non-critical — repo still created with empty instruction
+      }
+
+      // Fetch models and pick the best one (template hint or first available)
+      const models = await fetchModelsWithCache()
+      const firstModel = models[0] ?? null
+      if (!firstModel) {
+        toast.error('No AI models available. Please contact support.')
+        return
+      }
+      let chosenModel = firstModel
+      if (templatePreset?.modelHint) {
+        const hint   = templatePreset.modelHint.toLowerCase()
+        const hinted = models.find(m => m.modelName.toLowerCase().includes(hint))
+        if (hinted) chosenModel = hinted
+      }
+
+      // Create the repo + initial version
+      const repo         = await createPersonaRepo({
+        name:    effectiveName,
+        modelId: stableKey(chosenModel) ?? '',
+        prompt:  initialPrompt,
+      })
+      const newRepoId    = repo.id
+      const newVersionId = repo.active_version?.id ?? ''
+
+      // Persist wizard state so back-nav detects the created repo
+      try { sessionStorage.setItem('persona_wizard_repo', JSON.stringify({ repoId: newRepoId, versionId: newVersionId })) } catch { /* ignore */ }
+      // Mark unpublished until the user explicitly publishes
+      try { localStorage.setItem(`persona_needs_publish_${newRepoId}`, '1') } catch { /* ignore */ }
+      // Keep purpose accessible to profile tab description fallback
+      if (wizardPurpose) {
+        try { sessionStorage.setItem(`persona_wizard_purpose_${newRepoId}`, wizardPurpose) } catch { /* ignore */ }
+      }
+
+      // Seed profile draft (avatar + wizard data) so profile tab shows correct data immediately
+      const avatarPath = pickTemplateAvatar()
+      try {
+        sessionStorage.setItem(`persona_profile_${newRepoId}`, JSON.stringify({
+          avatarUrl:          avatarPath,
+          personaName:        effectiveName || undefined,
+          personaDescription: wizardPurpose || undefined,
+          personaTags:        starterPersonaTags.length > 0 ? starterPersonaTags : undefined,
+        }))
+      } catch { /* ignore quota errors */ }
+
+      // Clean up wizard draft now that the repo exists
+      try { sessionStorage.removeItem('persona_wizard_draft') } catch { /* ignore */ }
+
+      push(`/agent/configure/instructions?repoId=${newRepoId}&versionId=${newVersionId}`)
+    } catch (err) {
+      console.error('[TonePage] agent creation error:', err)
+      toast.error('Failed to create agent. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -210,16 +356,18 @@ function TonePageContent() {
 
         {/* Tone grid + footer */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {/* Tone cards — dynamic from starter sounds, or 2×2 fallback grid */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, maxWidth: 683 }}>
-            {tones.map(tone => (
-              <ToneCard
-                key={tone.id}
-                tone={tone}
-                selected={selectedTone === tone.id}
-                onSelect={() => setSelectedTone(tone.id)}
-              />
-            ))}
+            {isLoadingTones
+              ? Array.from({ length: 4 }).map((_, i) => <ToneCardSkeleton key={i} />)
+              : tones.map(tone => (
+                  <ToneCard
+                    key={tone.id}
+                    tone={tone}
+                    selected={selectedTone === tone.id}
+                    onSelect={() => setSelectedTone(tone.id)}
+                  />
+                ))
+            }
           </div>
 
           {/* Footer */}
@@ -231,16 +379,25 @@ function TonePageContent() {
               variant="outline"
               size="sm"
               leftIcon={<ArrowLeftOneIcon size={16} />}
-              onClick={() => push(`/agents/basics/name${buildQuery()}`)}
+              onClick={() => {
+                if (selectedTone) {
+                  try {
+                    const existing = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+                    sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ ...existing, tone: selectedTone }))
+                  } catch { /* ignore */ }
+                }
+                push(`/agents/basics/name${buildQuery()}`)
+              }}
             >
               Back
             </Button>
-            {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- wizard step: "Continue" advances to template selection; flow context makes action clear */}
+            {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- wizard step: "Continue" creates the agent repo; flow context makes action clear */}
             <Button
               variant="default"
               size="sm"
               rightIcon={<ArrowRightOneIcon size={16} />}
-              disabled={!selectedTone}
+              disabled={!selectedTone || isLoading || isLoadingTones}
+              loading={isLoading}
               onClick={handleContinue}
             >
               Continue

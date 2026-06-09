@@ -1,93 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
+import { Button } from '@/components/Button'
 import { CardBrandLogo } from '@/components/CardBrandLogo'
-
-// ── Shared buttons ─────────────────────────────────────────────────────────────
-
-function DarkButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        padding:         '6px 10px 8px',
-        borderRadius:    10,
-        border:          'none',
-        cursor:          'pointer',
-        background:      'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)',
-        boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.5), 0px 0px 0px 1px var(--neutral-900), inset 0px 1px 0px 0px rgba(255,255,255,0.08)',
-        fontFamily:      'var(--font-body)',
-        fontWeight:      500,
-        fontSize:        14,
-        lineHeight:      '22px',
-        color:           'white',
-        whiteSpace:      'nowrap',
-        flexShrink:      0,
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-function WhiteButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        padding:         '6px 10px 8px',
-        borderRadius:    10,
-        border:          'none',
-        cursor:          'pointer',
-        backgroundColor: 'white',
-        boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
-        fontFamily:      'var(--font-body)',
-        fontWeight:      500,
-        fontSize:        14,
-        lineHeight:      '22px',
-        color:           'var(--neutral-700)',
-        whiteSpace:      'nowrap',
-        flexShrink:      0,
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-function RedButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        padding:         '6px 10px 8px',
-        borderRadius:    10,
-        border:          'none',
-        cursor:          'pointer',
-        backgroundColor: 'white',
-        boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px var(--red-200)',
-        fontFamily:      'var(--font-body)',
-        fontWeight:      500,
-        fontSize:        14,
-        lineHeight:      '22px',
-        color:           'var(--red-700)',
-        whiteSpace:      'nowrap',
-        flexShrink:      0,
-      }}
-    >
-      {children}
-    </button>
-  )
-}
 
 // ── Text input ────────────────────────────────────────────────────────────────
 
@@ -345,7 +260,7 @@ export default function OrgPlansPage() {
                 Unlimited seats · 84,000 shared credits/mo · Priority support · Advanced AI models
               </p>
             </div>
-            <DarkButton>Contact sales</DarkButton>
+            <Button variant="default" size="sm">Contact sales</Button>
           </div>
 
           {/* Stats row */}
@@ -443,7 +358,7 @@ export default function OrgPlansPage() {
                 </p>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <WhiteButton>Buy more Credits</WhiteButton>
+                <Button variant="secondary" size="sm">Buy more Credits</Button>
               </div>
             </div>
           </div>
@@ -523,7 +438,7 @@ export default function OrgPlansPage() {
                 Expiry 06/2024
               </p>
             </div>
-            <WhiteButton>Manage on Stripe</WhiteButton>
+            <Button variant="secondary" size="sm">Manage on Stripe</Button>
           </div>
         </Card>
 
@@ -541,7 +456,7 @@ export default function OrgPlansPage() {
                 Invoice history
               </p>
             </div>
-            <WhiteButton>Export all</WhiteButton>
+            <Button variant="secondary" size="sm">Export all</Button>
           </div>
 
           {/* Inner white table */}
@@ -667,7 +582,7 @@ export default function OrgPlansPage() {
                 Your workspace will revert to the free tier at the end of the current billing period. All members will lose access to Pro features.
               </p>
             </div>
-            <RedButton>Cancel Plan</RedButton>
+            <Button variant="danger" size="sm">Cancel Plan</Button>
           </div>
         </Card>
 

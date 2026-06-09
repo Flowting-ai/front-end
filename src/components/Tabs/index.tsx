@@ -106,9 +106,13 @@ export function TabsList({ ref, children, className, scrollable, fluid, size = '
   useEffect(() => {
     const row = rowRef.current
     if (!row) return
-    const observer = new MutationObserver(measure)
-    observer.observe(row, { attributes: true, subtree: true, attributeFilter: ['data-state'] })
-    return () => observer.disconnect()
+    const mo = new MutationObserver(measure)
+    mo.observe(row, { attributes: true, subtree: true, attributeFilter: ['data-state'] })
+    // Re-measure whenever the container is resized (e.g. sidebar collapse/expand
+    // animation) so the pill tracks the active tab through the layout change.
+    const ro = new ResizeObserver(measure)
+    ro.observe(row)
+    return () => { mo.disconnect(); ro.disconnect() }
   }, [measure])
 
   // ── Scrollable: sync shadow DOM directly ────────────────────────────────────

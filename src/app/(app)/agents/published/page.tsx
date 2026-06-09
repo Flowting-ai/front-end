@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeftOneIcon, LinkSixIcon, ShareOneIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, LinkSixIcon, CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { toast } from 'sonner'
@@ -207,25 +207,29 @@ function SuperLinkSection({
 function PersonaPublishedContent() {
   const { push } = useRouter()
   const searchParams = useSearchParams()
-  const personaName  = searchParams.get('name')       ?? 'Persona'
-  const repoId       = searchParams.get('repoId')     ?? ''
-  const versionId    = searchParams.get('versionId')  ?? ''
+  const nameParam     = searchParams.get('name') || ''
+  const repoId        = searchParams.get('repoId')     ?? ''
+  const versionId     = searchParams.get('versionId')  ?? ''
   const isRepublished = searchParams.get('republished') === 'true'
 
   const { user } = useAuth()
   const maxTokenLimit = getShareTokenLimit(user?.planType)
 
+  const [personaName,    setPersonaName]    = useState(nameParam || 'Your Agent')
   const [linkShare,      setLinkShare]      = useState<PersonaShare | null>(null)
   const [tokenLimit,     setTokenLimit]     = useState(maxTokenLimit)
   const [isGenerating,   setIsGenerating]   = useState(false)
   const [isRevoking,     setIsRevoking]     = useState(false)
   const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null)
 
-  // Fetch the persona's avatar from the API using repoId.
+  // Fetch the persona's avatar and authoritative name from the API.
   useEffect(() => {
     if (!repoId) return
     getPersonaRepo(repoId)
-      .then(repo => setPersonaImageUrl(repo.active_version?.image_url ?? null))
+      .then(repo => {
+        setPersonaImageUrl(repo.active_version?.image_url ?? null)
+        if (repo.name) setPersonaName(repo.name)
+      })
       .catch(() => {})
   }, [repoId])
 
@@ -412,10 +416,6 @@ function PersonaPublishedContent() {
                     lineHeight: '48px',
                     color: 'var(--neutral-900)',
                     margin: 0,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    maxWidth: 400,
                     textAlign: 'center',
                   }}
                 >
@@ -544,17 +544,6 @@ function PersonaPublishedContent() {
                   </Button>
                 </div>
               )}
-
-              {/* Share to community - disabled */}
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<ShareOneIcon size={16} />}
-                style={{ width: 242, justifyContent: 'center' }}
-                disabled
-              >
-                Share to community
-              </Button>
 
               {/* Back to library */}
               <button

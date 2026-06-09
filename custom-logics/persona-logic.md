@@ -1,356 +1,869 @@
-# Persona Configure — End-to-End Logic
+# Persona (Agent) — End-to-End Logic Specification
+
+> **Purpose of this document:** Canonical source of truth for all persona/agent feature work. Every implementation decision must align with this document. When in doubt, this document wins. Do not remove or simplify any logic described here without explicit user sign-off.
 
 ---
 
-## 1. Entry: Template or Custom Selection
+## Phase 0 — Agents Library (`/personas`)
 
-User lands on the persona creation wizard and picks either a **template** or a **custom (blank)** persona.
+### What the page shows
+- All personas belonging to the user: draft, active (published), and paused cards.
+- Shared personas (personas shared with the user by someone else) also appear here.
+- Only **published** (active/paused) personas show as usable cards. Draft personas appear with a visual draft indicator.
+- **Saved versions are never shown on this page.** Saved versions exist only inside the Versions Panel within the persona configure page.
 
-- Template personas come with a pre-written system instruction and a random avatar assigned automatically.
-- Custom personas start with all fields empty.
+### Card content (fetched from Profile tab data)
+Each card must display:
+- Avatar image (from profile tab) with fallback initials if no image.
+- Persona name (from profile tab → name field).
+- Tags (from profile tab → tags field — unique per persona, auto-generated + user-added).
+- Status badge: `draft`, `active`, or `paused`.
+
+### Shared persona cards
+- A persona shared with the user renders identically to owned personas except:
+  - **No edit button** on the card.
+  - **No edit access** in the persona chat page for that persona.
+  - The card is clearly marked as "Shared".
+
+### Filtering
+All filter controls on this page must work correctly:
+- Filter by status: all / draft / active / paused / shared.
+- Filter by tag.
+- Search by name.
+
+### Card grid
+- Grid overflow and card layout are already working — do not change this.
 
 ---
 
-## 2. Wizard Steps (Name → Purpose → Tone)
+## Phase 1 — Creation Wizard
 
-Three sequential pages before the configure tabs:
+### Step 0 — Template or Custom selection page
 
-- **Name** — user sets the persona name. Back is always allowed. Continue is blocked with a toast if the field is empty.
-- **Purpose / Description** — user writes a short purpose statement. Same back/continue rules.
-- **Tone** — user picks a tone. On continue, the app calls `/persona/starter` in the background to generate an initial system instruction based on name + purpose + tone, then stores it in `sessionStorage` (`persona_wizard_starter`). The result is used to pre-populate the Instructions tab.
+The user clicks **New Persona** (or equivalent CTA) and lands on a selection page with two paths:
 
-All three wizard values are saved to `sessionStorage` (`persona_wizard_draft`) on every step. They are read and cleared once when the Instructions tab initialises.
+| Option | Behaviour |
+|---|---|
+| **Custom (Start from scratch)** | All wizard fields (purpose, name, tone) start empty. User fills them in manually. |
+| **Template card** | A template is pre-selected. Purpose, name, and tone are pre-filled from the template preset. User can review and edit before continuing. |
+
+Both paths lead into the same three-step basics wizard below.
 
 ---
 
-## 3. Configure Tabs
+### Step 1 — Purpose page (`/agents/basics/purpose`)
+
+**Field:** "What should this agent do?" — free-text input.
+
+**Back button behaviour (unique to this page):**
+- Clicking Back opens a confirmation modal:
+  > *"Are you sure you want to cancel agent creation?"*
+  - **Cancel creation** → discard all wizard data and navigate to `/personas`.
+  - **Keep editing** → close modal, stay on this page.
+
+**Cancel button (top-right, present on all three wizard pages):**
+- On this page: identical behaviour to the Back button — opens the cancel creation modal.
+
+**Continue button:**
+- Disabled until the purpose field contains at least one character.
+- On click: saves purpose to persistent wizard state (see [State Persistence](#wizard-state-persistence)) and navigates to the Name page.
+
+**Data persistence:**
+- If the user navigates forward and then comes back to this page, the purpose field must be re-populated from saved state — it must never appear empty when the user previously entered a value.
+
+---
+
+### Step 2 — Name page (`/agents/basics/name`)
+
+**Field:** "What should we call it?" — free-text input.
+
+**Back button behaviour:**
+- Navigates to the Purpose page.
+- The purpose field on the Purpose page must be populated from saved state — no data loss.
+
+**Cancel button (top-right):**
+- Opens the cancel creation modal (same as Purpose page back button).
+
+**Continue button:**
+- Disabled until the name field contains at least one character.
+- On click: saves name to persistent wizard state and navigates to the Tone page.
+
+**Data persistence:**
+- If the user returns to this page, the name field must be pre-populated from saved state.
+
+---
+
+### Step 3 — Tone page (`/agents/basics/tone`)
+
+**Field:** "How should {name} sound?" — tone selection (radio or card selection, not free text).
+
+**Back button behaviour:**
+- Navigates to the Name page.
+- The name field on the Name page must be populated from saved state — no data loss.
+
+**Cancel button (top-right):**
+- Opens the cancel creation modal (same as above).
+
+**Continue button:**
+- Disabled until the user has selected a tone option.
+- On click:
+  1. Saves tone to persistent wizard state.
+  2. Calls `POST /persona/starter` (or equivalent) in the background with `{ name, purpose, tone }`.
+  3. The API response provides: pre-generated system instructions and 4 auto-generated tags.
+  4. Both are stored in wizard state (see below).
+  5. Creates the persona repo via `POST /persona` — this yields `repoId`.
+  6. Creates an initial version via `POST /persona/{repoId}/versions`.
+  7. Navigates to `/persona/configure/instructions?repoId={repoId}&versionId={versionId}`.
+
+> **Critical:** Once the user enters the configure tabs, they **cannot return** to the wizard pages. The Back button inside configure means "save draft and exit to /personas" — not "go back to tone/name/purpose". The wizard pages become inaccessible once configure is entered.
+
+---
+
+### Wizard State Persistence
+
+All three wizard values must persist across forward/backward navigation and survive a page refresh within the same session.
+
+Storage key: `persona_wizard_draft` in `sessionStorage`.
+
+Shape:
+```json
+{
+  "purpose": "string",
+  "name": "string",
+  "tone": "string",
+  "template": "string | null"
+}
+```
+
+API-generated starter data (from tone page continue action):
+
+Storage key: `persona_wizard_starter` in `sessionStorage`.
+
+Shape:
+```json
+{
+  "system_instruction": "string",
+  "persona_tags": ["tag1", "tag2", "tag3", "tag4"]
+}
+```
+
+Both keys are read once when the Instructions tab initialises and then cleared from sessionStorage after being applied.
+
+---
+
+## Phase 2 — (Reserved for additional phases as defined by user)
+
+---
+
+## Phase 3 — Configure Tabs
 
 Five tabs: **Instructions · Profile · Knowledge · Connectors · Sharing**
 
-All tabs share a common layout with:
-- A tab bar centered in the header
-- **Save version** and **Publish** buttons in the top-right
-- A back arrow (top-left) that triggers the leave guard if the persona is unpublished
-- Three collapsible side panels (Test Chat, AI Suggestions, Versions) accessible from the floating menu
+All tabs share:
+- Tab bar in the header.
+- **Save version** and **Publish** buttons (top-right).
+- Back arrow (top-left) → triggers leave guard (see [Leave Guard](#leave-guard)).
+- Three collapsible side panels: **Test Chat**, **AI Suggestions**, **Versions** — accessible from the floating action menu.
+
+### Panel lock rules (critical checkpoint)
+**Test Chat** and **AI Suggestions** panels are **locked** until both of the following conditions are met:
+1. All required fields have valid values (model selected, system instructions non-empty).
+2. At least one version has been saved (i.e. `createVersion()` has been called at least once for this persona).
+
+When a user tries to open a locked panel, display an inline info card or modal explaining:
+> *"Complete setup first: select a model, add system instructions, and save a version before testing your persona."*
+
+**Versions Panel** is always available from the first entry into configure. It is never locked.
 
 ---
 
-### 3a. Instructions Tab *(Required)*
+### Tab 3a — Instructions Tab *(Required fields)*
 
-**Fields:** Model selector · System instruction textarea · Creativity (temperature) slider · Example conversations (optional, collapsible)
+#### Header section
+- **Name:** Populated from the wizard name page (Step 2). Read-only display in the header.
+- **Avatar:** Randomly assigned image from `public/persona-avatars` on creation. Falls back to initials if no image resolves. The avatar shown here is always in sync with the Profile tab avatar.
+- **Tags:** Populated from the Profile tab's tags field (auto-generated + user-added). Tags update here whenever the Profile tab tags change. Tags are read-only in this header — they are edited in the Profile tab.
 
-**Initial state:**
-- Template persona → system instruction and model hint pre-populated from the template preset. Model selector is left unselected — user must explicitly choose a model.
-- Custom persona → all fields empty. User must fill both model and instruction before switching to any other tab.
-- Editing existing persona → all fields loaded from the saved version. Full navigation available immediately.
+#### Fields
 
-**Tab-switch guard:**
-Switching to any other tab from Instructions is blocked if:
-- No model is selected → toast: *"Please select a model before switching tabs."*
+**a. Model Selection Dropdown** *(Required — starts empty for custom, pre-set for template)*
+- Custom creation: dropdown is empty. User must select a model.
+- Template creation: the model best suited for the template is pre-assigned. User can change it.
+- Selecting a model sets `isDirty = true` and adds `Model` to `pendingChangeTags`.
+- Model selection is persisted to `sessionStorage` (`persona_model_cache_{repoId}`) on change.
+
+**b. System Instructions** *(Required — pre-generated for both custom and template)*
+- For custom: auto-generated in detail from `{ purpose, name, tone }` via the `POST /persona/starter` call on the tone page continue action. This text is pre-populated when the user arrives at this tab.
+- For template: pre-written system instruction from the template preset.
+- User can edit, add to, or replace this text.
+- **Undo / Redo:** Full undo/redo history is maintained for this textarea via `use-instruction-history`. Keyboard shortcuts apply (Ctrl+Z / Ctrl+Shift+Z).
+- Every keystroke persists to `sessionStorage` (`persona_instructions_draft_{repoId}`) and sets `isDirty = true`, adds `Instructions` to `pendingChangeTags`.
+
+**c. Creativity Level (Temperature)** *(Required — defaults to 0.5)*
+- Slider from 0 to 1. Default value is `0.5` on first creation.
+- Changing it sets `isDirty = true` and adds `Model` to `pendingChangeTags`.
+
+**d. Example Conversations** *(Optional)*
+- A collapsible section where the user can define example input/output pairs.
+- These are appended to the system instructions to show the model how the persona should respond.
+- Adding or editing examples sets `isDirty = true` and adds `Instructions` to `pendingChangeTags`.
+
+#### Navigation guard (outbound from Instructions tab)
+Switching to any other tab from Instructions is blocked if either required field is missing:
+- No model selected → toast: *"Please select a model before switching tabs."*
 - System instruction is empty → toast: *"Please add system instructions before switching tabs."*
 
-This guard only applies while leaving the Instructions tab outward — not when returning to it.
+This guard only applies when **leaving** Instructions — not when returning to it.
 
-**State persistence (no backend call on tab switch):**
-Every keystroke saves a draft to `sessionStorage` keyed as `persona_instructions_draft_{repoId}`. When the user returns to this tab, the draft is re-loaded automatically. No `updateVersion` API call is made on tab switch.
+#### Auto-save on tab switch
+When the user switches **away** from the Instructions tab (and the guard is satisfied):
+- The current state is written to `sessionStorage` — no API call is made.
+- A toast is shown: *"Auto-saved: [list of changed fields]"*
+  - Example: *"Auto-saved: Model, System Instructions"*
+- The **current version is NOT recreated**. Tab switching only persists to session storage. A new version is only created when the user explicitly clicks **Save version**.
+- The version card in the Versions panel is NOT changed on tab switch.
 
-**Change tag auto-detection:**
-- Editing the system instruction → adds `Instructions` tag to `pendingChangeTags`
-- Changing model or temperature → adds `Model` tag
+When the user returns to this tab, state is reloaded from `sessionStorage`.
 
-**Save Version:**
-1. Validates model is selected → toast if missing
-2. Validates instruction is not empty → toast if missing
-3. Checks version limit (max 5) → toast if at limit
-4. Calls `createVersion()` — creates an immutable snapshot
-5. Updates URL with new `versionId`
-6. Stamps `pendingChangeTags` onto the version, then clears them
-7. Clears the sessionStorage draft
-8. Opens the Versions panel and shows *"Version saved"* toast
+#### Save version
+1. Validate model is selected → toast if missing, block save.
+2. Validate instruction is not empty → toast if missing, block save.
+3. Check version limit (max 5) → toast if at limit, block save.
+4. Call `createVersion()` — creates an immutable snapshot.
+5. Update URL with new `versionId`.
+6. Stamp `pendingChangeTags` onto the new version card, then clear them.
+7. Clear the `sessionStorage` instruction draft.
+8. Open Versions panel, show toast: *"Version saved"*.
 
-**Publish:**
-1. If `isDirty` (instruction / model / temperature changed since last save) → calls `updateVersion()` in-place on the current version (no new version created, no version card added)
-2. Calls `setActiveVersion()` → makes the persona live
-3. Stamps and clears `pendingChangeTags`
-4. Busts the frontend personas cache
-5. Stores published `versionId` in `sessionStorage`
-6. Redirects to `/personas/published`
-
----
-
-### 3b. Profile Tab *(Optional — always pre-filled)*
-
-**Fields:** Avatar (upload / drag-drop / paste) · Name · Handle (read-only, auto-generated) · Description (120 char max) · Tags
-
-Language field has been removed.
-
-**Initial state:**
-- Loaded from `sessionStorage` draft first (`persona_profile_{repoId}`). If no meaningful draft exists, falls back to API data from the active version.
-- Avatar is always refreshed from the API to keep the test chat panel in sync.
-
-**State persistence (no backend call on tab switch):**
-Every field change writes to `sessionStorage`. No `updateVersion` API call on tab switch. Data survives tab switches and page reloads within the same browser session.
-
-**Change tags:** Any field change adds `Profile` to `pendingChangeTags`.
-
-**Save Version:**
-1. Calls `updateVersion()` with name, description, avatar, image
-2. Resets `isDirty`
-3. Stamps and clears `pendingChangeTags`
-4. Opens Versions panel and shows *"Profile saved"* toast
-
-**Publish:**
-1. If `isDirty` → calls `updateVersion()` in-place (same as Instructions tab — unsaved profile changes are flushed to the current version before going live)
-2. Stamps and clears `pendingChangeTags`
-3. Calls `setActiveVersion()` → persona goes live
-4. Redirects to `/personas/published`
+#### Publish
+1. If `isDirty`: call `updateVersion()` in-place (flush to current version, no new version created).
+2. Stamp and clear `pendingChangeTags`.
+3. Call `setActiveVersion(repoId, versionId)`.
+4. Bust personas cache.
+5. Store published `versionId` in `sessionStorage` (`persona_live_version_{repoId}`).
+6. Redirect to `/personas/published`.
 
 ---
 
-### 3c. Knowledge Tab *(Optional)*
+### Tab 3b — Profile Tab *(Pre-filled, some fields required)*
 
-**Fields:** File upload area · Uploaded files list with preview and delete
+#### Fields
 
-**Behaviour:**
-- File uploads and deletes call the API immediately (`uploadDocument` / `deleteDocument`) — files are live in the version the moment they are added or removed.
-- `isDirty` is set to `true` when any upload or delete succeeds, indicating the version's change tags have not been stamped yet.
-- File sizes and blob preview URLs are cached in refs and `sessionStorage` so the MB counter and eye-icon previews survive API round-trips and tab switches.
-- On returning to this tab, files are re-fetched from the API — no data is lost.
+**a. Avatar Image** *(Optional — pre-assigned)*
+- A random avatar from `public/persona-avatars` is assigned at persona creation.
+- User can upload a custom image from their device.
+- Any change sets `isDirty = true` and adds `Profile` to `pendingChangeTags`.
 
-**Save Version:**
-1. Calls `updateVersion()` (updates version name only — files are already in the API)
-2. Stamps and clears `pendingChangeTags`
-3. Opens Versions panel and shows *"Version saved"* toast
+**b. Name** *(Required — pre-set from wizard)*
+- Pre-populated from the wizard Name page (Step 2).
+- User can rename the persona here.
+- Change sets `isDirty = true`, adds `Profile` to `pendingChangeTags`.
+- Name change here must propagate to the Instructions tab header in real-time (or on next tab load).
 
-**Publish:**
-1. If `isDirty` → calls `updateVersion()` in-place to stamp the version with pending changes before going live
-2. Stamps and clears `pendingChangeTags`
-3. Calls `setActiveVersion()`
-4. Redirects to `/personas/published`
+**c. Handle** *(Required — pre-set, auto-generated from name)*
+- Auto-generated slug from the wizard name (e.g. "Customer Support" → `customer-support`).
+- Pre-populated from the wizard Name page.
+- Handle is shown for reference. Editability is per existing implementation — if currently read-only, keep it read-only.
 
----
+**d. Description** *(Required — pre-set from wizard)*
+- Pre-populated from the wizard Purpose page (Step 1).
+- Max 120 characters.
+- Change sets `isDirty = true`, adds `Profile` to `pendingChangeTags`.
 
-### 3d. Connectors Tab *(Optional)*
+**e. Tags** *(Optional — pre-generated)*
+- 4 tags are auto-generated by the backend (from the `POST /persona/starter` call) and pre-populated here.
+- User can add new tags or remove existing tags.
+- Any change sets `isDirty = true`, adds `Profile` to `pendingChangeTags`.
 
-**Behaviour:**
-- All connectors that are active (linked) in Settings are **enabled for the persona by default** when the tab first loads.
-- User can **disable** individual connectors for this persona. This is persona-level only — it does not affect the connector in Settings or any other persona.
-- Disabled connectors are tracked in `localStorage` (`persona_conn_removed_{versionId}`) so they do not auto-re-enable on subsequent loads.
-- If a user re-enables a connector, it is removed from the disabled tracking list.
-- Connector toggles call `setVersionConnectors()` immediately — no draft state, no dirty flag.
+**Tags propagation (critical — two destinations):**
+1. **Instructions tab header:** The tags displayed below the persona name in the Instructions tab header must always reflect the current state of tags from the Profile tab.
+2. **Persona card on `/personas` page:** The tags shown on each persona card in the library must also reflect the profile tags for that persona. Each persona card shows its own unique tags.
 
-**UI sections:**
-- **Connectors enabled for this persona** — all linked connectors that are currently on for this persona
-- **Connectors disabled for this persona** — only shown when at least one connector has been toggled off; lists connectors the user has explicitly disabled
+#### Auto-save on tab switch
+Same behaviour as Instructions tab:
+- Write to `sessionStorage` (`persona_profile_{repoId}`) on tab switch — no API call.
+- Toast: *"Auto-saved: [changed fields]"* — example: *"Auto-saved: Avatar, Tags"*
+- Do NOT create new versions on tab switch.
+- Version card in Versions panel is NOT changed on tab switch.
 
-**Save Version:**
-Calls `updateVersion()` (name only, connector state is already in the API) and stamps tags.
+When the user returns to the Profile tab, state is reloaded from `sessionStorage`. If no draft exists in session, fall back to API data.
 
-**Publish:**
-1. Connector state is already in the API — nothing to flush
-2. If `pendingChangeTags` is non-empty → calls `updateVersion()` to stamp them before going live
-3. Calls `setActiveVersion()`
-4. Redirects to `/personas/published`
+#### Save version
+1. Call `updateVersion()` with name, description, avatar, tags.
+2. Reset `isDirty`.
+3. Stamp and clear `pendingChangeTags`.
+4. Open Versions panel, show toast: *"Profile saved"*.
 
----
-
-### 3e. Sharing Tab *(Optional)*
-
-**Visibility:** Locked to **Private** for individual plan (no UI to change this).
-
-**Super Link:**
-- User can generate a shareable URL that allows anyone to chat with this persona without an account
-- User sets a token credit limit before generating
-- Generates via `createShare({ share_type: 'link', credit_limit })`
-- Token usage bar shows credits consumed
-- Link can be revoked at any time via `revokeShare()`
-
-**Email Invite:**
-- User can send a personalised link to a specific email address
-- Per-invite token limit
-- Creates via `createShare({ share_type: 'email', recipient_emails: [...], credit_limit })`
-- Existing invites listed with usage stats and individual revoke option
-
-**Save Version / Publish:**
-- Sharing actions (link generation, revocation, email invites) save to the API immediately — no dirty state
-- Publish: if `pendingChangeTags` is non-empty → stamps them via `updateVersion()` before calling `setActiveVersion()`
-- Redirects to `/personas/published`
+#### Publish
+1. If `isDirty`: call `updateVersion()` in-place.
+2. Stamp and clear `pendingChangeTags`.
+3. Call `setActiveVersion(repoId, versionId)`.
+4. Redirect to `/personas/published`.
 
 ---
 
-## 4. Side Panels
+### Tab 3c — Knowledge Tab *(Optional)*
 
-Accessible from the floating action menu (right-centre of the configure layout). Only one panel can be open at a time.
+#### Supported content types
 
-### Test Chat Panel
-Live chat against the current version. Used to test persona behaviour before publishing. Supports file attachments, web search toggle, and connector activity display. Expands to a full overlay on demand.
+| Type | Behaviour |
+|---|---|
+| **File upload** | User uploads a file from their device via file picker or drag-and-drop |
+| **Link** | User pastes a URL; the backend fetches and indexes its content |
 
-### AI Suggestions Panel
-A guided chat that reads the current persona state and answers questions about improving the system instruction, tone, or coverage. Expands to a full overlay on demand.
+Both files and links are added and removed independently. Both types are sent to the backend immediately on add — they are not held in local draft state.
 
-### Versions Panel
-Displays the last 5 saved versions, ordered newest-first. Each card shows:
-- Persona name and handle
-- Save date/time
-- Change tags (Instructions, Model, Profile, Knowledge, Connectors, Sharing)
-- **Current** badge on the active version
-- **Restore** and **Delete** buttons on non-current versions
+#### File behaviour
+- Upload: calls `uploadDocument()` immediately. The file is live in the version as soon as the upload succeeds.
+- Delete: calls `deleteDocument()` immediately. Deletion is permanent for this version.
+- If upload fails, show an error toast and do not add the item to the list.
+- `isDirty` is set to `true` on any successful upload or delete.
+- File sizes and blob preview URLs are cached in refs and `sessionStorage` (`persona_file_sizes_{repoId}_{versionId}`) so the MB counter and preview icon survive tab switches.
+- **Size display rule:** If a document's size is less than `0.1 MB` (i.e. less than ~102 400 bytes), display the size in **kilobytes** (e.g. `45 KB`). At or above `0.1 MB`, display in **megabytes** (e.g. `1.2 MB`).
 
-Restoring a version updates the editor with that version's content, updates the URL, and shows a toast. If the user is not on the Instructions tab, they are navigated there to see the restored content.
+#### Link behaviour
+- User pastes a URL into a dedicated link input field.
+- Adding a link calls the same upload/document endpoint with a URL payload (or a dedicated link endpoint, per backend API).
+- Removing a link calls the delete endpoint for that document entry.
+- Links appear in the same list as files, visually distinguished (e.g. link icon vs file icon).
+- `isDirty` is set to `true` on any successful link add or remove.
+
+#### Data persistence
+- On returning to this tab, the full document + link list is re-fetched from the API — no local draft is needed because all changes are already in the backend.
+- File size cache in `sessionStorage` is used to restore the MB counter without an extra API round-trip.
+
+#### How the agent uses this knowledge
+- All uploaded documents and indexed links are injected as context when the agent responds in chat or test chat.
+- The agent can reference, summarise, and reason over this content.
+
+#### Auto-save on tab switch
+No draft to save — files and links are already in the API. If `pendingChangeTags` includes `Knowledge`, the toast shows: *"Auto-saved: Knowledge"*.
+
+#### Save version
+1. Call `updateVersion()` (version name only — files and links are already in the API).
+2. Stamp and clear `pendingChangeTags`.
+3. Show toast: *"Version saved"*.
+
+#### Publish
+1. If `isDirty`: call `updateVersion()` in-place.
+2. Stamp and clear `pendingChangeTags`.
+3. Call `setActiveVersion()`.
+4. Redirect to `/personas/published`.
 
 ---
 
-## 5. Save Version Logic
+### Tab 3d — Connectors Tab *(Optional)*
 
-### Trigger
-User explicitly clicks **Save version**.
+#### Architecture: block-list model
+The backend stores a `blocked_connectors` list per version. Every linked connector in Settings is **implicitly enabled** for the agent unless its slug appears in that block-list. There is no separate "enabled" list to maintain — only the block-list matters.
 
-### Validation (Instructions tab only — required fields)
-- If no model selected → toast: *"Please select a model before saving a version."* — save blocked
-- If instruction is empty → toast: *"Please add system instructions before saving a version."* — save blocked
-- If 5 versions already exist → toast: *"Max version limit reached (5). Please delete an older version first."* — save blocked
+#### Exactly two UI sections
+1. **Connectors enabled for this agent** — all linked connectors whose slugs are NOT in `blocked_connectors`.
+2. **Connectors disabled for this agent** — connectors whose slugs ARE in `blocked_connectors`. This section is hidden when the block-list is empty.
 
-### What happens on save
-1. `createVersion()` is called — creates an **immutable snapshot** of the current instruction, model, temperature, avatar, and name
-2. The URL is updated with the new `versionId`
-3. `pendingChangeTags` are stamped onto the new version card and then cleared
-4. The sessionStorage instruction draft is cleared
-5. The Versions panel opens
-6. Toast: *"Version saved"*
+There are no other sections or states.
 
-### What saving affects
-- **Instructions** and **Profile** data are stored per version. Reverting to a version restores both.
-- **Knowledge** files, **Connector** configuration, and **Sharing** settings are **not** per-version — they exist at the version level independently of the save action.
+#### Connector card content
+Each connector row must display:
+- Connector logo/avatar image (from `ConnectorCatalogEntry.icon_url` or the `CONNECTOR_LOGO_MAP`).
+- Connector display name (`ConnectorCatalogEntry.display_name`).
+- Connector description/permissions (`ConnectorCatalogEntry.description`).
+- A toggle switch: ON = enabled for this agent, OFF = disabled for this agent.
 
-### What saving does in /personas
-- Saving creates a **draft persona card** visible in `/personas`. It is shown as a draft — not available for use in chat, brain, or other features.
+Only connectors that are **linked** in Settings appear here. Unlinked connectors are not shown.
+
+#### Enable/disable behaviour
+- **Disable a connector (move to blocked):** Calls `setVersionBlockedConnectors(repoId, versionId, [...updatedBlockList])` immediately. Updates `blocked_connectors` on the version. Saves user preference to `localStorage` (`persona_conn_removed_{versionId}`). Moves the card to the "Connectors disabled" section.
+- **Enable a connector (remove from blocked):** Calls `unblockVersionConnector(repoId, versionId, slug)` immediately (DELETE on `/blocked-connectors/{slug}`). Removes from `localStorage` preference. Moves the card back to the "Connectors enabled" section.
+- Both actions are live API calls with no dirty flag and no draft state. Optimistic UI updates revert on error.
+
+#### Effect of disabling a connector
+When a connector is in the block-list for this agent, the agent has **no access to that connector's tools** during any chat or test chat. The blocked slugs are passed to the backend as `disabled_connectors` on every stream request, and the backend excludes those connectors from the agent's available tool set.
+
+#### Data persistence
+- On load: fetches `listConnectors()` (full catalog) and `getVersion(repoId, versionId)` (to read `blocked_connectors`). No local draft — the API is always the source of truth.
+- On returning to this tab after a tab switch: re-fetches from the API to ensure state is current.
+
+#### Auto-save on tab switch
+No draft to save — all connector changes are already in the API. If `pendingChangeTags` includes `Connectors`, the toast shows: *"Auto-saved: Connectors"*.
+
+#### Save version
+Call `updateVersion()` (name only — connector state is already in the API). Stamp and clear `pendingChangeTags`.
+
+#### Publish
+1. Connector state is already in API — nothing to flush.
+2. If `pendingChangeTags` non-empty: call `updateVersion()` to stamp them.
+3. Call `setActiveVersion()`.
+4. Redirect to `/personas/published`.
 
 ---
 
-## 6. Publish Logic
+#### Connector logic in Test Chat panel (configure page)
 
-### Trigger
-User clicks **Publish** (or **Republish**) on any of the 5 tabs.
+The Test Chat side panel uses `ConnectorTogglesPanel` — a compact version of the connector UI.
 
-### Pre-publish auto-save (all tabs)
-Before publishing, each tab flushes any unsaved local changes into the **current version in-place** (no new version is created, no version card appears):
+**Load:** Fetches `listConnectors()` + `getVersion()` to get `blocked_connectors`. Builds the enabled set as all linked connectors NOT in the block-list.
 
-| Tab | Condition | Action |
+**Toggle chips:** Each linked connector appears as a chip (logo + name). Clicking toggles between enabled and blocked. Calls `unblockVersionConnector` or `setVersionBlockedConnectors` immediately.
+
+**State sync:** The enabled connector slugs and the blocked slugs are stored in `PersonaConfigureContext` as `connectorSlugs` and `disabledConnectorSlugs` respectively.
+
+**Stream request:** When the user sends a test message, both `connectorSlugs` (enabled) and `disabledConnectors` (blocked) are forwarded to `testVersionStream()`, which appends them to the POST body as `connector_slugs` and `disabled_connectors` fields. The backend uses these to scope the agent's tool access for that test run.
+
+**Connector prompts during test chat:**
+- `tool_connect_prompt` SSE event → displays a `ConnectPromptCard` inline in the chat. The user can go through OAuth or enter an API key to link the connector mid-session.
+- `permission_prompt` SSE event → displays a `PermissionPromptCard` asking the user to Allow / Allow once / Block for a specific tool call. The decision is saved to the connector's permission policy in the background.
+
+---
+
+#### Connector logic in final agent chat page (`/agents/[personaId]/chat`)
+
+The final chat page (`PersonaChatInterface`) does **not** present a connector toggle UI to the user. Connector access is fully governed by the published version's `blocked_connectors` list, which was set in the Connectors tab during configuration.
+
+During chat, the same SSE events apply:
+- `tool_executing` → shows an `ActivityRow` with an animated spinner, the connector's action verb (e.g. "Searching the web", "Running tool"), and optional label/detail text.
+- `tool_progress` → updates the activity row with progress message or status (`executing` / `reading`).
+- `tool_complete` → marks the activity row as done, shows duration.
+- `tool_connect_prompt` → displays `ConnectPromptCard` inline if the connector isn't linked yet.
+- `permission_prompt` → displays `PermissionPromptCard` for per-tool permission decisions.
+
+**Activity row display:**
+
+| Activity type | Verb shown | Icon |
 |---|---|---|
-| Instructions | `isDirty` | `updateVersion()` with instruction, model, temperature |
-| Profile | `isDirty` | `updateVersion()` with name, description, avatar |
-| Knowledge | `isDirty` | `updateVersion()` with name (files already in API) |
-| Connectors | `pendingChangeTags.length > 0` | `updateVersion()` (connector state already in API) |
-| Sharing | `pendingChangeTags.length > 0` | `updateVersion()` (sharing state already in API) |
+| `web-search` | "Searching the web" | Web browsing icon |
+| `read-pages` | "Reading document" | PDF icon |
+| `csv-execute` | "Analysing data" | Sheets icon |
+| `fetch-resource` | "Fetching resource" | Link icon |
+| `tool-call` | "Running tool" | Code icon |
+| `doc-execute` | "Generating document" | Doc icon |
+| `skills` | "Loading skill" | Skills icon |
+| `other` | "Processing" | Generic icon |
 
-After flushing, `pendingChangeTags` are stamped onto the version and cleared.
-
-### What happens on publish
-1. Pre-publish flush (see above)
-2. `setActiveVersion(repoId, versionId)` — this is what makes the persona live
-3. Frontend personas cache is busted
-4. Published `versionId` stored in `sessionStorage`
-5. User is redirected to `/personas/published` with persona name, repoId, and versionId in the query
-
-### What publishing does in /personas
-- The persona card in `/personas` becomes fully live and usable — available to use in chat, brain, persona chat, and other features.
-
-### Changing the live version
-Two paths:
-- **New version:** Make changes → Save version → Publish
-- **Revert to older version:** Versions panel → Restore → Publish
+Status indicators: spinner while active, checkmark when done, error icon on failure. Duration shown on completion.
 
 ---
 
-## 7. State Persistence (sessionStorage)
+### Tab 3e — Sharing Tab *(Optional)*
 
-Data is kept locally across tab switches and page reloads without any backend write:
+**Visibility:** Locked to Private for individual plan — no UI to change visibility level.
+
+#### Credit limit input (Super Link & Email Invite)
+
+The credit limit field governs how many tokens a recipient can consume via a shared link or invite.
+
+**Rules:**
+- The **default value** pre-filled in the credit limit input is `50%` of the user's total plan credits.
+- The **maximum allowed value** is dynamically set to the user's **remaining credits** in their plan (total plan credits minus credits already spent/allocated). This value must be fetched from the backend on tab load and must reflect real-time remaining credits, not a static cap.
+- The tab must display the user's **remaining credits** clearly so they can make an informed decision about how many credits to allocate.
+- If remaining credits are zero, the credit input should be disabled and the user shown an appropriate message.
+- If the remaining credit count changes (e.g. due to another share being created or revoked), the UI should reflect the updated value.
+
+#### Super Link
+- User sets a token credit limit (within the dynamic max described above), then generates a shareable URL — no account required for the recipient to use it.
+- Creates via `createShare({ share_type: 'link', credit_limit })`.
+- Shows a token usage bar: credits consumed vs. the limit set for this link.
+- Link can be revoked at any time via `revokeShare()`.
+
+#### Email Invite
+- User sets a per-invite token limit and enters one or more email addresses.
+- Creates via `createShare({ share_type: 'email', recipient_emails: [...], credit_limit })`.
+- Existing invites are listed with per-invite usage stats and individual revoke buttons.
+
+#### Auto-save on tab switch
+No draft — sharing actions (link generation, email invites, revocations) save to API immediately.
+
+#### Save Version / Publish
+- If `pendingChangeTags` non-empty: stamp via `updateVersion()` before calling `setActiveVersion()`.
+- Redirect to `/personas/published`.
+
+---
+
+## Published Page (`/personas/published`)
+
+### When this page is shown
+The user is redirected here immediately after a successful `setActiveVersion()` call (i.e. after clicking Publish from any configure tab).
+
+### What the page must display
+- The **agent's name** prominently and cleanly — this is the primary piece of information on the page.
+- The name must come from the `personaName` value passed in the redirect query string (`?personaName=...`), or fetched from the persona data if not in the query.
+- Supporting content (e.g. a success message, next-step links) may appear below, but the agent name is the focal point.
+
+### What the page must NOT do
+- Must not show a generic success screen with no agent identity.
+- Must not show a blank name or "undefined".
+
+---
+
+## Auto-Save Toast Specification
+
+When the user switches away from any tab that has `pendingChangeTags` or local draft state, a toast is shown. The toast must be **dynamic** — it lists the specific fields that changed.
+
+Format: *"Auto-saved — [Tab name]: [changed fields]"*
+
+Examples:
+- *"Auto-saved — Instructions: Model, System Instructions"*
+- *"Auto-saved — Profile: Avatar, Tags"*
+- *"Auto-saved — Instructions: Creativity Level"*
+
+Rules:
+- One toast per tab switch.
+- Do NOT create a new version or new version card on auto-save.
+- The existing current version is updated in `sessionStorage` only (no API call for Instructions/Profile).
+- Version cards in the Versions panel are NOT added or modified by tab switching.
+
+---
+
+## Version Card Tags
+
+Each version card in the Versions panel shows the **change tags** that were stamped at the time of saving. These tags come from `pendingChangeTags` and represent what changed since the previous version.
+
+Available tags: `Instructions` · `Model` · `Profile` · `Knowledge` · `Connectors` · `Sharing`
+
+Tags are stamped when:
+- User clicks **Save version** (explicit save).
+- User clicks **Publish** (pre-publish flush stamps any remaining pending tags).
+
+Tags are **never** stamped on tab switch or auto-save.
+
+---
+
+## Leave Guard
+
+### Condition
+Fires when all of the following are true:
+- `repoId` exists (persona was created).
+- Persona is not in a fully published and clean state.
+- Persona has content OR was previously published.
+
+Computed as: `!!repoId && !isPublished && (hasContent || !!publishedVersionId)`
+
+### When it fires
+- Clicking the back arrow in configure.
+- Navigating outside `/persona/configure/**`.
+- Browser tab close / page reload (native `beforeunload`).
+
+Tab-to-tab navigation within `/persona/configure/**` does **not** trigger the leave guard.
+
+### Modal
+| Button | Action |
+|---|---|
+| **Stay** | Close modal, remain on configure page |
+| **Leave** | Save the current state as a draft version (if unsaved) and navigate to `/personas` |
+
+No "Publish & leave" option — user must publish explicitly.
+
+### Effect of leaving without publishing
+- If the user leaves via the leave guard ("Leave" button), the current version state is saved as a **draft**.
+- The agent appears on `/personas` as a **draft card** — not available for use in chat, brain, or other features.
+- Draft cards are visually distinct from active (published) cards.
+
+---
+
+## State Persistence (sessionStorage Reference)
 
 | Key | Stores | Written by |
 |---|---|---|
+| `persona_wizard_draft` | `{ purpose, name, tone, template }` | Each wizard step on continue |
+| `persona_wizard_starter` | `{ system_instruction, persona_tags }` | Tone page on continue (AI-generated) |
 | `persona_instructions_draft_{repoId}` | `{ instruction, temperature, modelId }` | Instructions tab on every change |
 | `persona_profile_{repoId}` | `{ avatarUrl, personaName, personaHandle, personaDescription, personaTags }` | Profile tab on every change |
 | `persona_live_version_{repoId}` | Published `versionId` | Any tab on publish |
-| `persona_wizard_draft` | `{ name, purpose, tone, template }` | Wizard steps |
-| `persona_wizard_starter` | `{ system_instruction, persona_tags }` | Tone wizard page (AI-generated) |
 | `persona_wizard_purpose_{repoId}` | Purpose string | Instructions tab on repo creation |
 | `persona_file_sizes_{repoId}_{versionId}` | `{ filename: bytes }` | Knowledge tab on upload |
 | `persona_model_cache_{repoId}` | `{ modelName, companyName }` | Instructions tab on model select |
 
 ---
 
-## 8. Leave Guard
+## Save Version Logic (Explicit)
 
-### Condition
-The leave guard fires when **all** of the following are true:
-- A persona repo has been created (`repoId` exists)
-- The persona is not in a fully published and clean state
-- The persona has content OR was previously published
+### Trigger
+User explicitly clicks **Save version**.
 
-Computed as: `!!repoId && !isPublished && (hasContent || !!publishedVersionId)`
+### Validation (Instructions tab — required)
+- No model selected → toast, block.
+- Instruction empty → toast, block.
+- 5 versions already exist → toast, block.
 
-This covers both:
-- **First-time publish** — persona was created and has content but has never been published
-- **Re-publish** — persona was published before but has since been changed
-
-### When it fires
-- Clicking the back arrow
-- Navigating outside of `/persona/configure/` (e.g. to `/personas` or any other route)
-- Browser tab close / page reload (native `beforeunload` warning)
-
-Tab-to-tab navigation within `/persona/configure/` does **not** trigger the leave guard.
-
-### Modal
-Two buttons:
-
-| Button | Action |
-|---|---|
-| **Stay** | Closes modal, user stays on the configure page |
-| **Leave** | Navigates away without publishing |
-
-There is no "Publish & leave" option — the user must publish explicitly.
+### What happens
+1. `createVersion()` — immutable snapshot.
+2. URL updated with new `versionId`.
+3. `pendingChangeTags` stamped onto version card, then cleared.
+4. sessionStorage instruction draft cleared.
+5. Versions panel opens.
+6. Toast: *"Version saved"*.
 
 ---
 
-## 9. Context (Shared State Across All 5 Tabs)
+## Publish Logic
 
-All tabs are wrapped in `PersonaConfigureProvider`. The context exposes:
+### Pre-publish flush (all tabs)
+
+| Tab | Condition | Action |
+|---|---|---|
+| Instructions | `isDirty` | `updateVersion()` with instruction, model, temperature |
+| Profile | `isDirty` | `updateVersion()` with name, description, avatar, tags |
+| Knowledge | `isDirty` | `updateVersion()` (files already in API) |
+| Connectors | `pendingChangeTags.length > 0` | `updateVersion()` (connector state already in API) |
+| Sharing | `pendingChangeTags.length > 0` | `updateVersion()` (sharing state already in API) |
+
+### What happens on publish
+1. Pre-publish flush (above).
+2. `setActiveVersion(repoId, versionId)`.
+3. Bust personas cache.
+4. Store published `versionId` in sessionStorage.
+5. Redirect to `/personas/published` with `personaName`, `repoId`, `versionId` in query.
+
+### Effect on `/personas` library
+- Before publish: persona shows as draft card.
+- After publish: persona shows as active card with full info (name, avatar, tags from profile).
+
+---
+
+## Context (Shared State Across All 5 Tabs)
+
+All configure tabs are wrapped in `PersonaConfigureProvider`. Context exposes:
 
 | Value | Purpose |
 |---|---|
-| `personaInfo` | `repoId`, `versionId`, `personaName`, `imageUrl`, `connectorSlugs`, guide model/prompt |
+| `personaInfo` | `repoId`, `versionId`, `personaName`, `imageUrl`, `connectorSlugs` |
 | `updatePersonaInfo` | Partial patch to `personaInfo` |
-| `needsRepublish` | Whether the leave guard should fire |
-| `setNeedsRepublish` | Written by the Instructions tab; consumed by the guard logic |
-| `leaveConfirmHref` | Non-null when the leave modal should be shown |
-| `safeNavigate` | Navigation wrapper that checks `needsRepublish` before routing |
+| `needsRepublish` | Whether leave guard should fire |
+| `setNeedsRepublish` | Written by Instructions tab |
+| `leaveConfirmHref` | Non-null when leave modal should show |
+| `safeNavigate` | Navigation wrapper that checks `needsRepublish` |
 | `safeBack` | Back wrapper with same guard |
-| `registerAutoSave` | Registers a tab-switch callback (currently no-ops — persistence is sessionStorage-only) |
 | `pendingChangeTags` | Accumulated change tags across all tabs |
 | `addPendingChangeTag` | Adds a tag if not already present |
-| `setPendingChangeTags` | Replaces the entire tag list (used after stamping on save/publish) |
+| `setPendingChangeTags` | Replaces the entire tag list (used after stamping) |
 | `versions` | Last 5 saved versions |
-| `refreshVersions` | Re-fetches the versions list |
+| `refreshVersions` | Re-fetches versions list |
 | `handleRestoreVersion` | Restores a version and navigates to Instructions tab |
-| `setVersionsOpen` | Opens/closes the Versions panel |
+| `setVersionsOpen` | Opens/closes Versions panel |
 | Panel states | `testChatOpen`, `aiSuggestOpen`, `versionsOpen`, `anyPanelOpen` |
+| `testChatLocked` | `true` until required fields set AND a version saved |
+| `aiSuggestLocked` | `true` until required fields set AND a version saved |
 
 ---
 
-## 10. Key API Endpoints
+## API Endpoints Reference
 
 | Operation | Method | Endpoint | When called |
 |---|---|---|---|
-| Create persona repo | POST | `/persona` | New persona wizard completion |
+| Create persona repo | POST | `/persona` | Tone page continue |
 | Get repo | GET | `/persona/{repo_id}` | Instructions init (edit flow) |
 | Create version | POST | `/persona/{repo_id}/versions` | Save Version button |
-| Update version | PATCH | `/persona/{repo_id}/versions/{version_id}` | Pre-publish flush; Profile/Knowledge save |
+| Update version | PATCH | `/persona/{repo_id}/versions/{version_id}` | Pre-publish flush; explicit save (Profile/Knowledge) |
 | Set active version | PATCH | `/persona/{repo_id}/active` | Publish button (all tabs) |
 | List versions | GET | `/persona/{repo_id}/versions` | Versions panel open / refresh |
 | Get version | GET | `/persona/{repo_id}/versions/{version_id}` | Tab init; version restore |
-| Delete version | DELETE | `/persona/{repo_id}/versions/{version_id}` | Versions panel delete button |
+| Delete version | DELETE | `/persona/{repo_id}/versions/{version_id}` | Versions panel delete |
 | Upload document | POST | `/persona/{repo_id}/versions/{version_id}/documents` | Knowledge tab file drop |
 | Delete document | DELETE | `/persona/{repo_id}/versions/{version_id}/documents/{doc_id}` | Knowledge tab delete |
-| Set version connectors | PUT | `/persona/{repo_id}/versions/{version_id}/connectors` | Connector toggle |
+| Set version connectors | PUT | `/persona/{repo_id}/versions/{version_id}/connectors` | Connector toggle (legacy — prefer block-list API) |
+| Set blocked connectors | PATCH | `/persona/{repo_id}/versions/{version_id}/blocked-connectors` | Disable connector(s) for this version |
+| Unblock single connector | DELETE | `/persona/{repo_id}/versions/{version_id}/blocked-connectors/{slug}` | Re-enable a specific connector |
+| Test version stream | POST | `/persona/{repo_id}/versions/{version_id}/test` | Test chat send (includes connector_slugs + disabled_connectors) |
 | Create share | POST | `/persona/{repo_id}/shares` | Super link generate; email invite |
 | Revoke share | DELETE | `/persona/{repo_id}/shares/{share_id}` | Revoke link/invite |
+| Persona starter | POST | `/persona/starter` | Tone page continue (generates sys inst + tags) |
+| List connectors | GET | `/connectors` | Connectors tab and test chat panel load |
+
+---
+
+## UI Terminology Rule
+
+All user-facing text in the UI must use **"agent"** (singular) and **"agents"** (plural), not "persona" or "personas".
+
+This applies to:
+- Button labels, headings, descriptions, placeholder text, toasts, modals, empty states, tooltips.
+- Any copy the user reads in the interface.
+
+This does NOT apply to:
+- URL paths (keep `/personas`, `/persona/configure/**`, etc. unchanged).
+- API endpoint paths and payload keys.
+- Internal code identifiers (variable names, function names, type names, sessionStorage keys).
+- File names.
+
+When implementing or reviewing any UI copy, do a final pass: replace every visible "persona" / "personas" with "agent" / "agents".
+
+---
+
+## Implementation Rules (Regression Prevention)
+
+1. **Wizard data must survive forward/backward navigation.** Never clear `persona_wizard_draft` until the configure tabs load. Never put `sessionStorage.removeItem` calls inside `useState` lazy initializers — React 18 StrictMode calls them twice, causing the second invocation to silently delete draft state. All sessionStorage side-effects must live in a `useEffect` with a `useRef` guard.
+2. **Tab switching never creates a new version.** `createVersion()` is only called from the Save Version button.
+3. **Tab switching never makes an API call for Instructions or Profile.** Only `sessionStorage` is written.
+4. **Knowledge and Connectors tabs write to the API immediately** (not on save version or publish).
+5. **Tags from Profile tab propagate to two places:** Instructions tab header AND agent card on `/personas`.
+6. **Test Chat and AI Suggestions panels are locked** until required fields are complete AND a version has been saved.
+7. **Versions panel is always available** — never locked.
+8. **Shared agent cards never have an edit button** — in the library and in the agent chat page.
+9. **Published agents show on `/personas`; saved (draft) versions do not create a separate card — draft card comes from the repo itself.**
+10. **Auto-save toast is dynamic** — lists the specific fields that changed, not a generic message.
+11. **Version card change tags are stamped only on explicit Save or Publish** — not on tab switch.
+12. **Back button in configure always navigates to `/agents`** via `safeNavigate('/agents')`. The leave guard still fires if `needsRepublish` is true. It must never use `router.back()` (browser history) — the destination must always be `/agents`.
+13. **Leaving without publishing saves a draft and shows a draft card** on `/personas` — the agent is not usable until published.
+14. **Publish = active card on `/personas`** — the agent becomes fully live.
+15. **Knowledge file size display:** below 0.1 MB → show in KB; at or above 0.1 MB → show in MB.
+16. **Knowledge and link deletions are immediate API calls** — no undo, no draft.
+17. **Connectors tab uses the block-list model** — only `blocked_connectors` is stored; all other linked connectors are implicitly enabled.
+18. **Blocked connectors are excluded from the agent's tool access** in both test chat and production chat — passed as `disabled_connectors` in every stream request.
+19. **Sharing credit limit max is dynamic** — always the user's current remaining plan credits, fetched on tab load.
+20. **Published page must show the agent's name** prominently — never a blank or "undefined" name.
+21. **All UI copy uses "agent/agents"** — never "persona/personas" in any user-visible text. URLs and API identifiers are unchanged.
+
+---
+
+## Fixes Log
+
+### Session — 2026-06-09
+
+**Fix 1 — Knowledge file size display (KB/MB)**
+- **File:** `agent/configure/knowledge/page.tsx`
+- **Problem:** All file sizes were always displayed in MB regardless of actual size (e.g. "0.0 MB" for a 200 KB file).
+- **Fix:** Added `formatFileSize(bytes)` helper: returns `X KB` when `bytes < 1 MB`, otherwise `X.X MB`. Applied to 4 locations: `docsToFiles`, `docsToFilesWithSizes`, `uploadFiles` placeholder, and reload-after-upload callback.
+
+**Fix 2 — Profile description seeding overwritten by API**
+- **File:** `agent/configure/profile/page.tsx`
+- **Problem:** The `getPersonaRepo` load effect assigned `v.prompt` (the system instruction) to the description field, overwriting the wizard-purpose value that was correctly seeded from `sessionStorage.persona_wizard_purpose_{repoId}` during `useState` initialisation.
+- **Fix:** Removed the `v.prompt → description` assignment from the load effect. Description is now exclusively seeded from sessionStorage (wizard flow) and only updated via user input thereafter.
+
+**Fix 3 — `personaStarter` moved to tone page with tone parameter**
+- **Files:** `agents/basics/name/page.tsx`, `agents/basics/tone/page.tsx`, `lib/api/personas.ts`
+- **Problem:** `personaStarter` was called on the name page, before the user had selected a tone. The API therefore generated instructions without considering tone, making tone selection cosmetic.
+- **Fix:** Removed the call from name page entirely. Added it to tone page `handleContinue`, passing `{ name, description, tone: selectedTone }`. Extended `PersonaStarterRequest` interface with `tone?: string`.
+
+**Fix 4 — Cancel creation modal (X button in wizard)**
+- **Files:** `agents/_components/CancelCreationModal.tsx` (new), `agents/_components/WizardShell.tsx`
+- **Problem:** The X button in the wizard shell navigated immediately to `/agents`, silently discarding all in-progress wizard data.
+- **Fix:** Created `CancelCreationModal` with "Keep creating" / "Yes, cancel" actions (Escape key + backdrop click both dismiss). Wired to WizardShell X button via `cancelOpen` state — navigation only happens after explicit confirmation.
+
+**Fix 5 — Double `getVersion` call on instructions tab**
+- **File:** `agent/configure/context.tsx`
+- **Problem:** The context bootstrap `useEffect` called `getVersion` on every configure tab mount, and the instructions tab independently called `getVersion` on its own mount — causing a redundant duplicate fetch on the instructions tab.
+- **Fix:** Added `if (pathname.includes('/configure/instructions')) return` guard at the top of the context bootstrap effect. Context also now seeds `guidePrompt` from the fetched version (using `prev.guidePrompt || vPrompt` to never overwrite a user-edited value).
+
+**Fix 6 — Redundant API calls removed from profile tab**
+- **File:** `agent/configure/profile/page.tsx`
+- **Problem:** Profile tab called both `getPersonaRepo` and `getVersion`, but `getVersion` was only used to extract `currentPrompt` to set `guidePrompt` — a value already managed by the context. This caused an extra network round-trip.
+- **Fix:** Removed the standalone `getVersion` call, `currentPrompt` / `setCurrentPrompt` state, and the `updatePersonaInfo({ guidePrompt })` call from the profile tab. Context owns guidePrompt.
+
+**Fix 7 — Auto-save toast shows changed field names**
+- **File:** `agent/configure/context.tsx`
+- **Problem:** Tab-switch auto-save gave no feedback about what was saved, and a stale closure inside `safeNavigate` meant `pendingChangeTags` was always empty at the time the toast would have fired.
+- **Fix:** Added `pendingChangeTagsRef` (kept in sync with state via `useEffect`). `safeNavigate` reads the ref (never stale), and when navigating between configure tabs with pending changes, shows `toast.success("Draft saved: <field list>")` before navigating.
+
+**Fix 8 — Panel lock for Test Chat and AI Suggestions**
+- **File:** `agent/configure/context.tsx`, `agent/configure/layout.tsx`
+- **Problem:** Test Chat and AI Suggestions panels could be opened even on a brand-new agent with no model, no instructions, and no saved version — producing a broken experience.
+- **Fix:** Derived `panelsLocked = !guideModelId || !guidePrompt.trim() || versions.length === 0`. Toggle functions (`toggleTestChat`, `toggleAiSuggest`) check `panelsLockedRef.current` and show an error toast instead of opening. Layout renders a tooltip on locked menu items.
+
+**Fix 9 — Profile tags shown in instructions tab header**
+- **File:** `agent/configure/instructions/page.tsx`
+- **Problem:** Tags entered on the profile tab (stored in `sessionStorage.persona_profile_{repoId}`) were never read by the instructions tab, so the header showed no tags.
+- **Fix:** Added `profileTags` state initialised from sessionStorage at mount, plus a `useEffect` that re-reads tags once `repoId` resolves (for new-agent flow where repoId isn't known until after creation). Tags render as chips in the agent header bar.
+
+**Fix 10 — Published page agent name fallback**
+- **File:** `agents/published/page.tsx`
+- **Problem:** `searchParams.get('name') ?? 'Persona'` fell back to the word "Persona" as a visible heading if the name param was absent.
+- **Fix:** Changed fallback to `'Your Agent'`.
+
+**Fix 14 — Auto-save toast missing tab name and wrong prefix**
+- **File:** `agent/configure/context.tsx`
+- **Problem:** `safeNavigate` showed `"Draft saved: Model, Instructions"` — missing the tab name and using the wrong prefix. Spec requires `"Auto-saved — [Tab name]: [changed fields]"`.
+- **Fix:** Added `getTabName(path)` helper that maps pathname segments to display names (Instructions / Profile / Knowledge / Connectors / Sharing). Added `pathnameRef` to read the current tab name stalelessly inside `safeNavigate`. Toast now shows e.g. `"Auto-saved — Instructions: Model, System Instructions"`.
+
+**Fix 15 — Sharing tab credit limit defaulted to 100% instead of 50%**
+- **File:** `agent/configure/components/SharingTab.tsx`
+- **Problem:** Both `tokenLimit` and `emailTokenLimit` initialised to `maxTokenLimit` (100% of plan's share allocation). Spec requires the default to be 50% of total plan credits.
+- **Fix:** Changed `useState(maxTokenLimit)` → `useState(Math.floor(maxTokenLimit / 2))` for both link and email token limits, and updated the plan-resolve `useEffect` sync accordingly.
+
+**Fix 16 — Custom agent creation gets no avatar**
+- **File:** `agent/configure/instructions/page.tsx`
+- **Problem:** `pickTemplateAvatar()` was only called when `wizardTemplate` was truthy. Custom creation (no template) left the avatar as `null`, showing initials forever until the user manually uploads one. Spec says a random avatar is assigned for all new persona creations regardless of creation path.
+- **Fix:** Removed the `if (wizardTemplate)` guard. `pickTemplateAvatar()` now runs unconditionally for every new creation (both custom and template).
+
+**Fix 12 — Cancel creation does not clear wizard sessionStorage**
+- **File:** `agents/_components/WizardShell.tsx`
+- **Problem:** Confirming cancel in the modal called `push('/agents')` without removing `persona_wizard_draft` or `persona_wizard_starter` from sessionStorage. Starting a new wizard flow would pre-populate fields from a previous abandoned creation.
+- **Fix:** `onCancel` handler now removes both keys before navigating.
+
+**Fix 13 — Purpose page Back button skipped cancel modal**
+- **Files:** `agents/basics/purpose/page.tsx`
+- **Problem:** The Back button on the purpose page navigated directly to `/agents/templates` instead of opening the cancel creation modal as required by spec (Step 1 back button behaviour).
+- **Fix:** Added `cancelOpen` state and imported `CancelCreationModal`. Back button now calls `setCancelOpen(true)`. The modal's `onCancel` clears both wizard sessionStorage keys before navigating to `/agents`.
+
+**Fix 11 — UI terminology sweep (persona → agent in all visible strings)**
+- **Files affected:** `agent/configure/context.tsx`, `agent/configure/layout.tsx`, `agent/configure/instructions/page.tsx`, `agent/configure/profile/page.tsx`, `agent/configure/components/ExampleConversationModal.tsx`, `agent/configure/components/ExampleConversationDialog.tsx`, `agent/configure/components/SharingTab.tsx`, `agents/page.tsx`, `agents/published/page.tsx`
+- **Problem:** Numerous user-visible strings still contained "persona" or "Persona" after the routing rename.
+- **Fix:** Replaced all user-visible occurrences. Specifically: toast messages, button labels, heading copy, placeholder text, help panel descriptions, confirmation dialogs, and error strings. URL paths, API endpoint paths, sessionStorage keys, variable names, function names, and file names were left unchanged per project constraint.
+
+---
+
+### Session — 2026-06-10
+
+**Fix 17 — `handleRestoreVersion` used `window.history.replaceState` instead of `router.replace()`**
+- **File:** `agent/configure/context.tsx`
+- **Problem:** After a version restore, `handleRestoreVersion` updated the URL with `window.history.replaceState`. This silently changes the browser URL but does NOT update `useSearchParams` in Next.js App Router — so any tab that reads `versionId` from the URL would still see the old value. Root cause of knowledge files disappearing after version restore and after publish.
+- **Fix:** Added `replace` to the `useRouter()` destructure. Changed `window.history.replaceState(...)` to `router.replace(\`${window.location.pathname}?${params.toString()}\`)`. Updated the `useCallback` deps array to include `replace`.
+
+**Fix 18 — Cursor style on non-navigable profile tab items**
+- **File:** `agent/configure/profile/page.tsx` (line ~359)
+- **Problem:** Tab item cursor was computed as `TAB_ROUTES[tab] || !isActive ? 'pointer' : 'default'`. The `|| !isActive` clause made items without a route show `pointer` whenever they were inactive — misleading the user into clicking a non-navigable element.
+- **Fix:** Simplified to `TAB_ROUTES[tab] ? 'pointer' : 'default'`. Cursor is `pointer` only when a tab route exists.
+
+**Fix 19 — `handleSaveVersion` guard in knowledge tab diverged from button's disabled condition**
+- **File:** `agent/configure/knowledge/page.tsx`
+- **Problem:** The Save Version button was disabled when `pendingChangeTags.length === 0`, but `handleSaveVersion` guarded with `!isDirty || !repoId || !versionId`. These conditions were not equivalent — in scenarios where `pendingChangeTags` was empty but `isDirty` was true (or vice versa), the button and the handler disagreed, allowing a no-op save to fire.
+- **Fix:** Changed guard to `if (pendingChangeTags.length === 0 || !repoId || !versionId) return`, exactly matching the button's `disabled` condition.
+
+**Fix 20 — Filter system on `/agents` page (Status / Visibility / Super Link / Model)**
+- **File:** `agents/page.tsx`
+- **Problem:** The Filter button was disabled and no filtering logic existed beyond a tag-based filter.
+- **Fix:** Replaced the old `filterTags` state with a typed `AgentFilters` state (`{ status: Set, visibility: Set, superLink: Set, models: Set }`). Added `availableModels` state fetched via `fetchModelsWithCache()` and `allSharesForFilter` state fetched via `listShares()` (loaded once on my-personas tab mount). Derived `visibilityForPersona` from active shares (community = link share, team = email share, private = neither). Built `modelIdToName` Map from `AIModel.modelId → AIModel.modelName`. Added filter pipeline: `statusFiltered → filterPanelFiltered → filtered` (OR within each section, AND between sections). Filter button shows active count badge and uses `default` variant when filters are active. Dropdown has four checkbox sections: Status (Live / Draft / Paused), Visibility (Private / Team / Community), Super Link (Has active link / No link), Model (dynamic from unique model names on the user's agents — section hidden when empty).
+
+**Fix 21 — Chat URL reverted to `/personas/` after first message**
+- **File:** `components/layout/PersonaChatInterface.tsx` (line ~151)
+- **Problem:** When a user navigated to `/agents/{id}/chat` and sent the first message, the URL changed to `/personas/{id}/chat?chatId=...`. This was the only remaining hardcoded `/personas/` frontend navigation URL. It also broke the left sidebar active state and the model selector button because those components keyed off the pathname.
+- **Fix:** Changed `window.history.replaceState(null, "", \`/personas/${personaIdRef.current}/chat?chatId=${chatId}\`)` → `window.history.replaceState(null, "", \`/agents/${personaIdRef.current}/chat?chatId=${chatId}\`)`. All other navigation in the codebase was already using `/agents/`.
+
+**Fix 22 — "Filters" header label removed from filter dropdown**
+- **File:** `agents/page.tsx`
+- **Problem:** The filter dropdown opened with a non-interactive `Dropdown.Item variant="header" label="Filters"` as its first item — redundant given the button already says "Filter".
+- **Fix:** Removed the header item entirely. The "Clear all filters" action is now a plain `Dropdown.Item` that only renders when `activeFilterCount > 0`, positioned above the first section.
+
+**Fix 23 — Model names in filter dropdown showed derived IDs instead of display names**
+- **File:** `agents/page.tsx`
+- **Problem:** The Model section of the filter dropdown showed IDs derived by regex (e.g. `claude-3-5-sonnet`) rather than human-readable display names (e.g. `Claude 3.5 Sonnet`). This was because `modelDisplayName()` was a regex fallback with no access to actual model metadata.
+- **Fix:** Imported `fetchModelsWithCache` from `@/lib/ai-models`. On my-personas tab mount, fetches the model list and builds a `modelIdToName = Map<string, string>` (keyed by `AIModel.modelId`). `resolveModelName(modelId)` tries the map first, falls back to the regex helper only for unknown IDs. `uniqueModelNames` memo uses `resolveModelName` per agent's `modelId`.
+
+**Fix 24 — Wizard data persistence broken in React 18 StrictMode (purpose → name → tone → back → back → forward)**
+- **File:** `agents/basics/purpose/page.tsx`
+- **Problem:** React 18 StrictMode (enabled by default in Next.js App Router dev mode) calls `useState` lazy initializers **twice**. The purpose page's initializer (1) read the `persona_wizard_going_back` flag, found it set, removed it, and returned the draft purpose correctly — but (2) the second invocation found the flag already gone, fell through to the "fresh start" branch, and deleted `persona_wizard_draft` from sessionStorage. When the user then clicked Continue, `handleContinue` read an empty `existing` object, computed `purposeChanged = true`, and wrote `name: undefined, tone: undefined` — wiping all downstream wizard state. This caused the name field to appear empty when navigating forward after a back sequence, and the tone selection to be lost.
+- **Fix:** Removed all `sessionStorage.removeItem` calls from the `useState` initializer — it now only reads (idempotent). Added a `useEffect` with an `initDoneRef = useRef(false)` guard that performs the flag removal and conditional draft-clearing exactly once per mount. The `useRef` value persists across StrictMode's simulated unmount/remount, so the guard prevents the cleanup from running twice even under StrictMode's double-effect invocation.
+
+**Fix 25 — Save Version button always disabled on Connectors and Sharing tabs**
+- **Files:** `agent/configure/connectors/page.tsx`, `agent/configure/sharing/page.tsx`
+- **Problem:** Both tabs had `disabled={true}` hardcoded on the Save Version button (both the full `Button` and the `IconButton` panel-mode variant). This meant that even when another tab had accumulated `pendingChangeTags` (e.g. model changed on Instructions tab), the Save Version button remained permanently greyed out on Connectors and Sharing — inconsistent with the other three tabs which correctly reflect shared context state.
+- **Fix:** Replaced `disabled={true}` with `disabled={pendingChangeTags.length === 0 || !repoId || !versionId || isSaving}` on both button variants in both files. This matches the exact condition already used by Profile and Knowledge tabs. Since `pendingChangeTags` is shared context, any change on any tab now enables Save Version everywhere.
+
+**Fix 26 — Back button on configure tabs used browser history instead of always navigating to `/agents`**
+- **Files:** `agent/configure/instructions/page.tsx`, `agent/configure/profile/page.tsx`, `agent/configure/knowledge/page.tsx`, `agent/configure/connectors/page.tsx`, `agent/configure/sharing/page.tsx`
+- **Problem:** The top-left back arrow on all 5 configure tabs called `safeBack()`, which invoked `router.back()` — browser history back. This meant the destination depended on wherever the user came from (could be any page, including mid-wizard pages or external pages). There was no guarantee it would land on `/agents`.
+- **Fix:** Changed all 5 back button `onClick` handlers from `safeBack()` / `onClick={safeBack}` to `() => safeNavigate('/agents')`. The leave guard still fires correctly — `safeNavigate` checks `needsRepublish` and shows the "This agent isn't published yet" modal before leaving if needed. The only change is the fixed destination: always `/agents`.
+
+**Fix 27 — Live/Unpublished badge missing from Profile, Knowledge, Connectors, and Sharing tabs**
+- **Files:** `agent/configure/profile/page.tsx`, `agent/configure/knowledge/page.tsx`, `agent/configure/connectors/page.tsx`, `agent/configure/sharing/page.tsx`
+- **Problem:** The green "Live" / amber "Unpublished" status badge below the tab bar existed only on the Instructions tab. The other 4 configure tabs had no visual feedback about the agent's publish state, making it impossible for the user to know if the agent was live without switching to Instructions.
+- **Fix:** Added `isPublished` and `needsRepublish` computed constants to all 4 tabs:
+  - `isPublished = !!publishedVersionId && publishedVersionId === versionId && pendingChangeTags.length === 0`
+  - `needsRepublish = !!repoId && !!versionId && !isPublished`
+  - All required variables (`repoId`, `versionId`, `publishedVersionId`, `pendingChangeTags`) were already in scope in every tab.
+  - Inserted identical badge JSX (`position: absolute`, `top: 100%`, centered) inside each tab's `position: relative` nav row container, between the action buttons close `</div>` and the nav row's own close `</div>`.
+  - Also added `position: 'relative'` to the Sharing tab's nav row `<div>` — it was the only tab missing this required positioning context for the absolutely-placed badge.
+
+**Fix 28 — Auto-save toast fired on every tab switch once any change had ever been made**
+- **File:** `agent/configure/context.tsx`
+- **Problem:** The toast condition in `safeNavigate` was `pendingChangeTags.length > 0`. Since `pendingChangeTags` accumulates across all tabs and is never cleared on a plain tab switch (only on Save Version / Publish), the toast would fire on every subsequent tab navigation even with zero changes made on the current tab. For example: change model on Instructions → switch to Profile (toast correct) → switch to Knowledge without touching anything (toast fires incorrectly).
+- **Fix:** Added `tagsCountOnTabArrivalRef = useRef(0)` to snapshot how many tags existed when the user arrived on the current tab. A `useEffect([pathname])` updates this baseline on every tab navigation. `setPendingChangeTags` also resets it so the baseline stays accurate after a mid-visit Save/Publish clears the list. The toast condition changed from `tags.length > 0` to `tags.length > tagsCountOnTabArrivalRef.current` — it now fires only if the tag count actually grew during the current tab visit, meaning a real change was made.

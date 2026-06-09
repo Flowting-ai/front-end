@@ -16,6 +16,7 @@ import {
 import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
+import { CONNECTOR_LOGO_MAP } from '@/lib/connectorLogos'
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 
@@ -60,91 +61,6 @@ function SpinnerIcon({ size = 14 }: { size?: number }) {
 }
 
 // ── Connector icon / avatar ───────────────────────────────────────────────────
-
-// Maps connector slugs (as returned by the API) to local logo files under
-// /public/connector-logos/. Covers all common slug variants (hyphenated,
-// underscored, camelCase) so the lookup is resilient to API naming changes.
-const CONNECTOR_LOGO_MAP: Record<string, string> = {
-  // Airtable
-  'airtable':             '/connector-logos/airtable.svg',
-  // Asana
-  'asana':                '/connector-logos/asana.svg',
-  // Calendly
-  'calendly':             '/connector-logos/calendly.svg',
-  // ClickUp
-  'clickup':              '/connector-logos/clickup.svg',
-  'click-up':             '/connector-logos/clickup.svg',
-  // Fireflies
-  'fireflies':            '/connector-logos/fireflies.svg',
-  'fireflies-ai':         '/connector-logos/fireflies.svg',
-  // Gmail
-  'gmail':                '/connector-logos/gmail.svg',
-  // Google Ads
-  'googleads':            '/connector-logos/google-ads.svg',
-  'google-ads':           '/connector-logos/google-ads.svg',
-  'google_ads':           '/connector-logos/google-ads.svg',
-  // Google Analytics
-  'googleanalytics':      '/connector-logos/google-analytics.svg',
-  'google-analytics':     '/connector-logos/google-analytics.svg',
-  'google_analytics':     '/connector-logos/google-analytics.svg',
-  // Google Calendar
-  'googlecalendar':       '/connector-logos/google-calendar.svg',
-  'google-calendar':      '/connector-logos/google-calendar.svg',
-  'google_calendar':      '/connector-logos/google-calendar.svg',
-  // Google Docs
-  'googledocs':           '/connector-logos/google-docs.svg',
-  'google-docs':          '/connector-logos/google-docs.svg',
-  'google_docs':          '/connector-logos/google-docs.svg',
-  // Google Drive
-  'googledrive':          '/connector-logos/google-drive.svg',
-  'google-drive':         '/connector-logos/google-drive.svg',
-  'google_drive':         '/connector-logos/google-drive.svg',
-  // Google Sheets
-  'googlesheets':         '/connector-logos/google-sheets.svg',
-  'google-sheets':        '/connector-logos/google-sheets.svg',
-  'google_sheets':        '/connector-logos/google-sheets.svg',
-  // HubSpot
-  'hubspot':              '/connector-logos/hubspot.svg',
-  // Jira
-  'jira':                 '/connector-logos/jira.svg',
-  // Linear
-  'linear':               '/connector-logos/linear.svg',
-  // LinkedIn
-  'linkedin':             '/connector-logos/linkedin.svg',
-  // Meta / Meta Ads / Facebook Ads
-  'meta':                 '/connector-logos/meta.svg',
-  'meta-ads':             '/connector-logos/meta.svg',
-  'meta_ads':             '/connector-logos/meta.svg',
-  'metaads':              '/connector-logos/meta.svg',
-  'facebook':             '/connector-logos/meta.svg',
-  'facebook-ads':         '/connector-logos/meta.svg',
-  'facebook_ads':         '/connector-logos/meta.svg',
-  'facebookads':          '/connector-logos/meta.svg',
-  // Notion
-  'notion':               '/connector-logos/notion.svg',
-  // Outlook
-  'outlook':              '/connector-logos/outlook.svg',
-  'microsoft-outlook':    '/connector-logos/outlook.svg',
-  // Salesforce
-  'salesforce':           '/connector-logos/salesforce.svg',
-  // Klaviyo
-  'klaviyo':              '/connector-logos/klaviyo.svg',
-  // ShipEngine
-  'shipengine':           '/connector-logos/shipengine.jpeg',
-  'ship-engine':          '/connector-logos/shipengine.jpeg',
-  // ShipStation
-  'shipstation':          '/connector-logos/ship-station.png',
-  'ship-station':         '/connector-logos/ship-station.png',
-  'ship_station':         '/connector-logos/ship-station.png',
-  // Shopify
-  'shopify':              '/connector-logos/shopify.svg',
-  // Slack
-  'slack':                '/connector-logos/slack.svg',
-  // Stripe
-  'stripe':               '/connector-logos/stripe.svg',
-  // Zoom
-  'zoom':                 '/connector-logos/zoom.svg',
-}
 
 function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; size?: number }) {
   const localLogo = CONNECTOR_LOGO_MAP[entry.slug]

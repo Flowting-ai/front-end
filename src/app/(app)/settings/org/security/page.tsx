@@ -1,12 +1,13 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Button } from '@/components/Button'
-import { Checkbox } from '@/components/Checkbox'
+import { SecurityToggleRow } from '@/components/SecurityToggleRow'
 import { InputField } from '@/components/InputField'
-import { Switch } from '@/components/Switch'
+import { Button } from '@/components/Button'
 import { useOrg } from '@/context/org-context'
 import type { HITLThreshold } from '@/types/teams'
+
+const SHADOW_CARD = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)'
 
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
@@ -23,7 +24,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
         padding:        '64px 24px 48px',
       }}
     >
-      <div style={{ width: 967, maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <div style={{ width: 967, maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {children}
       </div>
     </div>
@@ -37,7 +38,7 @@ function PageCard({ children }: { children: React.ReactNode }) {
         width:           '100%',
         border:          '1px solid var(--neutral-200)',
         borderRadius:    16,
-        boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
+        boxShadow:       SHADOW_CARD,
         overflow:        'hidden',
         backgroundColor: 'var(--neutral-50)',
       }}
@@ -47,231 +48,162 @@ function PageCard({ children }: { children: React.ReactNode }) {
   )
 }
 
-function BodyText({
-  children,
-  size = 14,
-  color = 'var(--neutral-500)',
-  weight = 400,
-  family = 'var(--font-body)',
-  style,
-}: {
-  children: React.ReactNode
-  size?: 11 | 12 | 14 | 16 | 24
-  color?: string
-  weight?: 400 | 500 | 600
-  family?: string
-  style?: React.CSSProperties
-}) {
-  const lineHeight = size === 24 ? '32px' : size === 11 || size === 12 ? '16px' : '22px'
-
-  return (
-    <p
-      style={{
-        fontFamily: family,
-        fontWeight: weight,
-        fontSize:   size,
-        lineHeight,
-        color,
-        margin:     0,
-        ...style,
-      }}
-    >
-      {children}
-    </p>
-  )
-}
-
-function CardHeader({
-  title,
-  description,
-}: {
-  title: string
-  description?: string
-}) {
-  return (
-    <div style={{ padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <BodyText weight={500} color="var(--neutral-900)">{title}</BodyText>
-      {description && <BodyText>{description}</BodyText>}
-    </div>
-  )
-}
-
-function SettingsRow({
-  title,
-  description,
-  children,
-  divider = true,
-}: {
-  title: string
-  description: string
-  children: React.ReactNode
-  divider?: boolean
-}) {
-  return (
-    <div
-      style={{
-        padding:      '16px 24px',
-        borderBottom: divider ? '1px solid var(--neutral-100)' : undefined,
-        display:      'flex',
-        alignItems:   'center',
-        gap:          24,
-      }}
-    >
-      <div style={{ flex: '1 0 0', minWidth: 0 }}>
-        <BodyText weight={500} color="var(--neutral-900)">{title}</BodyText>
-        <BodyText size={12}>{description}</BodyText>
-      </div>
-      <div style={{ flexShrink: 0 }}>{children}</div>
-    </div>
-  )
-}
-
 export default function OrgSecurityPage() {
   const { org, currentUserRole } = useOrg()
   const isAdmin = currentUserRole === 'admin'
 
-  const [googleSSO,      setGoogleSSO]      = useState(false)
-  const [microsoftSSO,   setMicrosoftSSO]   = useState(false)
-  const [domainClaiming, setDomainClaiming] = useState(false)
-  const [twoFA,          setTwoFA]          = useState(false)
-  const [hitlThreshold,  setHitlThreshold]  = useState<HITLThreshold>(org.hitlThreshold)
-  const [domain,         setDomain]         = useState('')
-  const [dnsShown,       setDnsShown]       = useState(false)
+  const [googleSSO,    setGoogleSSO]    = useState(false)
+  const [msSSO,        setMsSSO]        = useState(false)
+  const [domainOn,     setDomainOn]     = useState(false)
+  const [domain,       setDomain]       = useState('')
+  const [domainStatus, setDomainStatus] = useState<'idle' | 'verifying' | 'verified'>('idle')
+  const [twoFA,        setTwoFA]        = useState(false)
+  const [hitl,         setHitl]         = useState<HITLThreshold>(org.hitlThreshold)
 
-  const hitlOptions: { value: HITLThreshold; label: string; description: string }[] = [
-    { value: 'auto',        label: 'Auto-proceed everything',                description: 'Brain never asks for approval.' },
-    { value: 'tier_3_plus', label: 'Ask for Tier 3+ actions (recommended)', description: 'Brain asks before delete, send, or publish.' },
-    { value: 'everything',  label: 'Ask for everything',                    description: 'Brain asks before any write action.' },
-  ]
+  const handleVerify = () => {
+    setDomainStatus('verifying')
+    setTimeout(() => setDomainStatus('verified'), 2000)
+  }
 
   return (
     <PageShell>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ minHeight: 36 }}>
-          <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0 }}>
-            Security
-          </h1>
-          <BodyText>Configure authentication and access controls for your workspace.</BodyText>
-        </div>
+      <div>
+        <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 28, color: 'var(--neutral-900)', margin: 0 }}>
+          Security
+        </h1>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, color: 'var(--neutral-500)', margin: '4px 0 0' }}>
+          Configure authentication and access controls for your workspace.
+        </p>
       </div>
 
+      {/* Authentication card */}
       <PageCard>
-        <CardHeader title="Authentication" />
-        <SettingsRow
-          title="Google OAuth SSO"
-          description="Let members sign in with their Google account."
-        >
-          <Switch checked={googleSSO} disabled={!isAdmin} onCheckedChange={setGoogleSSO} />
-        </SettingsRow>
+        <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 15, color: 'var(--neutral-900)', margin: 0 }}>Authentication</p>
+        </div>
 
-        <SettingsRow
-          title="Microsoft OAuth SSO"
-          description="Let members sign in with their Microsoft account."
-        >
-          <Switch checked={microsoftSSO} disabled={!isAdmin} onCheckedChange={setMicrosoftSSO} />
-        </SettingsRow>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <SecurityToggleRow
+            type="toggle"
+            label="Google OAuth SSO"
+            description="Let members sign in with their Google account"
+            isEnabled={googleSSO}
+            onToggle={isAdmin ? () => setGoogleSSO(v => !v) : undefined}
+          />
+        </div>
 
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <SecurityToggleRow
+            type="toggle"
+            label="Microsoft OAuth SSO"
+            description="Let members sign in with their Microsoft account"
+            isEnabled={msSSO}
+            onToggle={isAdmin ? () => setMsSSO(v => !v) : undefined}
+          />
+        </div>
+
+        {/* Domain claiming with inline DNS verification flow */}
         <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-            <div style={{ flex: '1 0 0', minWidth: 0 }}>
-              <BodyText weight={500} color="var(--neutral-900)">Domain claiming</BodyText>
-              <BodyText size={12}>Users who sign up with a verified domain email auto-join this workspace.</BodyText>
-            </div>
-            <Switch checked={domainClaiming} disabled={!isAdmin} onCheckedChange={setDomainClaiming} />
-          </div>
-
-          {domainClaiming && isAdmin && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+          <SecurityToggleRow
+            type="toggle"
+            label="Domain Claiming"
+            description="Users who sign up with a verified email domain auto-join this workspace"
+            isEnabled={domainOn}
+            onToggle={isAdmin ? () => { setDomainOn(v => !v); if (!domainOn) setDomainStatus('idle') } : undefined}
+            status={domainStatus === 'verifying' ? 'pending' : 'active'}
+            pendingLabel="Verifying…"
+          />
+          {domainOn && domainStatus !== 'verified' && isAdmin && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingLeft: 2 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
                 <InputField
-                  fluid
-                  label="Workspace domain"
-                  placeholder="yourdomain.com"
                   value={domain}
                   onChange={setDomain}
+                  placeholder="yourdomain.com"
+                  style={{ maxWidth: 280 }}
                 />
-                <Button variant="default" size="md" onClick={() => setDnsShown(true)}>Verify domain</Button>
-              </div>
-              {dnsShown && (
-                <div
-                  style={{
-                    padding:         12,
-                    borderRadius:    12,
-                    backgroundColor: 'white',
-                    boxShadow:       '0px 0px 0px 1px var(--neutral-200)',
-                    display:         'flex',
-                    flexDirection:   'column',
-                    gap:             4,
-                  }}
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleVerify}
+                  disabled={!domain.trim() || domainStatus === 'verifying'}
                 >
-                  <BodyText size={12} weight={500} color="var(--neutral-700)">Add this DNS TXT record to verify ownership:</BodyText>
-                  <code style={{ fontFamily: 'monospace', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)' }}>
+                  Verify domain
+                </Button>
+              </div>
+              {domain.trim() && domainStatus === 'idle' && (
+                <div style={{ padding: '10px 12px', borderRadius: 8, backgroundColor: 'var(--neutral-50)', border: '1px solid var(--neutral-200)' }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: 'var(--neutral-700)', margin: '0 0 4px' }}>
+                    Add this DNS TXT record to verify ownership:
+                  </p>
+                  <code style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--neutral-600)' }}>
                     souvenir-verify=sv_01abcdef1234
                   </code>
                 </div>
               )}
+              {domainStatus === 'verifying' && (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0 }}>
+                  Checking DNS records…
+                </p>
+              )}
+            </div>
+          )}
+          {domainOn && domainStatus === 'verified' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 2 }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+                <circle cx="7" cy="7" r="6" fill="var(--color-tag-Green-bg-soft)" stroke="var(--color-tag-Green-text)" strokeWidth="1" />
+                <path d="M4 7l2 2 4-4" stroke="var(--color-tag-Green-text)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-tag-Green-text)' }}>
+                {domain} verified
+              </span>
             </div>
           )}
         </div>
 
-        <SettingsRow
-          title="2FA enforcement"
-          description="Require all workspace members to enable two-factor authentication."
-          divider={false}
-        >
-          <Switch checked={twoFA} disabled={!isAdmin} onCheckedChange={setTwoFA} />
-        </SettingsRow>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <SecurityToggleRow
+            type="toggle"
+            label="2FA Enforcement"
+            description="Require all workspace members to enable two-factor authentication"
+            isEnabled={twoFA}
+            onToggle={isAdmin ? () => setTwoFA(v => !v) : undefined}
+          />
+        </div>
+
+        {/* SAML — Enterprise only, always disabled */}
+        <div style={{ padding: '16px 24px' }}>
+          <SecurityToggleRow
+            type="toggle"
+            label="SAML 2.0 / SCIM"
+            description="Enterprise only — upgrade to access SSO provisioning and directory sync"
+            isEnabled={false}
+            status="disabled"
+          />
+        </div>
       </PageCard>
 
+      {/* HITL Approval Threshold card */}
       <PageCard>
-        <CardHeader
-          title="HITL Approval Threshold"
-          description="When Brain should pause and ask for approval before taking actions."
-        />
-        <div
-          style={{
-            padding:       '16px 24px',
-            display:       'flex',
-            flexDirection: 'column',
-            gap:           12,
-            opacity:       isAdmin ? 1 : 0.5,
-            pointerEvents: isAdmin ? 'auto' : 'none',
-          }}
-        >
-          {hitlOptions.map((option, index) => {
-            const selected = hitlThreshold === option.value
-
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setHitlThreshold(option.value)}
-                style={{
-                  padding:         0,
-                  border:          'none',
-                  backgroundColor: 'transparent',
-                  display:         'flex',
-                  alignItems:      'flex-start',
-                  gap:             10,
-                  cursor:          'pointer',
-                  textAlign:       'left',
-                  paddingBottom:   index === hitlOptions.length - 1 ? 0 : 12,
-                  borderBottom:    index === hitlOptions.length - 1 ? undefined : '1px solid var(--neutral-100)',
-                }}
-              >
-                <Checkbox
-                  checked={selected}
-                  onCheckedChange={() => setHitlThreshold(option.value)}
-                  aria-label={option.label}
-                  style={{ marginTop: 3 }}
-                />
-                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <BodyText weight={500} color="var(--neutral-900)">{option.label}</BodyText>
-                  <BodyText size={12}>{option.description}</BodyText>
-                </span>
-              </button>
-            )
-          })}
+        <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 15, color: 'var(--neutral-900)', margin: 0 }}>Approval Threshold</p>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, color: 'var(--neutral-500)', margin: '3px 0 0' }}>
+            When Brain should pause and ask for approval before taking actions. Applies workspace-wide.
+          </p>
+        </div>
+        <div style={{ padding: '16px 24px', opacity: isAdmin ? 1 : 0.5, pointerEvents: isAdmin ? 'auto' : 'none' }}>
+          <SecurityToggleRow
+            type="radio"
+            label="HITL Threshold"
+            description=""
+            value={hitl}
+            onChange={(v) => setHitl(v as HITLThreshold)}
+            options={[
+              { value: 'auto',        label: 'Auto-proceed everything',               description: 'Brain never asks for approval. All actions run automatically.' },
+              { value: 'tier_3_plus', label: 'Ask for Tier 3+ actions (recommended)', description: 'Brain pauses before delete, send, or publish actions.' },
+              { value: 'everything',  label: 'Ask for everything',                    description: 'Brain asks before any write action. Maximum control.' },
+            ]}
+          />
         </div>
       </PageCard>
     </PageShell>

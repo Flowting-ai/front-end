@@ -95,11 +95,11 @@ const TAB_HELP: Record<string, { title: string; items: HelpItem[] }> = {
   connectors: {
     title: 'Connectors',
     items: [
-      { heading: 'Enabled for this Persona',  description: 'All connectors active in Settings are enabled for this persona by default. Toggling one off disables it only for this persona — your account connection stays intact.', isRequired: false, highlightId: 'help-connectors-enabled'  },
-      { heading: 'Disabled for this Persona', description: 'Connectors you have turned off for this persona appear here. Toggle them back on at any time to re-enable them.',                                                         isRequired: false, highlightId: 'help-connectors-disabled' },
-      { heading: 'Connect New Tools',         description: 'Use "Manage in Settings" to link accounts like Gmail, Slack, or HubSpot. Once connected they are automatically enabled for all personas.' },
+      { heading: 'Enabled for this Agent',  description: 'All connectors active in Settings are enabled for this agent by default. Toggling one off disables it only for this agent — your account connection stays intact.', isRequired: false, highlightId: 'help-connectors-enabled'  },
+      { heading: 'Disabled for this Agent', description: 'Connectors you have turned off for this agent appear here. Toggle them back on at any time to re-enable them.',                                                        isRequired: false, highlightId: 'help-connectors-disabled' },
+      { heading: 'Connect New Tools',       description: 'Use "Manage in Settings" to link accounts like Gmail, Slack, or HubSpot. Once connected they are automatically enabled for all agents.' },
       { heading: 'How Agents Use Connectors', description: 'When the agent needs to take action — send an email, update a task — it uses the enabled connectors automatically during the conversation.' },
-      { heading: 'Per-Agent Isolation',       description: 'Each agent has its own connector settings. Disabling a tool for one persona does not affect any other persona or your account.' },
+      { heading: 'Per-Agent Isolation',     description: 'Each agent has its own connector settings. Disabling a tool for one agent does not affect any other agent or your account.' },
     ],
   },
   sharing: {
@@ -467,7 +467,8 @@ function ConfigureProgress() {
 // ── Floating menu ─────────────────────────────────────────────────────────────
 
 function PersonaFloatingMenu() {
-  const { testChatOpen, toggleTestChat, aiSuggestOpen, toggleAiSuggest, versionsOpen, toggleVersions } = usePersonaConfigure()
+  const { testChatOpen, toggleTestChat, aiSuggestOpen, toggleAiSuggest, versionsOpen, toggleVersions, panelsLocked } = usePersonaConfigure()
+  const lockedTooltip = 'Save a version first to enable'
   return (
     <FloatingMenu aria-label="Configure actions">
       <FloatingMenuItem
@@ -475,6 +476,7 @@ function PersonaFloatingMenu() {
         label="Test Chat"
         active={testChatOpen}
         onClick={toggleTestChat}
+        tooltip={panelsLocked ? lockedTooltip : undefined}
         data-help-id="help-test-chat"
       />
       <FloatingMenuItem
@@ -482,6 +484,7 @@ function PersonaFloatingMenu() {
         label="AI Suggestions"
         active={aiSuggestOpen}
         onClick={toggleAiSuggest}
+        tooltip={panelsLocked ? lockedTooltip : undefined}
         data-help-id="help-ai-suggestions"
       />
       <FloatingMenuItem
@@ -1031,7 +1034,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
             style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px rgba(0,0,0,0.15)' }}
           >
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 18, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
-              This persona isn&apos;t published yet
+              This agent isn&apos;t published yet
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
               Your changes haven&apos;t been published. If you leave now, they won&apos;t be available to use until you publish.

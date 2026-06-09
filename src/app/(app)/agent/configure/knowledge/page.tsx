@@ -43,16 +43,23 @@ const TAB_ROUTES: Partial<Record<Tab, string>> = {
   Sharing:      '/agent/configure/sharing',
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
 // ── Convert backend documents to KnowledgeFile ────────────────────────────────
 
 function docsToFiles(version: PersonaVersionResponse): KnowledgeFile[] {
-  return (version.documents ?? []).map(doc => {
+  const fileItems: KnowledgeFile[] = (version.documents ?? []).map(doc => {
     const isUrl = doc.document_filename.startsWith('http')
     if (isUrl) {
       return {
         id:       doc.id,
         name:     doc.document_filename.replace(/^https?:\/\//, '').split('/')[0],
-        url:      doc.document_filename,
+        url:      doc.download_url ?? doc.document_filename,
         type:     'url' as const,
         fileType: 'URL',
         size:     '-',
@@ -60,7 +67,7 @@ function docsToFiles(version: PersonaVersionResponse): KnowledgeFile[] {
       }
     }
     const ext  = doc.document_filename.split('.').pop()?.toUpperCase() ?? 'FILE'
-    const size = doc.size_bytes ? `${(doc.size_bytes / 1024 / 1024).toFixed(1)} MB` : '-'
+    const size = doc.size_bytes ? formatFileSize(doc.size_bytes) : '-'
     return {
       id:       doc.id,
       name:     doc.document_filename,
@@ -68,8 +75,22 @@ function docsToFiles(version: PersonaVersionResponse): KnowledgeFile[] {
       fileType: ext,
       size,
       date:     new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      url:      doc.download_url ?? undefined,
     }
   })
+
+  // URL knowledge sources are stored separately in version.links, not version.documents
+  const linkItems: KnowledgeFile[] = (version.links ?? []).map(link => ({
+    id:       link.id,
+    name:     link.document_filename.replace(/^https?:\/\//, '').split('/')[0],
+    url:      link.source_url ?? link.document_filename,
+    type:     'url' as const,
+    fileType: 'URL',
+    size:     '-',
+    date:     new Date(link.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+  }))
+
+  return [...fileItems, ...linkItems]
 }
 
 // ── Main page content ─────────────────────────────────────────────────────────
@@ -114,7 +135,7 @@ function PersonaConfigureKnowledgeContent() {
       const bytes = fileSizeMapRef.current[f.name]
       // Check by doc ID first — survives API filename normalisation (spaces→underscores etc.)
       const url   = fileUrlMapRef.current[f.id] ?? fileUrlMapRef.current[f.name]
-      const withSize = bytes != null ? { ...f, size: `${(bytes / 1024 / 1024).toFixed(1)} MB` } : f
+      const withSize = bytes != null ? { ...f, size: formatFileSize(bytes) } : f
       return url ? { ...withSize, url } : withSize
     })
   }
@@ -213,7 +234,7 @@ function PersonaConfigureKnowledgeContent() {
       name:     raw.name,
       type:     'file' as const,
       fileType: raw.name.split('.').pop()?.toUpperCase() ?? 'FILE',
-      size:     `${(raw.size / 1024 / 1024).toFixed(1)} MB`,
+      size:     formatFileSize(raw.size),
       date:     new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       url:      fileUrlMapRef.current[raw.name],
     }))
@@ -253,7 +274,7 @@ function PersonaConfigureKnowledgeContent() {
 
           // 1. Ref lookup by doc ID (most reliable)
           const bytes = fileSizeMapRef.current[f.id] ?? fileSizeMapRef.current[f.name]
-          if (bytes != null) return { ...f, size: `${(bytes / 1024 / 1024).toFixed(1)} MB`, ...(url ? { url } : {}) }
+          if (bytes != null) return { ...f, size: formatFileSize(bytes), ...(url ? { url } : {}) }
           // 2. Fallback: find placeholder with matching name (case-insensitive to
           //    survive minor API filename normalisation like "GRAD2.pdf" → "grad2.pdf")
           const fNameLower = f.name.toLowerCase()
@@ -330,16 +351,16 @@ function PersonaConfigureKnowledgeContent() {
     setFiles(prev => prev.filter(f => f.id !== id))
 
     try {
-      // deleteDocument returns the updated PersonaVersionResponse — use it
-      // directly to refresh the list (no second getVersion round-trip needed).
-      const updatedVersion = await deleteDocument(repoId, versionId, id)
-      setFiles(docsToFilesWithSizes(updatedVersion))
+      await deleteDocument(repoId, versionId, id)
+      // Optimistic removal is already the correct final state — the API response
+      // body can include stale link items from version.links that haven't been
+      // updated in the same response, which would cause the deleted item to reappear.
       toast.success(`Removed "${file.name}"`)
       setIsDirty(true)
       addPendingChangeTag('Knowledge')
     } catch (err) {
       console.error('[KnowledgePage] delete error:', err)
-      setFiles(prev => [...prev, file])   // restore optimistic removal
+      setFiles(prev => [...prev, file])   // restore on error
       toast.error(`Failed to remove "${file.name}"`)
     }
   }
@@ -360,13 +381,30 @@ function PersonaConfigureKnowledgeContent() {
     }
     setFiles(prev => [...prev, placeholder])
     try {
-      await addKnowledgeUrl(repoId, versionId, url)
-      // Reload from API to get the authoritative file list
-      const version = await getVersion(repoId, versionId)
-      setFiles(docsToFilesWithSizes(version))
+      const updatedVersion = await addKnowledgeUrl(repoId, versionId, url)
       toast.success(`Added ${url}`)
       setIsDirty(true)
       addPendingChangeTag('Knowledge')
+      // Use the returned version directly to refresh the list with the real UUID.
+      // Fall back to getVersion if the response doesn't include the new link yet.
+      const apiFiles = docsToFilesWithSizes(updatedVersion)
+      const addedInApi = apiFiles.find(f => f.type === 'url' && (f.url === url || f.url?.includes(url.replace(/^https?:\/\//, '').split('/')[0])))
+      if (addedInApi) {
+        setFiles(prev => prev.map(f => f.id === placeholder.id ? addedInApi : f))
+      } else {
+        // Not in response yet — fetch explicitly using GET /versions/{persona_id}
+        try {
+          const version = await getVersion(repoId, versionId)
+          setFiles(prev => {
+            const freshFiles = docsToFilesWithSizes(version)
+            const found = freshFiles.find(f => f.type === 'url' && f.url === url)
+            if (found) return prev.map(f => f.id === placeholder.id ? found : f)
+            return prev
+          })
+        } catch {
+          // placeholder stays visible — correct fallback
+        }
+      }
     } catch (err) {
       console.error('[KnowledgePage] URL add error:', err)
       setFiles(prev => prev.filter(f => f.id !== placeholder.id))
@@ -377,7 +415,7 @@ function PersonaConfigureKnowledgeContent() {
   // ── Save version ─────────────────────────────────────────────────────────
 
   async function handleSaveVersion() {
-    if (!isDirty || !repoId || !versionId) return
+    if (pendingChangeTags.length === 0 || !repoId || !versionId) return
     setIsSaving(true)
     try {
       await updateVersion({ repoId, versionId, name: personaName || undefined })
@@ -433,6 +471,9 @@ function PersonaConfigureKnowledgeContent() {
   function safeNavigate(href: string) { ctxSafeNavigate(href) }
   function safeBack()                 { ctxSafeBack() }
 
+  const isPublished    = !!publishedVersionId && publishedVersionId === versionId && pendingChangeTags.length === 0
+  const needsRepublish = !!repoId && !!versionId && !isPublished
+
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
     if (route) safeNavigate(`${route}?${searchParams.toString()}`)
@@ -460,7 +501,7 @@ function PersonaConfigureKnowledgeContent() {
       <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: anyPanelOpen ? 'flex-start' : 'space-between', gap: anyPanelOpen ? 8 : 0, height: 36, position: 'relative' }}>
           <div style={{ flexShrink: 0 }}>
-            <IconButton variant="ghost" size="md" icon={<ArrowLeftOneIcon size={20} />} aria-label="Go back" onClick={safeBack} />
+            <IconButton variant="ghost" size="md" icon={<ArrowLeftOneIcon size={20} />} aria-label="Go back" onClick={() => safeNavigate('/agents')} />
           </div>
 
           {/* Tabs — absolutely centered so left/right items don't affect positioning */}
@@ -512,7 +553,7 @@ function PersonaConfigureKnowledgeContent() {
                 icon={<QuillWriteOneIcon size={16} />}
                 aria-label="Save version"
                 onClick={handleSaveVersion}
-                disabled={!isDirty || !repoId || !versionId || isSaving}
+                disabled={pendingChangeTags.length === 0 || !repoId || !versionId || isSaving}
                 loading={isSaving}
               />
             ) : (
@@ -521,7 +562,7 @@ function PersonaConfigureKnowledgeContent() {
                 size="sm"
                 leftIcon={<QuillWriteOneIcon size={16} />}
                 onClick={handleSaveVersion}
-                disabled={!isDirty || !repoId || !versionId || isSaving}
+                disabled={pendingChangeTags.length === 0 || !repoId || !versionId || isSaving}
                 loading={isSaving}
               >
                 {isSaving ? 'Saving…' : 'Save version'}
@@ -537,6 +578,15 @@ function PersonaConfigureKnowledgeContent() {
               {isPublishing ? 'Publishing…' : publishedVersionId ? 'Republish' : 'Publish'}
             </Button>
           </div>
+
+          {/* Live / Unpublished badge — centered below the tab bar */}
+          {(isPublished || needsRepublish) && (
+            <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 6, pointerEvents: 'none', zIndex: 1 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', whiteSpace: 'nowrap', ...(isPublished ? { backgroundColor: '#d1fae5', color: '#065f46', boxShadow: '0px 0px 0px 1px rgba(6,95,70,0.2)' } : { backgroundColor: '#fef3c7', color: '#92400e', boxShadow: '0px 1px 1.5px 0px rgba(24,15,2,0.15), 0px 0px 0px 1px rgba(146,64,14,0.3)' }) }}>
+                {isPublished ? 'Live' : 'Unpublished'}
+              </span>
+            </div>
+          )}
         </div>
         <div style={{ height: 35, flexShrink: 0 }} />
       </div>

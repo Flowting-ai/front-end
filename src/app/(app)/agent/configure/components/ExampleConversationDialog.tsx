@@ -88,7 +88,7 @@ export default function ExampleConversationDialog({ open, onClose, onAdd }: Prop
 
           <div className="flex flex-col gap-1">
             <label htmlFor="example-persona-replies" className="text-[14px] text-[#524b47] leading-[1.57]">
-              Persona replies<span className="text-[#a28847]">*</span>
+              Agent replies<span className="text-[#a28847]">*</span>
             </label>
             <div
               className="flex items-start gap-[2px] px-[10px] py-[7px] rounded-[10px] bg-white"

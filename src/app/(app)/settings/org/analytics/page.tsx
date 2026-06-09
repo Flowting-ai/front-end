@@ -45,27 +45,27 @@ const CHART_DAYS = [
 type ChartMetric = 'chat' | 'assistants' | 'brain'
 
 const CHART_METRICS: Record<ChartMetric, { label: string; color: string; value: string }> = {
-  chat:       { label: 'Chat',          color: '#0081db',           value: '300credits' },
-  assistants: { label: 'AI Assistants', color: 'var(--purple-500)', value: '90credits'  },
-  brain:      { label: 'Brain',         color: 'var(--green-500)',  value: '40credits'  },
+  chat:       { label: 'Chat',          color: 'var(--blue-600)',   value: '300 credits' },
+  assistants: { label: 'AI Assistants', color: 'var(--purple-500)', value: '90 credits'  },
+  brain:      { label: 'Brain',         color: 'var(--green-500)',  value: '40 credits'  },
 }
 
 const MEMBERS = [
-  { name: 'Alex Rivera',  email: 'alex@acmeinc.com', credits: '12,500', usage: 0 },
-  { name: 'Jordan Kim',   email: 'alex@acmeinc.com', credits: '3000',   usage: 45 },
+  { name: 'Alex Rivera',  email: 'alex@acmeinc.com',   credits: '12,500', usage: 0  },
+  { name: 'Jordan Kim',   email: 'jordan@acmeinc.com', credits: '3,000',  usage: 45 },
 ]
 
 const TOP_USERS = [
-  { name: 'Harsh Kirdolia', credits: '2840 credits', share: '37%' },
-  { name: 'Harsh Kirdolia', credits: '2840 credits', share: '37%' },
-  { name: 'Harsh Kirdolia', credits: '2840 credits', share: '37%' },
-  { name: 'Harsh Kirdolia', credits: '2840 credits', share: '37%' },
+  { name: 'Harsh Kirdolia', credits: '2,840 credits', share: '37%' },
+  { name: 'Alex Rivera',    credits: '2,500 credits', share: '29%' },
+  { name: 'Jordan Kim',     credits: '1,900 credits', share: '22%' },
+  { name: 'Sam Patel',      credits: '920 credits',   share: '11%' },
 ]
 
 const TEAM_USAGE = [
-  { name: 'Marketing',   credits: '2840 credits', share: '41% of pool' },
-  { name: 'Engineering', credits: '2840 credits', share: '41% of pool' },
-  { name: 'Design',      credits: '2840 credits', share: '41% of pool' },
+  { name: 'Marketing',   credits: '2,840 credits', share: '41% of pool' },
+  { name: 'Engineering', credits: '2,840 credits', share: '41% of pool' },
+  { name: 'Design',      credits: '980 credits',   share: '18% of pool' },
 ]
 
 function PageCard({
@@ -137,7 +137,7 @@ function ProgressBar({ value, height = 8 }: { value: number; height?: number }) 
         width:           '100%',
         height,
         borderRadius:    height / 2,
-        backgroundColor: height === 4 ? 'white' : 'var(--neutral-100)',
+        backgroundColor: height === 4 ? 'var(--neutral-white)' : 'var(--neutral-100)',
         overflow:        'hidden',
       }}
     >
@@ -172,7 +172,7 @@ function StatCard({
         flex:            wide ? '0 0 399px' : '1 0 0',
         height:          141,
         minWidth:        0,
-        backgroundColor: 'white',
+        backgroundColor: 'var(--neutral-white)',
         borderRadius:    8,
         boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
         padding:         wide ? '12px 0' : 12,
@@ -193,7 +193,7 @@ function StatCard({
                 {value}
               </p>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0, whiteSpace: 'nowrap' }}>
-                41,200/12000
+                41,200 / 60,000
               </p>
             </div>
             <ProgressBar value={51.25} height={4} />
@@ -233,7 +233,7 @@ function UserAvatar() {
         display:         'flex',
         alignItems:      'center',
         justifyContent:  'center',
-        color:           'white',
+        color:           'var(--neutral-white)',
         flexShrink:      0,
       }}
     >
@@ -294,14 +294,14 @@ function FeatureChart() {
               left:            `${(hovered.x / chartWidth) * 100}%`,
               transform:       'translateX(-50%)',
               background:      'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)',
-              color:           'white',
+              color:           'var(--neutral-white)',
               borderRadius:    6,
               padding:         '4px 6px',
               display:         'flex',
               alignItems:      'center',
               justifyContent:  'center',
               gap:             4,
-              boxShadow:       '0px 1px 4px rgba(59,54,50,0.5), 0px 0px 0px 0.5px var(--neutral-black), inset 0px 0.5px 0.1px rgba(247,242,237,0.3), inset 0px -0.5px 0.364px #120c08, inset 0px -2px 4px -2.182px rgba(247,242,237,0.5)',
+              boxShadow:       '0px 1px 4px rgba(59,54,50,0.5), 0px 0px 0px 0.5px var(--neutral-black), inset 0px 0.5px 0.1px rgba(247,242,237,0.3), inset 0px -0.5px 0.364px rgba(18,12,8,1), inset 0px -2px 4px -2.182px rgba(247,242,237,0.5)',
               fontFamily:      'var(--font-body)',
               fontSize:        11,
               lineHeight:      '16px',
@@ -358,7 +358,7 @@ function FeatureChart() {
                 return (
                   <g key={`${metric}-${point.day}`}>
                     {hovered?.day === point.day && hovered.metric === metric && (
-                      <circle cx={point.x} cy={point.y} r={5} fill={CHART_METRICS[metric].color} stroke="white" strokeWidth={2} />
+                      <circle cx={point.x} cy={point.y} r={5} fill={CHART_METRICS[metric].color} stroke="var(--neutral-white)" strokeWidth={2} />
                     )}
                     <circle
                       cx={point.x}

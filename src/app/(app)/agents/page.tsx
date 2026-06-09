@@ -17,6 +17,8 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, type Persona } from '@/lib/api/personas'
+import { fetchModelsWithCache } from '@/lib/ai-models'
+import type { AIModel } from '@/types/ai-model'
 import { listShares, listReceived, revokeShare, getSharePreview, type PersonaShare, type ReceivedShareResponse } from '@/lib/api/persona-shares'
 import { Badge } from '@/components/Badge'
 import { TokenBudgetBar } from '@/components/TokenBudgetBar'
@@ -36,6 +38,31 @@ import { toast } from 'sonner'
 
 type TabId = 'my-personas' | 'super-links' | 'shared' | 'community'
 type SortKey = 'activity' | 'az' | 'za'
+
+type AgentFilters = {
+  status:     Set<'live' | 'draft' | 'paused'>
+  visibility: Set<'private' | 'team' | 'community'>
+  superLink:  Set<'has-link' | 'no-link'>
+  models:     Set<string>
+}
+const EMPTY_FILTERS: AgentFilters = {
+  status: new Set(), visibility: new Set(), superLink: new Set(), models: new Set(),
+}
+
+function modelDisplayName(modelId: string | null): string | null {
+  if (!modelId) return null
+  const id = modelId.toLowerCase()
+  if (id.includes('claude')) {
+    if (id.includes('opus'))  return 'Claude Opus'
+    if (id.includes('haiku')) return 'Claude Haiku'
+    return 'Claude Sonnet'
+  }
+  if (id.includes('gpt')) return (id.includes('3.5') || id.includes('3-5')) ? 'GPT-3.5' : 'GPT-4'
+  if (id.includes('gemini'))  return 'Gemini'
+  if (id.includes('llama'))   return 'Llama'
+  if (id.includes('mistral')) return 'Mistral'
+  return modelId
+}
 
 // ── Mock recommended personas (community templates) ───────────────────────────
 
@@ -298,7 +325,6 @@ function SharedAgentCard({
         shared
         tags={persona?.tags}
         paused={persona?.isPaused}
-        visibility="private"
         onUseInChat={onUseInChat}
         onMenuDelete={onDelete}
       />
@@ -474,11 +500,14 @@ export default function PersonasPage() {
   const [search,       setSearch]       = useState('')
   const [sort,         setSort]         = useState<SortKey>('activity')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'paused'>('all')
-  const [filterTags,   setFilterTags]   = useState<string[]>([])
+  const [filters,      setFilters]      = useState<AgentFilters>(EMPTY_FILTERS)
   const [sortOpen,      setSortOpen]      = useState(false)
   const [allOpen,       setAllOpen]       = useState(false)
   const [filterOpen,    setFilterOpen]    = useState(false)
   const [deleteTarget,  setDeleteTarget]  = useState<Persona | null>(null)
+  const [allSharesForFilter, setAllSharesForFilter] = useState<PersonaShare[]>([])
+  const [availableModels,    setAvailableModels]    = useState<AIModel[]>([])
+  const filterSharesLoadedRef = useRef(false)
   const [headerGenOpen, setHeaderGenOpen] = useState(false)
   const [panelGenOpen,  setPanelGenOpen]  = useState(false)
 
@@ -578,6 +607,22 @@ export default function PersonasPage() {
       .finally(() => setReceivedLoading(false))
   }, [activeTab, pathname])
 
+  // Silently load all shares + models once for the filter panel.
+  // The super-links tab has its own loading effect that will overwrite shares on activation.
+  useEffect(() => {
+    if (activeTab !== 'my-personas' || filterSharesLoadedRef.current) return
+    filterSharesLoadedRef.current = true
+    listShares()
+      .then(all => {
+        setAllSharesForFilter(all)
+        setShares(all.filter(s => s.share_type === 'link'))
+      })
+      .catch(() => {})
+    fetchModelsWithCache()
+      .then(setAvailableModels)
+      .catch(() => {})
+  }, [activeTab])
+
   // Map share persona_id → persona info.
   // Indexed by BOTH activeVersionId (version frozen at publish time) and repo id
   // so a match is found regardless of whether the share was created before or
@@ -601,33 +646,11 @@ export default function PersonasPage() {
     if (!share) return null
     const preview = shareMeta[share.id]
     const personaInfo = versionToPersona[share.persona_id]
-    const name     = preview?.name     ?? personaInfo?.name     ?? 'Persona'
+    const name     = preview?.name     ?? personaInfo?.name     ?? 'Agent'
     const imageUrl = preview?.imageUrl ?? personaInfo?.imageUrl ?? null
     const repoId   = personaInfo?.repoId ?? ''
     return toDrawerLink(share, name, imageUrl, repoId)
   }, [selectedShareId, shares, versionToPersona, shareMeta])
-
-  // Filter + sort — split into three chained memos so a sort change doesn't
-  // re-run filtering, and a tag/status change doesn't re-run the sort.
-  const statusFiltered = useMemo(() => {
-    if (filterStatus === 'active') return personas.filter(p => p.isActive && !p.isPaused)
-    if (filterStatus === 'paused') return personas.filter(p => p.isPaused)
-    return personas
-  }, [personas, filterStatus])
-
-  const tagFiltered = useMemo(() => {
-    if (filterTags.length === 0) return statusFiltered
-    return statusFiltered.filter(p => filterTags.some(t => p.tags.includes(t)))
-  }, [statusFiltered, filterTags])
-
-  const filtered = useMemo(() => {
-    const searched = search.trim()
-      ? tagFiltered.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
-      : tagFiltered
-    if (sort === 'az') return searched.toSorted((a, b) => a.name.localeCompare(b.name))
-    if (sort === 'za') return searched.toSorted((a, b) => b.name.localeCompare(a.name))
-    return searched
-  }, [tagFiltered, search, sort])
 
   // Lookup map for shared-tab — keyed by persona repo id for actions/navigation.
   const personaByRepoId = useMemo(() => {
@@ -635,6 +658,126 @@ export default function PersonasPage() {
     for (const p of personas) map[p.id] = p
     return map
   }, [personas])
+
+  // Set of persona repo IDs that have at least one active super link.
+  const activeShareRepoIds = useMemo(() => {
+    const s = new Set<string>()
+    for (const share of allSharesForFilter) {
+      if (!share.is_active || share.share_type !== 'link') continue
+      const info = versionToPersona[share.persona_id]
+      if (info?.repoId) s.add(info.repoId)
+      else s.add(share.persona_id)
+    }
+    return s
+  }, [allSharesForFilter, versionToPersona])
+
+  // Derive visibility per persona from shares data:
+  // community = has active super link, team = has active email share, private = neither.
+  const visibilityForPersona = useMemo(() => {
+    const map: Record<string, 'private' | 'team' | 'community'> = {}
+    for (const p of personas) {
+      const personaShares = allSharesForFilter.filter(s => {
+        if (!s.is_active) return false
+        const info = versionToPersona[s.persona_id]
+        return info?.repoId === p.id || s.persona_id === p.id
+      })
+      if (personaShares.some(s => s.share_type === 'link'))        map[p.id] = 'community'
+      else if (personaShares.some(s => s.share_type === 'email'))  map[p.id] = 'team'
+      else                                                          map[p.id] = 'private'
+    }
+    return map
+  }, [allSharesForFilter, personas, versionToPersona])
+
+  // Map from stable model ID → human-readable model name (from the API models list).
+  const modelIdToName = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const m of availableModels) {
+      const key = String(m.modelId ?? m.id ?? '')
+      if (key) map.set(key, m.modelName)
+    }
+    return map
+  }, [availableModels])
+
+  function resolveModelName(modelId: string | null): string | null {
+    if (!modelId) return null
+    return modelIdToName.get(modelId) ?? modelDisplayName(modelId)
+  }
+
+  // Unique model display names present in the current persona list.
+  const uniqueModelNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const p of personas) {
+      const name = resolveModelName(p.modelId)
+      if (name) names.add(name)
+    }
+    return [...names].sort()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personas, modelIdToName])
+
+  const activeFilterCount =
+    filters.status.size + filters.visibility.size + filters.superLink.size + filters.models.size
+
+  function toggleFilter<K extends keyof AgentFilters>(key: K, value: string) {
+    setFilters(prev => {
+      const next = new Set(prev[key]) as Set<string>
+      if (next.has(value)) next.delete(value)
+      else next.add(value)
+      return { ...prev, [key]: next }
+    })
+  }
+
+  // Filter + sort — split into three chained memos so a sort change doesn't
+  // re-run filtering, and a filter change doesn't re-run the sort.
+  const statusFiltered = useMemo(() => {
+    if (filterStatus === 'active') return personas.filter(p => p.isActive && !p.isPaused)
+    if (filterStatus === 'paused') return personas.filter(p => p.isPaused)
+    return personas
+  }, [personas, filterStatus])
+
+  const filterPanelFiltered = useMemo(() => {
+    let result = statusFiltered
+
+    if (filters.status.size > 0) {
+      result = result.filter(p => {
+        if (filters.status.has('live')   && p.status === 'active' && !p.isPaused) return true
+        if (filters.status.has('draft')  && (p.status === 'draft' || !p.hasSystemInstructions)) return true
+        if (filters.status.has('paused') && p.status === 'paused') return true
+        return false
+      })
+    }
+
+    if (filters.visibility.size > 0) {
+      result = result.filter(p => filters.visibility.has(visibilityForPersona[p.id] ?? 'private'))
+    }
+
+    if (filters.superLink.size > 0) {
+      result = result.filter(p => {
+        const hasLink = activeShareRepoIds.has(p.id)
+        if (filters.superLink.has('has-link') && hasLink)  return true
+        if (filters.superLink.has('no-link')  && !hasLink) return true
+        return false
+      })
+    }
+
+    if (filters.models.size > 0) {
+      result = result.filter(p => {
+        const name = resolveModelName(p.modelId)
+        return name !== null && filters.models.has(name)
+      })
+    }
+
+    return result
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFiltered, filters, visibilityForPersona, activeShareRepoIds, modelIdToName])
+
+  const filtered = useMemo(() => {
+    const searched = search.trim()
+      ? filterPanelFiltered.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+      : filterPanelFiltered
+    if (sort === 'az') return searched.toSorted((a, b) => a.name.localeCompare(b.name))
+    if (sort === 'za') return searched.toSorted((a, b) => b.name.localeCompare(a.name))
+    return searched
+  }, [filterPanelFiltered, search, sort])
 
   const personasScrollRef = useRef<HTMLDivElement>(null)
   const GRID_COLS = 3
@@ -661,10 +804,10 @@ export default function PersonasPage() {
       await deletePersona(id)
       bustPersonasCache()
       setPersonas(prev => prev.filter(p => p.id !== id))
-      toast.success(name ? `"${name}" deleted` : 'Persona deleted')
+      toast.success(name ? `"${name}" deleted` : 'Agent deleted')
     } catch (err) {
       console.error('Failed to delete persona:', err)
-      toast.error('Failed to delete persona. Please try again.')
+      toast.error('Failed to delete agent. Please try again.')
     }
   }
 
@@ -677,7 +820,7 @@ export default function PersonasPage() {
       toast.success(currentlyPaused ? `"${name}" resumed` : `"${name}" paused`)
     } catch (err) {
       console.error('Failed to toggle pause:', err)
-      toast.error(`Failed to ${currentlyPaused ? 'resume' : 'pause'} persona. Please try again.`)
+      toast.error(`Failed to ${currentlyPaused ? 'resume' : 'pause'} agent. Please try again.`)
     }
   }
 
@@ -903,31 +1046,98 @@ export default function PersonasPage() {
                     </Dropdown>
                   </Dropdown.Float>
 
-                  {/* Tag filter dropdown */}
+                  {/* Filter dropdown */}
                   <Dropdown.Float
                     open={filterOpen}
                     onOpenChange={setFilterOpen}
                     placement="bottom-end"
                     trigger={
-                      <Button variant="secondary" disabled leftIcon={<FilterMailIcon animated />}>
-                        Filter
+                      <Button
+                        variant={activeFilterCount > 0 ? 'default' : 'secondary'}
+                        leftIcon={<FilterMailIcon animated />}
+                      >
+                        {activeFilterCount > 0 ? `Filter (${activeFilterCount})` : 'Filter'}
                       </Button>
                     }
                   >
-                    <Dropdown>
-                      <Dropdown.Section label="Tags">
-                        {(['Private', 'Research', 'Public', 'Draft'] as const).map(tag => (
+                    <Dropdown style={{ minWidth: 240 }}>
+                      {/* Clear all — only shown when filters are active */}
+                      {activeFilterCount > 0 && (
+                        <Dropdown.Item
+                          label="Clear all filters"
+                          fluid
+                          onClick={() => setFilters(EMPTY_FILTERS)}
+                        />
+                      )}
+
+                      {/* Status */}
+                      <Dropdown.Section label="Status">
+                        {([
+                          { id: 'live',   label: 'Live'   },
+                          { id: 'draft',  label: 'Draft'  },
+                          { id: 'paused', label: 'Paused' },
+                        ] as const).map(({ id, label }) => (
                           <Dropdown.Item
-                            key={tag}
-                            label={tag}
-                            selected={filterTags.includes(tag)}
-                            onClick={() => setFilterTags(prev =>
-                              prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-                            )}
+                            key={id}
+                            label={label}
                             fluid
+                            showCheckbox
+                            checkboxChecked={filters.status.has(id)}
+                            onCheckboxChange={() => toggleFilter('status', id)}
                           />
                         ))}
                       </Dropdown.Section>
+
+                      {/* Visibility */}
+                      <Dropdown.Section label="Visibility">
+                        {([
+                          { id: 'private',   label: 'Private'   },
+                          { id: 'team',      label: 'Team'      },
+                          { id: 'community', label: 'Community' },
+                        ] as const).map(({ id, label }) => (
+                          <Dropdown.Item
+                            key={id}
+                            label={label}
+                            fluid
+                            showCheckbox
+                            checkboxChecked={filters.visibility.has(id)}
+                            onCheckboxChange={() => toggleFilter('visibility', id)}
+                          />
+                        ))}
+                      </Dropdown.Section>
+
+                      {/* Super Link */}
+                      <Dropdown.Section label="Super Link">
+                        {([
+                          { id: 'has-link', label: 'Has active link' },
+                          { id: 'no-link',  label: 'No link'         },
+                        ] as const).map(({ id, label }) => (
+                          <Dropdown.Item
+                            key={id}
+                            label={label}
+                            fluid
+                            showCheckbox
+                            checkboxChecked={filters.superLink.has(id)}
+                            onCheckboxChange={() => toggleFilter('superLink', id)}
+                          />
+                        ))}
+                      </Dropdown.Section>
+
+                      {/* Model — only shown when at least one persona has a model */}
+                      {uniqueModelNames.length > 0 && (
+                        <Dropdown.Section label="Model">
+                          {uniqueModelNames.map(name => (
+                            <Dropdown.Item
+                              key={name}
+                              label={name}
+                              fluid
+                              showCheckbox
+                              checkboxChecked={filters.models.has(name)}
+                              onCheckboxChange={() => toggleFilter('models', name)}
+                            />
+                          ))}
+                        </Dropdown.Section>
+                      )}
                     </Dropdown>
                   </Dropdown.Float>
                 </div>
@@ -954,11 +1164,13 @@ export default function PersonasPage() {
                   ))}
                 </div>
               ) : filtered.length === 0 ? (
-                search.trim() ? (
+                (search.trim() || activeFilterCount > 0) ? (
                   <div style={{
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    gap: 12,
                     padding: '80px 24px',
                   }}>
                     <p style={{
@@ -970,8 +1182,24 @@ export default function PersonasPage() {
                       textAlign: 'center',
                       margin: 0,
                     }}>
-                      No agents matching &ldquo;{search}&rdquo;
+                      {search.trim()
+                        ? `No agents matching “${search}”${activeFilterCount > 0 ? ' with the current filters' : ''}`
+                        : 'No agents match your filters'}
                     </p>
+                    {activeFilterCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setFilters(EMPTY_FILTERS)}
+                        style={{
+                          background: 'none', border: '1px solid var(--neutral-200)',
+                          borderRadius: 8, cursor: 'pointer', padding: '6px 14px',
+                          fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
+                          color: 'var(--neutral-600)',
+                        }}
+                      >
+                        Clear filters
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div style={{
@@ -1044,7 +1272,6 @@ export default function PersonasPage() {
                           avatarUrl={draftAvatarMap[persona.id] ?? persona.imageUrl ?? undefined}
                           tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
-                          visibility="private"
                           shared={persona.sourceShareId !== null}
                           onEdit={persona.sourceShareId === null ? () => { toast.success(`Editing "${persona.name}"`); push(`/agent/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined}
                           onUseInChat={() => push(`/agents/${persona.id}/chat`)}
@@ -1313,7 +1540,7 @@ export default function PersonasPage() {
                       {!sharesLoading && shares.map(share => {
                         const preview     = shareMeta[share.id]
                         const personaInfo = versionToPersona[share.persona_id]
-                        const name        = preview?.name     ?? personaInfo?.name     ?? 'Persona'
+                        const name        = preview?.name     ?? personaInfo?.name     ?? 'Agent'
                         const imageUrl    = preview?.imageUrl ?? personaInfo?.imageUrl ?? null
                         const repoId      = personaInfo?.repoId ?? ''
                         return (

@@ -1,64 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-
-// ── Shared button styles ──────────────────────────────────────────────────────
-
-function DarkButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        padding:         '6px 10px 8px',
-        borderRadius:    10,
-        border:          'none',
-        cursor:          'pointer',
-        background:      'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)',
-        boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.5), 0px 0px 0px 1px var(--neutral-900), inset 0px 1px 0px 0px rgba(255,255,255,0.08)',
-        fontFamily:      'var(--font-body)',
-        fontWeight:      500,
-        fontSize:        14,
-        lineHeight:      '22px',
-        color:           'white',
-        whiteSpace:      'nowrap',
-        flexShrink:      0,
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-function WhiteButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        padding:         '6px 10px 8px',
-        borderRadius:    10,
-        border:          'none',
-        cursor:          'pointer',
-        backgroundColor: 'white',
-        boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
-        fontFamily:      'var(--font-body)',
-        fontWeight:      500,
-        fontSize:        14,
-        lineHeight:      '22px',
-        color:           'var(--neutral-700)',
-        whiteSpace:      'nowrap',
-        flexShrink:      0,
-      }}
-    >
-      {children}
-    </button>
-  )
-}
+import { Button } from '@/components/Button'
 
 // ── Text input ────────────────────────────────────────────────────────────────
 
@@ -455,7 +398,7 @@ export default function OrgGeneralPage() {
                 PNG, JPG or GIF. Recommended 512×512px.
               </p>
             </div>
-            <WhiteButton>Change Avatar</WhiteButton>
+            <Button variant="secondary" size="sm">Change Avatar</Button>
           </div>
 
           {/* Workspace name */}
@@ -522,7 +465,7 @@ export default function OrgGeneralPage() {
 
           {/* Save changes */}
           <div style={{ padding: '12px 24px', display: 'flex', justifyContent: 'flex-end' }}>
-            <DarkButton>Save changes</DarkButton>
+            <Button variant="default" size="sm">Save changes</Button>
           </div>
         </Card>
 
@@ -603,7 +546,7 @@ export default function OrgGeneralPage() {
               </p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <DarkButton>Save instructions</DarkButton>
+              <Button variant="default" size="sm">Save instructions</Button>
             </div>
           </div>
         </Card>
@@ -629,7 +572,7 @@ export default function OrgGeneralPage() {
             }}>
               Allowed email domains
             </p>
-            <WhiteButton>+ Add domain</WhiteButton>
+            <Button variant="secondary" size="sm">+ Add domain</Button>
           </div>
 
           {/* Column headers */}

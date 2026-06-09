@@ -6,7 +6,6 @@ import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 import { TEMPLATE_PRESETS } from '../../_data/template-presets'
-import { personaStarter } from '@/lib/api/personas'
 
 // ── Session-storage key (shared across wizard pages) ─────────────────────────
 
@@ -29,8 +28,8 @@ function NamePageContent() {
     if (typeof window === 'undefined') return ''
     try {
       const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
-      // Restore if same template (back navigation)
-      if (draft.template === template && draft.name) return draft.name
+      // Restore on back navigation. Normalize: stored as undefined when no template.
+      if ((draft.template ?? '') === template && draft.name) return draft.name
       // Pre-fill from template preset on first visit
       if (template) return TEMPLATE_PRESETS[template]?.name ?? ''
       return ''
@@ -44,8 +43,6 @@ function NamePageContent() {
     return qs ? `?${qs}` : ''
   }
 
-  const [isLoading, setIsLoading] = useState(false)
-
   function saveName() {
     try {
       const existing = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
@@ -53,26 +50,9 @@ function NamePageContent() {
     } catch { /* ignore */ }
   }
 
-  async function handleContinue() {
-    if (!name.trim() || isLoading) return
+  function handleContinue() {
+    if (!name.trim()) return
     saveName()
-
-    // Call /persona/starter now so the result is ready before the instructions
-    // page mounts. We read name + purpose from the wizard draft.
-    setIsLoading(true)
-    try {
-      const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
-      const description = (draft.purpose as string | undefined) ?? ''
-      const starter = await personaStarter({ name: name.trim(), description })
-      try {
-        sessionStorage.setItem('persona_wizard_starter', JSON.stringify(starter))
-      } catch { /* storage quota — ignore */ }
-    } catch {
-      // Non-critical — instructions page will start blank if call fails
-    } finally {
-      setIsLoading(false)
-    }
-
     push(`/agents/basics/tone${buildQuery()}`)
   }
 
@@ -147,7 +127,11 @@ function NamePageContent() {
               variant="outline"
               size="sm"
               leftIcon={<ArrowLeftOneIcon size={16} />}
-              onClick={() => { saveName(); push(`/agents/basics/purpose${buildQuery()}`) }}
+              onClick={() => {
+                saveName()
+                try { sessionStorage.setItem('persona_wizard_going_back', '1') } catch { /* ignore */ }
+                push(`/agents/basics/purpose${buildQuery()}`)
+              }}
             >
               Back
             </Button>
@@ -156,8 +140,7 @@ function NamePageContent() {
               variant="default"
               size="sm"
               rightIcon={<ArrowRightOneIcon size={16} />}
-              disabled={name.trim().length === 0 || isLoading}
-              loading={isLoading}
+              disabled={name.trim().length === 0}
               onClick={handleContinue}
             >
               Continue

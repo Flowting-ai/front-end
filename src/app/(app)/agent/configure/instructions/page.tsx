@@ -22,7 +22,6 @@ import ExampleConversationModal from '@/app/(app)/agent/configure/components/Exa
 import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModal'
 import { useInstructionHistory } from '@/app/(app)/agent/configure/hooks/use-instruction-history'
 import {
-  createPersonaRepo,
   createVersion,
   getPersonaRepo,
   getVersion,
@@ -36,10 +35,9 @@ import { stableKey } from '@/hooks/use-model-selection'
 import type { AIModel } from '@/types/ai-model'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
-import { TEMPLATE_PRESETS } from '@/app/(app)/agents/_data/template-presets'
-import { pickTemplateAvatar } from '@/lib/persona-template-avatars'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
+import { Badge } from '@/components/Badge'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -414,6 +412,17 @@ function readPersonaModelCache(repoId: string): { modelName: string; companyName
   } catch { return null }
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Returns true when modelId resolves to an entry in the current models list.
+function isModelIdAvailable(models: AIModel[], modelId: string | null | undefined): boolean {
+  if (!modelId) return false
+  return models.some(m =>
+    (m.modelId != null && String(m.modelId) !== 'undefined' && String(m.modelId) === modelId) ||
+    (m.id     != null && String(m.id)      !== 'undefined' && String(m.id)      === modelId),
+  )
+}
+
 // ── Model lookup (3-tier — same strategy as useModelSelection) ────────────────
 // Tier 1: exact match by modelId (string slug, stable) or id (numeric DB key)
 // Tier 2: modelName + companyName from the per-repo sessionStorage cache
@@ -512,6 +521,14 @@ function PersonaConfigureInstructionsContent() {
   // which may not recognize the stableKey format.
   const [backendModelId, setBackendModelId] = useState<string | null>(null)
   const [imageUrl,    setImageUrl]    = useState<string | null>(() => readProfileAvatar(repoIdParam))
+  const [profileTags, setProfileTags] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = sessionStorage.getItem(`persona_profile_${repoIdParam}`) ?? sessionStorage.getItem('persona_profile_new')
+      const draft = JSON.parse(raw ?? 'null') as Record<string, unknown> | null
+      return Array.isArray(draft?.personaTags) ? (draft!.personaTags as string[]) : []
+    } catch { return [] }
+  })
   const [connectorSlugs, setConnectorSlugs] = useState<string[] | null>(null)
   const [isInitialising, setIsInitialising] = useState(true)
   const [isSaving,      setIsSaving]      = useState(false)
@@ -536,28 +553,11 @@ function PersonaConfigureInstructionsContent() {
   const initialise = useCallback(async () => {
     // Guard against React Strict Mode double-invocation: reading sessionStorage
     // a second time would find an empty draft (already removed on the first run)
-    // and create a second repo named "Untitled Persona".
+    // and create a second repo named "Untitled Agent".
     if (hasInitialisedRef.current) return
     hasInitialisedRef.current = true
     setIsInitialising(true)
     try {
-      // Read wizard state from sessionStorage (new-persona flow)
-      // These are set by the basics wizard pages and cleared here after use
-      let wizardName = ''
-      let wizardPurpose = ''
-      let wizardTone = ''
-      let wizardTemplate = ''
-      if (typeof window !== 'undefined' && !repoIdParam) {
-        try {
-          const draft = JSON.parse(sessionStorage.getItem('persona_wizard_draft') ?? '{}')
-          wizardName     = draft.name     ?? ''
-          wizardPurpose  = draft.purpose  ?? ''
-          wizardTone     = draft.tone     ?? ''
-          wizardTemplate = draft.template ?? ''
-          sessionStorage.removeItem('persona_wizard_draft')
-        } catch { /* ignore */ }
-      }
-
       // Fetch all available models with proper normalization
       let fetchedModels: AIModel[] = []
       try {
@@ -582,7 +582,7 @@ function PersonaConfigureInstructionsContent() {
         if (version.blocked_connectors?.length > 0) setConnectorSlugs(version.blocked_connectors)
         const resolvedModel1 = matchModel(fetchedModels, version.model_id, repoIdParam, firstModel)
         setSelectedModel(resolvedModel1)
-        setBackendModelId(version.model_id ?? null)
+        setBackendModelId(isModelIdAvailable(fetchedModels, version.model_id) ? (version.model_id ?? null) : null)
         if (resolvedModel1) writePersonaModelCache(repoIdParam, resolvedModel1)
         // Restore example conversation cards from saved prompt text
         const examples = parseExampleConversations(prompt)
@@ -593,6 +593,7 @@ function PersonaConfigureInstructionsContent() {
           modelId:     version.model_id ?? '',
           temperature: version.temperature ?? 0.5,
         }
+        if (version.persona_tags?.length) setProfileTags(prev => prev.length ? prev : version.persona_tags)
         setPublishedVersionId(repo.active_version?.id ?? null)
       } else if (repoIdParam) {
         // ── Repo exists but no specific version — load most-recently saved version
@@ -619,10 +620,11 @@ function PersonaConfigureInstructionsContent() {
           window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${fullVersion.id}`)
           const resolvedModel2 = matchModel(fetchedModels, fullVersion.model_id, repoIdParam, firstModel)
           setSelectedModel(resolvedModel2)
-          setBackendModelId(fullVersion.model_id ?? null)
+          setBackendModelId(isModelIdAvailable(fetchedModels, fullVersion.model_id) ? (fullVersion.model_id ?? null) : null)
           if (resolvedModel2) writePersonaModelCache(repoIdParam, resolvedModel2)
           const examples = parseExampleConversations(prompt)
           if (examples.length > 0) setExampleConversations(examples)
+          if (fullVersion.persona_tags?.length) setProfileTags(prev => prev.length ? prev : fullVersion.persona_tags)
           savedSnapshotRef.current = {
             instruction: prompt,
             modelId:     fullVersion.model_id ?? '',
@@ -639,7 +641,7 @@ function PersonaConfigureInstructionsContent() {
           window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${repo.active_version.id}`)
           const resolvedModel3 = matchModel(fetchedModels, repo.active_version.model_id, repoIdParam, firstModel)
           setSelectedModel(resolvedModel3)
-          setBackendModelId(repo.active_version.model_id ?? null)
+          setBackendModelId(isModelIdAvailable(fetchedModels, repo.active_version.model_id) ? (repo.active_version.model_id ?? null) : null)
           if (resolvedModel3) writePersonaModelCache(repoIdParam, resolvedModel3)
           const examples = parseExampleConversations(prompt)
           if (examples.length > 0) setExampleConversations(examples)
@@ -653,11 +655,8 @@ function PersonaConfigureInstructionsContent() {
         }
         setPublishedVersionId(repo.active_version?.id ?? null)
       } else {
-        // ── New persona - create repo + initial version ───────────────────────
-
-        // Guard: if the user navigated back from this page through the wizard and
-        // then clicked Continue again, a repo was already created. Redirect to it
-        // instead of creating a second one.
+        // ── No URL params — repo creation now happens on the tone wizard page.
+        // If persona_wizard_repo exists (e.g. direct navigation after wizard), redirect to it.
         try {
           const wizardRepo = JSON.parse(sessionStorage.getItem('persona_wizard_repo') ?? 'null') as { repoId?: string; versionId?: string } | null
           if (wizardRepo?.repoId && wizardRepo?.versionId) {
@@ -665,94 +664,13 @@ function PersonaConfigureInstructionsContent() {
             return
           }
         } catch { /* ignore */ }
-
-        if (!firstModel) {
-          toast.error('No AI models available. Please contact support.')
-          push('/agents')
-          return
-        }
-
-        const effectiveName = wizardName || 'Untitled Persona'
-        if (wizardName) setPersonaName(wizardName)
-
-        // Resolve template preset (if the wizard was started from a template card)
-        const templatePreset = wizardTemplate ? (TEMPLATE_PRESETS[wizardTemplate] ?? null) : null
-
-        // Use the template's system instruction, or the /persona/starter result for blank personas.
-        // The tone wizard page called /persona/starter before navigating here and stored the result.
-        let initialPrompt = templatePreset?.systemInstruction ?? ''
-        if (!initialPrompt && typeof window !== 'undefined') {
-          try {
-            const starterData = JSON.parse(sessionStorage.getItem('persona_wizard_starter') ?? 'null') as { system_instruction?: string } | null
-            if (starterData?.system_instruction) initialPrompt = starterData.system_instruction
-          } catch { /* ignore */ }
-        }
-
-        // Pick the best model for the backend repo creation (firstModel or template hint),
-        // but leave the UI selector empty so the user explicitly chooses a model.
-        let chosenModel = firstModel
-        if (templatePreset?.modelHint && fetchedModels.length > 0) {
-          const hint = templatePreset.modelHint.toLowerCase()
-          const hinted = fetchedModels.find(m => m.modelName.toLowerCase().includes(hint))
-          if (hinted) chosenModel = hinted
-        }
-        // Do NOT pre-select in the UI — user must choose explicitly.
-        setSelectedModel(null)
-
-        const chosenModelKey = stableKey(chosenModel) ?? ''
-        const repo = await createPersonaRepo({
-          name:    effectiveName,
-          modelId: chosenModelKey,
-          prompt:  initialPrompt,
-        })
-
-        const newRepoId    = repo.id
-        const newVersionId = repo.active_version?.id ?? ''
-
-        setRepoId(newRepoId)
-        setVersionId(newVersionId)
-        setPersonaName(repo.name)
-        resetInstructionHistory(initialPrompt)
-        setBackendModelId(repo.active_version?.model_id ?? chosenModelKey)
-        writePersonaModelCache(newRepoId, chosenModel)
-        savedSnapshotRef.current = {
-          instruction: initialPrompt,
-          modelId:     '',
-          temperature: 0.5,
-        }
-
-        // Update URL with IDs only - no user data in the URL
-        window.history.replaceState(null, '', `?repoId=${newRepoId}&versionId=${newVersionId}`)
-
-        // Persist the new repo so if the user presses back through the wizard and
-        // continues again, we redirect to this repo instead of creating another one.
-        try { sessionStorage.setItem('persona_wizard_repo', JSON.stringify({ repoId: newRepoId, versionId: newVersionId })) } catch { /* ignore */ }
-
-        // Mark as needing explicit publish so the /personas card shows as draft
-        // until the user clicks Publish. (createPersonaRepo auto-sets active_version
-        // on the backend, but we treat it as unpublished until the user publishes.)
-        try { localStorage.setItem(`persona_needs_publish_${newRepoId}`, '1') } catch { /* ignore */ }
-
-        // Preserve wizard purpose for the Profile tab to use as description
-        if (wizardPurpose) {
-          sessionStorage.setItem(`persona_wizard_purpose_${newRepoId}`, wizardPurpose)
-        }
-
-        // Assign a random avatar for template-created personas so the card has
-        // a face immediately. Blank ("Custom") personas keep the initials fallback.
-        if (wizardTemplate) {
-          const avatarPath = pickTemplateAvatar()
-          setImageUrl(avatarPath)
-          try {
-            const profileKey = `persona_profile_${newRepoId}`
-            const existing = JSON.parse(sessionStorage.getItem(profileKey) ?? '{}') as Record<string, unknown>
-            sessionStorage.setItem(profileKey, JSON.stringify({ ...existing, avatarUrl: avatarPath }))
-          } catch { /* ignore quota errors */ }
-        }
+        // Nothing to load — send back to wizard start
+        push('/agents')
+        return
       }
     } catch (err) {
       console.error('[PersonaConfigure] init error:', err)
-      toast.error('Failed to load persona. Please try again.')
+      toast.error('Failed to load agent. Please try again.')
     } finally {
       setIsInitialising(false)
     }
@@ -787,7 +705,7 @@ function PersonaConfigureInstructionsContent() {
       setTemperature(full.temperature ?? 0.5)
       const model = matchModel(allModels, full.model_id, repoId, null)
       if (model) { setSelectedModel(model); writePersonaModelCache(repoId, model) }
-      setBackendModelId(full.model_id ?? null)
+      setBackendModelId(isModelIdAvailable(allModels, full.model_id) ? (full.model_id ?? null) : null)
       setExampleConversations(parseExampleConversations(prompt))
       setVersionId(full.id)
       savedSnapshotRef.current = null
@@ -945,7 +863,7 @@ function PersonaConfigureInstructionsContent() {
       push(wasPublished ? `${base}&republished=true` : base)
     } catch (err) {
       console.error('[PersonaConfigure] publish error:', err)
-      toast.error('Failed to publish persona')
+      toast.error('Failed to publish agent')
     } finally {
       setIsPublishing(false)
     }
@@ -980,6 +898,16 @@ function PersonaConfigureInstructionsContent() {
     } catch { /* ignore quota errors */ }
   }, [repoId, instruction, temperature, selectedModel, isInitialising])
 
+  // Re-read profile tags whenever repoId resolves (after new-persona creation)
+  useEffect(() => {
+    if (!repoId || typeof window === 'undefined') return
+    try {
+      const raw = sessionStorage.getItem(`persona_profile_${repoId}`)
+      const draft = JSON.parse(raw ?? 'null') as Record<string, unknown> | null
+      if (Array.isArray(draft?.personaTags)) setProfileTags(draft!.personaTags as string[])
+    } catch { /* ignore */ }
+  }, [repoId])
+
   const hasContent = instruction.trim().length > 0
 
   // isPublished: current version IS the published one with no pending changes.
@@ -989,7 +917,7 @@ function PersonaConfigureInstructionsContent() {
   const needsRepublish = !!repoId && !isPublished && (hasContent || !!publishedVersionId)
 
   const canPublish = hasContent && !!repoId && !!versionId && !!selectedModel && !isPublishing && !isPublished
-  const canSave    = isDirty && hasContent && !!repoId && !!selectedModel && !isSaving
+  const canSave    = pendingChangeTags.length > 0 && hasContent && !!repoId && !!selectedModel && !isSaving
 
   // Sync needsRepublish to shared context so the leave-guard works on all 5 tabs.
   useEffect(() => {
@@ -1095,7 +1023,7 @@ function PersonaConfigureInstructionsContent() {
                 size="md"
                 icon={<ArrowLeftOneIcon size={20} />}
                 aria-label="Go back"
-                onClick={safeBack}
+                onClick={() => safeNavigate('/agents')}
               />
             </div>
 
@@ -1257,7 +1185,7 @@ function PersonaConfigureInstructionsContent() {
               justifyContent: 'center',
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', maxWidth: 714 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', maxWidth: 714, paddingTop: 3 }}>
 
               {/* ── Persona header ────────────────────────────────────────────── */}
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -1294,31 +1222,14 @@ function PersonaConfigureInstructionsContent() {
                       lineHeight: '32px',
                       color: 'var(--neutral-900)',
                       margin: 0,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      maxWidth: 220,
                     }}
                   >
-                    {personaName || 'Persona Name'}
+                    {personaName || 'Agent Name'}
                   </p>
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '2px',
-                      borderRadius: 6,
-                      alignSelf: 'flex-start',
-                      backgroundColor: 'var(--neutral-100)',
-                      boxShadow: '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5)',
-                      position: 'relative',
-                    }}
-                  >
-                    <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)', pointerEvents: 'none' }} />
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-700)', padding: '0 2px', whiteSpace: 'nowrap' }}>
-                      Private
-                    </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    {profileTags.map(tag => (
+                      <Badge key={tag} color="Neutral" label={tag} />
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1416,22 +1327,7 @@ function PersonaConfigureInstructionsContent() {
                       Example conversations ( optional )
                     </span>
                     {exampleConversations.length > 0 && (
-                      <span
-                        style={{
-                          fontFamily: 'var(--font-body)',
-                          fontWeight: 500,
-                          fontSize: 12,
-                          lineHeight: '16px',
-                          color: 'var(--neutral-700)',
-                          backgroundColor: 'var(--neutral-100)',
-                          border: '1px solid rgba(106,98,93,0.3)',
-                          borderRadius: 6,
-                          padding: '1px 6px',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {exampleConversations.length}
-                      </span>
+                      <Badge color="Neutral" label={String(exampleConversations.length)} />
                     )}
                   </div>
                   <ArrowDownOneIcon
@@ -1469,7 +1365,7 @@ function PersonaConfigureInstructionsContent() {
                           </div>
                         )}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)' }}>Persona replies</span>
+                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)' }}>Agent replies</span>
                           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)', margin: 0, paddingRight: 24 }}>{conv.personaReplies}</p>
                         </div>
                       </div>

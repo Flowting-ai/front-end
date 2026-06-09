@@ -113,6 +113,9 @@ function PersonaConfigureSharingContent() {
     if (route) safeNavigate(`${route}?${searchParams.toString()}`)
   }
 
+  const isPublished    = !!publishedVersionId && publishedVersionId === versionId && pendingChangeTags.length === 0
+  const needsRepublish = !!repoId && !!versionId && !isPublished
+
   return (
       <div
         style={{
@@ -140,6 +143,7 @@ function PersonaConfigureSharingContent() {
               justifyContent: anyPanelOpen ? 'flex-start' : 'space-between',
               gap: anyPanelOpen ? 8 : 0,
               height: 36,
+              position: 'relative',
             }}
           >
             {/* Back arrow */}
@@ -149,7 +153,7 @@ function PersonaConfigureSharingContent() {
                 size="md"
                 icon={<ArrowLeftOneIcon size={20} />}
                 aria-label="Go back"
-                onClick={() => safeBack()}
+                onClick={() => safeNavigate('/agents')}
               />
             </div>
 
@@ -223,7 +227,7 @@ function PersonaConfigureSharingContent() {
                   icon={<QuillWriteOneIcon size={16} />}
                   aria-label="Save version"
                   onClick={handleSaveVersion}
-                  disabled={true}
+                  disabled={pendingChangeTags.length === 0 || !repoId || !versionId || isSaving}
                   loading={isSaving}
                 />
               ) : (
@@ -232,7 +236,7 @@ function PersonaConfigureSharingContent() {
                   size="sm"
                   leftIcon={<QuillWriteOneIcon size={16} />}
                   onClick={handleSaveVersion}
-                  disabled={true}
+                  disabled={pendingChangeTags.length === 0 || !repoId || !versionId || isSaving}
                   loading={isSaving}
                 >
                   {isSaving ? 'Saving…' : 'Save version'}
@@ -249,6 +253,15 @@ function PersonaConfigureSharingContent() {
                 {isPublishing ? 'Publishing…' : publishedVersionId ? 'Republish' : 'Publish'}
               </Button>
             </div>
+
+            {/* Live / Unpublished badge — centered below the tab bar */}
+            {(isPublished || needsRepublish) && (
+              <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 6, pointerEvents: 'none', zIndex: 1 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', whiteSpace: 'nowrap', ...(isPublished ? { backgroundColor: '#d1fae5', color: '#065f46', boxShadow: '0px 0px 0px 1px rgba(6,95,70,0.2)' } : { backgroundColor: '#fef3c7', color: '#92400e', boxShadow: '0px 1px 1.5px 0px rgba(24,15,2,0.15), 0px 0px 0px 1px rgba(146,64,14,0.3)' }) }}>
+                  {isPublished ? 'Live' : 'Unpublished'}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Spacer below nav */}
@@ -274,6 +287,7 @@ function PersonaConfigureSharingContent() {
               gap: 24,
               width: '100%',
               maxWidth: 714,
+              paddingTop: 3,
               paddingBottom: 32,
             }}
           >

@@ -224,7 +224,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
   const [linkShare, setLinkShare] = useState<PersonaShare | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isRevoking, setIsRevoking] = useState(false)
-  const [tokenLimit, setTokenLimit] = useState(maxTokenLimit)
+  const [tokenLimit, setTokenLimit] = useState(Math.floor(maxTokenLimit / 2))
 
   // Sync share-link existence to shared progress indicator
   useEffect(() => { setHasShareLink(!!linkShare) }, [linkShare, setHasShareLink])
@@ -232,14 +232,14 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
   // ── Email share state ──────────────────────────────────────────────────────
   const [emailShares, setEmailShares] = useState<PersonaShare[]>([])
   const [emailInput, setEmailInput] = useState('')
-  const [emailTokenLimit, setEmailTokenLimit] = useState(maxTokenLimit)
+  const [emailTokenLimit, setEmailTokenLimit] = useState(Math.floor(maxTokenLimit / 2))
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [revokingEmailId, setRevokingEmailId] = useState<string | null>(null)
 
   // ── Sync token limit defaults when plan resolves ──────────────────────────
   useEffect(() => {
-    setTokenLimit(maxTokenLimit)
-    setEmailTokenLimit(maxTokenLimit)
+    setTokenLimit(Math.floor(maxTokenLimit / 2))
+    setEmailTokenLimit(Math.floor(maxTokenLimit / 2))
   }, [maxTokenLimit])
 
   // ── Load existing shares on mount ─────────────────────────────────────────
@@ -263,7 +263,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
 
   async function handleGenerateLink() {
     if (!repoId) {
-      toast.error('Save the persona first before generating a share link.')
+      toast.error('Save the agent first before generating a share link.')
       return
     }
     setIsGenerating(true)
@@ -310,7 +310,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
     const email = emailInput.trim()
     if (!email) return
     if (!repoId) {
-      toast.error('Save the persona first before sending invites.')
+      toast.error('Save the agent first before sending invites.')
       return
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

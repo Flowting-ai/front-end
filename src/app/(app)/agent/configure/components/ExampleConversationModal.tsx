@@ -181,7 +181,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                       flexShrink: 0,
                     }}
                   >
-                    <span style={{ color: '#524b47' }}>Persona replies</span>
+                    <span style={{ color: '#524b47' }}>Agent replies</span>
                     <span style={{ color: '#a28847' }}>*</span>
                   </p>
                   <div

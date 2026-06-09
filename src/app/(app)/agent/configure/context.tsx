@@ -9,7 +9,7 @@ import React, {
   useCallback,
   Suspense,
 } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   testVersionStream,
@@ -25,6 +25,7 @@ import {
   type PersonaActivityItem,
 } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
+import { stableKey } from '@/hooks/use-model-selection'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import type { PinFolder } from '@/lib/api/pins'
 import type { PendingAttachment } from '@/components/chat/AttachmentManager'
@@ -100,6 +101,7 @@ interface PersonaConfigureContextValue {
   guideExpanded: boolean
   versionsOpen: boolean
   anyPanelOpen: boolean
+  panelsLocked: boolean
 
   // Toggles
   toggleTestChat: () => void
@@ -160,11 +162,23 @@ export function usePersonaConfigure() {
   return ctx
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getTabName(path: string): string {
+  if (path.includes('/instructions')) return 'Instructions'
+  if (path.includes('/profile'))      return 'Profile'
+  if (path.includes('/knowledge'))    return 'Knowledge'
+  if (path.includes('/connectors'))   return 'Connectors'
+  if (path.includes('/sharing'))      return 'Sharing'
+  return 'Agent'
+}
+
 // ── Provider (inner — uses hooks that need Suspense) ─────────────────────────
 
 function PersonaConfigureProviderInner({ children }: { children: React.ReactNode }) {
-  const { push, back } = useRouter()
+  const { push, replace, back } = useRouter()
   const searchParams = useSearchParams()
+  const pathname = usePathname()
 
   const [personaInfo, _setPersonaInfo] = useState<PersonaInfo>(() => ({
     repoId:           searchParams.get('repoId')    ?? '',
@@ -190,10 +204,13 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   // ── Eagerly bootstrap guide model from the saved version ────────────────────
   // This ensures the AI suggestions panel has the correct model_id even before
   // the instructions tab mounts (e.g. when the user is on the profile tab).
+  // Skipped on the instructions tab itself — that page calls getVersion in its
+  // own initialise() and pushes the result to context via updatePersonaInfo.
   useEffect(() => {
     const repoId    = personaInfo.repoId
     const versionId = personaInfo.versionId
     if (!repoId || !versionId) return
+    if (pathname.includes('/configure/instructions')) return
 
     let cancelled = false
     ;(async () => {
@@ -211,19 +228,28 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
         }
 
         const vModelId = version.model_id ?? null
-        if (!vModelId) return
+        const vPrompt  = version.prompt   ?? ''
 
         const matched = models.find(m =>
           (m.modelId != null && String(m.modelId) !== 'undefined' && String(m.modelId) === vModelId) ||
           (m.id     != null && String(m.id)      !== 'undefined' && String(m.id)      === vModelId),
         )
-        const modelName = matched?.modelName ?? 'AI'
+        const modelName = matched?.modelName ?? (models[0]?.modelName ?? 'AI')
 
-        // Always use the raw version.model_id — that's the exact value the backend stored
-        // and expects back for the guide endpoint.
+        // Use the stored model_id only when it's valid (exists in the current models list).
+        // If stale (e.g. retired OpenRouter slug), fall back to the first available model.
+        const resolvedModelId = matched
+          ? vModelId
+          : (models.length > 0 ? stableKey(models[0]) : null)
+
         _setPersonaInfo(prev => {
           if (prev.guideModelId) return prev
-          return { ...prev, guideModelId: vModelId, guideModelName: modelName }
+          return {
+            ...prev,
+            guideModelId:   resolvedModelId ?? prev.guideModelId,
+            guideModelName: modelName,
+            guidePrompt:    prev.guidePrompt || vPrompt,
+          }
         })
       } catch { /* version or models fetch failed — guide will rely on pre-fetch in guidePersonaStream */ }
     })()
@@ -248,6 +274,9 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   }, [])
 
   // ── Leave-confirm guard ──────────────────────────────────────────────────────
+
+  const pathnameRef = useRef(pathname)
+  useEffect(() => { pathnameRef.current = pathname }, [pathname])
 
   const needsRepublishRef = useRef(false)
   const [needsRepublish,   _setNeedsRepublish]   = useState(false)
@@ -274,6 +303,15 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     if (needsRepublishRef.current && !href.includes('/agent/configure/')) {
       setLeaveConfirmHref(href)
       return
+    }
+    // Show auto-saved toast only when changes were made on the current tab
+    // (i.e. the tag count grew since arriving here). This prevents the toast from
+    // firing on every subsequent tab switch just because older tags still exist.
+    const isTabSwitch = href.includes('/agent/configure/')
+    const tags = pendingChangeTagsRef.current
+    if (isTabSwitch && tags.length > tagsCountOnTabArrivalRef.current) {
+      const tabName = getTabName(pathnameRef.current)
+      toast.success(`Auto-saved — ${tabName}`, { duration: 2500 })
     }
     const save = autoSaveRef.current
     if (save) {
@@ -309,11 +347,21 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     _setVersionsOpen(open)
   }, [])
 
+  const panelsLockedRef = useRef(false)
+
   const toggleTestChat = useCallback(() => {
+    if (panelsLockedRef.current) {
+      toast.error('Save a version first to unlock Test Chat', { duration: 3000 })
+      return
+    }
     setTestChatOpen(prev => { const next = !prev; if (next) { setAiSuggestOpen(false); _setVersionsOpen(false) }; return next })
   }, [])
 
   const toggleAiSuggest = useCallback(() => {
+    if (panelsLockedRef.current) {
+      toast.error('Save a version first to unlock AI Suggestions', { duration: 3000 })
+      return
+    }
     setAiSuggestOpen(prev => { const next = !prev; if (next) { setTestChatOpen(false); _setVersionsOpen(false) }; return next })
   }, [])
 
@@ -453,7 +501,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     const filesToSend = attachments.map(a => a.file)
     if (!trimmedValue && filesToSend.length === 0) return
     if (!repoId || !versionId) {
-      toast.error('Save your persona first to test the chat.')
+      toast.error('Save your agent first to test the chat.')
       return
     }
     if (chatStreamingRef.current) return
@@ -509,15 +557,52 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
 
   const [versions,          setVersions]          = useState<PersonaVersionListItem[]>([])
   const [versionsLoading,   setVersionsLoading]   = useState(false)
+
+  // Test Chat and AI Suggestions are locked until a version has been saved.
+  const panelsLocked = versions.length === 0
+  useEffect(() => { panelsLockedRef.current = panelsLocked }, [panelsLocked])
+
+  // Bootstrap versions on initial load so panelsLocked reflects the server state immediately,
+  // without requiring the user to open the versions panel first.
+  useEffect(() => {
+    const repoId = personaInfo.repoId
+    if (!repoId) return
+    listVersions(repoId)
+      .then(v => setVersions(
+        v.slice()
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 5),
+      ))
+      .catch(() => {})
+  }, [personaInfo.repoId])
+
   const [restoringId,       setRestoringId]       = useState<string | null>(null)
   const [pendingChangeTags, _setPendingChangeTags] = useState<string[]>([])
+  const pendingChangeTagsRef        = useRef<string[]>([])
+  const tagsCountOnTabArrivalRef    = useRef(0)
   const versionRestoreCallbackRef = useRef<((version: PersonaVersionResponse) => void) | null>(null)
   const restoringRef = useRef(false)
 
+  // Update the baseline tag count whenever the user lands on a new configure tab.
+  // safeNavigate compares the current count against this baseline to decide whether
+  // any changes were actually made on the tab being left.
+  useEffect(() => {
+    tagsCountOnTabArrivalRef.current = pendingChangeTagsRef.current.length
+  }, [pathname])
+
   const addPendingChangeTag = useCallback((tag: string) => {
-    _setPendingChangeTags(prev => prev.includes(tag) ? prev : [...prev, tag])
+    _setPendingChangeTags(prev => {
+      if (prev.includes(tag)) return prev
+      const next = [...prev, tag]
+      pendingChangeTagsRef.current = next
+      return next
+    })
   }, [])
   const setPendingChangeTags = useCallback((tags: string[]) => {
+    pendingChangeTagsRef.current = tags
+    // Reset the arrival baseline so the toast condition stays correct after
+    // a Save Version or Publish clears the tag list mid-visit.
+    tagsCountOnTabArrivalRef.current = tags.length
     _setPendingChangeTags(tags)
   }, [])
 
@@ -562,10 +647,10 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     setRestoringId(targetId)
     try {
       const full = await getVersion(repoId, targetId)
-      // Update URL without navigating
+      // Update URL without navigating — use router.replace so useSearchParams updates in tabs
       const params = new URLSearchParams(window.location.search)
       params.set('versionId', targetId)
-      window.history.replaceState(null, '', `?${params.toString()}`)
+      replace(`${window.location.pathname}?${params.toString()}`)
       // Update shared guide prompt
       updatePersonaInfo({ versionId: targetId, guidePrompt: full.prompt ?? '' })
       // Reorder versions list
@@ -589,7 +674,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
       restoringRef.current = false
       setRestoringId(null)
     }
-  }, [push, updatePersonaInfo])
+  }, [push, replace, updatePersonaInfo])
 
   // ── Context value ───────────────────────────────────────────────────────────
 
@@ -625,6 +710,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     guideExpanded,
     versionsOpen,
     anyPanelOpen,
+    panelsLocked,
 
     toggleTestChat,
     toggleAiSuggest,

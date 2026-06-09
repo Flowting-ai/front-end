@@ -100,6 +100,7 @@ export interface EnhancePromptResponse {
 export interface PersonaStarterRequest {
   name: string;
   description: string;
+  tone?: string;
 }
 
 export interface PersonaStarterSound {
@@ -303,6 +304,7 @@ export async function updateVersion(params: {
   prompt?: string;
   modelId?: string;
   temperature?: number | null;
+  persona_tags?: string[];
   image?: File | null;
   /** Existing image URL to carry forward when no new image file is provided. */
   imageUrl?: string | null;
@@ -311,10 +313,11 @@ export async function updateVersion(params: {
 }): Promise<PersonaVersionResponse> {
   // PATCH accepts JSON-only metadata (UpdatePersona schema).
   const patchBody: Record<string, unknown> = {};
-  if (params.name != null)        patchBody.name        = params.name;
-  if (params.prompt != null)      patchBody.prompt      = params.prompt;
-  if (params.modelId != null)     patchBody.model_id    = params.modelId;
-  if (params.temperature != null) patchBody.temperature = params.temperature;
+  if (params.name != null)         patchBody.name         = params.name;
+  if (params.prompt != null)       patchBody.prompt       = params.prompt;
+  if (params.modelId != null)      patchBody.model_id     = params.modelId;
+  if (params.temperature != null)  patchBody.temperature  = params.temperature;
+  if (params.persona_tags != null) patchBody.persona_tags = params.persona_tags;
 
   let result = await apiFetchJson<PersonaVersionResponse>(
     PERSONA_VERSION_DETAIL_ENDPOINT(params.repoId, params.versionId),
@@ -360,17 +363,21 @@ export async function uploadDocument(repoId: string, versionId: string, file: Fi
 /**
  * POST /persona/{repo_id}/versions/{version_id}/knowledge-url
  * Registers a URL as a knowledge source for this version.
+ * The endpoint expects application/x-www-form-urlencoded (not JSON).
  */
 export async function addKnowledgeUrl(
   repoId: string,
   versionId: string,
   url: string,
-): Promise<void> {
-  await apiFetch(
+): Promise<PersonaVersionResponse> {
+  const params = new URLSearchParams()
+  params.append('url', url)
+  return apiFetchJson<PersonaVersionResponse>(
     PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT(repoId, versionId),
     {
-      method: 'POST',
-      body:   JSON.stringify({ url }),
+      method:  'POST',
+      body:    params.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     },
   )
 }
@@ -1053,28 +1060,12 @@ export async function guidePersonaStream(
 ): Promise<() => void> {
   const controller = new AbortController();
 
-  // Resolve model_id: prefer the one passed in (from persona instructions tab),
-  // otherwise fetch from the persona's saved versions.
-  let resolvedModelId = params.model_id ?? null;
-  if (!resolvedModelId) {
-    try {
-      const versions = await listVersions(repoId);
-      const sorted   = versions.slice().sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      );
-      resolvedModelId =
-        sorted.find(v => v.is_active)?.model_id ??
-        sorted[0]?.model_id ??
-        null;
-    } catch { /* proceed with null */ }
-  }
-
   const requestBody = {
     question:    params.question,
     prompt:      params.prompt      ?? "",
     description: params.description ?? "",
     name:        params.name        ?? null,
-    model_id:    resolvedModelId,
+    model_id:    params.model_id ?? null,
     temperature: params.temperature ?? null,
     history:     params.history     ?? [],
     web_search:  params.web_search  ?? false,
@@ -1095,89 +1086,25 @@ export async function guidePersonaStream(
   }
 
   if (!response.ok) {
+    // 401 is already handled by apiFetch (toast + session-expired event); just abort silently.
+    if (response.status === 401) return () => controller.abort();
+
     const errorText = await response.text().catch(() => "");
     const errorLower = errorText.toLowerCase();
-    const isModelError =
+    const isModelUnavailable =
+      response.status === 404 && errorLower.includes("no endpoints found");
+    const isModelNotConfigured =
       response.status === 503 ||
       (errorLower.includes("model") && errorLower.includes("not configured"));
 
-    if (isModelError) {
-      // If we didn't have a model_id from the caller, try fetching from versions and retry.
-      if (!params.model_id) {
-        controller.abort();
-        try {
-          const versions = await listVersions(repoId);
-          const sorted   = versions.slice().sort(
-            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-          );
-          const versionModelId =
-            sorted.find(v => v.is_active)?.model_id ??
-            sorted[0]?.model_id ??
-            null;
-          if (versionModelId && versionModelId !== resolvedModelId) {
-            return guideRetryWithModel(repoId, { ...params, model_id: versionModelId }, callbacks);
-          }
-        } catch { /* fall through */ }
-      }
-      // Show actionable error
-      callbacks.onError?.("Guide model is not configured. Please save your persona in the Instructions tab first, then try again.");
+    if (isModelUnavailable || isModelNotConfigured) {
+      callbacks.onError?.("The AI model for this persona is unavailable. Please select a different model in the Instructions tab and save.");
       return () => controller.abort();
     }
     callbacks.onError?.(errorText || `HTTP ${response.status}`);
     return () => controller.abort();
   }
 
-  const reader = response.body?.getReader();
-  if (!reader) {
-    callbacks.onError?.("No response body");
-    return () => controller.abort();
-  }
-  readPersonaSSEStream(reader, callbacks);
-  return () => controller.abort();
-}
-
-/**
- * Single retry of the guide endpoint with an explicit model_id sourced from the
- * versions API. On any failure (including a second 503) surfaces an error — no further retries.
- */
-async function guideRetryWithModel(
-  repoId: string,
-  params: Parameters<typeof guidePersonaStream>[1],
-  callbacks: PersonaChatStreamCallbacks,
-): Promise<() => void> {
-  const controller = new AbortController();
-  let response: Response;
-  try {
-    response = await apiFetch(PERSONA_GUIDE_ENDPOINT(repoId), {
-      method: "POST",
-      body: JSON.stringify({
-        question:    params.question,
-        prompt:      params.prompt      ?? "",
-        description: params.description ?? "",
-        name:        params.name        ?? null,
-        model_id:    params.model_id    ?? null,
-        temperature: params.temperature ?? null,
-        history:     params.history     ?? [],
-        web_search:  params.web_search  ?? false,
-      }),
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if ((err as Error).name !== "AbortError") {
-      callbacks.onError?.((err as Error).message ?? "Failed to get AI suggestions");
-    }
-    return () => controller.abort();
-  }
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    const textLower = text.toLowerCase();
-    if (textLower.includes("model") && textLower.includes("not configured")) {
-      callbacks.onError?.("Guide model is not configured. Please save your persona in the Instructions tab first, then try again.");
-    } else {
-      callbacks.onError?.(text || `HTTP ${response.status}`);
-    }
-    return () => controller.abort();
-  }
   const reader = response.body?.getReader();
   if (!reader) {
     callbacks.onError?.("No response body");

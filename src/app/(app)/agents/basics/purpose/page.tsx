@@ -1,11 +1,12 @@
 ﻿'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 import { TEMPLATE_PRESETS } from '../../_data/template-presets'
+import CancelCreationModal from '../../_components/CancelCreationModal'
 
 const MAX_CHARS = 120
 const WIZARD_KEY = 'persona_wizard_draft'
@@ -16,18 +17,39 @@ function PurposePageContent() {
   const { push } = useRouter()
   const searchParams = useSearchParams()
   const template = searchParams.get('template') ?? ''
+  const [cancelOpen, setCancelOpen] = useState(false)
+
+  // Side-effect guard: React 18 StrictMode calls useState initializers twice.
+  // All sessionStorage writes/removes live in the useEffect below, not here.
+  const initDoneRef = useRef(false)
 
   const [purpose, setPurpose] = useState(() => {
     if (typeof window === 'undefined') return ''
     try {
       const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
-      // Restore if same template (back navigation)
-      if (draft.template === template && draft.purpose) return draft.purpose
-      // Pre-fill from template preset on first visit
+      const goingBack = sessionStorage.getItem('persona_wizard_going_back') === '1'
+      if (goingBack && (draft.template ?? '') === template && draft.purpose) return draft.purpose
       if (template) return TEMPLATE_PRESETS[template]?.purpose ?? ''
       return ''
     } catch { return '' }
   })
+
+  useEffect(() => {
+    if (initDoneRef.current) return
+    initDoneRef.current = true
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+      const goingBack = sessionStorage.getItem('persona_wizard_going_back') === '1'
+      sessionStorage.removeItem('persona_wizard_going_back')
+      if (!goingBack || (draft.template ?? '') !== template || !draft.purpose) {
+        // Fresh start — clear all stale wizard state from previous sessions
+        sessionStorage.removeItem('persona_wizard_repo')
+        sessionStorage.removeItem('persona_wizard_starter')
+        sessionStorage.removeItem(WIZARD_KEY)
+      }
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function buildQuery() {
     const p = new URLSearchParams()
@@ -39,13 +61,13 @@ function PurposePageContent() {
   function handleContinue() {
     try {
       const existing = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
-      // Clear name/tone from previous runs in case user came back and changed purpose.
-      // Store template so downstream pages (and the instructions page) can read it.
+      const purposeChanged = existing.purpose !== purpose
       sessionStorage.setItem(WIZARD_KEY, JSON.stringify({
         ...existing,
         purpose,
-        name:     undefined,
-        tone:     undefined,
+        // Only clear downstream fields if the purpose actually changed
+        name:     purposeChanged ? undefined : existing.name,
+        tone:     purposeChanged ? undefined : existing.tone,
         template: template || undefined,
       }))
     } catch { /* ignore */ }
@@ -53,6 +75,7 @@ function PurposePageContent() {
   }
 
   return (
+    <>
     <WizardShell steps={STEPS_BASICS}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 35, alignItems: 'center', width: '100%' }}>
 
@@ -118,7 +141,7 @@ function PurposePageContent() {
               variant="outline"
               size="sm"
               leftIcon={<ArrowLeftOneIcon size={16} />}
-              onClick={() => push(`/agents/templates${buildQuery()}`)}
+              onClick={() => setCancelOpen(true)}
             >
               Back
             </Button>
@@ -137,6 +160,20 @@ function PurposePageContent() {
 
       </div>
     </WizardShell>
+
+    {cancelOpen && (
+      <CancelCreationModal
+        onCancel={() => {
+          setCancelOpen(false)
+          try { sessionStorage.removeItem('persona_wizard_draft') } catch { /* ignore */ }
+          try { sessionStorage.removeItem('persona_wizard_starter') } catch { /* ignore */ }
+          try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
+          push('/agents')
+        }}
+        onKeep={() => setCancelOpen(false)}
+      />
+    )}
+    </>
   )
 }
 

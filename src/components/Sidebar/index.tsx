@@ -103,6 +103,8 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onNewChat?: () => void
   /** Override label for the "New chat" button — e.g. "New brain thread" on brain pages */
   newChatLabel?: string
+  /** Force the new-chat button into selected state regardless of internal click tracking */
+  newChatButtonSelected?: boolean
   /** Called when Search is clicked */
   onSearch?: () => void
   /** Called when the sidebar collapse/toggle button is clicked */
@@ -430,6 +432,7 @@ export function Sidebar({
       isAuthenticated = false,
       onNewChat,
       newChatLabel,
+      newChatButtonSelected,
       onSearch,
       onCollapse,
       onChatsClick,
@@ -563,7 +566,7 @@ export function Sidebar({
     }, [handleCollapse])
 
     const computedNewChatLabel = newChatLabel ?? (
-      bodySection === 'agents' ? 'New Agents Chat' :
+      bodySection === 'agents' ? 'All Agents' :
       bodySection === 'brain'  ? 'New Brain threads' :
       'New chat'
     )
@@ -711,7 +714,8 @@ export function Sidebar({
                 {...(isCollapsed ? { collapsed: true } : { fluid: true })}
                 variant="new-chat"
                 label={computedNewChatLabel}
-                selected={selectedItem === 'new-chat'}
+                selected={newChatButtonSelected ?? selectedItem === 'new-chat'}
+                icon={bodySection === 'agents' ? <UserAiIcon size={20} animated /> : undefined}
                 onClick={() => { setSelectedItem('new-chat'); setActiveFolder(null); onNewChat?.() }}
               />
             </Tooltip>

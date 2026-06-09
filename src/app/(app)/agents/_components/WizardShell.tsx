@@ -1,8 +1,9 @@
 ﻿'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CancelOneIcon } from '@strange-huge/icons'
+import CancelCreationModal from './CancelCreationModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,7 @@ interface WizardShellProps {
 
 export function WizardShell({ steps, children }: WizardShellProps) {
   const { push } = useRouter()
+  const [cancelOpen, setCancelOpen] = useState(false)
 
   return (
     <div className="kaya-scrollbar" style={{
@@ -76,7 +78,7 @@ export function WizardShell({ steps, children }: WizardShellProps) {
           {steps.map(step => <StepBadge key={step.label} {...step} />)}
         </div>
         <button
-          onClick={() => push('/agents')}
+          onClick={() => setCancelOpen(true)}
           aria-label="Close"
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -90,6 +92,19 @@ export function WizardShell({ steps, children }: WizardShellProps) {
       </div>
 
       {children}
+
+      {cancelOpen && (
+        <CancelCreationModal
+          onCancel={() => {
+            setCancelOpen(false)
+            try { sessionStorage.removeItem('persona_wizard_draft') } catch { /* ignore */ }
+            try { sessionStorage.removeItem('persona_wizard_starter') } catch { /* ignore */ }
+            try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
+            push('/agents')
+          }}
+          onKeep={() => setCancelOpen(false)}
+        />
+      )}
     </div>
   )
 }

@@ -916,6 +916,10 @@ function LeftSidebarImpl({
   };
 
   const handleNewChat = () => {
+    if (isPersonaPage) {
+      push("/agents");
+      return;
+    }
     const isAlreadyOnNewChat = pathname === "/chat" && !chatSearchParams.get("id");
     if (isAlreadyOnNewChat) {
       toast.info("Already on new chat");
@@ -961,6 +965,7 @@ function LeftSidebarImpl({
       searchActive={searchOpen}
       onCollapse={handleCollapse}
       onNewChat={handleNewChat}
+      newChatButtonSelected={isPersonaPage ? pathname === '/agents' : undefined}
       onSearch={openSearch}
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
