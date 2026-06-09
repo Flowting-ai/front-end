@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import Image from 'next/image';
@@ -37,10 +37,10 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
   const isProjectChatPage   = !!projectChatMatch;
   const isProjectDetailPage = pathname.startsWith('/project') && !isProjectChatPage;
   const isChatsPage         = pathname === '/chats';
-  const personaChatMatch      = pathname.match(/^\/personas\/([^/]+)\/chat/);
+  const personaChatMatch      = pathname.match(/^\/agents\/([^/]+)\/chat/);
   const isPersonaChatPage     = !!personaChatMatch;
   const personaId             = personaChatMatch?.[1] ?? null;
-  const isPersonaConfigurePage = pathname.startsWith('/persona/configure');
+  const isPersonaConfigurePage = pathname.startsWith('/agent/configure');
 
   // Fetch persona data + resolve full model object for the top-bar tag on persona chat pages
   const [persona,      setPersona]      = useState<Persona | null>(null);
@@ -250,7 +250,7 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
                 leftIcon={<PenOneIcon animated />}
                 onClick={() =>
                   router.push(
-                    `/persona/configure/instructions?repoId=${personaId}&name=${encodeURIComponent(persona.name)}`,
+                    `/agent/configure/instructions?repoId=${personaId}&name=${encodeURIComponent(persona.name)}`,
                   )
                 }
               >

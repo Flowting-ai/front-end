@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -19,6 +19,7 @@ import {
   type BrainChatListItem,
 } from '@/lib/api/brain'
 import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
+import { useSearch } from '@/context/search-context'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -75,6 +76,8 @@ function BrainThreadsPageInner() {
   const [threads,     setThreads]     = useState<BrainChatListItem[]>([])
   const [isLoading,   setIsLoading]   = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+
+  const { searchOpen, openSearch } = useSearch()
 
   useEffect(() => {
     setIsLoading(true)
@@ -142,10 +145,12 @@ function BrainThreadsPageInner() {
         hideProjects
         newChatLabel="New brain thread"
         onNewChat={() => push('/brain')}
-        onBrainClick={() => push('/brain/threads')}
-        onChatsClick={() => { toast.info("Opening Chat Board"); push('/chats') }}
-        onPersonasClick={() => { toast.info("Opening Agents"); push('/personas') }}
-        onProjectsClick={() => { toast.info("Opening Projects"); push('/projects') }}
+        onBrainClick={() => push('/brain')}
+        onSearch={() => openSearch()}
+        searchActive={searchOpen}
+        onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push('/chats') }}
+        onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push('/agents') }}
+        onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push('/projects') }}
         accountMenu={(collapsed) => (
           <AccountMenu
             name={displayName || 'Account'}
@@ -161,8 +166,7 @@ function BrainThreadsPageInner() {
             onHelp={() => push('/settings/help')}
             onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
           />
-        )}
-      />
+        )}      />
 
       {/* ── Main content ── */}
       <div

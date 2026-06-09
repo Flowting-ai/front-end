@@ -2,7 +2,9 @@
 
 import React from 'react'
 import Image from 'next/image'
-import { PinIcon } from '@strange-huge/icons'
+import { PinIcon, CancelOneIcon } from '@strange-huge/icons'
+import { IconButton } from '@/components/IconButton'
+import { Tooltip } from '@/components/Tooltip'
 import { connectorLogoSrc } from '@/lib/connectorLogos'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -38,7 +40,8 @@ export interface ContextRailData {
 }
 
 export interface ContextRailProps {
-  data: ContextRailData
+  data:      ContextRailData
+  onClose?: () => void
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -132,30 +135,40 @@ function ConnectorLogo({ name, slug, status }: { name: string; slug?: string; st
 
 // ── Rail header ───────────────────────────────────────────────────────────────
 
-function RailHeader() {
+function RailHeader({ onClose }: { onClose?: () => void }) {
   return (
     <div style={{
-      display:         'flex',
-      alignItems:      'center',
-      padding:         '16px 16px 12px',
-      flexShrink:      0,
+      display:        'flex',
+      alignItems:     'center',
+      justifyContent: 'space-between',
+      padding:        '16px 8px 12px 16px',
+      flexShrink:     0,
     }}>
       <span style={{
-        fontFamily: 'var(--font-body)',
-        fontSize:   'var(--font-size-body)',
-        fontWeight: 'var(--font-weight-medium)',
-        lineHeight: 'var(--line-height-body)',
-        color:      'var(--neutral-600)',
+        fontFamily: 'var(--font-title)',
+        fontSize:   'var(--font-size-heading)',
+        fontWeight: 'var(--font-weight-regular)',
+        lineHeight: 'var(--line-height-heading)',
+        color:      'var(--neutral-700)',
       }}>
         Context
       </span>
+      <Tooltip content="Close">
+        <IconButton
+          variant="ghost"
+          size="sm"
+          icon={<CancelOneIcon size={20} />}
+          aria-label="Close context panel"
+          onClick={onClose}
+        />
+      </Tooltip>
     </div>
   )
 }
 
 // ── ContextRail ───────────────────────────────────────────────────────────────
 
-export function ContextRail({ data }: ContextRailProps) {
+export function ContextRail({ data, onClose }: ContextRailProps) {
   const { persona, pins, files, connectors } = data
   const hasPins       = pins && pins.length > 0
   const hasFiles      = files && files.length > 0
@@ -173,7 +186,7 @@ export function ContextRail({ data }: ContextRailProps) {
   if (isEmpty) {
     return (
       <div style={railStyle}>
-        <RailHeader />
+        <RailHeader onClose={onClose} />
         <div style={{ flex: '1 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <p style={{
             margin:     0,
@@ -192,7 +205,7 @@ export function ContextRail({ data }: ContextRailProps) {
 
   return (
     <div style={railStyle}>
-      <RailHeader />
+      <RailHeader onClose={onClose} />
       <div style={{
         flex:                '1 0 0',
         minHeight:           0,

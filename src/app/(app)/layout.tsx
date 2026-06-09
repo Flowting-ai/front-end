@@ -9,6 +9,7 @@ import { ModelSelectorProvider } from "@/context/model-selector-context";
 import { PresetModelSelectorDialog } from "@/components/chat/PresetModelSelectorDialog";
 import { ProjectsProvider } from "@/context/projects-context";
 import { OnboardingGuard } from "@/components/shared/OnboardingGuard";
+import { SearchProvider } from "@/context/search-context";
 
 export default function AppGroupLayout({
   children,
@@ -23,8 +24,10 @@ export default function AppGroupLayout({
             <HighlightProvider>
               <CompareProvider>
                 <ModelSelectorProvider>
-                  <AppLayout>{children}</AppLayout>
-                  <PresetModelSelectorDialog />
+                  <SearchProvider>
+                    <AppLayout>{children}</AppLayout>
+                    <PresetModelSelectorDialog />
+                  </SearchProvider>
                 </ModelSelectorProvider>
               </CompareProvider>
             </HighlightProvider>

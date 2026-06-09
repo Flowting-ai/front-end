@@ -1,7 +1,8 @@
-'use client'
+﻿'use client'
 
 import { Suspense, useMemo, useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearch } from '@/context/search-context'
 import Image from 'next/image'
 import {
   BrainShell,
@@ -1033,7 +1034,9 @@ function BrainPageInner() {
   const [showCounterInput, setShowCounterInput] = useState(false)
   const [counterText, setCounterText]           = useState('')
 
-  // ── Plan-decision in-flight guard ────────────────────────────────────────────
+  // Global search — provided by SearchProvider in (app)/layout.tsx
+  const { searchOpen, openSearch } = useSearch()
+
   // Disables Approve/Counter/Cancel between the click and the server's reply,
   // so a double-click can't fire two POSTs against the same prompt_id (the
   // second is invalidated server-side and returns 404).
@@ -2989,10 +2992,12 @@ function BrainPageInner() {
         ),
         newChatLabel:    'New brain thread',
         onNewChat:       handleNewChat,
-        onChatsClick:    () => { toast.info("Opening Chat Board"); push('/chats') },
-        onPersonasClick: () => { toast.info("Opening Agents"); push('/personas') },
-        onProjectsClick: () => { toast.info("Opening Projects"); push('/projects') },
-        onBrainClick:    () => push('/brain/threads'),
+        onChatsClick:    () => { toast.info("Opening Chat Board", { id: 'nav' }); push('/chats') },
+        onPersonasClick: () => { toast.info("Opening Agents", { id: 'nav' }); push('/agents') },
+        onProjectsClick: () => { toast.info("Opening Projects", { id: 'nav' }); push('/projects') },
+        onBrainClick:    () => push('/brain'),
+        onSearch:        openSearch,
+        searchActive:    searchOpen,
         accountMenu: (collapsed) => (
           <AccountMenu
             name={displayName || 'Account'}

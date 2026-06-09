@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Suspense, useState, useEffect, useId, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -18,6 +18,7 @@ import {
 import { BrainSidebarSections } from '../BrainSidebarSections'
 import { listTasks, getTask, runTaskNow, type Task, type TaskDetail } from '@/lib/api/tasks'
 import { getAllScheduleLinks, getChatForSchedule, stashPendingPrompt } from '@/lib/scheduleLinks'
+import { useSearch } from '@/context/search-context'
 
 // ── Page wrapper ──────────────────────────────────────────────────────────────
 
@@ -140,6 +141,8 @@ function BrainSchedulesPageInner() {
   const [editModalOpen,   setEditModalOpen]   = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<ScheduleEditData | undefined>(undefined)
+
+  const { searchOpen, openSearch } = useSearch()
 
   // IDs of schedules created locally that haven't been persisted to the backend yet
   const localIdsRef = useRef<Set<string>>(new Set())
@@ -302,10 +305,12 @@ function BrainSchedulesPageInner() {
         hideProjects
         newChatLabel="New brain thread"
         onNewChat={() => push('/brain')}
-        onBrainClick={() => push('/brain/threads')}
-        onChatsClick={() => { toast.info("Opening Chat Board"); push('/chats') }}
-        onPersonasClick={() => { toast.info("Opening Agents"); push('/personas') }}
-        onProjectsClick={() => { toast.info("Opening Projects"); push('/projects') }}
+        onBrainClick={() => push('/brain')}
+        onSearch={() => openSearch()}
+        searchActive={searchOpen}
+        onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push('/chats') }}
+        onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push('/agents') }}
+        onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push('/projects') }}
         accountMenu={(collapsed) => (
           <AccountMenu
             name={displayName || 'Account'}

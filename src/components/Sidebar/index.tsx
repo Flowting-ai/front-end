@@ -614,26 +614,63 @@ export function Sidebar({
             paddingRight:   '8px',
           }}>
             {/* Wordmark - only in expanded */}
-            {!isCollapsed && <SouvenirWordmark />}
+            {!isCollapsed && (
+              <button
+                type="button"
+                aria-label={atScrollTop ? 'New chat' : 'Scroll to top'}
+                onClick={() => {
+                  const el = bodyScrollRef.current
+                  if (!atScrollTop && el) {
+                    el.scrollTo({ top: 0, behavior: 'smooth' })
+                  } else {
+                    onNewChat?.()
+                  }
+                }}
+                style={{
+                  background:  'none',
+                  border:      'none',
+                  padding:     0,
+                  cursor:      'pointer',
+                  display:     'flex',
+                  alignItems:  'center',
+                  borderRadius: 6,
+                }}
+              >
+                <SouvenirWordmark />
+              </button>
+            )}
 
             {/* Single stable toggle button - variant flips, no unmount/remount */}
-            <Tooltip content="Expand sidebar" side="right" disabled={!isCollapsed}>
-              <IconButton
-                variant="ghost"
-                size="sm"
-                aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                icon={
-                  <SidebarLeftIcon
-                    size={20}
-                    variant={isCollapsed ? 'open' : 'close'}
-                    triggered={collapseHovered}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+              {!isCollapsed && (
+                <Tooltip content="Search">
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Search"
+                    icon={<SearchOneIcon size={20} />}
+                    onClick={(e) => { (e.currentTarget as HTMLElement).blur(); onSearch?.() }}
                   />
-                }
-                onClick={handleCollapse}
-                onMouseEnter={() => setCollapseHovered(true)}
-                onMouseLeave={() => setCollapseHovered(false)}
-              />
-            </Tooltip>
+                </Tooltip>
+              )}
+              <Tooltip content="Expand sidebar" side="right" disabled={!isCollapsed}>
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                  icon={
+                    <SidebarLeftIcon
+                      size={20}
+                      variant={isCollapsed ? 'open' : 'close'}
+                      triggered={collapseHovered}
+                    />
+                  }
+                  onClick={handleCollapse}
+                  onMouseEnter={() => setCollapseHovered(true)}
+                  onMouseLeave={() => setCollapseHovered(false)}
+                />
+              </Tooltip>
+            </div>
           </div>
 
           {/* ── Tab strip — Chats / Agents / Brain (hidden when collapsed) ── */}
@@ -641,7 +678,9 @@ export function Sidebar({
             <div style={{ paddingLeft: '12px', paddingRight: '12px' }}>
               <Tabs value={bodySection} onValueChange={(v) => {
                 const s = v as 'chats' | 'agents' | 'brain'
-                onSelectSection(s)
+                // Do NOT call onSelectSection here — bodySection is driven by the
+                // route (sidebarSectionKey remount in LeftSidebar) so the tab
+                // only highlights once the destination page has actually rendered.
                 if (s === 'chats') onChatsClick?.()
                 else if (s === 'agents') onPersonasClick?.()
                 else if (s === 'brain') onBrainClick?.()
@@ -676,18 +715,20 @@ export function Sidebar({
                 onClick={() => { setSelectedItem('new-chat'); setActiveFolder(null); onNewChat?.() }}
               />
             </Tooltip>
-            <Tooltip content="Search" side="right" disabled={!isCollapsed}>
-              <SidebarMenuItem
-                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                variant="default"
-                icon={<SearchOneIcon size={20} />}
-                label="Search"
-                shortcut="⌘ K"
-                selected={searchActive}
-                onClick={(e) => { (e.currentTarget as HTMLElement).blur(); onSearch?.() }}
-              />
-            </Tooltip>
-            {bodySection === 'chats' && (
+            {isCollapsed && (
+              <Tooltip content="Search" side="right">
+                <SidebarMenuItem
+                  collapsed
+                  variant="default"
+                  icon={<SearchOneIcon size={20} />}
+                  label="Search"
+                  shortcut="⌘ K"
+                  selected={searchActive}
+                  onClick={(e) => { (e.currentTarget as HTMLElement).blur(); onSearch?.() }}
+                />
+              </Tooltip>
+            )}
+            {bodySection === 'chats' && onOrganisationClick && (
               <Tooltip content="Organisation" side="right" disabled={!isCollapsed}>
                 <SidebarMenuItem
                   {...(isCollapsed ? { collapsed: true } : { fluid: true })}
@@ -717,7 +758,7 @@ export function Sidebar({
                   icon={<BubbleChatIcon size={20} />}
                   label="Chats"
                   selected={bodySection === 'chats'}
-                  onClick={() => onSelectSection('chats')}
+                  onClick={() => onChatsClick?.()}
                 />
                 <SidebarMenuItem
                   collapsed
@@ -725,7 +766,7 @@ export function Sidebar({
                   icon={<UserAiIcon size={20} />}
                   label="Agents"
                   selected={bodySection === 'agents'}
-                  onClick={() => onSelectSection('agents')}
+                  onClick={() => onPersonasClick?.()}
                 />
                 <SidebarMenuItem
                   collapsed
@@ -733,7 +774,7 @@ export function Sidebar({
                   icon={<NeuralNetworkIcon size={20} />}
                   label="Brain"
                   selected={bodySection === 'brain'}
-                  onClick={() => onSelectSection('brain')}
+                  onClick={() => onBrainClick?.()}
                 />
               </>
             )}
@@ -743,7 +784,7 @@ export function Sidebar({
         {/* ── Scrollable body ── */}
         <div ref={bodyScrollRef} className={isCollapsed ? undefined : 'kaya-scrollbar'} onScroll={handleBodyScroll} style={{
           position:      'absolute',
-          top:           bodySection === 'agents' ? '174px' : '210px',
+          top:           bodySection === 'agents' ? '138px' : '174px',
           bottom:        '68px',
           left:          0,
           right:         0,
@@ -823,7 +864,7 @@ export function Sidebar({
         ].map(({ height, blur }) => (
           <div key={blur} aria-hidden style={{
             position:            'absolute',
-            top:                 bodySection === 'agents' ? '174px' : '210px',
+            top:                 bodySection === 'agents' ? '138px' : '174px',
             transition:          'opacity 150ms ease',
             left:                0, right: 0,
             height:              `${height}px`,
@@ -838,7 +879,7 @@ export function Sidebar({
         ))}
         <div aria-hidden style={{
           position:      'absolute',
-          top:           bodySection === 'agents' ? '174px' : '210px',
+          top:           bodySection === 'agents' ? '138px' : '174px',
           transition:    'opacity 150ms ease',
           left:          0, right: 0,
           height:        '40px',

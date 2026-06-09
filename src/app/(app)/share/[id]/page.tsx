@@ -88,7 +88,7 @@ function ShareAcceptContent() {
       // Navigate to the new persona's instructions page
       setTimeout(() => {
         push(
-          `/persona/configure/instructions?repoId=${result.persona_repo_id}&versionId=${result.id}&name=${encodeURIComponent(result.name)}`,
+          `/agent/configure/instructions?repoId=${result.persona_repo_id}&versionId=${result.id}&name=${encodeURIComponent(result.name)}`,
         )
       }, 1200)
     } catch (err) {

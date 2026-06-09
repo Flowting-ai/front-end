@@ -139,6 +139,8 @@ export interface UserProfile {
   billing_portal_url?: string | null;
   created_at: string | null;
   active: boolean | null;
+  /** Set when the user belongs to a teams / enterprise organisation. */
+  org_id?: string | null;
 }
 
 function normalizeUserProfile(raw: unknown): UserProfile {
@@ -292,6 +294,7 @@ function normalizeUserProfile(raw: unknown): UserProfile {
       typeof root.billing_portal_url === "string" ? root.billing_portal_url : null,
     created_at: typeof root.created_at === "string" ? root.created_at : null,
     active: typeof root.active === "boolean" ? root.active : null,
+    org_id: typeof root.org_id === "string" ? root.org_id : null,
   };
 }
 

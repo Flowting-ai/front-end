@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Suspense, useEffect } from "react";
 import { usePathname } from "next/navigation";
@@ -47,9 +47,9 @@ export function AppLayout({
       closeHighlight()
     }
   }, [isProjectsListPage, closePinboard, closeHighlight])
-  const isPersonaPage    = pathname.startsWith('/personas') || pathname.startsWith('/persona')
+  const isPersonaPage    = pathname.startsWith('/agents') || pathname.startsWith('/agent')
   // Persona chat pages manage their own scroll — disable the outer scrollable wrapper
-  const isPersonaChatPage = /^\/personas\/[^/]+\/chat/.test(pathname)
+  const isPersonaChatPage = /^\/agents\/[^\/]+\/chat/.test(pathname)
   const isSettingsPage = pathname.startsWith('/settings')
   // Brain pages use BrainShell which supplies its own full-screen layout (sidebar + center + context rail).
   const isBrainPage = pathname.startsWith('/brain')

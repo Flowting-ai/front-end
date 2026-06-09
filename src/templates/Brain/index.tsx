@@ -57,6 +57,9 @@ import { ScheduleDeleteModal, type ScheduleDeleteModalProps } from './ScheduleDe
 export { ScheduleDeleteModal, type ScheduleDeleteModalProps }
 import { ContextRail, type ContextRailProps, type ContextRailData, type ContextRailPersona, type ContextRailPin, type ContextRailConnector } from './ContextRail'
 export { ContextRail, type ContextRailProps, type ContextRailData, type ContextRailPersona, type ContextRailPin, type ContextRailConnector }
+import { InformationCircleIcon } from '@strange-huge/icons'
+import { IconButton } from '@/components/IconButton'
+import { Tooltip } from '@/components/Tooltip'
 import { ExternalOutputCard, type ExternalOutputCardProps, type ExternalOutputAction } from './ExternalOutputCard'
 export { ExternalOutputCard, type ExternalOutputCardProps, type ExternalOutputAction }
 import { BrainDigestCard, type BrainDigestCardProps, type DigestItem } from './BrainDigestCard'
@@ -188,6 +191,7 @@ export function BrainShell({
   // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [phase,      setPhase]      = useState<Phase>(defaultPhase)
   const [inputValue, setInputValue] = useState('')
+  const [userClosed, setUserClosed] = useState(false)
 
   // When the parent passes a pre-composed prompt (e.g. from schedule creation),
   // populate the textarea so the user can review and send it.
@@ -199,9 +203,11 @@ export function BrainShell({
   if (prevDefaultPhaseRef.current !== defaultPhase) {
     prevDefaultPhaseRef.current = defaultPhase
     setPhase(defaultPhase)
+    // Re-open the context rail when a new loop starts
+    if (CONTEXT_RAIL_PHASES.has(defaultPhase)) setUserClosed(false)
   }
 
-  const contextRailOpen = CONTEXT_RAIL_PHASES.has(phase) || hasAnyContext(contextRailData)
+  const contextRailOpen = (CONTEXT_RAIL_PHASES.has(phase) || hasAnyContext(contextRailData)) && !userClosed
   const isIdle          = phase === 'idle'
   const isClarifying    = phase === 'clarifying-goal' && clarificationProps != null
 
@@ -219,6 +225,7 @@ export function BrainShell({
 
   return (
     <div style={{
+      position:        'relative',
       display:         'flex',
       alignItems:      'stretch',
       width:           '100%',
@@ -354,10 +361,23 @@ export function BrainShell({
         </div>
       </div>
 
-      {/* ── Right — ContextRail (loop-active only) ── */}
+      {/* ── Right — ContextRail info icon for connections/conenctors (loop-active only) ── */}
+      {userClosed && (CONTEXT_RAIL_PHASES.has(phase) || hasAnyContext(contextRailData)) && (
+        <div style={{ position: 'absolute', right: 35, top: 22, zIndex: 10 }}>
+          <Tooltip content="View connections" side="left">
+            <IconButton
+              variant="ghost"
+              size="sm"
+              icon={<InformationCircleIcon size={20} />}
+              aria-label="View connections"
+              onClick={() => setUserClosed(false)}
+            />
+          </Tooltip>
+        </div>
+      )}
       <div className="kds-context-rail" data-open={contextRailOpen}>
         <div className="kds-context-rail-inner">
-          <ContextRail data={contextRailData ?? {}} />
+          <ContextRail data={contextRailData ?? {}} onClose={() => setUserClosed(true)} />
         </div>
       </div>
 
