@@ -406,12 +406,14 @@ export function MessageBubble({
               </span>
             )}
 
-            <IconButton
-              variant="ghost" size="xs"
-              aria-label="Edit message"
-              icon={<PenOneIcon size={16} />}
-              onClick={handleEditStart}
-            />
+            {onEditSave && (
+              <IconButton
+                variant="ghost" size="xs"
+                aria-label="Edit message"
+                icon={<PenOneIcon size={16} />}
+                onClick={handleEditStart}
+              />
+            )}
             <IconButton
               variant="ghost" size="xs"
               aria-label={copied ? 'Copied' : 'Copy message'}

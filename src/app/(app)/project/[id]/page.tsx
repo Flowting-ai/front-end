@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { AnimatePresence, m } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon } from '@strange-huge/icons'
@@ -483,6 +484,9 @@ export default function ProjectPage() {
                     setPendingFiles(files)
                     try {
                       await uploadFiles(projectId, files)
+                      toast.success(files.length === 1 ? 'File uploaded' : `${files.length} files uploaded`)
+                    } catch {
+                      // errors already toasted by the context
                     } finally {
                       setPendingFiles([])
                     }

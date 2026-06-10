@@ -71,7 +71,7 @@ function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): Reac
   //  8. bare https?:// URL  — auto-linked if not already inside [](…)
   //  9. \(inline math\)  — LaTeX \(...\) delimiter, rendered via KaTeX
   const re =
-    /\*\*([^*\n]+?)\*\*|__([^_\n]+?)__|(?<!\*)\*([^*\n]+?)\*(?!\*)|(?<!_)_([^_\n]+?)_(?!_)|`([^`\n]+?)`|\[([^\]\n]+?)\]\((https?:\/\/[^\)\n]+?)\)|~~([^~\n]+?)~~|\{(\d+)\}|\$([^$\n]+?)\$|(https?:\/\/[^\s\])\n>"']+|www\.[^\s\])\n>"']+|(?:[a-zA-Z0-9][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}\/[^\s\])\n>"']*)|\\\((.+?)\\\)/g
+    /\*\*([^*\n]+?)\*\*|__([^_\n]+?)__|(?<!\*)\*([^*\n]+?)\*(?!\*)|(?<!_)_([^_\n]+?)_(?!_)|`([^`\n]+?)`|\[([^\]\n]+?)\]\((https?:\/\/[^\)\n]+?)\)|~~([^~\n]+?)~~|\{(\d+)\}|\$\$([^$\n]+?)\$\$|\$([^$\n]+?)\$|(https?:\/\/[^\s\])\n>"']+|www\.[^\s\])\n>"']+|(?:[a-zA-Z0-9][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}\/[^\s\])\n>"']*)|\\\((.+?)\\\)/g
 
   let last = 0
   let idx = 0
@@ -138,14 +138,17 @@ function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): Reac
       const n = parseInt(m[9], 10)
       nodes.push(<CitationChip key={key} n={n} citation={webCitations?.[n - 1]} />)
     } else if (m[10] !== undefined) {
-      // $inline math$ — render with KaTeX
+      // $$display math$$ inline — consume both $$ pairs, render with KaTeX
       nodes.push(renderKatex(m[10], false, key, ctx.highlights))
-    } else if (m[12] !== undefined) {
-      // \(inline math\) — LaTeX \(...\) delimiter, render with KaTeX
-      nodes.push(renderKatex(m[12], false, key, ctx.highlights))
     } else if (m[11] !== undefined) {
+      // $inline math$ — render with KaTeX
+      nodes.push(renderKatex(m[11], false, key, ctx.highlights))
+    } else if (m[13] !== undefined) {
+      // \(inline math\) — LaTeX \(...\) delimiter, render with KaTeX
+      nodes.push(renderKatex(m[13], false, key, ctx.highlights))
+    } else if (m[12] !== undefined) {
       // bare URL (https?://, www., or domain/path) — auto-link it
-      const raw = m[11]
+      const raw = m[12]
       const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
       let display = raw
       try {
@@ -401,7 +404,7 @@ function parseBlocks(content: string): Block[] {
       if (!pt) break
       if (/^#{1,6} /.test(pt)) break
       if (pt.startsWith("```")) break
-      if (pt === "$$" || (pt.startsWith("$$") && !pt.endsWith("$$"))) break
+      if (pt.startsWith("$$")) break
       if (pt.startsWith("\\[")) break
       if (/^[-*_]{3,}$/.test(pt)) break
       if (pt.startsWith("> ")) break

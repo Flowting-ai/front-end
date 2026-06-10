@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { toast } from 'sonner'
 import { PlusSignIcon, PenOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
@@ -38,6 +39,7 @@ export function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOp
       try {
         await onSave(draft.trim())
         setEditing(false)
+        toast.success('Instructions saved')
       } catch {
         // errors already toasted by the context
       } finally {
