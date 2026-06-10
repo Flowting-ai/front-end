@@ -40,10 +40,11 @@ export async function POST(request: NextRequest) {
     return new Response("Bad Request: invalid form data", { status: 400 })
   }
 
-  const repoId       = (formData.get("repoId") as string | null) || (formData.get("personaId") as string | null) || null
-  const chatId       = (formData.get("chatId") as string | null) || null
-  const input        = (formData.get("input") as string | null) ?? ""
-  const clientFiles  = formData.getAll("files").filter((f): f is File => f instanceof File)
+  const repoId         = (formData.get("repoId") as string | null) || (formData.get("personaId") as string | null) || null
+  const chatId         = (formData.get("chatId") as string | null) || null
+  const input          = (formData.get("input") as string | null) ?? ""
+  const modelId        = (formData.get("modelId") as string | null) || null
+  const clientFiles    = formData.getAll("files").filter((f): f is File => f instanceof File)
   const connectorSlugs = formData.getAll("connectorSlugs").map(s => String(s)).filter(Boolean)
 
   if (!repoId) {
@@ -74,11 +75,13 @@ export async function POST(request: NextRequest) {
     fd.append("input", input)
     clientFiles.forEach((f) => fd.append("files", f))
     connectorSlugs.forEach((s) => fd.append("connector_slugs", s))
+    if (modelId) fd.append("model_id", modelId)
     body = fd
   } else {
     const params = new URLSearchParams()
     params.append("input", input)
     connectorSlugs.forEach((s) => params.append("connector_slugs", s))
+    if (modelId) params.append("model_id", modelId)
     body = params.toString()
     requestHeaders["Content-Type"] = "application/x-www-form-urlencoded"
   }

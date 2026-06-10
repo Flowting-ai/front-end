@@ -306,6 +306,11 @@ function TonePageContent() {
       try { sessionStorage.setItem('persona_wizard_repo', JSON.stringify({ repoId: newRepoId, versionId: newVersionId })) } catch { /* ignore */ }
       // Mark unpublished until the user explicitly publishes
       try { localStorage.setItem(`persona_needs_publish_${newRepoId}`, '1') } catch { /* ignore */ }
+      // For custom (non-template) agents, the model should not be pre-selected — the user
+      // must pick one explicitly on the Instructions tab before they can switch tabs.
+      if (!wizardTemplate) {
+        try { sessionStorage.setItem(`persona_wizard_no_model_${newRepoId}`, '1') } catch { /* ignore */ }
+      }
       // Keep purpose accessible to profile tab description fallback
       if (wizardPurpose) {
         try { sessionStorage.setItem(`persona_wizard_purpose_${newRepoId}`, wizardPurpose) } catch { /* ignore */ }

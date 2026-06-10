@@ -397,8 +397,8 @@ export default function ConnectorsTab({
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <Button variant="outline" size="sm" onClick={() => setConfirmSlug(null)}>Cancel</Button>
-                <Button size="sm" onClick={() => void doDisable(confirmSlug)}>
-                  <span style={{ color: 'var(--red-600, #DC2626)' }}>Remove</span>
+                <Button variant="danger" size="sm" onClick={() => void doDisable(confirmSlug)}>
+                  Remove
                 </Button>
               </div>
             </div>

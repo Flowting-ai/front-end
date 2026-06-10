@@ -580,10 +580,21 @@ function PersonaConfigureInstructionsContent() {
         setTemperature(version.temperature ?? 0.5)
         setImageUrl(readProfileAvatar(repoIdParam) ?? version.image_url ?? null)
         if (version.blocked_connectors?.length > 0) setConnectorSlugs(version.blocked_connectors)
-        const resolvedModel1 = matchModel(fetchedModels, version.model_id, repoIdParam, firstModel)
-        setSelectedModel(resolvedModel1)
-        setBackendModelId(isModelIdAvailable(fetchedModels, version.model_id) ? (version.model_id ?? null) : null)
-        if (resolvedModel1) writePersonaModelCache(repoIdParam, resolvedModel1)
+        // For custom (non-template) agents created from scratch, the model must
+        // be explicitly chosen by the user — don't pre-select firstModel.
+        const noModelFlag = `persona_wizard_no_model_${repoIdParam}`
+        const isCustomNoModel = typeof window !== 'undefined' && !!sessionStorage.getItem(noModelFlag)
+        if (isCustomNoModel) {
+          // Consume the flag so subsequent visits (after user has selected a model) fall through normally.
+          sessionStorage.removeItem(noModelFlag)
+          setSelectedModel(null)
+          setBackendModelId(null)
+        } else {
+          const resolvedModel1 = matchModel(fetchedModels, version.model_id, repoIdParam, firstModel)
+          setSelectedModel(resolvedModel1)
+          setBackendModelId(isModelIdAvailable(fetchedModels, version.model_id) ? (version.model_id ?? null) : null)
+          if (resolvedModel1) writePersonaModelCache(repoIdParam, resolvedModel1)
+        }
         // Restore example conversation cards from saved prompt text
         const examples = parseExampleConversations(prompt)
         if (examples.length > 0) setExampleConversations(examples)
@@ -916,7 +927,7 @@ function PersonaConfigureInstructionsContent() {
   const isPublished    = !!publishedVersionId && publishedVersionId === versionId && !isDirty
   const needsRepublish = !!repoId && !isPublished && (hasContent || !!publishedVersionId)
 
-  const canPublish = hasContent && !!repoId && !!versionId && !!selectedModel && !isPublishing && !isPublished
+  const canPublish = hasContent && !!repoId && !!versionId && !!selectedModel && !isPublishing && !isPublished && pendingChangeTags.length === 0
   const canSave    = pendingChangeTags.length > 0 && hasContent && !!repoId && !!selectedModel && !isSaving
 
   // Sync needsRepublish to shared context so the leave-guard works on all 5 tabs.
@@ -1125,40 +1136,24 @@ function PersonaConfigureInstructionsContent() {
                   rightIcon={<ArrowUpRightOneIcon size={16} />}
                   onClick={handlePublish}
                 >
-                  {isPublishing ? 'Publishing…' : publishedVersionId ? 'Republish' : 'Publish'}
+                  {isPublishing ? 'Publishing…' : 'Publish'}
                 </Button>
               </span>
             </div>
 
-            {/* Live / Unpublished badge — centered below the tab bar */}
-            {(isPublished || needsRepublish) && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                marginTop: 6,
-                pointerEvents: 'none',
-                zIndex: 1,
-              }}>
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '1px 8px',
-                  borderRadius: 6,
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 500,
-                  fontSize: 11,
-                  lineHeight: '16px',
-                  whiteSpace: 'nowrap',
-                  ...(isPublished
-                    ? { backgroundColor: '#d1fae5', color: '#065f46', boxShadow: '0px 0px 0px 1px rgba(6,95,70,0.2)' }
-                    : { backgroundColor: '#fef3c7', color: '#92400e', boxShadow: '0px 1px 1.5px 0px rgba(24,15,2,0.15), 0px 0px 0px 1px rgba(146,64,14,0.3)' }
-                  ),
-                }}>
-                  {isPublished ? 'Live' : 'Unpublished'}
-                </span>
+            {/* Status badges — centered below the tab bar */}
+            {(!!versionId || pendingChangeTags.length > 0 || isPublished || needsRepublish) && (
+              <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 6, pointerEvents: 'none', zIndex: 1, display: 'flex', gap: 4 }}>
+                {(!!versionId || pendingChangeTags.length > 0) && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', whiteSpace: 'nowrap', ...(pendingChangeTags.length > 0 ? { backgroundColor: '#ffedd5', color: '#c2410c', boxShadow: '0px 0px 0px 1px rgba(194,65,12,0.2)' } : { backgroundColor: '#f5f5f4', color: '#44403c', boxShadow: '0px 0px 0px 1px rgba(68,64,60,0.2)' }) }}>
+                    {pendingChangeTags.length > 0 ? 'Unsaved' : 'Saved'}
+                  </span>
+                )}
+                {(isPublished || needsRepublish) && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', whiteSpace: 'nowrap', ...(isPublished ? { backgroundColor: '#d1fae5', color: '#065f46', boxShadow: '0px 0px 0px 1px rgba(6,95,70,0.2)' } : { backgroundColor: '#fef3c7', color: '#92400e', boxShadow: '0px 1px 1.5px 0px rgba(24,15,2,0.15), 0px 0px 0px 1px rgba(146,64,14,0.3)' }) }}>
+                    {isPublished ? 'Live' : 'Unpublished'}
+                  </span>
+                )}
               </div>
             )}
           </div>

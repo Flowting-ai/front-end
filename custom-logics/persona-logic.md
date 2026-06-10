@@ -162,6 +162,8 @@ Five tabs: **Instructions · Profile · Knowledge · Connectors · Sharing**
 All tabs share:
 - Tab bar in the header.
 - **Save version** and **Publish** buttons (top-right).
+  - **Save version** is enabled when `pendingChangeTags.length > 0`.
+  - **Publish** is enabled only when there are **no unsaved changes** (`pendingChangeTags.length === 0`) AND the agent is not already in a fully published + clean state (`needsRepublish` is true). The user must save a version before they can publish.
 - Back arrow (top-left) → triggers leave guard (see [Leave Guard](#leave-guard)).
 - Three collapsible side panels: **Test Chat**, **AI Suggestions**, **Versions** — accessible from the floating action menu.
 
@@ -597,6 +599,9 @@ User explicitly clicks **Save version**.
 
 ## Publish Logic
 
+### Pre-publish condition (all tabs)
+Publish is blocked when `pendingChangeTags.length > 0`. The user must first click **Save version** to clear pending changes before the Publish button becomes active. This enforces the intent that the published artifact is always a clean, explicitly saved version — not a mix of saved and unsaved state.
+
 ### Pre-publish flush (all tabs)
 
 | Tab | Condition | Action |
@@ -712,6 +717,8 @@ When implementing or reviewing any UI copy, do a final pass: replace every visib
 19. **Sharing credit limit max is dynamic** — always the user's current remaining plan credits, fetched on tab load.
 20. **Published page must show the agent's name** prominently — never a blank or "undefined" name.
 21. **All UI copy uses "agent/agents"** — never "persona/personas" in any user-visible text. URLs and API identifiers are unchanged.
+22. **Publish button is always labelled "Publish"** — never "Republish", regardless of whether the agent was previously published. The distinction is internal.
+23. **Publish requires a clean saved state** — the Publish button is disabled whenever `pendingChangeTags.length > 0`. The user must explicitly save a version first.
 
 ---
 
@@ -862,6 +869,26 @@ When implementing or reviewing any UI copy, do a final pass: replace every visib
   - All required variables (`repoId`, `versionId`, `publishedVersionId`, `pendingChangeTags`) were already in scope in every tab.
   - Inserted identical badge JSX (`position: absolute`, `top: 100%`, centered) inside each tab's `position: relative` nav row container, between the action buttons close `</div>` and the nav row's own close `</div>`.
   - Also added `position: 'relative'` to the Sharing tab's nav row `<div>` — it was the only tab missing this required positioning context for the absolutely-placed badge.
+
+**Fix 29 — "Republish" button label renamed to "Publish" on all configure tabs**
+- **Files:** `agent/configure/instructions/page.tsx`, `agent/configure/profile/page.tsx`, `agent/configure/knowledge/page.tsx`, `agent/configure/connectors/page.tsx`, `agent/configure/sharing/page.tsx`
+- **Problem:** When an agent had previously been published, the Publish button rendered the label "Republish" (the ternary `publishedVersionId ? 'Republish' : 'Publish'`). This introduced unnecessary terminology variation — the action is always "Publish".
+- **Fix:** Collapsed the ternary to a flat `{isPublishing ? 'Publishing…' : 'Publish'}` on all five tabs. The button always says "Publish".
+
+**Fix 30 — Publish button unlocked while unsaved changes exist**
+- **Files:** `agent/configure/instructions/page.tsx`, `agent/configure/profile/page.tsx`, `agent/configure/knowledge/page.tsx`, `agent/configure/connectors/page.tsx`, `agent/configure/sharing/page.tsx`
+- **Problem:** The Publish button was enabled as soon as `needsRepublish` was true — even while the user had unsaved changes (`pendingChangeTags.length > 0`). A user could publish a partially-edited state without explicitly saving a version first.
+- **Fix:**
+  - Instructions tab: added `&& pendingChangeTags.length === 0` to the `canPublish` computed constant.
+  - All other 4 tabs: added `|| pendingChangeTags.length > 0` to the button's `disabled` prop.
+  - Publish is now only available when `needsRepublish && !isPublishing && pendingChangeTags.length === 0`.
+
+**Fix 31 — Agent final chat (`PersonaChatInterface`) showed wrong model due to premature `versionsLoaded` flag and wrong model passed to inference**
+- **File:** `components/layout/PersonaChatInterface.tsx`
+- **Problem (part A):** `setVersionsLoaded(true)` was called inside the outer `listVersions().then()` callback, before `getVersion()` had resolved. The model sync `useEffect` (gated on `versionsLoaded`) therefore ran before `v.model_id` was available from `getVersion`. Since `PersonaVersionListItem` may not include `model_id`, `latestVersionModelId` stayed null and the effect fell back to `persona.modelId` — the published version's model, not the latest draft version's model.
+- **Problem (part B):** `fetchAiResponse` was passed `stableKey(selectedModel)` as the 4th arg (`modelId`). This forwarded the UI's current displayed model to the proxy as `model_id`, overriding the backend's own version-configured model. When the displayed model was stale (wrong model shown while loading), the wrong model was also used for inference.
+- **Fix (part A):** Moved `setVersionsLoaded(true)` from the outer `listVersions().then()` into the `getVersion().then()` callback. Also added `if (v.model_id) setLatestVersionModelId(v.model_id)` there — so the model sync effect always reads the authoritative model_id from the full version response. Added fallback paths: `getVersion().catch()` sets `latestVersionModelId` from the list item (best-effort) and marks loaded; a missing latest version also unblocks the effect.
+- **Fix (part B):** Changed `fetchAiResponse` 4th arg from `selectedModel ? stableKey(selectedModel) : null` back to `null`. Backend determines the inference model from the agent's configured version; UI model display is read-only.
 
 **Fix 28 — Auto-save toast fired on every tab switch once any change had ever been made**
 - **File:** `agent/configure/context.tsx`

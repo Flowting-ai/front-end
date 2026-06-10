@@ -75,9 +75,9 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
       rightIcon={<ArrowDownOneIcon />}
       onClick={(e) => {
         if (personaActive) {
-          toast.info("Model locked to persona", {
+          toast.info("Model locked to agent", {
             description:
-              "This chat uses the persona's model. Remove the persona chip to unlock model selection.",
+              "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
           });
           return;
         }

@@ -422,18 +422,25 @@ function PersonaConfigureProfileContent() {
               size="sm"
               rightIcon={<ArrowUpRightOneIcon size={16} />}
               onClick={handlePublish}
-              disabled={!repoId || !versionId || isPublishing}
+              disabled={!needsRepublish || isPublishing || pendingChangeTags.length > 0}
             >
-              {isPublishing ? 'Publishing…' : publishedVersionId ? 'Republish' : 'Publish'}
+              {isPublishing ? 'Publishing…' : 'Publish'}
             </Button>
           </div>
 
-          {/* Live / Unpublished badge — centered below the tab bar */}
-          {(isPublished || needsRepublish) && (
-            <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 6, pointerEvents: 'none', zIndex: 1 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', whiteSpace: 'nowrap', ...(isPublished ? { backgroundColor: '#d1fae5', color: '#065f46', boxShadow: '0px 0px 0px 1px rgba(6,95,70,0.2)' } : { backgroundColor: '#fef3c7', color: '#92400e', boxShadow: '0px 1px 1.5px 0px rgba(24,15,2,0.15), 0px 0px 0px 1px rgba(146,64,14,0.3)' }) }}>
-                {isPublished ? 'Live' : 'Unpublished'}
-              </span>
+          {/* Status badges — centered below the tab bar */}
+          {(!!versionId || pendingChangeTags.length > 0 || isPublished || needsRepublish) && (
+            <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 6, pointerEvents: 'none', zIndex: 1, display: 'flex', gap: 4 }}>
+              {(!!versionId || pendingChangeTags.length > 0) && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', whiteSpace: 'nowrap', ...(pendingChangeTags.length > 0 ? { backgroundColor: '#ffedd5', color: '#c2410c', boxShadow: '0px 0px 0px 1px rgba(194,65,12,0.2)' } : { backgroundColor: '#f5f5f4', color: '#44403c', boxShadow: '0px 0px 0px 1px rgba(68,64,60,0.2)' }) }}>
+                  {pendingChangeTags.length > 0 ? 'Unsaved' : 'Saved'}
+                </span>
+              )}
+              {(isPublished || needsRepublish) && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', whiteSpace: 'nowrap', ...(isPublished ? { backgroundColor: '#d1fae5', color: '#065f46', boxShadow: '0px 0px 0px 1px rgba(6,95,70,0.2)' } : { backgroundColor: '#fef3c7', color: '#92400e', boxShadow: '0px 1px 1.5px 0px rgba(24,15,2,0.15), 0px 0px 0px 1px rgba(146,64,14,0.3)' }) }}>
+                  {isPublished ? 'Live' : 'Unpublished'}
+                </span>
+              )}
             </div>
           )}
         </div>

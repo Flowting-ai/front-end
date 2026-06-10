@@ -8,6 +8,7 @@ import { ChatMessageMemo } from "@/components/chat/ChatMessage";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import { stableKey } from "@/hooks/use-model-selection";
 import { useStreamingChat, type StreamState } from "@/hooks/use-streaming-chat";
 import type { UIMessage } from "@/hooks/use-chat-state";
 import {
@@ -124,6 +125,9 @@ export function PersonaChatInterface({
   const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
   const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null);
   const [latestVersionModelId, setLatestVersionModelId] = useState<string | null>(null);
+  // Becomes true once listVersions resolves (or errors) — prevents models[0] being
+  // selected as a "default" while the version's model_id is still being fetched.
+  const [versionsLoaded, setVersionsLoaded] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -191,22 +195,33 @@ export function PersonaChatInterface({
       );
       const latest = sorted[0];
 
-      // Use latest version's model_id so the TopBar tag reflects the draft
-      if (latest?.model_id) setLatestVersionModelId(latest.model_id);
-
-      // Fetch full version for the image URL (connectors are managed
-      // server-side by the backend from the persona version config).
+      // Fetch full version for image URL + authoritative model_id.
+      // Mark versionsLoaded only after getVersion resolves so the model sync
+      // effect always has v.model_id (list items may omit model_id).
       const versionIdToLoad = latest?.id ?? null;
       if (versionIdToLoad) {
         getVersion(personaId, versionIdToLoad)
           .then(v => {
             if (cancelled) return;
             if (v.image_url) setPersonaImageUrl(prev => prev ?? v.image_url);
+            if (v.model_id) setLatestVersionModelId(v.model_id);
+            setVersionsLoaded(true);
           })
-          .catch(() => {});
+          .catch(() => {
+            // getVersion failed — best-effort: use list item's model_id if present
+            if (!cancelled) {
+              if (latest?.model_id) setLatestVersionModelId(latest.model_id);
+              setVersionsLoaded(true);
+            }
+          });
+      } else {
+        // No versions — nothing to load; allow model sync to fall back
+        if (!cancelled) setVersionsLoaded(true);
       }
     }).catch(() => {
-      // listVersions failed — image URL fallback via active version
+      // listVersions failed — image URL fallback via active version; still mark loaded
+      // so the model sync effect can fall back to persona.modelId or models[0].
+      if (!cancelled) setVersionsLoaded(true);
       getPersona(personaId).then(p => {
         if (cancelled || !p.activeVersionId) return;
         getVersion(p.id, p.activeVersionId)
@@ -222,16 +237,55 @@ export function PersonaChatInterface({
   }, [personaId]);
 
   useEffect(() => {
+    // Don't select any model until listVersions has resolved — prevents models[0]
+    // being picked as a premature "default" while latestVersionModelId is still loading.
+    if (!versionsLoaded) return;
+    if (!models.length) return;
+
     // Prefer the latest version's model_id; fall back to the active version's
     // model from the persona object if the version list returned nothing.
     const target = latestVersionModelId ?? persona?.modelId;
-    if (!target || !models.length) return;
-    const current = selectedModel ? String(selectedModel.modelId ?? selectedModel.id) : null;
+
+    if (!target) {
+      // No model stored at all — use first available.
+      if (!selectedModel) selectModelRef.current(models[0]);
+      return;
+    }
+
+    const current = selectedModel
+      ? (selectedModel.modelId != null && String(selectedModel.modelId) !== "undefined"
+          ? String(selectedModel.modelId)
+          : selectedModel.id != null ? String(selectedModel.id) : null)
+      : null;
     if (current === target) return;
-    const match = models.find(m => String(m.modelId ?? m.id) === target);
-    if (match) selectModelRef.current(match);
+
+    // Tier 1 — exact ID match
+    const byId = models.find(m =>
+      (m.modelId != null && String(m.modelId) !== "undefined" && String(m.modelId) === target) ||
+      (m.id      != null && String(m.id)      !== "undefined" && String(m.id)      === target),
+    );
+    if (byId) { selectModelRef.current(byId); return; }
+
+    // Tier 2 — sessionStorage name+company cache written by the Instructions tab
+    try {
+      const raw = typeof window !== "undefined"
+        ? sessionStorage.getItem(`persona_model_cache_${personaId}`)
+        : null;
+      if (raw) {
+        const cached = JSON.parse(raw) as { modelName?: string; companyName?: string };
+        if (cached?.modelName && cached?.companyName) {
+          const byName = models.find(
+            m => m.modelName === cached.modelName && m.companyName === cached.companyName,
+          );
+          if (byName) { selectModelRef.current(byName); return; }
+        }
+      }
+    } catch { /* ignore */ }
+
+    // Tier 3 — model no longer offered; fall back to first available
+    selectModelRef.current(models[0]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [latestVersionModelId, persona?.modelId, models, selectedModel]);
+  }, [latestVersionModelId, persona?.modelId, models, selectedModel, versionsLoaded, personaId]);
 
   // ── Load chat history ─────────────────────────────────────────────────────
 

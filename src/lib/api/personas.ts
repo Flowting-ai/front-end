@@ -152,7 +152,7 @@ function normalizeRepo(repo: PersonaRepoResponse): Persona {
     description: v?.prompt?.slice(0, 140) ?? "",
     imageUrl: v?.image_url ?? null,
     modelId:  v?.model_id  ?? null,
-    tags: [],
+    tags: v?.persona_tags ?? [],
     temperature: v?.temperature ?? null,
     isActive: repo.is_active,
     isPaused: !repo.is_active && repo.version_count > 0,
@@ -704,6 +704,9 @@ function buildStreamBody(
     /** Connector slugs enabled for this persona version — forwarded to the backend so
      *  the test/chat endpoint knows which connector tools are in scope. */
     connectorSlugs?: string[];
+    /** Model ID override — forwarded so the backend uses the currently selected model
+     *  rather than the version's stored model (useful when model changed but not yet saved). */
+    modelId?: string | null;
   },
 ): { body: BodyInit; headers?: HeadersInit } {
   const hasFiles = (options?.files?.length ?? 0) > 0;
@@ -714,6 +717,7 @@ function buildStreamBody(
     options!.files!.forEach(f => form.append("files", f));
     options?.disabledConnectors?.forEach(slug => form.append("disabled_connectors", slug));
     options?.connectorSlugs?.forEach(slug => form.append("connector_slugs", slug));
+    if (options?.modelId) form.append("model_id", options.modelId);
     return { body: form };
   }
   const params = new URLSearchParams();
@@ -721,6 +725,7 @@ function buildStreamBody(
   if (options?.useMistralOcr) params.append("use_mistral_ocr", "true");
   options?.disabledConnectors?.forEach(slug => params.append("disabled_connectors", slug));
   options?.connectorSlugs?.forEach(slug => params.append("connector_slugs", slug));
+  if (options?.modelId) params.append("model_id", options.modelId);
   return {
     body: params.toString(),
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -951,7 +956,7 @@ export async function testVersionStream(
   versionId: string,
   input: string,
   callbacks: PersonaChatStreamCallbacks,
-  options?: { files?: File[]; disabledConnectors?: string[]; connectorSlugs?: string[] },
+  options?: { files?: File[]; disabledConnectors?: string[]; connectorSlugs?: string[]; modelId?: string | null },
 ): Promise<() => void> {
   const controller = new AbortController();
   const { body, headers } = buildStreamBody(input, options);

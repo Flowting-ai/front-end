@@ -496,7 +496,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
 
   const handleTestChatSend = useCallback(async (value: string) => {
     const trimmedValue = value.trim()
-    const { repoId, versionId, connectorSlugs, disabledConnectorSlugs } = infoRef.current
+    const { repoId, versionId, connectorSlugs, disabledConnectorSlugs, guideModelId } = infoRef.current
     const { attachments } = testChatOptsRef.current
     const filesToSend = attachments.map(a => a.file)
     if (!trimmedValue && filesToSend.length === 0) return
@@ -546,6 +546,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
           files:                filesToSend.length > 0 ? filesToSend : undefined,
           connectorSlugs:       connectorSlugs.length > 0 ? connectorSlugs : undefined,
           disabledConnectors:   disabledConnectorSlugs.length > 0 ? disabledConnectorSlugs : undefined,
+          modelId:              guideModelId ?? undefined,
         },
       )
     } catch (err) {
