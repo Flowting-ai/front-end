@@ -19,7 +19,8 @@ import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, type Persona } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import type { AIModel } from '@/types/ai-model'
-import { listShares, listReceived, revokeShare, getSharePreview, type PersonaShare, type ReceivedShareResponse } from '@/lib/api/persona-shares'
+import { fetchDashboard, listShares, listReceived, revokeShare, type PersonaShare, type ReceivedShareResponse, type ShareDashboardResponse } from '@/lib/api/persona-shares'
+import type { SuperLinkDrawerSession } from '@/components/SuperLinkDrawer'
 import { Badge } from '@/components/Badge'
 import { TokenBudgetBar } from '@/components/TokenBudgetBar'
 import { canonicalShareUrl } from '@/lib/share-url'
@@ -463,7 +464,19 @@ function toDrawerLink(
   personaName: string,
   avatarUrl: string | null,
   repoId: string,
+  dailyTokens: number[],
 ): SuperLinkDrawerLink {
+  const recipients = share.recipients ?? []
+  const conversations = recipients.length
+  const uniqueUsers = new Set(recipients.map(r => r.recipient_user_id)).size
+  const tokensPerConvo = conversations > 0 ? Math.round(share.credit_used / conversations) : 0
+  const sessions: SuperLinkDrawerSession[] = recipients.map(r => ({
+    id:       r.recipient_user_id,
+    time:     r.accepted_at,
+    messages: r.message_count,
+    tokens:   r.credit_used,
+    status:   r.is_active ? 'active' : 'ended',
+  }))
   return {
     id:             share.id,
     personaName,
@@ -473,13 +486,13 @@ function toDrawerLink(
     url:            canonicalShareUrl(share.share_url).replace(/^https?:\/\//, ''),
     tokenUsed:      share.credit_used,
     tokenLimit:     share.credit_limit ?? 0,
-    conversations:  0,
-    uniqueUsers:    0,
-    tokensPerConvo: 0,
-    lastUsedAt:     share.updated_at,
+    conversations,
+    uniqueUsers,
+    tokensPerConvo,
+    lastUsedAt:     share.updated_at ?? share.created_at,
     status:         shareStatus(share),
-    dailyTokens:    [],
-    sessions:       [],
+    dailyTokens,
+    sessions,
   }
 }
 
@@ -512,12 +525,13 @@ export default function PersonasPage() {
   const [panelGenOpen,  setPanelGenOpen]  = useState(false)
 
   // Super Links state
-  const [shares,          setShares]          = useState<PersonaShare[]>([])
+  const [dashboard,       setDashboard]       = useState<ShareDashboardResponse | null>(null)
   const [sharesLoading,   setSharesLoading]   = useState(false)
   const [selectedShareId, setSelectedShareId] = useState<string | null>(null)
   const [slRange,         setSlRange]         = useState<'7d' | '30d' | '90d'>('30d')
-  // Enriched persona info per share (name + image) fetched from getSharePreview
-  const [shareMeta, setShareMeta] = useState<Record<string, { name: string; imageUrl: string | null }>>({})
+
+  // Derived from slRange — used in both the fetch effect and the chart section
+  const slDays = slRange === '7d' ? 7 : slRange === '90d' ? 90 : 30
 
   // Shared tab state — received shares from /persona-shares/received
   const [receivedShares,   setReceivedShares]   = useState<ReceivedShareResponse[]>([])
@@ -585,42 +599,19 @@ export default function PersonasPage() {
     })()
   }, [pathname])
 
-  // Fetch link shares whenever the super-links tab is active.
-  // Strategy:
-  //   1. Load shares + fresh personas in parallel (personas needed for revoked-share fallback).
-  //   2. For ACTIVE shares: getSharePreview returns persona_name + image_url directly.
-  //   3. For REVOKED shares: getSharePreview fails (share is no longer public), so
-  //      we fall back to versionToPersona which is built from the fresh personas list.
+  // Fetch dashboard whenever the super-links tab is active or the date range changes.
   useEffect(() => {
     if (activeTab !== 'super-links') return
     setSharesLoading(true)
-
-    // Bust cache so we always get the latest activeVersionId for every persona —
-    // this is the key fallback data for revoked shares whose preview endpoint 4xx-es.
     bustPersonasCache()
-
-    Promise.all([listShares(), fetchPersonas()])
-      .then(([allShares, allPersonas]) => {
-        const linkShares = allShares.filter(s => s.share_type === 'link')
-        setShares(linkShares)
+    Promise.all([fetchDashboard(slDays), fetchPersonas()])
+      .then(([dash, allPersonas]) => {
+        setDashboard(dash)
         setPersonas(allPersonas)
-
-        // Fire preview requests for all shares; revoked ones will reject —
-        // those fall back to versionToPersona (populated from allPersonas above).
-        Promise.allSettled(linkShares.map(s => getSharePreview(s.id))).then(results => {
-          const meta: Record<string, { name: string; imageUrl: string | null }> = {}
-          results.forEach((r, i) => {
-            const share = linkShares[i]
-            if (r.status === 'fulfilled' && share) {
-              meta[share.id] = { name: r.value.persona_name, imageUrl: r.value.image_url }
-            }
-          })
-          setShareMeta(meta)
-        })
       })
       .catch(console.error)
       .finally(() => setSharesLoading(false))
-  }, [activeTab, pathname])
+  }, [activeTab, pathname, slDays])
 
   // Fetch received shares whenever the shared tab becomes active.
   useEffect(() => {
@@ -638,10 +629,7 @@ export default function PersonasPage() {
     if (activeTab !== 'my-personas' || filterSharesLoadedRef.current) return
     filterSharesLoadedRef.current = true
     listShares()
-      .then(all => {
-        setAllSharesForFilter(all)
-        setShares(all.filter(s => s.share_type === 'link'))
-      })
+      .then(setAllSharesForFilter)
       .catch(() => {})
     fetchModelsWithCache()
       .then(setAvailableModels)
@@ -656,26 +644,30 @@ export default function PersonasPage() {
     const map: Record<string, { name: string; imageUrl: string | null; repoId: string }> = {}
     for (const p of personas) {
       const entry = { name: p.name, imageUrl: p.imageUrl, repoId: p.id }
-      // Primary key: version ID (most common match)
       if (p.activeVersionId) map[p.activeVersionId] = entry
-      // Fallback key: repo ID (covers shares whose persona_id is the repo ID)
       map[p.id] = entry
     }
     return map
   }, [personas])
+
+  // Shares derived from the dashboard — already filtered to link-type by the backend.
+  const shares = useMemo(
+    () => (dashboard?.links ?? []).filter(s => s.share_type === 'link'),
+    [dashboard],
+  )
 
   // Build the drawer link object for the currently selected share.
   const selectedDrawerLink = useMemo((): SuperLinkDrawerLink | null => {
     if (!selectedShareId) return null
     const share = shares.find(s => s.id === selectedShareId)
     if (!share) return null
-    const preview = shareMeta[share.id]
     const personaInfo = versionToPersona[share.persona_id]
-    const name     = preview?.name     ?? personaInfo?.name     ?? 'Agent'
-    const imageUrl = preview?.imageUrl ?? personaInfo?.imageUrl ?? null
+    const name     = share.persona_name ?? personaInfo?.name     ?? 'Agent'
+    const imageUrl = personaInfo?.imageUrl ?? null
     const repoId   = personaInfo?.repoId ?? ''
-    return toDrawerLink(share, name, imageUrl, repoId)
-  }, [selectedShareId, shares, versionToPersona, shareMeta])
+    const dailyTokens = (dashboard?.daily ?? []).map(d => d.credits)
+    return toDrawerLink(share, name, imageUrl, repoId, dailyTokens)
+  }, [selectedShareId, shares, versionToPersona, dashboard])
 
   // Lookup map for shared-tab — keyed by persona repo id for actions/navigation.
   const personaByRepoId = useMemo(() => {
@@ -849,8 +841,7 @@ export default function PersonasPage() {
     }
   }
 
-  // Super Links: date range — computed here so both the page header and chart card share it
-  const slDays = slRange === '7d' ? 7 : slRange === '90d' ? 90 : 30
+  // Super Links: date-range label for the DateRangePill header
   const _slToday    = new Date()
   const _slFromDate = new Date(_slToday)
   _slFromDate.setDate(_slToday.getDate() - slDays)
@@ -898,7 +889,7 @@ export default function PersonasPage() {
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
               <Tabs.List>
                 <Tabs.Trigger value="my-personas">My Agents</Tabs.Trigger>
-                {/* Super Links tab hidden for now */}
+                <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
                 <Tabs.Trigger value="shared">Shared</Tabs.Trigger>
                 {/* <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger> */}
               </Tabs.List>
@@ -1358,16 +1349,21 @@ export default function PersonasPage() {
 
           {/* ── Super Links tab ── */}
           {activeTab === 'super-links' && (() => {
-            const tokensThisMonth  = shares.reduce((s, l) => s + l.credit_used, 0)
-            const activeLinksCount = shares.filter(s => shareStatus(s) === 'active').length
-            const estimatedCost    = parseFloat((tokensThisMonth / 1_000_000 * 3).toFixed(2))
-            // Use real wave data when usage exists, otherwise fall back to dummy for a realistic preview
-            const sparkData: number[] = tokensThisMonth > 0
-              ? Array.from({ length: slDays }, (_, i) => {
-                  const base = tokensThisMonth / slDays
-                  return Math.max(0, Math.round(base * (0.4 + 0.65 * Math.abs(Math.sin(i * 0.55 + 1.2)))))
-                })
+            const summary      = dashboard?.summary
+            const creditsMonth = summary?.credits_this_month ?? 0
+            const estimatedCost = parseFloat((creditsMonth / 1_000_000 * 3).toFixed(2))
+            const sparkData: number[] = dashboard?.daily.length
+              ? dashboard.daily.map(d => d.credits)
               : DUMMY_SPARK.slice(0, slDays)
+
+            function fmtDelta(pct: number | null | undefined): { delta: string; deltaTrend: 'up' | 'down' } | object {
+              if (pct == null) return {}
+              return {
+                delta:      `${pct >= 0 ? '+' : ''}${Math.abs(pct).toFixed(1)}%`,
+                deltaTrend: pct >= 0 ? 'up' : 'down',
+              }
+            }
+
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
@@ -1379,30 +1375,25 @@ export default function PersonasPage() {
                 }}>
                   <StatCard
                     label="Credits this month"
-                    value={fmtK(tokensThisMonth)}
-                    delta="+8.2%"
-                    deltaTrend="up"
+                    value={fmtK(creditsMonth)}
+                    {...fmtDelta(summary?.credits_delta_pct)}
                     sub="across all links"
                   />
                   <StatCard
                     label="Conversations"
-                    value={0}
-                    delta="+12.4%"
-                    deltaTrend="up"
+                    value={summary?.conversations ?? 0}
+                    {...fmtDelta(summary?.conversations_delta_pct)}
                     sub="total sessions"
                   />
                   <StatCard
                     label="Active links"
-                    value={activeLinksCount}
-                    delta="+1"
-                    deltaTrend="up"
-                    sub={`of ${shares.length} total`}
+                    value={summary?.active_links ?? 0}
+                    sub={`of ${summary?.total_links ?? 0} total`}
                   />
                   <StatCard
                     label="Est. cost"
                     value={`$${estimatedCost.toFixed(2)}`}
-                    delta="-1.1%"
-                    deltaTrend="down"
+                    {...fmtDelta(summary?.credits_delta_pct != null ? -summary.credits_delta_pct : null)}
                     sub="creator-pays"
                   />
                 </section>
@@ -1453,7 +1444,7 @@ export default function PersonasPage() {
                           fontWeight: 'var(--font-weight-medium)',
                           color:      'var(--neutral-900)',
                         }}>
-                          {fmtK(tokensThisMonth)}
+                          {fmtK(creditsMonth)}
                         </span>
                       </div>
                       {/* Range selector */}
@@ -1503,7 +1494,7 @@ export default function PersonasPage() {
                         lineHeight: 'var(--line-height-caption)',
                         color:      'var(--neutral-500)',
                       }}>
-                        {sharesLoading ? 'Loading…' : `Super Links ${shares.length}`}
+                        {sharesLoading ? 'Loading…' : `Super Links ${summary?.total_links ?? shares.length}`}
                       </span>
                       <Dropdown.Float
                         open={panelGenOpen}
@@ -1563,10 +1554,9 @@ export default function PersonasPage() {
 
                       {/* Rows */}
                       {!sharesLoading && shares.map(share => {
-                        const preview     = shareMeta[share.id]
                         const personaInfo = versionToPersona[share.persona_id]
-                        const name        = preview?.name     ?? personaInfo?.name     ?? 'Agent'
-                        const imageUrl    = preview?.imageUrl ?? personaInfo?.imageUrl ?? null
+                        const name        = share.persona_name ?? personaInfo?.name ?? 'Agent'
+                        const imageUrl    = personaInfo?.imageUrl ?? null
                         const repoId      = personaInfo?.repoId ?? ''
                         return (
                           <SuperLinkRow
@@ -1608,7 +1598,7 @@ export default function PersonasPage() {
             const id = selectedShareId
             revokeShare(id)
               .then(() => {
-                setShares(prev => prev.filter(s => s.id !== id))
+                setDashboard(prev => prev ? { ...prev, links: prev.links.filter(s => s.id !== id) } : prev)
                 setSelectedShareId(null)
                 toast.success('Super Link revoked')
               })

@@ -218,22 +218,26 @@ export default function ConnectorsTab({
   versionId,
   personaName,
   onConnectorsChange,
+  onSaveVersion,
 }: {
   repoId?:             string
   versionId?:          string
   personaName?:        string
   onConnectorsChange?: (enabled: string[], disabled: string[]) => void
+  onSaveVersion?:      () => Promise<void>
 }) {
   const { push } = useRouter()
 
-  const [linked,       setLinked]       = useState<ConnectorCatalogEntry[]>([])
-  const [personaSlugs, setPersonaSlugs] = useState<Set<string>>(new Set())
-  const [blockedSlugs, setBlockedSlugs] = useState<Set<string>>(new Set())
-  const [confirmSlug,  setConfirmSlug]  = useState<string | null>(null)
-  const [loading,      setLoading]      = useState(true)
-  const [loadError,    setLoadError]    = useState('')
-  const [savingSlug,   setSavingSlug]   = useState<string | null>(null)
-  const [searchQuery,  setSearchQuery]  = useState('')
+  const [linked,          setLinked]          = useState<ConnectorCatalogEntry[]>([])
+  const [personaSlugs,    setPersonaSlugs]    = useState<Set<string>>(new Set())
+  const [blockedSlugs,    setBlockedSlugs]    = useState<Set<string>>(new Set())
+  const [confirmSlug,     setConfirmSlug]     = useState<string | null>(null)
+  const [showNavModal,    setShowNavModal]     = useState(false)
+  const [isSavingNav,     setIsSavingNav]     = useState(false)
+  const [loading,         setLoading]         = useState(true)
+  const [loadError,       setLoadError]       = useState('')
+  const [savingSlug,      setSavingSlug]      = useState<string | null>(null)
+  const [searchQuery,     setSearchQuery]     = useState('')
 
   // Stable ref so callbacks never force load/handleToggle recreation
   const onChangeRef = useRef(onConnectorsChange)
@@ -406,6 +410,70 @@ export default function ConnectorsTab({
         )
       })()}
 
+      {/* ── Manage-in-settings navigation modal ────────────────────────── */}
+      {showNavModal && (
+        <>
+          {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop */}
+          <div
+            onClick={() => { if (!isSavingNav) setShowNavModal(false) }}
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(38,33,30,0.32)', zIndex: 50 }}
+          />
+          <div style={{
+            position:        'fixed',
+            top:             '50%',
+            left:            '50%',
+            transform:       'translate(-50%, -50%)',
+            zIndex:          51,
+            backgroundColor: 'white',
+            borderRadius:    16,
+            boxShadow:       '0px 8px 32px 0px rgba(38,33,30,0.18), 0px 0px 0px 1px var(--neutral-100)',
+            width:           400,
+            maxWidth:        'calc(100vw - 48px)',
+            padding:         24,
+            display:         'flex',
+            flexDirection:   'column',
+            gap:             16,
+          }}>
+            <div>
+              <p style={{ margin: '0 0 8px', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)' }}>
+                Leave to Settings?
+              </p>
+              <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
+                You are about to leave the agent editor. You can save a version first before going to Settings.
+              </p>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isSavingNav}
+                onClick={() => setShowNavModal(false)}
+              >
+                Stay
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                loading={isSavingNav}
+                onClick={async () => {
+                  setIsSavingNav(true)
+                  try {
+                    await onSaveVersion?.()
+                    push('/settings/connectors')
+                  } catch {
+                    // onSaveVersion shows its own error toast; stay in modal
+                  } finally {
+                    setIsSavingNav(false)
+                  }
+                }}
+              >
+                Save and continue
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
         <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0 }}>
@@ -415,7 +483,7 @@ export default function ConnectorsTab({
           variant="outline"
           size="sm"
           rightIcon={<ArrowUpRightOneIcon size={16} animated />}
-          onClick={() => push('/settings/connectors')}
+          onClick={() => setShowNavModal(true)}
         >
           Manage in Settings
         </Button>

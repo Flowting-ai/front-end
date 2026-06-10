@@ -20,8 +20,9 @@ export interface GetModels {
   model_output_size?:    number | null;
   model_input_cost?:     number | null;
   model_output_cost?:    number | null;
-  model_plan_type:       string;
-  model_description:     string;
+  model_plan_type:          string;
+  model_description:        string;
+  model_thinking_efforts?:  string[];
 }
 
 export interface GetModelsWithStatus extends GetModels {

@@ -7,8 +7,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
   ArrowRightOneIcon,
-  QuillWriteOneIcon,
-  ArrowUpRightOneIcon,
   ArrowDownOneIcon,
   AtomOneIcon,
   PlusSignIcon,
@@ -761,6 +759,17 @@ function PersonaConfigureInstructionsContent() {
       const raw = sessionStorage.getItem(instructionsDraftKey(repoId))
       if (!raw) return
       const draft = JSON.parse(raw) as { instruction?: string; temperature?: number; modelId?: string | null }
+      const snapshot = savedSnapshotRef.current
+      // Skip applying the draft when all of its values already match the saved
+      // version. Applying identical values would still cause React re-renders
+      // and trigger the change-detection effects, which can spuriously mark the
+      // page as dirty even though nothing has changed.
+      if (
+        snapshot &&
+        (typeof draft.instruction !== 'string' || draft.instruction === snapshot.instruction) &&
+        (typeof draft.temperature !== 'number' || draft.temperature === snapshot.temperature) &&
+        (!draft.modelId                        || draft.modelId     === snapshot.modelId)
+      ) return
       if (typeof draft.instruction === 'string') {
         setInstruction(draft.instruction)
         resetInstructionHistory(draft.instruction)
@@ -777,9 +786,9 @@ function PersonaConfigureInstructionsContent() {
 
   // ── Save version ─────────────────────────────────────────────────────────────
 
-  async function executeSave() {
+  async function executeSave(openPanel = true): Promise<boolean> {
     const modelId = selectedModel ? stableKey(selectedModel) : null
-    if (!repoId || !modelId || !versionId) return
+    if (!repoId || !modelId || !versionId) return false
     setIsSaving(true)
     try {
       let imageFile: File | null = null
@@ -855,13 +864,15 @@ function PersonaConfigureInstructionsContent() {
       setPendingChangeTags([])
       bustPersonasCache()
       refreshVersions()
-      setVersionsOpen(true)
+      if (openPanel) setVersionsOpen(true)
       try { sessionStorage.removeItem(instructionsDraftKey(repoId)) } catch { /* ignore */ }
 
       toast.success('Version saved')
+      return true
     } catch (err) {
       console.error('[PersonaConfigure] save error:', err)
       toast.error('Failed to save version')
+      return false
     } finally {
       setIsSaving(false)
     }
@@ -889,6 +900,31 @@ function PersonaConfigureInstructionsContent() {
       return
     }
     void executeSave()
+  }
+
+  async function handleContinue() {
+    if (!selectedModel) {
+      toast.error('Please select a model before continuing.')
+      return
+    }
+    if (!hasContent) {
+      toast.error('Please add system instructions before continuing.')
+      return
+    }
+    if (isDirty) {
+      const mode = resolveSaveMode({
+        currentVersionId: versionId,
+        initialVersionId: readInitialVersionId(repoId),
+        activeVersionId,
+      })
+      if (mode === 'create-new' && versions.length >= MAX_VERSIONS) {
+        toast.error('Max version limit reached (5). Please delete an older version first.')
+        return
+      }
+      const ok = await executeSave(false)
+      if (!ok) return
+    }
+    navigateTab('Profile')
   }
 
   // ── Publish ───────────────────────────────────────────────────────────────────
@@ -973,6 +1009,15 @@ function PersonaConfigureInstructionsContent() {
     if (currentModelId !== savedSnapshotRef.current.modelId || temperature !== savedSnapshotRef.current.temperature) addPendingChangeTag('Model')
   }, [currentModelId, temperature, addPendingChangeTag])
 
+  // When the instructions page confirms the content is clean (matches the saved
+  // snapshot), remove any Instructions/Model tags that may have been added
+  // spuriously (e.g. from intermediate state during tab-switch initialisation).
+  useEffect(() => {
+    if (isInitialising || isDirty) return
+    const cleaned = pendingChangeTags.filter(t => t !== 'Instructions' && t !== 'Model')
+    if (cleaned.length < pendingChangeTags.length) setPendingChangeTags(cleaned)
+  }, [isInitialising, isDirty, pendingChangeTags, setPendingChangeTags])
+
   // ── Auto-save draft to sessionStorage ─────────────────────────────────────
   useEffect(() => {
     if (!repoId || isInitialising) return
@@ -1005,7 +1050,7 @@ function PersonaConfigureInstructionsContent() {
     repoId,
     versionId,
     activeVersionId,
-    hasUnsavedChanges: isDirty || pendingChangeTags.length > 0,
+    hasUnsavedChanges: (!isInitialising && isDirty) || pendingChangeTags.length > 0,
   })
   const isPublished    = pub.isPublished
   const needsRepublish = pub.needsRepublish && (hasContent || !!activeVersionId)
@@ -1109,7 +1154,7 @@ function PersonaConfigureInstructionsContent() {
       >
         {/* ── Top navigation bar ─────────────────────────────────────────────── */}
         <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: anyPanelOpen ? 'flex-start' : 'space-between', gap: anyPanelOpen ? 8 : 0, height: 36, position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 8, height: 36, position: 'relative' }}>
             {/* Back arrow */}
             <div style={{ flexShrink: 0 }}>
               <IconButton
@@ -1185,44 +1230,7 @@ function PersonaConfigureInstructionsContent() {
               </div>
             </div>
 
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: anyPanelOpen ? 'auto' : undefined }}>
-              <span data-help-id="help-save-version" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8 }}>
-                {anyPanelOpen ? (
-                  <IconButton
-                    variant="outline"
-                    size="sm"
-                    icon={<QuillWriteOneIcon size={16} />}
-                    aria-label="Save version"
-                    onClick={handleSaveVersion}
-                    disabled={!canSave}
-                    loading={isSaving}
-                  />
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    leftIcon={<QuillWriteOneIcon size={16} />}
-                    onClick={handleSaveVersion}
-                    disabled={!canSave}
-                    loading={isSaving}
-                  >
-                    {isSaving ? 'Saving…' : 'Save version'}
-                  </Button>
-                )}
-              </span>
-              <span data-help-id="help-publish" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8 }}>
-                <Button
-                  variant="default"
-                  size="sm"
-                  disabled={!canPublish}
-                  rightIcon={<ArrowUpRightOneIcon size={16} />}
-                  onClick={handlePublish}
-                >
-                  {isPublishing ? 'Publishing…' : 'Publish'}
-                </Button>
-              </span>
-            </div>
+
 
             {/* Status badges — centered below the tab bar */}
             {(!!versionId || pendingChangeTags.length > 0 || isPublished || needsRepublish) && (
@@ -1464,6 +1472,19 @@ function PersonaConfigureInstructionsContent() {
             </div>
           </div>
         )}
+
+        {/* ── Bottom navigation ────────────────────────────────────────────────── */}
+        <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', padding: '12px 16px 4px', borderTop: '1px solid var(--neutral-100)' }}>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => void handleContinue()}
+            loading={isSaving}
+            disabled={isSaving || isInitialising}
+          >
+            Continue
+          </Button>
+        </div>
 
       </div>
 

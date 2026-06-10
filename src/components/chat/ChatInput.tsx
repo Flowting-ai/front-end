@@ -93,6 +93,11 @@ export interface ChatInputProps
    */
   hideModelSelector?: boolean;
   /**
+   * When true, the leading + add button is hidden entirely.
+   * Use in test-chat panels where file/menu attachment is not needed.
+   */
+  hideAddButton?: boolean;
+  /**
    * Called when the user pastes image files from the clipboard (Ctrl+V / Ctrl+Shift+V).
    * Receives the array of pasted File objects (always images). Wire this up to your
    * attachment state so screenshots land directly in the attachments strip.
@@ -127,6 +132,7 @@ export function ChatInput(
     onPinNavigate,
     disabledModelSelector = false,
     hideModelSelector = false,
+    hideAddButton = false,
     onFilePaste,
     className,
     onMouseEnter: externalMouseEnter,
@@ -608,7 +614,7 @@ export function ChatInput(
           >
             {/* Left: attach button + chips column */}
             <div style={{ display: "flex", gap: "8px", alignItems: "center", flex: 1, minWidth: 0 }}>
-              <div style={{ flexShrink: 0 }}>
+              {!hideAddButton && <div style={{ flexShrink: 0 }}>
                 {addMenu !== undefined ? (
                   <Dropdown.Float
                     open={addMenuOpen}
@@ -640,7 +646,7 @@ export function ChatInput(
                     disabled={disabled}
                   />
                 )}
-              </div>
+              </div>}
               {chips && (
                 <div style={{ display: "flex", flexDirection: "column", flexShrink: 1, minWidth: 0, gap: "3px" }}>
                   <div

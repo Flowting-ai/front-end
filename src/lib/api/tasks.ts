@@ -15,36 +15,46 @@ export interface ScheduledTaskRunResponse {
   started_at?:   string | null
   completed_at?: string | null
   error?:        string | null
-  node_outputs?: Record<string, unknown> | null
   synthesis?:    string | null
+  created_at?:   string | null
 }
 
 export interface ScheduledTaskListItem {
-  id:            string
-  title:         string
-  plan_text?:    string
-  schedule_json: Record<string, unknown>
-  is_active:     boolean
-  next_run_at?:  string | null
-  last_run_at?:  string | null
-  run_count:     number
-  created_at?:   string | null
-  updated_at?:   string | null
+  id:             string
+  title:          string
+  plan_text?:     string
+  schedule_json:  Record<string, unknown>
+  is_active:      boolean
+  next_run_at?:   string | null
+  last_run_at?:   string | null
+  run_count:      number
+  success_count:  number
+  failure_count:  number
+  success_rate:   number | null
+  created_at?:    string | null
+  updated_at?:    string | null
 }
 
 export interface ScheduledTaskDetail {
-  id:            string
-  title:         string
-  plan_text?:    string
-  plan_json:     Record<string, unknown>
-  schedule_json: Record<string, unknown>
-  is_active:     boolean
-  next_run_at?:  string | null
-  last_run_at?:  string | null
-  run_count:     number
-  created_at?:   string | null
-  updated_at?:   string | null
-  runs?:         ScheduledTaskRunResponse[]
+  id:             string
+  title:          string
+  plan_text?:     string
+  plan_json:      Record<string, unknown>
+  schedule_json:  Record<string, unknown>
+  is_active:      boolean
+  next_run_at?:   string | null
+  last_run_at?:   string | null
+  run_count:      number
+  success_count:  number
+  failure_count:  number
+  success_rate:   number | null
+  created_at?:    string | null
+  updated_at?:    string | null
+  runs?:          ScheduledTaskRunResponse[]
+}
+
+export interface ScheduledTaskUpdate {
+  is_active: boolean
 }
 
 // Aliases for back-compat with callers
@@ -61,6 +71,14 @@ export function listTasks(): Promise<ScheduledTaskListItem[]> {
 /** GET /tasks/{task_id} — task + plan + run history. */
 export function getTask(taskId: string): Promise<ScheduledTaskDetail> {
   return apiFetchJson<ScheduledTaskDetail>(TASK_BY_ID(taskId))
+}
+
+/** PATCH /tasks/{task_id} — pause (is_active=false) or resume (is_active=true). */
+export function updateTask(taskId: string, body: ScheduledTaskUpdate): Promise<ScheduledTaskDetail> {
+  return apiFetchJson<ScheduledTaskDetail>(TASK_BY_ID(taskId), {
+    method: 'PATCH',
+    body:   JSON.stringify(body),
+  })
 }
 
 /** POST /tasks/{task_id}/run — trigger an immediate run. */

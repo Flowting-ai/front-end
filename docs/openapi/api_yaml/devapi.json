@@ -5,6 +5,57 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/chats/{chat_id}/visibility": {
+      "patch": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Set Chat Visibility",
+        "operationId": "set_chat_visibility_chats__chat_id__visibility_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "chat_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Chat Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetVisibilityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/chats": {
       "get": {
         "tags": [
@@ -2349,6 +2400,57 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/persona/{repo_id}/visibility": {
+      "patch": {
+        "tags": [
+          "persona"
+        ],
+        "summary": "Set Persona Visibility",
+        "operationId": "set_persona_visibility_persona__repo_id__visibility_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Repo Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetVisibilityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/persona": {
@@ -4919,6 +5021,55 @@
         ]
       }
     },
+    "/persona-shares/dashboard": {
+      "get": {
+        "tags": [
+          "persona-shares"
+        ],
+        "summary": "Dashboard",
+        "description": "Super Links dashboard: link totals, conversations & credits this month with\ndeltas, a daily credit series, and the per-link cards. `window` (days) drives\nthe chart; accepts 7, 30, or 90.",
+        "operationId": "dashboard_persona_shares_dashboard_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "title": "Window"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareDashboardResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/persona-shares/{share_id}": {
       "get": {
         "tags": [
@@ -6252,6 +6403,57 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/projects/{project_id}/visibility": {
+      "patch": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Set Project Visibility",
+        "operationId": "set_project_visibility_projects__project_id__visibility_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetVisibilityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/projects": {
@@ -9440,6 +9642,1345 @@
         ]
       }
     },
+    "/workspaces": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "List Workspaces",
+        "operationId": "list_workspaces_workspaces_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Workspaces Workspaces Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/workspaces/{workspace_id}": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Get Workspace",
+        "operationId": "get_workspace_workspaces__workspace_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Update Workspace",
+        "operationId": "update_workspace_workspaces__workspace_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkspaceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Delete Workspace",
+        "operationId": "delete_workspace_workspaces__workspace_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteWorkspaceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/plan": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Get Plan",
+        "operationId": "get_plan_workspaces__workspace_id__plan_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/plan/usage": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Get Plan Usage",
+        "operationId": "get_plan_usage_workspaces__workspace_id__plan_usage_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageBreakdownResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/pool-status": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Get Pool Status",
+        "operationId": "get_pool_status_workspaces__workspace_id__pool_status_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/members/{member_id}/cap": {
+      "patch": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Set Member Cap",
+        "operationId": "set_member_cap_workspaces__workspace_id__members__member_id__cap_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Member Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCapRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/members/{member_id}/role": {
+      "patch": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Set Member Role",
+        "operationId": "set_member_role_workspaces__workspace_id__members__member_id__role_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Member Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRoleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/members/{member_id}": {
+      "delete": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Remove Member",
+        "operationId": "remove_member_workspaces__workspace_id__members__member_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Member Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/members/{member_id}/connectors": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Get Member Connectors",
+        "operationId": "get_member_connectors_workspaces__workspace_id__members__member_id__connectors_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Member Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberConnectorResponse"
+                  },
+                  "title": "Response Get Member Connectors Workspaces  Workspace Id  Members  Member Id  Connectors Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Set Member Connector",
+        "operationId": "set_member_connector_workspaces__workspace_id__members__member_id__connectors_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Member Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetConnectorPermRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberConnectorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/teams": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "List Teams",
+        "operationId": "list_teams_workspaces__workspace_id__teams_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamResponse"
+                  },
+                  "title": "Response List Teams Workspaces  Workspace Id  Teams Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Create Team",
+        "operationId": "create_team_workspaces__workspace_id__teams_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTeamRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/teams/{team_id}": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Get Team",
+        "operationId": "get_team_workspaces__workspace_id__teams__team_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Update Team",
+        "operationId": "update_team_workspaces__workspace_id__teams__team_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTeamRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Delete Team",
+        "operationId": "delete_team_workspaces__workspace_id__teams__team_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/teams/{team_id}/members": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "List Team Members",
+        "operationId": "list_team_members_workspaces__workspace_id__teams__team_id__members_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamMemberResponse"
+                  },
+                  "title": "Response List Team Members Workspaces  Workspace Id  Teams  Team Id  Members Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/teams/{team_id}/members/{member_id}": {
+      "delete": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Remove Team Member",
+        "operationId": "remove_team_member_workspaces__workspace_id__teams__team_id__members__member_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Member Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/teams/{team_id}/invites": {
+      "post": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Create Invite",
+        "operationId": "create_invite_workspaces__workspace_id__teams__team_id__invites_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/teams/{team_id}/overflow": {
+      "post": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Request Overflow",
+        "operationId": "request_overflow_workspaces__workspace_id__teams__team_id__overflow_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverflowRequestBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverflowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspace_id}/audit": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "List Audit",
+        "operationId": "list_audit_workspaces__workspace_id__audit_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEntry"
+                  },
+                  "title": "Response List Audit Workspaces  Workspace Id  Audit Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/team-invite/{invite_id}": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Preview Invite",
+        "operationId": "preview_invite_team_invite__invite_id__get",
+        "parameters": [
+          {
+            "name": "invite_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invite Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitePreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/team-invite/{invite_id}/accept": {
+      "post": {
+        "tags": [
+          "workspaces"
+        ],
+        "summary": "Accept Invite",
+        "operationId": "accept_invite_team_invite__invite_id__accept_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invite_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invite Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -9494,6 +11035,70 @@
         ],
         "title": "ApiKeyField",
         "description": "One credential input the FE renders for an api_key connector. Mirrors\nComposio's connected-account initiation field metadata."
+      },
+      "AuditEntry": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "actor_user_id": {
+            "type": "string",
+            "title": "Actor User Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "target_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Type"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "extra": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "actor_user_id",
+          "action",
+          "created_at"
+        ],
+        "title": "AuditEntry"
       },
       "BillingInfo": {
         "properties": {
@@ -10913,6 +12518,24 @@
         ],
         "title": "CreateFolder"
       },
+      "CreateTeamRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CreateTeamRequest"
+      },
       "CreateTopUpSessionRequest": {
         "properties": {
           "amount_usd": {
@@ -10991,6 +12614,25 @@
         "type": "object",
         "title": "CreditSummary"
       },
+      "DashboardDailyPoint": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "credits": {
+            "type": "number",
+            "title": "Credits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "credits"
+        ],
+        "title": "DashboardDailyPoint"
+      },
       "DeleteChat": {
         "properties": {
           "chat_id": {
@@ -11018,6 +12660,19 @@
           "chat_id"
         ],
         "title": "DeletePersonaChat"
+      },
+      "DeleteWorkspaceRequest": {
+        "properties": {
+          "confirmName": {
+            "type": "string",
+            "title": "Confirmname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmName"
+        ],
+        "title": "DeleteWorkspaceRequest"
       },
       "EnhanceAnswer": {
         "properties": {
@@ -11689,6 +13344,123 @@
         ],
         "title": "HighlightResponse"
       },
+      "InvitePreview": {
+        "properties": {
+          "invite_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Invite Id"
+          },
+          "team_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "invited_by_name": {
+            "type": "string",
+            "title": "Invited By Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/TeamRole"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "invite_id",
+          "team_id",
+          "team_name",
+          "invited_by_name",
+          "role",
+          "expires_at"
+        ],
+        "title": "InvitePreview"
+      },
+      "InviteRequest": {
+        "properties": {
+          "emails": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Emails"
+          },
+          "role": {
+            "$ref": "#/components/schemas/TeamRole",
+            "default": "member"
+          }
+        },
+        "type": "object",
+        "required": [
+          "emails"
+        ],
+        "title": "InviteRequest"
+      },
+      "InviteResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "team_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Team Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/TeamRole"
+          },
+          "recipient_emails": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Emails"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "invite_url": {
+            "type": "string",
+            "title": "Invite Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "team_id",
+          "role",
+          "expires_at",
+          "invite_url"
+        ],
+        "title": "InviteResponse"
+      },
+      "InviteStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "pending"
+        ],
+        "title": "InviteStatus"
+      },
       "InvoiceInfo": {
         "properties": {
           "amount_paid": {
@@ -11796,6 +13568,83 @@
         ],
         "title": "LinkResponse"
       },
+      "MemberConnectorResponse": {
+        "properties": {
+          "connector_slug": {
+            "type": "string",
+            "title": "Connector Slug"
+          },
+          "allowed": {
+            "type": "boolean",
+            "title": "Allowed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connector_slug",
+          "allowed"
+        ],
+        "title": "MemberConnectorResponse"
+      },
+      "MemberResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "credit_cap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Cap"
+          },
+          "credit_used": {
+            "type": "number",
+            "title": "Credit Used",
+            "default": 0
+          },
+          "invite_status": {
+            "$ref": "#/components/schemas/InviteStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "role",
+          "invite_status"
+        ],
+        "title": "MemberResponse"
+      },
       "ModelsResponse": {
         "properties": {
           "all": {
@@ -11888,6 +13737,82 @@
           "completed"
         ],
         "title": "OnboardingSummary"
+      },
+      "OverflowRequestBody": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "OverflowRequestBody"
+      },
+      "OverflowResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "team_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Team Id"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OverflowStatus"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "team_id",
+          "note",
+          "status",
+          "created_at"
+        ],
+        "title": "OverflowResponse"
+      },
+      "OverflowStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "resolved"
+        ],
+        "title": "OverflowStatus"
       },
       "PaymentMethodInfo": {
         "properties": {
@@ -12640,6 +14565,36 @@
           "share_url": {
             "type": "string",
             "title": "Share Url"
+          },
+          "persona_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persona Name"
+          },
+          "pct_used": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pct Used"
+          },
+          "recipients": {
+            "items": {
+              "$ref": "#/components/schemas/ShareRecipientSummary"
+            },
+            "type": "array",
+            "title": "Recipients",
+            "default": []
           }
         },
         "type": "object",
@@ -12872,6 +14827,64 @@
         ],
         "title": "PinResponse"
       },
+      "PlanResponse": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workspace Id"
+          },
+          "plan_credits": {
+            "type": "number",
+            "title": "Plan Credits"
+          },
+          "topup_credits": {
+            "type": "number",
+            "title": "Topup Credits"
+          },
+          "total_credits": {
+            "type": "number",
+            "title": "Total Credits"
+          },
+          "used": {
+            "type": "number",
+            "title": "Used"
+          },
+          "remaining": {
+            "type": "number",
+            "title": "Remaining"
+          },
+          "percent_used": {
+            "type": "number",
+            "title": "Percent Used"
+          },
+          "pool_status": {
+            "type": "string",
+            "title": "Pool Status"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/MemberResponse"
+            },
+            "type": "array",
+            "title": "Members",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "plan_credits",
+          "topup_credits",
+          "total_credits",
+          "used",
+          "remaining",
+          "percent_used",
+          "pool_status"
+        ],
+        "title": "PlanResponse",
+        "description": "The Plans & Usage view: pool totals + per-member caps/usage."
+      },
       "PlanSummary": {
         "properties": {
           "plan_type": {
@@ -12917,9 +14930,39 @@
           "starter",
           "pro",
           "power",
-          "trial"
+          "trial",
+          "teams"
         ],
         "title": "PlanType"
+      },
+      "PoolStatusResponse": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workspace Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "percent_used": {
+            "type": "number",
+            "title": "Percent Used"
+          },
+          "remaining": {
+            "type": "number",
+            "title": "Remaining"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "status",
+          "percent_used",
+          "remaining"
+        ],
+        "title": "PoolStatusResponse"
       },
       "ProjectChatSummary": {
         "properties": {
@@ -13756,6 +15799,53 @@
         "title": "SetBlockedConnectors",
         "description": "Replace a persona version's blocked-connector set with `slugs`. The\npersona keeps full access to every connected service EXCEPT these."
       },
+      "SetCapRequest": {
+        "properties": {
+          "creditCap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Creditcap"
+          }
+        },
+        "type": "object",
+        "title": "SetCapRequest"
+      },
+      "SetConnectorPermRequest": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "allowed": {
+            "type": "boolean",
+            "title": "Allowed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "allowed"
+        ],
+        "title": "SetConnectorPermRequest"
+      },
+      "SetRoleRequest": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "SetRoleRequest"
+      },
       "SetUserMemoryRequest": {
         "properties": {
           "memory": {
@@ -13769,6 +15859,177 @@
           "memory"
         ],
         "title": "SetUserMemoryRequest"
+      },
+      "SetVisibilityRequest": {
+        "properties": {
+          "visibility": {
+            "type": "string",
+            "title": "Visibility"
+          },
+          "teamId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teamid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "visibility"
+        ],
+        "title": "SetVisibilityRequest",
+        "description": "Shared by the persona/project/chat visibility setters."
+      },
+      "ShareDashboardResponse": {
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/ShareDashboardSummary"
+          },
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardDailyPoint"
+            },
+            "type": "array",
+            "title": "Daily"
+          },
+          "window_days": {
+            "type": "integer",
+            "title": "Window Days"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaShareResponse"
+            },
+            "type": "array",
+            "title": "Links"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "daily",
+          "window_days",
+          "links"
+        ],
+        "title": "ShareDashboardResponse"
+      },
+      "ShareDashboardSummary": {
+        "properties": {
+          "active_links": {
+            "type": "integer",
+            "title": "Active Links"
+          },
+          "total_links": {
+            "type": "integer",
+            "title": "Total Links"
+          },
+          "conversations": {
+            "type": "integer",
+            "title": "Conversations"
+          },
+          "conversations_delta_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversations Delta Pct"
+          },
+          "credits_this_month": {
+            "type": "number",
+            "title": "Credits This Month"
+          },
+          "credits_delta_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credits Delta Pct"
+          }
+        },
+        "type": "object",
+        "required": [
+          "active_links",
+          "total_links",
+          "conversations",
+          "credits_this_month"
+        ],
+        "title": "ShareDashboardSummary"
+      },
+      "ShareRecipientSummary": {
+        "properties": {
+          "recipient_user_id": {
+            "type": "string",
+            "title": "Recipient User Id"
+          },
+          "recipient_name": {
+            "type": "string",
+            "title": "Recipient Name"
+          },
+          "recipient_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Email"
+          },
+          "message_count": {
+            "type": "integer",
+            "title": "Message Count"
+          },
+          "credit_used": {
+            "type": "number",
+            "title": "Credit Used"
+          },
+          "credit_remaining": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Remaining"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "accepted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Accepted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipient_user_id",
+          "recipient_name",
+          "message_count",
+          "credit_used",
+          "is_active",
+          "accepted_at"
+        ],
+        "title": "ShareRecipientSummary",
+        "description": "Who accepted a link and how they've used it — embedded per link."
       },
       "SubscriptionActionResponse": {
         "properties": {
@@ -13823,6 +16084,125 @@
           "tag_name"
         ],
         "title": "TagResponse"
+      },
+      "TeamBurn": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "credits_used": {
+            "type": "number",
+            "title": "Credits Used"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "team_name",
+          "credits_used"
+        ],
+        "title": "TeamBurn"
+      },
+      "TeamMemberResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/TeamRole"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "role"
+        ],
+        "title": "TeamMemberResponse"
+      },
+      "TeamResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workspace Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "owner_user_id": {
+            "type": "string",
+            "title": "Owner User Id"
+          },
+          "archived": {
+            "type": "boolean",
+            "title": "Archived"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "workspace_id",
+          "name",
+          "description",
+          "owner_user_id",
+          "archived",
+          "created_at"
+        ],
+        "title": "TeamResponse"
+      },
+      "TeamRole": {
+        "type": "string",
+        "enum": [
+          "team_owner",
+          "editor",
+          "member"
+        ],
+        "title": "TeamRole",
+        "description": "A user's role within one team. `team_owner` manages the team (invites,\ncaps, burn, overflow); `editor` may publish resources to the team; `member`\nonly consumes what's shared to them."
       },
       "TestModelRequest": {
         "properties": {
@@ -14157,6 +16537,45 @@
         "title": "UpdatePersona",
         "description": "Metadata-only fields for the PATCH route. Files/knowledge go through PUT."
       },
+      "UpdateTeamRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "archived": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived"
+          }
+        },
+        "type": "object",
+        "title": "UpdateTeamRequest"
+      },
       "UpdateUser": {
         "properties": {
           "first_name": {
@@ -14218,6 +16637,34 @@
         "type": "object",
         "title": "UpdateUser"
       },
+      "UpdateWorkspaceRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "archived": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived"
+          }
+        },
+        "type": "object",
+        "title": "UpdateWorkspaceRequest"
+      },
       "UsageBreakdown": {
         "properties": {
           "chat": {
@@ -14239,6 +16686,28 @@
         "type": "object",
         "title": "UsageBreakdown",
         "description": "Credits spent this period, by source area."
+      },
+      "UsageBreakdownResponse": {
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workspace Id"
+          },
+          "by_team": {
+            "items": {
+              "$ref": "#/components/schemas/TeamBurn"
+            },
+            "type": "array",
+            "title": "By Team",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspace_id"
+        ],
+        "title": "UsageBreakdownResponse"
       },
       "UsageResponse": {
         "properties": {
@@ -14544,6 +17013,60 @@
           "links"
         ],
         "title": "WebSearchResult"
+      },
+      "WorkspaceResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "owner_user_id": {
+            "type": "string",
+            "title": "Owner User Id"
+          },
+          "archived": {
+            "type": "boolean",
+            "title": "Archived"
+          },
+          "my_role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceRole"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "owner_user_id",
+          "archived",
+          "created_at"
+        ],
+        "title": "WorkspaceResponse"
+      },
+      "WorkspaceRole": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "member"
+        ],
+        "title": "WorkspaceRole",
+        "description": "A user's standing in a workspace. `admin` is the buyer/owner — billing,\nconnectors, and authority over every team. `member` is everyone else; their\nfiner-grained authority comes from their per-team TeamRole."
       }
     },
     "securitySchemes": {

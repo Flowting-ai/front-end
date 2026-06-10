@@ -8,6 +8,7 @@ import {
   STRIPE_SUBSCRIPTION_RESUME_ENDPOINT,
   STRIPE_TOPUP_ENDPOINT,
   STRIPE_TOPUP_CHARGE_ENDPOINT,
+  STRIPE_TRIAL_ENDPOINT,
   USER_CREATE_ENDPOINT,
   USER_ENDPOINT,
   USER_ONBOARDING_ENDPOINT,
@@ -95,7 +96,7 @@ export interface TrialCredits {
   remaining: number;
   used: number;
   starts_at?: string | null;
-  expires_at?: string | null;
+  expires_at: string;
 }
 
 export interface BillingCredits {
@@ -272,7 +273,7 @@ function normalizeUserProfile(raw: unknown): UserProfile {
                       remaining: typeof t.remaining === "number" ? t.remaining : 0,
                       used: typeof t.used === "number" ? t.used : 0,
                       starts_at: typeof t.starts_at === "string" ? t.starts_at : null,
-                      expires_at: typeof t.expires_at === "string" ? t.expires_at : null,
+                      expires_at: typeof t.expires_at === "string" ? t.expires_at : "",
                     } as TrialCredits;
                   })()
                 : null;
@@ -535,7 +536,7 @@ export async function fetchBilling(): Promise<BillingInfo | null> {
                     remaining: typeof t.remaining === "number" ? t.remaining : 0,
                     used: typeof t.used === "number" ? t.used : 0,
                     starts_at: typeof t.starts_at === "string" ? t.starts_at : null,
-                    expires_at: typeof t.expires_at === "string" ? t.expires_at : null,
+                    expires_at: typeof t.expires_at === "string" ? t.expires_at : "",
                   } as TrialCredits;
                 })()
               : null;
@@ -650,6 +651,28 @@ export async function chargeTopUp(amount_usd: number): Promise<TopUpChargeRespon
 
   if (!response.ok || !data.status) {
     throw new Error(data.error || "Failed to charge top-up.");
+  }
+
+  return data;
+}
+
+export interface TrialResponse {
+  credits: number;
+  plan_credits: number;
+  topup_credits: number;
+  used: number;
+  spent_this_period: number;
+  trial?: { remaining: number; expires_at: string } | null;
+}
+
+/** POST /stripe/trial — grant 1000 free trial credits. */
+export async function startTrial(): Promise<TrialResponse> {
+  const response = await apiFetch(STRIPE_TRIAL_ENDPOINT, { method: "POST" });
+
+  const data = (await response.json()) as TrialResponse & { error?: string };
+
+  if (!response.ok) {
+    throw new Error((data as { error?: string }).error || "Failed to start trial.");
   }
 
   return data;

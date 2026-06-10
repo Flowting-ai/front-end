@@ -628,6 +628,8 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
   attachmentsSlot?: React.ReactNode
   /** When true, hides the model-selector button entirely. */
   hideModelSelector?: boolean
+  /** When true, hides the leading + add button entirely. */
+  hideAddButton?: boolean
   /**
    * When true, the model is generating a response. The send button and Enter
    * key are blocked so the user cannot dispatch a new message, but the
@@ -678,6 +680,7 @@ export function ChatInput({
       onSelectedPersonaChange,
       attachmentsSlot,
       hideModelSelector = false,
+      hideAddButton = false,
       isStreaming = false,
       chips,
       pinCards,
@@ -1106,7 +1109,7 @@ export function ChatInput({
         >
           {/* Left: attach button + chips slot */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {addMenu != null ? (
+            {!hideAddButton && (addMenu != null ? (
               // Inline Dropdown - opens above the trigger with its left
               // edge aligned to the button's left edge (top-start). Figma
               // 3219:33599.
@@ -1134,7 +1137,7 @@ export function ChatInput({
                 aria-label="Add attachment"
                 onClick={onAdd}
               />
-            )}
+            ))}
             {(webSearch || activeStyle || activePersona || chips) && (
               <div
                 // Chips slot (Figma 3427:27842 - web-search / persona / style /

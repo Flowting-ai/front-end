@@ -229,8 +229,9 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     let cancelled = false
     ;(async () => {
       try {
-        const [version, models] = await Promise.all([
+        const [version, repo, models] = await Promise.all([
           getVersion(repoId, versionId),
+          getPersonaRepo(repoId),
           isInstructionsTab ? Promise.resolve([]) : fetchModelsWithCache(),
         ])
         if (cancelled) return
@@ -240,6 +241,14 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
           push(`/agents/${repoId}/chat`)
           return
         }
+
+        // Always update name and avatar so the test-chat header stays correct on
+        // reload and session/tab changes (even when the instructions page is unmounted).
+        _setPersonaInfo(prev => ({
+          ...prev,
+          personaName: prev.personaName || repo.name || prev.personaName,
+          imageUrl:    prev.imageUrl    ?? version.image_url ?? null,
+        }))
 
         // Skip the model bootstrap for the instructions tab — it does this itself
         if (isInstructionsTab) return
@@ -576,8 +585,21 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   const [versions,          setVersions]          = useState<PersonaVersionListItem[]>([])
   const [versionsLoading,   setVersionsLoading]   = useState(false)
 
-  // Test Chat and AI Suggestions are locked until a version has been saved.
-  const panelsLocked = versions.length === 0
+  // Panels unlock when the user explicitly saves a version in configure.
+  // We can't rely on versions.length because the wizard backend auto-creates an initial
+  // version, so versions is never empty for new agents. Instead we track unlock state
+  // via a localStorage flag that is absent for new (wizard-created) agents until they
+  // explicitly hit Save version.
+  const [panelsUnlocked, setPanelsUnlocked] = useState(false)
+  useEffect(() => {
+    const repoId = personaInfo.repoId
+    if (!repoId) { setPanelsUnlocked(false); return }
+    const isNewAgent = typeof window !== 'undefined' && localStorage.getItem(`persona_needs_publish_${repoId}`) === '1'
+    const savedInConfigure = typeof window !== 'undefined' && localStorage.getItem(`persona_configure_saved_${repoId}`) === '1'
+    setPanelsUnlocked(!isNewAgent || savedInConfigure)
+  }, [personaInfo.repoId])
+
+  const panelsLocked = !panelsUnlocked
   useEffect(() => { panelsLockedRef.current = panelsLocked }, [panelsLocked])
 
   // Bootstrap versions on initial load so panelsLocked reflects the server state immediately,
@@ -622,8 +644,20 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     return () => { cancelled = true }
   }, [personaInfo.repoId])
 
+  // The backend auto-activates the first version when an agent is created via the
+  // wizard, so active_version_id is set from day 1. Suppress "Live" until the user
+  // explicitly clicks Publish by checking the localStorage flag the wizard writes.
+  const [needsFirstPublish, setNeedsFirstPublish] = useState(false)
+  useEffect(() => {
+    const repoId = personaInfo.repoId
+    if (!repoId) { setNeedsFirstPublish(false); return }
+    setNeedsFirstPublish(typeof window !== 'undefined' && localStorage.getItem(`persona_needs_publish_${repoId}`) === '1')
+  }, [personaInfo.repoId])
+
   const markPublished = useCallback((versionId: string) => {
     setActiveVersionId(versionId)
+    setNeedsFirstPublish(false)
+    setPanelsUnlocked(true)
     bustPersonasCache()
   }, [])
 
@@ -682,6 +716,11 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   const refreshVersions = useCallback(() => {
     const repoId = infoRef.current.repoId
     if (!repoId) return
+    // Mark panels unlocked — refreshVersions is called after every explicit Save version action.
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem(`persona_configure_saved_${repoId}`, '1') } catch { /* ignore */ }
+    }
+    setPanelsUnlocked(true)
     listVersions(repoId)
       .then(v => setVersions(
         v.slice()
@@ -745,7 +784,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
 
     registerAutoSave,
 
-    activeVersionId,
+    activeVersionId: needsFirstPublish ? null : activeVersionId,
     refreshActiveVersion,
     markPublished,
 

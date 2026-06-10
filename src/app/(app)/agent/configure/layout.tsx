@@ -4,7 +4,7 @@ import React, { Suspense, useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { AnimatePresence, m } from 'framer-motion'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { QuestionCard } from '@/components/QuestionCard'
 import {
   UserAiIcon,
@@ -160,7 +160,21 @@ function useHelpState(pathname: string) {
 function PersonaHelpButton() {
   const pathname = usePathname()
   const { helpOpen, setHelpOpen, helpActiveId, setHelpActiveId, tabKey, tabIndex, helpData, tabItemIds, isPanelActive, titleBadge } = useHelpState(pathname)
-  const { setTestChatOpen, setAiSuggestOpen, setVersionsOpen } = usePersonaConfigure()
+  const searchParams = useSearchParams()
+  const { setTestChatOpen, setAiSuggestOpen, setVersionsOpen, safeNavigate } = usePersonaConfigure()
+
+  const BACK_ROUTES: Partial<Record<string, string>> = {
+    profile:    '/agent/configure/instructions',
+    knowledge:  '/agent/configure/profile',
+    connectors: '/agent/configure/knowledge',
+    sharing:    '/agent/configure/connectors',
+  }
+  const backRoute = BACK_ROUTES[tabKey]
+
+  function handleBack() {
+    if (!backRoute) return
+    safeNavigate(`${backRoute}?${searchParams.toString()}`)
+  }
 
   const [activeInfoTab, setActiveInfoTab] = useState<'main' | 'panels'>('main')
   // Remembers whether the sidebar was open when help opened so we can restore it on close.
@@ -297,16 +311,25 @@ function PersonaHelpButton() {
         )}
       </AnimatePresence>
 
-      <span style={{ backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderRadius: 10, display: 'inline-flex' }}>
-        <IconButton
-          variant="outline"
-          size="md"
-          aria-label={helpOpen ? 'Close help' : `Help — ${helpData.title}`}
-          aria-expanded={helpOpen}
-          icon={<InformationCircleIcon size={20} animated />}
-          onClick={() => setHelpOpen(!helpOpen)}
-        />
-      </span>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <span style={{ backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderRadius: 10, display: 'inline-flex' }}>
+          <IconButton
+            variant="outline"
+            size="md"
+            aria-label={helpOpen ? 'Close help' : `Help — ${helpData.title}`}
+            aria-expanded={helpOpen}
+            icon={<InformationCircleIcon size={20} animated />}
+            onClick={() => setHelpOpen(!helpOpen)}
+          />
+        </span>
+        {backRoute && (
+          <span style={{ backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderRadius: 10, display: 'inline-flex' }}>
+            <Button variant="outline" size="sm" onClick={handleBack}>
+              Back
+            </Button>
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -518,7 +541,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
     testChatFolders, setTestChatFolders, testChatPersonaId, setTestChatPersonaId,
     testChatAttachments, setTestChatAttachments, handleTestChatAddFiles, handleTestChatFileChange,
     handleTestChatFilePaste, testChatFileInputRef, FILE_ACCEPT,
-    versions,
+    versions, panelsLocked,
   } = usePersonaConfigure()
   const { repoId, versionId, personaName, imageUrl, guideModelName } = personaInfo
   const hasSavedVersion = versions.length > 0
@@ -544,6 +567,13 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
         </div>
       </div>
 
+      {/* Messages + Input — wrapped for lock overlay */}
+      <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      {panelsLocked && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', borderRadius: 8 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0, textAlign: 'center', padding: '0 24px' }}>Save a version first to unlock Test Chat</p>
+        </div>
+      )}
       {/* Messages */}
       <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
         {chatMessages.length === 0 ? (
@@ -620,23 +650,9 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
           textareaLabel="Test message"
           modelName={guideModelName}
           hideModelSelector
+          hideAddButton
           webSearch={testChatWebSearch}
           onWebSearchChange={setTestChatWebSearch}
-          addMenu={
-            <ChatAddMenu
-              webSearchEnabled={testChatWebSearch}
-              onWebSearchChange={setTestChatWebSearch}
-              onAddFilesClick={handleTestChatAddFiles}
-              selectedStyleId={testChatStyleId}
-              onStyleChange={setTestChatStyleId}
-              selectedFolders={testChatFolders}
-              onFolderToggle={(folder) => setTestChatFolders(prev =>
-                prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
-              )}
-              selectedPersonaId={testChatPersonaId}
-              onPersonaChange={(p) => setTestChatPersonaId(p?.id ?? null)}
-            />
-          }
           attachmentsSlot={
             <AttachmentManager
               attachments={testChatAttachments}
@@ -648,6 +664,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
           onSend={handleTestChatSend}
         />
       </div>
+      </div>{/* end lock wrapper */}
     </>
   )
 }
@@ -658,6 +675,7 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
   const {
     personaInfo, setGuideExpanded, setAiSuggestOpen,
     guideMessages, guideIsStreaming, guideScrollRef, handleGuideSend,
+    panelsLocked,
   } = usePersonaConfigure()
 
   return (
@@ -675,34 +693,43 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
           <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close AI suggestions" onClick={() => { setAiSuggestOpen(false); setGuideExpanded(false) }} />
         </div>
       </div>
-      <div ref={guideScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
-        {guideMessages.length === 0 ? (
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-            Ask me anything about improving your agent — I&apos;ll review your current draft and give you tailored advice.
-          </p>
-        ) : (
-          guideMessages.map(msg => (
-            <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-              {msg.role === 'assistant' ? (
-                <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />
-              ) : (
-                <div style={{ maxWidth: '85%', padding: '8px 12px', borderRadius: 12, backgroundColor: 'var(--neutral-100)', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', wordBreak: 'break-word' }}>
-                  {msg.text}
-                </div>
-              )}
-            </div>
-          ))
+      {/* Messages + Input — wrapped for lock overlay */}
+      <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        {panelsLocked && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', borderRadius: 8 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0, textAlign: 'center', padding: '0 24px' }}>Save a version first to unlock AI Suggestions</p>
+          </div>
         )}
-      </div>
-      <div style={{ flexShrink: 0 }}>
-        <ChatInput
-          placeholder="Ask for guidance…"
-          textareaLabel="Ask for AI guidance"
-          modelName={personaInfo.guideModelName}
-          hideModelSelector
-          isStreaming={guideIsStreaming}
-          onSend={handleGuideSend}
-        />
+        <div ref={guideScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
+          {guideMessages.length === 0 ? (
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+              Ask me anything about improving your agent — I&apos;ll review your current draft and give you tailored advice.
+            </p>
+          ) : (
+            guideMessages.map(msg => (
+              <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                {msg.role === 'assistant' ? (
+                  <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />
+                ) : (
+                  <div style={{ maxWidth: '85%', padding: '8px 12px', borderRadius: 12, backgroundColor: 'var(--neutral-100)', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', wordBreak: 'break-word' }}>
+                    {msg.text}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+        <div style={{ flexShrink: 0 }}>
+          <ChatInput
+            placeholder="Ask for guidance…"
+            textareaLabel="Ask for AI guidance"
+            modelName={personaInfo.guideModelName}
+            hideModelSelector
+            hideAddButton
+            isStreaming={guideIsStreaming}
+            onSend={handleGuideSend}
+          />
+        </div>
       </div>
     </>
   )

@@ -4,8 +4,6 @@ import React, { useState, useRef, Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
-  QuillWriteOneIcon,
-  ArrowUpRightOneIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
@@ -331,6 +329,12 @@ function PersonaConfigureProfileContent() {
     return () => registerAutoSave(null)
   }, [registerAutoSave])
 
+  async function handleContinue() {
+    await profileAutoSaveRef.current()
+    const params = new URLSearchParams(searchParams.toString())
+    push(`/agent/configure/knowledge?${params.toString()}`)
+  }
+
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
     if (route) safeNavigate(`${route}?${searchParams.toString()}`)
@@ -360,8 +364,8 @@ function PersonaConfigureProfileContent() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: anyPanelOpen ? 'flex-start' : 'space-between',
-            gap: anyPanelOpen ? 8 : 0,
+            justifyContent: 'flex-start',
+            gap: 8,
             height: 36,
             position: 'relative',
           }}
@@ -438,40 +442,7 @@ function PersonaConfigureProfileContent() {
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: anyPanelOpen ? 'auto' : undefined }}>
-            {anyPanelOpen ? (
-              <IconButton
-                variant="outline"
-                size="sm"
-                icon={<QuillWriteOneIcon size={16} />}
-                aria-label="Save version"
-                onClick={handleSaveVersion}
-                disabled={pendingChangeTags.length === 0 || !repoId || !versionId || isSaving}
-                loading={isSaving}
-              />
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                leftIcon={<QuillWriteOneIcon size={16} />}
-                onClick={handleSaveVersion}
-                disabled={pendingChangeTags.length === 0 || !repoId || !versionId || isSaving}
-                loading={isSaving}
-              >
-                {isSaving ? 'Saving…' : 'Save version'}
-              </Button>
-            )}
-            <Button
-              variant="default"
-              size="sm"
-              rightIcon={<ArrowUpRightOneIcon size={16} />}
-              onClick={handlePublish}
-              disabled={!needsRepublish || isPublishing || pendingChangeTags.length > 0}
-            >
-              {isPublishing ? 'Publishing…' : 'Publish'}
-            </Button>
-          </div>
+
 
           {/* Status badges — centered below the tab bar */}
           {(!!versionId || pendingChangeTags.length > 0 || isPublished || needsRepublish) && (
@@ -530,6 +501,13 @@ function PersonaConfigureProfileContent() {
           />
           <div style={{ height: 24, flexShrink: 0 }} />
         </div>
+      </div>
+
+      {/* ── Bottom navigation ────────────────────────────────────────────────── */}
+      <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '12px 16px 4px', borderTop: '1px solid var(--neutral-100)' }}>
+        <Button variant="default" size="sm" onClick={() => void handleContinue()}>
+          Continue
+        </Button>
       </div>
 
       {republishModalOpen && (

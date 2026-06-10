@@ -89,7 +89,6 @@ function FeaturedModeRow() {
         <ModelFeaturedCard
           title="Muse"
           description={description}
-          learnMoreHref="#"
           selected={mode === 'muse'}
           onSelectedChange={(next) => { if (next) setMode('muse') }}
         />
@@ -98,7 +97,6 @@ function FeaturedModeRow() {
         <ModelFeaturedCard
           title="Advanced"
           description={description}
-          learnMoreHref="#"
           selected={mode === 'advanced'}
           onSelectedChange={(next) => { if (next) setMode('advanced') }}
         />

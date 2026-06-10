@@ -5,6 +5,7 @@ import {
   PERSONA_SHARES_ENDPOINT,
   PERSONA_SHARES_RECEIVED_ENDPOINT,
   PERSONA_SHARES_SENT_ENDPOINT,
+  PERSONA_SHARES_DASHBOARD_ENDPOINT,
   PERSONA_SHARE_DETAIL_ENDPOINT,
   PERSONA_SHARE_ACCEPT_ENDPOINT,
 } from "@/lib/config";
@@ -12,6 +13,18 @@ import {
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export type ShareType = "link" | "email";
+
+/** One accepted recipient of a link share — embedded inside PersonaShare.recipients. */
+export interface ShareRecipientSummary {
+  recipient_user_id: string;
+  recipient_name: string;
+  recipient_email: string | null;
+  message_count: number;
+  credit_used: number;
+  credit_remaining: number | null;
+  is_active: boolean;
+  accepted_at: string;
+}
 
 /** Row returned by POST /persona-shares and GET /persona-shares */
 export interface PersonaShare {
@@ -23,11 +36,40 @@ export interface PersonaShare {
   recipient_emails: string[] | null;
   credit_limit: number | null;
   credit_used: number;
-  expires_at: string | null;
+  credit_remaining?: number | null;
+  expires_at: string;
   is_active: boolean;
   share_url: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
+  /** Resolved persona name — populated by the dashboard and list endpoints. */
+  persona_name?: string | null;
+  pct_used?: number | null;
+  /** Per-recipient usage — populated by the dashboard endpoint. */
+  recipients?: ShareRecipientSummary[];
+}
+
+/** A { date, credits } point in the daily credit-usage series. */
+export interface DashboardDailyPoint {
+  date: string;
+  credits: number;
+}
+
+export interface ShareDashboardSummary {
+  active_links: number;
+  total_links: number;
+  conversations: number;
+  conversations_delta_pct: number | null;
+  credits_this_month: number;
+  credits_delta_pct: number | null;
+}
+
+/** Response from GET /persona-shares/dashboard */
+export interface ShareDashboardResponse {
+  summary: ShareDashboardSummary;
+  daily: DashboardDailyPoint[];
+  window_days: number;
+  links: PersonaShare[];
 }
 
 /** Returned by GET /persona-shares/{id} — shown to the person accepting the share. */
@@ -41,7 +83,7 @@ export interface PersonaSharePreview {
   image_url: string | null;
   shared_by_name: string;
   shared_by_email: string;
-  expires_at: string | null;
+  expires_at: string;
   credit_limit: number | null;
   credit_remaining: number | null;
 }
@@ -132,6 +174,14 @@ export async function listReceived(): Promise<ReceivedShareResponse[]> {
 
 export async function listSent(): Promise<SentShareResponse[]> {
   return apiFetchJson<SentShareResponse[]>(PERSONA_SHARES_SENT_ENDPOINT)
+}
+
+/**
+ * GET /persona-shares/dashboard — summary stats, daily credit series, and per-link cards.
+ * `window` drives the chart: 7, 30, or 90 days (default 30).
+ */
+export async function fetchDashboard(window: 7 | 30 | 90 = 30): Promise<ShareDashboardResponse> {
+  return apiFetchJson<ShareDashboardResponse>(`${PERSONA_SHARES_DASHBOARD_ENDPOINT}?window=${window}`)
 }
 
 export async function revokeShare(id: string): Promise<void> {

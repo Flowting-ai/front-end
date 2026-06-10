@@ -6,8 +6,6 @@ import { toast } from 'sonner'
 import { updateVersion, setActiveVersion, bustPersonasCache, listVersions } from '@/lib/api/personas'
 import {
   ArrowLeftOneIcon,
-  QuillWriteOneIcon,
-  ArrowUpRightOneIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
@@ -118,6 +116,11 @@ function PersonaConfigureConnectorsContent() {
     }
   }
 
+  function handleContinue() {
+    const params = new URLSearchParams(searchParams.toString())
+    push(`/agent/configure/sharing?${params.toString()}`)
+  }
+
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
     if (route) safeNavigate(`${route}?${searchParams.toString()}`)
@@ -154,8 +157,8 @@ function PersonaConfigureConnectorsContent() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: anyPanelOpen ? 'flex-start' : 'space-between',
-              gap: anyPanelOpen ? 8 : 0,
+              justifyContent: 'flex-start',
+              gap: 8,
               height: 36,
               position: 'relative',
             }}
@@ -232,42 +235,6 @@ function PersonaConfigureConnectorsContent() {
               </div>
             </div>
 
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: anyPanelOpen ? 'auto' : undefined }}>
-              {anyPanelOpen ? (
-                <IconButton
-                  variant="outline"
-                  size="sm"
-                  icon={<QuillWriteOneIcon size={16} />}
-                  aria-label="Save version"
-                  onClick={handleSaveVersion}
-                  disabled={pendingChangeTags.length === 0 || !repoId || !versionId || isSaving}
-                  loading={isSaving}
-                />
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  leftIcon={<QuillWriteOneIcon size={16} />}
-                  onClick={handleSaveVersion}
-                  disabled={pendingChangeTags.length === 0 || !repoId || !versionId || isSaving}
-                  loading={isSaving}
-                >
-                  {isSaving ? 'Saving…' : 'Save version'}
-                </Button>
-              )}
-              <Button
-                variant="default"
-                size="sm"
-                rightIcon={<ArrowUpRightOneIcon size={16} />}
-                onClick={handlePublish}
-                disabled={!needsRepublish || isPublishing || pendingChangeTags.length > 0}
-                loading={isPublishing}
-              >
-                {isPublishing ? 'Publishing…' : 'Publish'}
-              </Button>
-            </div>
-
             {/* Status badges — centered below the tab bar */}
             {(!!versionId || pendingChangeTags.length > 0 || isPublished || needsRepublish) && (
               <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 6, pointerEvents: 'none', zIndex: 1, display: 'flex', gap: 4 }}>
@@ -317,8 +284,16 @@ function PersonaConfigureConnectorsContent() {
               versionId={versionId || undefined}
               personaName={personaName || undefined}
               onConnectorsChange={(enabled, disabled) => updatePersonaInfo({ connectorSlugs: enabled, disabledConnectorSlugs: disabled })}
+              onSaveVersion={handleSaveVersion}
             />
           </div>
+        </div>
+
+        {/* ── Bottom navigation ────────────────────────────────────────────────── */}
+        <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '12px 16px 4px', borderTop: '1px solid var(--neutral-100)' }}>
+          <Button variant="default" size="sm" onClick={handleContinue}>
+            Continue
+          </Button>
         </div>
 
       </div>

@@ -286,19 +286,11 @@ function TonePageContent() {
         toast.error('No AI models available. Please contact support.')
         return
       }
-      // The backend requires model_id on creation, so we always send one.
-      // For template agents we honour the modelHint. For custom (non-template)
-      // agents we seed the first available model to satisfy the backend, but the
-      // `persona_wizard_no_model` flag (set below) makes the Instructions tab
-      // start with NO model selected so the user must still choose explicitly —
-      // the seeded value is overwritten on their first save.
-      let chosenModel = firstModel
-      if (wizardTemplate && templatePreset?.modelHint) {
-        const hint   = templatePreset.modelHint.toLowerCase()
-        const hinted = models.find(m => m.modelName.toLowerCase().includes(hint))
-        if (hinted) chosenModel = hinted
-      }
-      const chosenModelId = stableKey(chosenModel) ?? ''
+      // The backend requires model_id on creation, so we always seed the first
+      // available model. The `persona_wizard_no_model` flag (set below) makes
+      // the Instructions tab start with NO model selected for ALL agents so the
+      // user must choose explicitly — the seeded value is overwritten on first save.
+      const chosenModelId = stableKey(firstModel) ?? ''
 
       // Create the repo + initial version
       const repo         = await createPersonaRepo({
@@ -317,11 +309,9 @@ function TonePageContent() {
       try { if (newVersionId) sessionStorage.setItem(`persona_initial_version_${newRepoId}`, newVersionId) } catch { /* ignore */ }
       // Mark unpublished until the user explicitly publishes
       try { localStorage.setItem(`persona_needs_publish_${newRepoId}`, '1') } catch { /* ignore */ }
-      // For custom (non-template) agents, the model should not be pre-selected — the user
-      // must pick one explicitly on the Instructions tab before they can switch tabs.
-      if (!wizardTemplate) {
-        try { sessionStorage.setItem(`persona_wizard_no_model_${newRepoId}`, '1') } catch { /* ignore */ }
-      }
+      // Model should never be pre-selected — the user must pick one explicitly
+      // on the Instructions tab before they can save or publish.
+      try { sessionStorage.setItem(`persona_wizard_no_model_${newRepoId}`, '1') } catch { /* ignore */ }
       // Keep purpose accessible to profile tab description fallback
       if (wizardPurpose) {
         try { sessionStorage.setItem(`persona_wizard_purpose_${newRepoId}`, wizardPurpose) } catch { /* ignore */ }

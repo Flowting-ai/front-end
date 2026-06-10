@@ -967,7 +967,7 @@ function LeftSidebarImpl({
       onNewChat={handleNewChat}
       newChatButtonSelected={isPersonaPage ? pathname === '/agents' : undefined}
       onSearch={openSearch}
-      onChatTabClick={handleNewChat}
+      onChatTabClick={isPersonaPage ? () => push("/chat") : handleNewChat}
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
       onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }}
