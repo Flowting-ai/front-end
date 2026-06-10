@@ -298,7 +298,6 @@ function BrainSchedulesPageInner() {
         recentItems={
           <BrainSidebarSections
             activeChatId={null}
-            isSchedulesPage={true}
             onThreadClick={(id) => push(`/brain?id=${id}`)}
           />
         }
@@ -308,7 +307,10 @@ function BrainSchedulesPageInner() {
         onBrainClick={() => push('/brain')}
         onSearch={() => openSearch()}
         searchActive={searchOpen}
+        onChatTabClick={() => push('/chat')}
         onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push('/chats') }}
+        onAllBrainThreadsClick={() => push('/brain/threads')}
+        onSchedulesClick={() => push('/brain/schedules')}
         onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push('/agents') }}
         onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push('/projects') }}
         accountMenu={(collapsed) => (

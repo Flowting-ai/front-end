@@ -216,7 +216,28 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     fetchProjects()
-      .then(summaries => setProjects(summaries.map(summaryToProject)))
+      .then(summaries => {
+        // Use a functional updater so we never clobber full project data that
+        // loadProject() may have already fetched (race: loadProject resolves
+        // before this list call if the detail endpoint responds faster).
+        setProjects(prev => {
+          const prevMap = new Map(prev.map(p => [p.id, p]))
+          return summaries.map(s => {
+            const existing = prevMap.get(s.id)
+            // Preserve instructions + files if already loaded; just refresh summary fields.
+            if (existing && (existing.instructions || existing.files.length > 0)) {
+              return {
+                ...existing,
+                name:        s.title,
+                description: s.description,
+                chatCount:   s.chatCount,
+                updatedAt:   s.updatedAt,
+              }
+            }
+            return summaryToProject(s)
+          })
+        })
+      })
       .catch(err => setError(err instanceof Error ? err.message : 'Failed to load projects'))
       .finally(() => setLoading(false))
   }, [])

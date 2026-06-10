@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { AnimatePresence, m } from "framer-motion";
 import { ReasoningBlock, ModelLogo, AnimatedLogo } from "./ReasoningBlock";
+import { BreathingDot } from "@/components/BreathingDot";
 import { ActivitiesSection } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
 import { BlockSequenceRenderer, SourceList } from "./ResponseBlocks";
@@ -265,6 +266,8 @@ interface ChatMessageProps {
   pinned?: boolean;
   /** When true, hides the Pin/Unpin action button from the hover actions bar. */
   hidePinAction?: boolean;
+  /** When true, disables text selection highlighting (SelectionPopover + highlight marks). */
+  disableHighlight?: boolean;
   onRegenerate?: () => void;
   onEdit?: (messageId: string, newContent: string) => void;
   onCitationsClick?: () => void;
@@ -280,6 +283,7 @@ export function ChatMessage({
   showReasoning = true,
   pinned: pinnedProp = false,
   hidePinAction = false,
+  disableHighlight = false,
   onRegenerate,
   onEdit,
   onFollowUp,
@@ -346,7 +350,7 @@ export function ChatMessage({
   // ── Text selection → SelectionPopover (assistant messages only) ──────────
   // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
-    if (!isAssistant) return
+    if (!isAssistant || disableHighlight) return
 
     const handleMouseUp = () => {
       requestAnimationFrame(() => {
@@ -707,6 +711,11 @@ export function ChatMessage({
           </div>
         )}
 
+        {/* Waiting indicator — shown while loading before any content or thinking arrives */}
+        {message.isLoading && !message.content && !message.thinking && !(message.activities && message.activities.length > 0) && (
+          <BreathingDot size="md" style={{ marginLeft: 4, marginTop: 2, backgroundColor: "var(--neutral-400)" }} />
+        )}
+
         {/* Reasoning block — shown when adaptive thinking is enabled */}
         {hasThinking && showReasoning && (
           <ReasoningBlock
@@ -733,7 +742,7 @@ export function ChatMessage({
           >
             {isNewMessage && message.isLoading
               ? <StreamingTextContent content={message.content} citations={message.webCitations} />
-              : <ContentRenderer content={message.content} webCitations={message.webCitations} highlights={messageHighlights} />}
+              : <ContentRenderer content={message.content} webCitations={message.webCitations} highlights={disableHighlight ? undefined : messageHighlights} />}
             {!(isNewMessage && message.isLoading) && (
               <StreamingCursor isVisible={false} />
             )}
@@ -1050,7 +1059,7 @@ export function ChatMessage({
       )}
 
       {/* ── Text-selection toolbar (assistant messages only) ── */}
-      {isAssistant && (
+      {isAssistant && !disableHighlight && (
         <SelectionPopover
           open={selectionOpen}
           anchorRect={selectionAnchor}

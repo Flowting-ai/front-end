@@ -2841,6 +2841,8 @@ function BrainPageInner() {
       )}
       selectedPersonaId={selectedPersona?.id ?? null}
       onPersonaChange={setSelectedPersona}
+      hideStyle
+      hidePersona
     />
   )
 
@@ -2986,13 +2988,15 @@ function BrainPageInner() {
         recentItems: (
           <BrainSidebarSections
             activeChatId={chatId}
-            isSchedulesPage={false}
             onThreadClick={(id) => { replace(`/brain?id=${id}`) }}
           />
         ),
         newChatLabel:    'New brain thread',
         onNewChat:       handleNewChat,
-        onChatsClick:    () => { toast.info("Opening Chat Board", { id: 'nav' }); push('/chats') },
+        onChatTabClick:         () => push('/chat'),
+        onChatsClick:           () => { toast.info("Opening Chat Board", { id: 'nav' }); push('/chats') },
+        onAllBrainThreadsClick: () => push('/brain/threads'),
+        onSchedulesClick:       () => push('/brain/schedules'),
         onPersonasClick: () => { toast.info("Opening Agents", { id: 'nav' }); push('/agents') },
         onProjectsClick: () => { toast.info("Opening Projects", { id: 'nav' }); push('/projects') },
         onBrainClick:    () => push('/brain'),

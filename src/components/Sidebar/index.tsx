@@ -109,6 +109,8 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onSearch?: () => void
   /** Called when the sidebar collapse/toggle button is clicked */
   onCollapse?: () => void
+  /** Called when the Chats tab is clicked — always navigates to new chat */
+  onChatTabClick?: () => void
   /** Called when the Chat board nav item is clicked */
   onChatsClick?: () => void
   /** Called when the Projects nav item is clicked */
@@ -121,6 +123,8 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onOrganisationClick?: () => void
   /** Called when Schedules nav item is clicked (Brain section only) */
   onSchedulesClick?: () => void
+  /** Called when All Brain Threads nav item is clicked (Brain section only) */
+  onAllBrainThreadsClick?: () => void
   /** When true, the Projects section is hidden inside the Chats tab. Use on brain pages. */
   hideProjects?: boolean
   /** Called when "Show" is clicked on the Recents section header */
@@ -435,12 +439,14 @@ export function Sidebar({
       newChatButtonSelected,
       onSearch,
       onCollapse,
+      onChatTabClick,
       onChatsClick,
       onProjectsClick,
       onPersonasClick,
       onBrainClick,
       onOrganisationClick,
       onSchedulesClick,
+      onAllBrainThreadsClick,
       hideProjects   = false,
       projects       = DEFAULT_PROJECTS,
       onShowAllProjects,
@@ -679,19 +685,11 @@ export function Sidebar({
           {/* ── Tab strip — Chats / Agents / Brain (hidden when collapsed) ── */}
           {!isCollapsed && (
             <div style={{ paddingLeft: '12px', paddingRight: '12px' }}>
-              <Tabs value={bodySection} onValueChange={(v) => {
-                const s = v as 'chats' | 'agents' | 'brain'
-                // Do NOT call onSelectSection here — bodySection is driven by the
-                // route (sidebarSectionKey remount in LeftSidebar) so the tab
-                // only highlights once the destination page has actually rendered.
-                if (s === 'chats') onChatsClick?.()
-                else if (s === 'agents') onPersonasClick?.()
-                else if (s === 'brain') onBrainClick?.()
-              }}>
+              <Tabs value={bodySection}>
                 <TabsList size="small" fluid>
-                  <TabsTrigger value="chats"  icon={<BubbleChatIcon    size={16} />}>Chats</TabsTrigger>
-                  <TabsTrigger value="agents" icon={<UserAiIcon        size={16} />}>Agents</TabsTrigger>
-                  <TabsTrigger value="brain"  icon={<NeuralNetworkIcon size={16} />}>Brain</TabsTrigger>
+                  <TabsTrigger value="chats"  icon={<BubbleChatIcon    size={16} />} onClick={onChatTabClick}>Chats</TabsTrigger>
+                  <TabsTrigger value="agents" icon={<UserAiIcon        size={16} />} onClick={onPersonasClick}>Agents</TabsTrigger>
+                  <TabsTrigger value="brain"  icon={<NeuralNetworkIcon size={16} />} onClick={onBrainClick}>Brain</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -719,6 +717,28 @@ export function Sidebar({
                 onClick={() => { setSelectedItem('new-chat'); setActiveFolder(null); onNewChat?.() }}
               />
             </Tooltip>
+            {bodySection === 'chats' && (
+              <Tooltip content="Chat Board" side="right" disabled={!isCollapsed}>
+                <SidebarMenuItem
+                  {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                  variant="default"
+                  icon={<BubbleChatIcon size={20} animated />}
+                  label="Chat Board"
+                  onClick={onChatsClick}
+                />
+              </Tooltip>
+            )}
+            {bodySection === 'brain' && (
+              <Tooltip content="All Brain Threads" side="right" disabled={!isCollapsed}>
+                <SidebarMenuItem
+                  {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                  variant="default"
+                  icon={<NeuralNetworkIcon size={20} animated />}
+                  label="All Brain Threads"
+                  onClick={onAllBrainThreadsClick}
+                />
+              </Tooltip>
+            )}
             {isCollapsed && (
               <Tooltip content="Search" side="right">
                 <SidebarMenuItem

@@ -124,6 +124,11 @@ function PersonaConfigureProfileContent() {
       ((draft.personaName as string | undefined) ?? 'Agent Name') !== 'Agent Name'
     )
 
+    // Capture local tags at mount so we can detect wizard-seeded tags that were never
+    // PATCHed to the backend (backend empty, local has tags → auto-save must sync them).
+    const localTagsAtMount = personaTags.slice()
+    let shouldMarkDirtyForTags = false
+
     getPersonaRepo(repoId)
       .then(repo => {
         const v = repo.active_version
@@ -143,9 +148,20 @@ function PersonaConfigureProfileContent() {
         }
         // Clear one-shot wizard key so stale data doesn't bleed into the next wizard run.
         try { sessionStorage.removeItem('persona_wizard_starter') } catch { /* ignore */ }
+        // If local has tags (from wizard starter / sessionStorage) but backend has none,
+        // flag for dirty-marking after init so auto-save will PATCH them on next navigation.
+        const apiTags = v?.persona_tags ?? []
+        if (localTagsAtMount.length > 0 && apiTags.length === 0) {
+          shouldMarkDirtyForTags = true
+        }
       })
       .catch(err => console.error('[ProfilePage] API load error:', err))
-      .finally(() => { isInitializedRef.current = true; setIsInitialized(true) })
+      .finally(() => {
+        isInitializedRef.current = true
+        setIsInitialized(true)
+        // Must run after isInitializedRef = true so markDirty's own guard passes.
+        if (shouldMarkDirtyForTags) markDirty()
+      })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repoId])
 
@@ -162,8 +178,17 @@ function PersonaConfigureProfileContent() {
         personaDescription,
         personaTags,
       }))
+      // Also persist tags to localStorage so persona cards survive browser-session changes.
+      // An empty array explicitly removes the key so stale data never lingers.
+      if (repoId) {
+        if (personaTags.length > 0) {
+          localStorage.setItem(`persona_tags_${repoId}`, JSON.stringify(personaTags))
+        } else {
+          localStorage.removeItem(`persona_tags_${repoId}`)
+        }
+      }
     } catch { /* storage quota exceeded — ignore */ }
-  }, [PROFILE_KEY, avatarUrl, personaName, personaHandle, personaDescription, personaTags])
+  }, [PROFILE_KEY, repoId, avatarUrl, personaName, personaHandle, personaDescription, personaTags])
 
   // Push persona info to shared layout context
   useEffect(() => {
@@ -275,9 +300,31 @@ function PersonaConfigureProfileContent() {
 
   const profileAutoSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
 
-  // Tab switching preserves state via sessionStorage (written on every field change above).
-  // No backend save on tab switch — data is only written to the server on explicit Save Version or Publish.
-  profileAutoSaveRef.current = async () => Promise.resolve()
+  // On tab switch: flush text fields + tags to the API so persona cards on /agents
+  // always show current tags even after a browser refresh (sessionStorage would be gone).
+  // Image upload is skipped here — only done on explicit Save Version or Publish.
+  profileAutoSaveRef.current = async () => {
+    if (!isDirtyRef.current || !repoId || !versionId) return
+    try {
+      await updateVersion({
+        repoId,
+        versionId,
+        name:         personaName,
+        prompt:       personaDescription,
+        persona_tags: personaTags,
+        // No image / imageUrl — avoid re-downloading remote URLs or uploading data: blobs on every tab switch.
+      })
+      // Clear dirty only when the avatar doesn't need an upload (it's a remote URL or null).
+      // If the user cropped/uploaded a new avatar, leave isDirty so Save Version stays available.
+      if (!avatarUrl?.startsWith('data:')) {
+        isDirtyRef.current = false
+        setIsDirty(false)
+      }
+    } catch (err) {
+      console.error('[ProfilePage] auto-save error:', err)
+      // Don't block navigation on error — user can still explicitly save.
+    }
+  }
 
   useEffect(() => {
     registerAutoSave(() => profileAutoSaveRef.current())

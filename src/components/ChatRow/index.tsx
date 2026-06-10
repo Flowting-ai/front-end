@@ -520,13 +520,15 @@ function ChatRowInner(
                   </DropdownMenu.Portal>
                 </DropdownMenu.Root>
               )}
-              <PinCountChip
-                pinCount={pinCount}
-                pinBoardOpen={pinBoardOpen}
-                rowElevated={rowElevated}
-                title={resolvedTitle}
-                onClick={onPinClick}
-              />
+              {onPinClick !== undefined && (
+                <PinCountChip
+                  pinCount={pinCount}
+                  pinBoardOpen={pinBoardOpen}
+                  rowElevated={rowElevated}
+                  title={resolvedTitle}
+                  onClick={onPinClick}
+                />
+              )}
             </div>
           </>
         )}

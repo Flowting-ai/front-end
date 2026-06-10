@@ -85,11 +85,9 @@ function ShareAcceptContent() {
       const result = await acceptShare(params.id)
       setState('accepted')
       toast.success(`"${result.name}" added to your agents`)
-      // Navigate to the new persona's instructions page
+      // Received agents are read-only — go to the agents list, not the edit page
       setTimeout(() => {
-        push(
-          `/agent/configure/instructions?repoId=${result.persona_repo_id}&versionId=${result.id}&name=${encodeURIComponent(result.name)}`,
-        )
+        push('/agents')
       }, 1200)
     } catch (err) {
       if (err instanceof ApiError) {

@@ -183,9 +183,17 @@ let _personasCache: Persona[] | null = null
 let _personasCacheTime = 0
 const PERSONAS_CACHE_TTL = 30_000
 
+// Per-persona detail cache keyed by repoId.
+// Busted alongside the list cache on every publish / delete / update so cards
+// always reflect the latest active_version (including persona_tags + image_url).
+const _personaDetailCache = new Map<string, { data: PersonaRepoResponse; time: number }>()
+const _personaDetailInFlight = new Map<string, Promise<PersonaRepoResponse>>()
+
 export function bustPersonasCache(): void {
   _personasCache = null
   _personasCacheTime = 0
+  _personaDetailCache.clear()
+  _personaDetailInFlight.clear()
 }
 
 // Deduplicates concurrent calls: all callers that arrive while a request is
@@ -216,6 +224,27 @@ export async function getPersona(repoId: string): Promise<Persona> {
 
 export async function getPersonaRepo(repoId: string): Promise<PersonaRepoResponse> {
   return apiFetchJson<PersonaRepoResponse>(PERSONA_DETAIL_ENDPOINT(repoId));
+}
+
+/**
+ * Cached variant of getPersonaRepo — used by the /agents list page so that
+ * persona_tags + image_url are available instantly on return visits.
+ * Cache is busted by bustPersonasCache() (called on publish / delete / update).
+ */
+export function getPersonaRepoWithCache(repoId: string): Promise<PersonaRepoResponse> {
+  const now = Date.now()
+  const cached = _personaDetailCache.get(repoId)
+  if (cached && now - cached.time < PERSONAS_CACHE_TTL) return Promise.resolve(cached.data)
+  const inFlight = _personaDetailInFlight.get(repoId)
+  if (inFlight) return inFlight
+  const p = apiFetchJson<PersonaRepoResponse>(PERSONA_DETAIL_ENDPOINT(repoId))
+    .then(data => {
+      _personaDetailCache.set(repoId, { data, time: Date.now() })
+      return data
+    })
+    .finally(() => { _personaDetailInFlight.delete(repoId) })
+  _personaDetailInFlight.set(repoId, p)
+  return p
 }
 
 export async function createPersonaRepo(params: {
@@ -260,7 +289,12 @@ export async function listVersions(repoId: string): Promise<PersonaVersionListIt
 
 async function urlToImageFile(url: string): Promise<File | null> {
   try {
-    const res = await fetch(url);
+    // S3 pre-signed URLs fail browser-side fetch due to CORS. Route them through
+    // the Next.js proxy which runs server-side without CORS restrictions.
+    const fetchUrl = url.includes('.amazonaws.com')
+      ? `/api/download?url=${encodeURIComponent(url)}&filename=avatar.jpg`
+      : url
+    const res = await fetch(fetchUrl);
     if (!res.ok) return null;
     const blob = await res.blob();
     const ext = (blob.type.split("/")[1] || "jpg").split("+")[0];

@@ -16,7 +16,6 @@ import {
   updateVersion,
   uploadDocument,
   deleteDocument,
-  addKnowledgeUrl,
   setActiveVersion,
   bustPersonasCache,
   type PersonaVersionResponse,
@@ -366,53 +365,6 @@ function PersonaConfigureKnowledgeContent() {
     }
   }
 
-  // ── Add URL as knowledge source ──────────────────────────────────────────
-
-  async function handleAddUrl(url: string) {
-    if (!repoId || !versionId) return
-    // Optimistic placeholder so the row appears immediately
-    const placeholder: KnowledgeFile = {
-      id:       `url-pending-${Date.now()}`,
-      name:     url.replace(/^https?:\/\//, '').split('/')[0],
-      url,
-      type:     'url',
-      fileType: 'URL',
-      size:     '-',
-      date:     new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    }
-    setFiles(prev => [...prev, placeholder])
-    try {
-      const updatedVersion = await addKnowledgeUrl(repoId, versionId, url)
-      toast.success(`Added ${url}`)
-      setIsDirty(true)
-      addPendingChangeTag('Knowledge')
-      // Use the returned version directly to refresh the list with the real UUID.
-      // Fall back to getVersion if the response doesn't include the new link yet.
-      const apiFiles = docsToFilesWithSizes(updatedVersion)
-      const addedInApi = apiFiles.find(f => f.type === 'url' && (f.url === url || f.url?.includes(url.replace(/^https?:\/\//, '').split('/')[0])))
-      if (addedInApi) {
-        setFiles(prev => prev.map(f => f.id === placeholder.id ? addedInApi : f))
-      } else {
-        // Not in response yet — fetch explicitly using GET /versions/{persona_id}
-        try {
-          const version = await getVersion(repoId, versionId)
-          setFiles(prev => {
-            const freshFiles = docsToFilesWithSizes(version)
-            const found = freshFiles.find(f => f.type === 'url' && f.url === url)
-            if (found) return prev.map(f => f.id === placeholder.id ? found : f)
-            return prev
-          })
-        } catch {
-          // placeholder stays visible — correct fallback
-        }
-      }
-    } catch (err) {
-      console.error('[KnowledgePage] URL add error:', err)
-      setFiles(prev => prev.filter(f => f.id !== placeholder.id))
-      toast.error('Failed to add URL')
-    }
-  }
-
   // ── Save version ─────────────────────────────────────────────────────────
 
   async function handleSaveVersion() {
@@ -621,7 +573,6 @@ function PersonaConfigureKnowledgeContent() {
               onRawFilesSelected={uploadFiles}
               onRemoveFile={handleDeleteFile}
               onPreviewFile={handlePreviewFile}
-              onAddUrl={handleAddUrl}
             />
           )}
         </div>

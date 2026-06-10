@@ -531,20 +531,34 @@ export default function PersonasPage() {
   useEffect(() => {
     if (pathname !== '/agents') return
     setIsLoading(true)
-    fetchPersonas()
-      .then(list => {
+    ;(async () => {
+      try {
+        const list = await fetchPersonas()
         setPersonas(list)
-        // Build draft-avatar overrides from sessionStorage (covers the case
-        // where the user uploaded an image but hasn't saved to the API yet).
-        const avatarOverrides:     Record<string, string>   = {}
-        const tagOverrides:        Record<string, string[]> = {}
+
+        // Build tag/avatar overrides from sessionStorage (current-session edits) with
+        // localStorage as cross-session fallback for tags. Only non-empty values are stored
+        // so stale empty arrays never shadow real API data via the ?? operator.
+        const avatarOverrides:      Record<string, string>   = {}
+        const tagOverrides:         Record<string, string[]> = {}
         const unpublishedOverrides: Record<string, boolean>  = {}
         for (const p of list) {
           try {
             const raw = sessionStorage.getItem(`persona_profile_${p.id}`)
             const draft = JSON.parse(raw ?? 'null') as Record<string, unknown> | null
-            if (typeof draft?.avatarUrl === 'string') avatarOverrides[p.id] = draft.avatarUrl
-            if (Array.isArray(draft?.personaTags))   tagOverrides[p.id]    = draft.personaTags as string[]
+            const draftAvatar = draft?.avatarUrl as string | undefined
+            let   draftTags   = draft?.personaTags as string[] | undefined
+            // sessionStorage clears on tab/session close — fall back to localStorage
+            // which the profile tab also writes on every tag change.
+            if (!Array.isArray(draftTags) || draftTags.length === 0) {
+              try {
+                const lsRaw = localStorage.getItem(`persona_tags_${p.id}`)
+                const lsTags = JSON.parse(lsRaw ?? 'null') as string[] | null
+                if (Array.isArray(lsTags) && lsTags.length > 0) draftTags = lsTags
+              } catch { /* ignore */ }
+            }
+            if (typeof draftAvatar === 'string' && draftAvatar) avatarOverrides[p.id] = draftAvatar
+            if (Array.isArray(draftTags) && draftTags.length > 0) tagOverrides[p.id]  = draftTags
           } catch { /* ignore quota / parse errors */ }
           try {
             if (localStorage.getItem(`persona_needs_publish_${p.id}`) === '1') {
@@ -563,9 +577,12 @@ export default function PersonasPage() {
         setDraftAvatarMap(avatarOverrides)
         setDraftTagsMap(tagOverrides)
         setUnpublishedMap(unpublishedOverrides)
-      })
-      .catch(console.error)
-      .finally(() => setIsLoading(false))
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setIsLoading(false)
+      }
+    })()
   }, [pathname])
 
   // Fetch link shares whenever the super-links tab is active.

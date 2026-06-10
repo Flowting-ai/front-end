@@ -22,7 +22,6 @@ type KnowledgeTabProps = {
   onRawFilesSelected?: (files: File[]) => void;
   onRemoveFile?: (id: string) => void;
   onPreviewFile?: (file: KnowledgeFile) => void;
-  onAddUrl?: (url: string) => void;
 };
 
 const FILE_LIMIT = 10;
@@ -273,8 +272,7 @@ function DropOverlay({ visible }: { visible: boolean }) {
   );
 }
 
-export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected, onRemoveFile, onPreviewFile, onAddUrl }: KnowledgeTabProps) {
-  const [urlInput, setUrlInput] = useState("");
+export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected, onRemoveFile, onPreviewFile }: KnowledgeTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeConnectorFilter, setActiveConnectorFilter] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -385,30 +383,6 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
     onDragOver:  handleDragOver,
     onDragLeave: handleDragLeave,
     onDrop:      handleDrop,
-  };
-
-  const handleAddUrl = () => {
-    const url = urlInput.trim();
-    if (!url || !url.startsWith("http")) return;
-    setUrlInput("");
-    if (onAddUrl) {
-      onAddUrl(url);
-    } else {
-      // Fallback for standalone / story usage without a parent handler
-      const name = url.replace(/^https?:\/\//, "").split("/")[0];
-      onFilesChange([
-        ...files,
-        {
-          id: `url-${Date.now()}`,
-          name,
-          url,
-          type: "url",
-          fileType: "URL",
-          size: "-",
-          date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        },
-      ]);
-    }
   };
 
   const handleRemoveFile = (id: string) => {
@@ -551,59 +525,6 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
             <span>0 / {FILE_LIMIT} files</span>
             <span>0 MB / {SIZE_LIMIT_MB} MB</span>
           </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-          <div data-help-id="help-knowledge-url" style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-            <label htmlFor="knowledge-url-input" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Paste URLs</label>
-            <div
-              style={{
-                backgroundColor: "white",
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-                padding: "7px 10px",
-                borderRadius: 10,
-                boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
-              }}
-            >
-              <input
-                id="knowledge-url-input"
-                type="url"
-                value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddUrl()}
-                placeholder="https:// Paste a URL to add as a knowledge source…"
-                style={{
-                  flex: 1,
-                  fontFamily: "var(--font-body)",
-                  fontSize: 14,
-                  color: "#6a625d",
-                  backgroundColor: "transparent",
-                  border: "none",
-                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
-                  outline: "none",
-                }}
-              />
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleAddUrl}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 8,
-              borderRadius: 10,
-              border: "1px solid rgba(59,54,50,0.3)",
-              backgroundColor: "transparent",
-              cursor: "pointer",
-              flexShrink: 0,
-            }}
-          >
-            <Plus size={20} color="#524b47" />
-          </button>
         </div>
 
         <input ref={fileInputRef} type="file" multiple accept={FILE_ACCEPT} style={{ display: "none" }} onChange={handleFileUpload} />
@@ -839,59 +760,6 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
       >
         <span>{docCount} {docCount === 1 ? "document" : "documents"}{linkCount > 0 ? ` · ${linkCount} ${linkCount === 1 ? "link" : "links"}` : ""} / {FILE_LIMIT} max</span>
         <span>{totalSizeMB < 1 ? `${(totalSizeMB * 1024).toFixed(0)} KB` : `${totalSizeMB.toFixed(1)} MB`} / {SIZE_LIMIT_MB} MB</span>
-      </div>
-
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-          <label htmlFor="knowledge-url-input-2" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Paste URLs</label>
-          <div
-            style={{
-              backgroundColor: "white",
-              display: "flex",
-              alignItems: "center",
-              gap: 2,
-              padding: "7px 10px",
-              borderRadius: 10,
-              boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
-            }}
-          >
-            <input
-              id="knowledge-url-input-2"
-              type="url"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddUrl()}
-              placeholder="https:// Paste a URL to add as a knowledge source…"
-              style={{
-                flex: 1,
-                fontFamily: "var(--font-body)",
-                fontSize: 14,
-                color: "#6a625d",
-                backgroundColor: "transparent",
-                border: "none",
-                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
-                outline: "none",
-              }}
-            />
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={handleAddUrl}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 8,
-            borderRadius: 10,
-            border: "1px solid rgba(59,54,50,0.3)",
-            backgroundColor: "transparent",
-            cursor: "pointer",
-            flexShrink: 0,
-          }}
-        >
-          <Plus size={20} color="#524b47" />
-        </button>
       </div>
 
       <input ref={fileInputRef} type="file" multiple accept={FILE_ACCEPT} style={{ display: "none" }} onChange={handleFileUpload} />

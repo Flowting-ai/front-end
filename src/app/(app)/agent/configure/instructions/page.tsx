@@ -506,7 +506,7 @@ function dataUrlToFile(dataUrl: string, filename: string): File {
 
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function PersonaConfigureInstructionsContent() {
-  const { push, back } = useRouter()
+  const { push, back, replace } = useRouter()
   const searchParams = useSearchParams()
 
   // URL params - repoId/versionId present when editing existing persona
@@ -600,13 +600,15 @@ function PersonaConfigureInstructionsContent() {
         // be explicitly chosen by the user — don't pre-select firstModel.
         const noModelFlag = `persona_wizard_no_model_${repoIdParam}`
         const isCustomNoModel = typeof window !== 'undefined' && !!sessionStorage.getItem(noModelFlag)
+        const resolvedModel1 = isCustomNoModel
+          ? null
+          : matchModel(fetchedModels, version.model_id, repoIdParam, firstModel)
         if (isCustomNoModel) {
           // Consume the flag so subsequent visits (after user has selected a model) fall through normally.
           sessionStorage.removeItem(noModelFlag)
           setSelectedModel(null)
           setBackendModelId(null)
         } else {
-          const resolvedModel1 = matchModel(fetchedModels, version.model_id, repoIdParam, firstModel)
           setSelectedModel(resolvedModel1)
           setBackendModelId(isModelIdAvailable(fetchedModels, version.model_id) ? (version.model_id ?? null) : null)
           if (resolvedModel1) writePersonaModelCache(repoIdParam, resolvedModel1)
@@ -620,7 +622,7 @@ function PersonaConfigureInstructionsContent() {
         // would read as an unsaved change the moment the page opens.
         savedSnapshotRef.current = {
           instruction: prompt,
-          modelId:     isCustomNoModel ? '' : (version.model_id ?? ''),
+          modelId:     isCustomNoModel ? '' : (resolvedModel1 ? (stableKey(resolvedModel1) ?? '') : ''),
           temperature: version.temperature ?? 0.5,
         }
         if (version.persona_tags?.length) setProfileTags(prev => prev.length ? prev : version.persona_tags)
@@ -653,8 +655,9 @@ function PersonaConfigureInstructionsContent() {
           setImageUrl(readProfileAvatar(repoIdParam) ?? fullVersion.image_url ?? null)
           if (fullVersion.blocked_connectors?.length > 0) setConnectorSlugs(fullVersion.blocked_connectors)
           setVersionId(fullVersion.id)
-          // Stamp URL so a reload goes straight to this version
-          window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${fullVersion.id}`)
+          // Stamp URL so a reload goes straight to this version, and keep
+          // useSearchParams in sync so tab navigation carries the right versionId.
+          replace(`?repoId=${repoIdParam}&versionId=${fullVersion.id}`)
           const resolvedModel2 = matchModel(fetchedModels, fullVersion.model_id, repoIdParam, firstModel)
           setSelectedModel(resolvedModel2)
           setBackendModelId(isModelIdAvailable(fetchedModels, fullVersion.model_id) ? (fullVersion.model_id ?? null) : null)
@@ -664,7 +667,7 @@ function PersonaConfigureInstructionsContent() {
           if (fullVersion.persona_tags?.length) setProfileTags(prev => prev.length ? prev : fullVersion.persona_tags)
           savedSnapshotRef.current = {
             instruction: prompt,
-            modelId:     fullVersion.model_id ?? '',
+            modelId:     resolvedModel2 ? (stableKey(resolvedModel2) ?? '') : '',
             temperature: fullVersion.temperature ?? 0.5,
           }
         } else if (repo.active_version) {
@@ -675,7 +678,7 @@ function PersonaConfigureInstructionsContent() {
           setImageUrl(readProfileAvatar(repoIdParam) ?? repo.active_version.image_url ?? null)
           if (repo.active_version.blocked_connectors?.length > 0) setConnectorSlugs(repo.active_version.blocked_connectors)
           setVersionId(repo.active_version.id)
-          window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${repo.active_version.id}`)
+          replace(`?repoId=${repoIdParam}&versionId=${repo.active_version.id}`)
           const resolvedModel3 = matchModel(fetchedModels, repo.active_version.model_id, repoIdParam, firstModel)
           setSelectedModel(resolvedModel3)
           setBackendModelId(isModelIdAvailable(fetchedModels, repo.active_version.model_id) ? (repo.active_version.model_id ?? null) : null)
@@ -684,7 +687,7 @@ function PersonaConfigureInstructionsContent() {
           if (examples.length > 0) setExampleConversations(examples)
           savedSnapshotRef.current = {
             instruction: prompt,
-            modelId:     repo.active_version.model_id ?? '',
+            modelId:     resolvedModel3 ? (stableKey(resolvedModel3) ?? '') : '',
             temperature: repo.active_version.temperature ?? 0.5,
           }
         } else {
@@ -717,9 +720,8 @@ function PersonaConfigureInstructionsContent() {
   }, [initialise])
 
   useEffect(() => {
-    // Use the backend's stored model_id (exact format the guide endpoint expects).
-    // Fall back to stableKey only when no backend value is available (e.g. model changed but not yet saved).
-    const modelId = backendModelId ?? (selectedModel ? stableKey(selectedModel) : null)
+    // Always prefer the currently selected model so the test chat reflects unsaved changes.
+    const modelId = selectedModel ? stableKey(selectedModel) : (backendModelId ?? null)
     updatePersonaInfo({
       repoId,
       versionId,
@@ -785,8 +787,11 @@ function PersonaConfigureInstructionsContent() {
       const avatarDataUrl = readProfileAvatar(repoId)
       if (avatarDataUrl?.startsWith('data:')) {
         imageFile = dataUrlToFile(avatarDataUrl, 'avatar.jpg')
-      } else if (imageUrl) {
-        preserveImageUrl = imageUrl
+      } else {
+        // Prefer the sessionStorage path (e.g. /persona-avatars/ template) over the
+        // imageUrl state, which may be an S3 pre-signed URL that fails CORS when
+        // re-fetched browser-side during new version creation.
+        preserveImageUrl = avatarDataUrl ?? imageUrl
       }
 
       // Decide whether to update the wizard-created v001 in place (first save of
@@ -832,7 +837,7 @@ function PersonaConfigureInstructionsContent() {
         updatePersonaInfo({ versionId: version.id })
         const params = new URLSearchParams(searchParams.toString())
         params.set('versionId', version.id)
-        window.history.replaceState(null, '', `?${params.toString()}`)
+        replace(`?${params.toString()}`)
         // New versions inherit the prior version's knowledge files so nothing
         // disappears across versions. Best-effort — warn if any couldn't carry.
         try {
@@ -904,8 +909,8 @@ function PersonaConfigureInstructionsContent() {
           const avatarDataUrl = readProfileAvatar(repoId)
           if (avatarDataUrl?.startsWith('data:')) {
             imageFile = dataUrlToFile(avatarDataUrl, 'avatar.jpg')
-          } else if (imageUrl) {
-            preserveImageUrl = imageUrl
+          } else {
+            preserveImageUrl = avatarDataUrl ?? imageUrl
           }
           const updated = await updateVersion({
             repoId,

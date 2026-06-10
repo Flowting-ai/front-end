@@ -521,6 +521,28 @@
     inset 0px -1px 0px 0px var(--neutral-white-90),
     inset 0px  1px 0px 0px var(--blue-600-30);
 
+  /* ── Card / Surface ──────────────────────────────────────────────────────────
+     White elevated card — resting, hover, and selected states.
+     Same two-layer lift + 1px warm border ring language as Button/Secondary,
+     FloatingMenu, and MessageBubble/User.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --shadow-surface-card:
+    0px 1.091px 1.091px 0px var(--neutral-800-05),
+    0px 1.455px 3.127px 0px var(--neutral-900-15),
+    0px 0px 0px 1px var(--neutral-100);
+
+  --shadow-surface-card-hover:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-300-40);
+
+  --shadow-surface-card-selected:
+    0px 2px 2.8px 0px var(--neutral-700-12),
+    0px 0px 0px 1.5px var(--neutral-700-15);
+
+  /* Aliases used by Brain result cards */
+  --shadow-card-default: var(--shadow-surface-card);
+  --shadow-card-hover:   var(--shadow-surface-card-hover);
+
 }
 
 /* ── Toast (sonner) ──────────────────────────────────────────────────────────

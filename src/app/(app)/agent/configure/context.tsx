@@ -216,28 +216,33 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   // ── Eagerly bootstrap guide model from the saved version ────────────────────
   // This ensures the AI suggestions panel has the correct model_id even before
   // the instructions tab mounts (e.g. when the user is on the profile tab).
-  // Skipped on the instructions tab itself — that page calls getVersion in its
-  // own initialise() and pushes the result to context via updatePersonaInfo.
+  // The model bootstrap is skipped on the instructions tab — that page calls
+  // getVersion in its own initialise() and pushes the result via updatePersonaInfo.
+  // The received-persona guard always runs regardless of tab.
   useEffect(() => {
     const repoId    = personaInfo.repoId
     const versionId = personaInfo.versionId
     if (!repoId || !versionId) return
-    if (pathname.includes('/configure/instructions')) return
+
+    const isInstructionsTab = pathname.includes('/configure/instructions')
 
     let cancelled = false
     ;(async () => {
       try {
         const [version, models] = await Promise.all([
           getVersion(repoId, versionId),
-          fetchModelsWithCache(),
+          isInstructionsTab ? Promise.resolve([]) : fetchModelsWithCache(),
         ])
         if (cancelled) return
 
-        // Received personas are read-only — redirect to chat
+        // Received personas are read-only — redirect away from all configure tabs
         if (version.source_share_id) {
           push(`/agents/${repoId}/chat`)
           return
         }
+
+        // Skip the model bootstrap for the instructions tab — it does this itself
+        if (isInstructionsTab) return
 
         const vModelId = version.model_id ?? null
         const vPrompt  = version.prompt   ?? ''

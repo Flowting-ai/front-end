@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { m } from 'framer-motion'
-import { CalendarThreeIcon } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarMenuSkeleton } from '@/components/SidebarMenuSkeleton'
 import {
@@ -53,44 +52,6 @@ const sectionHeightVariants = {
   },
 }
 
-// ── Schedules ─────────────────────────────────────────────────────────────────
-
-function BrainSchedulesSection({ isActive }: { isActive: boolean }) {
-  const { push }  = useRouter()
-  const [shown,    setShown]    = useState(true)
-  const [overflow, setOverflow] = useState<'visible' | 'hidden'>('visible')
-
-  return (
-    <>
-      <SidebarMenuItem
-        fluid
-        variant="header"
-        label="Schedules"
-        shown={shown}
-        onShowClick={() => setShown(s => !s)}
-      />
-      <m.div
-        animate={shown ? 'open' : 'closed'}
-        initial={false}
-        variants={sectionHeightVariants}
-        style={{ overflow }}
-        onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
-        onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
-      >
-        <div style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <SidebarMenuItem
-            fluid
-            variant="default"
-            label="View schedules"
-            icon={<CalendarThreeIcon size={20} />}
-            selected={isActive}
-            onClick={() => push('/brain/schedules')}
-          />
-        </div>
-      </m.div>
-    </>
-  )
-}
 
 // ── Thread item with rename / star / delete dropdown ─────────────────────────
 
@@ -365,19 +326,16 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
 // ── Combined export ───────────────────────────────────────────────────────────
 
 export interface BrainSidebarSectionsProps {
-  activeChatId:    string | null
-  isSchedulesPage: boolean
-  onThreadClick:   (id: string) => void
+  activeChatId:  string | null
+  onThreadClick: (id: string) => void
 }
 
 export function BrainSidebarSections({
   activeChatId,
-  isSchedulesPage,
   onThreadClick,
 }: BrainSidebarSectionsProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <BrainSchedulesSection isActive={isSchedulesPage} />
       <BrainThreadsSection activeChatId={activeChatId} onThreadClick={onThreadClick} />
     </div>
   )

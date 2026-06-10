@@ -141,6 +141,11 @@ export function PersonaChatInterface({
   const selectModelRef = useRef(selectModel);
   selectModelRef.current = selectModel;
 
+  // Ref so handleSend always reads the latest resolved model without being
+  // recreated on every model change (selectedModel is not in handleSend's deps).
+  const selectedModelRef = useRef(selectedModel);
+  selectedModelRef.current = selectedModel;
+
   const personaIdRef = useRef(personaId);
   personaIdRef.current = personaId;
 
@@ -313,12 +318,22 @@ export function PersonaChatInterface({
     fetchPersonaChatMessages(personaId, initialChatId)
       .then(msgs => {
         if (cancelled) return;
+        // Snapshot model at callback time — selectedModelRef is always current,
+        // so if the model resolved before history finished loading, we apply it
+        // immediately rather than relying on the patch effect firing later.
+        const model = selectedModelRef.current;
+        const modelPatch = model ? {
+          modelName: model.modelName,
+          modelMeta: { modelId: stableKey(model) ?? "", modelName: model.modelName, company: model.companyName },
+        } : {};
         const uiMessages: UIMessage[] = msgs.map(m => ({
           id: m.id,
           role: m.role,
           content: m.content ?? "",
           created_at: m.created_at ?? "",
           chat_id: initialChatId,
+          // Seed model info on assistant messages so name/logo show on reload.
+          ...(m.role === "assistant" ? modelPatch : {}),
           // Map backend file_attachments to UI Attachment objects (user uploads)
           attachments: m.role === "user" && m.file_attachments && m.file_attachments.length > 0
             ? m.file_attachments.map((a, i) => ({
@@ -364,6 +379,25 @@ export function PersonaChatInterface({
     }
   }, [isStreaming, messages.length, lastMsgContent, isLoadingMessages]);
 
+  // ── Patch model info onto messages that don't have it ────────────────────
+  // Covers two cases:
+  //   1. Reload: historical messages loaded before selectedModel resolves.
+  //   2. New message: loadingMsg was created before model sync completed.
+  // Runs whenever selectedModel changes; skips messages that already have info.
+  useEffect(() => {
+    if (!selectedModel) return;
+    const { modelName, companyName } = selectedModel;
+    const modelId = stableKey(selectedModel) ?? "";
+    setMessages(prev => {
+      const needsPatch = prev.some(m => m.role === "assistant" && !m.modelName && !m.modelMeta);
+      if (!needsPatch) return prev;
+      return prev.map(m => {
+        if (m.role !== "assistant" || m.modelName || m.modelMeta) return m;
+        return { ...m, modelName, modelMeta: { modelId, modelName, company: companyName } };
+      });
+    });
+  }, [selectedModel]);
+
   // ── Send message ──────────────────────────────────────────────────────────
 
   const handleSend = useCallback(async (text: string) => {
@@ -402,6 +436,18 @@ export function PersonaChatInterface({
       created_at: new Date().toISOString(),
       chat_id: activeChatId ?? "",
       isLoading: true,
+      // Seed model info from the resolved persona model so the reasoning block
+      // shows the correct name/logo immediately. model_selected SSE events will
+      // overwrite this if the backend emits them.
+      // Use selectedModelRef (not selectedModel) — handleSend's closure is stale.
+      ...(selectedModelRef.current ? {
+        modelName: selectedModelRef.current.modelName,
+        modelMeta: {
+          modelId: stableKey(selectedModelRef.current) ?? "",
+          modelName: selectedModelRef.current.modelName,
+          company: selectedModelRef.current.companyName,
+        },
+      } : {}),
     };
 
     setMessages(prev => [...prev, userMsg, loadingMsg]);
@@ -466,6 +512,7 @@ export function PersonaChatInterface({
               isNewMessage={idx === messages.length - 1 && isStreaming}
               chatId={chatId || undefined}
               hidePinAction
+              disableHighlight
             />
           ))}
 

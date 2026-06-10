@@ -242,8 +242,8 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
               );
             })()}
 
-            {/* Edit button — secondary variant with pen icon, navigates to persona config */}
-            {persona && (
+            {/* Edit button — only for owned agents, never for received/shared ones */}
+            {persona && persona.sourceShareId === null && (
               <Button
                 variant="secondary"
                 size="sm"
