@@ -897,9 +897,9 @@ export default function PersonasPage() {
             {/* Tabs — always on top */}
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
               <Tabs.List>
-                <Tabs.Trigger value="my-personas">My Agents ({personas.length})</Tabs.Trigger>
-                <Tabs.Trigger value="super-links">Super Links ({shares.length})</Tabs.Trigger>
-                <Tabs.Trigger value="shared">Shared ({receivedShares.length})</Tabs.Trigger>
+                <Tabs.Trigger value="my-personas">My Agents</Tabs.Trigger>
+                {/* Super Links tab hidden for now */}
+                <Tabs.Trigger value="shared">Shared</Tabs.Trigger>
                 {/* <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger> */}
               </Tabs.List>
             </Tabs>
