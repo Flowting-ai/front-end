@@ -24,6 +24,8 @@ import {
 import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModal'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
+import { derivePublicationState } from '@/lib/persona-version-logic'
+import { parseServerDate } from '@/lib/utils/format-utils'
 
 function publishedVersionKey(repoId: string) {
   return `persona_live_version_${repoId}`
@@ -52,6 +54,12 @@ function formatFileSize(bytes: number): string {
 
 // ── Convert backend documents to KnowledgeFile ────────────────────────────────
 
+// Backend `created_at` is UTC — render it in the user's local timezone.
+function fmtFileDate(iso: string): string {
+  const d = parseServerDate(iso)
+  return d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''
+}
+
 function docsToFiles(version: PersonaVersionResponse): KnowledgeFile[] {
   const fileItems: KnowledgeFile[] = (version.documents ?? []).map(doc => {
     const isUrl = doc.document_filename.startsWith('http')
@@ -63,7 +71,7 @@ function docsToFiles(version: PersonaVersionResponse): KnowledgeFile[] {
         type:     'url' as const,
         fileType: 'URL',
         size:     '-',
-        date:     new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        date:     fmtFileDate(doc.created_at),
       }
     }
     const ext  = doc.document_filename.split('.').pop()?.toUpperCase() ?? 'FILE'
@@ -74,7 +82,7 @@ function docsToFiles(version: PersonaVersionResponse): KnowledgeFile[] {
       type:     'file' as const,
       fileType: ext,
       size,
-      date:     new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      date:     fmtFileDate(doc.created_at),
       url:      doc.download_url ?? undefined,
     }
   })
@@ -87,7 +95,7 @@ function docsToFiles(version: PersonaVersionResponse): KnowledgeFile[] {
     type:     'url' as const,
     fileType: 'URL',
     size:     '-',
-    date:     new Date(link.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    date:     fmtFileDate(link.created_at),
   }))
 
   return [...fileItems, ...linkItems]
@@ -103,19 +111,12 @@ function PersonaConfigureKnowledgeContent() {
   const versionId = searchParams.get('versionId') ?? ''
   const personaName = searchParams.get('name') ?? ''
 
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setKnowledgeFileCount, setVersionsOpen } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setKnowledgeFileCount, setVersionsOpen, activeVersionId, markPublished } = usePersonaConfigure()
 
   const [isSaving,             setIsSaving]             = useState(false)
   const [isPublishing,         setIsPublishing]         = useState(false)
   const [isDirty,              setIsDirty]              = useState(false)
   const [republishModalOpen,   setRepublishModalOpen]   = useState(false)
-  const [publishedVersionId,   setPublishedVersionId]   = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!repoId) return
-    const stored = typeof window !== 'undefined' ? sessionStorage.getItem(publishedVersionKey(repoId)) : null
-    setPublishedVersionId(stored)
-  }, [repoId])
   const [files, setFiles] = useState<KnowledgeFile[]>([])
   const [isLoading, setIsLoading] = useState(!!repoId && !!versionId)
 
@@ -435,8 +436,7 @@ function PersonaConfigureKnowledgeContent() {
 
   async function handlePublish() {
     if (!repoId || !versionId) return
-    const storedLiveId = typeof window !== 'undefined' ? sessionStorage.getItem(publishedVersionKey(repoId)) : null
-    const wasPublished = !!storedLiveId
+    const wasPublished = !!activeVersionId
     setIsPublishing(true)
     try {
       // Flush any unsaved knowledge changes (file uploads/deletes mark isDirty) into the
@@ -453,8 +453,9 @@ function PersonaConfigureKnowledgeContent() {
         sessionStorage.setItem(publishedVersionKey(repoId), versionId)
         try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
         try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
+        try { sessionStorage.removeItem(`persona_initial_version_${repoId}`) } catch { /* ignore */ }
       }
-      setPublishedVersionId(versionId)
+      markPublished(versionId)
 
       const base = `/agents/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${versionId}`
       push(wasPublished ? `${base}&republished=true` : base)
@@ -471,8 +472,12 @@ function PersonaConfigureKnowledgeContent() {
   function safeNavigate(href: string) { ctxSafeNavigate(href) }
   function safeBack()                 { ctxSafeBack() }
 
-  const isPublished    = !!publishedVersionId && publishedVersionId === versionId && pendingChangeTags.length === 0
-  const needsRepublish = !!repoId && !!versionId && !isPublished
+  const { isPublished, needsRepublish } = derivePublicationState({
+    repoId,
+    versionId,
+    activeVersionId,
+    hasUnsavedChanges: isDirty || pendingChangeTags.length > 0,
+  })
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]

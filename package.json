@@ -11,7 +11,9 @@
     "prestart": "npm run load-secrets",
     "start": "next start",
     "lint": "eslint",
-    "doctor": "react-doctor"
+    "doctor": "react-doctor",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.19.0",
@@ -68,6 +70,7 @@
     "eslint-config-next": "16.2.4",
     "react-doctor": "^0.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.6"
   }
 }

@@ -18,6 +18,7 @@ import {
 } from '@/lib/api/personas'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
+import { derivePublicationState } from '@/lib/persona-version-logic'
 
 function publishedVersionKey(repoId: string) {
   return `persona_live_version_${repoId}`
@@ -59,20 +60,13 @@ function PersonaConfigureProfileContent() {
     catch { return null }
   }
 
-  const { anyPanelOpen, updatePersonaInfo, personaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, registerAutoSave, setVersionsOpen } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, personaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, registerAutoSave, setVersionsOpen, activeVersionId, markPublished } = usePersonaConfigure()
 
   const [isSaving,             setIsSaving]             = useState(false)
   const [isPublishing,         setIsPublishing]         = useState(false)
   const [isDirty,              setIsDirty]              = useState(false)
   const [republishModalOpen,   setRepublishModalOpen]   = useState(false)
-  const [publishedVersionId,   setPublishedVersionId]   = useState<string | null>(null)
   const isDirtyRef = useRef(false)
-
-  useEffect(() => {
-    if (!repoId) return
-    const stored = typeof window !== 'undefined' ? sessionStorage.getItem(publishedVersionKey(repoId)) : null
-    setPublishedVersionId(stored)
-  }, [repoId])
 
   // ProfileTab state — initialise from sessionStorage on first render
   const [avatarUrl,          setAvatarUrl]          = useState<string | null>(() => { const d = loadDraft(); return (d?.avatarUrl as string | null) ?? null })
@@ -191,8 +185,12 @@ function PersonaConfigureProfileContent() {
   function safeNavigate(href: string) { ctxSafeNavigate(href) }
   function safeBack()                 { ctxSafeBack() }
 
-  const isPublished    = !!publishedVersionId && publishedVersionId === versionId && pendingChangeTags.length === 0
-  const needsRepublish = !!repoId && !!versionId && !isPublished
+  const { isPublished, needsRepublish } = derivePublicationState({
+    repoId,
+    versionId,
+    activeVersionId,
+    hasUnsavedChanges: isDirty || pendingChangeTags.length > 0,
+  })
 
   async function handleSaveVersion() {
     if (!isDirty || !repoId || !versionId) return
@@ -228,8 +226,7 @@ function PersonaConfigureProfileContent() {
 
   async function handlePublish() {
     if (!repoId || !versionId) return
-    const storedLiveId = typeof window !== 'undefined' ? sessionStorage.getItem(publishedVersionKey(repoId)) : null
-    const wasPublished = !!storedLiveId
+    const wasPublished = !!activeVersionId
     setIsPublishing(true)
     try {
       // If profile data is dirty, flush it to the current version in-place before publishing.
@@ -260,8 +257,9 @@ function PersonaConfigureProfileContent() {
         sessionStorage.setItem(publishedVersionKey(repoId), versionId)
         try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
         try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
+        try { sessionStorage.removeItem(`persona_initial_version_${repoId}`) } catch { /* ignore */ }
       }
-      setPublishedVersionId(versionId)
+      markPublished(versionId)
 
       const base = `/agents/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${versionId}`
       push(wasPublished ? `${base}&republished=true` : base)

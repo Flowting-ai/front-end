@@ -286,17 +286,24 @@ function TonePageContent() {
         toast.error('No AI models available. Please contact support.')
         return
       }
+      // The backend requires model_id on creation, so we always send one.
+      // For template agents we honour the modelHint. For custom (non-template)
+      // agents we seed the first available model to satisfy the backend, but the
+      // `persona_wizard_no_model` flag (set below) makes the Instructions tab
+      // start with NO model selected so the user must still choose explicitly —
+      // the seeded value is overwritten on their first save.
       let chosenModel = firstModel
-      if (templatePreset?.modelHint) {
+      if (wizardTemplate && templatePreset?.modelHint) {
         const hint   = templatePreset.modelHint.toLowerCase()
         const hinted = models.find(m => m.modelName.toLowerCase().includes(hint))
         if (hinted) chosenModel = hinted
       }
+      const chosenModelId = stableKey(chosenModel) ?? ''
 
       // Create the repo + initial version
       const repo         = await createPersonaRepo({
         name:    effectiveName,
-        modelId: stableKey(chosenModel) ?? '',
+        modelId: chosenModelId,
         prompt:  initialPrompt,
       })
       const newRepoId    = repo.id
@@ -304,6 +311,10 @@ function TonePageContent() {
 
       // Persist wizard state so back-nav detects the created repo
       try { sessionStorage.setItem('persona_wizard_repo', JSON.stringify({ repoId: newRepoId, versionId: newVersionId })) } catch { /* ignore */ }
+      // Record the wizard-created version as the "provisional initial" version.
+      // The first explicit Save updates it in place (staying v001) instead of
+      // minting a duplicate v002; this marker is consumed on that first save.
+      try { if (newVersionId) sessionStorage.setItem(`persona_initial_version_${newRepoId}`, newVersionId) } catch { /* ignore */ }
       // Mark unpublished until the user explicitly publishes
       try { localStorage.setItem(`persona_needs_publish_${newRepoId}`, '1') } catch { /* ignore */ }
       // For custom (non-template) agents, the model should not be pre-selected — the user

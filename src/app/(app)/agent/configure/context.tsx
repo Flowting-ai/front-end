@@ -16,6 +16,8 @@ import {
   guidePersonaStream,
   listVersions,
   getVersion,
+  getPersonaRepo,
+  bustPersonasCache,
   type PersonaChatStreamCallbacks,
   type PersonaVersionListItem,
   type PersonaVersionResponse,
@@ -82,6 +84,16 @@ interface PersonaConfigureContextValue {
 
   // Auto-save on tab switch
   registerAutoSave: (fn: (() => Promise<void>) | null) => void
+
+  // Publication state — single source of truth, derived from the backend's
+  // active_version_id (NOT client storage) so every tab agrees on Live vs
+  // Unpublished and never shows a spurious "not published" warning.
+  activeVersionId: string | null
+  /** Re-read the backend's active version id for the current repo. */
+  refreshActiveVersion: () => void
+  /** Optimistically mark a version as live after a successful publish, and
+   *  invalidate the personas list cache so the library reflects it. */
+  markPublished: (versionId: string) => void
 
   // Leave-confirm guard (shared across all 5 configure tabs)
   needsRepublish: boolean
@@ -577,6 +589,39 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
       .catch(() => {})
   }, [personaInfo.repoId])
 
+  // ── Publication state (backend source of truth) ─────────────────────────────
+  // The agent is "published" iff the backend's active_version_id matches the
+  // version being edited. Reading this from the backend (rather than the old
+  // sessionStorage `persona_live_version_*` cache) means opening an
+  // already-published agent shows "Live" immediately — no spurious
+  // "not published yet" dialog or stale "Unpublished" chip.
+  const [activeVersionId, setActiveVersionId] = useState<string | null>(null)
+
+  const refreshActiveVersion = useCallback(() => {
+    const repoId = infoRef.current.repoId
+    if (!repoId) return
+    getPersonaRepo(repoId)
+      .then(repo => setActiveVersionId(repo.active_version_id ?? null))
+      .catch(() => {})
+  }, [])
+
+  // Fetch the live version id whenever the repo changes. (No synchronous
+  // setState in the effect body — the update happens in the async callback.)
+  useEffect(() => {
+    const repoId = personaInfo.repoId
+    if (!repoId) return
+    let cancelled = false
+    getPersonaRepo(repoId)
+      .then(repo => { if (!cancelled) setActiveVersionId(repo.active_version_id ?? null) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [personaInfo.repoId])
+
+  const markPublished = useCallback((versionId: string) => {
+    setActiveVersionId(versionId)
+    bustPersonasCache()
+  }, [])
+
   const [restoringId,       setRestoringId]       = useState<string | null>(null)
   const [pendingChangeTags, _setPendingChangeTags] = useState<string[]>([])
   const pendingChangeTagsRef        = useRef<string[]>([])
@@ -694,6 +739,10 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     setHasShareLink,
 
     registerAutoSave,
+
+    activeVersionId,
+    refreshActiveVersion,
+    markPublished,
 
     needsRepublish,
     setNeedsRepublish,

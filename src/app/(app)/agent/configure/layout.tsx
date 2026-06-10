@@ -31,6 +31,7 @@ import { MessageBubble } from '@/components/MessageBubble'
 import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
 import { PersonaConfigureProvider, usePersonaConfigure } from './context'
 import { getAllVersionTags } from '@/lib/version-tags'
+import { formatServerDateTime } from '@/lib/utils/format-utils'
 import { deleteVersion } from '@/lib/api/personas'
 import { respondToChatPrompt } from '@/lib/api/chat'
 import { toast } from 'sonner'
@@ -500,9 +501,9 @@ function PersonaFloatingMenu() {
 
 // ── Test chat panel ───────────────────────────────────────────────────────────
 
+// Renders backend (UTC) version timestamps in the user's local timezone.
 function formatVersionDate(iso: string): string {
-  const d = new Date(iso)
-  return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+  return formatServerDateTime(iso)
 }
 
 function nameInitials(name: string) {

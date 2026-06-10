@@ -14,6 +14,7 @@ import { IconButton } from '@/components/IconButton'
 import SharingTab from '@/app/(app)/agent/configure/components/SharingTab'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
+import { derivePublicationState } from '@/lib/persona-version-logic'
 
 function publishedVersionKey(repoId: string) {
   return `persona_live_version_${repoId}`
@@ -44,24 +45,17 @@ function PersonaConfigureSharingContent() {
 
   const [isSaving,           setIsSaving]           = useState(false)
   const [isPublishing,       setIsPublishing]       = useState(false)
-  const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
 
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen, activeVersionId, markPublished } = usePersonaConfigure()
 
   useEffect(() => {
     if (!repoId) return
     updatePersonaInfo({ repoId, versionId })
   }, [repoId, versionId, updatePersonaInfo])
 
-  useEffect(() => {
-    if (!repoId) return
-    const stored = typeof window !== 'undefined' ? sessionStorage.getItem(publishedVersionKey(repoId)) : null
-    setPublishedVersionId(stored)
-  }, [repoId])
-
   async function handlePublish() {
     if (!repoId || !versionId) return
-    const wasPublished = !!publishedVersionId
+    const wasPublished = !!activeVersionId
     setIsPublishing(true)
     try {
       // Sharing actions (links, invites) are saved immediately to the API — no dirty data to flush.
@@ -77,8 +71,9 @@ function PersonaConfigureSharingContent() {
         sessionStorage.setItem(publishedVersionKey(repoId), versionId)
         try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
         try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
+        try { sessionStorage.removeItem(`persona_initial_version_${repoId}`) } catch { /* ignore */ }
       }
-      setPublishedVersionId(versionId)
+      markPublished(versionId)
       const base = `/agents/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${versionId}`
       push(wasPublished ? `${base}&republished=true` : base)
     } catch (err) {
@@ -113,8 +108,12 @@ function PersonaConfigureSharingContent() {
     if (route) safeNavigate(`${route}?${searchParams.toString()}`)
   }
 
-  const isPublished    = !!publishedVersionId && publishedVersionId === versionId && pendingChangeTags.length === 0
-  const needsRepublish = !!repoId && !!versionId && !isPublished
+  const { isPublished, needsRepublish } = derivePublicationState({
+    repoId,
+    versionId,
+    activeVersionId,
+    hasUnsavedChanges: pendingChangeTags.length > 0,
+  })
 
   return (
       <div

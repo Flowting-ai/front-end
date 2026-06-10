@@ -894,3 +894,42 @@ When implementing or reviewing any UI copy, do a final pass: replace every visib
 - **File:** `agent/configure/context.tsx`
 - **Problem:** The toast condition in `safeNavigate` was `pendingChangeTags.length > 0`. Since `pendingChangeTags` accumulates across all tabs and is never cleared on a plain tab switch (only on Save Version / Publish), the toast would fire on every subsequent tab navigation even with zero changes made on the current tab. For example: change model on Instructions → switch to Profile (toast correct) → switch to Knowledge without touching anything (toast fires incorrectly).
 - **Fix:** Added `tagsCountOnTabArrivalRef = useRef(0)` to snapshot how many tags existed when the user arrived on the current tab. A `useEffect([pathname])` updates this baseline on every tab navigation. `setPendingChangeTags` also resets it so the baseline stays accurate after a mid-visit Save/Publish clears the list. The toast condition changed from `tags.length > 0` to `tags.length > tagsCountOnTabArrivalRef.current` — it now fires only if the tag count actually grew during the current tab visit, meaning a real change was made.
+
+---
+
+## Session — Versioning / Publishing / File-persistence / Timezone Root-Cause Fixes
+
+> **Unifying root cause (Fixes 32–35):** Agent publication & version state was tracked in client-side storage (`sessionStorage persona_live_version_*`, `localStorage persona_needs_publish_*`) instead of being derived from the backend's authoritative `repo.active_version_id`. Each of the 5 configure tabs computed it differently and drifted out of sync. The fix centralizes publication state on the backend value and pulls the version/publish decision rules into a pure, unit-tested module: `src/lib/persona-version-logic.ts` (functions `resolveSaveMode`, `derivePublicationState`, `pickVersionToEdit`, `diffKnowledgeForInheritance`). Tests: `src/lib/persona-version-logic.test.ts`, `src/lib/utils/format-utils.test.ts` (vitest added to devDeps; `npm run test`).
+
+**Decision recorded (Save semantics):** The wizard creates the repo + version 001 atomically on the backend (cannot be split without backend changes). Therefore the **first** explicit "Save version" UPDATES the provisional v001 in place (stays v001 — no duplicate v002); **every save after that creates a new version**; new versions **inherit** the prior version's knowledge files; files are never modified unless the user does it manually; publishing/republishing never creates a version and never drops files.
+
+**Fix 32 — Saving a new agent created duplicate versions 001 AND 002**
+- **Files:** `lib/persona-version-logic.ts` (new), `agent/configure/instructions/page.tsx`, `agents/basics/tone/page.tsx`
+- **Problem:** The wizard's `createPersonaRepo` already creates v001 atomically; the first "Save version" then called `createVersion` → v002. One user save yielded two versions.
+- **Fix:** The wizard stamps a provisional-initial marker `sessionStorage persona_initial_version_${repoId} = v001`. `executeSave` calls `resolveSaveMode({ currentVersionId, initialVersionId, activeVersionId })`: when the current version is the never-published provisional initial, it calls `updateVersion` (stays v001) and consumes the marker; otherwise it calls `createVersion` (a new version). The marker is also cleared on publish (a published version, when later edited, must fork). The `MAX_VERSIONS` limit check is skipped for the update-in-place path.
+
+**Fix 33 — Knowledge files lost across versions / after republishing**
+- **Files:** `lib/api/personas.ts` (new `inheritKnowledge` + `documentToFile`), `lib/persona-version-logic.ts` (`diffKnowledgeForInheritance`), `agent/configure/instructions/page.tsx`
+- **Problem:** `createVersion` sent no files, so the spuriously-created v002 (Fix 32) was empty and files uploaded to v001 "disappeared." Version history did not retain file associations.
+- **Fix:** With Fix 32, the common new-agent flow keeps files on v001 (update-in-place). When a save genuinely forks a new version, `executeSave` calls `inheritKnowledge(repoId, sourceVersionId, newVersionId)` which copies documents (re-download via `download_url` → re-upload) and links (`addKnowledgeUrl`) from the source version, de-duplicated via `diffKnowledgeForInheritance` (idempotent — a no-op if the backend already cloned files). Best-effort: files that can't be re-downloaded are counted and the user is warned to re-add them. Sequential uploads to avoid overwhelming the endpoint.
+
+**Fix 34 — "This agent isn't published yet" dialog shown for an already-published agent with no changes**
+- **Files:** `agent/configure/context.tsx`, `agent/configure/instructions/page.tsx`, `lib/persona-version-logic.ts`
+- **Problem (A):** Publication state on Profile/Knowledge/Connectors/Sharing was read from `sessionStorage persona_live_version_*`, which is empty on a fresh open of a published agent → `isPublished=false` → leave-guard dialog + "Unpublished" chip fired wrongly. **Problem (B):** "Edit" from the library navigates to instructions WITHOUT a `versionId`, so it loaded the *most-recent* version rather than the *live* one — if a newer draft existed, `activeVersionId !== versionId` → false "not published" warning.
+- **Fix (A):** Centralized `activeVersionId` in `context.tsx` (fetched via `getPersonaRepo` on repoId change) + `markPublished(versionId)` (optimistic update after publish) + `refreshActiveVersion()`. All 5 tabs now compute `{ isPublished, needsRepublish }` via `derivePublicationState({ repoId, versionId, activeVersionId, hasUnsavedChanges })` instead of reading sessionStorage. **Fix (B):** the instructions repoId-only branch uses `pickVersionToEdit({ activeVersionId, versionsByRecency })` to prefer the published version, falling back to the most-recent only when nothing is published.
+
+**Fix 35 — "Unpublished" chip persisted on the agents library after a successful publish**
+- **File:** `agents/page.tsx`
+- **Problem:** The library chip relied on the stale `localStorage persona_needs_publish_*` flag, which could linger after publish.
+- **Fix:** On list load, the flag is now reconciled against backend truth — whenever `persona.activeVersionId` is set (the agent is live), the stale flag is cleared and the override ignored. The chip only shows for genuinely-unpublished (no active version) agents.
+
+**Fix 36 — Timestamps displayed in UTC instead of the user's local timezone**
+- **Files:** `lib/utils/format-utils.ts` (new `parseServerDate`, `formatServerDateTime`; `formatDate` hardened), `agent/configure/layout.tsx`, `agent/configure/knowledge/page.tsx`
+- **Problem:** The `X-User-Timezone` / `X-User-Locale` headers were already sent on the fetch path (`lib/api/client.ts`) and the XHR streaming path (`hooks/use-streaming-chat.ts`). The display gap was parsing: backend timestamps that arrive WITHOUT a timezone designator (e.g. `2026-06-10T12:00:00`) were parsed by `new Date()` as LOCAL time, so they appeared "stuck in UTC."
+- **Fix:** `parseServerDate` appends `Z` to tz-less datetimes so they parse as UTC, then renders in the user's local zone. Version timestamps (`layout.tsx formatVersionDate`) and knowledge-file dates (`knowledge/page.tsx fmtFileDate`) now use the UTC-aware formatter. Unit-tested across Z / numeric-offset / space-separated / epoch-ms / invalid inputs.
+
+**Fix 37 — Agent creation failed with `422 body.model_id: Field required`**
+- **File:** `agents/basics/tone/page.tsx`
+- **Problem:** For custom (non-template) agents the wizard sent an empty `model_id`, and `createPersonaRepo` only appends `model_id` when truthy, so the field was omitted and the backend (which requires it) returned 422 — surfacing as the "Failed to create agent" toast.
+- **Fix:** The wizard now always sends a valid `model_id` — seeding the first available model for custom agents — while keeping the existing `persona_wizard_no_model_${repoId}` flag so the Instructions tab still opens with NO model selected, forcing the user to choose explicitly (the seeded value is overwritten on their first save). The Instructions baseline snapshot also uses an empty `modelId` when `isCustomNoModel` so a freshly-opened custom agent does not start in a spurious "Unsaved" state.
+- **Note:** A separate `502 ECONNRESET` on `GET /llm/models/all` in the same session was transient upstream (dev backend) unavailability, not a frontend defect; no proxy timeout was added because that route also carries minutes-long SSE streams.

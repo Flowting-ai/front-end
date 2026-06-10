@@ -28,8 +28,14 @@ import {
   setActiveVersion,
   updateVersion,
   listVersions,
+  inheritKnowledge,
   bustPersonasCache,
 } from '@/lib/api/personas'
+import {
+  resolveSaveMode,
+  derivePublicationState,
+  pickVersionToEdit,
+} from '@/lib/persona-version-logic'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
 import type { AIModel } from '@/types/ai-model'
@@ -54,13 +60,6 @@ const TAB_ROUTES: Partial<Record<Tab, string>> = {
 }
 
 const MAX_VERSIONS = 5
-
-function formatVersionDate(iso: string): string {
-  const d = new Date(iso)
-  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-  return `${date} · ${time}`
-}
 
 function nameInitials(name: string): string {
   return (name || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -462,6 +461,21 @@ function instructionsDraftKey(repoId: string) {
   return `persona_instructions_draft_${repoId}`
 }
 
+// The wizard stamps the freshly-created v001 here. While present, the first
+// explicit Save updates that version in place (staying v001) rather than
+// creating a duplicate v002. The marker is consumed on that first save.
+function initialVersionKey(repoId: string) {
+  return `persona_initial_version_${repoId}`
+}
+function readInitialVersionId(repoId: string): string | null {
+  if (!repoId || typeof window === 'undefined') return null
+  try { return sessionStorage.getItem(initialVersionKey(repoId)) } catch { return null }
+}
+function clearInitialVersionId(repoId: string): void {
+  if (!repoId || typeof window === 'undefined') return
+  try { sessionStorage.removeItem(initialVersionKey(repoId)) } catch { /* ignore */ }
+}
+
 // Reads the avatar data-URL saved by the Profile tab.
 // Falls back to the 'new' key in case the user uploaded before the repo was created.
 function readProfileAvatar(repoId: string): string | null {
@@ -534,14 +548,16 @@ function PersonaConfigureInstructionsContent() {
   const [isSaving,      setIsSaving]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
 
-  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag, setPendingChangeTags, refreshVersions, versions, setNeedsRepublish, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setOnPublishAndLeave, registerAutoSave, setVersionsOpen } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag, setPendingChangeTags, refreshVersions, versions, setNeedsRepublish, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setOnPublishAndLeave, registerAutoSave, setVersionsOpen, activeVersionId, markPublished } = usePersonaConfigure()
 
   const [exampleConvOpen, setExampleConvOpen] = useState(false)
   const [exampleConvExpanded, setExampleConvExpanded] = useState(false)
   const [exampleConversations, setExampleConversations] = useState<Array<{ id: string; userSays: string; personaReplies: string }>>([])
   const [republishModalOpen, setRepublishModalOpen] = useState(false)
 
-  const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
+  // Publication state comes from the backend via context (activeVersionId) —
+  // never from client-only storage — so it's correct on first open.
+  const publishedVersionId = activeVersionId
   const hasInitialisedRef  = useRef(false)
   const savedSnapshotRef   = useRef<{ instruction: string; modelId: string; temperature: number } | null>(null)
   const hasDraftLoadedRef  = useRef(false)
@@ -598,26 +614,36 @@ function PersonaConfigureInstructionsContent() {
         // Restore example conversation cards from saved prompt text
         const examples = parseExampleConversations(prompt)
         if (examples.length > 0) setExampleConversations(examples)
-        // Set baseline snapshot so save button starts disabled
+        // Set baseline snapshot so the save button starts disabled. For a custom
+        // "no model" agent the model is intentionally unselected in the UI, so the
+        // snapshot's modelId must be empty too — otherwise the seeded backend model
+        // would read as an unsaved change the moment the page opens.
         savedSnapshotRef.current = {
           instruction: prompt,
-          modelId:     version.model_id ?? '',
+          modelId:     isCustomNoModel ? '' : (version.model_id ?? ''),
           temperature: version.temperature ?? 0.5,
         }
         if (version.persona_tags?.length) setProfileTags(prev => prev.length ? prev : version.persona_tags)
-        setPublishedVersionId(repo.active_version?.id ?? null)
       } else if (repoIdParam) {
-        // ── Repo exists but no specific version — load most-recently saved version
+        // ── Repo exists but no specific version (e.g. "Edit" from the library) ──
+        // Prefer the PUBLISHED (active) version so the user edits what is live and
+        // the status reads "Live" — falling back to the most-recent version only
+        // when nothing has been published yet.
         const [repo, versionList] = await Promise.all([
           getPersonaRepo(repoIdParam),
           listVersions(repoIdParam),
         ])
         setPersonaName(repo.name)
-        // Most-recent version = highest created_at
         const sorted = versionList.slice().sort(
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         )
-        const latestItem = sorted[0] ?? null
+        const targetVersionId = pickVersionToEdit({
+          activeVersionId: repo.active_version_id ?? null,
+          versionsByRecency: sorted.map(v => v.id),
+        })
+        const latestItem = targetVersionId
+          ? (sorted.find(v => v.id === targetVersionId) ?? sorted[0] ?? null)
+          : (sorted[0] ?? null)
 
         if (latestItem) {
           const fullVersion = await getVersion(repoIdParam, latestItem.id)
@@ -664,7 +690,6 @@ function PersonaConfigureInstructionsContent() {
         } else {
           setSelectedModel(firstModel)
         }
-        setPublishedVersionId(repo.active_version?.id ?? null)
       } else {
         // ── No URL params — repo creation now happens on the tone wizard page.
         // If persona_wizard_repo exists (e.g. direct navigation after wizard), redirect to it.
@@ -752,7 +777,7 @@ function PersonaConfigureInstructionsContent() {
 
   async function executeSave() {
     const modelId = selectedModel ? stableKey(selectedModel) : null
-    if (!repoId || !modelId) return
+    if (!repoId || !modelId || !versionId) return
     setIsSaving(true)
     try {
       let imageFile: File | null = null
@@ -764,29 +789,64 @@ function PersonaConfigureInstructionsContent() {
         preserveImageUrl = imageUrl
       }
 
-      const version = await createVersion({
-        repoId,
-        name:        personaName,
-        modelId,
-        prompt:      instruction,
-        temperature,
-        image:       imageFile,
-        imageUrl:    preserveImageUrl,
+      // Decide whether to update the wizard-created v001 in place (first save of
+      // a never-published draft) or fork a brand-new version (every save after).
+      const mode = resolveSaveMode({
+        currentVersionId: versionId,
+        initialVersionId: readInitialVersionId(repoId),
+        activeVersionId,
       })
+
+      let savedVersionId = versionId
+      if (mode === 'update-in-place') {
+        // Keep the same version (stays v001) — no duplicate version created.
+        const updated = await updateVersion({
+          repoId,
+          versionId,
+          name:        personaName,
+          modelId,
+          prompt:      instruction,
+          temperature,
+          image:       imageFile ?? undefined,
+          imageUrl:    preserveImageUrl,
+        })
+        if (updated.image_url) setImageUrl(updated.image_url)
+        setBackendModelId(updated.model_id ?? modelId)
+        // Consume the marker so the NEXT save forks a new version.
+        clearInitialVersionId(repoId)
+      } else {
+        const sourceVersionId = versionId
+        const version = await createVersion({
+          repoId,
+          name:        personaName,
+          modelId,
+          prompt:      instruction,
+          temperature,
+          image:       imageFile,
+          imageUrl:    preserveImageUrl,
+        })
+        savedVersionId = version.id
+        if (version.image_url) setImageUrl(version.image_url)
+        setBackendModelId(version.model_id ?? modelId)
+        setVersionId(version.id)
+        updatePersonaInfo({ versionId: version.id })
+        const params = new URLSearchParams(searchParams.toString())
+        params.set('versionId', version.id)
+        window.history.replaceState(null, '', `?${params.toString()}`)
+        // New versions inherit the prior version's knowledge files so nothing
+        // disappears across versions. Best-effort — warn if any couldn't carry.
+        try {
+          const carried = await inheritKnowledge(repoId, sourceVersionId, version.id)
+          if (carried.documentsFailed > 0) {
+            toast.warning(`${carried.documentsFailed} knowledge file(s) couldn't be carried over — re-add them on the Knowledge tab.`)
+          }
+        } catch { /* non-fatal */ }
+      }
 
       // Save version only — does NOT publish or change the active version.
       // The persona only becomes live in the library when the user clicks Publish.
-
-      setVersionId(version.id)
-      if (version.image_url) setImageUrl(version.image_url)
-      setBackendModelId(version.model_id ?? modelId)
-      updatePersonaInfo({ versionId: version.id })
-      const params = new URLSearchParams(searchParams.toString())
-      params.set('versionId', version.id)
-      window.history.replaceState(null, '', `?${params.toString()}`)
-
       savedSnapshotRef.current = { instruction, modelId, temperature }
-      setVersionTags(version.id, pendingChangeTags)
+      setVersionTags(savedVersionId, pendingChangeTags)
       setPendingChangeTags([])
       bustPersonasCache()
       refreshVersions()
@@ -812,7 +872,14 @@ function PersonaConfigureInstructionsContent() {
       return
     }
     if (!isDirty) return
-    if (versions.length >= MAX_VERSIONS) {
+    const mode = resolveSaveMode({
+      currentVersionId: versionId,
+      initialVersionId: readInitialVersionId(repoId),
+      activeVersionId,
+    })
+    // The version limit only applies when a NEW version would be created;
+    // updating the provisional initial draft in place adds nothing.
+    if (mode === 'create-new' && versions.length >= MAX_VERSIONS) {
       toast.error('Max version limit reached (5). Please delete an older version first.')
       return
     }
@@ -867,8 +934,12 @@ function PersonaConfigureInstructionsContent() {
         // Clear wizard-session markers now that the persona has been explicitly published.
         try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
         try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
+        // A published version is locked in — editing it later should fork a new
+        // version, so the provisional-initial marker must no longer apply.
+        clearInitialVersionId(repoId)
       }
-      setPublishedVersionId(versionId)
+      // Update the single source of truth so all tabs immediately read "Live".
+      markPublished(versionId)
 
       const base = `/agents/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}&versionId=${versionId}`
       push(wasPublished ? `${base}&republished=true` : base)
@@ -921,11 +992,18 @@ function PersonaConfigureInstructionsContent() {
 
   const hasContent = instruction.trim().length > 0
 
-  // isPublished: current version IS the published one with no pending changes.
-  // needsRepublish: persona has content/exists but is not in a fully-published state —
-  //   covers both first-time publish (never published) and re-publish (changes since last publish).
-  const isPublished    = !!publishedVersionId && publishedVersionId === versionId && !isDirty
-  const needsRepublish = !!repoId && !isPublished && (hasContent || !!publishedVersionId)
+  // isPublished: current version IS the live (backend active) one with no pending changes.
+  // needsRepublish: persona exists but isn't fully published — covers first-time
+  //   publish and re-publish. Suppressed for an empty, never-published draft so we
+  //   don't nag when there's nothing to publish yet.
+  const pub = derivePublicationState({
+    repoId,
+    versionId,
+    activeVersionId,
+    hasUnsavedChanges: isDirty || pendingChangeTags.length > 0,
+  })
+  const isPublished    = pub.isPublished
+  const needsRepublish = pub.needsRepublish && (hasContent || !!activeVersionId)
 
   const canPublish = hasContent && !!repoId && !!versionId && !!selectedModel && !isPublishing && !isPublished && pendingChangeTags.length === 0
   const canSave    = pendingChangeTags.length > 0 && hasContent && !!repoId && !!selectedModel && !isSaving

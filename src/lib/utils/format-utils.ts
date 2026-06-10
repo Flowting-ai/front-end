@@ -16,6 +16,45 @@ export function normalizePct(
   return Math.max(0, Math.min(pct, 100));
 }
 
+/**
+ * Parse a timestamp coming from the backend into a Date.
+ *
+ * Backend datetimes are UTC, but some are serialised WITHOUT a timezone
+ * designator (e.g. "2026-06-10T12:00:00"). `new Date()` interprets such strings
+ * as the browser's LOCAL time, which makes timestamps appear "stuck in UTC"
+ * (off by the user's offset). We append 'Z' to tz-less date-times so they parse
+ * as UTC and then render correctly in the user's local zone.
+ */
+export function parseServerDate(value: string | number | null | undefined): Date | null {
+  if (value == null || value === "") return null;
+  if (typeof value === "number") {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof value !== "string") return null;
+  let s = value.trim();
+  const hasTz = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  const isDateTime = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(s);
+  if (isDateTime && !hasTz) s = s.replace(" ", "T") + "Z";
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Format a backend timestamp as "Jun 10 · 3:45 PM" in the user's LOCAL timezone
+ * (UTC-aware — see parseServerDate). Used for version + knowledge-file dates.
+ */
+export function formatServerDateTime(
+  value: string | number | null | undefined,
+  fallback = "",
+): string {
+  const d = parseServerDate(value);
+  if (!d) return fallback;
+  const date = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return `${date} · ${time}`;
+}
+
 export interface FormatDateOptions {
   ordinal?: boolean;
   year?: boolean;
@@ -38,8 +77,8 @@ export function formatDate(
   const { ordinal = false, year = false, fallback = "" } = options;
   if (value == null || value === "") return fallback;
   if (typeof value !== "string" && typeof value !== "number") return fallback;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return fallback;
+  const parsed = parseServerDate(value);
+  if (!parsed) return fallback;
   if (ordinal) {
     const day = parsed.getDate();
     const month = parsed.toLocaleString("en-US", { month: "short" });

@@ -1,6 +1,7 @@
 "use client";
 
 import { apiFetch, apiFetchJson } from "./client";
+import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import {
   PERSONAS_ENDPOINT,
   PERSONA_DETAIL_ENDPOINT,
@@ -226,7 +227,7 @@ export async function createPersonaRepo(params: {
 }): Promise<PersonaRepoResponse> {
   const form = new FormData();
   form.append("name", params.name);
-  form.append("model_id", params.modelId);
+  if (params.modelId) form.append("model_id", params.modelId);
   if (params.prompt) form.append("prompt", params.prompt);
   if (params.temperature != null) form.append("temperature", String(params.temperature));
   if (params.image) form.append("image", params.image);
@@ -295,6 +296,96 @@ export async function createVersion(params: {
 
 export async function getVersion(repoId: string, versionId: string): Promise<PersonaVersionResponse> {
   return apiFetchJson<PersonaVersionResponse>(PERSONA_VERSION_DETAIL_ENDPOINT(repoId, versionId));
+}
+
+/** Download a stored knowledge document back into a File so it can be re-attached
+ *  to a new version. Returns null when the document has no fetchable URL or the
+ *  download fails (e.g. CORS) — inheritKnowledge then skips it gracefully. */
+async function documentToFile(doc: PersonaDocumentResponse): Promise<File | null> {
+  const url = doc.download_url ?? doc.source_url ?? null;
+  if (!url) return null;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new File([blob], doc.document_filename, {
+      type: blob.type || doc.content_type || "application/octet-stream",
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Carry a source version's knowledge (documents + links) onto a target version.
+ *
+ * Used when an explicit "Save version" forks a new version: new versions must
+ * inherit the prior version's files so nothing silently disappears across
+ * versions or after republishing. De-duplicates against whatever the target
+ * already has, so it is a safe no-op if the backend already cloned files when
+ * the new version was created.
+ *
+ * Best-effort: individual files that can't be re-downloaded are skipped rather
+ * than failing the whole save. Returns the count actually carried so callers can
+ * surface a warning if some files couldn't be inherited.
+ */
+export async function inheritKnowledge(
+  repoId: string,
+  sourceVersionId: string,
+  targetVersionId: string,
+): Promise<{ documentsCarried: number; linksCarried: number; documentsFailed: number }> {
+  const result = { documentsCarried: 0, linksCarried: 0, documentsFailed: 0 };
+  if (!sourceVersionId || !targetVersionId || sourceVersionId === targetVersionId) {
+    return result;
+  }
+
+  let source: PersonaVersionResponse;
+  let target: PersonaVersionResponse;
+  try {
+    [source, target] = await Promise.all([
+      getVersion(repoId, sourceVersionId),
+      getVersion(repoId, targetVersionId),
+    ]);
+  } catch {
+    // Can't read either version — nothing safe to do.
+    return result;
+  }
+
+  const { documentsToCarry, linksToCarry } = diffKnowledgeForInheritance({
+    sourceDocuments: source.documents ?? [],
+    sourceLinks: source.links ?? [],
+    targetDocuments: target.documents ?? [],
+    targetLinks: target.links ?? [],
+  });
+
+  // Sequential on purpose — re-uploading carried files one at a time avoids
+  // overwhelming the upload endpoint when a version has many documents.
+  for (const doc of documentsToCarry) {
+    // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- intentional sequential upload
+    const file = await documentToFile(doc as PersonaDocumentResponse);
+    if (!file) { result.documentsFailed += 1; continue; }
+    try {
+      // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- intentional sequential upload
+      await uploadDocument(repoId, targetVersionId, file);
+      result.documentsCarried += 1;
+    } catch {
+      result.documentsFailed += 1;
+    }
+  }
+
+  for (const link of linksToCarry) {
+    const url = link.source_url ?? link.document_filename;
+    if (!url) continue;
+    try {
+      // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- intentional sequential add
+      await addKnowledgeUrl(repoId, targetVersionId, url);
+      result.linksCarried += 1;
+    } catch {
+      /* skip unreachable link */
+    }
+  }
+
+  return result;
 }
 
 export async function updateVersion(params: {

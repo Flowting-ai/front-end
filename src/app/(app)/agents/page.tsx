@@ -548,7 +548,15 @@ export default function PersonasPage() {
           } catch { /* ignore quota / parse errors */ }
           try {
             if (localStorage.getItem(`persona_needs_publish_${p.id}`) === '1') {
-              unpublishedOverrides[p.id] = true
+              // The backend is the source of truth: once the agent has a live
+              // (active) version, this client-side "needs publish" flag is stale —
+              // clear it so the "Unpublished" chip disappears after a successful
+              // publish instead of lingering.
+              if (p.activeVersionId) {
+                try { localStorage.removeItem(`persona_needs_publish_${p.id}`) } catch { /* ignore */ }
+              } else {
+                unpublishedOverrides[p.id] = true
+              }
             }
           } catch { /* ignore quota / storage errors */ }
         }
