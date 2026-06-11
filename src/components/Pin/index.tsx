@@ -1399,58 +1399,62 @@ export function Pin({
                 <PinCommentField
                   ref={commentFieldRef}
                   fluid
-                  placeholder="Add a comment…"
+                  placeholder="Add your comment here"
                   aria-label="Add a comment"
                   defaultValue={comments?.[0]?.content ?? ''}
                   onChange={(e) => setCommentDraft(e.target.value)}
+                  rightSlot={
+                    <AnimatePresence>
+                      {(commentDraft !== savedComment || commentSavedAnim) && (
+                        <m.div
+                          key="comment-save-btn"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1, transition: { duration: 0.15 } }}
+                          exit={{   opacity: 0, transition: { duration: 0.1 } }}
+                        >
+                          <Button
+                            variant={commentSavedAnim ? 'ghost' : 'default'}
+                            size="sm"
+                            onClick={handleSaveComment}
+                            disabled={commentSavedAnim || commentDraft === savedComment}
+                            style={{
+                              padding:  '1px 4px',
+                              minWidth: 'unset',
+                              gap:      2,
+                            }}
+                          >
+                            <AnimatePresence mode="popLayout" initial={false}>
+                              {commentSavedAnim ? (
+                                <m.span
+                                  key="saved"
+                                  initial={{ opacity: 0, scale: 0.8 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  exit={{   opacity: 0, scale: 0.8 }}
+                                  transition={{ duration: 0.15 }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: '0.75rem', lineHeight: '1rem' }}
+                                >
+                                  <TickTwoIcon size={10} />
+                                  Saved
+                                </m.span>
+                              ) : (
+                                <m.span
+                                  key="save"
+                                  initial={{ opacity: 0, scale: 0.8 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  exit={{   opacity: 0, scale: 0.8 }}
+                                  transition={{ duration: 0.15 }}
+                                  style={{ fontSize: '0.75rem', lineHeight: '1rem' }}
+                                >
+                                  Save
+                                </m.span>
+                              )}
+                            </AnimatePresence>
+                          </Button>
+                        </m.div>
+                      )}
+                    </AnimatePresence>
+                  }
                 />
-
-                {/* Save row — only visible when the draft differs from the saved value */}
-                <AnimatePresence>
-                  {(commentDraft !== savedComment || commentSavedAnim) && (
-                    <m.div
-                      key="comment-save-row"
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0, transition: { duration: 0.15 } }}
-                      exit={{   opacity: 0, y: -4, transition: { duration: 0.1 } }}
-                      style={{ display: 'flex', justifyContent: 'flex-end' }}
-                    >
-                      <Button
-                        variant={commentSavedAnim ? 'ghost' : 'default'}
-                        size="sm"
-                        onClick={handleSaveComment}
-                        disabled={commentSavedAnim || commentDraft === savedComment}
-                        style={{ gap: 4, minWidth: 64 }}
-                      >
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          {commentSavedAnim ? (
-                            <m.span
-                              key="saved"
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{   opacity: 0, scale: 0.8 }}
-                              transition={{ duration: 0.15 }}
-                              style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-                            >
-                              <TickTwoIcon size={14} />
-                              Saved
-                            </m.span>
-                          ) : (
-                            <m.span
-                              key="save"
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{   opacity: 0, scale: 0.8 }}
-                              transition={{ duration: 0.15 }}
-                            >
-                              Save
-                            </m.span>
-                          )}
-                        </AnimatePresence>
-                      </Button>
-                    </m.div>
-                  )}
-                </AnimatePresence>
               </m.div>
             )}
           </AnimatePresence>

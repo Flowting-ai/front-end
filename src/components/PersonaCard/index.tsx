@@ -337,6 +337,8 @@ export interface PersonaCardProps extends React.HTMLAttributes<HTMLDivElement> {
   onBookmark?:          () => void
   /** ··· menu → Edit */
   onMenuEdit?:          () => void
+  /** ··· menu → Share (navigates to the sharing configuration page) */
+  onMenuShare?:         () => void
   /** ··· menu → Duplicate */
   onMenuDuplicate?:     () => void
   /** ··· menu → Pause / Resume (toggles based on `paused`) */
@@ -509,6 +511,7 @@ function PersonaCardInner({
       onOpen,
       onBookmark,
       onMenuEdit,
+      onMenuShare,
       onMenuDuplicate,
       onMenuPauseToggle,
       onMenuDelete,
@@ -754,6 +757,14 @@ function PersonaCardInner({
                                     icon={<PenOneIcon />}
                                     fluid
                                     onClick={() => { setMenuOpen(false); onMenuEdit() }}
+                                  />
+                                )}
+                                {onMenuShare && (
+                                  <Dropdown.Item
+                                    label="Share"
+                                    icon={<ShareOneIcon />}
+                                    fluid
+                                    onClick={() => { setMenuOpen(false); onMenuShare() }}
                                   />
                                 )}
                                 {onMenuPauseToggle && (

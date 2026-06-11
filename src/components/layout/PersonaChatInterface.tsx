@@ -543,6 +543,7 @@ export function PersonaChatInterface({
             onSend={handleSend}
             onStop={handleStopGeneration}
             onFilePaste={(files) => setAttachments((prev) => processFiles(files, prev))}
+            hasAttachments={attachments.length > 0}
             isStreaming={isStreaming}
             disabled={isStreaming}
             placeholder={`Message ${persona?.name || "persona"}…`}

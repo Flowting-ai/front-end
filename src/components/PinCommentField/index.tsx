@@ -25,6 +25,8 @@ export interface PinCommentFieldProps
   fluid?: boolean
   /** Accessible label for the textarea - required when no visible <label> is present */
   'aria-label'?: string
+  /** Content rendered at the right end inside the field container (e.g. a save button). */
+  rightSlot?: React.ReactNode
 }
 
 // â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -36,6 +38,7 @@ export function PinCommentField({
       style,
       placeholder     = 'Type your comment here...',
       defaultValue,
+      rightSlot,
       onChange:     externalChange,
       onKeyDown:    externalKeyDown,
       onFocus:      externalFocus,
@@ -126,7 +129,6 @@ export function PinCommentField({
         animate={shakeControls}
         className={cn(className)}
         style={{
-          position:        'relative',  // anchors the placeholder overlay
           backgroundColor: 'var(--neutral-white)',
           borderRadius:    '6px',
           padding:         '6px',
@@ -134,6 +136,9 @@ export function PinCommentField({
           boxShadow:       shadow,
           overflow:        'clip',
           transition:      'box-shadow 150ms',
+          display:         'flex',
+          alignItems:      'flex-end',
+          gap:             '4px',
           ...style,
         }}
         onMouseEnter={(e) => {
@@ -145,62 +150,72 @@ export function PinCommentField({
           externalLeave?.(e as unknown as React.MouseEvent<HTMLTextAreaElement>)
         }}
       >
-        <AnimatePresence initial={false}>
-          {!value && placeholder && (
-            <m.span
-              key="placeholder"
-              aria-hidden
-              initial={{ opacity: 0, filter: 'blur(2px)' }}
-              animate={{ opacity: 1, filter: 'blur(0px)', transition: { duration: 0.2 } }}
-              exit={{ opacity: 0, filter: 'blur(2px)', transition: { duration: 0.15 } }}
-              style={{
-                position:      'absolute',
-                top:           6,
-                left:          6,
-                right:         6,
-                pointerEvents: 'none',
-                fontFamily:    'var(--font-body)',
-                fontWeight:    'var(--font-weight-medium)',
-                fontSize:      'var(--font-size-caption)',
-                lineHeight:    'var(--line-height-caption)',
-                color:         'var(--color-text-placeholder)',
-                whiteSpace:    'nowrap',
-                overflow:      'hidden',
-              }}
-            >
-              {placeholder}
-            </m.span>
-          )}
-        </AnimatePresence>
+        {/* Textarea area — grows to fill available width */}
+        <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+          <AnimatePresence initial={false}>
+            {!value && placeholder && (
+              <m.span
+                key="placeholder"
+                aria-hidden
+                initial={{ opacity: 0, filter: 'blur(2px)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)', transition: { duration: 0.2 } }}
+                exit={{ opacity: 0, filter: 'blur(2px)', transition: { duration: 0.15 } }}
+                style={{
+                  position:      'absolute',
+                  top:           0,
+                  left:          0,
+                  right:         0,
+                  pointerEvents: 'none',
+                  fontFamily:    'var(--font-body)',
+                  fontWeight:    'var(--font-weight-medium)',
+                  fontSize:      'var(--font-size-caption)',
+                  lineHeight:    'var(--line-height-caption)',
+                  color:         'var(--color-text-placeholder)',
+                  whiteSpace:    'nowrap',
+                  overflow:      'hidden',
+                }}
+              >
+                {placeholder}
+              </m.span>
+            )}
+          </AnimatePresence>
 
-        <textarea
-          ref={setRef}
-          value={value}
-          className="kds-pin-comment-field"
-          style={{
-            display:    'block',
-            width:      '100%',
-            height:     taHeight,
-            resize:     'none',
-            border:     'none',
-            outline:    'none',
-            background: 'transparent',
-            padding:    0,
-            margin:     0,
-            fontFamily: 'var(--font-body)',
-            fontWeight: 'var(--font-weight-medium)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--neutral-900)',
-            overflowY:  'hidden',
-          }}
-          rows={1}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onFocus={(e) => { setIsFocused(true);  externalFocus?.(e) }}
-          onBlur={(e)  => { setIsFocused(false); externalBlur?.(e) }}
-          {...props}
-        />
+          <textarea
+            ref={setRef}
+            value={value}
+            className="kds-pin-comment-field"
+            style={{
+              display:    'block',
+              width:      '100%',
+              height:     taHeight,
+              resize:     'none',
+              border:     'none',
+              outline:    'none',
+              background: 'transparent',
+              padding:    0,
+              margin:     0,
+              fontFamily: 'var(--font-body)',
+              fontWeight: 'var(--font-weight-medium)',
+              fontSize:   'var(--font-size-caption)',
+              lineHeight: 'var(--line-height-caption)',
+              color:      'var(--neutral-900)',
+              overflowY:  'hidden',
+            }}
+            rows={1}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onFocus={(e) => { setIsFocused(true);  externalFocus?.(e) }}
+            onBlur={(e)  => { setIsFocused(false); externalBlur?.(e) }}
+            {...props}
+          />
+        </div>
+
+        {/* Right-side slot — e.g. save button */}
+        {rightSlot && (
+          <div style={{ flexShrink: 0 }}>
+            {rightSlot}
+          </div>
+        )}
       </m.div>
     )
 }

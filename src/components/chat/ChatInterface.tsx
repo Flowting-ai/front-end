@@ -1038,6 +1038,7 @@ export function ChatInterface({
             onStop={handleStopGeneration}
             onAdd={handleAdd}
             onFilePaste={(files) => setAttachments((prev) => processFiles(files, prev))}
+            hasAttachments={attachments.length > 0}
             onModelClick={onModelClick}
             modelName={selectedModel ?? "Souvenir"}
             addMenu={addMenu}

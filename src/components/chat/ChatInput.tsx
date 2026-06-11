@@ -104,6 +104,12 @@ export interface ChatInputProps
    * Text paste is handled natively by the textarea and does not trigger this callback.
    */
   onFilePaste?: (files: File[]) => void;
+  /**
+   * When true, the send button is enabled and shows the send icon even when
+   * the text input is empty. Set this when attachments are present so users
+   * can send files without typing a message.
+   */
+  hasAttachments?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -134,6 +140,7 @@ export function ChatInput(
     hideModelSelector = false,
     hideAddButton = false,
     onFilePaste,
+    hasAttachments = false,
     className,
     onMouseEnter: externalMouseEnter,
     onMouseLeave: externalMouseLeave,
@@ -326,7 +333,7 @@ export function ChatInput(
     const handleActionClick = () => {
       if (isStreaming) { onStop?.(); return; }
       if (isRecording) { stopRecording(); return; }
-      if (value) { handleSend(); return; }
+      if (value || hasAttachments) { handleSend(); return; }
       startRecording();
     };
 
@@ -362,7 +369,7 @@ export function ChatInput(
     };
 
     const handleSend = () => {
-      if (!value || disabled) return;
+      if ((!value && !hasAttachments) || disabled) return;
       const text = value;
       if (!isControlled) setInternalValue("");
       onChange?.("");
@@ -411,7 +418,7 @@ export function ChatInput(
         }
       }
 
-      if (e.key === "Enter" && !e.shiftKey && value && !disabled && !isRecording) {
+      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && value && !disabled && !isRecording) {
         e.preventDefault();
         handleSend();
       }
@@ -440,7 +447,7 @@ export function ChatInput(
         ? isMicHovered
           ? "rec-stop"
           : "wave"
-        : value
+        : value || hasAttachments
           ? "send"
           : "mic";
 
@@ -449,7 +456,7 @@ export function ChatInput(
     // no text to send.
     const isActionDisabled =
       (disabled && !isStreaming && !isRecording) ||
-      (!value && !isRecording && !isStreaming && !(mounted && browserSupportsSpeechRecognition));
+      (!value && !hasAttachments && !isRecording && !isStreaming && !(mounted && browserSupportsSpeechRecognition));
 
     const isChipsOverflowing = chipsScroll.scrollWidth > chipsScroll.clientWidth;
     const thumbWidthPct = chipsScroll.clientWidth > 0

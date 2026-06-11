@@ -580,6 +580,7 @@ function ChatPageInner() {
     open: openModelSelector,
     museActive,
     museAdvanced,
+    setMuseAdvanced,
     enableReasoning,
     setPersonaActive,
   } = useModelSelectorContext();
@@ -679,8 +680,10 @@ function ChatPageInner() {
       setActiveChatId(chatIdFromUrl);
       setHasMessages(!!chatIdFromUrl);
       setInitialPrompt(null);
+      // Reset to Souvenir Muse Advanced whenever switching to a new chat
+      if (!chatIdFromUrl) setMuseAdvanced(true);
     }
-  }, [chatIdFromUrl]);
+  }, [chatIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isNewChat = !activeChatId && !hasMessages && !initialPrompt;
 
@@ -759,7 +762,7 @@ function ChatPageInner() {
 
   // Capture typed message from new-chat landing → transition to ChatInterface
   const handleNewChatSend = (value: string) => {
-    if (!value.trim()) return;
+    if (!value.trim() && newChatAttachments.length === 0) return;
     const pendingFiles = newChatAttachments.map((a) => a.file);
     // Capture @-mention pins (with labels) before clearing so they are forwarded to the initial send.
     setAddMenuFiles(pendingFiles);
@@ -888,6 +891,7 @@ function ChatPageInner() {
                       onChange={setNewChatInput}
                       onSend={handleNewChatSend}
                       onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
+                      hasAttachments={newChatAttachments.length > 0}
                       modelName={modelButtonLabel}
                       onModelClick={selectedPersona ? undefined : handleModelClick}
                       addMenu={addMenu}

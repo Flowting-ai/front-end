@@ -5,7 +5,7 @@ import { useEffect } from "react";
 const SIDEBAR_OPEN_EVENT = "sidebar:open";
 const SIDEBAR_CLOSE_EVENT = "sidebar:close";
 const SIDEBAR_NEW_CHAT_EVENT = "sidebar:new-chat";
-const PERSONA_CHAT_CREATED_EVENT = "persona:chat-created";
+export const PERSONA_CHAT_CREATED_EVENT = "persona:chat-created";
 const PERSONA_CHAT_TITLE_UPDATED_EVENT = "persona:chat-title-updated";
 
 export interface PersonaChatEventDetail {

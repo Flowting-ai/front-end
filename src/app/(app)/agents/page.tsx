@@ -1293,6 +1293,7 @@ export default function PersonasPage() {
                           onUseInChat={() => push(`/agents/${persona.id}/chat`)}
                           onResume={persona.sourceShareId === null ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined}
                           onMenuEdit={persona.sourceShareId === null ? () => { toast.success(`Editing "${persona.name}"`); push(`/agent/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined}
+                          onMenuShare={persona.sourceShareId === null ? () => push(`/agent/configure/sharing?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}${persona.activeVersionId ? `&versionId=${persona.activeVersionId}` : ''}`) : undefined}
                           onMenuPauseToggle={persona.sourceShareId === null ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined}
                           onMenuDelete={() => setDeleteTarget(persona)}
                         />

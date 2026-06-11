@@ -107,7 +107,7 @@ export function ModelSelectorProvider({
   // Start with server-safe defaults so SSR and client first render match.
   // localStorage is read in a useEffect after mount to avoid hydration mismatches.
   const [museActive, setMuseActive] = useState<boolean>(true);
-  const [museAdvanced, setMuseAdvanced] = useState<boolean>(false);
+  const [museAdvanced, setMuseAdvanced] = useState<boolean>(true);
   const [enableReasoning, setEnableReasoning] = useState(true);
 
   // Sync museActive/museAdvanced from localStorage after mount
@@ -115,7 +115,7 @@ export function ModelSelectorProvider({
     const pref = readStoredPref();
     if (pref !== null) {
       setMuseActive(pref.type === "muse");
-      setMuseAdvanced(pref.type === "muse" ? (pref.museAdvanced ?? false) : false);
+      setMuseAdvanced(pref.type === "muse" ? (pref.museAdvanced ?? true) : false);
     }
   }, []);
 
@@ -129,9 +129,8 @@ export function ModelSelectorProvider({
     }
     if (!user?.planType) return;
     planDefaultApplied.current = true;
-    const hasAdvanced = canAccessFramework(user.planType, "advanced");
     setMuseActive(true);
-    setMuseAdvanced(hasAdvanced);
+    setMuseAdvanced(true);
   }, [user?.planType]);
 
   const open = useCallback((anchor: HTMLElement) => {
