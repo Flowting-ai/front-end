@@ -10,8 +10,7 @@ export interface TeamRowProps {
 }
 
 export function TeamRow({ team, isAdmin, onRecover }: TeamRowProps) {
-  const isTombstone = team.status === 'tombstone'
-  const isArchived  = team.status === 'archived'
+  const isArchived = team.archived
 
   return (
     <div style={{
@@ -19,7 +18,6 @@ export function TeamRow({ team, isAdmin, onRecover }: TeamRowProps) {
       alignItems: 'center',
       gap:        12,
       padding:    '10px 16px',
-      opacity:    isTombstone ? 0.5 : 1,
     }}>
       <div style={{ flex: '1 0 0', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -28,7 +26,7 @@ export function TeamRow({ team, isAdmin, onRecover }: TeamRowProps) {
             fontWeight:   500,
             fontSize:     14,
             lineHeight:   '22px',
-            color:        isTombstone ? 'var(--neutral-400)' : 'var(--neutral-900)',
+            color:        isArchived ? 'var(--neutral-400)' : 'var(--neutral-900)',
             margin:       0,
             overflow:     'hidden',
             textOverflow: 'ellipsis',
@@ -56,27 +54,23 @@ export function TeamRow({ team, isAdmin, onRecover }: TeamRowProps) {
           )}
         </div>
 
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontWeight: 400,
-          fontSize:   12,
-          lineHeight: '16px',
-          color:      'var(--neutral-400)',
-          margin:     0,
-        }}>
-          {isTombstone
-            ? `Permanently deleted on ${team.permanentlyDeletedAt ?? '—'}`
-            : isArchived
-              ? `Permanent deletion on ${team.permanentDeleteAt ?? '—'}`
-              : `${team.memberCount} member${team.memberCount !== 1 ? 's' : ''} · ${team.owners.map(o => o.name).join(', ')}`
-          }
-        </p>
+        {team.description && (
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 400,
+            fontSize:   12,
+            lineHeight: '16px',
+            color:      'var(--neutral-400)',
+            margin:     0,
+          }}>
+            {team.description}
+          </p>
+        )}
       </div>
 
-      {(isArchived || isTombstone) && isAdmin && (
+      {isArchived && isAdmin && (
         <button
-          onClick={isTombstone ? undefined : onRecover}
-          disabled={isTombstone}
+          onClick={onRecover}
           style={{
             display:         'inline-flex',
             alignItems:      'center',
@@ -84,14 +78,14 @@ export function TeamRow({ team, isAdmin, onRecover }: TeamRowProps) {
             padding:         '4px 10px',
             borderRadius:    8,
             border:          'none',
-            cursor:          isTombstone ? 'not-allowed' : 'pointer',
-            backgroundColor: isTombstone ? 'var(--neutral-100)' : 'var(--neutral-white)',
-            boxShadow:       isTombstone ? 'none' : '0px 0px 0px 1px var(--neutral-200)',
+            cursor:          'pointer',
+            backgroundColor: 'var(--neutral-white)',
+            boxShadow:       '0px 0px 0px 1px var(--neutral-200)',
             fontFamily:      'var(--font-body)',
             fontWeight:      400,
             fontSize:        12,
             lineHeight:      '16px',
-            color:           isTombstone ? 'var(--neutral-400)' : 'var(--neutral-700)',
+            color:           'var(--neutral-700)',
             flexShrink:      0,
           }}
         >

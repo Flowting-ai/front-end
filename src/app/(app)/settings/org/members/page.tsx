@@ -13,8 +13,10 @@ import { Popover }          from '@/components/Popover'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { Divider }          from '@/components/Divider'
 import { AppInviteModal }   from '@/components/InviteModal'
+import { toast }           from 'sonner'
 import { useOrg }           from '@/context/org-context'
-import type { OrgMember, WorkspaceRole } from '@/types/teams'
+import { setMemberRole, removeMember } from '@/lib/api/organization'
+import type { OrgMember, WorkspaceRole, OrgRole } from '@/types/teams'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 const SHADOW_CARD      = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)'
@@ -479,7 +481,7 @@ function RolesPermissionsSection() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrgMembersPage() {
-  const { org, members: orgMembers, currentUserRole } = useOrg()
+  const { orgId, org, members: orgMembers, currentUserRole } = useOrg()
   const isAdmin = currentUserRole === 'admin'
 
   const [members,     setMembers]     = useState<OrgMember[]>(orgMembers)
@@ -492,12 +494,29 @@ export default function OrgMembersPage() {
   const adminCount     = members.filter(m => m.role === 'admin').length
   const pendingInvites = members.filter(m => m.inviteStatus === 'invite_sent').length
 
-  const handleChangeRole = (id: string, role: WorkspaceRole) => {
-    setMembers(prev => prev.map(m => m.id === id ? { ...m, role } : m))
+  const handleChangeRole = async (id: string, role: WorkspaceRole) => {
+    const prev = members
+    setMembers(ms => ms.map(m => m.id === id ? { ...m, role } : m))
+    if (!orgId) return
+    const apiRole: OrgRole = role === 'admin' ? 'admin' : 'member'
+    try {
+      await setMemberRole(orgId, id, apiRole)
+    } catch (err) {
+      setMembers(prev)
+      toast.error(err instanceof Error ? err.message : 'Failed to update role')
+    }
   }
 
-  const handleRemove = (id: string) => {
-    setMembers(prev => prev.filter(m => m.id !== id))
+  const handleRemove = async (id: string) => {
+    const prev = members
+    setMembers(ms => ms.filter(m => m.id !== id))
+    if (!orgId) return
+    try {
+      await removeMember(orgId, id)
+    } catch (err) {
+      setMembers(prev)
+      toast.error(err instanceof Error ? err.message : 'Failed to remove member')
+    }
   }
 
   const handleInvite = (email: string, role: WorkspaceRole) => {

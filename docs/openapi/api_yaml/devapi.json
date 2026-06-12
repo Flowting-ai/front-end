@@ -9596,6 +9596,59 @@
         }
       }
     },
+    "/slack/install": {
+      "get": {
+        "tags": [
+          "slack"
+        ],
+        "summary": "Slack Install Url",
+        "description": "The \"Add to Slack\" URL — FE opens it; Slack redirects to the callback.",
+        "operationId": "slack_install_url_slack_install_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlackInstallURLResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/slack/status": {
+      "get": {
+        "tags": [
+          "slack"
+        ],
+        "summary": "Slack Status",
+        "operationId": "slack_status_slack_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlackStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/memory/user": {
       "post": {
         "tags": [
@@ -9642,13 +9695,13 @@
         ]
       }
     },
-    "/workspaces": {
+    "/organizations": {
       "get": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
-        "summary": "List Workspaces",
-        "operationId": "list_workspaces_workspaces_get",
+        "summary": "List Organizations",
+        "operationId": "list_organizations_organizations_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -9656,10 +9709,54 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/WorkspaceResponse"
+                    "$ref": "#/components/schemas/OrganizationResponse"
                   },
                   "type": "array",
-                  "title": "Response List Workspaces Workspaces Get"
+                  "title": "Response List Organizations Organizations Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Create Organization",
+        "operationId": "create_organization_organizations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrganizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -9672,13 +9769,13 @@
         ]
       }
     },
-    "/workspaces/{workspace_id}": {
+    "/organizations/{organization_id}": {
       "get": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
-        "summary": "Get Workspace",
-        "operationId": "get_workspace_workspaces__workspace_id__get",
+        "summary": "Get Organization",
+        "operationId": "get_organization_organizations__organization_id__get",
         "security": [
           {
             "HTTPBearer": []
@@ -9686,13 +9783,13 @@
         ],
         "parameters": [
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -9702,7 +9799,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceResponse"
+                  "$ref": "#/components/schemas/OrganizationResponse"
                 }
               }
             }
@@ -9721,10 +9818,10 @@
       },
       "patch": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
-        "summary": "Update Workspace",
-        "operationId": "update_workspace_workspaces__workspace_id__patch",
+        "summary": "Update Organization",
+        "operationId": "update_organization_organizations__organization_id__patch",
         "security": [
           {
             "HTTPBearer": []
@@ -9732,13 +9829,13 @@
         ],
         "parameters": [
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -9747,7 +9844,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateWorkspaceRequest"
+                "$ref": "#/components/schemas/UpdateOrganizationRequest"
               }
             }
           }
@@ -9758,7 +9855,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceResponse"
+                  "$ref": "#/components/schemas/OrganizationResponse"
                 }
               }
             }
@@ -9777,10 +9874,10 @@
       },
       "delete": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
-        "summary": "Delete Workspace",
-        "operationId": "delete_workspace_workspaces__workspace_id__delete",
+        "summary": "Delete Organization",
+        "operationId": "delete_organization_organizations__organization_id__delete",
         "security": [
           {
             "HTTPBearer": []
@@ -9788,13 +9885,13 @@
         ],
         "parameters": [
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -9803,7 +9900,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DeleteWorkspaceRequest"
+                "$ref": "#/components/schemas/DeleteOrganizationRequest"
               }
             }
           }
@@ -9825,13 +9922,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/plan": {
+    "/organizations/{organization_id}/settings": {
       "get": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
-        "summary": "Get Plan",
-        "operationId": "get_plan_workspaces__workspace_id__plan_get",
+        "summary": "Get Settings",
+        "operationId": "get_settings_organizations__organization_id__settings_get",
         "security": [
           {
             "HTTPBearer": []
@@ -9839,13 +9936,117 @@
         ],
         "parameters": [
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Update Settings",
+        "operationId": "update_settings_organizations__organization_id__settings_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrganizationSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/plan": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Get Plan",
+        "operationId": "get_plan_organizations__organization_id__plan_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
             }
           }
         ],
@@ -9873,13 +10074,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/plan/usage": {
+    "/organizations/{organization_id}/plan/usage": {
       "get": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
         "summary": "Get Plan Usage",
-        "operationId": "get_plan_usage_workspaces__workspace_id__plan_usage_get",
+        "operationId": "get_plan_usage_organizations__organization_id__plan_usage_get",
         "security": [
           {
             "HTTPBearer": []
@@ -9887,13 +10088,13 @@
         ],
         "parameters": [
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -9921,13 +10122,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/pool-status": {
+    "/organizations/{organization_id}/pool-status": {
       "get": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
         "summary": "Get Pool Status",
-        "operationId": "get_pool_status_workspaces__workspace_id__pool_status_get",
+        "operationId": "get_pool_status_organizations__organization_id__pool_status_get",
         "security": [
           {
             "HTTPBearer": []
@@ -9935,13 +10136,13 @@
         ],
         "parameters": [
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -9969,13 +10170,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/members/{member_id}/cap": {
+    "/organizations/{organization_id}/members/{member_id}/cap": {
       "patch": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
         "summary": "Set Member Cap",
-        "operationId": "set_member_cap_workspaces__workspace_id__members__member_id__cap_patch",
+        "operationId": "set_member_cap_organizations__organization_id__members__member_id__cap_patch",
         "security": [
           {
             "HTTPBearer": []
@@ -9992,13 +10193,13 @@
             }
           },
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -10036,13 +10237,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/members/{member_id}/role": {
+    "/organizations/{organization_id}/members/{member_id}/role": {
       "patch": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
         "summary": "Set Member Role",
-        "operationId": "set_member_role_workspaces__workspace_id__members__member_id__role_patch",
+        "operationId": "set_member_role_organizations__organization_id__members__member_id__role_patch",
         "security": [
           {
             "HTTPBearer": []
@@ -10059,13 +10260,13 @@
             }
           },
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -10103,13 +10304,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/members/{member_id}": {
+    "/organizations/{organization_id}/members/{member_id}": {
       "delete": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
         "summary": "Remove Member",
-        "operationId": "remove_member_workspaces__workspace_id__members__member_id__delete",
+        "operationId": "remove_member_organizations__organization_id__members__member_id__delete",
         "security": [
           {
             "HTTPBearer": []
@@ -10126,13 +10327,13 @@
             }
           },
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -10153,13 +10354,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/members/{member_id}/connectors": {
+    "/organizations/{organization_id}/teams/{team_id}/connectors": {
       "get": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
-        "summary": "Get Member Connectors",
-        "operationId": "get_member_connectors_workspaces__workspace_id__members__member_id__connectors_get",
+        "summary": "List Team Connectors",
+        "operationId": "list_team_connectors_organizations__organization_id__teams__team_id__connectors_get",
         "security": [
           {
             "HTTPBearer": []
@@ -10167,22 +10368,23 @@
         ],
         "parameters": [
           {
-            "name": "member_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Member Id"
-            }
-          },
-          {
-            "name": "workspace_id",
+            "name": "team_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
             }
           }
         ],
@@ -10194,126 +10396,9 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/MemberConnectorResponse"
+                    "$ref": "#/components/schemas/TeamConnectorResponse"
                   },
-                  "title": "Response Get Member Connectors Workspaces  Workspace Id  Members  Member Id  Connectors Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "tags": [
-          "workspaces"
-        ],
-        "summary": "Set Member Connector",
-        "operationId": "set_member_connector_workspaces__workspace_id__members__member_id__connectors_patch",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "member_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Member Id"
-            }
-          },
-          {
-            "name": "workspace_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Workspace Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetConnectorPermRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MemberConnectorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/workspaces/{workspace_id}/teams": {
-      "get": {
-        "tags": [
-          "workspaces"
-        ],
-        "summary": "List Teams",
-        "operationId": "list_teams_workspaces__workspace_id__teams_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "workspace_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Workspace Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamResponse"
-                  },
-                  "title": "Response List Teams Workspaces  Workspace Id  Teams Get"
+                  "title": "Response List Team Connectors Organizations  Organization Id  Teams  Team Id  Connectors Get"
                 }
               }
             }
@@ -10332,10 +10417,10 @@
       },
       "post": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
-        "summary": "Create Team",
-        "operationId": "create_team_workspaces__workspace_id__teams_post",
+        "summary": "Request Team Connector",
+        "operationId": "request_team_connector_organizations__organization_id__teams__team_id__connectors_post",
         "security": [
           {
             "HTTPBearer": []
@@ -10343,13 +10428,266 @@
         ],
         "parameters": [
           {
-            "name": "workspace_id",
+            "name": "team_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestConnectorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamConnectorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/teams/{team_id}/connectors/{slug}": {
+      "patch": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Set Team Connector Status",
+        "operationId": "set_team_connector_status_organizations__organization_id__teams__team_id__connectors__slug__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetConnectorStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamConnectorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Remove Team Connector",
+        "operationId": "remove_team_connector_organizations__organization_id__teams__team_id__connectors__slug__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/teams": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "List Teams",
+        "operationId": "list_teams_organizations__organization_id__teams_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamResponse"
+                  },
+                  "title": "Response List Teams Organizations  Organization Id  Teams Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Create Team",
+        "operationId": "create_team_organizations__organization_id__teams_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
             }
           }
         ],
@@ -10387,13 +10725,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/teams/{team_id}": {
+    "/organizations/{organization_id}/teams/{team_id}": {
       "get": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
         "summary": "Get Team",
-        "operationId": "get_team_workspaces__workspace_id__teams__team_id__get",
+        "operationId": "get_team_organizations__organization_id__teams__team_id__get",
         "security": [
           {
             "HTTPBearer": []
@@ -10411,13 +10749,13 @@
             }
           },
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -10446,10 +10784,10 @@
       },
       "patch": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
         "summary": "Update Team",
-        "operationId": "update_team_workspaces__workspace_id__teams__team_id__patch",
+        "operationId": "update_team_organizations__organization_id__teams__team_id__patch",
         "security": [
           {
             "HTTPBearer": []
@@ -10467,13 +10805,13 @@
             }
           },
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -10512,10 +10850,10 @@
       },
       "delete": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
         "summary": "Delete Team",
-        "operationId": "delete_team_workspaces__workspace_id__teams__team_id__delete",
+        "operationId": "delete_team_organizations__organization_id__teams__team_id__delete",
         "security": [
           {
             "HTTPBearer": []
@@ -10533,13 +10871,13 @@
             }
           },
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -10560,13 +10898,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/teams/{team_id}/members": {
+    "/organizations/{organization_id}/teams/{team_id}/editors": {
       "get": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
-        "summary": "List Team Members",
-        "operationId": "list_team_members_workspaces__workspace_id__teams__team_id__members_get",
+        "summary": "List Team Editors",
+        "operationId": "list_team_editors_organizations__organization_id__teams__team_id__editors_get",
         "security": [
           {
             "HTTPBearer": []
@@ -10584,13 +10922,13 @@
             }
           },
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -10602,9 +10940,9 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/TeamMemberResponse"
+                    "$ref": "#/components/schemas/PersonResponse"
                   },
-                  "title": "Response List Team Members Workspaces  Workspace Id  Teams  Team Id  Members Get"
+                  "title": "Response List Team Editors Organizations  Organization Id  Teams  Team Id  Editors Get"
                 }
               }
             }
@@ -10622,13 +10960,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/teams/{team_id}/members/{member_id}": {
+    "/organizations/{organization_id}/teams/{team_id}/editors/{member_id}": {
       "delete": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
-        "summary": "Remove Team Member",
-        "operationId": "remove_team_member_workspaces__workspace_id__teams__team_id__members__member_id__delete",
+        "summary": "Remove Team Editor",
+        "operationId": "remove_team_editor_organizations__organization_id__teams__team_id__editors__member_id__delete",
         "security": [
           {
             "HTTPBearer": []
@@ -10655,13 +10993,13 @@
             }
           },
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -10682,13 +11020,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/teams/{team_id}/invites": {
-      "post": {
+    "/organizations/{organization_id}/teams/{team_id}/projects/{project_id}/members": {
+      "get": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
-        "summary": "Create Invite",
-        "operationId": "create_invite_workspaces__workspace_id__teams__team_id__invites_post",
+        "summary": "List Project Members",
+        "operationId": "list_project_members_organizations__organization_id__teams__team_id__projects__project_id__members_get",
         "security": [
           {
             "HTTPBearer": []
@@ -10706,13 +11044,231 @@
             }
           },
           {
-            "name": "workspace_id",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonResponse"
+                  },
+                  "title": "Response List Project Members Organizations  Organization Id  Teams  Team Id  Projects  Project Id  Members Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Add Project Member",
+        "operationId": "add_project_member_organizations__organization_id__teams__team_id__projects__project_id__members_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddProjectMemberRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/teams/{team_id}/projects/{project_id}/members/{member_id}": {
+      "delete": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Remove Project Member",
+        "operationId": "remove_project_member_organizations__organization_id__teams__team_id__projects__project_id__members__member_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Member Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/teams/{team_id}/invites": {
+      "post": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Create Invite",
+        "operationId": "create_invite_organizations__organization_id__teams__team_id__invites_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
             }
           }
         ],
@@ -10750,13 +11306,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/teams/{team_id}/overflow": {
+    "/organizations/{organization_id}/teams/{team_id}/overflow": {
       "post": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
         "summary": "Request Overflow",
-        "operationId": "request_overflow_workspaces__workspace_id__teams__team_id__overflow_post",
+        "operationId": "request_overflow_organizations__organization_id__teams__team_id__overflow_post",
         "security": [
           {
             "HTTPBearer": []
@@ -10774,13 +11330,13 @@
             }
           },
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           }
         ],
@@ -10818,13 +11374,13 @@
         }
       }
     },
-    "/workspaces/{workspace_id}/audit": {
+    "/organizations/{organization_id}/audit": {
       "get": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
         "summary": "List Audit",
-        "operationId": "list_audit_workspaces__workspace_id__audit_get",
+        "operationId": "list_audit_organizations__organization_id__audit_get",
         "security": [
           {
             "HTTPBearer": []
@@ -10832,13 +11388,13 @@
         ],
         "parameters": [
           {
-            "name": "workspace_id",
+            "name": "organization_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Workspace Id"
+              "title": "Organization Id"
             }
           },
           {
@@ -10872,7 +11428,7 @@
                   "items": {
                     "$ref": "#/components/schemas/AuditEntry"
                   },
-                  "title": "Response List Audit Workspaces  Workspace Id  Audit Get"
+                  "title": "Response List Audit Organizations  Organization Id  Audit Get"
                 }
               }
             }
@@ -10893,7 +11449,7 @@
     "/team-invite/{invite_id}": {
       "get": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
         "summary": "Preview Invite",
         "operationId": "preview_invite_team_invite__invite_id__get",
@@ -10936,7 +11492,7 @@
     "/team-invite/{invite_id}/accept": {
       "post": {
         "tags": [
-          "workspaces"
+          "organizations"
         ],
         "summary": "Accept Invite",
         "operationId": "accept_invite_team_invite__invite_id__accept_post",
@@ -10981,6 +11537,267 @@
         }
       }
     },
+    "/chat-shares": {
+      "post": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Create Chat Share",
+        "operationId": "create_chat_share_chat_shares_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateChatShareRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatShareResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "List Chat Shares",
+        "operationId": "list_chat_shares_chat_shares_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "chat_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Chat Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatShareResponse"
+                  },
+                  "title": "Response List Chat Shares Chat Shares Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat-shares/shared-with-me": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Shared With Me",
+        "operationId": "shared_with_me_chat_shares_shared_with_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SharedChatItem"
+                  },
+                  "type": "array",
+                  "title": "Response Shared With Me Chat Shares Shared With Me Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/chat-shares/{share_id}": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "View Shared Chat",
+        "operationId": "view_shared_chat_chat_shares__share_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Share Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedChatView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Revoke Chat Share",
+        "operationId": "revoke_chat_share_chat_shares__share_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Share Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat-shares/{share_id}/fork": {
+      "post": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Fork Shared Chat",
+        "operationId": "fork_shared_chat_chat_shares__share_id__fork_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Share Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -11002,6 +11819,19 @@
   },
   "components": {
     "schemas": {
+      "AddProjectMemberRequest": {
+        "properties": {
+          "userId": {
+            "type": "string",
+            "title": "Userid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "userId"
+        ],
+        "title": "AddProjectMemberRequest"
+      },
       "ApiKeyField": {
         "properties": {
           "name": {
@@ -12297,6 +13127,72 @@
         "type": "object",
         "title": "CategoryUsage"
       },
+      "ChatShareMode": {
+        "type": "string",
+        "enum": [
+          "read_only",
+          "editable"
+        ],
+        "title": "ChatShareMode"
+      },
+      "ChatShareResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "chat_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chat Id"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ChatShareMode"
+          },
+          "shared_by_user_id": {
+            "type": "string",
+            "title": "Shared By User Id"
+          },
+          "target_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target User Id"
+          },
+          "target_team_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Team Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "chat_id",
+          "mode",
+          "shared_by_user_id",
+          "created_at"
+        ],
+        "title": "ChatShareResponse"
+      },
       "ChatsResponse": {
         "properties": {
           "id": {
@@ -12469,6 +13365,56 @@
         ],
         "title": "ConnectorListResponse"
       },
+      "ConnectorRequestStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "approved",
+          "denied"
+        ],
+        "title": "ConnectorRequestStatus"
+      },
+      "CreateChatShareRequest": {
+        "properties": {
+          "chatId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chatid"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ChatShareMode",
+            "default": "read_only"
+          },
+          "userId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Userid"
+          },
+          "teamId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teamid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chatId"
+        ],
+        "title": "CreateChatShareRequest"
+      },
       "CreateCheckoutSessionRequest": {
         "properties": {
           "plan_type": {
@@ -12518,16 +13464,66 @@
         ],
         "title": "CreateFolder"
       },
-      "CreateTeamRequest": {
+      "CreateOrganizationRequest": {
         "properties": {
           "name": {
             "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
             "title": "Name"
           },
           "description": {
             "type": "string",
             "title": "Description",
             "default": ""
+          },
+          "logoUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1024
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logourl"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CreateOrganizationRequest"
+      },
+      "CreateTeamRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
           }
         },
         "type": "object",
@@ -12647,6 +13643,19 @@
         ],
         "title": "DeleteChat"
       },
+      "DeleteOrganizationRequest": {
+        "properties": {
+          "confirmName": {
+            "type": "string",
+            "title": "Confirmname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmName"
+        ],
+        "title": "DeleteOrganizationRequest"
+      },
       "DeletePersonaChat": {
         "properties": {
           "chat_id": {
@@ -12660,19 +13669,6 @@
           "chat_id"
         ],
         "title": "DeletePersonaChat"
-      },
-      "DeleteWorkspaceRequest": {
-        "properties": {
-          "confirmName": {
-            "type": "string",
-            "title": "Confirmname"
-          }
-        },
-        "type": "object",
-        "required": [
-          "confirmName"
-        ],
-        "title": "DeleteWorkspaceRequest"
       },
       "EnhanceAnswer": {
         "properties": {
@@ -12836,6 +13832,25 @@
           "created_at"
         ],
         "title": "FolderResponse"
+      },
+      "ForkResponse": {
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chat Id"
+          },
+          "chat_title": {
+            "type": "string",
+            "title": "Chat Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chat_id",
+          "chat_title"
+        ],
+        "title": "ForkResponse"
       },
       "GetMessages": {
         "properties": {
@@ -13364,9 +14379,6 @@
             "type": "string",
             "title": "Invited By Name"
           },
-          "role": {
-            "$ref": "#/components/schemas/TeamRole"
-          },
           "expires_at": {
             "type": "string",
             "format": "date-time",
@@ -13379,7 +14391,6 @@
           "team_id",
           "team_name",
           "invited_by_name",
-          "role",
           "expires_at"
         ],
         "title": "InvitePreview"
@@ -13392,10 +14403,6 @@
             },
             "type": "array",
             "title": "Emails"
-          },
-          "role": {
-            "$ref": "#/components/schemas/TeamRole",
-            "default": "member"
           }
         },
         "type": "object",
@@ -13415,9 +14422,6 @@
             "type": "string",
             "format": "uuid",
             "title": "Team Id"
-          },
-          "role": {
-            "$ref": "#/components/schemas/TeamRole"
           },
           "recipient_emails": {
             "anyOf": [
@@ -13447,7 +14451,6 @@
         "required": [
           "id",
           "team_id",
-          "role",
           "expires_at",
           "invite_url"
         ],
@@ -13568,24 +14571,6 @@
         ],
         "title": "LinkResponse"
       },
-      "MemberConnectorResponse": {
-        "properties": {
-          "connector_slug": {
-            "type": "string",
-            "title": "Connector Slug"
-          },
-          "allowed": {
-            "type": "boolean",
-            "title": "Allowed"
-          }
-        },
-        "type": "object",
-        "required": [
-          "connector_slug",
-          "allowed"
-        ],
-        "title": "MemberConnectorResponse"
-      },
       "MemberResponse": {
         "properties": {
           "user_id": {
@@ -13615,7 +14600,7 @@
             "title": "Email"
           },
           "role": {
-            "$ref": "#/components/schemas/WorkspaceRole"
+            "$ref": "#/components/schemas/OrganizationRole"
           },
           "credit_cap": {
             "anyOf": [
@@ -13737,6 +14722,134 @@
           "completed"
         ],
         "title": "OnboardingSummary"
+      },
+      "OrganizationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
+          "archived": {
+            "type": "boolean",
+            "title": "Archived"
+          },
+          "my_role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrganizationRole"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "archived",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "OrganizationResponse"
+      },
+      "OrganizationRole": {
+        "type": "string",
+        "enum": [
+          "owner",
+          "admin",
+          "member"
+        ],
+        "title": "OrganizationRole",
+        "description": "A user's org-wide standing. `owner` bought the org — full control\nincluding billing/card changes; exactly one per org. `admin` has every\nowner power except payment changes. `member` is the baseline: their actual\naccess comes from TeamEditor / ProjectMember grant rows."
+      },
+      "OrganizationSettingsResponse": {
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "org_instructions": {
+            "type": "string",
+            "title": "Org Instructions",
+            "default": ""
+          },
+          "allowed_email_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Email Domains"
+          },
+          "default_chat_visibility": {
+            "type": "string",
+            "title": "Default Chat Visibility",
+            "default": "private"
+          },
+          "default_persona_visibility": {
+            "type": "string",
+            "title": "Default Persona Visibility",
+            "default": "private"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_id"
+        ],
+        "title": "OrganizationSettingsResponse"
       },
       "OverflowRequestBody": {
         "properties": {
@@ -13874,6 +14987,42 @@
         },
         "type": "object",
         "title": "PaymentMethodInfo"
+      },
+      "PersonResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "PersonResponse",
+        "description": "A bare person reference — team editors and project members alike; the\ngrant table a row came from already says what they are."
       },
       "PersonaChatsResponse": {
         "properties": {
@@ -14829,10 +15978,10 @@
       },
       "PlanResponse": {
         "properties": {
-          "workspace_id": {
+          "organization_id": {
             "type": "string",
             "format": "uuid",
-            "title": "Workspace Id"
+            "title": "Organization Id"
           },
           "plan_credits": {
             "type": "number",
@@ -14873,7 +16022,7 @@
         },
         "type": "object",
         "required": [
-          "workspace_id",
+          "organization_id",
           "plan_credits",
           "topup_credits",
           "total_credits",
@@ -14937,10 +16086,10 @@
       },
       "PoolStatusResponse": {
         "properties": {
-          "workspace_id": {
+          "organization_id": {
             "type": "string",
             "format": "uuid",
-            "title": "Workspace Id"
+            "title": "Organization Id"
           },
           "status": {
             "type": "string",
@@ -14957,7 +16106,7 @@
         },
         "type": "object",
         "required": [
-          "workspace_id",
+          "organization_id",
           "status",
           "percent_used",
           "remaining"
@@ -15341,6 +16490,26 @@
         },
         "type": "object",
         "title": "ReplaceTags"
+      },
+      "RequestConnectorRequest": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Slug"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug"
+        ],
+        "title": "RequestConnectorRequest"
       },
       "SaveToDriveRequest": {
         "properties": {
@@ -15816,28 +16985,22 @@
         "type": "object",
         "title": "SetCapRequest"
       },
-      "SetConnectorPermRequest": {
+      "SetConnectorStatusRequest": {
         "properties": {
-          "slug": {
-            "type": "string",
-            "title": "Slug"
-          },
-          "allowed": {
-            "type": "boolean",
-            "title": "Allowed"
+          "status": {
+            "$ref": "#/components/schemas/ConnectorRequestStatus"
           }
         },
         "type": "object",
         "required": [
-          "slug",
-          "allowed"
+          "status"
         ],
-        "title": "SetConnectorPermRequest"
+        "title": "SetConnectorStatusRequest"
       },
       "SetRoleRequest": {
         "properties": {
           "role": {
-            "$ref": "#/components/schemas/WorkspaceRole"
+            "$ref": "#/components/schemas/OrganizationRole"
           }
         },
         "type": "object",
@@ -16031,6 +17194,214 @@
         "title": "ShareRecipientSummary",
         "description": "Who accepted a link and how they've used it — embedded per link."
       },
+      "SharedChatItem": {
+        "properties": {
+          "share_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Share Id"
+          },
+          "chat_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chat Id"
+          },
+          "chat_title": {
+            "type": "string",
+            "title": "Chat Title"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ChatShareMode"
+          },
+          "shared_by": {
+            "$ref": "#/components/schemas/PersonResponse"
+          },
+          "target_team_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Team Id"
+          },
+          "forked_chat_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forked Chat Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "share_id",
+          "chat_id",
+          "chat_title",
+          "mode",
+          "shared_by",
+          "created_at"
+        ],
+        "title": "SharedChatItem",
+        "description": "One entry in the receiver's 'shared with me' list."
+      },
+      "SharedChatView": {
+        "properties": {
+          "share_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Share Id"
+          },
+          "chat_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chat Id"
+          },
+          "chat_title": {
+            "type": "string",
+            "title": "Chat Title"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ChatShareMode"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/SharedMessage"
+            },
+            "type": "array",
+            "title": "Messages",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "share_id",
+          "chat_id",
+          "chat_title",
+          "mode"
+        ],
+        "title": "SharedChatView",
+        "description": "The live view a recipient sees — the sharer's chat, read in place."
+      },
+      "SharedMessage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "input": {
+            "type": "string",
+            "title": "Input"
+          },
+          "output": {
+            "type": "string",
+            "title": "Output"
+          },
+          "reasoning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "input",
+          "output",
+          "created_at"
+        ],
+        "title": "SharedMessage"
+      },
+      "SlackInstallURLResponse": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "SlackInstallURLResponse"
+      },
+      "SlackStatusResponse": {
+        "properties": {
+          "workspaces": {
+            "items": {
+              "$ref": "#/components/schemas/SlackWorkspaceStatus"
+            },
+            "type": "array",
+            "title": "Workspaces"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspaces"
+        ],
+        "title": "SlackStatusResponse",
+        "description": "The workspaces this user's Slack identity is linked in, where the bot\nis installed — what the FE needs to render connected/not-connected."
+      },
+      "SlackWorkspaceStatus": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "installed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Installed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "team_name",
+          "installed_at"
+        ],
+        "title": "SlackWorkspaceStatus"
+      },
       "SubscriptionActionResponse": {
         "properties": {
           "status": {
@@ -16109,44 +17480,50 @@
         ],
         "title": "TeamBurn"
       },
-      "TeamMemberResponse": {
+      "TeamConnectorResponse": {
         "properties": {
-          "user_id": {
+          "team_id": {
             "type": "string",
-            "title": "User Id"
+            "format": "uuid",
+            "title": "Team Id"
           },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
+          "connector_slug": {
+            "type": "string",
+            "title": "Connector Slug"
           },
-          "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
+          "status": {
+            "$ref": "#/components/schemas/ConnectorRequestStatus"
           },
-          "role": {
-            "$ref": "#/components/schemas/TeamRole"
+          "requested_by_user_id": {
+            "type": "string",
+            "title": "Requested By User Id"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
           }
         },
         "type": "object",
         "required": [
-          "user_id",
-          "role"
+          "team_id",
+          "connector_slug",
+          "status",
+          "requested_by_user_id",
+          "created_at",
+          "updated_at"
         ],
-        "title": "TeamMemberResponse"
+        "title": "TeamConnectorResponse"
       },
       "TeamResponse": {
         "properties": {
@@ -16155,10 +17532,10 @@
             "format": "uuid",
             "title": "Id"
           },
-          "workspace_id": {
+          "organization_id": {
             "type": "string",
             "format": "uuid",
-            "title": "Workspace Id"
+            "title": "Organization Id"
           },
           "name": {
             "type": "string",
@@ -16168,9 +17545,13 @@
             "type": "string",
             "title": "Description"
           },
-          "owner_user_id": {
-            "type": "string",
-            "title": "Owner User Id"
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
           },
           "archived": {
             "type": "boolean",
@@ -16180,29 +17561,24 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
           }
         },
         "type": "object",
         "required": [
           "id",
-          "workspace_id",
+          "organization_id",
           "name",
           "description",
-          "owner_user_id",
           "archived",
-          "created_at"
+          "created_at",
+          "updated_at"
         ],
         "title": "TeamResponse"
-      },
-      "TeamRole": {
-        "type": "string",
-        "enum": [
-          "team_owner",
-          "editor",
-          "member"
-        ],
-        "title": "TeamRole",
-        "description": "A user's role within one team. `team_owner` manages the team (invites,\ncaps, burn, overflow); `editor` may publish resources to the team; `member`\nonly consumes what's shared to them."
       },
       "TestModelRequest": {
         "properties": {
@@ -16446,6 +17822,140 @@
         "type": "object",
         "title": "UpdateOnboarding"
       },
+      "UpdateOrganizationRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "logoUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1024
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logourl"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "archived": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived"
+          }
+        },
+        "type": "object",
+        "title": "UpdateOrganizationRequest"
+      },
+      "UpdateOrganizationSettingsRequest": {
+        "properties": {
+          "orgInstructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orginstructions"
+          },
+          "allowedEmailDomains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowedemaildomains"
+          },
+          "defaultChatVisibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultchatvisibility"
+          },
+          "defaultPersonaVisibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultpersonavisibility"
+          }
+        },
+        "type": "object",
+        "title": "UpdateOrganizationSettingsRequest"
+      },
       "UpdatePersona": {
         "properties": {
           "name": {
@@ -16542,7 +18052,9 @@
           "name": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -16560,6 +18072,20 @@
               }
             ],
             "title": "Description"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
           },
           "archived": {
             "anyOf": [
@@ -16637,34 +18163,6 @@
         "type": "object",
         "title": "UpdateUser"
       },
-      "UpdateWorkspaceRequest": {
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "archived": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Archived"
-          }
-        },
-        "type": "object",
-        "title": "UpdateWorkspaceRequest"
-      },
       "UsageBreakdown": {
         "properties": {
           "chat": {
@@ -16689,10 +18187,10 @@
       },
       "UsageBreakdownResponse": {
         "properties": {
-          "workspace_id": {
+          "organization_id": {
             "type": "string",
             "format": "uuid",
-            "title": "Workspace Id"
+            "title": "Organization Id"
           },
           "by_team": {
             "items": {
@@ -16705,7 +18203,7 @@
         },
         "type": "object",
         "required": [
-          "workspace_id"
+          "organization_id"
         ],
         "title": "UsageBreakdownResponse"
       },
@@ -17013,60 +18511,6 @@
           "links"
         ],
         "title": "WebSearchResult"
-      },
-      "WorkspaceResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "owner_user_id": {
-            "type": "string",
-            "title": "Owner User Id"
-          },
-          "archived": {
-            "type": "boolean",
-            "title": "Archived"
-          },
-          "my_role": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/WorkspaceRole"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "owner_user_id",
-          "archived",
-          "created_at"
-        ],
-        "title": "WorkspaceResponse"
-      },
-      "WorkspaceRole": {
-        "type": "string",
-        "enum": [
-          "admin",
-          "member"
-        ],
-        "title": "WorkspaceRole",
-        "description": "A user's standing in a workspace. `admin` is the buyer/owner — billing,\nconnectors, and authority over every team. `member` is everyone else; their\nfiner-grained authority comes from their per-team TeamRole."
       }
     },
     "securitySchemes": {

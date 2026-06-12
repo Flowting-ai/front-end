@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PlusSignIcon } from '@strange-huge/icons'
 import { AnimatePresence, motion } from 'framer-motion'
+import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { InputField } from '@/components/InputField'
 import {
@@ -15,6 +16,7 @@ import {
   SettingsTableToolbar,
 } from '@/components/SettingsTable'
 import { useOrg } from '@/context/org-context'
+import { createTeam } from '@/lib/api/teams'
 import type { Team } from '@/types/teams'
 
 const SLIDE = { duration: 0.28, ease: [0.4, 0, 0.2, 1] as const }
@@ -72,35 +74,31 @@ const TEAM_COLUMN_GAP = 0
 function TeamNameCell({ team }: { team: Team }) {
   return (
     <div style={{ minWidth: 0 }}>
-      <p
-        style={{
+      <p style={{
+        fontFamily:   'var(--font-body)',
+        fontWeight:   500,
+        fontSize:     14,
+        lineHeight:   '22px',
+        color:        'var(--neutral-900)',
+        margin:       0,
+        overflow:     'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace:   'nowrap',
+      }}>
+        {team.name}
+      </p>
+      {team.description && (
+        <p style={{
           fontFamily:   'var(--font-body)',
-          fontWeight:   500,
-          fontSize:     14,
-          lineHeight:   '22px',
-          color:        'var(--neutral-900)',
+          fontWeight:   400,
+          fontSize:     11,
+          lineHeight:   '16px',
+          color:        'var(--neutral-500)',
           margin:       0,
           overflow:     'hidden',
           textOverflow: 'ellipsis',
           whiteSpace:   'nowrap',
-        }}
-      >
-        {team.name}
-      </p>
-      {team.description && (
-        <p
-          style={{
-            fontFamily:   'var(--font-body)',
-            fontWeight:   400,
-            fontSize:     11,
-            lineHeight:   '16px',
-            color:        'var(--neutral-500)',
-            margin:       0,
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}
-        >
+        }}>
           {team.description}
         </p>
       )}
@@ -110,21 +108,19 @@ function TeamNameCell({ team }: { team: Team }) {
 
 function TextPill({ children }: { children: React.ReactNode }) {
   return (
-    <span
-      style={{
-        display:        'inline-flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        padding:        '5px 8px',
-        borderRadius:   8,
-        fontFamily:     'var(--font-body)',
-        fontWeight:     500,
-        fontSize:       14,
-        lineHeight:     '22px',
-        color:          'var(--neutral-700)',
-        whiteSpace:     'nowrap',
-      }}
-    >
+    <span style={{
+      display:        'inline-flex',
+      alignItems:     'center',
+      justifyContent: 'center',
+      padding:        '5px 8px',
+      borderRadius:   8,
+      fontFamily:     'var(--font-body)',
+      fontWeight:     500,
+      fontSize:       14,
+      lineHeight:     '22px',
+      color:          'var(--neutral-700)',
+      whiteSpace:     'nowrap',
+    }}>
       {children}
     </span>
   )
@@ -132,28 +128,26 @@ function TextPill({ children }: { children: React.ReactNode }) {
 
 export default function OrgTeamsPage() {
   const router = useRouter()
-  const { teams: contextTeams, currentUserRole } = useOrg()
+  const { orgId, teams, teamsLoading, refreshTeams, currentUserRole } = useOrg()
   const isAdmin = currentUserRole === 'admin'
 
-  const [teams,    setTeams]    = useState<Team[]>(contextTeams)
   const [creating, setCreating] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const activeTeams = teams.filter(team => team.status === 'active')
+  const activeTeams = teams.filter(t => !t.archived)
 
-  const handleCreateTeam = (name: string, desc: string) => {
-    const team: Team = {
-      id:          `team_new_${Date.now()}`,
-      name,
-      description: desc || undefined,
-      status:      'active',
-      memberCount: 0,
-      owners:      [{ id: 'usr_01', name: 'Alex Rivera' }],
-      projects:    [],
-      creditUsed:  0,
-      createdAt:   new Date().toISOString().split('T')[0] ?? '',
+  const handleCreateTeam = async (name: string, desc: string) => {
+    if (!orgId) return
+    setSaving(true)
+    try {
+      await createTeam(orgId, name, desc)
+      refreshTeams()
+      setCreating(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create team')
+    } finally {
+      setSaving(false)
     }
-    setTeams(prev => [...prev, team])
-    setCreating(false)
   }
 
   return (
@@ -190,7 +184,7 @@ export default function OrgTeamsPage() {
         <SettingsTable>
           <SettingsTableToolbar title="Team Members">
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
-              {activeTeams.length} teams
+              {teamsLoading ? 'Loading…' : `${activeTeams.length} teams`}
             </p>
           </SettingsTableToolbar>
 
@@ -200,14 +194,14 @@ export default function OrgTeamsPage() {
             style={{ minHeight: 44, padding: '6px 24px 16px' }}
           >
             <SettingsTableHeaderCell>Team</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="center">Members</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="center">Owner</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="center">Projects</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="center">Credits used</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="center">Created</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell>{null}</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell>{null}</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell>{null}</SettingsTableHeaderCell>
             <SettingsTableHeaderCell>{null}</SettingsTableHeaderCell>
           </SettingsTableHeader>
 
-          {activeTeams.length === 0 && !creating && (
+          {!teamsLoading && activeTeams.length === 0 && !creating && (
             <div style={{ padding: '32px 24px', textAlign: 'center' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
                 No teams yet. Create your first team.
@@ -215,46 +209,34 @@ export default function OrgTeamsPage() {
             </div>
           )}
 
-          {activeTeams.map((team) => {
-            const ownerName = team.owners.map(o => o.name).join(', ') || 'Alex Rivera'
-            const projectCount = team.projects.length || 2
-            const creditsUsed = team.creditUsed || 24_800
-
-            return (
-              <SettingsTableRow
-                key={team.id}
-                columns={TEAM_COLUMNS}
-                columnGap={TEAM_COLUMN_GAP}
-                minHeight={72}
-                divider
-              >
-                <SettingsTableCell>
-                  <TeamNameCell team={team} />
-                </SettingsTableCell>
-                <SettingsTableCell align="center">
-                  <TextPill>{team.memberCount}</TextPill>
-                </SettingsTableCell>
-                <SettingsTableCell align="center">
-                  <TextPill>{ownerName}</TextPill>
-                </SettingsTableCell>
-                <SettingsTableCell align="center">
-                  <TextPill>{projectCount}</TextPill>
-                </SettingsTableCell>
-                <SettingsTableCell align="center">
-                  <TextPill>{creditsUsed.toLocaleString()}</TextPill>
-                </SettingsTableCell>
-                <SettingsTableCell align="end">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => router.push(`/settings/org/teams/${team.id}`)}
-                  >
-                    Team setting
-                  </Button>
-                </SettingsTableCell>
-              </SettingsTableRow>
-            )
-          })}
+          {activeTeams.map((team) => (
+            <SettingsTableRow
+              key={team.id}
+              columns={TEAM_COLUMNS}
+              columnGap={TEAM_COLUMN_GAP}
+              minHeight={72}
+              divider
+            >
+              <SettingsTableCell>
+                <TeamNameCell team={team} />
+              </SettingsTableCell>
+              <SettingsTableCell align="center">
+                <TextPill>{new Date(team.createdAt).toLocaleDateString()}</TextPill>
+              </SettingsTableCell>
+              <SettingsTableCell>{null}</SettingsTableCell>
+              <SettingsTableCell>{null}</SettingsTableCell>
+              <SettingsTableCell>{null}</SettingsTableCell>
+              <SettingsTableCell align="end">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => router.push(`/settings/org/teams/${team.id}`)}
+                >
+                  Team settings
+                </Button>
+              </SettingsTableCell>
+            </SettingsTableRow>
+          ))}
 
           <AnimatePresence initial={false}>
             {creating && (

@@ -340,7 +340,6 @@ export default function HelpPage() {
             textOverflow: 'ellipsis',
             whiteSpace:   'nowrap',
           }}>
-            Made with context.
           </p>
         </div>
 

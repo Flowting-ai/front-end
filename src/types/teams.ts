@@ -1,8 +1,8 @@
 export type WorkspaceRole = 'admin' | 'editor' | 'member'
+export type OrgRole = 'owner' | 'admin' | 'member'
 export type InviteStatus = 'not_invited' | 'invite_sent' | 'signed_up'
 export type TokenStatus = 'normal' | 'warning_80' | 'warning_95' | 'grace' | 'locked'
 export type ConnectorAuthority = 'workspace_only' | 'member_required' | 'both_possible'
-export type TeamStatus = 'active' | 'archived' | 'tombstone'
 export type HITLThreshold = 'auto' | 'tier_3_plus' | 'everything'
 export type ApprovalStatus = 'pending' | 'accepted' | 'denied'
 
@@ -46,19 +46,32 @@ export interface TeamMembership {
   isTeamOwner: boolean
 }
 
+/** Matches the API TeamResponse — fields come directly from the backend. */
 export interface Team {
   id: string
+  organizationId: string
   name: string
-  description?: string
-  status: TeamStatus
-  memberCount: number
-  owners: { id: string; name: string }[]
-  projects: TeamProject[]
-  creditUsed: number
+  description: string
+  tags: string[]
+  archived: boolean
   createdAt: string
-  archivedAt?: string
-  permanentDeleteAt?: string
-  permanentlyDeletedAt?: string
+  updatedAt: string
+}
+
+/** A person reference returned by editor/member list endpoints (PersonResponse). */
+export interface TeamEditor {
+  userId: string
+  name: string | null
+  email: string | null
+}
+
+/** Returned after creating a team invite. */
+export interface TeamInvite {
+  id: string
+  teamId: string
+  recipientEmails: string[]
+  expiresAt: string
+  inviteUrl: string
 }
 
 export interface TeamProject {
@@ -98,6 +111,14 @@ export interface ActivityEntry {
     | 'member_invited' | 'member_removed' | 'role_changed'
     | 'team_created' | 'team_archived' | 'persona_published'
   detail: string
+}
+
+export interface OrgSettings {
+  organizationId: string
+  orgInstructions: string | null
+  allowedEmailDomains: string[] | null
+  defaultChatVisibility: string | null
+  defaultPersonaVisibility: string | null
 }
 
 export interface ApprovalRequest {

@@ -1,10 +1,12 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { SecurityToggleRow } from '@/components/SecurityToggleRow'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
 import { useOrg } from '@/context/org-context'
+import { getOrgSettings, updateOrgSettings } from '@/lib/api/organization'
 import type { HITLThreshold } from '@/types/teams'
 
 const SHADOW_CARD = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)'
@@ -49,7 +51,7 @@ function PageCard({ children }: { children: React.ReactNode }) {
 }
 
 export default function OrgSecurityPage() {
-  const { org, currentUserRole } = useOrg()
+  const { orgId, org, currentUserRole } = useOrg()
   const isAdmin = currentUserRole === 'admin'
 
   const [googleSSO,    setGoogleSSO]    = useState(false)
@@ -59,6 +61,39 @@ export default function OrgSecurityPage() {
   const [domainStatus, setDomainStatus] = useState<'idle' | 'verifying' | 'verified'>('idle')
   const [twoFA,        setTwoFA]        = useState(false)
   const [hitl,         setHitl]         = useState<HITLThreshold>(org.hitlThreshold)
+
+  const [instructions,    setInstructions]    = useState('')
+  const [emailDomains,    setEmailDomains]    = useState('')
+  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [savingSettings,  setSavingSettings]  = useState(false)
+
+  useEffect(() => {
+    if (!orgId) return
+    setSettingsLoading(true)
+    getOrgSettings(orgId)
+      .then(s => {
+        setInstructions(s.orgInstructions ?? '')
+        setEmailDomains((s.allowedEmailDomains ?? []).join(', '))
+      })
+      .catch(console.error)
+      .finally(() => setSettingsLoading(false))
+  }, [orgId])
+
+  const handleSaveSettings = async () => {
+    if (!orgId) return
+    setSavingSettings(true)
+    try {
+      await updateOrgSettings(orgId, {
+        orgInstructions:     instructions || null,
+        allowedEmailDomains: emailDomains.split(',').map(d => d.trim()).filter(Boolean),
+      })
+      toast.success('Settings saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save settings')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
 
   const handleVerify = () => {
     setDomainStatus('verifying')
@@ -75,6 +110,74 @@ export default function OrgSecurityPage() {
           Configure authentication and access controls for your workspace.
         </p>
       </div>
+
+      {/* Workspace defaults */}
+      <PageCard>
+        <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 15, color: 'var(--neutral-900)', margin: 0 }}>Workspace defaults</p>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, color: 'var(--neutral-500)', margin: '3px 0 0' }}>
+            Applied to every AI session and new content in this workspace.
+          </p>
+        </div>
+        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 20, opacity: settingsLoading ? 0.6 : 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)', margin: 0 }}>
+              Workspace instructions
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
+              Applied to every AI session in this workspace.
+            </p>
+            <textarea
+              value={instructions}
+              onChange={e => setInstructions(e.target.value)}
+              disabled={!isAdmin || settingsLoading}
+              placeholder="e.g. Always respond in formal English. Reference our brand guide."
+              style={{
+                minHeight:       88,
+                resize:          'vertical',
+                border:          'none',
+                borderRadius:    10,
+                padding:         '10px 12px',
+                backgroundColor: 'var(--neutral-white)',
+                boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px var(--neutral-100)',
+                fontFamily:      'var(--font-body)',
+                fontSize:        14,
+                lineHeight:      '22px',
+                color:           'var(--neutral-900)',
+                outline:         '2px solid transparent',
+                outlineOffset:   3,
+                width:           '100%',
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)', margin: 0 }}>
+              Allowed email domains
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
+              Comma-separated list of domains that can access this workspace (e.g. acme.com, acme.io).
+            </p>
+            <InputField
+              value={emailDomains}
+              onChange={setEmailDomains}
+              placeholder="acme.com, acme.io"
+              disabled={!isAdmin || settingsLoading}
+            />
+          </div>
+          {isAdmin && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSaveSettings}
+                disabled={savingSettings || settingsLoading}
+              >
+                {savingSettings ? 'Saving…' : 'Save changes'}
+              </Button>
+            </div>
+          )}
+        </div>
+      </PageCard>
 
       {/* Authentication card */}
       <PageCard>

@@ -1,0 +1,795 @@
+openapi: 3.0.3
+info:
+  title: Organizations API
+  version: "1.0"
+  description: Organization and team management endpoints.
+
+tags:
+  - name: organizations
+
+paths:
+  /organizations:
+    get:
+      tags: [organizations]
+      summary: List Organizations
+      operationId: list_organizations
+      security:
+        - HTTPBearer: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OrganizationResponse"
+    post:
+      tags: [organizations]
+      summary: Create Organization
+      operationId: create_organization
+      security:
+        - HTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrganizationRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationResponse"
+
+  /organizations/{organization_id}:
+    get:
+      tags: [organizations]
+      summary: Get Organization
+      operationId: get_organization
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationResponse"
+    patch:
+      tags: [organizations]
+      summary: Update Organization
+      operationId: update_organization
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrganizationRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationResponse"
+    delete:
+      tags: [organizations]
+      summary: Delete Organization
+      operationId: delete_organization
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteOrganizationRequest"
+      responses:
+        "204":
+          description: No Content
+
+  /organizations/{organization_id}/teams:
+    get:
+      tags: [organizations]
+      summary: List Teams
+      operationId: list_teams
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamResponse"
+    post:
+      tags: [organizations]
+      summary: Create Team
+      operationId: create_team
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTeamRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamResponse"
+
+  /organizations/{organization_id}/teams/{team_id}:
+    get:
+      tags: [organizations]
+      summary: Get Team
+      operationId: get_team
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamResponse"
+    patch:
+      tags: [organizations]
+      summary: Update Team
+      operationId: update_team
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeamRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamResponse"
+    delete:
+      tags: [organizations]
+      summary: Delete Team
+      operationId: delete_team
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+      responses:
+        "204":
+          description: No Content
+
+  /organizations/{organization_id}/teams/{team_id}/editors:
+    get:
+      tags: [organizations]
+      summary: List Team Editors
+      operationId: list_team_editors
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonResponse"
+
+  /organizations/{organization_id}/teams/{team_id}/editors/{member_id}:
+    delete:
+      tags: [organizations]
+      summary: Remove Team Editor
+      operationId: remove_team_editor
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+        - name: member_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+
+  /organizations/{organization_id}/teams/{team_id}/invites:
+    post:
+      tags: [organizations]
+      summary: Create Invite
+      operationId: create_team_invite
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteResponse"
+
+  /organizations/{organization_id}/teams/{team_id}/connectors:
+    get:
+      tags: [organizations]
+      summary: List Team Connectors
+      operationId: list_team_connectors
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamConnectorResponse"
+    post:
+      tags: [organizations]
+      summary: Request Team Connector
+      operationId: request_team_connector
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestConnectorRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamConnectorResponse"
+
+  /organizations/{organization_id}/teams/{team_id}/connectors/{slug}:
+    patch:
+      tags: [organizations]
+      summary: Set Team Connector Status
+      operationId: set_team_connector_status
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetConnectorStatusRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamConnectorResponse"
+    delete:
+      tags: [organizations]
+      summary: Remove Team Connector
+      operationId: remove_team_connector
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+
+  /organizations/{organization_id}/teams/{team_id}/projects/{project_id}/members:
+    get:
+      tags: [organizations]
+      summary: List Project Members
+      operationId: list_project_members
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+        - $ref: "#/components/parameters/project_id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonResponse"
+    post:
+      tags: [organizations]
+      summary: Add Project Member
+      operationId: add_project_member
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+        - $ref: "#/components/parameters/project_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddProjectMemberRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonResponse"
+
+  /organizations/{organization_id}/teams/{team_id}/projects/{project_id}/members/{member_id}:
+    delete:
+      tags: [organizations]
+      summary: Remove Project Member
+      operationId: remove_project_member
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/team_id"
+        - $ref: "#/components/parameters/project_id"
+        - name: member_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+
+  /organizations/{organization_id}/members/{member_id}/cap:
+    patch:
+      tags: [organizations]
+      summary: Set Member Credit Cap
+      operationId: set_member_cap
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/member_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+
+  /organizations/{organization_id}/members/{member_id}/role:
+    patch:
+      tags: [organizations]
+      summary: Set Member Role
+      operationId: set_member_role
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/member_id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+
+  /organizations/{organization_id}/members/{member_id}:
+    delete:
+      tags: [organizations]
+      summary: Remove Member
+      operationId: remove_member
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - $ref: "#/components/parameters/member_id"
+      responses:
+        "204":
+          description: No Content
+
+  /organizations/{organization_id}/audit:
+    get:
+      tags: [organizations]
+      summary: List Audit Log
+      operationId: list_audit
+      security:
+        - HTTPBearer: []
+      parameters:
+        - $ref: "#/components/parameters/organization_id"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEntry"
+
+  /team-invite/{invite_id}:
+    get:
+      tags: [organizations]
+      summary: Preview Invite
+      operationId: preview_invite
+      parameters:
+        - name: invite_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitePreview"
+
+  /team-invite/{invite_id}/accept:
+    post:
+      tags: [organizations]
+      summary: Accept Invite
+      operationId: accept_invite
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: invite_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamResponse"
+
+components:
+  parameters:
+    organization_id:
+      name: organization_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    team_id:
+      name: team_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    member_id:
+      name: member_id
+      in: path
+      required: true
+      schema:
+        type: string
+    project_id:
+      name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    OrganizationResponse:
+      type: object
+      required: [id, name, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        domain:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateOrganizationRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+
+    UpdateOrganizationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+
+    DeleteOrganizationRequest:
+      type: object
+
+    TeamResponse:
+      type: object
+      required: [id, organization_id, name, description, archived, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+          default: []
+        archived:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateTeamRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          default: ""
+        tags:
+          type: array
+          items:
+            type: string
+          default: []
+
+    UpdateTeamRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          nullable: true
+        archived:
+          type: boolean
+          nullable: true
+
+    PersonResponse:
+      type: object
+      required: [user_id]
+      description: Bare person reference — team editors and project members.
+      properties:
+        user_id:
+          type: string
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+
+    InviteRequest:
+      type: object
+      required: [emails]
+      properties:
+        emails:
+          type: array
+          items:
+            type: string
+
+    InviteResponse:
+      type: object
+      required: [id, team_id, expires_at, invite_url]
+      properties:
+        id:
+          type: string
+          format: uuid
+        team_id:
+          type: string
+          format: uuid
+        recipient_emails:
+          type: array
+          items:
+            type: string
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+        invite_url:
+          type: string
+
+    InvitePreview:
+      type: object
+      required: [team_name, invite_id]
+      properties:
+        team_name:
+          type: string
+        invite_id:
+          type: string
+          format: uuid
+
+    TeamConnectorResponse:
+      type: object
+      required: [team_id, connector_slug, status, requested_by_user_id, created_at, updated_at]
+      properties:
+        team_id:
+          type: string
+          format: uuid
+        connector_slug:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, denied]
+        requested_by_user_id:
+          type: string
+        note:
+          type: string
+          default: ""
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RequestConnectorRequest:
+      type: object
+      required: [connector_slug]
+      properties:
+        connector_slug:
+          type: string
+        note:
+          type: string
+          default: ""
+
+    SetConnectorStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, approved, denied]
+
+    AddProjectMemberRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+
+    AuditEntry:
+      type: object
+      required: [id, action, actor_id, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        action:
+          type: string
+        actor_id:
+          type: string
+        target_id:
+          type: string
+          nullable: true
+        detail:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer

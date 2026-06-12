@@ -180,3 +180,31 @@ export const WORKFLOW_CHAT_DELETE_MESSAGE_ENDPOINT = (
   chatId: string,
   messageId: string,
 ) => withBase(`/workflow/${workflowId}/chats/${chatId}/message/${messageId}`);
+
+// ── Organizations & Teams ─────────────────────────────────────────────────────
+export const ORG_TEAMS_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/teams`)
+export const ORG_TEAM_ENDPOINT = (orgId: string, teamId: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}`)
+export const ORG_TEAM_EDITORS_ENDPOINT = (orgId: string, teamId: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}/editors`)
+export const ORG_TEAM_EDITOR_ENDPOINT = (orgId: string, teamId: string, memberId: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}/editors/${memberId}`)
+export const ORG_TEAM_INVITES_ENDPOINT = (orgId: string, teamId: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}/invites`)
+export const TEAM_INVITE_PREVIEW_ENDPOINT = (inviteId: string) =>
+  withBase(`/team-invite/${inviteId}`)
+export const TEAM_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>
+  withBase(`/team-invite/${inviteId}/accept`)
+
+// ── Organization ──────────────────────────────────────────────────────────────
+export const ORG_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}`)
+export const ORG_SETTINGS_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/settings`)
+export const ORG_MEMBER_ENDPOINT = (orgId: string, memberId: string) =>
+  withBase(`/organizations/${orgId}/members/${memberId}`)
+export const ORG_MEMBER_ROLE_ENDPOINT = (orgId: string, memberId: string) =>
+  withBase(`/organizations/${orgId}/members/${memberId}/role`)
+export const ORG_MEMBER_CAP_ENDPOINT = (orgId: string, memberId: string) =>
+  withBase(`/organizations/${orgId}/members/${memberId}/cap`)

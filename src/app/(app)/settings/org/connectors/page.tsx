@@ -1,8 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { toast } from 'sonner'
 import * as Dialog from '@radix-ui/react-dialog'
+import { listConnectors, initiateLink, unlinkConnector } from '@/lib/api/connectors'
+import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 import {
   ArrowDownOneIcon,
   ArrowRightOneIcon,
@@ -32,59 +35,6 @@ const FILTER_TABS: Array<{ id: FilterTab; label: string }> = [
 ]
 
 const CATEGORIES: CategoryTab[] = ['All', 'Productivity', 'Communication', 'Design', 'Interactive', 'Data']
-
-const WORKSPACE_CONNECTORS = [
-  { name: 'Github', type: 'Workspace connector' },
-  { name: 'Github', type: 'Workspace connector' },
-]
-
-const ACCOUNT_CONNECTORS = [
-  { name: 'Gmail', type: 'Per-member connector', connected: true },
-  { name: 'Gmail', type: 'Per-member connector', connected: false },
-]
-
-const MANAGED_CONNECTORS = [
-  {
-    id:          1,
-    name:        'Google Drive',
-    category:    'Productivity',
-    description: 'Access, attach, and search files from your Drive directly in chat and search files from your Drive directly in chat.',
-    kind:        'drive' as const,
-    action:      'manage' as const,
-  },
-  {
-    id:          2,
-    name:        'Google Drive',
-    category:    'Productivity',
-    description: 'Access, attach, and search files from your Drive directly in chat and search files from your Drive directly in chat.',
-    kind:        'drive' as const,
-    action:      'manage' as const,
-  },
-  {
-    id:          3,
-    name:        'Google Drive',
-    category:    'Productivity',
-    description: 'Access, attach, and search files from your Drive directly in chat and search files from your Drive directly in chat.',
-    kind:        'drive' as const,
-    action:      'manage' as const,
-  },
-]
-
-const ADMIN_CATALOG_CONNECTORS = Array.from({ length: 9 }, (_, index) => ({
-  id:          index + 1,
-  name:        'Github',
-  category:    'Interactive',
-  description: 'Reference repos, pull requests, and issues. Review code with full repo context.',
-  kind:        'github' as const,
-  action:      index % 3 === 0 ? 'added' as const : 'add' as const,
-}))
-
-const MEMBER_CATALOG_CONNECTORS = Array.from({ length: 12 }, (_, index) => ({
-  id:          index + 1,
-  name:        'Github',
-  category:    'Interactive',
-  description: 'Reference repos, pull requests, and issues. Review code with full repo context.',
-}))
 
 const TEAM_REQUESTS = [
   {
@@ -339,15 +289,28 @@ function LetterMark({
   )
 }
 
-function ConnectorIcon({ kind }: { kind: ConnectorKind }) {
+function ConnectorIcon({ kind, iconUrl }: { kind?: ConnectorKind; iconUrl?: string }) {
   let mark: React.ReactNode
 
-  if (kind === 'github') mark = <GithubMark />
-  else if (kind === 'gmail') mark = <GmailMark />
-  else if (kind === 'drive') mark = <LetterMark label="G" background="#fff" color="#2f73d9" />
-  else if (kind === 'hubspot') mark = <LetterMark label="HS" background="#fff2e8" color="#c54f1c" />
-  else if (kind === 'notion') mark = <LetterMark label="N" background="#fff" color="#1f1b18" />
-  else mark = <LetterMark label="PD" background="#eef7f0" color="#317a4a" />
+  if (iconUrl) {
+    mark = (
+      <div style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: 'white', boxShadow: '0px 0px 0px 1px var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+        <Image src={iconUrl} alt="" width={24} height={24} unoptimized />
+      </div>
+    )
+  } else if (kind === 'github') {
+    mark = <GithubMark />
+  } else if (kind === 'gmail') {
+    mark = <GmailMark />
+  } else if (kind === 'drive') {
+    mark = <LetterMark label="G" background="#fff" color="#2f73d9" />
+  } else if (kind === 'hubspot') {
+    mark = <LetterMark label="HS" background="#fff2e8" color="#c54f1c" />
+  } else if (kind === 'notion') {
+    mark = <LetterMark label="N" background="#fff" color="#1f1b18" />
+  } else {
+    mark = <LetterMark label="?" background="var(--neutral-100)" color="var(--neutral-700)" />
+  }
 
   return (
     <div style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -380,10 +343,11 @@ function PageCard({
   )
 }
 
-function DangerOutlineButton({ children }: { children: React.ReactNode }) {
+function DangerOutlineButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       style={{
         display:         'inline-flex',
         alignItems:      'center',
@@ -410,16 +374,18 @@ function DangerOutlineButton({ children }: { children: React.ReactNode }) {
 }
 
 function ConnectorRow({
-  name,
-  type,
-  kind,
+  connector,
   status,
+  onConnect,
+  onDisconnect,
 }: {
-  name: string
-  type: string
-  kind: 'github' | 'gmail'
-  status: 'active' | 'connected' | 'not-connected'
+  connector:     ConnectorCatalogEntry
+  status:        'active' | 'connected' | 'not-connected'
+  onConnect?:    () => void
+  onDisconnect?: () => void
 }) {
+  const type = connector.auth_mode === 'oauth2' ? 'Per-member connector' : 'Workspace connector'
+
   return (
     <div
       style={{
@@ -434,8 +400,8 @@ function ConnectorRow({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '1 0 0' }}>
-        <ConnectorIcon kind={kind} />
-        <TextBlock title={name} subtitle={type} />
+        <ConnectorIcon iconUrl={connector.icon_url} />
+        <TextBlock title={connector.display_name} subtitle={type} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         {status === 'active' && <Badge label="Active" color="Green" />}
@@ -445,16 +411,16 @@ function ConnectorRow({
             <Badge label="Connected" color="Green" />
           </>
         )}
-        {status === 'not-connected' && kind === 'gmail' && (
+        {status === 'not-connected' && connector.auth_mode === 'oauth2' && (
           <>
             <Badge label="Private to you" color="Blue" />
             <Badge label="Not connected" color="Red" />
           </>
         )}
         {status === 'connected' ? (
-          <DangerOutlineButton>Disconnect</DangerOutlineButton>
+          <DangerOutlineButton onClick={onDisconnect}>Disconnect</DangerOutlineButton>
         ) : (
-          <Button variant="default" size="sm">Connect</Button>
+          <Button variant="default" size="sm" onClick={onConnect}>Connect</Button>
         )}
       </div>
     </div>
@@ -501,9 +467,22 @@ function RequestCta({ onClick }: { onClick: () => void }) {
   )
 }
 
-function MyConnectors({ onBrowse }: { onBrowse: () => void }) {
+function MyConnectors({
+  onBrowse,
+  connectors,
+  onConnect,
+  onDisconnect,
+}: {
+  onBrowse:     () => void
+  connectors:   ConnectorCatalogEntry[]
+  onConnect:    (slug: string) => void
+  onDisconnect: (slug: string) => void
+}) {
   const [filter, setFilter] = useState<FilterTab>('all')
-  const showShared = filter === 'all' || filter === 'shared'
+
+  const sharedConnectors  = connectors.filter(c => c.auth_mode !== 'oauth2' && c.linked)
+  const accountConnectors = connectors.filter(c => c.auth_mode === 'oauth2')
+  const showShared   = filter === 'all' || filter === 'shared'
   const showAccounts = filter === 'all' || filter === 'accounts'
 
   return (
@@ -527,37 +506,31 @@ function MyConnectors({ onBrowse }: { onBrowse: () => void }) {
       </div>
 
       <div style={{ padding: '24px 24px 12px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {showShared && (
+        {showShared && sharedConnectors.length > 0 && (
           <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
               <BodyText weight={500} color="var(--neutral-900)">Shared by your workspace</BodyText>
               <BodyText family="var(--font-title)">Set up by your admin — ready to use</BodyText>
             </div>
-            {WORKSPACE_CONNECTORS.map((connector, index) => (
-              <ConnectorRow
-                key={`${connector.name}-${index}`}
-                name={connector.name}
-                type={connector.type}
-                kind="github"
-                status="active"
-              />
+            {sharedConnectors.map(c => (
+              <ConnectorRow key={c.slug} connector={c} status="active" onDisconnect={() => onDisconnect(c.slug)} />
             ))}
           </section>
         )}
 
-        {showAccounts && (
+        {showAccounts && accountConnectors.length > 0 && (
           <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
               <BodyText weight={500} color="var(--neutral-900)">Your accounts</BodyText>
               <BodyText family="var(--font-title)">Enabled for the team — connect your own</BodyText>
             </div>
-            {ACCOUNT_CONNECTORS.map((connector, index) => (
+            {accountConnectors.map(c => (
               <ConnectorRow
-                key={`${connector.name}-${index}`}
-                name={connector.name}
-                type={connector.type}
-                kind="gmail"
-                status={connector.connected ? 'connected' : 'not-connected'}
+                key={c.slug}
+                connector={c}
+                status={c.linked ? 'connected' : 'not-connected'}
+                onConnect={() => onConnect(c.slug)}
+                onDisconnect={() => onDisconnect(c.slug)}
               />
             ))}
           </section>
@@ -602,7 +575,13 @@ function NoticeCard() {
   )
 }
 
-function CatalogCard() {
+function CatalogCard({
+  connectors,
+  onConnect,
+}: {
+  connectors: ConnectorCatalogEntry[]
+  onConnect:  (slug: string) => void
+}) {
   const [category, setCategory] = useState<CategoryTab>('All')
 
   return (
@@ -622,8 +601,8 @@ function CatalogCard() {
       <div style={{ padding: '24px 24px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <BodyText weight={500} color="var(--neutral-900)">Available to connect</BodyText>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-          {MEMBER_CATALOG_CONNECTORS.map(connector => (
-            <ConnectorCatalogTile key={connector.id} connector={{ ...connector, kind: 'github', action: 'request' }} />
+          {connectors.map(c => (
+            <ConnectorCatalogTile key={c.slug} connector={c} action="request" onAction={() => onConnect(c.slug)} />
           ))}
         </div>
       </div>
@@ -665,15 +644,12 @@ function SwitchRow() {
 
 function ConnectorCatalogTile({
   connector,
+  action,
+  onAction,
 }: {
-  connector: {
-    id: number
-    name: string
-    category: string
-    description: string
-    kind: ConnectorKind
-    action: 'request' | 'manage' | 'add' | 'added'
-  }
+  connector: ConnectorCatalogEntry
+  action:    'request' | 'manage' | 'add' | 'added'
+  onAction?: () => void
 }) {
   return (
     <div
@@ -690,10 +666,10 @@ function ConnectorCatalogTile({
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '1 0 0' }}>
-          <ConnectorIcon kind={connector.kind} />
-          <TextBlock title={connector.name} subtitle={connector.category} />
+          <ConnectorIcon iconUrl={connector.icon_url} />
+          <TextBlock title={connector.display_name} />
         </div>
-        <IconButton variant="ghost" size="sm" aria-label={`${connector.name} options`} icon={<MoreVerticalIcon size={20} />} />
+        <IconButton variant="ghost" size="sm" aria-label={`${connector.display_name} options`} icon={<MoreVerticalIcon size={20} />} />
       </div>
       <BodyText
         size={11}
@@ -707,8 +683,8 @@ function ConnectorCatalogTile({
       >
         {connector.description}
       </BodyText>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: connector.action === 'added' ? 'space-between' : 'flex-end', gap: 8, width: '100%' }}>
-        {connector.action === 'added' && (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: action === 'added' ? 'space-between' : 'flex-end', gap: 8, width: '100%' }}>
+        {action === 'added' && (
           <>
             <Badge label="Available" color="Green" />
             <span
@@ -729,16 +705,27 @@ function ConnectorCatalogTile({
             </span>
           </>
         )}
-        {connector.action === 'add' && <Button variant="default" size="sm" leftIcon={<PlusSignIcon size={16} />}>Add</Button>}
-        {connector.action === 'manage' && <Button variant="default" size="sm">Manage</Button>}
-        {connector.action === 'request' && <Button variant="default" size="sm">Request</Button>}
+        {action === 'add' && <Button variant="default" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={onAction}>Add</Button>}
+        {action === 'manage' && <Button variant="default" size="sm" onClick={onAction}>Manage</Button>}
+        {action === 'request' && <Button variant="default" size="sm" onClick={onAction}>Request</Button>}
       </div>
     </div>
   )
 }
 
-function AdminManageConnectors() {
+function AdminManageConnectors({
+  connectors,
+  onConnect,
+  onDisconnect,
+}: {
+  connectors:   ConnectorCatalogEntry[]
+  onConnect:    (slug: string) => void
+  onDisconnect: (slug: string) => void
+}) {
   const [category, setCategory] = useState<CategoryTab>('All')
+
+  const linked   = connectors.filter(c => c.linked)
+  const unlinked = connectors.filter(c => !c.linked)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -756,28 +743,32 @@ function AdminManageConnectors() {
           </div>
         </div>
 
-        <section style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BodyText weight={500} color="var(--neutral-900)">Connected</BodyText>
-              <Badge label="2 active" color="Green" />
+        {linked.length > 0 && (
+          <section style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <BodyText weight={500} color="var(--neutral-900)">Connected</BodyText>
+                <Badge label={`${linked.length} active`} color="Green" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+                {linked.map(c => (
+                  <ConnectorCatalogTile key={c.slug} connector={c} action="manage" onAction={() => onDisconnect(c.slug)} />
+                ))}
+              </div>
             </div>
+          </section>
+        )}
+
+        {unlinked.length > 0 && (
+          <section style={{ padding: '12px 24px 12px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <BodyText weight={500} color="var(--neutral-900)">Available to connect</BodyText>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-              {MANAGED_CONNECTORS.map(connector => (
-                <ConnectorCatalogTile key={connector.id} connector={connector} />
+              {unlinked.map(c => (
+                <ConnectorCatalogTile key={c.slug} connector={c} action="add" onAction={() => onConnect(c.slug)} />
               ))}
             </div>
-          </div>
-        </section>
-
-        <section style={{ padding: '12px 24px 12px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <BodyText weight={500} color="var(--neutral-900)">Available to connect</BodyText>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-            {ADMIN_CATALOG_CONNECTORS.slice(2, 8).map(connector => (
-              <ConnectorCatalogTile key={connector.id} connector={{ ...connector, action: 'add' }} />
-            ))}
-          </div>
-        </section>
+          </section>
+        )}
       </PageCard>
     </div>
   )
@@ -910,7 +901,17 @@ function RequestQueue({ onRequestSouvenir }: { onRequestSouvenir: () => void }) 
   )
 }
 
-function AdminCatalog({ onRequestSouvenir }: { onRequestSouvenir: () => void }) {
+function AdminCatalog({
+  connectors,
+  onConnect,
+  onDisconnect,
+  onRequestSouvenir,
+}: {
+  connectors:        ConnectorCatalogEntry[]
+  onConnect:         (slug: string) => void
+  onDisconnect:      (slug: string) => void
+  onRequestSouvenir: () => void
+}) {
   const [category, setCategory] = useState<CategoryTab>('All')
 
   return (
@@ -928,8 +929,13 @@ function AdminCatalog({ onRequestSouvenir }: { onRequestSouvenir: () => void }) 
       </div>
 
       <div style={{ padding: '12px 24px', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-        {ADMIN_CATALOG_CONNECTORS.map(connector => (
-          <ConnectorCatalogTile key={connector.id} connector={connector} />
+        {connectors.map(c => (
+          <ConnectorCatalogTile
+            key={c.slug}
+            connector={c}
+            action={c.linked ? 'added' : 'add'}
+            onAction={() => c.linked ? onDisconnect(c.slug) : onConnect(c.slug)}
+          />
         ))}
         <div
           style={{
@@ -1118,11 +1124,43 @@ function RequestFromSouvenirDialog({
 export default function OrgConnectorsPage() {
   const { currentUserRole } = useOrg()
   const isAdminView = currentUserRole === 'admin'
-  const [tab, setTab] = useState<MainTab>('manage')
+  const [tab,              setTab]              = useState<MainTab>('manage')
   const [requestModalOpen, setRequestModalOpen] = useState(false)
+  const [connectors,       setConnectors]       = useState<ConnectorCatalogEntry[]>([])
+  const [refreshToken,     setRefreshToken]     = useState(0)
+
   const activeTab: MainTab = isAdminView
     ? (tab === 'my' || tab === 'browse' ? 'manage' : tab)
     : (tab === 'manage' || tab === 'requests' || tab === 'catalog' ? 'my' : tab)
+
+  useEffect(() => {
+    listConnectors()
+      .then(setConnectors)
+      .catch(err => toast.error(err instanceof Error ? err.message : 'Failed to load connectors'))
+  }, [refreshToken])
+
+  async function handleConnect(slug: string) {
+    try {
+      const res = await initiateLink(slug)
+      if (res.redirect_url) {
+        window.location.href = res.redirect_url
+      } else {
+        setRefreshToken(t => t + 1)
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to connect')
+    }
+  }
+
+  async function handleDisconnect(slug: string) {
+    try {
+      await unlinkConnector(slug)
+      setRefreshToken(t => t + 1)
+      toast.success('Connector disconnected')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to disconnect')
+    }
+  }
 
   return (
     <PageShell>
@@ -1150,16 +1188,37 @@ export default function OrgConnectorsPage() {
 
       {isAdminView ? (
         <>
-          {activeTab === 'manage' && <AdminManageConnectors />}
+          {activeTab === 'manage' && (
+            <AdminManageConnectors
+              connectors={connectors}
+              onConnect={handleConnect}
+              onDisconnect={handleDisconnect}
+            />
+          )}
           {activeTab === 'requests' && <RequestQueue onRequestSouvenir={() => setRequestModalOpen(true)} />}
-          {activeTab === 'catalog' && <AdminCatalog onRequestSouvenir={() => setRequestModalOpen(true)} />}
+          {activeTab === 'catalog' && (
+            <AdminCatalog
+              connectors={connectors}
+              onConnect={handleConnect}
+              onDisconnect={handleDisconnect}
+              onRequestSouvenir={() => setRequestModalOpen(true)}
+            />
+          )}
         </>
       ) : activeTab === 'my' ? (
-        <MyConnectors onBrowse={() => setTab('browse')} />
+        <MyConnectors
+          onBrowse={() => setTab('browse')}
+          connectors={connectors}
+          onConnect={handleConnect}
+          onDisconnect={handleDisconnect}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <NoticeCard />
-          <CatalogCard />
+          <CatalogCard
+            connectors={connectors.filter(c => !c.linked)}
+            onConnect={handleConnect}
+          />
         </div>
       )}
 
