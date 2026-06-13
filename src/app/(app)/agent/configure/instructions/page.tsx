@@ -857,8 +857,15 @@ function PersonaConfigureInstructionsContent() {
         } catch { /* non-fatal */ }
       }
 
-      // Save version only — does NOT publish or change the active version.
-      // The persona only becomes live in the library when the user clicks Publish.
+      // Saving makes the saved version the repo's active version so the test
+      // chat, library card, and versions panel all point at what was just saved.
+      try {
+        await setActiveVersion(repoId, savedVersionId)
+        markPublished(savedVersionId)
+      } catch {
+        toast.warning('Version saved but could not be made active — click Publish to retry.')
+      }
+
       savedSnapshotRef.current = { instruction, modelId, temperature }
       setVersionTags(savedVersionId, pendingChangeTags)
       setPendingChangeTags([])

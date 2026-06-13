@@ -14,7 +14,6 @@ import type { UIMessage } from "@/hooks/use-chat-state";
 import {
   getPersona,
   getVersion,
-  listVersions,
   fetchPersonaChatMessages,
   type Persona,
 } from "@/lib/api/personas";
@@ -124,9 +123,9 @@ export function PersonaChatInterface({
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
   const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null);
-  const [latestVersionModelId, setLatestVersionModelId] = useState<string | null>(null);
-  // Becomes true once listVersions resolves (or errors) — prevents models[0] being
-  // selected as a "default" while the version's model_id is still being fetched.
+  const [activeVersionModelId, setActiveVersionModelId] = useState<string | null>(null);
+  // Becomes true once the active version resolves (or errors) — prevents models[0]
+  // being selected as a "default" while the version's model_id is still being fetched.
   const [versionsLoaded, setVersionsLoaded] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -183,73 +182,48 @@ export function PersonaChatInterface({
   useEffect(() => {
     let cancelled = false;
     // Load persona first (fast — single object) so the name/avatar render
-    // immediately, then fire listVersions in parallel for the latest version's
-    // connectors/model without blocking the persona display.
+    // immediately, then fetch the ACTIVE version for the authoritative model_id
+    // and image. The chat must use the repo's active version — not the latest
+    // by date — so the model here always matches what the backend will run.
     getPersona(personaId).then(p => {
       if (cancelled) return;
       setPersona(p);
       if (p.imageUrl) setPersonaImageUrl(p.imageUrl);
-    }).catch(err => logger.error("[PersonaChat] Failed to load persona", err));
 
-    listVersions(personaId).then(versionList => {
-      if (cancelled) return;
-      // Pick the latest version (highest created_at) — matches how the
-      // configure test chat resolves persona configuration.
-      const sorted = versionList.slice().sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      );
-      const latest = sorted[0];
-
-      // Fetch full version for image URL + authoritative model_id.
-      // Mark versionsLoaded only after getVersion resolves so the model sync
-      // effect always has v.model_id (list items may omit model_id).
-      const versionIdToLoad = latest?.id ?? null;
-      if (versionIdToLoad) {
-        getVersion(personaId, versionIdToLoad)
-          .then(v => {
-            if (cancelled) return;
-            if (v.image_url) setPersonaImageUrl(prev => prev ?? v.image_url);
-            if (v.model_id) setLatestVersionModelId(v.model_id);
-            setVersionsLoaded(true);
-          })
-          .catch(() => {
-            // getVersion failed — best-effort: use list item's model_id if present
-            if (!cancelled) {
-              if (latest?.model_id) setLatestVersionModelId(latest.model_id);
-              setVersionsLoaded(true);
-            }
-          });
-      } else {
-        // No versions — nothing to load; allow model sync to fall back
-        if (!cancelled) setVersionsLoaded(true);
+      if (!p.activeVersionId) {
+        // No active version — allow model sync to fall back to persona.modelId / models[0].
+        setVersionsLoaded(true);
+        return;
       }
-    }).catch(() => {
-      // listVersions failed — image URL fallback via active version; still mark loaded
-      // so the model sync effect can fall back to persona.modelId or models[0].
+      getVersion(personaId, p.activeVersionId)
+        .then(v => {
+          if (cancelled) return;
+          if (v.image_url) setPersonaImageUrl(prev => prev ?? v.image_url);
+          if (v.model_id) setActiveVersionModelId(v.model_id);
+          setVersionsLoaded(true);
+        })
+        .catch(() => {
+          // getVersion failed — persona.modelId (active version's model from the
+          // repo object) remains the fallback in the model sync effect.
+          if (!cancelled) setVersionsLoaded(true);
+        });
+    }).catch(err => {
+      logger.error("[PersonaChat] Failed to load persona", err);
       if (!cancelled) setVersionsLoaded(true);
-      getPersona(personaId).then(p => {
-        if (cancelled || !p.activeVersionId) return;
-        getVersion(p.id, p.activeVersionId)
-          .then(v => {
-            if (cancelled) return;
-            if (v.image_url) setPersonaImageUrl(prev => prev ?? v.image_url);
-          })
-          .catch(() => {});
-      }).catch(() => {});
     });
 
     return () => { cancelled = true; };
   }, [personaId]);
 
   useEffect(() => {
-    // Don't select any model until listVersions has resolved — prevents models[0]
-    // being picked as a premature "default" while latestVersionModelId is still loading.
+    // Don't select any model until the active version has resolved — prevents
+    // models[0] being picked as a premature "default" while it is still loading.
     if (!versionsLoaded) return;
     if (!models.length) return;
 
-    // Prefer the latest version's model_id; fall back to the active version's
-    // model from the persona object if the version list returned nothing.
-    const target = latestVersionModelId ?? persona?.modelId;
+    // Prefer the active version's model_id; fall back to the model from the
+    // persona object (also the active version's) if getVersion failed.
+    const target = activeVersionModelId ?? persona?.modelId;
 
     if (!target) {
       // No model stored at all — use first available.
@@ -290,7 +264,7 @@ export function PersonaChatInterface({
     // Tier 3 — model no longer offered; fall back to first available
     selectModelRef.current(models[0]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [latestVersionModelId, persona?.modelId, models, selectedModel, versionsLoaded, personaId]);
+  }, [activeVersionModelId, persona?.modelId, models, selectedModel, versionsLoaded, personaId]);
 
   // ── Load chat history ─────────────────────────────────────────────────────
 

@@ -786,6 +786,12 @@ function PersonasSectionAll() {
             const isExpanded = expandedIds.has(persona.id)
             const isActive   = activePersonaId === persona.id
             const chatData   = personaChatsMap[persona.id]
+            // Only show chats that belong to the persona's currently active version.
+            // Chats without a versionId (optimistically created this session or
+            // legacy rows) are kept so they don't vanish from under the user.
+            const visibleChats = chatData?.chats.filter(
+              c => !c.versionId || !persona.activeVersionId || c.versionId === persona.activeVersionId,
+            ) ?? []
 
             return (
               <SidebarProjectsSection
@@ -815,7 +821,7 @@ function PersonasSectionAll() {
                 ))}
 
                 {/* Chat items */}
-                {chatData?.chats.map(chat => (
+                {visibleChats.map(chat => (
                   <PersonaChatItem
                     key={chat.id}
                     personaId={persona.id}
@@ -828,7 +834,7 @@ function PersonasSectionAll() {
                 ))}
 
                 {/* Empty state */}
-                {chatData?.loaded && chatData.chats.length === 0 && (
+                {chatData?.loaded && visibleChats.length === 0 && (
                   <div
                     style={{
                       padding:    "4px 6px",

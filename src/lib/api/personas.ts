@@ -632,6 +632,8 @@ export interface GetPersonaMessages {
 export interface PersonaChat {
   id:          string;
   title:       string;
+  /** Version (backend persona_id) that produced this chat — null for legacy rows. */
+  versionId?:  string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -648,7 +650,7 @@ export interface PersonaMessage {
 /** GET /persona/{repo_id}/chats */
 export async function fetchPersonaChats(repoId: string): Promise<PersonaChat[]> {
   const list = await apiFetchJson<PersonaChatsResponse[]>(PERSONA_CHATS_ENDPOINT(repoId));
-  return list.map(c => ({ id: c.id, title: c.chat_title }));
+  return list.map(c => ({ id: c.id, title: c.chat_title, versionId: c.persona_id ?? null }));
 }
 
 /** GET /persona/{repo_id}/chats/{chat_id}/messages — each turn → user + assistant pair. */

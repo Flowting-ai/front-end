@@ -17,6 +17,7 @@ import {
   listVersions,
   getVersion,
   getPersonaRepo,
+  setActiveVersion,
   bustPersonasCache,
   type PersonaChatStreamCallbacks,
   type PersonaVersionListItem,
@@ -737,6 +738,10 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     setRestoringId(targetId)
     try {
       const full = await getVersion(repoId, targetId)
+      // Make the restored version the repo's active version on the backend so
+      // it is what the library card and chats actually use.
+      await setActiveVersion(repoId, targetId)
+      markPublished(targetId)
       // Update URL without navigating — use router.replace so useSearchParams updates in tabs
       const params = new URLSearchParams(window.location.search)
       params.set('versionId', targetId)
@@ -752,10 +757,10 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
       // Delegate page-specific side effects (editor update, model switch, etc.)
       if (versionRestoreCallbackRef.current) {
         versionRestoreCallbackRef.current(full)
-        toast.success('Version restored — click Publish to make it live')
+        toast.success('Version restored — it is now the active version')
       } else {
         // Not on Instructions tab — navigate there so the editor picks up the restore
-        toast.success('Version restored — click Publish to make it live')
+        toast.success('Version restored — it is now the active version')
         push(`/agent/configure/instructions?repoId=${repoId}&versionId=${targetId}`)
       }
     } catch {
@@ -764,7 +769,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
       restoringRef.current = false
       setRestoringId(null)
     }
-  }, [push, replace, updatePersonaInfo])
+  }, [push, replace, updatePersonaInfo, markPublished])
 
   // ── Context value ───────────────────────────────────────────────────────────
 
