@@ -786,9 +786,9 @@ function PersonaConfigureInstructionsContent() {
 
   // ── Save version ─────────────────────────────────────────────────────────────
 
-  async function executeSave(openPanel = true): Promise<boolean> {
+  async function executeSave(openPanel = true): Promise<string | null> {
     const modelId = selectedModel ? stableKey(selectedModel) : null
-    if (!repoId || !modelId || !versionId) return false
+    if (!repoId || !modelId || !versionId) return null
     setIsSaving(true)
     try {
       let imageFile: File | null = null
@@ -861,6 +861,11 @@ function PersonaConfigureInstructionsContent() {
       // chat, library card, and versions panel all point at what was just saved.
       try {
         await setActiveVersion(repoId, savedVersionId)
+        if (typeof window !== 'undefined') {
+          try { sessionStorage.setItem(publishedVersionKey(repoId), savedVersionId) } catch { /* ignore */ }
+          try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
+          try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
+        }
         markPublished(savedVersionId)
       } catch {
         toast.warning('Version saved but could not be made active — click Publish to retry.')
@@ -875,11 +880,11 @@ function PersonaConfigureInstructionsContent() {
       try { sessionStorage.removeItem(instructionsDraftKey(repoId)) } catch { /* ignore */ }
 
       toast.success('Version saved')
-      return true
+      return savedVersionId
     } catch (err) {
       console.error('[PersonaConfigure] save error:', err)
       toast.error('Failed to save version')
-      return false
+      return null
     } finally {
       setIsSaving(false)
     }
@@ -928,8 +933,10 @@ function PersonaConfigureInstructionsContent() {
         toast.error('Max version limit reached (5). Please delete an older version first.')
         return
       }
-      const ok = await executeSave(false)
-      if (!ok) return
+      const savedVersionId = await executeSave(false)
+      if (!savedVersionId) return
+      navigateTab('Profile', savedVersionId)
+      return
     }
     navigateTab('Profile')
   }
@@ -1106,8 +1113,9 @@ function PersonaConfigureInstructionsContent() {
     setExampleConversations(prev => prev.filter(c => c.id !== id))
   }
 
-  // Tab switching preserves state via sessionStorage (written on every change above).
-  // No backend save on tab switch — data is only written to the server on explicit Save Version or Publish.
+  // Tab switching keeps a sessionStorage draft, but dirty instruction/model
+  // changes are saved before leaving this tab so the next tab receives the
+  // newly active version id immediately.
   instructionAutoSaveRef.current = async () => Promise.resolve()
 
   useEffect(() => {
@@ -1117,7 +1125,7 @@ function PersonaConfigureInstructionsContent() {
 
   // ── Tab navigation ────────────────────────────────────────────────────────────
 
-  function navigateTab(tab: Tab) {
+  function navigateTab(tab: Tab, nextVersionId = versionId) {
     const route = TAB_ROUTES[tab]
     if (!route) return
     // Block tab switching until required fields are filled (only relevant for new/custom personas)
@@ -1133,8 +1141,41 @@ function PersonaConfigureInstructionsContent() {
     }
     const params = new URLSearchParams(searchParams.toString())
     if (repoId)    params.set('repoId',    repoId)
-    if (versionId) params.set('versionId', versionId)
+    if (nextVersionId) params.set('versionId', nextVersionId)
     safeNavigate(`${route}?${params.toString()}`)
+  }
+
+  async function handleTabClick(tab: Tab) {
+    if (!TAB_ROUTES[tab]) return
+    const snapshot = savedSnapshotRef.current
+    const hasDirtyInstructionChanges =
+      !snapshot ||
+      instruction !== snapshot.instruction ||
+      currentModelId !== snapshot.modelId ||
+      temperature !== snapshot.temperature
+    if (!hasDirtyInstructionChanges) {
+      navigateTab(tab)
+      return
+    }
+    if (!selectedModel) {
+      toast.error('Please select a model before switching tabs.')
+      return
+    }
+    if (!hasContent) {
+      toast.error('Please add system instructions before switching tabs.')
+      return
+    }
+    const mode = resolveSaveMode({
+      currentVersionId: versionId,
+      initialVersionId: readInitialVersionId(repoId),
+      activeVersionId,
+    })
+    if (mode === 'create-new' && versions.length >= MAX_VERSIONS) {
+      toast.error('Max version limit reached (5). Please delete an older version first.')
+      return
+    }
+    const savedVersionId = await executeSave(false)
+    if (savedVersionId) navigateTab(tab, savedVersionId)
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -1195,7 +1236,7 @@ function PersonaConfigureInstructionsContent() {
                   return (
                     <button
                       key={tab}
-                      onClick={() => navigateTab(tab)}
+                      onClick={() => void handleTabClick(tab)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',

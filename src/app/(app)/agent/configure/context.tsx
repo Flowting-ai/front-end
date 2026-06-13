@@ -741,6 +741,9 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
       // Make the restored version the repo's active version on the backend so
       // it is what the library card and chats actually use.
       await setActiveVersion(repoId, targetId)
+      if (typeof window !== 'undefined') {
+        try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
+      }
       markPublished(targetId)
       // Update URL without navigating — use router.replace so useSearchParams updates in tabs
       const params = new URLSearchParams(window.location.search)
