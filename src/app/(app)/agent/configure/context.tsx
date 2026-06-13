@@ -668,6 +668,10 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   const tagsCountOnTabArrivalRef    = useRef(0)
   const versionRestoreCallbackRef = useRef<((version: PersonaVersionResponse) => void) | null>(null)
   const restoringRef = useRef(false)
+  // Mirror of publishedVersionId so addPendingChangeTag (stable, deps []) can read
+  // the current publication state without re-creating the callback.
+  const publishedVersionIdRef = useRef<string | null>(null)
+  useEffect(() => { publishedVersionIdRef.current = publishedVersionId }, [publishedVersionId])
 
   // Update the baseline tag count whenever the user lands on a new configure tab.
   // safeNavigate compares the current count against this baseline to decide whether
@@ -677,6 +681,10 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   }, [pathname])
 
   const addPendingChangeTag = useCallback((tag: string) => {
+    // New (never-published) personas have no prior version to diff against, so
+    // change tags are meaningless noise — don't track them until the persona is
+    // published. Tracking resumes once publishedVersionId is set.
+    if (publishedVersionIdRef.current == null) return
     _setPendingChangeTags(prev => {
       if (prev.includes(tag)) return prev
       const next = [...prev, tag]
