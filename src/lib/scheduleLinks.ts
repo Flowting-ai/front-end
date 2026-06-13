@@ -57,6 +57,19 @@ export function stashPendingPrompt(scheduleId: string, prompt: string): void {
   try { window.sessionStorage.setItem(PROMPT_KEY(scheduleId), prompt) } catch {}
 }
 
+/** Remap a schedule link from one id to another (e.g. local temp id → backend UUID).
+ *  Only writes if `fromId` has a link and `toId` doesn't, to stay consistent with
+ *  the "bind once" contract of linkScheduleToChat. */
+export function remapScheduleLink(fromId: string, toId: string): void {
+  if (!fromId || !toId || fromId === toId) return
+  const map = readMap()
+  const chatId = map[fromId]
+  if (!chatId || map[toId]) return
+  const updated = { ...map, [toId]: chatId }
+  delete updated[fromId]
+  writeMap(updated)
+}
+
 export function consumePendingPrompt(scheduleId: string): string | null {
   // Check in-memory store first — most reliable for client-side navigation.
   const memVal = pendingPromptsMemory.get(scheduleId)

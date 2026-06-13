@@ -4,7 +4,7 @@ import React, { Suspense, useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { AnimatePresence, m } from 'framer-motion'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { QuestionCard } from '@/components/QuestionCard'
 import {
   UserAiIcon,
@@ -160,21 +160,7 @@ function useHelpState(pathname: string) {
 function PersonaHelpButton() {
   const pathname = usePathname()
   const { helpOpen, setHelpOpen, helpActiveId, setHelpActiveId, tabKey, tabIndex, helpData, tabItemIds, isPanelActive, titleBadge } = useHelpState(pathname)
-  const searchParams = useSearchParams()
-  const { setTestChatOpen, setAiSuggestOpen, setVersionsOpen, safeNavigate } = usePersonaConfigure()
-
-  const BACK_ROUTES: Partial<Record<string, string>> = {
-    profile:    '/agent/configure/instructions',
-    knowledge:  '/agent/configure/profile',
-    connectors: '/agent/configure/knowledge',
-    sharing:    '/agent/configure/connectors',
-  }
-  const backRoute = BACK_ROUTES[tabKey]
-
-  function handleBack() {
-    if (!backRoute) return
-    safeNavigate(`${backRoute}?${searchParams.toString()}`)
-  }
+  const { setTestChatOpen, setAiSuggestOpen, setVersionsOpen } = usePersonaConfigure()
 
   const [activeInfoTab, setActiveInfoTab] = useState<'main' | 'panels'>('main')
   // Remembers whether the sidebar was open when help opened so we can restore it on close.
@@ -322,13 +308,6 @@ function PersonaHelpButton() {
             onClick={() => setHelpOpen(!helpOpen)}
           />
         </span>
-        {backRoute && (
-          <span style={{ backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderRadius: 10, display: 'inline-flex' }}>
-            <Button variant="outline" size="sm" onClick={handleBack}>
-              Back
-            </Button>
-          </span>
-        )}
       </div>
     </div>
   )
@@ -1062,10 +1041,10 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
             style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px rgba(0,0,0,0.15)' }}
           >
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 18, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
-              This agent isn&apos;t published yet
+              Save a version before leaving?
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
-              Your changes haven&apos;t been published. If you leave now, they won&apos;t be available to use until you publish.
+              You have unsaved changes. Use the &ldquo;Save version&rdquo; button to create a checkpoint before leaving — otherwise your changes will remain in the current draft but won&apos;t be saved as a named version.
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <Button variant="outline" size="sm" onClick={() => setLeaveConfirmHref(null)}>

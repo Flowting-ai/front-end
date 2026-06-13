@@ -505,6 +505,9 @@ export interface PlanCardProps {
    */
   approvalCount?:        number
   onSetupAutoApprove?:   () => void
+  /** When true, hides the divider and approve/counter/cancel footer. Used when
+   *  the card is rendered inline in the timeline (read-only, proposed state). */
+  hideActions?:          boolean
 }
 
 export function PlanCard({
@@ -516,6 +519,7 @@ export function PlanCard({
   actionsDisabled = false,
   approvalCount   = 0,
   onSetupAutoApprove,
+  hideActions     = false,
 }: PlanCardProps) {
   const items        = groupSteps(steps)
   const allConnected = steps.every(s => !s.requiresConnector || s.requiresConnector.isConnected)
@@ -628,11 +632,10 @@ export function PlanCard({
         })}
       </div>
 
-      {/* Divider */}
-      <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />
+      {!hideActions && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
 
       {/* Footer */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {!hideActions && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Button variant="ghost" size="sm" onClick={onCancel} disabled={actionsDisabled}>Cancel</Button>
           <div style={{ flex: '1 0 0' }} />
@@ -694,7 +697,7 @@ export function PlanCard({
             </button>
           </p>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

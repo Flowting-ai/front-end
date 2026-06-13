@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   FilterMailIcon,
   PlusSignIcon,
@@ -19,6 +19,9 @@ import {
   SettingsTableToolbar,
 } from '@/components/SettingsTable'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
+import { useOrg } from '@/context/org-context'
+import { getOrgPlanUsage } from '@/lib/api/organization'
+import type { OrgMember, TeamBurn } from '@/types/teams'
 
 type DateRange = '7d' | '30d' | 'mtd' | 'qtd'
 
@@ -49,24 +52,6 @@ const CHART_METRICS: Record<ChartMetric, { label: string; color: string; value: 
   assistants: { label: 'AI Assistants', color: 'var(--purple-500)', value: '90 credits'  },
   brain:      { label: 'Brain',         color: 'var(--green-500)',  value: '40 credits'  },
 }
-
-const MEMBERS = [
-  { name: 'Alex Rivera',  email: 'alex@acmeinc.com',   credits: '12,500', usage: 0  },
-  { name: 'Jordan Kim',   email: 'jordan@acmeinc.com', credits: '3,000',  usage: 45 },
-]
-
-const TOP_USERS = [
-  { name: 'Harsh Kirdolia', credits: '2,840 credits', share: '37%' },
-  { name: 'Alex Rivera',    credits: '2,500 credits', share: '29%' },
-  { name: 'Jordan Kim',     credits: '1,900 credits', share: '22%' },
-  { name: 'Sam Patel',      credits: '920 credits',   share: '11%' },
-]
-
-const TEAM_USAGE = [
-  { name: 'Marketing',   credits: '2,840 credits', share: '41% of pool' },
-  { name: 'Engineering', credits: '2,840 credits', share: '41% of pool' },
-  { name: 'Design',      credits: '980 credits',   share: '18% of pool' },
-]
 
 function PageCard({
   children,
@@ -409,14 +394,13 @@ function FeatureChart() {
   )
 }
 
-function MemberCapsTable() {
+function MemberCapsTable({ members }: { members: OrgMember[] }) {
   return (
     <SettingsTable>
-      <SettingsTableToolbar title="Per-member credit caps">
+      <SettingsTableToolbar title="Per-member credit usage">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <IconButton variant="ghost" size="sm" aria-label="Search members" icon={<SearchOneIcon size={20} />} />
           <IconButton variant="ghost" size="sm" aria-label="Filter members" icon={<FilterMailIcon size={20} />} />
-          <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={16} />}>Invite members</Button>
         </div>
       </SettingsTableToolbar>
 
@@ -427,41 +411,49 @@ function MemberCapsTable() {
         <SettingsTableHeaderCell align="center">Usage</SettingsTableHeaderCell>
       </SettingsTableHeader>
 
-      {MEMBERS.map(member => (
-        <SettingsTableRow
-          key={member.name}
-          columns={MEMBER_CAP_COLUMNS}
-          columnGap={MEMBER_CAP_COLUMN_GAP}
-          minHeight={72}
-        >
-          <SettingsTableCell>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-              <UserAvatar />
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {member.name}
-                </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {member.email}
-                </p>
+      {members.map(member => {
+        const usagePct = member.creditCap && member.creditCap > 0
+          ? Math.min(100, Math.round((member.creditUsed / member.creditCap) * 100))
+          : 0
+        return (
+          <SettingsTableRow
+            key={member.id}
+            columns={MEMBER_CAP_COLUMNS}
+            columnGap={MEMBER_CAP_COLUMN_GAP}
+            minHeight={72}
+          >
+            <SettingsTableCell>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                <UserAvatar />
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {member.name || member.email}
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {member.email}
+                  </p>
+                </div>
               </div>
-            </div>
-          </SettingsTableCell>
-          <SettingsTableCell align="center">
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-              {member.credits}
-            </p>
-          </SettingsTableCell>
-          <SettingsTableCell align="center">
-            <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={16} />}>Add cap</Button>
-          </SettingsTableCell>
-          <SettingsTableCell align="center">
-            <div style={{ width: '100%' }}>
-              {member.usage > 0 ? <ProgressBar value={member.usage} /> : null}
-            </div>
-          </SettingsTableCell>
-        </SettingsTableRow>
-      ))}
+            </SettingsTableCell>
+            <SettingsTableCell align="center">
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                {member.creditUsed.toLocaleString()}
+              </p>
+            </SettingsTableCell>
+            <SettingsTableCell align="center">
+              {member.creditCap != null
+                ? <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>{member.creditCap.toLocaleString()}</p>
+                : <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-300)' }}>No cap</span>
+              }
+            </SettingsTableCell>
+            <SettingsTableCell align="center">
+              <div style={{ width: '100%' }}>
+                {usagePct > 0 ? <ProgressBar value={usagePct} /> : null}
+              </div>
+            </SettingsTableCell>
+          </SettingsTableRow>
+        )
+      })}
     </SettingsTable>
   )
 }
@@ -475,12 +467,11 @@ function RankedList({
 }) {
   return (
     <PageCard>
-      <CardTitle
-        title={title}
-        action={<Button variant="secondary" size="sm">View all</Button>}
-      />
+      <CardTitle title={title} />
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {items.map((item, index) => (
+        {items.length === 0 ? (
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: '16px 24px' }}>No data available</p>
+        ) : items.map((item, index) => (
           <div
             key={`${item.name}-${index}`}
             style={{
@@ -510,7 +501,37 @@ function RankedList({
 }
 
 export default function OrgUsageAnalyticsPage() {
-  const [dateRange, setDateRange] = useState<DateRange>('7d')
+  const { orgId, members, membersLoading, plan } = useOrg()
+  const [dateRange,  setDateRange]  = useState<DateRange>('7d')
+  const [teamUsage,  setTeamUsage]  = useState<TeamBurn[]>([])
+
+  useEffect(() => {
+    if (!orgId) return
+    getOrgPlanUsage(orgId)
+      .then(u => setTeamUsage(u.byTeam))
+      .catch(console.error)
+  }, [orgId])
+
+  const totalCredits = plan?.totalCredits ?? 0
+  const totalUsed    = plan?.used        ?? 0
+
+  // Top users sorted by credit usage descending
+  const topUsers = [...members]
+    .sort((a, b) => b.creditUsed - a.creditUsed)
+    .map(m => ({
+      name:    m.name || m.email,
+      credits: `${m.creditUsed.toLocaleString()} credits`,
+      share:   totalUsed > 0 ? `${Math.round((m.creditUsed / totalUsed) * 100)}%` : '0%',
+    }))
+
+  // Team usage ranked
+  const teamRanked = [...teamUsage]
+    .sort((a, b) => b.creditsUsed - a.creditsUsed)
+    .map(t => ({
+      name:    t.teamName,
+      credits: `${t.creditsUsed.toLocaleString()} credits`,
+      share:   totalUsed > 0 ? `${Math.round((t.creditsUsed / totalUsed) * 100)}% of pool` : '0%',
+    }))
 
   return (
     <div
@@ -541,7 +562,7 @@ export default function OrgUsageAnalyticsPage() {
             Usage &amp; Analytics
           </h1>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-            Manage your plan, monitor credit consumption, and download invoices.
+            Monitor credit consumption across your workspace.
           </p>
         </div>
 
@@ -568,20 +589,18 @@ export default function OrgUsageAnalyticsPage() {
           <div style={{ display: 'flex', gap: 9 }}>
             <StatCard
               wide
-              title="Monthly Limits"
-              value="$125/mo · 60,000 credits"
+              title="Credit Pool"
+              value={`${totalCredits.toLocaleString()} credits`}
             />
             <StatCard
-              title="Burn rate"
-              value="255/day"
-              helper="credits"
-              badge={<Badge label="Est. 30D to cap" color="Yellow" />}
+              title="Used"
+              value={totalUsed.toLocaleString()}
+              helper="credits consumed"
             />
             <StatCard
-              title="Active members"
-              value="6"
-              helper="all members"
-              badge={<Badge label="100% utilization" color="Blue" />}
+              title="Members"
+              value={String(members.length)}
+              helper={membersLoading ? 'loading…' : 'in workspace'}
             />
           </div>
         </PageCard>
@@ -600,11 +619,11 @@ export default function OrgUsageAnalyticsPage() {
           <FeatureChart />
         </PageCard>
 
-        <MemberCapsTable />
+        <MemberCapsTable members={members} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <RankedList title="Top users · Last 30 days" items={TOP_USERS} />
-          <RankedList title="Usage by team this cycle" items={TEAM_USAGE} />
+          <RankedList title="Top users by credit usage" items={topUsers} />
+          <RankedList title="Usage by team this cycle" items={teamRanked} />
         </div>
       </div>
     </div>

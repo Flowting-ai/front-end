@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: FastAPI - Stripe
+  title: FastAPI - stripe
   version: 0.1.0
 paths:
   /stripe/checkout:
@@ -161,6 +161,133 @@ paths:
         - HTTPBearer: []
 components:
   schemas:
+    CreateCheckoutSessionRequest:
+      properties:
+        plan_type:
+          $ref: '#/components/schemas/PlanType'
+        billing:
+          type: string
+          title: Billing
+          default: monthly
+      type: object
+      required:
+        - plan_type
+      title: CreateCheckoutSessionRequest
+    CreateCheckoutSessionResponse:
+      properties:
+        checkout_url:
+          type: string
+          title: Checkout Url
+        session_id:
+          type: string
+          title: Session Id
+      type: object
+      required:
+        - checkout_url
+        - session_id
+      title: CreateCheckoutSessionResponse
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    CreateTopUpSessionRequest:
+      properties:
+        amount_usd:
+          type: number
+          minimum: 1
+          title: Amount Usd
+          description: 'Dollars to add as credit (1:1 conversion). Stripe minimum: $1.'
+        idempotency_key:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Idempotency Key
+      type: object
+      required:
+        - amount_usd
+      title: CreateTopUpSessionRequest
+    CreateTopUpSessionResponse:
+      properties:
+        checkout_url:
+          type: string
+          title: Checkout Url
+      type: object
+      required:
+        - checkout_url
+      title: CreateTopUpSessionResponse
+    TopUpChargeResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+        client_secret:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Client Secret
+      type: object
+      required:
+        - status
+      title: TopUpChargeResponse
+    UsageResponse:
+      properties:
+        credits:
+          type: number
+          title: Credits
+        plan_credits:
+          type: number
+          title: Plan Credits
+          default: 0
+        topup_credits:
+          type: number
+          title: Topup Credits
+          default: 0
+        used:
+          type: number
+          title: Used
+          default: 0
+        trial:
+          anyOf:
+            - $ref: '#/components/schemas/TrialSummary'
+            - type: 'null'
+        spent_this_period:
+          type: number
+          title: Spent This Period
+          default: 0
+        by_category:
+          $ref: '#/components/schemas/CategoryUsage'
+          default:
+            chat: 0
+            persona: 0
+            brain: 0
+      type: object
+      required:
+        - credits
+      title: UsageResponse
+    SubscriptionActionResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+        plan_type:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Plan Type
+        current_period_end:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Current Period End
+      type: object
+      required:
+        - status
+      title: SubscriptionActionResponse
     BillingInfo:
       properties:
         plan_type:
@@ -217,6 +344,54 @@ components:
       required:
         - portal_url
       title: BillingPortalResponse
+    PlanType:
+      type: string
+      enum:
+        - starter
+        - pro
+        - power
+        - trial
+        - teams
+      title: PlanType
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError
+    TrialSummary:
+      properties:
+        remaining:
+          type: number
+          title: Remaining
+        expires_at:
+          type: string
+          title: Expires At
+      type: object
+      required:
+        - remaining
+        - expires_at
+      title: TrialSummary
     CategoryUsage:
       properties:
         chat:
@@ -233,91 +408,35 @@ components:
           default: 0
       type: object
       title: CategoryUsage
-    CreateCheckoutSessionRequest:
+    PaymentMethodInfo:
       properties:
-        plan_type:
-          $ref: '#/components/schemas/PlanType'
-        billing:
-          type: string
-          title: Billing
-          default: monthly
-      type: object
-      required:
-        - plan_type
-      title: CreateCheckoutSessionRequest
-    CreateCheckoutSessionResponse:
-      properties:
-        checkout_url:
-          type: string
-          title: Checkout Url
-        session_id:
-          type: string
-          title: Session Id
-      type: object
-      required:
-        - checkout_url
-        - session_id
-      title: CreateCheckoutSessionResponse
-    CreateTopUpSessionRequest:
-      properties:
-        amount_usd:
-          type: number
-          minimum: 1
-          title: Amount Usd
-          description: 'Dollars to add as credit (1:1 conversion). Stripe minimum: $1.'
-        idempotency_key:
+        brand:
           anyOf:
             - type: string
             - type: 'null'
-          title: Idempotency Key
-      type: object
-      required:
-        - amount_usd
-      title: CreateTopUpSessionRequest
-    CreateTopUpSessionResponse:
-      properties:
-        checkout_url:
-          type: string
-          title: Checkout Url
-      type: object
-      required:
-        - checkout_url
-      title: CreateTopUpSessionResponse
-    CreditSummary:
-      properties:
-        total_credits:
-          type: number
-          title: Total Credits
-          default: 0
-        plan_credits:
-          type: number
-          title: Plan Credits
-          default: 0
-        topup_credits:
-          type: number
-          title: Topup Credits
-          default: 0
-        trial:
+          title: Brand
+        last4:
           anyOf:
-            - $ref: '#/components/schemas/TrialCreditInfo'
+            - type: string
             - type: 'null'
-        used:
-          $ref: '#/components/schemas/UsageBreakdown'
-          default:
-            chat: 0
-            persona: 0
-            brain: 0
+          title: Last4
+        exp_month:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Exp Month
+        exp_year:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Exp Year
+        funding:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Funding
       type: object
-      title: CreditSummary
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
+      title: PaymentMethodInfo
     InvoiceInfo:
       properties:
         amount_paid:
@@ -351,76 +470,50 @@ components:
         - amount_paid
         - currency
       title: InvoiceInfo
-    PaymentMethodInfo:
+    UpcomingInvoiceInfo:
       properties:
-        brand:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Brand
-        last4:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Last4
-        exp_month:
-          anyOf:
-            - type: integer
-            - type: 'null'
-          title: Exp Month
-        exp_year:
-          anyOf:
-            - type: integer
-            - type: 'null'
-          title: Exp Year
-        funding:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Funding
-      type: object
-      title: PaymentMethodInfo
-    PlanType:
-      type: string
-      enum:
-        - starter
-        - pro
-        - power
-        - trial
-      title: PlanType
-    SubscriptionActionResponse:
-      properties:
-        status:
+        amount_due:
+          type: number
+          title: Amount Due
+        currency:
           type: string
-          title: Status
-        plan_type:
+          title: Currency
+        next_payment_date:
           anyOf:
             - type: string
             - type: 'null'
-          title: Plan Type
-        current_period_end:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Current Period End
+          title: Next Payment Date
       type: object
       required:
-        - status
-      title: SubscriptionActionResponse
-    TopUpChargeResponse:
+        - amount_due
+        - currency
+      title: UpcomingInvoiceInfo
+    CreditSummary:
       properties:
-        status:
-          type: string
-          title: Status
-        client_secret:
+        total_credits:
+          type: number
+          title: Total Credits
+          default: 0
+        plan_credits:
+          type: number
+          title: Plan Credits
+          default: 0
+        topup_credits:
+          type: number
+          title: Topup Credits
+          default: 0
+        trial:
           anyOf:
-            - type: string
+            - $ref: '#/components/schemas/TrialCreditInfo'
             - type: 'null'
-          title: Client Secret
+        used:
+          $ref: '#/components/schemas/UsageBreakdown'
+          default:
+            chat: 0
+            persona: 0
+            brain: 0
       type: object
-      required:
-        - status
-      title: TopUpChargeResponse
+      title: CreditSummary
     TrialCreditInfo:
       properties:
         amount:
@@ -447,37 +540,6 @@ components:
         - used
         - expires_at
       title: TrialCreditInfo
-    TrialSummary:
-      properties:
-        remaining:
-          type: number
-          title: Remaining
-        expires_at:
-          type: string
-          title: Expires At
-      type: object
-      required:
-        - remaining
-        - expires_at
-      title: TrialSummary
-    UpcomingInvoiceInfo:
-      properties:
-        amount_due:
-          type: number
-          title: Amount Due
-        currency:
-          type: string
-          title: Currency
-        next_payment_date:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Next Payment Date
-      type: object
-      required:
-        - amount_due
-        - currency
-      title: UpcomingInvoiceInfo
     UsageBreakdown:
       properties:
         chat:
@@ -495,67 +557,6 @@ components:
       type: object
       title: UsageBreakdown
       description: Credits spent this period, by source area.
-    UsageResponse:
-      properties:
-        credits:
-          type: number
-          title: Credits
-        plan_credits:
-          type: number
-          title: Plan Credits
-          default: 0
-        topup_credits:
-          type: number
-          title: Topup Credits
-          default: 0
-        used:
-          type: number
-          title: Used
-          default: 0
-        trial:
-          anyOf:
-            - $ref: '#/components/schemas/TrialSummary'
-            - type: 'null'
-        spent_this_period:
-          type: number
-          title: Spent This Period
-          default: 0
-        by_category:
-          $ref: '#/components/schemas/CategoryUsage'
-          default:
-            chat: 0
-            persona: 0
-            brain: 0
-      type: object
-      required:
-        - credits
-      title: UsageResponse
-    ValidationError:
-      properties:
-        loc:
-          items:
-            anyOf:
-              - type: string
-              - type: integer
-          type: array
-          title: Location
-        msg:
-          type: string
-          title: Message
-        type:
-          type: string
-          title: Error Type
-        input:
-          title: Input
-        ctx:
-          type: object
-          title: Context
-      type: object
-      required:
-        - loc
-        - msg
-        - type
-      title: ValidationError
   securitySchemes:
     HTTPBearer:
       type: http

@@ -813,6 +813,7 @@ export default function PersonasPage() {
       await deletePersona(id)
       bustPersonasCache()
       setPersonas(prev => prev.filter(p => p.id !== id))
+      setReceivedShares(prev => prev.filter(s => s.persona_repo_id !== id))
       toast.success(name ? `"${name}" deleted` : 'Agent deleted')
     } catch (err) {
       console.error('Failed to delete persona:', err)

@@ -676,12 +676,15 @@ function ChatPageInner() {
   // prevents a stale render of the old ChatInterface when navigating to new chat.
   // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useLayoutEffect(() => {
-    if (chatIdFromUrl !== activeChatId) {
-      setActiveChatId(chatIdFromUrl);
-      setHasMessages(!!chatIdFromUrl);
+    // Read directly from the live URL to avoid stale/transient undefined values
+    // that useSearchParams() can return during Suspense transitions or hydration.
+    const liveId = new URLSearchParams(window.location.search).get("id") ?? undefined;
+    if (liveId !== activeChatId) {
+      setActiveChatId(liveId);
+      setHasMessages(!!liveId);
       setInitialPrompt(null);
       // Reset to Souvenir Muse Advanced whenever switching to a new chat
-      if (!chatIdFromUrl) setMuseAdvanced(true);
+      if (!liveId) setMuseAdvanced(true);
     }
   }, [chatIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 

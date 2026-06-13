@@ -161,7 +161,38 @@ export function SettingsSidebar() {
           </div>
         </div>
 
-        {/* Organization section — hidden for now */}
+        {/* Organization section — visible to admins */}
+        {isAdmin && (
+          <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 500,
+                  fontSize:   14,
+                  lineHeight: '22px',
+                  color:      'var(--neutral-500)',
+                  margin:     0,
+                  whiteSpace: 'nowrap',
+                }}>
+                  Organization
+                </p>
+                <Badge label="Team" color="Green" />
+              </div>
+              {ORG_ITEMS.map(item => (
+                <SidebarMenuItem
+                  key={item.id}
+                  fluid
+                  variant="default"
+                  icon={item.icon}
+                  label={item.label}
+                  selected={pathname === item.href || pathname.startsWith(item.href + '/')}
+                  onClick={() => push(item.href)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
 

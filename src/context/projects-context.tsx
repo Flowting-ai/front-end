@@ -439,10 +439,16 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     try {
       const apiChats = await fetchProjectChats(projectId)
       const mapped   = apiChats.map(c => apiChatToProjectChat(c, projectId))
-      setChats(prev => [
-        ...prev.filter(c => c.projectId !== projectId),
-        ...mapped,
-      ])
+      setChats(prev => {
+        const apiIds   = new Set(mapped.map(c => c.id))
+        // Keep locally-added chats not yet reflected in the API (e.g. just created).
+        const localOnly = prev.filter(c => c.projectId === projectId && !apiIds.has(c.id))
+        return [
+          ...prev.filter(c => c.projectId !== projectId),
+          ...localOnly,
+          ...mapped,
+        ]
+      })
       // Sync chatCount to match the authoritative list from the API.
       setProjects(prev => prev.map(p =>
         p.id === projectId ? { ...p, chatCount: mapped.length } : p,

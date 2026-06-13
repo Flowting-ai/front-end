@@ -1,8 +1,39 @@
 openapi: 3.1.0
 info:
-  title: FastAPI - Persona
+  title: FastAPI - persona
   version: 0.1.0
 paths:
+  /persona/{repo_id}/visibility:
+    patch:
+      tags:
+        - persona
+      summary: Set Persona Visibility
+      operationId: set_persona_visibility_persona__repo_id__visibility_patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: repo_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Repo Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetVisibilityRequest'
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /persona:
     get:
       tags:
@@ -389,6 +420,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /persona/{repo_id}/use:
+    post:
+      tags:
+        - persona
+      summary: Use Persona Repo
+      description: Copy a visible (e.g. team-published) persona into the caller's own list.
+      operationId: use_persona_repo_persona__repo_id__use_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: repo_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Repo Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaRepoResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /persona/{repo_id}/pause:
     patch:
       tags:
@@ -439,6 +500,41 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SetActiveVersion'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaRepoResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /persona/{repo_id}/publish:
+    post:
+      tags:
+        - persona
+      summary: Publish Persona Version
+      operationId: publish_persona_version_persona__repo_id__publish_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: repo_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Repo Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishPersonaVersion'
       responses:
         '200':
           description: Successful Response
@@ -1602,15 +1698,94 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
-    Body_add_version_knowledge_url_persona__repo_id__versions__persona_id__knowledge_url_post:
+    SetVisibilityRequest:
       properties:
-        url:
+        visibility:
           type: string
-          title: Url
+          title: Visibility
+        teamId:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Teamid
       type: object
       required:
-        - url
-      title: Body_add_version_knowledge_url_persona__repo_id__versions__persona_id__knowledge_url_post
+        - visibility
+      title: SetVisibilityRequest
+      description: Shared by the persona/project/chat visibility setters.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    PersonaRepoResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        name:
+          type: string
+          title: Name
+        is_active:
+          type: boolean
+          title: Is Active
+        active_version_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Active Version Id
+        active_version:
+          anyOf:
+            - $ref: '#/components/schemas/PersonaResponse'
+            - type: 'null'
+        published_version_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Published Version Id
+        published_version:
+          anyOf:
+            - $ref: '#/components/schemas/PersonaResponse'
+            - type: 'null'
+        published_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Published At
+        is_published:
+          type: boolean
+          title: Is Published
+          default: false
+        version_count:
+          type: integer
+          title: Version Count
+          default: 0
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+        - id
+        - name
+        - is_active
+        - created_at
+        - updated_at
+      title: PersonaRepoResponse
+      description: The external persona handle. `id` is the repo id.
     Body_create_new_persona_repo_persona_post:
       properties:
         name:
@@ -1668,6 +1843,187 @@ components:
         - name
         - model_id
       title: Body_create_new_persona_repo_persona_post
+    EnhancePromptRequest:
+      properties:
+        prompt:
+          type: string
+          title: Prompt
+        answers:
+          items:
+            $ref: '#/components/schemas/EnhanceAnswer'
+          type: array
+          title: Answers
+          default: []
+      type: object
+      required:
+        - prompt
+      title: EnhancePromptRequest
+    EnhancePromptResponse:
+      properties:
+        enhanced_prompt:
+          type: string
+          title: Enhanced Prompt
+        questions:
+          items:
+            $ref: '#/components/schemas/EnhanceQuestion'
+          type: array
+          title: Questions
+          default: []
+      type: object
+      required:
+        - enhanced_prompt
+      title: EnhancePromptResponse
+    PersonaStarterRequest:
+      properties:
+        name:
+          type: string
+          title: Name
+        description:
+          type: string
+          title: Description
+      type: object
+      required:
+        - name
+        - description
+      title: PersonaStarterRequest
+    PersonaStarterResponse:
+      properties:
+        system_instruction:
+          type: string
+          title: System Instruction
+        sounds:
+          items:
+            $ref: '#/components/schemas/PersonaSound'
+          type: array
+          title: Sounds
+          default: []
+        persona_tags:
+          items:
+            type: string
+          type: array
+          title: Persona Tags
+          default: []
+      type: object
+      required:
+        - system_instruction
+      title: PersonaStarterResponse
+    PersonaGuideRequest:
+      properties:
+        question:
+          type: string
+          title: Question
+        prompt:
+          type: string
+          title: Prompt
+          default: ''
+        description:
+          type: string
+          title: Description
+          default: ''
+        name:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Name
+        model_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Model Id
+        temperature:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Temperature
+        history:
+          items:
+            $ref: '#/components/schemas/GuideMessage'
+          type: array
+          title: History
+          default: []
+        web_search:
+          type: boolean
+          title: Web Search
+          default: false
+      type: object
+      required:
+        - question
+      title: PersonaGuideRequest
+      description: |-
+        The current draft persona config + a question. The persona need not be
+        saved — the FE sends whatever's in the editor. History is replayed by the
+        FE each call (in-memory only; nothing is persisted server-side).
+    SetActiveVersion:
+      properties:
+        persona_id:
+          type: string
+          format: uuid
+          title: Persona Id
+      type: object
+      required:
+        - persona_id
+      title: SetActiveVersion
+    PublishPersonaVersion:
+      properties:
+        persona_id:
+          type: string
+          format: uuid
+          title: Persona Id
+      type: object
+      required:
+        - persona_id
+      title: PublishPersonaVersion
+    PersonaVersionListItem:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        name:
+          type: string
+          title: Name
+        handler:
+          type: string
+          title: Handler
+        model_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Model Id
+        is_active:
+          type: boolean
+          title: Is Active
+        version_tags:
+          items:
+            type: string
+          type: array
+          title: Version Tags
+          default: []
+        persona_tags:
+          items:
+            type: string
+          type: array
+          title: Persona Tags
+          default: []
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+        - id
+        - name
+        - handler
+        - is_active
+        - created_at
+        - updated_at
+      title: PersonaVersionListItem
     Body_create_new_version_persona__repo_id__versions_post:
       properties:
         name:
@@ -1725,419 +2081,6 @@ components:
         - name
         - model_id
       title: Body_create_new_version_persona__repo_id__versions_post
-    Body_create_repo_chat_persona__repo_id__chats_create_post:
-      properties:
-        input:
-          type: string
-          title: Input
-        use_mistral_ocr:
-          type: boolean
-          title: Use Mistral Ocr
-          default: false
-        files:
-          anyOf:
-            - items:
-                type: string
-                contentMediaType: application/octet-stream
-              type: array
-            - type: 'null'
-          title: Files
-      type: object
-      required:
-        - input
-      title: Body_create_repo_chat_persona__repo_id__chats_create_post
-    Body_stream_persona_message_persona__repo_id__chats__chat_id__stream_post:
-      properties:
-        input:
-          type: string
-          title: Input
-        use_mistral_ocr:
-          type: boolean
-          title: Use Mistral Ocr
-          default: false
-        files:
-          anyOf:
-            - items:
-                type: string
-                contentMediaType: application/octet-stream
-              type: array
-            - type: 'null'
-          title: Files
-      type: object
-      required:
-        - input
-      title: Body_stream_persona_message_persona__repo_id__chats__chat_id__stream_post
-    Body_test_version_stream_persona__repo_id__versions__persona_id__test_post:
-      properties:
-        input:
-          type: string
-          title: Input
-        files:
-          anyOf:
-            - items:
-                type: string
-                contentMediaType: application/octet-stream
-              type: array
-            - type: 'null'
-          title: Files
-      type: object
-      required:
-        - input
-      title: Body_test_version_stream_persona__repo_id__versions__persona_id__test_post
-    Body_update_version_files_persona__repo_id__versions__persona_id__files_put:
-      properties:
-        knowledge_urls:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Knowledge Urls
-        image:
-          anyOf:
-            - type: string
-              contentMediaType: application/octet-stream
-            - type: 'null'
-          title: Image
-        files:
-          anyOf:
-            - items:
-                type: string
-                contentMediaType: application/octet-stream
-              type: array
-            - type: 'null'
-          title: Files
-        remove_document_ids:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Remove Document Ids
-      type: object
-      title: Body_update_version_files_persona__repo_id__versions__persona_id__files_put
-    Body_upload_version_document_persona__repo_id__versions__persona_id__document_post:
-      properties:
-        file:
-          type: string
-          contentMediaType: application/octet-stream
-          title: File
-      type: object
-      required:
-        - file
-      title: Body_upload_version_document_persona__repo_id__versions__persona_id__document_post
-    DeletePersonaChat:
-      properties:
-        chat_id:
-          type: string
-          format: uuid
-          title: Chat Id
-      type: object
-      required:
-        - chat_id
-      title: DeletePersonaChat
-    EnhanceAnswer:
-      properties:
-        question:
-          type: string
-          title: Question
-        answer:
-          type: string
-          title: Answer
-      type: object
-      required:
-        - question
-        - answer
-      title: EnhanceAnswer
-      description: A question the model previously asked, plus the user's answer to it.
-    EnhanceOption:
-      properties:
-        label:
-          type: string
-          title: Label
-        description:
-          type: string
-          title: Description
-      type: object
-      required:
-        - label
-        - description
-      title: EnhanceOption
-    EnhancePromptRequest:
-      properties:
-        prompt:
-          type: string
-          title: Prompt
-        answers:
-          items:
-            $ref: '#/components/schemas/EnhanceAnswer'
-          type: array
-          title: Answers
-          default: []
-      type: object
-      required:
-        - prompt
-      title: EnhancePromptRequest
-    EnhancePromptResponse:
-      properties:
-        enhanced_prompt:
-          type: string
-          title: Enhanced Prompt
-        questions:
-          items:
-            $ref: '#/components/schemas/EnhanceQuestion'
-          type: array
-          title: Questions
-          default: []
-      type: object
-      required:
-        - enhanced_prompt
-      title: EnhancePromptResponse
-    EnhanceQuestion:
-      properties:
-        question:
-          type: string
-          title: Question
-        options:
-          items:
-            $ref: '#/components/schemas/EnhanceOption'
-          type: array
-          title: Options
-          default: []
-        multi_select:
-          type: boolean
-          title: Multi Select
-          default: false
-      type: object
-      required:
-        - question
-      title: EnhanceQuestion
-    GetPersonaMessages:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        input:
-          type: string
-          title: Input
-        output:
-          type: string
-          title: Output
-        reasoning:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Reasoning
-        file_attachments:
-          anyOf:
-            - items:
-                $ref: '#/components/schemas/PersonaFileAttachment'
-              type: array
-            - type: 'null'
-          title: File Attachments
-          default: []
-      type: object
-      required:
-        - id
-        - input
-        - output
-      title: GetPersonaMessages
-    GuideMessage:
-      properties:
-        role:
-          type: string
-          enum:
-            - user
-            - assistant
-          title: Role
-        content:
-          type: string
-          title: Content
-      type: object
-      required:
-        - role
-        - content
-      title: GuideMessage
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
-    PersonaChatsResponse:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        chat_title:
-          type: string
-          title: Chat Title
-        message_count:
-          type: integer
-          title: Message Count
-        persona_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Persona Id
-      type: object
-      required:
-        - id
-        - chat_title
-        - message_count
-      title: PersonaChatsResponse
-    PersonaDocumentResponse:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        document_filename:
-          type: string
-          title: Document Filename
-        source_url:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Source Url
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        size_bytes:
-          anyOf:
-            - type: integer
-            - type: 'null'
-          title: Size Bytes
-        content_type:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Content Type
-        download_url:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Download Url
-      type: object
-      required:
-        - id
-        - document_filename
-        - created_at
-      title: PersonaDocumentResponse
-    PersonaFileAttachment:
-      properties:
-        file_link:
-          type: string
-          title: File Link
-          default: ''
-        mime_type:
-          type: string
-          title: Mime Type
-        file_size:
-          type: integer
-          title: File Size
-        origin:
-          type: string
-          title: Origin
-      type: object
-      required:
-        - mime_type
-        - file_size
-        - origin
-      title: PersonaFileAttachment
-    PersonaGuideRequest:
-      properties:
-        question:
-          type: string
-          title: Question
-        prompt:
-          type: string
-          title: Prompt
-          default: ''
-        description:
-          type: string
-          title: Description
-          default: ''
-        name:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Name
-        model_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Model Id
-        temperature:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Temperature
-        history:
-          items:
-            $ref: '#/components/schemas/GuideMessage'
-          type: array
-          title: History
-          default: []
-        web_search:
-          type: boolean
-          title: Web Search
-          default: false
-      type: object
-      required:
-        - question
-      title: PersonaGuideRequest
-      description: |-
-        The current draft persona config + a question. The persona need not be
-        saved — the FE sends whatever's in the editor. History is replayed by the
-        FE each call (in-memory only; nothing is persisted server-side).
-    PersonaRepoResponse:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        name:
-          type: string
-          title: Name
-        is_active:
-          type: boolean
-          title: Is Active
-        active_version_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Active Version Id
-        active_version:
-          anyOf:
-            - $ref: '#/components/schemas/PersonaResponse'
-            - type: 'null'
-        version_count:
-          type: integer
-          title: Version Count
-          default: 0
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-      type: object
-      required:
-        - id
-        - name
-        - is_active
-        - created_at
-        - updated_at
-      title: PersonaRepoResponse
-      description: The external persona handle. `id` is the repo id.
     PersonaResponse:
       properties:
         id:
@@ -2245,141 +2188,6 @@ components:
         - created_at
         - updated_at
       title: PersonaResponse
-    PersonaSound:
-      properties:
-        name:
-          type: string
-          title: Name
-        description:
-          type: string
-          title: Description
-      type: object
-      required:
-        - name
-        - description
-      title: PersonaSound
-      description: 'How the persona should sound: a one-word label plus a sentence.'
-    PersonaStarterRequest:
-      properties:
-        name:
-          type: string
-          title: Name
-        description:
-          type: string
-          title: Description
-      type: object
-      required:
-        - name
-        - description
-      title: PersonaStarterRequest
-    PersonaStarterResponse:
-      properties:
-        system_instruction:
-          type: string
-          title: System Instruction
-        sounds:
-          items:
-            $ref: '#/components/schemas/PersonaSound'
-          type: array
-          title: Sounds
-          default: []
-        persona_tags:
-          items:
-            type: string
-          type: array
-          title: Persona Tags
-          default: []
-      type: object
-      required:
-        - system_instruction
-      title: PersonaStarterResponse
-    PersonaVersionListItem:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        name:
-          type: string
-          title: Name
-        handler:
-          type: string
-          title: Handler
-        model_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Model Id
-        is_active:
-          type: boolean
-          title: Is Active
-        version_tags:
-          items:
-            type: string
-          type: array
-          title: Version Tags
-          default: []
-        persona_tags:
-          items:
-            type: string
-          type: array
-          title: Persona Tags
-          default: []
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-      type: object
-      required:
-        - id
-        - name
-        - handler
-        - is_active
-        - created_at
-        - updated_at
-      title: PersonaVersionListItem
-    RenamePersonaChat:
-      properties:
-        chat_id:
-          type: string
-          format: uuid
-          title: Chat Id
-        chat_title:
-          type: string
-          title: Chat Title
-      type: object
-      required:
-        - chat_id
-        - chat_title
-      title: RenamePersonaChat
-    SetActiveVersion:
-      properties:
-        persona_id:
-          type: string
-          format: uuid
-          title: Persona Id
-      type: object
-      required:
-        - persona_id
-      title: SetActiveVersion
-    SetBlockedConnectors:
-      properties:
-        slugs:
-          items:
-            type: string
-          type: array
-          title: Slugs
-          default: []
-      type: object
-      title: SetBlockedConnectors
-      description: |-
-        Replace a persona version's blocked-connector set with `slugs`. The
-        persona keeps full access to every connected service EXCEPT these.
     UpdatePersona:
       properties:
         name:
@@ -2425,6 +2233,204 @@ components:
       type: object
       title: UpdatePersona
       description: Metadata-only fields for the PATCH route. Files/knowledge go through PUT.
+    Body_update_version_files_persona__repo_id__versions__persona_id__files_put:
+      properties:
+        knowledge_urls:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Knowledge Urls
+        image:
+          anyOf:
+            - type: string
+              contentMediaType: application/octet-stream
+            - type: 'null'
+          title: Image
+        files:
+          anyOf:
+            - items:
+                type: string
+                contentMediaType: application/octet-stream
+              type: array
+            - type: 'null'
+          title: Files
+        remove_document_ids:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Remove Document Ids
+      type: object
+      title: Body_update_version_files_persona__repo_id__versions__persona_id__files_put
+    Body_upload_version_document_persona__repo_id__versions__persona_id__document_post:
+      properties:
+        file:
+          type: string
+          contentMediaType: application/octet-stream
+          title: File
+      type: object
+      required:
+        - file
+      title: Body_upload_version_document_persona__repo_id__versions__persona_id__document_post
+    Body_add_version_knowledge_url_persona__repo_id__versions__persona_id__knowledge_url_post:
+      properties:
+        url:
+          type: string
+          title: Url
+      type: object
+      required:
+        - url
+      title: Body_add_version_knowledge_url_persona__repo_id__versions__persona_id__knowledge_url_post
+    SetBlockedConnectors:
+      properties:
+        slugs:
+          items:
+            type: string
+          type: array
+          title: Slugs
+          default: []
+      type: object
+      title: SetBlockedConnectors
+      description: |-
+        Replace a persona version's blocked-connector set with `slugs`. The
+        persona keeps full access to every connected service EXCEPT these.
+    Body_test_version_stream_persona__repo_id__versions__persona_id__test_post:
+      properties:
+        input:
+          type: string
+          title: Input
+        files:
+          anyOf:
+            - items:
+                type: string
+                contentMediaType: application/octet-stream
+              type: array
+            - type: 'null'
+          title: Files
+      type: object
+      required:
+        - input
+      title: Body_test_version_stream_persona__repo_id__versions__persona_id__test_post
+    PersonaChatsResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        chat_title:
+          type: string
+          title: Chat Title
+        message_count:
+          type: integer
+          title: Message Count
+        persona_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Persona Id
+      type: object
+      required:
+        - id
+        - chat_title
+        - message_count
+      title: PersonaChatsResponse
+    DeletePersonaChat:
+      properties:
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+      type: object
+      required:
+        - chat_id
+      title: DeletePersonaChat
+    Body_create_repo_chat_persona__repo_id__chats_create_post:
+      properties:
+        input:
+          type: string
+          title: Input
+        use_mistral_ocr:
+          type: boolean
+          title: Use Mistral Ocr
+          default: false
+        files:
+          anyOf:
+            - items:
+                type: string
+                contentMediaType: application/octet-stream
+              type: array
+            - type: 'null'
+          title: Files
+      type: object
+      required:
+        - input
+      title: Body_create_repo_chat_persona__repo_id__chats_create_post
+    GetPersonaMessages:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        input:
+          type: string
+          title: Input
+        output:
+          type: string
+          title: Output
+        reasoning:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Reasoning
+        file_attachments:
+          anyOf:
+            - items:
+                $ref: '#/components/schemas/PersonaFileAttachment'
+              type: array
+            - type: 'null'
+          title: File Attachments
+          default: []
+      type: object
+      required:
+        - id
+        - input
+        - output
+      title: GetPersonaMessages
+    Body_stream_persona_message_persona__repo_id__chats__chat_id__stream_post:
+      properties:
+        input:
+          type: string
+          title: Input
+        use_mistral_ocr:
+          type: boolean
+          title: Use Mistral Ocr
+          default: false
+        files:
+          anyOf:
+            - items:
+                type: string
+                contentMediaType: application/octet-stream
+              type: array
+            - type: 'null'
+          title: Files
+      type: object
+      required:
+        - input
+      title: Body_stream_persona_message_persona__repo_id__chats__chat_id__stream_post
+    RenamePersonaChat:
+      properties:
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+        chat_title:
+          type: string
+          title: Chat Title
+      type: object
+      required:
+        - chat_id
+        - chat_title
+      title: RenamePersonaChat
     ValidationError:
       properties:
         loc:
@@ -2451,6 +2457,142 @@ components:
         - msg
         - type
       title: ValidationError
+    EnhanceAnswer:
+      properties:
+        question:
+          type: string
+          title: Question
+        answer:
+          type: string
+          title: Answer
+      type: object
+      required:
+        - question
+        - answer
+      title: EnhanceAnswer
+      description: A question the model previously asked, plus the user's answer to it.
+    EnhanceQuestion:
+      properties:
+        question:
+          type: string
+          title: Question
+        options:
+          items:
+            $ref: '#/components/schemas/EnhanceOption'
+          type: array
+          title: Options
+          default: []
+        multi_select:
+          type: boolean
+          title: Multi Select
+          default: false
+      type: object
+      required:
+        - question
+      title: EnhanceQuestion
+    PersonaSound:
+      properties:
+        name:
+          type: string
+          title: Name
+        description:
+          type: string
+          title: Description
+      type: object
+      required:
+        - name
+        - description
+      title: PersonaSound
+      description: 'How the persona should sound: a one-word label plus a sentence.'
+    GuideMessage:
+      properties:
+        role:
+          type: string
+          enum:
+            - user
+            - assistant
+          title: Role
+        content:
+          type: string
+          title: Content
+      type: object
+      required:
+        - role
+        - content
+      title: GuideMessage
+    PersonaDocumentResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        document_filename:
+          type: string
+          title: Document Filename
+        source_url:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Source Url
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        size_bytes:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Size Bytes
+        content_type:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Content Type
+        download_url:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Download Url
+      type: object
+      required:
+        - id
+        - document_filename
+        - created_at
+      title: PersonaDocumentResponse
+    PersonaFileAttachment:
+      properties:
+        file_link:
+          type: string
+          title: File Link
+          default: ''
+        mime_type:
+          type: string
+          title: Mime Type
+        file_size:
+          type: integer
+          title: File Size
+        origin:
+          type: string
+          title: Origin
+      type: object
+      required:
+        - mime_type
+        - file_size
+        - origin
+      title: PersonaFileAttachment
+    EnhanceOption:
+      properties:
+        label:
+          type: string
+          title: Label
+        description:
+          type: string
+          title: Description
+      type: object
+      required:
+        - label
+        - description
+      title: EnhanceOption
   securitySchemes:
     HTTPBearer:
       type: http

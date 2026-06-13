@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Suspense, useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { X } from 'lucide-react'
 import { ChatInterface }                                   from '@/components/chat/ChatInterface'
@@ -169,7 +169,6 @@ function CentredMessage({ children }: { children: React.ReactNode }) {
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function ProjectChatPageInner() {
   const params       = useParams<{ id: string; chatId: string }>()
-  const { replace }   = useRouter()
   const searchParams  = useSearchParams()
   const qParam        = searchParams.get('q')
 
@@ -178,6 +177,7 @@ function ProjectChatPageInner() {
     getProject,
     getChats,
     addChat,
+    renameChat,
     loadProjectChats,
   } = useProjects()
   const { processFiles, FILE_ACCEPT } = useFileUpload()
@@ -198,6 +198,17 @@ function ProjectChatPageInner() {
   // found" guard during the brief window between addChat() and the context
   // state update being committed after router.replace().
   const justCreatedChatIdRef = useRef<string | null>(null)
+
+  // Local chatId state — mirrors the main chat page pattern.
+  // Updated immediately (same React batch) when onChatCreated fires so that
+  // markChatAsOptimistic + the chatId prop change land in the SAME commit,
+  // preventing useChatState from clearing streaming messages via fetch-and-clear.
+  // We use window.history.replaceState (not router.replace) to update the URL
+  // so that Next.js does NOT remount this page on the path-param change,
+  // which would reset justCreatedChatIdRef and optimisticChatIdsRef mid-stream.
+  const [activeChatId, setActiveChatId] = useState<string | undefined>(
+    params.chatId !== 'new' ? params.chatId : undefined
+  )
 
   useEffect(() => {
     setChatsLoading(true)
@@ -372,7 +383,7 @@ function ProjectChatPageInner() {
 
   // Persona is "active" when starting a new chat or the current chat was created
   // as a persona chat in this session; otherwise the chip is cosmetic (model only).
-  const personaApplied = isNewChat || !!personaChatIds.current.get(params.chatId)
+  const personaApplied = !activeChatId || !!personaChatIds.current.get(activeChatId)
 
   const newChatChips: React.ReactNode = (
     <>
@@ -689,18 +700,27 @@ function ProjectChatPageInner() {
             style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}
           >
             <ChatInterface
-              chatId={isNewChat ? undefined : params.chatId}
+              chatId={activeChatId}
               onChatCreated={(newChatId) => {
                 if (selectedPersona?.activeVersionId) {
                   personaChatIds.current.set(newChatId, selectedPersona.activeVersionId)
                 }
-                // Record the ID BEFORE calling replace() so the guard lets this
-                // render through even if setChats() hasn't been committed yet.
+                // Update local state immediately so markChatAsOptimistic + chatId
+                // prop change land in the same React commit (same as main chat page).
+                setActiveChatId(newChatId)
                 justCreatedChatIdRef.current = newChatId
                 addChat(params.id, newChatId, initialPrompt?.slice(0, 60) ?? '')
-                replace(`/project/${params.id}/chat/${newChatId}`)
+                // Update the browser URL without triggering a Next.js navigation.
+                // router.replace() changes params.chatId (path param), which causes
+                // Next.js App Router to remount this page — resetting justCreatedChatIdRef
+                // and optimisticChatIdsRef mid-stream and clearing streaming messages.
+                window.history.replaceState(null, '', `/project/${params.id}/chat/${newChatId}`)
+                window.dispatchEvent(new Event('chat-url-updated'))
               }}
-              onTitleUpdate={() => {}}
+              onTitleUpdate={(chatId, title) => {
+                renameChat(params.id, chatId, title)
+                window.dispatchEvent(new CustomEvent('project:chat-title-updated', { detail: { title } }))
+              }}
               onChatMoveToTop={() => {}}
               selectedModel={modelButtonLabel}
               selectedModelId={selectedModel?.id}
@@ -718,12 +738,12 @@ function ProjectChatPageInner() {
               selectedFolders={selectedFolders}
               selectedStyleId={selectedStyleId}
               selectedPersonaId={
-                isNewChat
+                !activeChatId
                   ? (selectedPersona?.activeVersionId ?? null)
-                  : (personaChatIds.current.get(params.chatId) ?? null)
+                  : (personaChatIds.current.get(activeChatId) ?? null)
               }
-              selectedPersonaSystemPrompt={isNewChat ? (selectedPersona?.systemPrompt ?? null) : null}
-              selectedPersonaTemperature={isNewChat ? (selectedPersona?.temperature ?? null) : null}
+              selectedPersonaSystemPrompt={!activeChatId ? (selectedPersona?.systemPrompt ?? null) : null}
+              selectedPersonaTemperature={!activeChatId ? (selectedPersona?.temperature ?? null) : null}
             />
           </m.div>
         )}

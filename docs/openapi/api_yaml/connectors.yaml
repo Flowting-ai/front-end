@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: FastAPI - Connectors
+  title: FastAPI - connectors
   version: 0.1.0
 paths:
   /connectors:
@@ -140,34 +140,17 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
-    ApiKeyField:
+    ConnectorListResponse:
       properties:
-        name:
-          type: string
-          title: Name
-        label:
-          type: string
-          title: Label
-        help:
-          type: string
-          title: Help
-          default: ''
-        secret:
-          type: boolean
-          title: Secret
-          default: false
-        required:
-          type: boolean
-          title: Required
-          default: true
+        connectors:
+          items:
+            $ref: '#/components/schemas/ConnectorCatalogEntry'
+          type: array
+          title: Connectors
       type: object
       required:
-        - name
-        - label
-      title: ApiKeyField
-      description: |-
-        One credential input the FE renders for an api_key connector. Mirrors
-        Composio's connected-account initiation field metadata.
+        - connectors
+      title: ConnectorListResponse
     ConnectorCatalogEntry:
       properties:
         slug:
@@ -198,6 +181,15 @@ components:
         linked:
           type: boolean
           title: Linked
+        workspace_linked:
+          type: boolean
+          title: Workspace Linked
+          default: false
+        workspace_linked_by:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Workspace Linked By
       type: object
       required:
         - slug
@@ -206,17 +198,6 @@ components:
         - description
         - linked
       title: ConnectorCatalogEntry
-    ConnectorListResponse:
-      properties:
-        connectors:
-          items:
-            $ref: '#/components/schemas/ConnectorCatalogEntry'
-          type: array
-          title: Connectors
-      type: object
-      required:
-        - connectors
-      title: ConnectorListResponse
     HTTPValidationError:
       properties:
         detail:
@@ -226,6 +207,24 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    UpdateConnectorRequest:
+      properties:
+        permissions:
+          anyOf:
+            - items:
+                $ref: '#/components/schemas/ToolEntry'
+              type: array
+            - type: 'null'
+          title: Permissions
+        credentials:
+          anyOf:
+            - additionalProperties:
+                type: string
+              type: object
+            - type: 'null'
+          title: Credentials
+      type: object
+      title: UpdateConnectorRequest
     LinkRequest:
       properties:
         init_data:
@@ -275,24 +274,34 @@ components:
       required:
         - slug
       title: ToolEntry
-    UpdateConnectorRequest:
+    ApiKeyField:
       properties:
-        permissions:
-          anyOf:
-            - items:
-                $ref: '#/components/schemas/ToolEntry'
-              type: array
-            - type: 'null'
-          title: Permissions
-        credentials:
-          anyOf:
-            - additionalProperties:
-                type: string
-              type: object
-            - type: 'null'
-          title: Credentials
+        name:
+          type: string
+          title: Name
+        label:
+          type: string
+          title: Label
+        help:
+          type: string
+          title: Help
+          default: ''
+        secret:
+          type: boolean
+          title: Secret
+          default: false
+        required:
+          type: boolean
+          title: Required
+          default: true
       type: object
-      title: UpdateConnectorRequest
+      required:
+        - name
+        - label
+      title: ApiKeyField
+      description: |-
+        One credential input the FE renders for an api_key connector. Mirrors
+        Composio's connected-account initiation field metadata.
     ValidationError:
       properties:
         loc:

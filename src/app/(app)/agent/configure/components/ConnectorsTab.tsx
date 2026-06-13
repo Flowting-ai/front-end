@@ -537,9 +537,9 @@ export default function ConnectorsTab({
         </div>
       ) : (
         <>
-          {/* ── Section 1: Connectors enabled for this persona ──────────────── */}
+          {/* ── Section 1: Connectors enabled for this agent ──────────────── */}
           <section data-help-id="help-connectors-enabled" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <p style={SECTION_LABEL}>Connectors enabled for this persona</p>
+            <p style={SECTION_LABEL}>Connectors enabled for this agent</p>
             {linked.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 12px' }}>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>
@@ -573,10 +573,10 @@ export default function ConnectorsTab({
             )}
           </section>
 
-          {/* ── Section 2: Connectors disabled for this persona ─────────────── */}
+          {/* ── Section 2: Connectors disabled for this agent ─────────────── */}
           {disabledForPersona.length > 0 && (
             <section data-help-id="help-connectors-disabled" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <p style={SECTION_LABEL}>Connectors disabled for this persona</p>
+              <p style={SECTION_LABEL}>Connectors disabled for this agent</p>
               {disabledForPersona.length === 0 && searchQuery ? (
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '16px 12px' }}>
                   No disabled connectors match &ldquo;{searchQuery}&rdquo;.

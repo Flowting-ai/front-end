@@ -4,18 +4,25 @@ import { apiFetch, apiFetchJson } from './client'
 import {
   ORG_ENDPOINT,
   ORG_SETTINGS_ENDPOINT,
+  ORG_PLAN_ENDPOINT,
+  ORG_PLAN_USAGE_ENDPOINT,
+  ORG_AUDIT_ENDPOINT,
   ORG_MEMBER_ENDPOINT,
   ORG_MEMBER_ROLE_ENDPOINT,
   ORG_MEMBER_CAP_ENDPOINT,
 } from '@/lib/config'
-import type { OrgRole, OrgSettings } from '@/types/teams'
+import type { OrgRole, OrgSettings, OrgMember, OrgPlan, OrgPlanUsage, AuditLogEntry } from '@/types/teams'
 
 // ── Backend shapes (snake_case) ───────────────────────────────────────────────
 
 interface OrganizationResponse {
   id: string
   name: string
-  my_role: OrgRole
+  slug: string
+  description: string
+  logo_url: string | null
+  archived: boolean
+  my_role: OrgRole | null
 }
 
 interface OrganizationSettingsResponse {
@@ -24,6 +31,49 @@ interface OrganizationSettingsResponse {
   allowed_email_domains: string[] | null
   default_chat_visibility: string | null
   default_persona_visibility: string | null
+}
+
+interface MemberResponse {
+  user_id: string
+  name: string | null
+  email: string | null
+  role: OrgRole
+  credit_cap: number | null
+  credit_used: number
+  invite_status: 'active' | 'pending'
+}
+
+interface PlanResponse {
+  organization_id: string
+  plan_credits: number
+  topup_credits: number
+  total_credits: number
+  used: number
+  remaining: number
+  percent_used: number
+  pool_status: string
+  members: MemberResponse[]
+}
+
+interface TeamBurnResponse {
+  team_id: string
+  team_name: string
+  credits_used: number
+}
+
+interface PlanUsageResponse {
+  organization_id: string
+  by_team: TeamBurnResponse[]
+}
+
+interface AuditEntryResponse {
+  id: string
+  actor_user_id: string
+  action: string
+  target_type: string | null
+  target_id: string | null
+  extra: Record<string, unknown> | null
+  created_at: string
 }
 
 // ── Normalizers ───────────────────────────────────────────────────────────────
@@ -38,11 +88,86 @@ function normalizeSettings(s: OrganizationSettingsResponse): OrgSettings {
   }
 }
 
+function normalizeMember(m: MemberResponse): OrgMember {
+  const role = (m.role === 'owner' || m.role === 'admin') ? 'admin' : 'member'
+  const inviteStatus = m.invite_status === 'pending' ? 'invite_sent' : 'signed_up'
+  return {
+    id:              m.user_id,
+    name:            m.name ?? '',
+    email:           m.email ?? '',
+    role,
+    inviteStatus,
+    teamMemberships: [],
+    creditUsed:      m.credit_used,
+    creditCap:       m.credit_cap ?? undefined,
+  }
+}
+
+function normalizePlan(p: PlanResponse): OrgPlan {
+  return {
+    organizationId: p.organization_id,
+    planCredits:    p.plan_credits,
+    topupCredits:   p.topup_credits,
+    totalCredits:   p.total_credits,
+    used:           p.used,
+    remaining:      p.remaining,
+    percentUsed:    p.percent_used,
+    poolStatus:     p.pool_status,
+    members:        p.members.map(normalizeMember),
+  }
+}
+
+function normalizePlanUsage(u: PlanUsageResponse): OrgPlanUsage {
+  return {
+    organizationId: u.organization_id,
+    byTeam: u.by_team.map(t => ({
+      teamId:      t.team_id,
+      teamName:    t.team_name,
+      creditsUsed: t.credits_used,
+    })),
+  }
+}
+
+function normalizeAuditEntry(e: AuditEntryResponse): AuditLogEntry {
+  return {
+    id:           e.id,
+    actorUserId:  e.actor_user_id,
+    action:       e.action,
+    targetType:   e.target_type,
+    targetId:     e.target_id,
+    extra:        e.extra,
+    createdAt:    e.created_at,
+  }
+}
+
 // ── API functions ─────────────────────────────────────────────────────────────
 
-export async function getOrg(orgId: string): Promise<{ id: string; name: string; role: OrgRole }> {
+export async function getOrg(orgId: string): Promise<{ id: string; name: string; slug: string; description: string; logoUrl: string | null; role: OrgRole }> {
   const data = await apiFetchJson<OrganizationResponse>(ORG_ENDPOINT(orgId))
-  return { id: data.id, name: data.name, role: data.my_role }
+  return {
+    id:          data.id,
+    name:        data.name,
+    slug:        data.slug,
+    description: data.description,
+    logoUrl:     data.logo_url,
+    role:        data.my_role ?? 'member',
+  }
+}
+
+export async function updateOrg(
+  orgId: string,
+  params: { name?: string | null; slug?: string | null; description?: string | null; logoUrl?: string | null },
+): Promise<{ id: string; name: string; slug: string }> {
+  const body: Record<string, unknown> = {}
+  if (params.name !== undefined)        body.name        = params.name
+  if (params.slug !== undefined)        body.slug        = params.slug
+  if (params.description !== undefined) body.description = params.description
+  if (params.logoUrl !== undefined)     body.logoUrl     = params.logoUrl
+  const data = await apiFetchJson<OrganizationResponse>(ORG_ENDPOINT(orgId), {
+    method: 'PATCH',
+    body:   JSON.stringify(body),
+  })
+  return { id: data.id, name: data.name, slug: data.slug }
 }
 
 export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
@@ -64,6 +189,29 @@ export async function updateOrgSettings(
     body:   JSON.stringify(params),
   })
   return normalizeSettings(data)
+}
+
+export async function getOrgPlan(orgId: string): Promise<OrgPlan> {
+  const data = await apiFetchJson<PlanResponse>(ORG_PLAN_ENDPOINT(orgId))
+  return normalizePlan(data)
+}
+
+export async function getOrgPlanUsage(orgId: string): Promise<OrgPlanUsage> {
+  const data = await apiFetchJson<PlanUsageResponse>(ORG_PLAN_USAGE_ENDPOINT(orgId))
+  return normalizePlanUsage(data)
+}
+
+export async function listAudit(
+  orgId: string,
+  opts: { limit?: number; offset?: number } = {},
+): Promise<AuditLogEntry[]> {
+  const params = new URLSearchParams()
+  if (opts.limit  !== undefined) params.set('limit',  String(opts.limit))
+  if (opts.offset !== undefined) params.set('offset', String(opts.offset))
+  const qs = params.toString()
+  const url = qs ? `${ORG_AUDIT_ENDPOINT(orgId)}?${qs}` : ORG_AUDIT_ENDPOINT(orgId)
+  const data = await apiFetchJson<AuditEntryResponse[]>(url)
+  return data.map(normalizeAuditEntry)
 }
 
 export async function setMemberRole(orgId: string, memberId: string, role: OrgRole): Promise<void> {

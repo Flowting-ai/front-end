@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: FastAPI - Scheduled Tasks
+  title: FastAPI - scheduled-tasks
   version: 0.1.0
 paths:
   /tasks:
@@ -88,6 +88,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+        - scheduled-tasks
+      summary: Delete Task
+      description: |-
+        Hard-delete a task and its run history (runs/logs go via FK CASCADE).
+        A run already in flight finishes headlessly but can no longer write back
+        to the task row.
+      operationId: delete_task_tasks__task_id__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Task Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledTaskDeleteResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /tasks/{task_id}/run:
     post:
       tags:
@@ -118,15 +150,80 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
-    HTTPValidationError:
+    ScheduledTaskListItem:
       properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
+        id:
+          type: string
+          format: uuid
+          title: Id
+        title:
+          type: string
+          title: Title
+        plan_text:
+          type: string
+          title: Plan Text
+          default: ''
+        schedule_json:
+          additionalProperties: true
+          type: object
+          title: Schedule Json
+        is_active:
+          type: boolean
+          title: Is Active
+        next_run_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Next Run At
+        last_run_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Last Run At
+        run_count:
+          type: integer
+          title: Run Count
+        success_count:
+          type: integer
+          title: Success Count
+          default: 0
+        failure_count:
+          type: integer
+          title: Failure Count
+          default: 0
+        created_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Updated At
+        success_rate:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Success Rate
+          description: |-
+            Completed runs / runs that reached a terminal status. None until the
+            task has run at least once.
+          readOnly: true
       type: object
-      title: HTTPValidationError
+      required:
+        - id
+        - title
+        - schedule_json
+        - is_active
+        - run_count
+        - success_rate
+      title: ScheduledTaskListItem
+      description: Row returned by GET /tasks.
     ScheduledTaskDetail:
       properties:
         id:
@@ -212,80 +309,40 @@ components:
         - success_rate
       title: ScheduledTaskDetail
       description: GET /tasks/{id} — task + plan + run history.
-    ScheduledTaskListItem:
+    HTTPValidationError:
       properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        title:
-          type: string
-          title: Title
-        plan_text:
-          type: string
-          title: Plan Text
-          default: ''
-        schedule_json:
-          additionalProperties: true
-          type: object
-          title: Schedule Json
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ScheduledTaskUpdate:
+      properties:
         is_active:
           type: boolean
           title: Is Active
-        next_run_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Next Run At
-        last_run_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Last Run At
-        run_count:
-          type: integer
-          title: Run Count
-        success_count:
-          type: integer
-          title: Success Count
-          default: 0
-        failure_count:
-          type: integer
-          title: Failure Count
-          default: 0
-        created_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Created At
-        updated_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Updated At
-        success_rate:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Success Rate
-          description: |-
-            Completed runs / runs that reached a terminal status. None until the
-            task has run at least once.
-          readOnly: true
       type: object
       required:
-        - id
-        - title
-        - schedule_json
         - is_active
-        - run_count
-        - success_rate
-      title: ScheduledTaskListItem
-      description: Row returned by GET /tasks.
+      title: ScheduledTaskUpdate
+      description: PATCH /tasks/{id} — pause/resume from the UI.
+    ScheduledTaskDeleteResponse:
+      properties:
+        deleted:
+          type: boolean
+          title: Deleted
+        task_id:
+          type: string
+          format: uuid
+          title: Task Id
+      type: object
+      required:
+        - deleted
+        - task_id
+      title: ScheduledTaskDeleteResponse
+      description: DELETE /tasks/{id}.
     ScheduledTaskRunResponse:
       properties:
         id:
@@ -328,16 +385,6 @@ components:
         - id
         - status
       title: ScheduledTaskRunResponse
-    ScheduledTaskUpdate:
-      properties:
-        is_active:
-          type: boolean
-          title: Is Active
-      type: object
-      required:
-        - is_active
-      title: ScheduledTaskUpdate
-      description: PATCH /tasks/{id} — pause/resume from the UI.
     ValidationError:
       properties:
         loc:

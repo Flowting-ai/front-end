@@ -224,30 +224,33 @@ function BrainSchedulesPageInner() {
 
   const handleEdit = useCallback(() => {
     if (!selectedDetail) return
-    const linkedChatId = selectedDetail.chatId
-    if (linkedChatId) {
-      toast.info('Any updates to scheduled tasks must be done via the prompts in the related scheduled task chat')
-      push(`/brain?id=${linkedChatId}`)
-    } else {
-      toast.info('Any updates to scheduled tasks must be done via the prompts in the related scheduled task chat')
-      push('/brain')
-    }
-  }, [selectedDetail, push])
+    setEditingSchedule({
+      name:         selectedDetail.name,
+      instructions: selectedDetail.instructions,
+      frequency:    selectedDetail.frequency,
+    })
+    setEditModalOpen(true)
+  }, [selectedDetail])
 
   const handleSave = useCallback((data: ScheduleEditData) => {
     const isEdit = !!(editingSchedule && selectedId)
 
     if (isEdit) {
-      setSchedules(prev => prev.map(s =>
-        s.id === selectedId
-          ? { ...s, name: data.name, description: data.instructions, frequency: data.frequency }
-          : s
-      ))
-      setSelectedDetail(prev =>
-        prev ? { ...prev, name: data.name, instructions: data.instructions, frequency: data.frequency } : prev
-      )
+      const linkedChatId = selectedDetail?.chatId
+      const prompt = [
+        `I want to update the schedule "${data.name}".`,
+        ``,
+        `Updated instructions: ${data.instructions}`,
+        `Updated frequency: ${data.frequency}`,
+      ].join('\n')
+      stashPendingPrompt(selectedId, prompt)
       setEditModalOpen(false)
       setEditingSchedule(undefined)
+      if (linkedChatId) {
+        push(`/brain?id=${linkedChatId}&fromSchedule=${encodeURIComponent(selectedId)}`)
+      } else {
+        push(`/brain?fromSchedule=${encodeURIComponent(selectedId)}`)
+      }
       return
     }
 
@@ -274,7 +277,7 @@ function BrainSchedulesPageInner() {
     setEditModalOpen(false)
     setEditingSchedule(undefined)
     push(`/brain?fromSchedule=${encodeURIComponent(newId)}`)
-  }, [editingSchedule, selectedId, idPrefix, push])
+  }, [editingSchedule, selectedId, selectedDetail, idPrefix, push])
 
   // ── Delete (DELETE /tasks/{id}; local-only items just drop from state) ────
 
@@ -325,8 +328,14 @@ function BrainSchedulesPageInner() {
       toast.info('This schedule has not been saved to the server yet.')
       return
     }
-    runTaskNow(selectedId)
-      .then(() => toast.success('Schedule triggered', { description: 'Brain will start this task shortly.' }))
+    const id = selectedId
+    runTaskNow(id)
+      .then(() => {
+        toast.success('Schedule triggered', { description: 'Brain will start this task shortly.' })
+        // Refresh detail so run_count and run history reflect the new run.
+        return getTask(id)
+      })
+      .then(detail => setSelectedDetail(taskDetailToDetail(detail, getChatForSchedule(id))))
       .catch(() => toast.error('Failed to run schedule'))
   }, [selectedId])
 

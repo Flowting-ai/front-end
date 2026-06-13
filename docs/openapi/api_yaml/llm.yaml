@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: FastAPI - LLM
+  title: FastAPI - llm
   version: 0.1.0
 paths:
   /llm/models:
@@ -90,80 +90,32 @@ paths:
         - HTTPBearer: []
 components:
   schemas:
-    BlockModel:
+    ModelsResponse:
       properties:
-        model_id:
-          type: string
-          format: uuid
-          title: Model Id
+        all:
+          items:
+            $ref: '#/components/schemas/GetModels'
+          type: array
+          title: All
+        recent:
+          items:
+            $ref: '#/components/schemas/GetModels'
+          type: array
+          title: Recent
+        most_used:
+          items:
+            $ref: '#/components/schemas/GetModels'
+          type: array
+          title: Most Used
       type: object
       required:
-        - model_id
-      title: BlockModel
-    GetModels:
-      properties:
-        model_id:
-          type: string
-          format: uuid
-          title: Model Id
-        model_name:
-          type: string
-          title: Model Name
-        model_provider:
-          type: string
-          title: Model Provider
-        model_inputs:
-          items:
-            type: string
-          type: array
-          title: Model Inputs
-        model_outputs:
-          items:
-            type: string
-          type: array
-          title: Model Outputs
-        model_context_window:
-          anyOf:
-            - type: integer
-            - type: 'null'
-          title: Model Context Window
-        model_output_size:
-          anyOf:
-            - type: integer
-            - type: 'null'
-          title: Model Output Size
-        model_input_cost:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Model Input Cost
-        model_output_cost:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Model Output Cost
-        model_plan_type:
-          type: string
-          title: Model Plan Type
-        model_description:
-          type: string
-          title: Model Description
-        model_thinking_efforts:
-          items:
-            type: string
-          type: array
-          title: Model Thinking Efforts
-          default: []
-      type: object
-      required:
-        - model_id
-        - model_name
-        - model_provider
-        - model_inputs
-        - model_outputs
-        - model_plan_type
-        - model_description
-      title: GetModels
+        - all
+        - recent
+        - most_used
+      title: ModelsResponse
+      description: |-
+        Bundled response for GET /llm/models — all eligible models plus this
+        user's recent and most-used rails (already tier-filtered).
     GetModelsWithStatus:
       properties:
         model_id:
@@ -232,6 +184,16 @@ components:
         - model_description
         - blocked
       title: GetModelsWithStatus
+    BlockModel:
+      properties:
+        model_id:
+          type: string
+          format: uuid
+          title: Model Id
+      type: object
+      required:
+        - model_id
+      title: BlockModel
     HTTPValidationError:
       properties:
         detail:
@@ -241,32 +203,6 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
-    ModelsResponse:
-      properties:
-        all:
-          items:
-            $ref: '#/components/schemas/GetModels'
-          type: array
-          title: All
-        recent:
-          items:
-            $ref: '#/components/schemas/GetModels'
-          type: array
-          title: Recent
-        most_used:
-          items:
-            $ref: '#/components/schemas/GetModels'
-          type: array
-          title: Most Used
-      type: object
-      required:
-        - all
-        - recent
-        - most_used
-      title: ModelsResponse
-      description: |-
-        Bundled response for GET /llm/models — all eligible models plus this
-        user's recent and most-used rails (already tier-filtered).
     TestModelRequest:
       properties:
         model_ids:
@@ -285,6 +221,70 @@ components:
         - model_ids
         - prompt
       title: TestModelRequest
+    GetModels:
+      properties:
+        model_id:
+          type: string
+          format: uuid
+          title: Model Id
+        model_name:
+          type: string
+          title: Model Name
+        model_provider:
+          type: string
+          title: Model Provider
+        model_inputs:
+          items:
+            type: string
+          type: array
+          title: Model Inputs
+        model_outputs:
+          items:
+            type: string
+          type: array
+          title: Model Outputs
+        model_context_window:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Model Context Window
+        model_output_size:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Model Output Size
+        model_input_cost:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Model Input Cost
+        model_output_cost:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Model Output Cost
+        model_plan_type:
+          type: string
+          title: Model Plan Type
+        model_description:
+          type: string
+          title: Model Description
+        model_thinking_efforts:
+          items:
+            type: string
+          type: array
+          title: Model Thinking Efforts
+          default: []
+      type: object
+      required:
+        - model_id
+        - model_name
+        - model_provider
+        - model_inputs
+        - model_outputs
+        - model_plan_type
+        - model_description
+      title: GetModels
     ValidationError:
       properties:
         loc:

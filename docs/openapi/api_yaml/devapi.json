@@ -1059,6 +1059,55 @@
         }
       }
     },
+    "/chats/{chat_id}/copy": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Copy Chat Endpoint",
+        "description": "Duplicate any chat the caller can read (own, project-linked, team-published\nor shared) into their own list.",
+        "operationId": "copy_chat_endpoint_chats__chat_id__copy_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "chat_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Chat Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/chats/{chat_id}/stream": {
       "post": {
         "tags": [
@@ -3027,6 +3076,55 @@
         }
       }
     },
+    "/persona/{repo_id}/use": {
+      "post": {
+        "tags": [
+          "persona"
+        ],
+        "summary": "Use Persona Repo",
+        "description": "Copy a visible (e.g. team-published) persona into the caller's own list.",
+        "operationId": "use_persona_repo_persona__repo_id__use_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Repo Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaRepoResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/persona/{repo_id}/pause": {
       "patch": {
         "tags": [
@@ -3105,6 +3203,64 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SetActiveVersion"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaRepoResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/persona/{repo_id}/publish": {
+      "post": {
+        "tags": [
+          "persona"
+        ],
+        "summary": "Publish Persona Version",
+        "operationId": "publish_persona_version_persona__repo_id__publish_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Repo Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishPersonaVersion"
               }
             }
           }
@@ -7284,7 +7440,7 @@
         },
         "responses": {
           "200": {
-            "description": "Streaming Brain orchestrator response via Server-Sent Events.\n\nTwo kinds of events arrive on the same SSE stream:\n\n**Named events** (`event: \u003Cname\u003E\\ndata: {...}`) — lifecycle, tools, model:\n\n- **`message_saved`**\n- **`title`**\n- **`web_search`**\n- **`image`**\n- **`generated_file`**\n- **`tool_progress`**\n- **`tool_connect_prompt`**\n- **`user_prompt`**\n- **`question_prompt`**\n- **`permission_prompt`**\n- **`context`**\n- **`plan_proposed`**\n- **`plan_approved`**\n- **`plan_countered`**\n- **`plan_cancelled`**\n- **`step_started`**\n- **`step_completed`**\n- **`step_failed`**\n\n**Inline events** (`data: {\"type\":\"\u003Cname\u003E\",...}`) — streaming LLM tokens, reasoning, tool execution:\n\n- **`reasoning_heading`**\n- **`reasoning_body`**\n- **`reasoning`**\n- **`content`**\n- **`tool_calls_streaming`**\n- **`tool_executing`**\n- **`tool_complete`**\n- **`done`**\n- **`error`**",
+            "description": "Streaming Brain orchestrator response via Server-Sent Events.\n\nTwo kinds of events arrive on the same SSE stream:\n\n**Named events** (`event: \u003Cname\u003E\\ndata: {...}`) — lifecycle, tools, model:\n\n- **`message_saved`**\n- **`title`**\n- **`web_search`**\n- **`image`**\n- **`generated_file`**\n- **`tool_progress`**\n- **`tool_connect_prompt`**\n- **`user_prompt`**\n- **`question_prompt`**\n- **`permission_prompt`**\n- **`context`**\n- **`plan_proposed`**\n- **`plan_approved`**\n- **`plan_countered`**\n- **`plan_cancelled`**\n- **`step_started`**\n- **`step_completed`**\n- **`step_failed`**\n- **`step_content`**\n- **`step_reasoning`**\n\n**Inline events** (`data: {\"type\":\"\u003Cname\u003E\",...}`) — streaming LLM tokens, reasoning, tool execution:\n\n- **`reasoning_heading`**\n- **`reasoning_body`**\n- **`reasoning`**\n- **`content`**\n- **`tool_calls_streaming`**\n- **`tool_executing`**\n- **`tool_complete`**\n- **`done`**\n- **`error`**",
             "content": {
               "application/json": {
                 "schema": {
@@ -7946,6 +8102,59 @@
                       "error"
                     ],
                     "title": "StepFailedEvent",
+                    "type": "object"
+                  },
+                  "step_content": {
+                    "description": "Output token of the sub-model running a plan node, streamed live while\nthe step executes. Concat per (plan_id, step_id) to assemble the node's\noutput; `step_started` precedes the first token, `step_completed` /\n`step_failed` ends the stream.",
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "step_id": {
+                        "title": "Step Id",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "step_id",
+                      "content"
+                    ],
+                    "title": "StepContentEvent",
+                    "type": "object"
+                  },
+                  "step_reasoning": {
+                    "description": "Reasoning delta of the sub-model running a plan node. `heading` is True\nwhen the delta opens a new reasoning section (mirrors `reasoning_heading`\nvs `reasoning_body` on the chat stream).",
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "step_id": {
+                        "title": "Step Id",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      },
+                      "heading": {
+                        "default": false,
+                        "title": "Heading",
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "step_id",
+                      "content"
+                    ],
+                    "title": "StepReasoningEvent",
                     "type": "object"
                   },
                   "reasoning_heading": {
@@ -8246,7 +8455,7 @@
         },
         "responses": {
           "200": {
-            "description": "Streaming Brain orchestrator response via Server-Sent Events.\n\nTwo kinds of events arrive on the same SSE stream:\n\n**Named events** (`event: \u003Cname\u003E\\ndata: {...}`) — lifecycle, tools, model:\n\n- **`message_saved`**\n- **`title`**\n- **`web_search`**\n- **`image`**\n- **`generated_file`**\n- **`tool_progress`**\n- **`tool_connect_prompt`**\n- **`user_prompt`**\n- **`question_prompt`**\n- **`permission_prompt`**\n- **`context`**\n- **`plan_proposed`**\n- **`plan_approved`**\n- **`plan_countered`**\n- **`plan_cancelled`**\n- **`step_started`**\n- **`step_completed`**\n- **`step_failed`**\n\n**Inline events** (`data: {\"type\":\"\u003Cname\u003E\",...}`) — streaming LLM tokens, reasoning, tool execution:\n\n- **`reasoning_heading`**\n- **`reasoning_body`**\n- **`reasoning`**\n- **`content`**\n- **`tool_calls_streaming`**\n- **`tool_executing`**\n- **`tool_complete`**\n- **`done`**\n- **`error`**",
+            "description": "Streaming Brain orchestrator response via Server-Sent Events.\n\nTwo kinds of events arrive on the same SSE stream:\n\n**Named events** (`event: \u003Cname\u003E\\ndata: {...}`) — lifecycle, tools, model:\n\n- **`message_saved`**\n- **`title`**\n- **`web_search`**\n- **`image`**\n- **`generated_file`**\n- **`tool_progress`**\n- **`tool_connect_prompt`**\n- **`user_prompt`**\n- **`question_prompt`**\n- **`permission_prompt`**\n- **`context`**\n- **`plan_proposed`**\n- **`plan_approved`**\n- **`plan_countered`**\n- **`plan_cancelled`**\n- **`step_started`**\n- **`step_completed`**\n- **`step_failed`**\n- **`step_content`**\n- **`step_reasoning`**\n\n**Inline events** (`data: {\"type\":\"\u003Cname\u003E\",...}`) — streaming LLM tokens, reasoning, tool execution:\n\n- **`reasoning_heading`**\n- **`reasoning_body`**\n- **`reasoning`**\n- **`content`**\n- **`tool_calls_streaming`**\n- **`tool_executing`**\n- **`tool_complete`**\n- **`done`**\n- **`error`**",
             "content": {
               "application/json": {
                 "schema": {
@@ -8908,6 +9117,59 @@
                       "error"
                     ],
                     "title": "StepFailedEvent",
+                    "type": "object"
+                  },
+                  "step_content": {
+                    "description": "Output token of the sub-model running a plan node, streamed live while\nthe step executes. Concat per (plan_id, step_id) to assemble the node's\noutput; `step_started` precedes the first token, `step_completed` /\n`step_failed` ends the stream.",
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "step_id": {
+                        "title": "Step Id",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "step_id",
+                      "content"
+                    ],
+                    "title": "StepContentEvent",
+                    "type": "object"
+                  },
+                  "step_reasoning": {
+                    "description": "Reasoning delta of the sub-model running a plan node. `heading` is True\nwhen the delta opens a new reasoning section (mirrors `reasoning_heading`\nvs `reasoning_body` on the chat stream).",
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "step_id": {
+                        "title": "Step Id",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      },
+                      "heading": {
+                        "default": false,
+                        "title": "Heading",
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "step_id",
+                      "content"
+                    ],
+                    "title": "StepReasoningEvent",
                     "type": "object"
                   },
                   "reasoning_heading": {
@@ -9531,6 +9793,53 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ScheduledTaskDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "scheduled-tasks"
+        ],
+        "summary": "Delete Task",
+        "description": "Hard-delete a task and its run history (runs/logs go via FK CASCADE).\nA run already in flight finishes headlessly but can no longer write back\nto the task row.",
+        "operationId": "delete_task_tasks__task_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledTaskDeleteResponse"
                 }
               }
             }
@@ -10564,6 +10873,280 @@
         ],
         "summary": "Remove Team Connector",
         "operationId": "remove_team_connector_organizations__organization_id__teams__team_id__connectors__slug__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/teams/{team_id}/connections": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "List Team Connections",
+        "operationId": "list_team_connections_organizations__organization_id__teams__team_id__connections_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectorCatalogEntry"
+                  },
+                  "title": "Response List Team Connections Organizations  Organization Id  Teams  Team Id  Connections Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/teams/{team_id}/connections/{slug}/link": {
+      "post": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Link Team Connection",
+        "operationId": "link_team_connection_organizations__organization_id__teams__team_id__connections__slug__link_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/teams/{team_id}/connections/{slug}": {
+      "patch": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Update Team Connection",
+        "operationId": "update_team_connection_organizations__organization_id__teams__team_id__connections__slug__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateConnectorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectorCatalogEntry"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Unlink Team Connection",
+        "operationId": "unlink_team_connection_organizations__organization_id__teams__team_id__connections__slug__delete",
         "security": [
           {
             "HTTPBearer": []
@@ -13337,6 +13920,22 @@
           "linked": {
             "type": "boolean",
             "title": "Linked"
+          },
+          "workspace_linked": {
+            "type": "boolean",
+            "title": "Workspace Linked",
+            "default": false
+          },
+          "workspace_linked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Linked By"
           }
         },
         "type": "object",
@@ -15265,6 +15864,45 @@
               }
             ]
           },
+          "published_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Version Id"
+          },
+          "published_version": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonaResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "is_published": {
+            "type": "boolean",
+            "title": "Is Published",
+            "default": false
+          },
           "version_count": {
             "type": "integer",
             "title": "Version Count",
@@ -16296,6 +16934,20 @@
         "title": "ProjectSummary",
         "description": "Row shape returned by GET /projects (list view)."
       },
+      "PublishPersonaVersion": {
+        "properties": {
+          "persona_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Persona Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona_id"
+        ],
+        "title": "PublishPersonaVersion"
+      },
       "ReasoningSection": {
         "properties": {
           "heading": {
@@ -16527,6 +17179,26 @@
         },
         "type": "object",
         "title": "SaveToDriveRequest"
+      },
+      "ScheduledTaskDeleteResponse": {
+        "properties": {
+          "deleted": {
+            "type": "boolean",
+            "title": "Deleted"
+          },
+          "task_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Task Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted",
+          "task_id"
+        ],
+        "title": "ScheduledTaskDeleteResponse",
+        "description": "DELETE /tasks/{id}."
       },
       "ScheduledTaskDetail": {
         "properties": {

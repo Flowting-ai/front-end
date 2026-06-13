@@ -20,7 +20,7 @@ type KnowledgeTabProps = {
   files: KnowledgeFile[];
   onFilesChange: (files: KnowledgeFile[]) => void;
   onRawFilesSelected?: (files: File[]) => void;
-  onRemoveFile?: (id: string) => void;
+  onRemoveFile?: (id: string) => Promise<void> | void;
   onPreviewFile?: (file: KnowledgeFile) => void;
 };
 
@@ -72,14 +72,16 @@ function FileBadge({ label }: { label: string }) {
   );
 }
 
-function FileRow({ file, onRemove, onPreview }: {
+function FileRow({ file, onRemove, onPreview, isDeleting }: {
   file: KnowledgeFile;
   onRemove: (id: string) => void;
   onPreview?: (file: KnowledgeFile) => void;
+  isDeleting?: boolean;
 }) {
   const [showActionMenu, setShowActionMenu] = useState(false);
-  const actionMenuRef   = useRef<HTMLDivElement>(null);
-  const badgeLabel = file.type === "url" ? "URLs" : (file.fileType ?? "PDF");
+  const actionMenuRef = useRef<HTMLDivElement>(null);
+  const isUploading = file.id.startsWith("uploading-");
+  const badgeLabel  = file.type === "url" ? "URLs" : (file.fileType ?? "PDF");
 
   // Close action dropdown when clicking outside
   useEffect(() => {
@@ -96,6 +98,7 @@ function FileRow({ file, onRemove, onPreview }: {
   return (
     <div
       style={{
+        position: "relative",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -103,7 +106,7 @@ function FileRow({ file, onRemove, onPreview }: {
         padding: "0 12px",
         borderRadius: 12,
         backgroundColor: "white",
-        boxShadow: "0px 0px 0px 1px white",
+        boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7",
         width: "100%",
         fontFamily: "var(--font-body)",
       }}
@@ -138,24 +141,39 @@ function FileRow({ file, onRemove, onPreview }: {
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
           margin: 0,
+          opacity: isUploading ? 0.5 : 1,
         }}
       >
         {file.name}
       </p>
+
       <div style={{ display: "flex", gap: 17, alignItems: "center", width: 265, flexShrink: 0 }}>
-        <FileBadge label={badgeLabel} />
-        {file.size && file.size !== '-' && (
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
-            {file.size}
+        {isDeleting ? (
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#c0392b", whiteSpace: "nowrap" }}>
+            Deleting…
           </span>
-        )}
-        {file.date && (
+        ) : isUploading ? (
           <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
-            {file.date}
+            Uploading…
           </span>
+        ) : (
+          <>
+            <FileBadge label={badgeLabel} />
+            {file.size && file.size !== "-" && (
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
+                {file.size}
+              </span>
+            )}
+            {file.date && (
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
+                {file.date}
+              </span>
+            )}
+          </>
         )}
       </div>
-      <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, position: "relative" }}>
+
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, position: "relative", opacity: (isUploading || isDeleting) ? 0.3 : 1, pointerEvents: (isUploading || isDeleting) ? "none" : "auto" }}>
         {file.type !== "connected" && (
           <button
             type="button"
@@ -218,6 +236,8 @@ function FileRow({ file, onRemove, onPreview }: {
               <button
                 type="button"
                 onClick={() => { onRemove(file.id); setShowActionMenu(false); }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(192,57,43,0.08)" }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent" }}
                 style={{
                   width: "100%",
                   textAlign: "left",
@@ -235,6 +255,20 @@ function FileRow({ file, onRemove, onPreview }: {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Clip layer — overflow:hidden scoped to card bounds, dropdown sits outside this */}
+      <div style={{ position: "absolute", inset: 0, borderRadius: 12, overflow: "hidden", pointerEvents: "none" }}>
+        {isUploading && (
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, backgroundColor: "rgba(13,110,178,0.12)" }}>
+            <div style={{ position: "absolute", height: "100%", width: "30%", backgroundColor: "#0d6eb2", animation: "knowledge-upload-slide 1.4s ease-in-out infinite" }} />
+          </div>
+        )}
+        {isDeleting && (
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, backgroundColor: "rgba(192,57,43,0.12)" }}>
+            <div style={{ position: "absolute", height: "100%", width: "30%", backgroundColor: "#c0392b", animation: "knowledge-upload-slide 1.4s ease-in-out infinite" }} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -274,8 +308,20 @@ function DropOverlay({ visible }: { visible: boolean }) {
 
 export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected, onRemoveFile, onPreviewFile }: KnowledgeTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [activeConnectorFilter, setActiveConnectorFilter] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+  // Inject keyframe animation once for the uploading progress bar
+  useEffect(() => {
+    const styleId = "knowledge-upload-slide-style";
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.textContent = `@keyframes knowledge-upload-slide { 0% { transform: translateX(-100%); } 60% { transform: translateX(380%); } 100% { transform: translateX(380%); } }`;
+      document.head.appendChild(style);
+    }
+  }, []);
   // Drag enter/leave fire for every child as the cursor traverses the DOM tree, so
   // count outstanding "enters" instead of toggling a boolean — otherwise the overlay
   // flickers off the instant the cursor crosses an inner element.
@@ -385,12 +431,17 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
     onDrop:      handleDrop,
   };
 
-  const handleRemoveFile = (id: string) => {
-    if (onRemoveFile) {
-      onRemoveFile(id);
-      return;
+  const handleRemoveFile = async (id: string) => {
+    setDeletingIds(prev => new Set(prev).add(id));
+    try {
+      if (onRemoveFile) {
+        await onRemoveFile(id);
+      } else {
+        onFilesChange(files.filter((f) => f.id !== id));
+      }
+    } finally {
+      setDeletingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
     }
-    onFilesChange(files.filter((f) => f.id !== id));
   };
 
   const filteredFiles = files.filter((f) => {
@@ -682,7 +733,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
           <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Files</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {regularFiles.map((f) => (
-              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPreview={onPreviewFile} />
+              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPreview={onPreviewFile} isDeleting={deletingIds.has(f.id)} />
             ))}
           </div>
         </div>
@@ -693,7 +744,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
           <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Web pages - URLs</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {urlFiles.map((f) => (
-              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPreview={onPreviewFile} />
+              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPreview={onPreviewFile} isDeleting={deletingIds.has(f.id)} />
             ))}
           </div>
         </div>
@@ -741,7 +792,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               ? connectedFiles.filter((f) => f.source === activeConnectorFilter)
               : connectedFiles
             ).map((f) => (
-              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPreview={onPreviewFile} />
+              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPreview={onPreviewFile} isDeleting={deletingIds.has(f.id)} />
             ))}
           </div>
         </div>

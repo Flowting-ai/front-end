@@ -27,6 +27,7 @@ export interface SharingTabProps {
   /** persona VERSION id — used to filter the existing shares list */
   versionId?: string
   hasTeamsPlan?: boolean
+  onChanged?: () => void
 }
 
 // ── Team plan badge ────────────────────────────────────────────────────────────
@@ -212,7 +213,7 @@ function UsageBar({ percent }: { percent: number }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: SharingTabProps) {
+export default function SharingTab({ repoId, versionId, hasTeamsPlan = false, onChanged }: SharingTabProps) {
   const { user } = useAuth()
   const maxTokenLimit = getShareTokenLimit(user?.planType)
   const { setHasShareLink } = usePersonaConfigure()
@@ -288,6 +289,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
         return
       }
       setLinkShare(share)
+      onChanged?.()
       toast.success('Share link generated')
     } catch (err) {
       toast.error((err as ApiError).message ?? 'Failed to generate link')
@@ -304,6 +306,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
       await revokeShare(currentLinkShare.id)
       setLinkShare(null)
       setSuperLinkEnabled(false)
+      onChanged?.()
       toast.success('Share link revoked')
     } catch (err) {
       toast.error((err as ApiError).message ?? 'Failed to revoke link')
@@ -345,6 +348,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
       }
       setEmailShares(prev => [...prev, share])
       setEmailInput('')
+      onChanged?.()
       toast.success(`Invite sent to ${email}`)
     } catch (err) {
       toast.error((err as ApiError).message ?? 'Failed to send invite')
@@ -358,6 +362,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
     try {
       await revokeShare(id)
       setEmailShares(prev => prev.filter(s => s.id !== id))
+      onChanged?.()
       toast.success('Invite revoked')
     } catch (err) {
       toast.error((err as ApiError).message ?? 'Failed to revoke invite')

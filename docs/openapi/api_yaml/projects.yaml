@@ -1,8 +1,39 @@
 openapi: 3.1.0
 info:
-  title: FastAPI - Projects
+  title: FastAPI - projects
   version: 0.1.0
 paths:
+  /projects/{project_id}/visibility:
+    patch:
+      tags:
+        - projects
+      summary: Set Project Visibility
+      operationId: set_project_visibility_projects__project_id__visibility_patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Project Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetVisibilityRequest'
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /projects:
     get:
       tags:
@@ -310,18 +341,74 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
-    Body_add_project_files_projects__project_id__files_put:
+    SetVisibilityRequest:
       properties:
-        files:
-          items:
-            type: string
-            contentMediaType: application/octet-stream
-          type: array
-          title: Files
+        visibility:
+          type: string
+          title: Visibility
+        teamId:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Teamid
       type: object
       required:
-        - files
-      title: Body_add_project_files_projects__project_id__files_put
+        - visibility
+      title: SetVisibilityRequest
+      description: Shared by the persona/project/chat visibility setters.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ProjectSummary:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        title:
+          type: string
+          title: Title
+        description:
+          type: string
+          title: Description
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+          default: []
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        chat_count:
+          type: integer
+          title: Chat Count
+        document_count:
+          type: integer
+          title: Document Count
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - created_at
+        - updated_at
+        - chat_count
+        - document_count
+      title: ProjectSummary
+      description: Row shape returned by GET /projects (list view).
     Body_create_project_projects_post:
       properties:
         title:
@@ -352,94 +439,6 @@ components:
       required:
         - title
       title: Body_create_project_projects_post
-    Body_update_project_projects__project_id__patch:
-      properties:
-        title:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Title
-        description:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Description
-        system_instruction:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: System Instruction
-        tags:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Tags
-      type: object
-      title: Body_update_project_projects__project_id__patch
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
-    ProjectChatSummary:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        chat_title:
-          type: string
-          title: Chat Title
-        starred:
-          type: boolean
-          title: Starred
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-        message_count:
-          type: integer
-          title: Message Count
-      type: object
-      required:
-        - id
-        - chat_title
-        - starred
-        - created_at
-        - updated_at
-        - message_count
-      title: ProjectChatSummary
-    ProjectDocumentResponse:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        document_filename:
-          type: string
-          title: Document Filename
-        file_link:
-          type: string
-          title: File Link
-          default: ''
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-      type: object
-      required:
-        - id
-        - document_filename
-        - created_at
-      title: ProjectDocumentResponse
     ProjectResponse:
       properties:
         id:
@@ -484,24 +483,54 @@ components:
         - created_at
         - updated_at
       title: ProjectResponse
-    ProjectSummary:
+    Body_update_project_projects__project_id__patch:
+      properties:
+        title:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Title
+        description:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Description
+        system_instruction:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: System Instruction
+        tags:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Tags
+      type: object
+      title: Body_update_project_projects__project_id__patch
+    Body_add_project_files_projects__project_id__files_put:
+      properties:
+        files:
+          items:
+            type: string
+            contentMediaType: application/octet-stream
+          type: array
+          title: Files
+      type: object
+      required:
+        - files
+      title: Body_add_project_files_projects__project_id__files_put
+    ProjectChatSummary:
       properties:
         id:
           type: string
           format: uuid
           title: Id
-        title:
+        chat_title:
           type: string
-          title: Title
-        description:
-          type: string
-          title: Description
-        tags:
-          items:
-            type: string
-          type: array
-          title: Tags
-          default: []
+          title: Chat Title
+        starred:
+          type: boolean
+          title: Starred
         created_at:
           type: string
           format: date-time
@@ -510,23 +539,18 @@ components:
           type: string
           format: date-time
           title: Updated At
-        chat_count:
+        message_count:
           type: integer
-          title: Chat Count
-        document_count:
-          type: integer
-          title: Document Count
+          title: Message Count
       type: object
       required:
         - id
-        - title
-        - description
+        - chat_title
+        - starred
         - created_at
         - updated_at
-        - chat_count
-        - document_count
-      title: ProjectSummary
-      description: Row shape returned by GET /projects (list view).
+        - message_count
+      title: ProjectChatSummary
     ValidationError:
       properties:
         loc:
@@ -553,6 +577,29 @@ components:
         - msg
         - type
       title: ValidationError
+    ProjectDocumentResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        document_filename:
+          type: string
+          title: Document Filename
+        file_link:
+          type: string
+          title: File Link
+          default: ''
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+        - id
+        - document_filename
+        - created_at
+      title: ProjectDocumentResponse
   securitySchemes:
     HTTPBearer:
       type: http

@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: FastAPI - Persona Shares
+  title: FastAPI - persona-shares
   version: 0.1.0
 paths:
   /persona-shares:
@@ -71,7 +71,7 @@ paths:
       tags:
         - persona-shares
       summary: List Sent
-      description: "Recipients of my shares — who got which persona, and their usage."
+      description: Recipients of my shares — who got which persona, and their usage.
       operationId: list_sent_persona_shares_sent_get
       responses:
         '200':
@@ -85,6 +85,39 @@ paths:
                 title: Response List Sent Persona Shares Sent Get
       security:
         - HTTPBearer: []
+  /persona-shares/dashboard:
+    get:
+      tags:
+        - persona-shares
+      summary: Dashboard
+      description: |-
+        Super Links dashboard: link totals, conversations & credits this month with
+        deltas, a daily credit series, and the per-link cards. `window` (days) drives
+        the chart; accepts 7, 30, or 90.
+      operationId: dashboard_persona_shares_dashboard_get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: window
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 30
+            title: Window
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareDashboardResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /persona-shares/{share_id}:
     get:
       tags:
@@ -172,106 +205,6 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
-    PersonaShareCreate:
-      properties:
-        persona_repo_id:
-          type: string
-          format: uuid
-          title: Persona Repo Id
-        share_type:
-          type: string
-          enum:
-            - link
-            - email
-          title: Share Type
-        recipient_emails:
-          anyOf:
-            - items:
-                type: string
-              type: array
-            - type: 'null'
-          title: Recipient Emails
-        credit_limit:
-          anyOf:
-            - type: number
-              exclusiveMinimum: 0
-            - type: 'null'
-          title: Credit Limit
-        expires_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Expires At
-      type: object
-      required:
-        - persona_repo_id
-        - share_type
-      title: PersonaShareCreate
-    PersonaSharePreview:
-      properties:
-        share_id:
-          type: string
-          format: uuid
-          title: Share Id
-        persona_name:
-          type: string
-          title: Persona Name
-        description:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Description
-        prompt:
-          type: string
-          title: Prompt
-        model_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Model Id
-        temperature:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Temperature
-        image_url:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Image Url
-        shared_by_name:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Shared By Name
-        shared_by_email:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Shared By Email
-        expires_at:
-          type: string
-          format: date-time
-          title: Expires At
-        credit_limit:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Credit Limit
-        credit_remaining:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Credit Remaining
-      type: object
-      required:
-        - share_id
-        - persona_name
-        - prompt
-        - expires_at
-      title: PersonaSharePreview
     PersonaShareResponse:
       properties:
         id:
@@ -322,6 +255,22 @@ components:
         share_url:
           type: string
           title: Share Url
+        persona_name:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Persona Name
+        pct_used:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Pct Used
+        recipients:
+          items:
+            $ref: '#/components/schemas/ShareRecipientSummary'
+          type: array
+          title: Recipients
+          default: []
       type: object
       required:
         - id
@@ -334,6 +283,51 @@ components:
         - created_at
         - share_url
       title: PersonaShareResponse
+    PersonaShareCreate:
+      properties:
+        persona_repo_id:
+          type: string
+          format: uuid
+          title: Persona Repo Id
+        share_type:
+          type: string
+          enum:
+            - link
+            - email
+          title: Share Type
+        recipient_emails:
+          anyOf:
+            - items:
+                type: string
+              type: array
+            - type: 'null'
+          title: Recipient Emails
+        credit_limit:
+          anyOf:
+            - type: number
+              exclusiveMinimum: 0
+            - type: 'null'
+          title: Credit Limit
+        expires_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Expires At
+      type: object
+      required:
+        - persona_repo_id
+        - share_type
+      title: PersonaShareCreate
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
     ReceivedShareResponse:
       properties:
         persona_id:
@@ -456,46 +450,95 @@ components:
         - is_active
         - accepted_at
       title: SentShareResponse
-      description: "A recipient of one of my shares — who got which persona, and their usage."
-    PersonaDocumentResponse:
+      description: A recipient of one of my shares — who got which persona, and their usage.
+    ShareDashboardResponse:
       properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        document_filename:
-          type: string
-          title: Document Filename
-        source_url:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Source Url
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        size_bytes:
-          anyOf:
-            - type: integer
-            - type: 'null'
-          title: Size Bytes
-        content_type:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Content Type
-        download_url:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Download Url
+        summary:
+          $ref: '#/components/schemas/ShareDashboardSummary'
+        daily:
+          items:
+            $ref: '#/components/schemas/DashboardDailyPoint'
+          type: array
+          title: Daily
+        window_days:
+          type: integer
+          title: Window Days
+        links:
+          items:
+            $ref: '#/components/schemas/PersonaShareResponse'
+          type: array
+          title: Links
       type: object
       required:
-        - id
-        - document_filename
-        - created_at
-      title: PersonaDocumentResponse
+        - summary
+        - daily
+        - window_days
+        - links
+      title: ShareDashboardResponse
+    PersonaSharePreview:
+      properties:
+        share_id:
+          type: string
+          format: uuid
+          title: Share Id
+        persona_name:
+          type: string
+          title: Persona Name
+        description:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Description
+        prompt:
+          type: string
+          title: Prompt
+        model_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Model Id
+        temperature:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Temperature
+        image_url:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Image Url
+        shared_by_name:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Shared By Name
+        shared_by_email:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Shared By Email
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+        credit_limit:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Credit Limit
+        credit_remaining:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Credit Remaining
+      type: object
+      required:
+        - share_id
+        - persona_name
+        - prompt
+        - expires_at
+      title: PersonaSharePreview
     PersonaResponse:
       properties:
         id:
@@ -603,15 +646,47 @@ components:
         - created_at
         - updated_at
       title: PersonaResponse
-    HTTPValidationError:
+    ShareRecipientSummary:
       properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
+        recipient_user_id:
+          type: string
+          title: Recipient User Id
+        recipient_name:
+          type: string
+          title: Recipient Name
+        recipient_email:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Recipient Email
+        message_count:
+          type: integer
+          title: Message Count
+        credit_used:
+          type: number
+          title: Credit Used
+        credit_remaining:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Credit Remaining
+        is_active:
+          type: boolean
+          title: Is Active
+        accepted_at:
+          type: string
+          format: date-time
+          title: Accepted At
       type: object
-      title: HTTPValidationError
+      required:
+        - recipient_user_id
+        - recipient_name
+        - message_count
+        - credit_used
+        - is_active
+        - accepted_at
+      title: ShareRecipientSummary
+      description: Who accepted a link and how they've used it — embedded per link.
     ValidationError:
       properties:
         loc:
@@ -638,6 +713,90 @@ components:
         - msg
         - type
       title: ValidationError
+    ShareDashboardSummary:
+      properties:
+        active_links:
+          type: integer
+          title: Active Links
+        total_links:
+          type: integer
+          title: Total Links
+        conversations:
+          type: integer
+          title: Conversations
+        conversations_delta_pct:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Conversations Delta Pct
+        credits_this_month:
+          type: number
+          title: Credits This Month
+        credits_delta_pct:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Credits Delta Pct
+      type: object
+      required:
+        - active_links
+        - total_links
+        - conversations
+        - credits_this_month
+      title: ShareDashboardSummary
+    DashboardDailyPoint:
+      properties:
+        date:
+          type: string
+          format: date
+          title: Date
+        credits:
+          type: number
+          title: Credits
+      type: object
+      required:
+        - date
+        - credits
+      title: DashboardDailyPoint
+    PersonaDocumentResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        document_filename:
+          type: string
+          title: Document Filename
+        source_url:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Source Url
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        size_bytes:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Size Bytes
+        content_type:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Content Type
+        download_url:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Download Url
+      type: object
+      required:
+        - id
+        - document_filename
+        - created_at
+      title: PersonaDocumentResponse
   securitySchemes:
     HTTPBearer:
       type: http

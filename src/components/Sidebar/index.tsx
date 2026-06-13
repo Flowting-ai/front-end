@@ -686,7 +686,7 @@ export function Sidebar({
           {!isCollapsed && (
             <div style={{ paddingLeft: '12px', paddingRight: '12px' }}>
               <Tabs value={bodySection}>
-                <TabsList size="small" fluid>
+                <TabsList size="medium" fluid>
                   <TabsTrigger value="chats"  icon={<BubbleChatIcon    size={16} />} onClick={onChatTabClick}>Chats</TabsTrigger>
                   <TabsTrigger value="agents" icon={<UserAiIcon        size={16} />} onClick={onPersonasClick}>Agents</TabsTrigger>
                   <TabsTrigger value="brain"  icon={<NeuralNetworkIcon size={16} />} onClick={onBrainClick}>Brain</TabsTrigger>

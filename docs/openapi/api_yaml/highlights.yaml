@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: FastAPI - Highlights
+  title: FastAPI - highlights
   version: 0.1.0
 paths:
   /highlights:
@@ -88,15 +88,6 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
     HighlightCreate:
       properties:
         message_id:
@@ -169,6 +160,15 @@ components:
         - color_index
         - created_at
       title: HighlightResponse
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
     ValidationError:
       properties:
         loc:

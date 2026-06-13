@@ -23,6 +23,7 @@ import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModa
 import { useInstructionHistory } from '@/app/(app)/agent/configure/hooks/use-instruction-history'
 import {
   createVersion,
+  deleteVersion,
   getPersonaRepo,
   getVersion,
   setActiveVersion,
@@ -538,14 +539,17 @@ function PersonaConfigureInstructionsContent() {
   const [connectorSlugs, setConnectorSlugs] = useState<string[] | null>(null)
   const [isInitialising, setIsInitialising] = useState(true)
   const [isSaving,      setIsSaving]      = useState(false)
+  const [showInfo,      setShowInfo]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
 
-  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag, setPendingChangeTags, refreshVersions, versions, setNeedsRepublish, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setOnPublishAndLeave, registerAutoSave, setVersionsOpen, publishedVersionId, markPublished } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag, setPendingChangeTags, refreshVersions, versions, setNeedsRepublish, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setOnPublishAndLeave, registerAutoSave, setVersionsOpen, publishedVersionId, markPublished, tabDirtyFlags, setTabDirty } = usePersonaConfigure()
 
   const [exampleConvOpen, setExampleConvOpen] = useState(false)
   const [exampleConvExpanded, setExampleConvExpanded] = useState(false)
   const [exampleConversations, setExampleConversations] = useState<Array<{ id: string; userSays: string; personaReplies: string }>>([])
-  const [republishModalOpen, setRepublishModalOpen] = useState(false)
+  const [republishModalOpen,   setRepublishModalOpen]   = useState(false)
+  const [maxVersionsModalOpen, setMaxVersionsModalOpen] = useState(false)
+  const [isDeletingOldest,     setIsDeletingOldest]     = useState(false)
 
   // Publication state comes from the backend via context (publishedVersionId) —
   // never from client-only storage — so it's correct on first open.
@@ -878,12 +882,27 @@ function PersonaConfigureInstructionsContent() {
       return
     }
     if (!isDirty) return
-    // Every save forks a new version, so the version limit always applies.
     if (versions.length >= MAX_VERSIONS) {
-      toast.error('Max version limit reached (5). Please delete an older version first.')
+      setMaxVersionsModalOpen(true)
       return
     }
     void executeSave()
+  }
+
+  async function handleProceedWithOverwrite() {
+    const oldest = versions[versions.length - 1]
+    if (!oldest || !repoId) return
+    setIsDeletingOldest(true)
+    try {
+      await deleteVersion(repoId, oldest.id)
+      setMaxVersionsModalOpen(false)
+      void executeSave()
+    } catch (err) {
+      console.error('[InstructionsPage] delete oldest version error:', err)
+      toast.error('Failed to delete oldest version')
+    } finally {
+      setIsDeletingOldest(false)
+    }
   }
 
   // ── Publish ───────────────────────────────────────────────────────────────────
@@ -975,6 +994,9 @@ function PersonaConfigureInstructionsContent() {
     if (cleaned.length < pendingChangeTags.length) setPendingChangeTags(cleaned)
   }, [isInitialising, isDirty, pendingChangeTags, setPendingChangeTags])
 
+  // Sync dirty state to context for traffic light
+  useEffect(() => { setTabDirty('Instructions', isDirty) }, [isDirty, setTabDirty])
+
   // ── Auto-save draft to sessionStorage ─────────────────────────────────────
   useEffect(() => {
     if (!repoId || isInitialising) return
@@ -1013,7 +1035,9 @@ function PersonaConfigureInstructionsContent() {
   const needsRepublish = pub.needsRepublish && (hasContent || !!publishedVersionId)
 
   const canPublish = hasContent && !!repoId && !!versionId && !!selectedModel && !isPublishing && !isPublished
-  const canSave    = pendingChangeTags.length > 0 && hasContent && !!repoId && !!selectedModel && !isSaving
+  const canSave    = isDirty && hasContent && !!repoId && !!selectedModel && !isSaving
+
+  const anyDirty     = pendingChangeTags.length > 0 || TABS.some(tab => tabDirtyFlags[tab] === true)
 
   // Sync needsRepublish to shared context so the leave-guard works on all 5 tabs.
   useEffect(() => {
@@ -1056,10 +1080,42 @@ function PersonaConfigureInstructionsContent() {
     setExampleConversations(prev => prev.filter(c => c.id !== id))
   }
 
-  // Tab switching keeps a sessionStorage draft, but dirty instruction/model
-  // changes are saved before leaving this tab so the next tab receives the
-  // newly active version id immediately.
-  instructionAutoSaveRef.current = async () => Promise.resolve()
+  // Auto-save on tab switch — updates the current version in place (never forks).
+  // createVersion is only called by the wizard (initial creation) and handleSaveVersion (explicit).
+  instructionAutoSaveRef.current = async () => {
+    const modelId = selectedModel ? stableKey(selectedModel) : null
+    if (!repoId || !versionId || !modelId) return
+    const snapshot = savedSnapshotRef.current
+    const isDirtyNow =
+      !snapshot ||
+      instruction !== snapshot.instruction ||
+      currentModelId !== snapshot.modelId ||
+      temperature !== snapshot.temperature
+    if (!isDirtyNow) return
+    try {
+      let imageFile: File | null = null
+      let preserveImageUrl: string | null = null
+      const avatarDataUrl = readProfileAvatar(repoId)
+      if (avatarDataUrl?.startsWith('data:')) {
+        imageFile = dataUrlToFile(avatarDataUrl, 'avatar.jpg')
+      } else {
+        preserveImageUrl = avatarDataUrl ?? imageUrl
+      }
+      await updateVersion({
+        repoId,
+        versionId,
+        name:        personaName,
+        modelId,
+        prompt:      instruction,
+        temperature,
+        image:       imageFile ?? undefined,
+        imageUrl:    preserveImageUrl,
+      })
+      toast.success('Changes autosaved')
+    } catch (err) {
+      console.error('[InstructionsPage] auto-save error:', err)
+    }
+  }
 
   useEffect(() => {
     registerAutoSave(() => instructionAutoSaveRef.current())
@@ -1068,7 +1124,7 @@ function PersonaConfigureInstructionsContent() {
 
   // ── Tab navigation ────────────────────────────────────────────────────────────
 
-  function navigateTab(tab: Tab, nextVersionId = versionId) {
+  function navigateTab(tab: Tab) {
     const route = TAB_ROUTES[tab]
     if (!route) return
     // Block tab switching until required fields are filled (only relevant for new/custom personas)
@@ -1084,36 +1140,13 @@ function PersonaConfigureInstructionsContent() {
     }
     const params = new URLSearchParams(searchParams.toString())
     if (repoId)    params.set('repoId',    repoId)
-    if (nextVersionId) params.set('versionId', nextVersionId)
+    if (versionId) params.set('versionId', versionId)
     safeNavigate(`${route}?${params.toString()}`)
   }
 
-  async function handleTabClick(tab: Tab) {
+  function handleTabClick(tab: Tab) {
     if (!TAB_ROUTES[tab]) return
-    const snapshot = savedSnapshotRef.current
-    const hasDirtyInstructionChanges =
-      !snapshot ||
-      instruction !== snapshot.instruction ||
-      currentModelId !== snapshot.modelId ||
-      temperature !== snapshot.temperature
-    if (!hasDirtyInstructionChanges) {
-      navigateTab(tab)
-      return
-    }
-    if (!selectedModel) {
-      toast.error('Please select a model before switching tabs.')
-      return
-    }
-    if (!hasContent) {
-      toast.error('Please add system instructions before switching tabs.')
-      return
-    }
-    if (versions.length >= MAX_VERSIONS) {
-      toast.error('Max version limit reached (5). Please delete an older version first.')
-      return
-    }
-    const savedVersionId = await executeSave(false)
-    if (savedVersionId) navigateTab(tab, savedVersionId)
+    navigateTab(tab)
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -1141,15 +1174,26 @@ function PersonaConfigureInstructionsContent() {
         {/* ── Top navigation bar ─────────────────────────────────────────────── */}
         <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 8, height: 36, position: 'relative' }}>
-            {/* Back arrow */}
+            {/* Back arrow + label */}
             <div style={{ flexShrink: 0 }}>
-              <IconButton
-                variant="ghost"
-                size="md"
-                icon={<ArrowLeftOneIcon size={20} />}
-                aria-label="Go back"
-                onClick={() => safeNavigate('/agents')}
-              />
+              {anyPanelOpen ? (
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<ArrowLeftOneIcon size={20} animated />}
+                  aria-label="Back to Agents"
+                  onClick={() => safeNavigate('/agents')}
+                />
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  leftIcon={<ArrowLeftOneIcon size={20} animated />}
+                  onClick={() => safeNavigate('/agents')}
+                >
+                  Back to Agents
+                </Button>
+              )}
             </div>
 
             {/* Tabs — centered when no panel open, left-aligned when a panel is open */}
@@ -1157,24 +1201,40 @@ function PersonaConfigureInstructionsContent() {
               ? { display: 'inline-flex', alignItems: 'flex-start', position: 'relative' }
               : { position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }
             }>
+              {/* Frosted glass — only covers the tab button row, not the traffic lights */}
               <div
                 aria-hidden
                 style={{
                   position: 'absolute',
-                  inset: 0,
+                  top: 0, left: 0, right: 0,
+                  height: 36,
                   borderRadius: 10,
                   backgroundColor: 'rgba(247,242,237,0.5)',
                   boxShadow:
                     'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
                 }}
               />
-              <div style={{ position: 'relative', display: 'flex', gap: 4, alignItems: 'center' }}>
+              <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: TABS.map(() => 'auto').join(' '), columnGap: 4, rowGap: 6, justifyContent: 'start' }}>
+                {/* Info legend */}
+                <div style={{ position: 'absolute', right: 'calc(100% + 8px)', top: 0, height: 36, display: 'flex', alignItems: 'center', zIndex: 9999 }}>
+                  <button type="button" onMouseEnter={() => setShowInfo(true)} onMouseLeave={() => setShowInfo(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: '50%', border: '1.5px solid var(--neutral-400)', backgroundColor: 'transparent', cursor: 'default', fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, color: 'var(--neutral-500)', padding: 0 }}>i</button>
+                  {showInfo && (
+                    <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'white', border: '1px solid var(--neutral-200)', borderRadius: 8, padding: '8px 10px', boxShadow: '0px 4px 12px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: 6, whiteSpace: 'nowrap', zIndex: 9999 }}>
+                      {([{ color: '#D1D5DB', border: '#9CA3AF', label: 'No changes' }, { color: '#F97316', border: '#C2600F', label: 'Unsaved changes' }, { color: '#6FCF97', border: '#27AE60', label: 'Saved' }] as const).map(({ color, border, label }) => (
+                        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 24, height: 4, backgroundColor: color, border: `1px solid ${border}`, borderRadius: 2, flexShrink: 0 }} />
+                          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-600)' }}>{label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 {TABS.map(tab => {
                   const isActive = tab === 'Instructions'
                   return (
                     <button
                       key={tab}
-                      onClick={() => void handleTabClick(tab)}
+                      onClick={() => handleTabClick(tab)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -1213,26 +1273,72 @@ function PersonaConfigureInstructionsContent() {
                     </button>
                   )
                 })}
+                {TABS.map(tab => {
+                  const hasFlag   = tabDirtyFlags[tab] !== undefined
+                  const isDirtyT  = hasFlag ? tabDirtyFlags[tab] ?? false : pendingChangeTags.includes(tab)
+                  const isPristine  = !hasFlag && !pendingChangeTags.includes(tab)
+                  const bgColor     = isPristine ? '#D1D5DB' : (isDirtyT ? '#F97316' : '#6FCF97')
+                  const borderColor = isPristine ? '#9CA3AF' : (isDirtyT ? '#C2600F' : '#27AE60')
+                  return (
+                    <div key={`${tab}-light`} aria-hidden style={{ height: 4, backgroundColor: bgColor, border: `1px solid ${borderColor}`, borderRadius: 2, transition: 'background-color 300ms, border-color 300ms' }} />
+                  )
+                })}
+                {(anyDirty || publishedVersionId != null || (!!repoId && !!versionId)) && (
+                  <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 10, pointerEvents: 'none', zIndex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {(anyDirty || publishedVersionId != null) && (
+                      <>
+                        {anyDirty ? <Badge color="Red" label="Unsaved" /> : <Badge color="Green" label="Saved" />}
+                        <div aria-hidden style={{ width: 1, height: 12, backgroundColor: 'var(--neutral-300)', flexShrink: 0 }} />
+                      </>
+                    )}
+                    {isPublished
+                      ? <Badge color="Green" label="Live" />
+                      : <Badge color="Red" label="Unpublished" />
+                    }
+                  </div>
+                )}
               </div>
             </div>
 
 
 
-            {/* Status badges — centered below the tab bar */}
-            {(!!versionId || pendingChangeTags.length > 0 || isPublished || needsRepublish) && (
-              <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 6, pointerEvents: 'none', zIndex: 1, display: 'flex', gap: 4 }}>
-                {(!!versionId || pendingChangeTags.length > 0) && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', whiteSpace: 'nowrap', ...(pendingChangeTags.length > 0 ? { backgroundColor: '#ffedd5', color: '#c2410c', boxShadow: '0px 0px 0px 1px rgba(194,65,12,0.2)' } : { backgroundColor: '#f5f5f4', color: '#44403c', boxShadow: '0px 0px 0px 1px rgba(68,64,60,0.2)' }) }}>
-                    {pendingChangeTags.length > 0 ? 'Unsaved' : 'Saved'}
-                  </span>
-                )}
-                {(isPublished || needsRepublish) && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', whiteSpace: 'nowrap', ...(isPublished ? { backgroundColor: '#d1fae5', color: '#065f46', boxShadow: '0px 0px 0px 1px rgba(6,95,70,0.2)' } : { backgroundColor: '#fef3c7', color: '#92400e', boxShadow: '0px 1px 1.5px 0px rgba(24,15,2,0.15), 0px 0px 0px 1px rgba(146,64,14,0.3)' }) }}>
-                    {isPublished ? 'Live' : 'Unpublished'}
-                  </span>
-                )}
-              </div>
-            )}
+            {/* Action buttons — top right */}
+            <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+              {anyPanelOpen ? (
+                <IconButton
+                  variant="outline"
+                  size="sm"
+                  icon={<QuillWriteOneIcon size={16} />}
+                  aria-label="Save version"
+                  onClick={handleSaveVersion}
+                  loading={isSaving}
+                  disabled={!hasContent || !repoId || !selectedModel || isSaving || isInitialising}
+                />
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<QuillWriteOneIcon size={16} />}
+                  onClick={handleSaveVersion}
+                  loading={isSaving}
+                  disabled={!hasContent || !repoId || !selectedModel || isSaving || isInitialising}
+                >
+                  {isSaving ? 'Saving…' : 'Save version'}
+                </Button>
+              )}
+              <Button
+                variant="default"
+                size="sm"
+                rightIcon={<ArrowUpRightOneIcon size={16} />}
+                onClick={() => void handlePublish()}
+                loading={isPublishing}
+                disabled={!canPublish || isInitialising}
+              >
+                {isPublishing
+                  ? (publishedVersionId != null ? 'Republishing…' : 'Publishing…')
+                  : (publishedVersionId != null ? 'Republish' : 'Publish')}
+              </Button>
+            </div>
           </div>
 
           <div style={{ height: 35, flexShrink: 0 }} />
@@ -1459,36 +1565,6 @@ function PersonaConfigureInstructionsContent() {
           </div>
         )}
 
-        {/* ── Bottom navigation ────────────────────────────────────────────────── */}
-        <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', padding: '12px 16px 4px', borderTop: '1px solid var(--neutral-100)' }}>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {publishedVersionId != null && (
-              <Button
-                variant="outline"
-                size="sm"
-                leftIcon={<QuillWriteOneIcon size={16} />}
-                onClick={handleSaveVersion}
-                loading={isSaving}
-                disabled={!canSave || isInitialising}
-              >
-                {isSaving ? 'Saving…' : 'Save version'}
-              </Button>
-            )}
-            <Button
-              variant="default"
-              size="sm"
-              rightIcon={<ArrowUpRightOneIcon size={16} />}
-              onClick={() => void handlePublish()}
-              loading={isPublishing}
-              disabled={!canPublish || isInitialising}
-            >
-              {isPublishing
-                ? (publishedVersionId != null ? 'Republishing…' : 'Publishing…')
-                : (publishedVersionId != null ? 'Republish' : 'Publish')}
-            </Button>
-          </div>
-        </div>
-
       </div>
 
       {/* ── Modals ─────────────────────────────────────────────────────────────────── */}
@@ -1507,6 +1583,54 @@ function PersonaConfigureInstructionsContent() {
             push('/agents')
           }}
         />
+      )}
+
+      {/* ── Max versions confirmation modal ────────────────────────────────── */}
+      {maxVersionsModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Version limit reached"
+          onClick={() => { if (!isDeletingOldest) setMaxVersionsModalOpen(false) }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, maxWidth: 400, width: '90%', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0px 8px 24px rgba(0,0,0,0.15), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
+          >
+            <span style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '2px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', backgroundColor: '#ffedd5', color: '#c2410c', boxShadow: '0px 0px 0px 1px rgba(194,65,12,0.2)' }}>
+              Warning
+            </span>
+            <p style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 18, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
+              Oldest version will be deleted
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
+              You&apos;ve reached the 5-version limit. Creating a new version will permanently delete{' '}
+              <strong style={{ color: 'var(--neutral-900)', fontWeight: 500 }}>
+                {versions[versions.length - 1]?.name || 'the oldest version'}
+              </strong>{' '}
+              (v001) to make room. This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setMaxVersionsModalOpen(false)}
+                disabled={isDeletingOldest}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => void handleProceedWithOverwrite()}
+                loading={isDeletingOldest}
+              >
+                {isDeletingOldest ? 'Deleting…' : 'Proceed'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
     </>

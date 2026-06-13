@@ -340,7 +340,8 @@ function ProjectChatItem({ chat, isActive, onSelect, onRename, onDelete }: Proje
 
 // ── Projects section - reads from ProjectsContext ──────────────────────────────
 
-const PROJECT_LIMIT = 5
+const PROJECT_LIMIT = 2
+const CHAT_LIMIT    = 10
 
 function ProjectsSection() {
   const { push }    = useRouter()
@@ -427,8 +428,9 @@ function ProjectsSection() {
                 onClick={() => push(`/project/${project.id}`)}
                 onExpandedChange={(v) => toggleExpand(project.id, v)}
               >
-                {chats.length > 0 && [
-                  ...chats.slice(0, 5).map(chat => (
+                {chats.length > 0 && (
+                <>
+                  {chats.slice(0, CHAT_LIMIT).map(chat => (
                     <ProjectChatItem
                       key={chat.id}
                       chat={chat}
@@ -440,8 +442,19 @@ function ProjectsSection() {
                       }}
                       onDelete={(chatId) => removeChat(project.id, chatId)}
                     />
-                  )),
-                ]}
+                  ))}
+                  {chats.length > CHAT_LIMIT && (
+                    <SidebarMenuItem
+                      fluid
+                      variant="default"
+                      icon={<MoreHorizontalIcon size={20} animated />}
+                      label="View all Project Chats"
+                      selected={pathname === `/project/${project.id}`}
+                      onClick={() => push(`/project/${project.id}`)}
+                    />
+                  )}
+                </>
+              )}
               </SidebarProjectsSection>
             )
           })}
@@ -450,8 +463,8 @@ function ProjectsSection() {
             <SidebarMenuItem
               fluid
               variant="default"
-              icon={<MoreHorizontalIcon size={20} />}
-              label="Show all"
+              icon={<MoreHorizontalIcon size={20} animated />}
+              label="See all projects"
               onClick={() => push("/projects")}
             />
           )}
@@ -926,7 +939,7 @@ function LeftSidebarImpl({
       push("/agents");
       return;
     }
-    const isAlreadyOnNewChat = pathname === "/chat" && !chatSearchParams.get("id");
+    const isAlreadyOnNewChat = pathname === "/chat" && !new URLSearchParams(window.location.search).get("id");
     if (isAlreadyOnNewChat) {
       toast.info("Already on new chat");
       return;

@@ -1,7 +1,10 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/Button'
+import { useOrg } from '@/context/org-context'
+import { getOrg, updateOrg, getOrgSettings, updateOrgSettings } from '@/lib/api/organization'
 
 // ── Text input ────────────────────────────────────────────────────────────────
 
@@ -160,147 +163,161 @@ function FieldRow({
   )
 }
 
-// ── Dropdown select pill ──────────────────────────────────────────────────────
+// ── Visibility select ─────────────────────────────────────────────────────────
 
-function SelectPill({ label }: { label: string }) {
-  return (
-    <button style={{
-      display:         'inline-flex',
-      alignItems:      'center',
-      gap:             6,
-      padding:         '5px 10px',
-      borderRadius:    8,
-      border:          'none',
-      cursor:          'pointer',
-      backgroundColor: 'white',
-      boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
-      fontFamily:      'var(--font-body)',
-      fontWeight:      400,
-      fontSize:        14,
-      lineHeight:      '22px',
-      color:           'var(--neutral-700)',
-      whiteSpace:      'nowrap',
-      width:           327,
-      justifyContent:  'space-between',
-    }}>
-      <span>{label}</span>
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4 6l4 4 4-4" stroke="var(--neutral-500)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </button>
-  )
-}
-
-// ── Verification badge ────────────────────────────────────────────────────────
-
-function VerifiedBadge() {
-  return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="7" cy="7" r="6" fill="var(--green-50)" stroke="var(--green-400)" strokeWidth="1" />
-        <path d="M4.5 7l2 2 3-3" stroke="var(--green-700)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <span style={{
-        fontFamily: 'var(--font-body)',
-        fontWeight: 400,
-        fontSize:   13,
-        lineHeight: '20px',
-        color:      'var(--green-700)',
-      }}>
-        Verified
-      </span>
-    </div>
-  )
-}
-
-function VerifyLink() {
-  return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      <span style={{
-        fontFamily: 'var(--font-body)',
-        fontWeight: 400,
-        fontSize:   13,
-        lineHeight: '20px',
-        color:      'var(--neutral-500)',
-      }}>
-        Verify
-      </span>
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M3 7h8M7 3l4 4-4 4" stroke="var(--neutral-500)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </div>
-  )
-}
-
-// ── Domain row ────────────────────────────────────────────────────────────────
-
-function DomainRow({
-  domain,
-  discoverableLabel,
-  verification,
-  divider,
+function VisibilitySelect({
+  value,
+  onChange,
+  disabled,
 }: {
-  domain:            string
-  discoverableLabel: string
-  verification:      'verified' | 'pending'
-  divider?:          boolean
+  value:    string
+  onChange: (v: string) => void
+  disabled?: boolean
 }) {
+  const options = [
+    { value: 'private',  label: 'Private by default' },
+    { value: 'team',     label: 'Team only' },
+    { value: 'public',   label: 'Public' },
+  ]
   return (
-    <div style={{
-      display:      'flex',
-      alignItems:   'center',
-      gap:          32,
-      padding:      '10px 24px',
-      borderBottom: divider ? '1px solid var(--neutral-100)' : undefined,
-    }}>
-      <span style={{
-        flex:       '1 0 0',
-        minWidth:   0,
-        fontFamily: 'var(--font-body)',
-        fontWeight: 400,
-        fontSize:   14,
-        lineHeight: '22px',
-        color:      'var(--neutral-900)',
-      }}>
-        {domain}
-      </span>
-      <div style={{ width: 91 }}>
-        <button style={{
-          display:         'inline-flex',
-          alignItems:      'center',
-          gap:             4,
-          padding:         '2px 8px',
-          borderRadius:    6,
-          border:          'none',
-          cursor:          'pointer',
-          backgroundColor: 'white',
-          boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px var(--neutral-200)',
-          fontFamily:      'var(--font-body)',
-          fontWeight:      400,
-          fontSize:        13,
-          lineHeight:      '20px',
-          color:           'var(--neutral-700)',
-          whiteSpace:      'nowrap',
-        }}>
-          {discoverableLabel}
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3 4.5l3 3 3-3" stroke="var(--neutral-500)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-      </div>
-      <div style={{ width: 91 }}>
-        {verification === 'verified' ? <VerifiedBadge /> : <VerifyLink />}
-      </div>
-    </div>
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      disabled={disabled}
+      style={{
+        height:          36,
+        backgroundColor: 'white',
+        borderRadius:    10,
+        boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)',
+        border:          'none',
+        padding:         '0 10px',
+        fontFamily:      'var(--font-body)',
+        fontWeight:      400,
+        fontSize:        14,
+        lineHeight:      '22px',
+        color:           'var(--neutral-700)',
+        width:           327,
+        cursor:          disabled ? 'default' : 'pointer',
+        outline:         'none',
+      }}
+    >
+      {options.map(o => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
   )
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrgGeneralPage() {
-  const [workspaceName,    setWorkspaceName]    = useState('Souvenir_Core')
-  const [slugValue,        setSlugValue]        = useState('souvenir-core')
-  const [aiInstructions,   setAiInstructions]   = useState('')
+  const { orgId } = useOrg()
+
+  // Identity fields
+  const [workspaceName,  setWorkspaceName]  = useState('')
+  const [slugValue,      setSlugValue]      = useState('')
+  const [orgIdValue,     setOrgIdValue]     = useState('')
+  const [identityLoading, setIdentityLoading] = useState(false)
+  const [identitySaving,  setIdentitySaving]  = useState(false)
+
+  // Settings fields
+  const [aiInstructions,           setAiInstructions]           = useState('')
+  const [allowedDomains,           setAllowedDomains]           = useState<string[]>([])
+  const [defaultChatVisibility,    setDefaultChatVisibility]    = useState('private')
+  const [defaultPersonaVisibility, setDefaultPersonaVisibility] = useState('private')
+  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [settingsSaving,  setSettingsSaving]  = useState(false)
+
+  // Load org identity
+  useEffect(() => {
+    if (!orgId) return
+    setIdentityLoading(true)
+    getOrg(orgId)
+      .then(data => {
+        setWorkspaceName(data.name)
+        setSlugValue(data.slug)
+        setOrgIdValue(data.id)
+      })
+      .catch(console.error)
+      .finally(() => setIdentityLoading(false))
+  }, [orgId])
+
+  // Load org settings
+  useEffect(() => {
+    if (!orgId) return
+    setSettingsLoading(true)
+    getOrgSettings(orgId)
+      .then(s => {
+        setAiInstructions(s.orgInstructions ?? '')
+        setAllowedDomains(s.allowedEmailDomains ?? [])
+        setDefaultChatVisibility(s.defaultChatVisibility ?? 'private')
+        setDefaultPersonaVisibility(s.defaultPersonaVisibility ?? 'private')
+      })
+      .catch(console.error)
+      .finally(() => setSettingsLoading(false))
+  }, [orgId])
+
+  const handleSaveIdentity = async () => {
+    if (!orgId) return
+    setIdentitySaving(true)
+    try {
+      const updated = await updateOrg(orgId, { name: workspaceName, slug: slugValue })
+      setWorkspaceName(updated.name)
+      setSlugValue(updated.slug)
+      toast.success('Workspace identity saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save identity')
+    } finally {
+      setIdentitySaving(false)
+    }
+  }
+
+  const handleSaveInstructions = async () => {
+    if (!orgId) return
+    setSettingsSaving(true)
+    try {
+      await updateOrgSettings(orgId, { orgInstructions: aiInstructions || null })
+      toast.success('Instructions saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save instructions')
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
+
+  const handleSaveDefaults = async () => {
+    if (!orgId) return
+    setSettingsSaving(true)
+    try {
+      await updateOrgSettings(orgId, {
+        defaultChatVisibility,
+        defaultPersonaVisibility,
+      })
+      toast.success('Workspace defaults saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save defaults')
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
+
+  const handleSaveDomains = async () => {
+    if (!orgId) return
+    setSettingsSaving(true)
+    try {
+      await updateOrgSettings(orgId, { allowedEmailDomains: allowedDomains.filter(Boolean) })
+      toast.success('Allowed domains saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save domains')
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
+
+  const copyOrgId = () => {
+    void navigator.clipboard.writeText(orgIdValue)
+    toast.success('Copied to clipboard')
+  }
 
   return (
     <div
@@ -327,9 +344,6 @@ export default function OrgGeneralPage() {
             lineHeight:   '32px',
             color:        'var(--neutral-900)',
             margin:       0,
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
           }}>
             General
           </h1>
@@ -398,13 +412,14 @@ export default function OrgGeneralPage() {
                 PNG, JPG or GIF. Recommended 512×512px.
               </p>
             </div>
-            <Button variant="secondary" size="sm">Change Avatar</Button>
+            <Button variant="secondary" size="sm" disabled>Change Avatar</Button>
           </div>
 
           {/* Workspace name */}
           <div style={{
             padding:      '12px 24px',
             borderBottom: '1px solid var(--neutral-100)',
+            opacity:      identityLoading ? 0.6 : 1,
           }}>
             <FieldRow label="Workspace name">
               <TextInput
@@ -421,11 +436,12 @@ export default function OrgGeneralPage() {
             borderBottom: '1px solid var(--neutral-100)',
             display:      'flex',
             gap:          16,
+            opacity:      identityLoading ? 0.6 : 1,
           }}>
             <div style={{ flex: '1 0 0', minWidth: 0 }}>
               <FieldRow
                 label="Workspace URL slug"
-                helper={`souvenir.ai/workspace/${slugValue}`}
+                helper={slugValue ? `souvenir.ai/workspace/${slugValue}` : undefined}
               >
                 <TextInput
                   value={slugValue}
@@ -437,11 +453,12 @@ export default function OrgGeneralPage() {
               <FieldRow label="Workspace ID" helper="Read-only identifier">
                 <div style={{ position: 'relative' }}>
                   <TextInput
-                    value="ws_01HXN3K7Y2BVQTM4Z"
+                    value={orgIdValue}
                     readOnly
                     style={{ width: '100%', paddingRight: 32 }}
                   />
                   <button
+                    onClick={copyOrgId}
                     style={{
                       position:        'absolute',
                       right:           8,
@@ -465,7 +482,14 @@ export default function OrgGeneralPage() {
 
           {/* Save changes */}
           <div style={{ padding: '12px 24px', display: 'flex', justifyContent: 'flex-end' }}>
-            <Button variant="default" size="sm">Save changes</Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleSaveIdentity}
+              disabled={identitySaving || identityLoading}
+            >
+              {identitySaving ? 'Saving…' : 'Save changes'}
+            </Button>
           </div>
         </Card>
 
@@ -499,7 +523,7 @@ export default function OrgGeneralPage() {
             }
           />
 
-          <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 10, opacity: settingsLoading ? 0.6 : 1 }}>
             <textarea
               value={aiInstructions}
               onChange={e => setAiInstructions(e.target.value.slice(0, 3000))}
@@ -546,7 +570,14 @@ export default function OrgGeneralPage() {
               </p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button variant="default" size="sm">Save instructions</Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSaveInstructions}
+                disabled={settingsSaving || settingsLoading}
+              >
+                {settingsSaving ? 'Saving…' : 'Save instructions'}
+              </Button>
             </div>
           </div>
         </Card>
@@ -572,55 +603,40 @@ export default function OrgGeneralPage() {
             }}>
               Allowed email domains
             </p>
-            <Button variant="secondary" size="sm">+ Add domain</Button>
+            <Button variant="secondary" size="sm" disabled>+ Add domain</Button>
           </div>
 
-          {/* Column headers */}
-          <div style={{
-            display:      'flex',
-            alignItems:   'center',
-            gap:          32,
-            padding:      '6px 24px',
-            borderBottom: '1px solid var(--neutral-100)',
-          }}>
-            <p style={{
-              flex:       '1 0 0',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 12,
-              lineHeight: '16px',
-              color:      'var(--neutral-500)',
-              margin:     0,
-            }}>
-              Domain
-            </p>
-            <p style={{
-              width:      91,
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 12,
-              lineHeight: '16px',
-              color:      'var(--neutral-500)',
-              margin:     0,
-            }}>
-              Discoverable
-            </p>
-            <p style={{
-              width:      91,
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 12,
-              lineHeight: '16px',
-              color:      'var(--neutral-500)',
-              margin:     0,
-            }}>
-              Verification
-            </p>
+          <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 8, opacity: settingsLoading ? 0.6 : 1 }}>
+            {allowedDomains.length === 0 ? (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+                No allowed domains configured.
+              </p>
+            ) : allowedDomains.map(domain => (
+              <div key={domain} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)' }}>
+                  {domain}
+                </span>
+                <button
+                  onClick={() => setAllowedDomains(ds => ds.filter(d => d !== domain))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red-500)', fontFamily: 'var(--font-body)', fontSize: 13 }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            {allowedDomains.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleSaveDomains}
+                  disabled={settingsSaving}
+                >
+                  {settingsSaving ? 'Saving…' : 'Save domains'}
+                </Button>
+              </div>
+            )}
           </div>
-
-          <DomainRow domain="getsouvenir.com" discoverableLabel="Allowed"  verification="verified" divider />
-          <DomainRow domain="opent3st.com"    discoverableLabel="Blocked"  verification="verified" divider />
-          <DomainRow domain="cca.edu"         discoverableLabel="Blocked"  verification="pending" />
         </Card>
 
         {/* ── Workspace defaults card ── */}
@@ -637,6 +653,7 @@ export default function OrgGeneralPage() {
             gap:          12,
             padding:      '12px 24px',
             borderBottom: '1px solid var(--neutral-100)',
+            opacity:      settingsLoading ? 0.6 : 1,
           }}>
             <div style={{ flex: '1 0 0', minWidth: 0 }}>
               <p style={{
@@ -660,15 +677,20 @@ export default function OrgGeneralPage() {
                 Controls whether new chats are visible to workspace members by default.
               </p>
             </div>
-            <SelectPill label="Private by default" />
+            <VisibilitySelect
+              value={defaultChatVisibility}
+              onChange={setDefaultChatVisibility}
+              disabled={settingsLoading}
+            />
           </div>
 
-          {/* Default persona */}
+          {/* Default agent visibility */}
           <div style={{
             display:    'flex',
             alignItems: 'center',
             gap:        12,
             padding:    '12px 24px',
+            opacity:    settingsLoading ? 0.6 : 1,
           }}>
             <div style={{ flex: '1 0 0', minWidth: 0 }}>
               <p style={{
@@ -679,7 +701,7 @@ export default function OrgGeneralPage() {
                 color:      'var(--neutral-900)',
                 margin:     0,
               }}>
-                Default persona
+                Default agent visibility
               </p>
               <p style={{
                 fontFamily: 'var(--font-body)',
@@ -689,10 +711,25 @@ export default function OrgGeneralPage() {
                 color:      'var(--neutral-400)',
                 margin:     0,
               }}>
-                The persona automatically applied to new conversations.
+                The default visibility for newly created agents.
               </p>
             </div>
-            <SelectPill label="None - use model default" />
+            <VisibilitySelect
+              value={defaultPersonaVisibility}
+              onChange={setDefaultPersonaVisibility}
+              disabled={settingsLoading}
+            />
+          </div>
+
+          <div style={{ padding: '12px 24px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--neutral-100)' }}>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleSaveDefaults}
+              disabled={settingsSaving || settingsLoading}
+            >
+              {settingsSaving ? 'Saving…' : 'Save defaults'}
+            </Button>
           </div>
         </Card>
 

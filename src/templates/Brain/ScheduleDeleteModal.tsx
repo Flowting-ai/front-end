@@ -1,9 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { Button } from '@/components/Button'
-import { Checkbox } from '@/components/Checkbox'
 import { springs } from '@/lib/springs'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -11,7 +10,7 @@ import { springs } from '@/lib/springs'
 export interface ScheduleDeleteModalProps {
   isOpen:       boolean
   scheduleName: string
-  onConfirm:    (clearHistory: boolean) => void
+  onConfirm:    () => void
   onClose:      () => void
 }
 
@@ -23,12 +22,6 @@ export function ScheduleDeleteModal({
   onConfirm,
   onClose,
 }: ScheduleDeleteModalProps) {
-  const [clearHistory, setClearHistory] = useState(false)
-
-  const handleConfirm = () => {
-    onConfirm(clearHistory)
-    setClearHistory(false)
-  }
 
   return (
     <AnimatePresence initial={false}>
@@ -89,38 +82,15 @@ export function ScheduleDeleteModal({
               lineHeight: 'var(--line-height-body)',
               color:      'var(--neutral-600)',
             }}>
-              This will permanently remove the schedule. Past run history will be preserved.
+              This will permanently remove the schedule and all its run history.
             </p>
-
-            {/* Clear history checkbox */}
-            {/* eslint-disable-next-line react-doctor/label-has-associated-control -- label wraps Checkbox (custom component); association via nesting is valid */}
-            <label style={{
-              display:    'flex',
-              alignItems: 'center',
-              gap:        8,
-              cursor:     'pointer',
-            }}>
-              <Checkbox
-                checked={clearHistory}
-                onCheckedChange={v => setClearHistory(Boolean(v))}
-                aria-label="Also clear run history"
-              />
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-body)',
-                lineHeight: 'var(--line-height-body)',
-                color:      'var(--neutral-700)',
-              }}>
-                Also clear run history
-              </span>
-            </label>
 
             {/* Actions */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
               <Button variant="ghost" size="sm" onClick={onClose}>
                 Cancel
               </Button>
-              <Button variant="danger" size="sm" onClick={handleConfirm}>
+              <Button variant="danger" size="sm" onClick={onConfirm}>
                 Delete schedule
               </Button>
             </div>

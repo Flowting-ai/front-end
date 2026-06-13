@@ -61,30 +61,23 @@ export async function POST(request: NextRequest) {
     : `${BACKEND_BASE}/persona/${repoId}/chats/create`
 
   // ── Build body for backend ───────────────────────────────────────────────────
-  // Use FormData when files are present, otherwise use urlencoded (avoids
-  // multipart buffering issues that can break SSE streaming).
-  let body: BodyInit
+  // Always use multipart/form-data — the backend endpoint declares File() params
+  // which require multipart. Unlike the client-side buildStreamBody helper (which
+  // avoids multipart to prevent Next.js dev-server buffering the REQUEST body),
+  // this proxy already fully reads the incoming FormData before forwarding, so
+  // there's no SSE-breaking buffering concern here.
   const requestHeaders: Record<string, string> = {
     Authorization: `Bearer ${token}`,
     Accept: "text/event-stream",
     ...forwardGeoHeaders(request),
   }
 
-  if (clientFiles.length > 0) {
-    const fd = new FormData()
-    fd.append("input", input)
-    clientFiles.forEach((f) => fd.append("files", f))
-    connectorSlugs.forEach((s) => fd.append("connector_slugs", s))
-    if (modelId) fd.append("model_id", modelId)
-    body = fd
-  } else {
-    const params = new URLSearchParams()
-    params.append("input", input)
-    connectorSlugs.forEach((s) => params.append("connector_slugs", s))
-    if (modelId) params.append("model_id", modelId)
-    body = params.toString()
-    requestHeaders["Content-Type"] = "application/x-www-form-urlencoded"
-  }
+  const fd = new FormData()
+  fd.append("input", input)
+  clientFiles.forEach((f) => fd.append("files", f))
+  connectorSlugs.forEach((s) => fd.append("connector_slugs", s))
+  if (modelId) fd.append("model_id", modelId)
+  const body: BodyInit = fd
 
   // ── Proxy request ────────────────────────────────────────────────────────────
   let backendResponse: Response

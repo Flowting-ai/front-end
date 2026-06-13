@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: FastAPI - Brain
+  title: FastAPI - brain
   version: 0.1.0
 paths:
   /brain:
@@ -85,6 +85,8 @@ paths:
             - **`step_started`**
             - **`step_completed`**
             - **`step_failed`**
+            - **`step_content`**
+            - **`step_reasoning`**
 
             **Inline events** (`data: {"type":"<name>",...}`) — streaming LLM tokens, reasoning, tool execution:
 
@@ -587,6 +589,53 @@ paths:
                     - step_id
                     - error
                   title: StepFailedEvent
+                  type: object
+                step_content:
+                  description: |-
+                    Output token of the sub-model running a plan node, streamed live while
+                    the step executes. Concat per (plan_id, step_id) to assemble the node's
+                    output; `step_started` precedes the first token, `step_completed` /
+                    `step_failed` ends the stream.
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                    step_id:
+                      title: Step Id
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - plan_id
+                    - step_id
+                    - content
+                  title: StepContentEvent
+                  type: object
+                step_reasoning:
+                  description: |-
+                    Reasoning delta of the sub-model running a plan node. `heading` is True
+                    when the delta opens a new reasoning section (mirrors `reasoning_heading`
+                    vs `reasoning_body` on the chat stream).
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                    step_id:
+                      title: Step Id
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                    heading:
+                      default: false
+                      title: Heading
+                      type: boolean
+                  required:
+                    - plan_id
+                    - step_id
+                    - content
+                  title: StepReasoningEvent
                   type: object
                 reasoning_heading:
                   description: |-
@@ -817,6 +866,8 @@ paths:
             - **`step_started`**
             - **`step_completed`**
             - **`step_failed`**
+            - **`step_content`**
+            - **`step_reasoning`**
 
             **Inline events** (`data: {"type":"<name>",...}`) — streaming LLM tokens, reasoning, tool execution:
 
@@ -1319,6 +1370,53 @@ paths:
                     - step_id
                     - error
                   title: StepFailedEvent
+                  type: object
+                step_content:
+                  description: |-
+                    Output token of the sub-model running a plan node, streamed live while
+                    the step executes. Concat per (plan_id, step_id) to assemble the node's
+                    output; `step_started` precedes the first token, `step_completed` /
+                    `step_failed` ends the stream.
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                    step_id:
+                      title: Step Id
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - plan_id
+                    - step_id
+                    - content
+                  title: StepContentEvent
+                  type: object
+                step_reasoning:
+                  description: |-
+                    Reasoning delta of the sub-model running a plan node. `heading` is True
+                    when the delta opens a new reasoning section (mirrors `reasoning_heading`
+                    vs `reasoning_body` on the chat stream).
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                    step_id:
+                      title: Step Id
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                    heading:
+                      default: false
+                      title: Heading
+                      type: boolean
+                  required:
+                    - plan_id
+                    - step_id
+                    - content
+                  title: StepReasoningEvent
                   type: object
                 reasoning_heading:
                   description: |-
@@ -1646,6 +1744,60 @@ paths:
         - HTTPBearer: []
 components:
   schemas:
+    BrainChatListItem:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        chat_title:
+          type: string
+          title: Chat Title
+        starred:
+          type: boolean
+          title: Starred
+          default: false
+        message_count:
+          type: integer
+          title: Message Count
+          default: 0
+        created_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Updated At
+      type: object
+      required:
+        - id
+        - chat_title
+      title: BrainChatListItem
+      description: Row returned by GET /brain (one per Brain chat).
+    DeleteChat:
+      properties:
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+      type: object
+      required:
+        - chat_id
+      title: DeleteChat
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
     Body_create_brain_chat_brain_create_post:
       properties:
         input:
@@ -1710,41 +1862,6 @@ components:
       required:
         - input
       title: Body_stream_brain_message_brain__chat_id__stream_post
-    BrainChatListItem:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        chat_title:
-          type: string
-          title: Chat Title
-        starred:
-          type: boolean
-          title: Starred
-          default: false
-        message_count:
-          type: integer
-          title: Message Count
-          default: 0
-        created_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Created At
-        updated_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Updated At
-      type: object
-      required:
-        - id
-        - chat_title
-      title: BrainChatListItem
-      description: Row returned by GET /brain (one per Brain chat).
     BrainMessage:
       properties:
         id:
@@ -1845,25 +1962,6 @@ components:
         - plan_json
       title: BrainPlanResponse
       description: One BrainPlan row, surfaced inline on a Brain message GET.
-    DeleteChat:
-      properties:
-        chat_id:
-          type: string
-          format: uuid
-          title: Chat Id
-      type: object
-      required:
-        - chat_id
-      title: DeleteChat
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
     RenameChat:
       properties:
         chat_id:

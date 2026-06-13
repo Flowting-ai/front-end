@@ -166,6 +166,12 @@ interface PersonaConfigureContextValue {
   pendingChangeTags: string[]
   addPendingChangeTag: (tag: string) => void
   setPendingChangeTags: (tags: string[]) => void
+
+  // Per-tab dirty flags (ungated — works for unpublished personas too)
+  tabDirtyFlags: Record<string, boolean>
+  setTabDirty: (tab: string, dirty: boolean) => void
+  tabAutoSavedFlags: Record<string, boolean>
+  setTabAutoSaved: (tab: string, saved: boolean) => void
 }
 
 const PersonaConfigureContext = createContext<PersonaConfigureContextValue | null>(null)
@@ -327,19 +333,11 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   }, [])
 
   const safeNavigate = useCallback((href: string) => {
-    // Tab-to-tab navigation stays within configure — no publish guard needed
-    if (needsRepublishRef.current && !href.includes('/agent/configure/')) {
+    const isLeavingConfigure = !href.includes('/agent/configure/')
+    // Prompt to save a version when leaving configure with unsaved changes
+    if (isLeavingConfigure && pendingChangeTagsRef.current.length > 0) {
       setLeaveConfirmHref(href)
       return
-    }
-    // Show auto-saved toast only when changes were made on the current tab
-    // (i.e. the tag count grew since arriving here). This prevents the toast from
-    // firing on every subsequent tab switch just because older tags still exist.
-    const isTabSwitch = href.includes('/agent/configure/')
-    const tags = pendingChangeTagsRef.current
-    if (isTabSwitch && tags.length > tagsCountOnTabArrivalRef.current) {
-      const tabName = getTabName(pathnameRef.current)
-      toast.success(`Auto-saved — ${tabName}`, { duration: 2500 })
     }
     const save = autoSaveRef.current
     if (save) {
@@ -665,6 +663,27 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   const [restoringId,       setRestoringId]       = useState<string | null>(null)
   const [pendingChangeTags, _setPendingChangeTags] = useState<string[]>([])
   const pendingChangeTagsRef        = useRef<string[]>([])
+  const [tabDirtyFlags, setTabDirtyFlags] = useState<Record<string, boolean>>({})
+  const [tabAutoSavedFlags, setTabAutoSavedFlags] = useState<Record<string, boolean>>({})
+  const setTabDirty = useCallback((tab: string, dirty: boolean) => {
+    setTabDirtyFlags(prev => {
+      if (dirty) {
+        if (prev[tab] === true) return prev
+        return { ...prev, [tab]: true }
+      } else {
+        // Only mark saved (false) if the tab was previously dirty (true).
+        // Ignore false calls when tab is still undefined — avoids turning gray → green on initial load.
+        if (prev[tab] !== true) return prev
+        return { ...prev, [tab]: false }
+      }
+    })
+  }, [])
+  const setTabAutoSaved = useCallback((tab: string, saved: boolean) => {
+    setTabAutoSavedFlags(prev => {
+      if (prev[tab] === saved) return prev
+      return { ...prev, [tab]: saved }
+    })
+  }, [])
   const tagsCountOnTabArrivalRef    = useRef(0)
   const versionRestoreCallbackRef = useRef<((version: PersonaVersionResponse) => void) | null>(null)
   const restoringRef = useRef(false)
@@ -864,6 +883,11 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     pendingChangeTags,
     addPendingChangeTag,
     setPendingChangeTags,
+
+    tabDirtyFlags,
+    setTabDirty,
+    tabAutoSavedFlags,
+    setTabAutoSaved,
   }
 
   return (

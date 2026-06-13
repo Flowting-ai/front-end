@@ -35,6 +35,36 @@ function formatFrequency(type: FrequencyType, hour: number, minute: string, day:
   return `Weekly • ${day} ${time}`
 }
 
+// Parses a frequency string back into discrete form fields. Handles both
+// modal-generated format ("Daily • 8:00 AM") and page-generated format
+// ("Daily · 08:00", "Weekly · Monday · 14:00").
+function parseFrequency(freq: string): { type: FrequencyType; hour: number; minute: string; day: DayOfWeek } | null {
+  const weeklyRe = /^Weekly\s*[·•]\s*(\w+)\s*(?:[·•]\s*)?(\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i
+  const wm = freq.match(weeklyRe)
+  if (wm) {
+    let h = parseInt(wm[2], 10)
+    const period = wm[4]?.toUpperCase()
+    if (period === 'PM' && h < 12) h += 12
+    if (period === 'AM' && h === 12) h = 0
+    const rawMin = wm[3]
+    const minute = MINUTES.includes(rawMin) ? rawMin : '00'
+    const day    = DAYS.includes(wm[1] as DayOfWeek) ? (wm[1] as DayOfWeek) : 'Monday'
+    return { type: 'weekly', hour: h, minute, day }
+  }
+  const dailyRe = /^Daily\s*[·•]\s*(\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i
+  const dm = freq.match(dailyRe)
+  if (dm) {
+    let h = parseInt(dm[1], 10)
+    const period = dm[3]?.toUpperCase()
+    if (period === 'PM' && h < 12) h += 12
+    if (period === 'AM' && h === 12) h = 0
+    const rawMin = dm[2]
+    const minute = MINUTES.includes(rawMin) ? rawMin : '00'
+    return { type: 'daily', hour: h, minute, day: 'Monday' }
+  }
+  return null
+}
+
 // ── Input styles ──────────────────────────────────────────────────────────────
 
 const inputStyle: React.CSSProperties = {
@@ -98,12 +128,20 @@ export function ScheduleEditModal({
     if (isOpen) {
       setName(schedule?.name ?? '')
       setInstructions(schedule?.instructions ?? '')
-      setFreqType('daily')
-      setHour(8)
-      setMinute('00')
-      setDay('Monday')
+      const parsed = schedule?.frequency ? parseFrequency(schedule.frequency) : null
+      if (parsed) {
+        setFreqType(parsed.type)
+        setHour(parsed.hour)
+        setMinute(parsed.minute)
+        setDay(parsed.day)
+      } else {
+        setFreqType('daily')
+        setHour(8)
+        setMinute('00')
+        setDay('Monday')
+      }
     }
-  }, [isOpen, schedule?.name, schedule?.instructions])
+  }, [isOpen, schedule?.name, schedule?.instructions, schedule?.frequency])
 
   const handleSave = () => {
     if (!name.trim()) return
@@ -302,7 +340,7 @@ export function ScheduleEditModal({
                 disabled={!canSave}
                 onClick={handleSave}
               >
-                {isCreate ? 'Start brain thread' : 'Save changes'}
+                {isCreate ? 'Start brain thread' : 'Update in Brain'}
               </Button>
             </div>
 

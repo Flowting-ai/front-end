@@ -121,6 +121,39 @@ export interface OrgSettings {
   defaultPersonaVisibility: string | null
 }
 
+export interface TeamBurn {
+  teamId: string
+  teamName: string
+  creditsUsed: number
+}
+
+export interface OrgPlan {
+  organizationId: string
+  planCredits: number
+  topupCredits: number
+  totalCredits: number
+  used: number
+  remaining: number
+  percentUsed: number
+  poolStatus: string
+  members: OrgMember[]
+}
+
+export interface OrgPlanUsage {
+  organizationId: string
+  byTeam: TeamBurn[]
+}
+
+export interface AuditLogEntry {
+  id: string
+  actorUserId: string
+  action: string
+  targetType: string | null
+  targetId: string | null
+  extra: Record<string, unknown> | null
+  createdAt: string
+}
+
 export interface ApprovalRequest {
   id: string
   tier: 3 | 4 | 5 | 6

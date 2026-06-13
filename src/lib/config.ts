@@ -200,10 +200,19 @@ export const TEAM_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>
   withBase(`/team-invite/${inviteId}/accept`)
 
 // ── Organization ──────────────────────────────────────────────────────────────
+export const ORGANIZATIONS_ENDPOINT = withBase('/organizations')
 export const ORG_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}`)
 export const ORG_SETTINGS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/settings`)
+export const ORG_PLAN_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/plan`)
+export const ORG_PLAN_USAGE_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/plan/usage`)
+export const ORG_POOL_STATUS_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/pool-status`)
+export const ORG_AUDIT_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/audit`)
 export const ORG_MEMBER_ENDPOINT = (orgId: string, memberId: string) =>
   withBase(`/organizations/${orgId}/members/${memberId}`)
 export const ORG_MEMBER_ROLE_ENDPOINT = (orgId: string, memberId: string) =>

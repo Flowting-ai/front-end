@@ -524,6 +524,8 @@ function PersonaCardInner({
     }: PersonaCardProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [internalHovered, setInternalHovered] = useState(false)
     const [menuOpen,         setMenuOpen]         = useState(false)
+    const [dropUp,           setDropUp]           = useState(false)
+    const menuTriggerRef = useRef<HTMLDivElement>(null)
 
     const isHovered   = hoveredProp ?? internalHovered
     const isDraft     = variant === 'draft'
@@ -548,7 +550,16 @@ function PersonaCardInner({
 
     const handleMenuToggle = useCallback((e: React.MouseEvent) => {
       e.stopPropagation()
-      setMenuOpen(v => !v)
+      setMenuOpen(v => {
+        if (!v) {
+          const el = menuTriggerRef.current
+          if (el) {
+            const rect = el.getBoundingClientRect()
+            setDropUp(window.innerHeight - rect.bottom < 200)
+          }
+        }
+        return !v
+      })
     }, [])
 
     // ── Drag-to-scroll for the tag row ────────────────────────────────────────
@@ -714,6 +725,7 @@ function PersonaCardInner({
                 {!isTemplate && !isCommunity && (
                   // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
                   <div
+                    ref={menuTriggerRef}
                     style={{ position: 'relative', flexShrink: 0 }}
                     onMouseDown={e => e.stopPropagation()}
                     onClick={e => e.stopPropagation()}
@@ -742,9 +754,11 @@ function PersonaCardInner({
                           />
                           <m.div
                             {...DROPDOWN_SCALE_PRESET}
+                            initial={{ ...DROPDOWN_SCALE_PRESET.initial, transformOrigin: dropUp ? 'bottom center' : 'top center' }}
+                            animate={{ ...DROPDOWN_SCALE_PRESET.animate, transformOrigin: dropUp ? 'bottom center' : 'top center' }}
                             style={{
                               position: 'absolute',
-                              top:      28,
+                              ...(dropUp ? { bottom: 28, top: 'auto' } : { top: 28 }),
                               right:    0,
                               zIndex:   20,
                             }}

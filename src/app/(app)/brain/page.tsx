@@ -68,7 +68,8 @@ import {
 } from '@/lib/api/brain'
 import { ApiError } from '@/lib/api/client'
 import { isExtractable, extractText, stripDocumentBlocks } from '@/lib/brain-file-extract'
-import { linkScheduleToChat, consumePendingPrompt } from '@/lib/scheduleLinks'
+import { linkScheduleToChat, consumePendingPrompt, remapScheduleLink } from '@/lib/scheduleLinks'
+import { listTasks } from '@/lib/api/tasks'
 import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
 import type { ContextRailData } from '@/templates/Brain/ContextRail'
 
@@ -850,6 +851,7 @@ type TimelineItem =
   | { kind: 'progress';   id: string }
   | { kind: 'permission'; id: string; promptId: string }
   | { kind: 'connect';    id: string; slug: string }
+  | { kind: 'plan';       id: string; steps: PlanStep[]; summary: string }
 
 function ActivityFeed({ items }: { items: ActivityFeedItem[] }) {
   if (items.length === 0) return null
@@ -1374,6 +1376,7 @@ function BrainPageInner() {
     seenToolIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
+    pendingRemapRef.current = null
     setLiveContext(null)
     setHistoryMessages([])
     setLocalTurns([])
@@ -1436,12 +1439,16 @@ function BrainPageInner() {
         const rawSteps = ((d.steps ?? []) as BackendPlanStep[])
         const steps    = applyFlowGrouping(rawSteps.map(mapBackendStep), d.edges)
         const planId   = typeof d.plan_id === 'string' ? d.plan_id : null
+        const summary  = (d.summary as string) ?? ''
         pendingPlanIdRef.current = planId
         setActivePlanSteps(steps)
-        setActivePlanSummary((d.summary as string) ?? '')
+        setActivePlanSummary(summary)
         setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, 'pending' as StepStatus])))
         setShowCounterInput(false)
         setCounterText('')
+        // Push a read-only snapshot into the timeline so the plan appears
+        // inline at the point it was proposed (the reasoning section).
+        setTimeline((prev) => [...prev, { kind: 'plan', id: `plan-${++timelineSeqRef.current}`, steps, summary }])
         setPhase('planning')
         break
       }
@@ -1826,7 +1833,9 @@ function BrainPageInner() {
     // the reasoning text yet (separate UI), but the phase transition alone
     // is enough to surface progress and stop the spinner.
     if (t === 'reasoning_body' || t === 'reasoning_heading' || t === 'reasoning') {
-      setPhase((prev) => (prev === 'thinking' || prev === 'planning' ? 'streaming' : prev))
+      // Only move off 'thinking'; leave 'planning' alone so the plan card stays
+      // visible while extended-thinking tokens stream in after plan_proposed.
+      setPhase((prev) => prev === 'thinking' ? 'streaming' : prev)
       return
     }
 
@@ -1997,7 +2006,14 @@ function BrainPageInner() {
           skipNextResetRef.current = true
           skipNextHistoryLoadRef.current = true
           setChatId(resolvedChatId)
-          if (fromScheduleId) linkScheduleToChat(fromScheduleId, resolvedChatId)
+          if (fromScheduleId) {
+            linkScheduleToChat(fromScheduleId, resolvedChatId)
+            // If the id looks like a local temp id (not a UUID), flag it for
+            // remapping once the stream completes and Brain has persisted the task.
+            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fromScheduleId)) {
+              pendingRemapRef.current = fromScheduleId
+            }
+          }
           replace(`/brain?id=${resolvedChatId}`, { scroll: false })
         } else {
           // Backend forgot to set X-Chat-Id (e.g., a misconfigured proxy
@@ -2032,6 +2048,27 @@ function BrainPageInner() {
     }
   }, [handleNamedEvent, handleInlineEvent, replace])
 
+  // ── Remap local schedule id → backend task id after stream completes ──────────
+  // When a schedule is created via the modal, a local temp id is used until Brain
+  // creates the real task. Once the stream finishes, we scan the task list for a
+  // task created in the last 5 minutes and remap the localStorage chat link so
+  // future edits navigate back to this thread instead of opening a new one.
+  useEffect(() => {
+    const localId = pendingRemapRef.current
+    if (phase !== 'complete' || !localId) return
+    pendingRemapRef.current = null
+    listTasks()
+      .then(tasks => {
+        const now = Date.now()
+        const recent = tasks
+          .filter(t => t.created_at && (now - new Date(t.created_at).getTime()) < 5 * 60 * 1000)
+          .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
+        if (recent[0]) remapScheduleLink(localId, recent[0].id)
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- listTasks/remapScheduleLink are stable imports; phase is the only signal
+  }, [phase])
+
   // ── Pre-populate input from schedule create ───────────────────────────────────
   // The Schedules page hands off newly-created schedules via ?fromSchedule=<id>
   // with the prompt stashed in memory. We read it once, feed it into BrainShell's
@@ -2040,6 +2077,9 @@ function BrainPageInner() {
   const [scheduleInitialInput,  setScheduleInitialInput]  = useState('')
   const pendingFromScheduleIdRef = useRef<string | null>(null)
   const handledScheduleIdRef     = useRef<string | null>(null)
+  // Holds a local temp schedule ID that needs remapping to a backend UUID once
+  // the stream completes (Brain's AI will have created the task by then).
+  const pendingRemapRef          = useRef<string | null>(null)
   useEffect(() => {
     const sid = searchParams.get('fromSchedule')
     if (!sid || handledScheduleIdRef.current === sid) return
@@ -2583,8 +2623,17 @@ function BrainPageInner() {
   // Phases that may interleave a clarification/permission prompt without
   // implying the plan has been retracted. While we're in one of these, keep
   // the PlanCard visible so an out-of-band prompt can't wipe the active turn.
-  const showPlanCard      = (phase === 'planning' || phase === 'clarifying-goal') && activePlanSteps.length > 0
-  const showActivityBlock = phase === 'executing' || phase === 'paused'
+  // Whether plan execution is underway (any step has left 'pending').
+  // Used to distinguish "clarifying before plan" from "clarifying mid-execution".
+  const planExecutionStarted = planSteps.some(
+    (s) => s.status === 'executing' || s.status === 'complete' || s.status === 'failed',
+  )
+  // Show the plan approval card only when we're genuinely waiting for approval
+  // (planning or pre-plan clarification). During mid-execution question_prompts
+  // the plan is already running, so don't re-surface the approval UI.
+  const showPlanCard      = (phase === 'planning' || (phase === 'clarifying-goal' && !planExecutionStarted)) && activePlanSteps.length > 0
+  // Keep the step tracker visible when Brain asks a mid-execution question.
+  const showActivityBlock = phase === 'executing' || phase === 'paused' || (phase === 'clarifying-goal' && planExecutionStarted)
 
   // Render one timeline item in arrival order. Mutating kinds read their live
   // state by reference (tool status from liveToolCalls, the latest progress
@@ -2637,6 +2686,15 @@ function BrainPageInner() {
             />
           )
           : null
+      case 'plan':
+        return (
+          <PlanCard
+            key={item.id}
+            steps={item.steps}
+            interpretation={item.summary}
+            hideActions
+          />
+        )
     }
   }
 
@@ -2849,26 +2907,28 @@ function BrainPageInner() {
   const brainIsStreaming = !['idle', 'complete', 'cancelled', 'failed', 'paused'].includes(phase)
 
   // ── ContextRail data ─────────────────────────────────────────────────────────
-  // The right rail surfaces three things active for this conversation:
-  //   1. Persona — whichever persona the user attached via the chip menu
-  //   2. In context — pin folders attached as context (each folder bundles
-  //      files indexed from a connector, hence the "Connector Files" framing)
-  //   3. Connectors — every connector the user has linked, dotted green
-  //
-  // Only linked connectors are shown. The rail visually supports a 'failed'
-  // state (red dot) — that hook is reserved for a future signal (e.g. an
-  // SSE `tool_connect_prompt` event flagging a degraded connector mid-stream),
-  // since the catalog endpoint itself only reports linked/not-linked.
+  // The right rail surfaces what's active for this conversation:
+  //   • Persona  — confirmed by the SSE `context` event; falls back to the
+  //                chip selection so the rail isn't empty before the first turn.
+  //   • Pins / Files / Connectors — from the SSE event once a turn has run.
 
-  // The rail prefers user-set values (selectedPersona / selectedFolders) and
-  // falls back to bootstrap-supplied defaults so the rail isn't empty before
-  // the first turn. Bootstrap pins appear when no folders are attached;
-  // bootstrap connectors merge with /connectors so we get tool_count for free.
-  // The rail reflects ONLY what Brain actually loaded for the turn — the live
-  // `context` event. Empty (rail closed) until a turn runs and the event fires;
-  // no selected-chip / bootstrap fallback.
   const contextRailData = useMemo<ContextRailData>(() => {
-    if (!liveContext) return {}
+    // Build a persona entry from the chip so we can show it immediately when a
+    // persona is selected but no SSE turn has fired yet (or when the event
+    // returned no persona field).
+    const chipPersona: ContextRailData['persona'] | undefined = selectedPersona
+      ? {
+          name:     selectedPersona.name,
+          handle:   selectedPersona.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+          avatarUrl: selectedPersona.imageUrl ?? undefined,
+        }
+      : undefined
+
+    if (!liveContext) {
+      // No turn has run yet — show the chip persona so the rail opens
+      // immediately when the user selects a persona before their first send.
+      return chipPersona ? { persona: chipPersona } : {}
+    }
 
     const fmtSize = (bytes?: number): string | null => {
       if (!bytes || bytes <= 0) return null
@@ -2878,13 +2938,15 @@ function BrainPageInner() {
     }
 
     return {
+      // Prefer what Brain confirmed it loaded (SSE event); fall back to the
+      // chip selection so the persona is never missing from the rail.
       persona: liveContext.persona
         ? {
             name:      liveContext.persona.name || liveContext.persona.handler || 'Persona',
             handle:    liveContext.persona.handler || '',
             avatarUrl: liveContext.persona.avatar_url,
           }
-        : undefined,
+        : chipPersona,
       pins: (liveContext.pins ?? []).map((p) => ({
         id:     p.pin_id,
         title:  p.title,
@@ -2900,7 +2962,7 @@ function BrainPageInner() {
         status: c.status === 'failed' ? 'failed' : c.status === 'pending' ? 'pending' : 'connected',
       })),
     }
-  }, [liveContext])
+  }, [liveContext, selectedPersona])
 
   // ── Has any content to render ─────────────────────────────────────────────────
 

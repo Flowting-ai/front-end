@@ -545,6 +545,18 @@ function PersonaPublishedContent() {
                 </div>
               )}
 
+              {/* Use this agent */}
+              {repoId && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  style={{ width: 242, justifyContent: 'center' }}
+                  onClick={() => push(`/agents/${repoId}/chat`)}
+                >
+                  Use this agent
+                </Button>
+              )}
+
               {/* Back to library */}
               <button
                 onClick={() => push('/agents')}

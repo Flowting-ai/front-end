@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: FastAPI - Users
+  title: FastAPI - users
   version: 0.1.0
 paths:
   /users/create:
@@ -98,128 +98,22 @@ paths:
         - HTTPBearer: []
 components:
   schemas:
-    CategoryUsage:
-      properties:
-        chat:
-          type: number
-          title: Chat
-          default: 0
-        persona:
-          type: number
-          title: Persona
-          default: 0
-        brain:
-          type: number
-          title: Brain
-          default: 0
-      type: object
-      title: CategoryUsage
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
-    OnboardingSummary:
-      properties:
-        completed:
-          type: boolean
-          title: Completed
-        user_role:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: User Role
-        ai_tone:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Ai Tone
-        role_fit:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Role Fit
-      type: object
-      required:
-        - completed
-      title: OnboardingSummary
-    PlanSummary:
-      properties:
-        plan_type:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Plan Type
-        subscription_status:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Subscription Status
-        current_period_end:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Current Period End
-      type: object
-      title: PlanSummary
-    TrialSummary:
-      properties:
-        remaining:
-          type: number
-          title: Remaining
-        expires_at:
-          type: string
-          title: Expires At
-      type: object
-      required:
-        - remaining
-        - expires_at
-      title: TrialSummary
-    UpdateOnboarding:
-      properties:
-        user_role:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: User Role
-        ai_tone:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Ai Tone
-        role_fit:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Role Fit
-        onboarding_completed:
-          anyOf:
-            - type: boolean
-            - type: 'null'
-          title: Onboarding Completed
-      type: object
-      title: UpdateOnboarding
-    UpdateUser:
+    UserResponse:
       properties:
         first_name:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
           title: First Name
         last_name:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
           title: Last Name
         nickname:
           anyOf:
             - type: string
             - type: 'null'
           title: Nickname
+        email:
+          type: string
+          title: Email
         phone_number:
           anyOf:
             - type: string
@@ -230,43 +124,24 @@ components:
             - type: string
             - type: 'null'
           title: Profile Picture
-      type: object
-      title: UpdateUser
-    UsageResponse:
-      properties:
-        credits:
-          type: number
-          title: Credits
-        plan_credits:
-          type: number
-          title: Plan Credits
-          default: 0
-        topup_credits:
-          type: number
-          title: Topup Credits
-          default: 0
-        used:
-          type: number
-          title: Used
-          default: 0
-        trial:
-          anyOf:
-            - $ref: '#/components/schemas/TrialSummary'
-            - type: 'null'
-        spent_this_period:
-          type: number
-          title: Spent This Period
-          default: 0
-        by_category:
-          $ref: '#/components/schemas/CategoryUsage'
-          default:
-            chat: 0
-            persona: 0
-            brain: 0
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        active:
+          type: boolean
+          title: Active
+        onboarding:
+          $ref: '#/components/schemas/OnboardingSummary'
       type: object
       required:
-        - credits
-      title: UsageResponse
+        - first_name
+        - last_name
+        - email
+        - created_at
+        - active
+        - onboarding
+      title: UserResponse
     UserAccountResponse:
       properties:
         first_name:
@@ -319,22 +194,23 @@ components:
         - active
         - onboarding
       title: UserAccountResponse
-    UserResponse:
+    UpdateUser:
       properties:
         first_name:
-          type: string
+          anyOf:
+            - type: string
+            - type: 'null'
           title: First Name
         last_name:
-          type: string
+          anyOf:
+            - type: string
+            - type: 'null'
           title: Last Name
         nickname:
           anyOf:
             - type: string
             - type: 'null'
           title: Nickname
-        email:
-          type: string
-          title: Email
         phone_number:
           anyOf:
             - type: string
@@ -345,24 +221,119 @@ components:
             - type: string
             - type: 'null'
           title: Profile Picture
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        active:
+      type: object
+      title: UpdateUser
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    UpdateOnboarding:
+      properties:
+        user_role:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: User Role
+        ai_tone:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Ai Tone
+        role_fit:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Role Fit
+        onboarding_completed:
+          anyOf:
+            - type: boolean
+            - type: 'null'
+          title: Onboarding Completed
+      type: object
+      title: UpdateOnboarding
+    OnboardingSummary:
+      properties:
+        completed:
           type: boolean
-          title: Active
-        onboarding:
-          $ref: '#/components/schemas/OnboardingSummary'
+          title: Completed
+        user_role:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: User Role
+        ai_tone:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Ai Tone
+        role_fit:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Role Fit
       type: object
       required:
-        - first_name
-        - last_name
-        - email
-        - created_at
-        - active
-        - onboarding
-      title: UserResponse
+        - completed
+      title: OnboardingSummary
+    PlanSummary:
+      properties:
+        plan_type:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Plan Type
+        subscription_status:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Subscription Status
+        current_period_end:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Current Period End
+      type: object
+      title: PlanSummary
+    UsageResponse:
+      properties:
+        credits:
+          type: number
+          title: Credits
+        plan_credits:
+          type: number
+          title: Plan Credits
+          default: 0
+        topup_credits:
+          type: number
+          title: Topup Credits
+          default: 0
+        used:
+          type: number
+          title: Used
+          default: 0
+        trial:
+          anyOf:
+            - $ref: '#/components/schemas/TrialSummary'
+            - type: 'null'
+        spent_this_period:
+          type: number
+          title: Spent This Period
+          default: 0
+        by_category:
+          $ref: '#/components/schemas/CategoryUsage'
+          default:
+            chat: 0
+            persona: 0
+            brain: 0
+      type: object
+      required:
+        - credits
+      title: UsageResponse
     ValidationError:
       properties:
         loc:
@@ -389,6 +360,35 @@ components:
         - msg
         - type
       title: ValidationError
+    TrialSummary:
+      properties:
+        remaining:
+          type: number
+          title: Remaining
+        expires_at:
+          type: string
+          title: Expires At
+      type: object
+      required:
+        - remaining
+        - expires_at
+      title: TrialSummary
+    CategoryUsage:
+      properties:
+        chat:
+          type: number
+          title: Chat
+          default: 0
+        persona:
+          type: number
+          title: Persona
+          default: 0
+        brain:
+          type: number
+          title: Brain
+          default: 0
+      type: object
+      title: CategoryUsage
   securitySchemes:
     HTTPBearer:
       type: http

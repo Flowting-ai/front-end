@@ -9,6 +9,7 @@ import {
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
+import { Badge } from '@/components/Badge'
 import { toast } from 'sonner'
 import ProfileTab from '@/app/(app)/agent/configure/components/ProfileTab'
 import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModal'
@@ -56,9 +57,10 @@ function PersonaConfigureProfileContent() {
     catch { return null }
   }
 
-  const { anyPanelOpen, updatePersonaInfo, personaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, registerAutoSave, setVersionsOpen, publishedVersionId, markPublished } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, personaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, registerAutoSave, setVersionsOpen, publishedVersionId, markPublished, tabDirtyFlags, setTabDirty } = usePersonaConfigure()
 
   const [isSaving,             setIsSaving]             = useState(false)
+  const [showInfo,             setShowInfo]             = useState(false)
   const [isPublishing,         setIsPublishing]         = useState(false)
   const [isDirty,              setIsDirty]              = useState(false)
   const [republishModalOpen,   setRepublishModalOpen]   = useState(false)
@@ -212,8 +214,10 @@ function PersonaConfigureProfileContent() {
     hasUnsavedChanges: isDirty || pendingChangeTags.length > 0,
   })
 
+  const anyDirty     = pendingChangeTags.length > 0 || TABS.some(tab => tabDirtyFlags[tab] === true)
+
   async function handleSaveVersion() {
-    if (!isDirty || !repoId || !versionId) return
+    if (!repoId || !versionId) return
     setIsSaving(true)
     try {
       let imageFile: File | undefined
@@ -308,18 +312,9 @@ function PersonaConfigureProfileContent() {
         persona_tags: personaTags,
         // No image / imageUrl — avoid re-downloading remote URLs or uploading data: blobs on every tab switch.
       })
-      // Clear dirty only when the avatar doesn't need an upload (it's a remote URL or null).
-      // If the user cropped/uploaded a new avatar, leave isDirty so Save Version stays available.
-      if (!avatarUrl?.startsWith('data:')) {
-        isDirtyRef.current = false
-        setIsDirty(false)
-        const cleanedTags = pendingChangeTags.filter(tag => tag !== 'Profile')
-        if (cleanedTags.length !== pendingChangeTags.length) setPendingChangeTags(cleanedTags)
-      }
-      bustPersonasCache()
+      toast.success('Changes autosaved')
     } catch (err) {
       console.error('[ProfilePage] auto-save error:', err)
-      // Don't block navigation on error — user can still explicitly save.
     }
   }
 
@@ -327,6 +322,9 @@ function PersonaConfigureProfileContent() {
     registerAutoSave(() => profileAutoSaveRef.current())
     return () => registerAutoSave(null)
   }, [registerAutoSave])
+
+  // Sync dirty state to context for traffic light
+  useEffect(() => { setTabDirty('Profile', isDirty) }, [isDirty, setTabDirty])
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
@@ -363,31 +361,58 @@ function PersonaConfigureProfileContent() {
             position: 'relative',
           }}
         >
-          {/* Back arrow */}
+          {/* Back arrow + label */}
           <div style={{ flexShrink: 0 }}>
-            <IconButton
-              variant="ghost"
-              size="md"
-              icon={<ArrowLeftOneIcon size={20} />}
-              aria-label="Go back"
-              onClick={() => safeNavigate('/agents')}
-            />
+            {anyPanelOpen ? (
+              <IconButton
+                variant="ghost"
+                size="sm"
+                icon={<ArrowLeftOneIcon size={20} animated />}
+                aria-label="Back to Agents"
+                onClick={() => safeNavigate('/agents')}
+              />
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                leftIcon={<ArrowLeftOneIcon size={20} animated />}
+                onClick={() => safeNavigate('/agents')}
+              >
+                Back to Agents
+              </Button>
+            )}
           </div>
 
           {/* Tabs — absolutely centered so left/right items don't affect positioning */}
           <div style={anyPanelOpen ? { display: 'inline-flex', alignItems: 'flex-start', position: 'relative' } : { position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }}>
+            {/* Frosted glass — only covers the tab button row, not the traffic lights */}
             <div
               aria-hidden
               style={{
                 position: 'absolute',
-                inset: 0,
+                top: 0, left: 0, right: 0,
+                height: 36,
                 borderRadius: 10,
                 backgroundColor: 'rgba(247,242,237,0.5)',
                 boxShadow:
                   'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
               }}
             />
-            <div style={{ position: 'relative', display: 'flex', gap: 4, alignItems: 'center' }}>
+            <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: TABS.map(() => 'auto').join(' '), columnGap: 4, rowGap: 6, justifyContent: 'start' }}>
+              {/* Info legend */}
+              <div style={{ position: 'absolute', right: 'calc(100% + 8px)', top: 0, height: 36, display: 'flex', alignItems: 'center', zIndex: 9999 }}>
+                <button type="button" onMouseEnter={() => setShowInfo(true)} onMouseLeave={() => setShowInfo(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: '50%', border: '1.5px solid var(--neutral-400)', backgroundColor: 'transparent', cursor: 'default', fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, color: 'var(--neutral-500)', padding: 0 }}>i</button>
+                {showInfo && (
+                  <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'white', border: '1px solid var(--neutral-200)', borderRadius: 8, padding: '8px 10px', boxShadow: '0px 4px 12px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: 6, whiteSpace: 'nowrap', zIndex: 9999 }}>
+                    {([{ color: '#D1D5DB', border: '#9CA3AF', label: 'No changes' }, { color: '#F97316', border: '#C2600F', label: 'Unsaved changes' }, { color: '#6FCF97', border: '#27AE60', label: 'Saved' }] as const).map(({ color, border, label }) => (
+                      <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 24, height: 4, backgroundColor: color, border: `1px solid ${border}`, borderRadius: 2, flexShrink: 0 }} />
+                        <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-600)' }}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               {TABS.map(tab => {
                 const isActive = tab === 'Profile'
                 return (
@@ -432,26 +457,72 @@ function PersonaConfigureProfileContent() {
                   </button>
                 )
               })}
+              {TABS.map(tab => {
+                const hasFlag     = tabDirtyFlags[tab] !== undefined
+                const isDirtyT    = hasFlag ? tabDirtyFlags[tab] ?? false : pendingChangeTags.includes(tab)
+                const isPristine  = !hasFlag && !pendingChangeTags.includes(tab)
+                const bgColor     = isPristine ? '#D1D5DB' : (isDirtyT ? '#F97316' : '#6FCF97')
+                const borderColor = isPristine ? '#9CA3AF' : (isDirtyT ? '#C2600F' : '#27AE60')
+                return (
+                  <div key={`${tab}-light`} aria-hidden style={{ height: 4, backgroundColor: bgColor, border: `1px solid ${borderColor}`, borderRadius: 2, transition: 'background-color 300ms, border-color 300ms' }} />
+                )
+              })}
+              {(anyDirty || publishedVersionId != null || (!!repoId && !!versionId)) && (
+                <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 10, pointerEvents: 'none', zIndex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {(anyDirty || publishedVersionId != null) && (
+                    <>
+                      {anyDirty ? <Badge color="Red" label="Unsaved" /> : <Badge color="Green" label="Saved" />}
+                      <div aria-hidden style={{ width: 1, height: 12, backgroundColor: 'var(--neutral-300)', flexShrink: 0 }} />
+                    </>
+                  )}
+                  {isPublished
+                    ? <Badge color="Green" label="Live" />
+                    : <Badge color="Red" label="Unpublished" />
+                  }
+                </div>
+              )}
             </div>
           </div>
 
 
 
-          {/* Status badges — centered below the tab bar */}
-          {(!!versionId || pendingChangeTags.length > 0 || isPublished || needsRepublish) && (
-            <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 6, pointerEvents: 'none', zIndex: 1, display: 'flex', gap: 4 }}>
-              {(!!versionId || pendingChangeTags.length > 0) && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', whiteSpace: 'nowrap', ...(pendingChangeTags.length > 0 ? { backgroundColor: '#ffedd5', color: '#c2410c', boxShadow: '0px 0px 0px 1px rgba(194,65,12,0.2)' } : { backgroundColor: '#f5f5f4', color: '#44403c', boxShadow: '0px 0px 0px 1px rgba(68,64,60,0.2)' }) }}>
-                  {pendingChangeTags.length > 0 ? 'Unsaved' : 'Saved'}
-                </span>
-              )}
-              {(isPublished || needsRepublish) && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 8px', borderRadius: 6, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', whiteSpace: 'nowrap', ...(isPublished ? { backgroundColor: '#d1fae5', color: '#065f46', boxShadow: '0px 0px 0px 1px rgba(6,95,70,0.2)' } : { backgroundColor: '#fef3c7', color: '#92400e', boxShadow: '0px 1px 1.5px 0px rgba(24,15,2,0.15), 0px 0px 0px 1px rgba(146,64,14,0.3)' }) }}>
-                  {isPublished ? 'Live' : 'Unpublished'}
-                </span>
-              )}
-            </div>
-          )}
+          {/* Action buttons — top right */}
+          <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+            {anyPanelOpen ? (
+              <IconButton
+                variant="outline"
+                size="sm"
+                icon={<QuillWriteOneIcon size={16} />}
+                aria-label="Save version"
+                onClick={() => void handleSaveVersion()}
+                loading={isSaving}
+                disabled={!repoId || !versionId || isSaving}
+              />
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<QuillWriteOneIcon size={16} />}
+                onClick={() => void handleSaveVersion()}
+                disabled={!repoId || !versionId || isSaving}
+                loading={isSaving}
+              >
+                {isSaving ? 'Saving…' : 'Save version'}
+              </Button>
+            )}
+            <Button
+              variant="default"
+              size="sm"
+              rightIcon={<ArrowUpRightOneIcon size={16} />}
+              onClick={() => void handlePublish()}
+              disabled={!repoId || !versionId || isPublishing}
+              loading={isPublishing}
+            >
+              {isPublishing
+                ? (publishedVersionId != null ? 'Republishing…' : 'Publishing…')
+                : (publishedVersionId != null ? 'Republish' : 'Publish')}
+            </Button>
+          </div>
         </div>
 
         <div style={{ height: 35, flexShrink: 0 }} />
@@ -493,36 +564,6 @@ function PersonaConfigureProfileContent() {
             onPersonaTagsChange={v => { setPersonaTags(v); markDirty() }}
           />
           <div style={{ height: 24, flexShrink: 0 }} />
-        </div>
-      </div>
-
-      {/* ── Bottom navigation ────────────────────────────────────────────────── */}
-      <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '12px 16px 4px', borderTop: '1px solid var(--neutral-100)' }}>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {publishedVersionId != null && (
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<QuillWriteOneIcon size={16} />}
-              onClick={() => void handleSaveVersion()}
-              disabled={!repoId || !versionId || isSaving || !isDirty}
-              loading={isSaving}
-            >
-              {isSaving ? 'Saving…' : 'Save version'}
-            </Button>
-          )}
-          <Button
-            variant="default"
-            size="sm"
-            rightIcon={<ArrowUpRightOneIcon size={16} />}
-            onClick={() => void handlePublish()}
-            disabled={!repoId || !versionId || isPublishing}
-            loading={isPublishing}
-          >
-            {isPublishing
-              ? (publishedVersionId != null ? 'Republishing…' : 'Publishing…')
-              : (publishedVersionId != null ? 'Republish' : 'Publish')}
-          </Button>
         </div>
       </div>
 

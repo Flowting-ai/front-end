@@ -1,8 +1,39 @@
 openapi: 3.1.0
 info:
-  title: FastAPI - Chat
+  title: FastAPI - chat
   version: 0.1.0
 paths:
+  /chats/{chat_id}/visibility:
+    patch:
+      tags:
+        - chat
+      summary: Set Chat Visibility
+      operationId: set_chat_visibility_chats__chat_id__visibility_patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Chat Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetVisibilityRequest'
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /chats:
     get:
       tags:
@@ -711,6 +742,38 @@ paths:
                 items:
                   $ref: '#/components/schemas/GetMessages'
                 title: Response Get Messages Chats  Chat Id  Messages Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /chats/{chat_id}/copy:
+    post:
+      tags:
+        - chat
+      summary: Copy Chat Endpoint
+      description: |-
+        Duplicate any chat the caller can read (own, project-linked, team-published
+        or shared) into their own list.
+      operationId: copy_chat_endpoint_chats__chat_id__copy_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Chat Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForkResponse'
         '422':
           description: Validation Error
           content:
@@ -1549,6 +1612,73 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
+    SetVisibilityRequest:
+      properties:
+        visibility:
+          type: string
+          title: Visibility
+        teamId:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Teamid
+      type: object
+      required:
+        - visibility
+      title: SetVisibilityRequest
+      description: Shared by the persona/project/chat visibility setters.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ChatsResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        starred:
+          type: boolean
+          title: Starred
+        chat_title:
+          type: string
+          title: Chat Title
+        message_count:
+          type: integer
+          title: Message Count
+        pins_count:
+          type: integer
+          title: Pins Count
+        project_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Project Id
+      type: object
+      required:
+        - id
+        - starred
+        - chat_title
+        - message_count
+        - pins_count
+      title: ChatsResponse
+    DeleteChat:
+      properties:
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+      type: object
+      required:
+        - chat_id
+      title: DeleteChat
     Body_create_new_chat_chats_create_post:
       properties:
         input:
@@ -1603,129 +1733,6 @@ components:
       required:
         - input
       title: Body_create_new_chat_chats_create_post
-    Body_stream_chat_message_chats__chat_id__stream_post:
-      properties:
-        input:
-          type: string
-          title: Input
-        model_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Model Id
-        algorithm:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Algorithm
-        pin_ids:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Pin Ids
-        reference_message_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Reference Message Id
-        replace_message_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Replace Message Id
-        use_mistral_ocr:
-          type: boolean
-          title: Use Mistral Ocr
-          default: false
-        system_instruction:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: System Instruction
-        persona_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Persona Id
-        files:
-          anyOf:
-            - items:
-                type: string
-                contentMediaType: application/octet-stream
-              type: array
-            - type: 'null'
-          title: Files
-      type: object
-      required:
-        - input
-      title: Body_stream_chat_message_chats__chat_id__stream_post
-    ChatsResponse:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        starred:
-          type: boolean
-          title: Starred
-        chat_title:
-          type: string
-          title: Chat Title
-        message_count:
-          type: integer
-          title: Message Count
-        pins_count:
-          type: integer
-          title: Pins Count
-        project_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Project Id
-      type: object
-      required:
-        - id
-        - starred
-        - chat_title
-        - message_count
-        - pins_count
-      title: ChatsResponse
-    DeleteChat:
-      properties:
-        chat_id:
-          type: string
-          format: uuid
-          title: Chat Id
-      type: object
-      required:
-        - chat_id
-      title: DeleteChat
-    FileAttachment:
-      properties:
-        file_link:
-          type: string
-          title: File Link
-          default: ''
-        mime_type:
-          type: string
-          title: Mime Type
-        file_size:
-          type: integer
-          title: File Size
-        origin:
-          type: string
-          title: Origin
-      type: object
-      required:
-        - mime_type
-        - file_size
-        - origin
-      title: FileAttachment
     GetMessages:
       properties:
         id:
@@ -1791,27 +1798,80 @@ components:
         - input
         - output
       title: GetMessages
-    HTTPValidationError:
+    ForkResponse:
       properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+        chat_title:
+          type: string
+          title: Chat Title
       type: object
-      title: HTTPValidationError
-    ReasoningSection:
+      required:
+        - chat_id
+        - chat_title
+      title: ForkResponse
+    Body_stream_chat_message_chats__chat_id__stream_post:
       properties:
-        heading:
+        input:
           type: string
-          title: Heading
-          default: ''
-        body:
-          type: string
-          title: Body
-          default: ''
+          title: Input
+        model_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Model Id
+        algorithm:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Algorithm
+        pin_ids:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Pin Ids
+        reference_message_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Reference Message Id
+        replace_message_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Replace Message Id
+        use_mistral_ocr:
+          type: boolean
+          title: Use Mistral Ocr
+          default: false
+        system_instruction:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: System Instruction
+        persona_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Persona Id
+        files:
+          anyOf:
+            - items:
+                type: string
+                contentMediaType: application/octet-stream
+              type: array
+            - type: 'null'
+          title: Files
       type: object
-      title: ReasoningSection
+      required:
+        - input
+      title: Body_stream_chat_message_chats__chat_id__stream_post
     RenameChat:
       properties:
         chat_id:
@@ -1874,6 +1934,39 @@ components:
         - msg
         - type
       title: ValidationError
+    ReasoningSection:
+      properties:
+        heading:
+          type: string
+          title: Heading
+          default: ''
+        body:
+          type: string
+          title: Body
+          default: ''
+      type: object
+      title: ReasoningSection
+    FileAttachment:
+      properties:
+        file_link:
+          type: string
+          title: File Link
+          default: ''
+        mime_type:
+          type: string
+          title: Mime Type
+        file_size:
+          type: integer
+          title: File Size
+        origin:
+          type: string
+          title: Origin
+      type: object
+      required:
+        - mime_type
+        - file_size
+        - origin
+      title: FileAttachment
     WebSearchResult:
       properties:
         query:

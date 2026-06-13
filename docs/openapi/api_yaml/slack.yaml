@@ -1,0 +1,83 @@
+openapi: 3.1.0
+info:
+  title: FastAPI - slack
+  version: 0.1.0
+paths:
+  /slack/install:
+    get:
+      tags:
+        - slack
+      summary: Slack Install Url
+      description: The "Add to Slack" URL — FE opens it; Slack redirects to the callback.
+      operationId: slack_install_url_slack_install_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlackInstallURLResponse'
+      security:
+        - HTTPBearer: []
+  /slack/status:
+    get:
+      tags:
+        - slack
+      summary: Slack Status
+      operationId: slack_status_slack_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlackStatusResponse'
+      security:
+        - HTTPBearer: []
+components:
+  schemas:
+    SlackInstallURLResponse:
+      properties:
+        url:
+          type: string
+          title: Url
+      type: object
+      required:
+        - url
+      title: SlackInstallURLResponse
+    SlackStatusResponse:
+      properties:
+        workspaces:
+          items:
+            $ref: '#/components/schemas/SlackWorkspaceStatus'
+          type: array
+          title: Workspaces
+      type: object
+      required:
+        - workspaces
+      title: SlackStatusResponse
+      description: |-
+        The workspaces this user's Slack identity is linked in, where the bot
+        is installed — what the FE needs to render connected/not-connected.
+    SlackWorkspaceStatus:
+      properties:
+        team_id:
+          type: string
+          title: Team Id
+        team_name:
+          type: string
+          title: Team Name
+        installed_at:
+          type: string
+          format: date-time
+          title: Installed At
+      type: object
+      required:
+        - team_id
+        - team_name
+        - installed_at
+      title: SlackWorkspaceStatus
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer

@@ -1,499 +1,1271 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
-  title: Organizations API
-  version: "1.0"
-  description: Organization and team management endpoints.
-
-tags:
-  - name: organizations
-
+  title: FastAPI - organizations
+  version: 0.1.0
 paths:
   /organizations:
     get:
-      tags: [organizations]
+      tags:
+        - organizations
       summary: List Organizations
-      operationId: list_organizations
-      security:
-        - HTTPBearer: []
+      operationId: list_organizations_organizations_get
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                type: array
                 items:
-                  $ref: "#/components/schemas/OrganizationResponse"
-    post:
-      tags: [organizations]
-      summary: Create Organization
-      operationId: create_organization
+                  $ref: '#/components/schemas/OrganizationResponse'
+                type: array
+                title: Response List Organizations Organizations Get
       security:
         - HTTPBearer: []
+    post:
+      tags:
+        - organizations
+      summary: Create Organization
+      operationId: create_organization_organizations_post
       requestBody:
-        required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateOrganizationRequest"
+              $ref: '#/components/schemas/CreateOrganizationRequest'
+        required: true
       responses:
-        "201":
-          description: Created
+        '201':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OrganizationResponse"
-
+                $ref: '#/components/schemas/OrganizationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - HTTPBearer: []
   /organizations/{organization_id}:
     get:
-      tags: [organizations]
+      tags:
+        - organizations
       summary: Get Organization
-      operationId: get_organization
+      operationId: get_organization_organizations__organization_id__get
       security:
         - HTTPBearer: []
       parameters:
-        - $ref: "#/components/parameters/organization_id"
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OrganizationResponse"
+                $ref: '#/components/schemas/OrganizationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
     patch:
-      tags: [organizations]
+      tags:
+        - organizations
       summary: Update Organization
-      operationId: update_organization
+      operationId: update_organization_organizations__organization_id__patch
       security:
         - HTTPBearer: []
       parameters:
-        - $ref: "#/components/parameters/organization_id"
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateOrganizationRequest"
+              $ref: '#/components/schemas/UpdateOrganizationRequest'
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OrganizationResponse"
+                $ref: '#/components/schemas/OrganizationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
     delete:
-      tags: [organizations]
+      tags:
+        - organizations
       summary: Delete Organization
-      operationId: delete_organization
+      operationId: delete_organization_organizations__organization_id__delete
       security:
         - HTTPBearer: []
       parameters:
-        - $ref: "#/components/parameters/organization_id"
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/DeleteOrganizationRequest"
+              $ref: '#/components/schemas/DeleteOrganizationRequest'
       responses:
-        "204":
-          description: No Content
-
-  /organizations/{organization_id}/teams:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/settings:
     get:
-      tags: [organizations]
-      summary: List Teams
-      operationId: list_teams
+      tags:
+        - organizations
+      summary: Get Settings
+      operationId: get_settings_organizations__organization_id__settings_get
       security:
         - HTTPBearer: []
       parameters:
-        - $ref: "#/components/parameters/organization_id"
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/TeamResponse"
-    post:
-      tags: [organizations]
-      summary: Create Team
-      operationId: create_team
-      security:
-        - HTTPBearer: []
-      parameters:
-        - $ref: "#/components/parameters/organization_id"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateTeamRequest"
-      responses:
-        "201":
-          description: Created
+                $ref: '#/components/schemas/OrganizationSettingsResponse'
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TeamResponse"
-
-  /organizations/{organization_id}/teams/{team_id}:
-    get:
-      tags: [organizations]
-      summary: Get Team
-      operationId: get_team
-      security:
-        - HTTPBearer: []
-      parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TeamResponse"
+                $ref: '#/components/schemas/HTTPValidationError'
     patch:
-      tags: [organizations]
-      summary: Update Team
-      operationId: update_team
+      tags:
+        - organizations
+      summary: Update Settings
+      operationId: update_settings_organizations__organization_id__settings_patch
       security:
         - HTTPBearer: []
       parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateTeamRequest"
+              $ref: '#/components/schemas/UpdateOrganizationSettingsRequest'
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TeamResponse"
-    delete:
-      tags: [organizations]
-      summary: Delete Team
-      operationId: delete_team
-      security:
-        - HTTPBearer: []
-      parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
-      responses:
-        "204":
-          description: No Content
-
-  /organizations/{organization_id}/teams/{team_id}/editors:
+                $ref: '#/components/schemas/OrganizationSettingsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/plan:
     get:
-      tags: [organizations]
-      summary: List Team Editors
-      operationId: list_team_editors
+      tags:
+        - organizations
+      summary: Get Plan
+      operationId: get_plan_organizations__organization_id__plan_get
       security:
         - HTTPBearer: []
       parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/PersonResponse"
-
-  /organizations/{organization_id}/teams/{team_id}/editors/{member_id}:
-    delete:
-      tags: [organizations]
-      summary: Remove Team Editor
-      operationId: remove_team_editor
-      security:
-        - HTTPBearer: []
-      parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
-        - name: member_id
+        - name: organization_id
           in: path
           required: true
           schema:
             type: string
+            format: uuid
+            title: Organization Id
       responses:
-        "204":
-          description: No Content
-
-  /organizations/{organization_id}/teams/{team_id}/invites:
-    post:
-      tags: [organizations]
-      summary: Create Invite
-      operationId: create_team_invite
-      security:
-        - HTTPBearer: []
-      parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/InviteRequest"
-      responses:
-        "201":
-          description: Created
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InviteResponse"
-
-  /organizations/{organization_id}/teams/{team_id}/connectors:
+                $ref: '#/components/schemas/PlanResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/plan/usage:
     get:
-      tags: [organizations]
-      summary: List Team Connectors
-      operationId: list_team_connectors
+      tags:
+        - organizations
+      summary: Get Plan Usage
+      operationId: get_plan_usage_organizations__organization_id__plan_usage_get
       security:
         - HTTPBearer: []
       parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/TeamConnectorResponse"
-    post:
-      tags: [organizations]
-      summary: Request Team Connector
-      operationId: request_team_connector
-      security:
-        - HTTPBearer: []
-      parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RequestConnectorRequest"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TeamConnectorResponse"
-
-  /organizations/{organization_id}/teams/{team_id}/connectors/{slug}:
-    patch:
-      tags: [organizations]
-      summary: Set Team Connector Status
-      operationId: set_team_connector_status
-      security:
-        - HTTPBearer: []
-      parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
-        - name: slug
+        - name: organization_id
           in: path
           required: true
           schema:
             type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SetConnectorStatusRequest"
+            format: uuid
+            title: Organization Id
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TeamConnectorResponse"
-    delete:
-      tags: [organizations]
-      summary: Remove Team Connector
-      operationId: remove_team_connector
-      security:
-        - HTTPBearer: []
-      parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-
-  /organizations/{organization_id}/teams/{team_id}/projects/{project_id}/members:
+                $ref: '#/components/schemas/UsageBreakdownResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/pool-status:
     get:
-      tags: [organizations]
-      summary: List Project Members
-      operationId: list_project_members
+      tags:
+        - organizations
+      summary: Get Pool Status
+      operationId: get_pool_status_organizations__organization_id__pool_status_get
       security:
         - HTTPBearer: []
       parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
-        - $ref: "#/components/parameters/project_id"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/PersonResponse"
-    post:
-      tags: [organizations]
-      summary: Add Project Member
-      operationId: add_project_member
-      security:
-        - HTTPBearer: []
-      parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
-        - $ref: "#/components/parameters/project_id"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AddProjectMemberRequest"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PersonResponse"
-
-  /organizations/{organization_id}/teams/{team_id}/projects/{project_id}/members/{member_id}:
-    delete:
-      tags: [organizations]
-      summary: Remove Project Member
-      operationId: remove_project_member
-      security:
-        - HTTPBearer: []
-      parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/team_id"
-        - $ref: "#/components/parameters/project_id"
-        - name: member_id
+        - name: organization_id
           in: path
           required: true
           schema:
             type: string
+            format: uuid
+            title: Organization Id
       responses:
-        "204":
-          description: No Content
-
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PoolStatusResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /organizations/{organization_id}/members/{member_id}/cap:
     patch:
-      tags: [organizations]
-      summary: Set Member Credit Cap
-      operationId: set_member_cap
+      tags:
+        - organizations
+      summary: Set Member Cap
+      operationId: set_member_cap_organizations__organization_id__members__member_id__cap_patch
       security:
         - HTTPBearer: []
       parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/member_id"
+        - name: member_id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Member Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
+              $ref: '#/components/schemas/SetCapRequest'
       responses:
-        "200":
-          description: OK
-
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /organizations/{organization_id}/members/{member_id}/role:
     patch:
-      tags: [organizations]
+      tags:
+        - organizations
       summary: Set Member Role
-      operationId: set_member_role
+      operationId: set_member_role_organizations__organization_id__members__member_id__role_patch
       security:
         - HTTPBearer: []
       parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/member_id"
+        - name: member_id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Member Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
+              $ref: '#/components/schemas/SetRoleRequest'
       responses:
-        "200":
-          description: OK
-
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /organizations/{organization_id}/members/{member_id}:
     delete:
-      tags: [organizations]
+      tags:
+        - organizations
       summary: Remove Member
-      operationId: remove_member
+      operationId: remove_member_organizations__organization_id__members__member_id__delete
       security:
         - HTTPBearer: []
       parameters:
-        - $ref: "#/components/parameters/organization_id"
-        - $ref: "#/components/parameters/member_id"
+        - name: member_id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Member Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
       responses:
-        "204":
-          description: No Content
-
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams/{team_id}/connectors:
+    get:
+      tags:
+        - organizations
+      summary: List Team Connectors
+      operationId: list_team_connectors_organizations__organization_id__teams__team_id__connectors_get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeamConnectorResponse'
+                title: Response List Team Connectors Organizations  Organization Id  Teams  Team Id  Connectors Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+        - organizations
+      summary: Request Team Connector
+      operationId: request_team_connector_organizations__organization_id__teams__team_id__connectors_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestConnectorRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamConnectorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams/{team_id}/connectors/{slug}:
+    patch:
+      tags:
+        - organizations
+      summary: Set Team Connector Status
+      operationId: set_team_connector_status_organizations__organization_id__teams__team_id__connectors__slug__patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Slug
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetConnectorStatusRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamConnectorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+        - organizations
+      summary: Remove Team Connector
+      operationId: remove_team_connector_organizations__organization_id__teams__team_id__connectors__slug__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Slug
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams/{team_id}/connections:
+    get:
+      tags:
+        - organizations
+      summary: List Team Connections
+      operationId: list_team_connections_organizations__organization_id__teams__team_id__connections_get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConnectorCatalogEntry'
+                title: Response List Team Connections Organizations  Organization Id  Teams  Team Id  Connections Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams/{team_id}/connections/{slug}/link:
+    post:
+      tags:
+        - organizations
+      summary: Link Team Connection
+      operationId: link_team_connection_organizations__organization_id__teams__team_id__connections__slug__link_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Slug
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams/{team_id}/connections/{slug}:
+    patch:
+      tags:
+        - organizations
+      summary: Update Team Connection
+      operationId: update_team_connection_organizations__organization_id__teams__team_id__connections__slug__patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Slug
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateConnectorRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorCatalogEntry'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+        - organizations
+      summary: Unlink Team Connection
+      operationId: unlink_team_connection_organizations__organization_id__teams__team_id__connections__slug__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Slug
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams:
+    get:
+      tags:
+        - organizations
+      summary: List Teams
+      operationId: list_teams_organizations__organization_id__teams_get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeamResponse'
+                title: Response List Teams Organizations  Organization Id  Teams Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+        - organizations
+      summary: Create Team
+      operationId: create_team_organizations__organization_id__teams_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTeamRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams/{team_id}:
+    get:
+      tags:
+        - organizations
+      summary: Get Team
+      operationId: get_team_organizations__organization_id__teams__team_id__get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+        - organizations
+      summary: Update Team
+      operationId: update_team_organizations__organization_id__teams__team_id__patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTeamRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+        - organizations
+      summary: Delete Team
+      operationId: delete_team_organizations__organization_id__teams__team_id__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams/{team_id}/editors:
+    get:
+      tags:
+        - organizations
+      summary: List Team Editors
+      operationId: list_team_editors_organizations__organization_id__teams__team_id__editors_get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonResponse'
+                title: Response List Team Editors Organizations  Organization Id  Teams  Team Id  Editors Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams/{team_id}/editors/{member_id}:
+    delete:
+      tags:
+        - organizations
+      summary: Remove Team Editor
+      operationId: remove_team_editor_organizations__organization_id__teams__team_id__editors__member_id__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: member_id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Member Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams/{team_id}/projects/{project_id}/members:
+    get:
+      tags:
+        - organizations
+      summary: List Project Members
+      operationId: list_project_members_organizations__organization_id__teams__team_id__projects__project_id__members_get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Project Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonResponse'
+                title: Response List Project Members Organizations  Organization Id  Teams  Team Id  Projects  Project Id  Members Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+        - organizations
+      summary: Add Project Member
+      operationId: add_project_member_organizations__organization_id__teams__team_id__projects__project_id__members_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Project Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddProjectMemberRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams/{team_id}/projects/{project_id}/members/{member_id}:
+    delete:
+      tags:
+        - organizations
+      summary: Remove Project Member
+      operationId: remove_project_member_organizations__organization_id__teams__team_id__projects__project_id__members__member_id__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Project Id
+        - name: member_id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Member Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams/{team_id}/invites:
+    post:
+      tags:
+        - organizations
+      summary: Create Invite
+      operationId: create_invite_organizations__organization_id__teams__team_id__invites_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /organizations/{organization_id}/teams/{team_id}/overflow:
+    post:
+      tags:
+        - organizations
+      summary: Request Overflow
+      operationId: request_overflow_organizations__organization_id__teams__team_id__overflow_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: team_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Team Id
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OverflowRequestBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverflowResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /organizations/{organization_id}/audit:
     get:
-      tags: [organizations]
-      summary: List Audit Log
-      operationId: list_audit
+      tags:
+        - organizations
+      summary: List Audit
+      operationId: list_audit_organizations__organization_id__audit_get
       security:
         - HTTPBearer: []
       parameters:
-        - $ref: "#/components/parameters/organization_id"
+        - name: organization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Organization Id
         - name: limit
           in: query
+          required: false
           schema:
             type: integer
             default: 100
+            title: Limit
         - name: offset
           in: query
+          required: false
           schema:
             type: integer
             default: 0
+            title: Offset
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/AuditEntry"
-
+                  $ref: '#/components/schemas/AuditEntry'
+                title: Response List Audit Organizations  Organization Id  Audit Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /team-invite/{invite_id}:
     get:
-      tags: [organizations]
+      tags:
+        - organizations
       summary: Preview Invite
-      operationId: preview_invite
+      operationId: preview_invite_team_invite__invite_id__get
       parameters:
         - name: invite_id
           in: path
@@ -501,19 +1273,26 @@ paths:
           schema:
             type: string
             format: uuid
+            title: Invite Id
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InvitePreview"
-
+                $ref: '#/components/schemas/InvitePreview'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /team-invite/{invite_id}/accept:
     post:
-      tags: [organizations]
+      tags:
+        - organizations
       summary: Accept Invite
-      operationId: accept_invite
+      operationId: accept_invite_team_invite__invite_id__accept_post
       security:
         - HTTPBearer: []
       parameters:
@@ -523,272 +1302,1246 @@ paths:
           schema:
             type: string
             format: uuid
+            title: Invite Id
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TeamResponse"
-
+                $ref: '#/components/schemas/TeamResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /chat-shares:
+    post:
+      tags:
+        - organizations
+      summary: Create Chat Share
+      operationId: create_chat_share_chat_shares_post
+      security:
+        - HTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChatShareRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatShareResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+        - organizations
+      summary: List Chat Shares
+      operationId: list_chat_shares_chat_shares_get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: chat_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Chat Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatShareResponse'
+                title: Response List Chat Shares Chat Shares Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /chat-shares/shared-with-me:
+    get:
+      tags:
+        - organizations
+      summary: Shared With Me
+      operationId: shared_with_me_chat_shares_shared_with_me_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SharedChatItem'
+                type: array
+                title: Response Shared With Me Chat Shares Shared With Me Get
+      security:
+        - HTTPBearer: []
+  /chat-shares/{share_id}:
+    get:
+      tags:
+        - organizations
+      summary: View Shared Chat
+      operationId: view_shared_chat_chat_shares__share_id__get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: share_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Share Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedChatView'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+        - organizations
+      summary: Revoke Chat Share
+      operationId: revoke_chat_share_chat_shares__share_id__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: share_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Share Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /chat-shares/{share_id}/fork:
+    post:
+      tags:
+        - organizations
+      summary: Fork Shared Chat
+      operationId: fork_shared_chat_chat_shares__share_id__fork_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: share_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Share Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForkResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
-  parameters:
-    organization_id:
-      name: organization_id
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    team_id:
-      name: team_id
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    member_id:
-      name: member_id
-      in: path
-      required: true
-      schema:
-        type: string
-    project_id:
-      name: project_id
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-
   schemas:
     OrganizationResponse:
-      type: object
-      required: [id, name, created_at, updated_at]
       properties:
         id:
           type: string
           format: uuid
+          title: Id
         name:
           type: string
-        domain:
+          title: Name
+        slug:
           type: string
-          nullable: true
+          title: Slug
+        description:
+          type: string
+          title: Description
+          default: ''
+        logo_url:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Logo Url
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+          default: []
+        archived:
+          type: boolean
+          title: Archived
+        my_role:
+          anyOf:
+            - $ref: '#/components/schemas/OrganizationRole'
+            - type: 'null'
         created_at:
           type: string
           format: date-time
+          title: Created At
         updated_at:
           type: string
           format: date-time
-
+          title: Updated At
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - archived
+        - created_at
+        - updated_at
+      title: OrganizationResponse
     CreateOrganizationRequest:
-      type: object
-      required: [name]
       properties:
         name:
           type: string
-          minLength: 1
           maxLength: 255
-
-    UpdateOrganizationRequest:
+          minLength: 1
+          title: Name
+        description:
+          type: string
+          title: Description
+          default: ''
+        logoUrl:
+          anyOf:
+            - type: string
+              maxLength: 1024
+            - type: 'null'
+          title: Logourl
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+          default: []
       type: object
+      required:
+        - name
+      title: CreateOrganizationRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    UpdateOrganizationRequest:
       properties:
         name:
-          type: string
-          nullable: true
-
+          anyOf:
+            - type: string
+              maxLength: 255
+              minLength: 1
+            - type: 'null'
+          title: Name
+        slug:
+          anyOf:
+            - type: string
+              maxLength: 255
+              minLength: 1
+              pattern: ^[a-z0-9]+(-[a-z0-9]+)*$
+            - type: 'null'
+          title: Slug
+        description:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Description
+        logoUrl:
+          anyOf:
+            - type: string
+              maxLength: 1024
+            - type: 'null'
+          title: Logourl
+        tags:
+          anyOf:
+            - items:
+                type: string
+              type: array
+            - type: 'null'
+          title: Tags
+        archived:
+          anyOf:
+            - type: boolean
+            - type: 'null'
+          title: Archived
+      type: object
+      title: UpdateOrganizationRequest
     DeleteOrganizationRequest:
-      type: object
-
-    TeamResponse:
-      type: object
-      required: [id, organization_id, name, description, archived, created_at, updated_at]
       properties:
-        id:
+        confirmName:
           type: string
-          format: uuid
+          title: Confirmname
+      type: object
+      required:
+        - confirmName
+      title: DeleteOrganizationRequest
+    OrganizationSettingsResponse:
+      properties:
         organization_id:
           type: string
           format: uuid
-        name:
+          title: Organization Id
+        org_instructions:
           type: string
-        description:
+          title: Org Instructions
+          default: ''
+        allowed_email_domains:
+          anyOf:
+            - items:
+                type: string
+              type: array
+            - type: 'null'
+          title: Allowed Email Domains
+        default_chat_visibility:
           type: string
-        tags:
-          type: array
-          items:
-            type: string
-          default: []
-        archived:
-          type: boolean
-        created_at:
+          title: Default Chat Visibility
+          default: private
+        default_persona_visibility:
           type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-
-    CreateTeamRequest:
+          title: Default Persona Visibility
+          default: private
       type: object
-      required: [name]
+      required:
+        - organization_id
+      title: OrganizationSettingsResponse
+    UpdateOrganizationSettingsRequest:
       properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        description:
-          type: string
-          default: ""
-        tags:
-          type: array
-          items:
-            type: string
-          default: []
-
-    UpdateTeamRequest:
+        orgInstructions:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Orginstructions
+        allowedEmailDomains:
+          anyOf:
+            - items:
+                type: string
+              type: array
+            - type: 'null'
+          title: Allowedemaildomains
+        defaultChatVisibility:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Defaultchatvisibility
+        defaultPersonaVisibility:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Defaultpersonavisibility
       type: object
+      title: UpdateOrganizationSettingsRequest
+    PlanResponse:
       properties:
-        name:
+        organization_id:
           type: string
-          minLength: 1
-          maxLength: 255
-          nullable: true
-        description:
+          format: uuid
+          title: Organization Id
+        plan_credits:
+          type: number
+          title: Plan Credits
+        topup_credits:
+          type: number
+          title: Topup Credits
+        total_credits:
+          type: number
+          title: Total Credits
+        used:
+          type: number
+          title: Used
+        remaining:
+          type: number
+          title: Remaining
+        percent_used:
+          type: number
+          title: Percent Used
+        pool_status:
           type: string
-          nullable: true
-        tags:
-          type: array
+          title: Pool Status
+        members:
           items:
-            type: string
-          nullable: true
-        archived:
-          type: boolean
-          nullable: true
-
-    PersonResponse:
+            $ref: '#/components/schemas/MemberResponse'
+          type: array
+          title: Members
+          default: []
       type: object
-      required: [user_id]
-      description: Bare person reference — team editors and project members.
+      required:
+        - organization_id
+        - plan_credits
+        - topup_credits
+        - total_credits
+        - used
+        - remaining
+        - percent_used
+        - pool_status
+      title: PlanResponse
+      description: 'The Plans & Usage view: pool totals + per-member caps/usage.'
+    UsageBreakdownResponse:
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+          title: Organization Id
+        by_team:
+          items:
+            $ref: '#/components/schemas/TeamBurn'
+          type: array
+          title: By Team
+          default: []
+      type: object
+      required:
+        - organization_id
+      title: UsageBreakdownResponse
+    PoolStatusResponse:
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+          title: Organization Id
+        status:
+          type: string
+          title: Status
+        percent_used:
+          type: number
+          title: Percent Used
+        remaining:
+          type: number
+          title: Remaining
+      type: object
+      required:
+        - organization_id
+        - status
+        - percent_used
+        - remaining
+      title: PoolStatusResponse
+    SetCapRequest:
+      properties:
+        creditCap:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Creditcap
+      type: object
+      title: SetCapRequest
+    MemberResponse:
       properties:
         user_id:
           type: string
+          title: User Id
         name:
-          type: string
-          nullable: true
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Name
         email:
-          type: string
-          nullable: true
-
-    InviteRequest:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Email
+        role:
+          $ref: '#/components/schemas/OrganizationRole'
+        credit_cap:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Credit Cap
+        credit_used:
+          type: number
+          title: Credit Used
+          default: 0
+        invite_status:
+          $ref: '#/components/schemas/InviteStatus'
       type: object
-      required: [emails]
+      required:
+        - user_id
+        - role
+        - invite_status
+      title: MemberResponse
+    SetRoleRequest:
       properties:
-        emails:
-          type: array
-          items:
-            type: string
-
-    InviteResponse:
+        role:
+          $ref: '#/components/schemas/OrganizationRole'
       type: object
-      required: [id, team_id, expires_at, invite_url]
+      required:
+        - role
+      title: SetRoleRequest
+    TeamConnectorResponse:
+      properties:
+        team_id:
+          type: string
+          format: uuid
+          title: Team Id
+        connector_slug:
+          type: string
+          title: Connector Slug
+        status:
+          $ref: '#/components/schemas/ConnectorRequestStatus'
+        requested_by_user_id:
+          type: string
+          title: Requested By User Id
+        note:
+          type: string
+          title: Note
+          default: ''
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+        - team_id
+        - connector_slug
+        - status
+        - requested_by_user_id
+        - created_at
+        - updated_at
+      title: TeamConnectorResponse
+    RequestConnectorRequest:
+      properties:
+        slug:
+          type: string
+          maxLength: 64
+          minLength: 1
+          title: Slug
+        note:
+          type: string
+          title: Note
+          default: ''
+      type: object
+      required:
+        - slug
+      title: RequestConnectorRequest
+    SetConnectorStatusRequest:
+      properties:
+        status:
+          $ref: '#/components/schemas/ConnectorRequestStatus'
+      type: object
+      required:
+        - status
+      title: SetConnectorStatusRequest
+    ConnectorCatalogEntry:
+      properties:
+        slug:
+          type: string
+          title: Slug
+        display_name:
+          type: string
+          title: Display Name
+        auth_mode:
+          type: string
+          enum:
+            - oauth2
+            - api_key
+          title: Auth Mode
+        description:
+          type: string
+          title: Description
+        tools:
+          items:
+            $ref: '#/components/schemas/ToolEntry'
+          type: array
+          title: Tools
+        api_key_fields:
+          items:
+            $ref: '#/components/schemas/ApiKeyField'
+          type: array
+          title: Api Key Fields
+        linked:
+          type: boolean
+          title: Linked
+        workspace_linked:
+          type: boolean
+          title: Workspace Linked
+          default: false
+        workspace_linked_by:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Workspace Linked By
+      type: object
+      required:
+        - slug
+        - display_name
+        - auth_mode
+        - description
+        - linked
+      title: ConnectorCatalogEntry
+    LinkRequest:
+      properties:
+        init_data:
+          anyOf:
+            - additionalProperties:
+                type: string
+              type: object
+            - type: 'null'
+          title: Init Data
+      type: object
+      title: LinkRequest
+      description: |-
+        Body for POST /connectors/{slug}/link. Most OAuth connectors don't
+        need anything here, but per-tenant OAuth (Shopify subdomain, etc.)
+        requires init fields up front — the FE collects them via a small form
+        matching the connector's `api_key_fields` and submits them in
+        `init_data` (e.g. {"subdomain": "store-name"}).
+    LinkResponse:
+      properties:
+        connector_slug:
+          type: string
+          title: Connector Slug
+        redirect_url:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Redirect Url
+      type: object
+      required:
+        - connector_slug
+      title: LinkResponse
+    UpdateConnectorRequest:
+      properties:
+        permissions:
+          anyOf:
+            - items:
+                $ref: '#/components/schemas/ToolEntry'
+              type: array
+            - type: 'null'
+          title: Permissions
+        credentials:
+          anyOf:
+            - additionalProperties:
+                type: string
+              type: object
+            - type: 'null'
+          title: Credentials
+      type: object
+      title: UpdateConnectorRequest
+    TeamResponse:
       properties:
         id:
           type: string
           format: uuid
+          title: Id
+        organization_id:
+          type: string
+          format: uuid
+          title: Organization Id
+        name:
+          type: string
+          title: Name
+        description:
+          type: string
+          title: Description
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+          default: []
+        archived:
+          type: boolean
+          title: Archived
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+        - id
+        - organization_id
+        - name
+        - description
+        - archived
+        - created_at
+        - updated_at
+      title: TeamResponse
+    CreateTeamRequest:
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Name
+        description:
+          type: string
+          title: Description
+          default: ''
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+          default: []
+      type: object
+      required:
+        - name
+      title: CreateTeamRequest
+    UpdateTeamRequest:
+      properties:
+        name:
+          anyOf:
+            - type: string
+              maxLength: 255
+              minLength: 1
+            - type: 'null'
+          title: Name
+        description:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Description
+        tags:
+          anyOf:
+            - items:
+                type: string
+              type: array
+            - type: 'null'
+          title: Tags
+        archived:
+          anyOf:
+            - type: boolean
+            - type: 'null'
+          title: Archived
+      type: object
+      title: UpdateTeamRequest
+    PersonResponse:
+      properties:
+        user_id:
+          type: string
+          title: User Id
+        name:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Name
+        email:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Email
+      type: object
+      required:
+        - user_id
+      title: PersonResponse
+      description: |-
+        A bare person reference — team editors and project members alike; the
+        grant table a row came from already says what they are.
+    AddProjectMemberRequest:
+      properties:
+        userId:
+          type: string
+          title: Userid
+      type: object
+      required:
+        - userId
+      title: AddProjectMemberRequest
+    InviteRequest:
+      properties:
+        emails:
+          items:
+            type: string
+          type: array
+          title: Emails
+      type: object
+      required:
+        - emails
+      title: InviteRequest
+    InviteResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
         team_id:
           type: string
           format: uuid
+          title: Team Id
         recipient_emails:
-          type: array
-          items:
-            type: string
-          nullable: true
+          anyOf:
+            - items:
+                type: string
+              type: array
+            - type: 'null'
+          title: Recipient Emails
         expires_at:
           type: string
           format: date-time
+          title: Expires At
         invite_url:
           type: string
-
-    InvitePreview:
+          title: Invite Url
       type: object
-      required: [team_name, invite_id]
+      required:
+        - id
+        - team_id
+        - expires_at
+        - invite_url
+      title: InviteResponse
+    OverflowRequestBody:
       properties:
-        team_name:
-          type: string
-        invite_id:
-          type: string
-          format: uuid
-
-    TeamConnectorResponse:
-      type: object
-      required: [team_id, connector_slug, status, requested_by_user_id, created_at, updated_at]
-      properties:
-        team_id:
-          type: string
-          format: uuid
-        connector_slug:
-          type: string
-        status:
-          type: string
-          enum: [pending, approved, denied]
-        requested_by_user_id:
-          type: string
+        amount:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Amount
         note:
           type: string
-          default: ""
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-
-    RequestConnectorRequest:
+          title: Note
+          default: ''
       type: object
-      required: [connector_slug]
-      properties:
-        connector_slug:
-          type: string
-        note:
-          type: string
-          default: ""
-
-    SetConnectorStatusRequest:
-      type: object
-      required: [status]
-      properties:
-        status:
-          type: string
-          enum: [pending, approved, denied]
-
-    AddProjectMemberRequest:
-      type: object
-      required: [user_id]
-      properties:
-        user_id:
-          type: string
-
-    AuditEntry:
-      type: object
-      required: [id, action, actor_id, created_at]
+      title: OverflowRequestBody
+    OverflowResponse:
       properties:
         id:
           type: string
           format: uuid
-        action:
+          title: Id
+        team_id:
           type: string
-        actor_id:
+          format: uuid
+          title: Team Id
+        amount:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Amount
+        note:
           type: string
-        target_id:
-          type: string
-          nullable: true
-        detail:
-          type: string
-          nullable: true
+          title: Note
+        status:
+          $ref: '#/components/schemas/OverflowStatus'
         created_at:
           type: string
           format: date-time
-
+          title: Created At
+      type: object
+      required:
+        - id
+        - team_id
+        - note
+        - status
+        - created_at
+      title: OverflowResponse
+    AuditEntry:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        actor_user_id:
+          type: string
+          title: Actor User Id
+        action:
+          type: string
+          title: Action
+        target_type:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Target Type
+        target_id:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Target Id
+        extra:
+          anyOf:
+            - additionalProperties: true
+              type: object
+            - type: 'null'
+          title: Extra
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+        - id
+        - actor_user_id
+        - action
+        - created_at
+      title: AuditEntry
+    InvitePreview:
+      properties:
+        invite_id:
+          type: string
+          format: uuid
+          title: Invite Id
+        team_id:
+          type: string
+          format: uuid
+          title: Team Id
+        team_name:
+          type: string
+          title: Team Name
+        invited_by_name:
+          type: string
+          title: Invited By Name
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+      type: object
+      required:
+        - invite_id
+        - team_id
+        - team_name
+        - invited_by_name
+        - expires_at
+      title: InvitePreview
+    CreateChatShareRequest:
+      properties:
+        chatId:
+          type: string
+          format: uuid
+          title: Chatid
+        mode:
+          $ref: '#/components/schemas/ChatShareMode'
+          default: read_only
+        userId:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Userid
+        teamId:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Teamid
+      type: object
+      required:
+        - chatId
+      title: CreateChatShareRequest
+    ChatShareResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+        mode:
+          $ref: '#/components/schemas/ChatShareMode'
+        shared_by_user_id:
+          type: string
+          title: Shared By User Id
+        target_user_id:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Target User Id
+        target_team_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Target Team Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+        - id
+        - chat_id
+        - mode
+        - shared_by_user_id
+        - created_at
+      title: ChatShareResponse
+    SharedChatItem:
+      properties:
+        share_id:
+          type: string
+          format: uuid
+          title: Share Id
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+        chat_title:
+          type: string
+          title: Chat Title
+        mode:
+          $ref: '#/components/schemas/ChatShareMode'
+        shared_by:
+          $ref: '#/components/schemas/PersonResponse'
+        target_team_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Target Team Id
+        forked_chat_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Forked Chat Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+        - share_id
+        - chat_id
+        - chat_title
+        - mode
+        - shared_by
+        - created_at
+      title: SharedChatItem
+      description: One entry in the receiver's 'shared with me' list.
+    SharedChatView:
+      properties:
+        share_id:
+          type: string
+          format: uuid
+          title: Share Id
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+        chat_title:
+          type: string
+          title: Chat Title
+        mode:
+          $ref: '#/components/schemas/ChatShareMode'
+        messages:
+          items:
+            $ref: '#/components/schemas/SharedMessage'
+          type: array
+          title: Messages
+          default: []
+      type: object
+      required:
+        - share_id
+        - chat_id
+        - chat_title
+        - mode
+      title: SharedChatView
+      description: The live view a recipient sees — the sharer's chat, read in place.
+    ForkResponse:
+      properties:
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+        chat_title:
+          type: string
+          title: Chat Title
+      type: object
+      required:
+        - chat_id
+        - chat_title
+      title: ForkResponse
+    OrganizationRole:
+      type: string
+      enum:
+        - owner
+        - admin
+        - member
+      title: OrganizationRole
+      description: |-
+        A user's org-wide standing. `owner` bought the org — full control
+        including billing/card changes; exactly one per org. `admin` has every
+        owner power except payment changes. `member` is the baseline: their actual
+        access comes from TeamEditor / ProjectMember grant rows.
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError
+    TeamBurn:
+      properties:
+        team_id:
+          type: string
+          format: uuid
+          title: Team Id
+        team_name:
+          type: string
+          title: Team Name
+        credits_used:
+          type: number
+          title: Credits Used
+      type: object
+      required:
+        - team_id
+        - team_name
+        - credits_used
+      title: TeamBurn
+    InviteStatus:
+      type: string
+      enum:
+        - active
+        - pending
+      title: InviteStatus
+    ConnectorRequestStatus:
+      type: string
+      enum:
+        - pending
+        - approved
+        - denied
+      title: ConnectorRequestStatus
+    ToolEntry:
+      properties:
+        slug:
+          type: string
+          title: Slug
+        policy:
+          type: string
+          enum:
+            - allow
+            - block
+            - ask
+            - allow_once
+          title: Policy
+          default: ask
+      type: object
+      required:
+        - slug
+      title: ToolEntry
+    ApiKeyField:
+      properties:
+        name:
+          type: string
+          title: Name
+        label:
+          type: string
+          title: Label
+        help:
+          type: string
+          title: Help
+          default: ''
+        secret:
+          type: boolean
+          title: Secret
+          default: false
+        required:
+          type: boolean
+          title: Required
+          default: true
+      type: object
+      required:
+        - name
+        - label
+      title: ApiKeyField
+      description: |-
+        One credential input the FE renders for an api_key connector. Mirrors
+        Composio's connected-account initiation field metadata.
+    OverflowStatus:
+      type: string
+      enum:
+        - open
+        - resolved
+      title: OverflowStatus
+    ChatShareMode:
+      type: string
+      enum:
+        - read_only
+        - editable
+      title: ChatShareMode
+    SharedMessage:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        input:
+          type: string
+          title: Input
+        output:
+          type: string
+          title: Output
+        reasoning:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Reasoning
+        model_name:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Model Name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+        - id
+        - input
+        - output
+        - created_at
+      title: SharedMessage
   securitySchemes:
     HTTPBearer:
       type: http

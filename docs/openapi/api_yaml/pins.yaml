@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: FastAPI - Pins
+  title: FastAPI - pins
   version: 0.1.0
 paths:
   /pins:
@@ -387,113 +387,6 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
-    CommentCreate:
-      properties:
-        comment_text:
-          type: string
-          minLength: 1
-          title: Comment Text
-      type: object
-      required:
-        - comment_text
-      title: CommentCreate
-    CommentResponse:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        comment_text:
-          type: string
-          title: Comment Text
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-      type: object
-      required:
-        - id
-        - comment_text
-        - created_at
-        - updated_at
-      title: CommentResponse
-    CommentUpdate:
-      properties:
-        comment_text:
-          type: string
-          minLength: 1
-          title: Comment Text
-      type: object
-      required:
-        - comment_text
-      title: CommentUpdate
-    CreateFolder:
-      properties:
-        folder_name:
-          type: string
-          maxLength: 255
-          title: Folder Name
-      type: object
-      required:
-        - folder_name
-      title: CreateFolder
-    FolderResponse:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        folder_name:
-          type: string
-          title: Folder Name
-        pin_count:
-          type: integer
-          title: Pin Count
-          default: 0
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-      type: object
-      required:
-        - id
-        - folder_name
-        - created_at
-      title: FolderResponse
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
-    MovePin:
-      properties:
-        folder_id:
-          type: string
-          format: uuid
-          title: Folder Id
-      type: object
-      required:
-        - folder_id
-      title: MovePin
-    PinCategory:
-      type: string
-      enum:
-        - Code
-        - Research
-        - Creative
-        - Planning
-        - Tasks
-        - Quote
-        - Workflow
-      title: PinCategory
     PinResponse:
       properties:
         id:
@@ -547,6 +440,48 @@ components:
         - content
         - created_at
       title: PinResponse
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    FolderResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        folder_name:
+          type: string
+          title: Folder Name
+        pin_count:
+          type: integer
+          title: Pin Count
+          default: 0
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+        - id
+        - folder_name
+        - created_at
+      title: FolderResponse
+    CreateFolder:
+      properties:
+        folder_name:
+          type: string
+          maxLength: 255
+          title: Folder Name
+      type: object
+      required:
+        - folder_name
+      title: CreateFolder
     RenameFolder:
       properties:
         folder_name:
@@ -558,6 +493,16 @@ components:
       required:
         - folder_name
       title: RenameFolder
+    MovePin:
+      properties:
+        folder_id:
+          type: string
+          format: uuid
+          title: Folder Id
+      type: object
+      required:
+        - folder_id
+      title: MovePin
     ReplaceTags:
       properties:
         tags:
@@ -567,6 +512,61 @@ components:
           title: Tags
       type: object
       title: ReplaceTags
+    CommentCreate:
+      properties:
+        comment_text:
+          type: string
+          minLength: 1
+          title: Comment Text
+      type: object
+      required:
+        - comment_text
+      title: CommentCreate
+    CommentResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        comment_text:
+          type: string
+          title: Comment Text
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+        - id
+        - comment_text
+        - created_at
+        - updated_at
+      title: CommentResponse
+    CommentUpdate:
+      properties:
+        comment_text:
+          type: string
+          minLength: 1
+          title: Comment Text
+      type: object
+      required:
+        - comment_text
+      title: CommentUpdate
+    PinCategory:
+      type: string
+      enum:
+        - Code
+        - Research
+        - Creative
+        - Planning
+        - Tasks
+        - Quote
+        - Workflow
+      title: PinCategory
     TagResponse:
       properties:
         id:

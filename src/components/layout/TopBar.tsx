@@ -32,15 +32,42 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
   const pathname = usePathname();
   const router   = useRouter();
 
+  // Track the real browser pathname — may differ from Next.js pathname when
+  // window.history.replaceState is used (e.g. project chat new→real chatId).
+  const [actualPathname,   setActualPathname]   = useState(pathname);
+  // Track the AI-generated chat title directly via event, independent of
+  // the projects-context getChats lookup (which can be reset by loadProjectChats).
+  const [dynamicChatTitle, setDynamicChatTitle] = useState<string | null>(null);
+  useEffect(() => {
+    setActualPathname(window.location.pathname);
+    const urlHandler = () => {
+      setActualPathname(window.location.pathname);
+      setDynamicChatTitle(null); // reset when a new chat is created
+    };
+    const titleHandler = (e: Event) => {
+      setDynamicChatTitle((e as CustomEvent<{ title: string }>).detail.title);
+    };
+    window.addEventListener('chat-url-updated',            urlHandler);
+    window.addEventListener('project:chat-title-updated',  titleHandler);
+    return () => {
+      window.removeEventListener('chat-url-updated',            urlHandler);
+      window.removeEventListener('project:chat-title-updated',  titleHandler);
+    };
+  }, []);
+  useEffect(() => {
+    setActualPathname(pathname);
+    setDynamicChatTitle(null); // reset on real Next.js navigation
+  }, [pathname]);
+
   // Detect page type from pathname
-  const projectChatMatch    = pathname.match(/^\/project\/([^/]+)\/chat\/([^/]+)$/);
+  const projectChatMatch    = actualPathname.match(/^\/project\/([^/]+)\/chat\/([^/]+)$/);
   const isProjectChatPage   = !!projectChatMatch;
-  const isProjectDetailPage = pathname.startsWith('/project') && !isProjectChatPage;
-  const isChatsPage         = pathname === '/chats';
-  const personaChatMatch      = pathname.match(/^\/agents\/([^/]+)\/chat/);
+  const isProjectDetailPage = actualPathname.startsWith('/project') && !isProjectChatPage;
+  const isChatsPage         = actualPathname === '/chats';
+  const personaChatMatch      = actualPathname.match(/^\/agents\/([^/]+)\/chat/);
   const isPersonaChatPage     = !!personaChatMatch;
   const personaId             = personaChatMatch?.[1] ?? null;
-  const isPersonaConfigurePage = pathname.startsWith('/agent/configure');
+  const isPersonaConfigurePage = actualPathname.startsWith('/agent/configure');
 
   // Fetch persona data + resolve full model object for the top-bar tag on persona chat pages
   const [persona,      setPersona]      = useState<Persona | null>(null);
@@ -166,34 +193,42 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
               >
                 {getProject(projectChatMatch[1])?.name ?? ""}
               </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-body)",
-                  fontWeight: "var(--font-weight-medium)",
-                  fontSize:   "var(--font-size-body)",
-                  lineHeight: "var(--line-height-body)",
-                  color:      "var(--neutral-400)",
-                  flexShrink: 0,
-                }}
-              >
-                ·
-              </span>
-              <span
-                style={{
-                  fontFamily:   "var(--font-body)",
-                  fontWeight:   "var(--font-weight-medium)",
-                  fontSize:     "var(--font-size-body)",
-                  lineHeight:   "var(--line-height-body)",
-                  color:        "var(--button-outline-text)",
-                  whiteSpace:   "nowrap",
-                  overflow:     "hidden",
-                  textOverflow: "ellipsis",
-                  flexShrink:   1,
-                  minWidth:     0,
-                }}
-              >
-                {getChats(projectChatMatch[1]).find(c => c.id === projectChatMatch[2])?.title ?? ""}
-              </span>
+              {(() => {
+                const chatName = dynamicChatTitle ?? getChats(projectChatMatch[1]).find(c => c.id === projectChatMatch[2])?.title ?? "";
+                if (!chatName) return null;
+                return (
+                  <>
+                    <span
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        fontWeight: "var(--font-weight-medium)",
+                        fontSize:   "var(--font-size-body)",
+                        lineHeight: "var(--line-height-body)",
+                        color:      "var(--neutral-400)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      ·
+                    </span>
+                    <span
+                      style={{
+                        fontFamily:   "var(--font-body)",
+                        fontWeight:   "var(--font-weight-medium)",
+                        fontSize:     "var(--font-size-body)",
+                        lineHeight:   "var(--line-height-body)",
+                        color:        "var(--button-outline-text)",
+                        whiteSpace:   "nowrap",
+                        overflow:     "hidden",
+                        textOverflow: "ellipsis",
+                        flexShrink:   1,
+                        minWidth:     0,
+                      }}
+                    >
+                      {chatName}
+                    </span>
+                  </>
+                );
+              })()}
             </span>
           </div>
         </>
