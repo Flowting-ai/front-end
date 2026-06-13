@@ -87,9 +87,10 @@ interface PersonaConfigureContextValue {
   registerAutoSave: (fn: (() => Promise<void>) | null) => void
 
   // Publication state — single source of truth, derived from the backend's
-  // active_version_id (NOT client storage) so every tab agrees on Live vs
+  // published_version_id (NOT client storage) so every tab agrees on Live vs
   // Unpublished and never shows a spurious "not published" warning.
   activeVersionId: string | null
+  publishedVersionId: string | null
   /** Re-read the backend's active version id for the current repo. */
   refreshActiveVersion: () => void
   /** Optimistically mark a version as live after a successful publish, and
@@ -586,18 +587,20 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   const [versions,          setVersions]          = useState<PersonaVersionListItem[]>([])
   const [versionsLoading,   setVersionsLoading]   = useState(false)
 
-  // Panels unlock when the user explicitly saves a version in configure.
-  // We can't rely on versions.length because the wizard backend auto-creates an initial
-  // version, so versions is never empty for new agents. Instead we track unlock state
-  // via a localStorage flag that is absent for new (wizard-created) agents until they
-  // explicitly hit Save version.
+  // Panels unlock when the backend says the persona is published, or after the
+  // user explicitly saves a version in configure.
   const [panelsUnlocked, setPanelsUnlocked] = useState(false)
   useEffect(() => {
     const repoId = personaInfo.repoId
-    if (!repoId) { setPanelsUnlocked(false); return }
-    const isNewAgent = typeof window !== 'undefined' && localStorage.getItem(`persona_needs_publish_${repoId}`) === '1'
+    if (!repoId) return
     const savedInConfigure = typeof window !== 'undefined' && localStorage.getItem(`persona_configure_saved_${repoId}`) === '1'
-    setPanelsUnlocked(!isNewAgent || savedInConfigure)
+    let cancelled = false
+    getPersonaRepo(repoId)
+      .then(repo => {
+        if (!cancelled) setPanelsUnlocked(savedInConfigure || !!repo.published_version_id)
+      })
+      .catch(() => { if (!cancelled) setPanelsUnlocked(savedInConfigure) })
+    return () => { cancelled = true }
   }, [personaInfo.repoId])
 
   const panelsLocked = !panelsUnlocked
@@ -618,18 +621,20 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   }, [personaInfo.repoId])
 
   // ── Publication state (backend source of truth) ─────────────────────────────
-  // The agent is "published" iff the backend's active_version_id matches the
-  // version being edited. Reading this from the backend (rather than the old
-  // sessionStorage `persona_live_version_*` cache) means opening an
-  // already-published agent shows "Live" immediately — no spurious
-  // "not published yet" dialog or stale "Unpublished" chip.
+  // activeVersionId is the working/configure pointer. publishedVersionId is the
+  // live pointer used for chips, publish guards, library/chat behavior, and
+  // reload-safe first-publish state.
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null)
+  const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
 
   const refreshActiveVersion = useCallback(() => {
     const repoId = infoRef.current.repoId
     if (!repoId) return
     getPersonaRepo(repoId)
-      .then(repo => setActiveVersionId(repo.active_version_id ?? null))
+      .then(repo => {
+        setActiveVersionId(repo.active_version_id ?? null)
+        setPublishedVersionId(repo.published_version_id ?? null)
+      })
       .catch(() => {})
   }, [])
 
@@ -640,24 +645,19 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     if (!repoId) return
     let cancelled = false
     getPersonaRepo(repoId)
-      .then(repo => { if (!cancelled) setActiveVersionId(repo.active_version_id ?? null) })
+      .then(repo => {
+        if (!cancelled) {
+          setActiveVersionId(repo.active_version_id ?? null)
+          setPublishedVersionId(repo.published_version_id ?? null)
+        }
+      })
       .catch(() => {})
     return () => { cancelled = true }
   }, [personaInfo.repoId])
 
-  // The backend auto-activates the first version when an agent is created via the
-  // wizard, so active_version_id is set from day 1. Suppress "Live" until the user
-  // explicitly clicks Publish by checking the localStorage flag the wizard writes.
-  const [needsFirstPublish, setNeedsFirstPublish] = useState(false)
-  useEffect(() => {
-    const repoId = personaInfo.repoId
-    if (!repoId) { setNeedsFirstPublish(false); return }
-    setNeedsFirstPublish(typeof window !== 'undefined' && localStorage.getItem(`persona_needs_publish_${repoId}`) === '1')
-  }, [personaInfo.repoId])
-
   const markPublished = useCallback((versionId: string) => {
     setActiveVersionId(versionId)
-    setNeedsFirstPublish(false)
+    setPublishedVersionId(versionId)
     setPanelsUnlocked(true)
     bustPersonasCache()
   }, [])
@@ -738,13 +738,10 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     setRestoringId(targetId)
     try {
       const full = await getVersion(repoId, targetId)
-      // Make the restored version the repo's active version on the backend so
-      // it is what the library card and chats actually use.
+      // Make the restored version the repo's working version on the backend.
       await setActiveVersion(repoId, targetId)
-      if (typeof window !== 'undefined') {
-        try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
-      }
-      markPublished(targetId)
+      setActiveVersionId(targetId)
+      bustPersonasCache()
       // Update URL without navigating — use router.replace so useSearchParams updates in tabs
       const params = new URLSearchParams(window.location.search)
       params.set('versionId', targetId)
@@ -760,10 +757,10 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
       // Delegate page-specific side effects (editor update, model switch, etc.)
       if (versionRestoreCallbackRef.current) {
         versionRestoreCallbackRef.current(full)
-        toast.success('Version restored — it is now the active version')
+        toast.success('Version restored — it is now the working version')
       } else {
         // Not on Instructions tab — navigate there so the editor picks up the restore
-        toast.success('Version restored — it is now the active version')
+        toast.success('Version restored — it is now the working version')
         push(`/agent/configure/instructions?repoId=${repoId}&versionId=${targetId}`)
       }
     } catch {
@@ -772,7 +769,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
       restoringRef.current = false
       setRestoringId(null)
     }
-  }, [push, replace, updatePersonaInfo, markPublished])
+  }, [push, replace, updatePersonaInfo])
 
   // ── Context value ───────────────────────────────────────────────────────────
 
@@ -792,7 +789,8 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
 
     registerAutoSave,
 
-    activeVersionId: needsFirstPublish ? null : activeVersionId,
+    activeVersionId,
+    publishedVersionId,
     refreshActiveVersion,
     markPublished,
 

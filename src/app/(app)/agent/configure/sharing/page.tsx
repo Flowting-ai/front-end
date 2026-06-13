@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { updateVersion, setActiveVersion, bustPersonasCache } from '@/lib/api/personas'
+import { updateVersion, publishPersonaVersion, bustPersonasCache } from '@/lib/api/personas'
 import {
   ArrowLeftOneIcon,
   QuillWriteOneIcon,
@@ -15,10 +15,6 @@ import SharingTab from '@/app/(app)/agent/configure/components/SharingTab'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
 import { derivePublicationState } from '@/lib/persona-version-logic'
-
-function publishedVersionKey(repoId: string) {
-  return `persona_live_version_${repoId}`
-}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -46,7 +42,7 @@ function PersonaConfigureSharingContent() {
   const [isSaving,           setIsSaving]           = useState(false)
   const [isPublishing,       setIsPublishing]       = useState(false)
 
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen, activeVersionId, markPublished } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen, publishedVersionId, markPublished } = usePersonaConfigure()
 
   useEffect(() => {
     if (!repoId) return
@@ -55,7 +51,7 @@ function PersonaConfigureSharingContent() {
 
   async function handlePublish() {
     if (!repoId || !versionId) return
-    const wasPublished = !!activeVersionId
+    const wasPublished = !!publishedVersionId
     setIsPublishing(true)
     try {
       // Sharing actions (links, invites) are saved immediately to the API — no dirty data to flush.
@@ -65,12 +61,10 @@ function PersonaConfigureSharingContent() {
         setVersionTags(versionId, pendingChangeTags)
         setPendingChangeTags([])
       }
-      await setActiveVersion(repoId, versionId)
+      await publishPersonaVersion(repoId, versionId)
       bustPersonasCache()
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem(publishedVersionKey(repoId), versionId)
         try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
-        try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
         try { sessionStorage.removeItem(`persona_initial_version_${repoId}`) } catch { /* ignore */ }
       }
       markPublished(versionId)
@@ -111,7 +105,7 @@ function PersonaConfigureSharingContent() {
   const { isPublished, needsRepublish } = derivePublicationState({
     repoId,
     versionId,
-    activeVersionId,
+    publishedVersionId,
     hasUnsavedChanges: pendingChangeTags.length > 0,
   })
 
@@ -261,41 +255,43 @@ function PersonaConfigureSharingContent() {
               paddingBottom: 32,
             }}
           >
-            <SharingTab repoId={repoId || undefined} versionId={versionId || undefined} />
+            <SharingTab
+              key={versionId || 'unsaved'}
+              repoId={repoId || undefined}
+              versionId={versionId || undefined}
+            />
           </div>
         </div>
 
         {/* ── Bottom navigation ────────────────────────────────────────────────── */}
         <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '12px 16px 4px', borderTop: '1px solid var(--neutral-100)' }}>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span data-help-id="help-save-version" style={{ display: 'inline-flex', alignItems: 'center' }}>
-              <Button
-                variant="outline"
-                size="sm"
-                leftIcon={<QuillWriteOneIcon size={16} />}
-                onClick={handleSaveVersion}
-                disabled={!repoId || isSaving || (pendingChangeTags.length === 0 && !!versionId)}
-                loading={isSaving}
-              >
-                {isSaving ? 'Saving…' : 'Save version'}
-              </Button>
-            </span>
+            {publishedVersionId != null && (
+              <span data-help-id="help-save-version" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<QuillWriteOneIcon size={16} />}
+                  onClick={handleSaveVersion}
+                  disabled={!repoId || isSaving || (pendingChangeTags.length === 0 && !!versionId)}
+                  loading={isSaving}
+                >
+                  {isSaving ? 'Saving…' : 'Save version'}
+                </Button>
+              </span>
+            )}
             <span data-help-id="help-publish" style={{ display: 'inline-flex', alignItems: 'center' }}>
               <Button
                 variant="default"
                 size="sm"
                 rightIcon={<ArrowUpRightOneIcon size={16} />}
-                onClick={() => {
-                  if (pendingChangeTags.length > 0) {
-                    toast.error('Save a version first before publishing.')
-                    return
-                  }
-                  void handlePublish()
-                }}
+                onClick={() => void handlePublish()}
                 disabled={!repoId || !versionId || isPublishing}
                 loading={isPublishing}
               >
-                {isPublishing ? 'Publishing…' : 'Publish'}
+                {isPublishing
+                  ? (publishedVersionId != null ? 'Republishing…' : 'Publishing…')
+                  : (publishedVersionId != null ? 'Republish' : 'Publish')}
               </Button>
             </span>
           </div>

@@ -11,6 +11,8 @@ import {
   AtomOneIcon,
   PlusSignIcon,
   CancelOneIcon,
+  QuillWriteOneIcon,
+  ArrowUpRightOneIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
@@ -24,13 +26,13 @@ import {
   getPersonaRepo,
   getVersion,
   setActiveVersion,
+  publishPersonaVersion,
   updateVersion,
   listVersions,
   inheritKnowledge,
   bustPersonasCache,
 } from '@/lib/api/personas'
 import {
-  resolveSaveMode,
   derivePublicationState,
   pickVersionToEdit,
 } from '@/lib/persona-version-logic'
@@ -451,10 +453,6 @@ function matchModel(
 
 // ── Session-storage keys ─────────────────────────────────────────────────────
 
-function publishedVersionKey(repoId: string) {
-  return `persona_live_version_${repoId}`
-}
-
 function instructionsDraftKey(repoId: string) {
   return `persona_instructions_draft_${repoId}`
 }
@@ -464,10 +462,6 @@ function instructionsDraftKey(repoId: string) {
 // creating a duplicate v002. The marker is consumed on that first save.
 function initialVersionKey(repoId: string) {
   return `persona_initial_version_${repoId}`
-}
-function readInitialVersionId(repoId: string): string | null {
-  if (!repoId || typeof window === 'undefined') return null
-  try { return sessionStorage.getItem(initialVersionKey(repoId)) } catch { return null }
 }
 function clearInitialVersionId(repoId: string): void {
   if (!repoId || typeof window === 'undefined') return
@@ -546,16 +540,15 @@ function PersonaConfigureInstructionsContent() {
   const [isSaving,      setIsSaving]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
 
-  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag, setPendingChangeTags, refreshVersions, versions, setNeedsRepublish, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setOnPublishAndLeave, registerAutoSave, setVersionsOpen, activeVersionId, markPublished } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag, setPendingChangeTags, refreshVersions, versions, setNeedsRepublish, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setOnPublishAndLeave, registerAutoSave, setVersionsOpen, publishedVersionId, markPublished } = usePersonaConfigure()
 
   const [exampleConvOpen, setExampleConvOpen] = useState(false)
   const [exampleConvExpanded, setExampleConvExpanded] = useState(false)
   const [exampleConversations, setExampleConversations] = useState<Array<{ id: string; userSays: string; personaReplies: string }>>([])
   const [republishModalOpen, setRepublishModalOpen] = useState(false)
 
-  // Publication state comes from the backend via context (activeVersionId) —
+  // Publication state comes from the backend via context (publishedVersionId) —
   // never from client-only storage — so it's correct on first open.
-  const publishedVersionId = activeVersionId
   const hasInitialisedRef  = useRef(false)
   const savedSnapshotRef   = useRef<{ instruction: string; modelId: string; temperature: number } | null>(null)
   const hasDraftLoadedRef  = useRef(false)
@@ -572,22 +565,27 @@ function PersonaConfigureInstructionsContent() {
     hasInitialisedRef.current = true
     setIsInitialising(true)
     try {
-      // Fetch all available models with proper normalization
+      // Start the models fetch but DON'T await it yet — it's independent of the
+      // persona fetches below. Awaiting it up-front created a network waterfall
+      // (models → persona) of two sequential round-trips. Instead each branch
+      // awaits it together with its persona calls so the round-trips overlap.
+      const modelsPromise = fetchModelsWithCache().catch(() => [] as AIModel[])
       let fetchedModels: AIModel[] = []
-      try {
-        fetchedModels = await fetchModelsWithCache()
-      } catch {
-        // proceed without model list
+      let firstModel: AIModel | null = null
+      const applyModels = (models: AIModel[]) => {
+        fetchedModels = models
+        setAllModels(models)
+        firstModel = models[0] ?? null
       }
-      setAllModels(fetchedModels)
-      const firstModel = fetchedModels[0] ?? null
 
       if (repoIdParam && versionIdParam) {
         // ── Edit existing persona ─────────────────────────────────────────────
-        const [repo, version] = await Promise.all([
+        const [models, repo, version] = await Promise.all([
+          modelsPromise,
           getPersonaRepo(repoIdParam),
           getVersion(repoIdParam, versionIdParam),
         ])
+        applyModels(models)
         const prompt = version.prompt ?? ''
         setPersonaName(repo.name)
         resetInstructionHistory(prompt)
@@ -629,16 +627,18 @@ function PersonaConfigureInstructionsContent() {
         // Prefer the PUBLISHED (active) version so the user edits what is live and
         // the status reads "Live" — falling back to the most-recent version only
         // when nothing has been published yet.
-        const [repo, versionList] = await Promise.all([
+        const [models, repo, versionList] = await Promise.all([
+          modelsPromise,
           getPersonaRepo(repoIdParam),
           listVersions(repoIdParam),
         ])
+        applyModels(models)
         setPersonaName(repo.name)
         const sorted = versionList.slice().sort(
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         )
         const targetVersionId = pickVersionToEdit({
-          activeVersionId: repo.active_version_id ?? null,
+          publishedVersionId: repo.published_version_id ?? null,
           versionsByRecency: sorted.map(v => v.id),
         })
         const latestItem = targetVersionId
@@ -803,72 +803,50 @@ function PersonaConfigureInstructionsContent() {
         preserveImageUrl = avatarDataUrl ?? imageUrl
       }
 
-      // Decide whether to update the wizard-created v001 in place (first save of
-      // a never-published draft) or fork a brand-new version (every save after).
-      const mode = resolveSaveMode({
-        currentVersionId: versionId,
-        initialVersionId: readInitialVersionId(repoId),
-        activeVersionId,
+      // Save always forks a brand-new version and points the editor at it — it
+      // never overwrites the version currently loaded. (Only Publish updates a
+      // version in place; see handlePublish.)
+      const sourceVersionId = versionId
+      let sourceDescription: string | null = null
+      try {
+        sourceDescription = (await getVersion(repoId, sourceVersionId)).description ?? null
+      } catch { /* non-fatal — a missing description should not block saving */ }
+      const version = await createVersion({
+        repoId,
+        name:        personaName,
+        modelId,
+        prompt:      instruction,
+        description: sourceDescription,
+        temperature,
+        image:       imageFile,
+        imageUrl:    preserveImageUrl,
       })
-
-      let savedVersionId = versionId
-      if (mode === 'update-in-place') {
-        // Keep the same version (stays v001) — no duplicate version created.
-        const updated = await updateVersion({
-          repoId,
-          versionId,
-          name:        personaName,
-          modelId,
-          prompt:      instruction,
-          temperature,
-          image:       imageFile ?? undefined,
-          imageUrl:    preserveImageUrl,
-        })
-        if (updated.image_url) setImageUrl(updated.image_url)
-        setBackendModelId(updated.model_id ?? modelId)
-        // Consume the marker so the NEXT save forks a new version.
-        clearInitialVersionId(repoId)
-      } else {
-        const sourceVersionId = versionId
-        const version = await createVersion({
-          repoId,
-          name:        personaName,
-          modelId,
-          prompt:      instruction,
-          temperature,
-          image:       imageFile,
-          imageUrl:    preserveImageUrl,
-        })
-        savedVersionId = version.id
-        if (version.image_url) setImageUrl(version.image_url)
-        setBackendModelId(version.model_id ?? modelId)
-        setVersionId(version.id)
-        updatePersonaInfo({ versionId: version.id })
-        const params = new URLSearchParams(searchParams.toString())
-        params.set('versionId', version.id)
-        replace(`?${params.toString()}`)
-        // New versions inherit the prior version's knowledge files so nothing
-        // disappears across versions. Best-effort — warn if any couldn't carry.
-        try {
-          const carried = await inheritKnowledge(repoId, sourceVersionId, version.id)
-          if (carried.documentsFailed > 0) {
-            toast.warning(`${carried.documentsFailed} knowledge file(s) couldn't be carried over — re-add them on the Knowledge tab.`)
-          }
-        } catch { /* non-fatal */ }
-      }
+      const savedVersionId = version.id
+      if (version.image_url) setImageUrl(version.image_url)
+      setBackendModelId(version.model_id ?? modelId)
+      setVersionId(version.id)
+      updatePersonaInfo({ versionId: version.id })
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('versionId', version.id)
+      replace(`?${params.toString()}`)
+      // New versions inherit the prior version's knowledge files so nothing
+      // disappears across versions. Best-effort — warn if any couldn't carry.
+      try {
+        const carried = await inheritKnowledge(repoId, sourceVersionId, version.id)
+        if (carried.documentsFailed > 0) {
+          toast.warning(`${carried.documentsFailed} knowledge file(s) couldn't be carried over — re-add them on the Knowledge tab.`)
+        }
+      } catch { /* non-fatal */ }
 
       // Saving makes the saved version the repo's active version so the test
-      // chat, library card, and versions panel all point at what was just saved.
+      // chat and versions panel point at what was just saved. It does not publish.
       try {
         await setActiveVersion(repoId, savedVersionId)
         if (typeof window !== 'undefined') {
-          try { sessionStorage.setItem(publishedVersionKey(repoId), savedVersionId) } catch { /* ignore */ }
           try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
-          try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
         }
-        markPublished(savedVersionId)
       } catch {
-        toast.warning('Version saved but could not be made active — click Publish to retry.')
+        toast.warning('Version saved but could not be selected as the working version.')
       }
 
       savedSnapshotRef.current = { instruction, modelId, temperature }
@@ -900,45 +878,12 @@ function PersonaConfigureInstructionsContent() {
       return
     }
     if (!isDirty) return
-    const mode = resolveSaveMode({
-      currentVersionId: versionId,
-      initialVersionId: readInitialVersionId(repoId),
-      activeVersionId,
-    })
-    // The version limit only applies when a NEW version would be created;
-    // updating the provisional initial draft in place adds nothing.
-    if (mode === 'create-new' && versions.length >= MAX_VERSIONS) {
+    // Every save forks a new version, so the version limit always applies.
+    if (versions.length >= MAX_VERSIONS) {
       toast.error('Max version limit reached (5). Please delete an older version first.')
       return
     }
     void executeSave()
-  }
-
-  async function handleContinue() {
-    if (!selectedModel) {
-      toast.error('Please select a model before continuing.')
-      return
-    }
-    if (!hasContent) {
-      toast.error('Please add system instructions before continuing.')
-      return
-    }
-    if (isDirty) {
-      const mode = resolveSaveMode({
-        currentVersionId: versionId,
-        initialVersionId: readInitialVersionId(repoId),
-        activeVersionId,
-      })
-      if (mode === 'create-new' && versions.length >= MAX_VERSIONS) {
-        toast.error('Max version limit reached (5). Please delete an older version first.')
-        return
-      }
-      const savedVersionId = await executeSave(false)
-      if (!savedVersionId) return
-      navigateTab('Profile', savedVersionId)
-      return
-    }
-    navigateTab('Profile')
   }
 
   // ── Publish ───────────────────────────────────────────────────────────────────
@@ -980,15 +925,13 @@ function PersonaConfigureInstructionsContent() {
       }
 
       // Make the version live — this is what creates/updates the persona card in the library.
-      await setActiveVersion(repoId, versionId)
+      await publishPersonaVersion(repoId, versionId)
       bustPersonasCache()
       refreshVersions()
 
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem(publishedVersionKey(repoId), versionId)
         // Clear wizard-session markers now that the persona has been explicitly published.
         try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
-        try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
         // A published version is locked in — editing it later should fork a new
         // version, so the provisional-initial marker must no longer apply.
         clearInitialVersionId(repoId)
@@ -1063,13 +1006,13 @@ function PersonaConfigureInstructionsContent() {
   const pub = derivePublicationState({
     repoId,
     versionId,
-    activeVersionId,
+    publishedVersionId,
     hasUnsavedChanges: (!isInitialising && isDirty) || pendingChangeTags.length > 0,
   })
   const isPublished    = pub.isPublished
-  const needsRepublish = pub.needsRepublish && (hasContent || !!activeVersionId)
+  const needsRepublish = pub.needsRepublish && (hasContent || !!publishedVersionId)
 
-  const canPublish = hasContent && !!repoId && !!versionId && !!selectedModel && !isPublishing && !isPublished && pendingChangeTags.length === 0
+  const canPublish = hasContent && !!repoId && !!versionId && !!selectedModel && !isPublishing && !isPublished
   const canSave    = pendingChangeTags.length > 0 && hasContent && !!repoId && !!selectedModel && !isSaving
 
   // Sync needsRepublish to shared context so the leave-guard works on all 5 tabs.
@@ -1165,12 +1108,7 @@ function PersonaConfigureInstructionsContent() {
       toast.error('Please add system instructions before switching tabs.')
       return
     }
-    const mode = resolveSaveMode({
-      currentVersionId: versionId,
-      initialVersionId: readInitialVersionId(repoId),
-      activeVersionId,
-    })
-    if (mode === 'create-new' && versions.length >= MAX_VERSIONS) {
+    if (versions.length >= MAX_VERSIONS) {
       toast.error('Max version limit reached (5). Please delete an older version first.')
       return
     }
@@ -1523,15 +1461,32 @@ function PersonaConfigureInstructionsContent() {
 
         {/* ── Bottom navigation ────────────────────────────────────────────────── */}
         <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', padding: '12px 16px 4px', borderTop: '1px solid var(--neutral-100)' }}>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => void handleContinue()}
-            loading={isSaving}
-            disabled={isSaving || isInitialising}
-          >
-            Continue
-          </Button>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {publishedVersionId != null && (
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<QuillWriteOneIcon size={16} />}
+                onClick={handleSaveVersion}
+                loading={isSaving}
+                disabled={!canSave || isInitialising}
+              >
+                {isSaving ? 'Saving…' : 'Save version'}
+              </Button>
+            )}
+            <Button
+              variant="default"
+              size="sm"
+              rightIcon={<ArrowUpRightOneIcon size={16} />}
+              onClick={() => void handlePublish()}
+              loading={isPublishing}
+              disabled={!canPublish || isInitialising}
+            >
+              {isPublishing
+                ? (publishedVersionId != null ? 'Republishing…' : 'Publishing…')
+                : (publishedVersionId != null ? 'Republish' : 'Publish')}
+            </Button>
+          </div>
         </div>
 
       </div>

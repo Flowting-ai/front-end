@@ -294,9 +294,10 @@ function TonePageContent() {
 
       // Create the repo + initial version
       const repo         = await createPersonaRepo({
-        name:    effectiveName,
-        modelId: chosenModelId,
-        prompt:  initialPrompt,
+        name:        effectiveName,
+        modelId:     chosenModelId,
+        prompt:      initialPrompt,
+        description: wizardPurpose,
       })
       const newRepoId    = repo.id
       const newVersionId = repo.active_version?.id ?? ''
@@ -307,8 +308,6 @@ function TonePageContent() {
       // The first explicit Save updates it in place (staying v001) instead of
       // minting a duplicate v002; this marker is consumed on that first save.
       try { if (newVersionId) sessionStorage.setItem(`persona_initial_version_${newRepoId}`, newVersionId) } catch { /* ignore */ }
-      // Mark unpublished until the user explicitly publishes
-      try { localStorage.setItem(`persona_needs_publish_${newRepoId}`, '1') } catch { /* ignore */ }
       // Model should never be pre-selected — the user must pick one explicitly
       // on the Instructions tab before they can save or publish.
       try { sessionStorage.setItem(`persona_wizard_no_model_${newRepoId}`, '1') } catch { /* ignore */ }

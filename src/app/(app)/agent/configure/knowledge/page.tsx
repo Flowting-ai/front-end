@@ -4,6 +4,8 @@ import React, { useState, Suspense, useEffect, useCallback, useRef } from 'react
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
+  QuillWriteOneIcon,
+  ArrowUpRightOneIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
@@ -14,7 +16,7 @@ import {
   updateVersion,
   uploadDocument,
   deleteDocument,
-  setActiveVersion,
+  publishPersonaVersion,
   bustPersonasCache,
   type PersonaVersionResponse,
 } from '@/lib/api/personas'
@@ -23,10 +25,6 @@ import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
 import { derivePublicationState } from '@/lib/persona-version-logic'
 import { parseServerDate } from '@/lib/utils/format-utils'
-
-function publishedVersionKey(repoId: string) {
-  return `persona_live_version_${repoId}`
-}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -108,7 +106,7 @@ function PersonaConfigureKnowledgeContent() {
   const versionId = searchParams.get('versionId') ?? ''
   const personaName = searchParams.get('name') ?? ''
 
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setKnowledgeFileCount, setVersionsOpen, activeVersionId, markPublished } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setKnowledgeFileCount, setVersionsOpen, publishedVersionId, markPublished } = usePersonaConfigure()
 
   const [isSaving,             setIsSaving]             = useState(false)
   const [isPublishing,         setIsPublishing]         = useState(false)
@@ -386,7 +384,7 @@ function PersonaConfigureKnowledgeContent() {
 
   async function handlePublish() {
     if (!repoId || !versionId) return
-    const wasPublished = !!activeVersionId
+    const wasPublished = !!publishedVersionId
     setIsPublishing(true)
     try {
       // Flush any unsaved knowledge changes (file uploads/deletes mark isDirty) into the
@@ -397,12 +395,10 @@ function PersonaConfigureKnowledgeContent() {
         setVersionTags(versionId, pendingChangeTags)
         setPendingChangeTags([])
       }
-      await setActiveVersion(repoId, versionId)
+      await publishPersonaVersion(repoId, versionId)
       bustPersonasCache()
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem(publishedVersionKey(repoId), versionId)
         try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
-        try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
         try { sessionStorage.removeItem(`persona_initial_version_${repoId}`) } catch { /* ignore */ }
       }
       markPublished(versionId)
@@ -425,14 +421,9 @@ function PersonaConfigureKnowledgeContent() {
   const { isPublished, needsRepublish } = derivePublicationState({
     repoId,
     versionId,
-    activeVersionId,
+    publishedVersionId,
     hasUnsavedChanges: isDirty || pendingChangeTags.length > 0,
   })
-
-  function handleContinue() {
-    const params = new URLSearchParams(searchParams.toString())
-    push(`/agent/configure/connectors?${params.toString()}`)
-  }
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
@@ -548,9 +539,32 @@ function PersonaConfigureKnowledgeContent() {
 
       {/* ── Bottom navigation ────────────────────────────────────────────────── */}
       <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '12px 16px 4px', borderTop: '1px solid var(--neutral-100)' }}>
-        <Button variant="default" size="sm" onClick={handleContinue}>
-          Continue
-        </Button>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {publishedVersionId != null && (
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<QuillWriteOneIcon size={16} />}
+              onClick={handleSaveVersion}
+              disabled={!repoId || !versionId || isSaving || pendingChangeTags.length === 0}
+              loading={isSaving}
+            >
+              {isSaving ? 'Saving…' : 'Save version'}
+            </Button>
+          )}
+          <Button
+            variant="default"
+            size="sm"
+            rightIcon={<ArrowUpRightOneIcon size={16} />}
+            onClick={() => void handlePublish()}
+            disabled={!repoId || !versionId || isPublishing}
+            loading={isPublishing}
+          >
+            {isPublishing
+              ? (publishedVersionId != null ? 'Republishing…' : 'Publishing…')
+              : (publishedVersionId != null ? 'Republish' : 'Publish')}
+          </Button>
+        </div>
       </div>
 
       {republishModalOpen && (

@@ -17,7 +17,7 @@ describe("resolveSaveMode — duplicate-version prevention (issue #2)", () => {
       resolveSaveMode({
         currentVersionId: "v001",
         initialVersionId: "v001",
-        activeVersionId: null,
+        publishedVersionId: null,
       }),
     ).toBe("update-in-place");
   });
@@ -29,7 +29,7 @@ describe("resolveSaveMode — duplicate-version prevention (issue #2)", () => {
       resolveSaveMode({
         currentVersionId: "v001",
         initialVersionId: null,
-        activeVersionId: null,
+        publishedVersionId: null,
       }),
     ).toBe("create-new");
   });
@@ -40,7 +40,7 @@ describe("resolveSaveMode — duplicate-version prevention (issue #2)", () => {
       resolveSaveMode({
         currentVersionId: "v001",
         initialVersionId: "v001",
-        activeVersionId: "v001",
+        publishedVersionId: "v001",
       }),
     ).toBe("create-new");
   });
@@ -50,7 +50,7 @@ describe("resolveSaveMode — duplicate-version prevention (issue #2)", () => {
       resolveSaveMode({
         currentVersionId: "v002",
         initialVersionId: "v001",
-        activeVersionId: null,
+        publishedVersionId: null,
       }),
     ).toBe("create-new");
   });
@@ -61,7 +61,7 @@ describe("derivePublicationState — publish status from backend truth (issues #
     const s = derivePublicationState({
       repoId: "r1",
       versionId: "v001",
-      activeVersionId: "v001",
+      publishedVersionId: "v001",
       hasUnsavedChanges: false,
     });
     expect(s.isPublished).toBe(true);
@@ -72,7 +72,7 @@ describe("derivePublicationState — publish status from backend truth (issues #
     const s = derivePublicationState({
       repoId: "r1",
       versionId: "v001",
-      activeVersionId: "v001",
+      publishedVersionId: "v001",
       hasUnsavedChanges: true,
     });
     expect(s.isPublished).toBe(false);
@@ -83,7 +83,7 @@ describe("derivePublicationState — publish status from backend truth (issues #
     const s = derivePublicationState({
       repoId: "r1",
       versionId: "v001",
-      activeVersionId: null,
+      publishedVersionId: null,
       hasUnsavedChanges: false,
     });
     expect(s.isPublished).toBe(false);
@@ -94,7 +94,7 @@ describe("derivePublicationState — publish status from backend truth (issues #
     const s = derivePublicationState({
       repoId: "r1",
       versionId: "v002",
-      activeVersionId: "v001",
+      publishedVersionId: "v001",
       hasUnsavedChanges: false,
     });
     expect(s.isPublished).toBe(false);
@@ -103,33 +103,33 @@ describe("derivePublicationState — publish status from backend truth (issues #
 
   it("never reports state without a real repo + version", () => {
     expect(
-      derivePublicationState({ repoId: "", versionId: "", activeVersionId: null, hasUnsavedChanges: false }),
+      derivePublicationState({ repoId: "", versionId: "", publishedVersionId: null, hasUnsavedChanges: false }),
     ).toEqual({ isPublished: false, needsRepublish: false });
   });
 });
 
 describe("pickVersionToEdit — Edit opens the published version (issue #3)", () => {
-  it("prefers the active (published) version over the most-recent draft", () => {
+  it("prefers the published version over the most-recent draft", () => {
     expect(
-      pickVersionToEdit({ activeVersionId: "v001", versionsByRecency: ["v002", "v001"] }),
+      pickVersionToEdit({ publishedVersionId: "v001", versionsByRecency: ["v002", "v001"] }),
     ).toBe("v001");
   });
 
   it("falls back to the most-recent version when nothing is published", () => {
     expect(
-      pickVersionToEdit({ activeVersionId: null, versionsByRecency: ["v002", "v001"] }),
+      pickVersionToEdit({ publishedVersionId: null, versionsByRecency: ["v002", "v001"] }),
     ).toBe("v002");
   });
 
-  it("falls back to the active id even if it isn't in the recency list", () => {
+  it("falls back to the published id even if it isn't in the recency list", () => {
     expect(
-      pickVersionToEdit({ activeVersionId: "v009", versionsByRecency: [] }),
+      pickVersionToEdit({ publishedVersionId: "v009", versionsByRecency: [] }),
     ).toBe("v009");
   });
 
   it("returns null when there is nothing to open", () => {
     expect(
-      pickVersionToEdit({ activeVersionId: null, versionsByRecency: [] }),
+      pickVersionToEdit({ publishedVersionId: null, versionsByRecency: [] }),
     ).toBeNull();
   });
 });

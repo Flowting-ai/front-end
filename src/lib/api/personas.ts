@@ -9,6 +9,7 @@ import {
   PERSONA_STARTER_ENDPOINT,
   PERSONA_PAUSE_ENDPOINT,
   PERSONA_ACTIVE_ENDPOINT,
+  PERSONA_PUBLISH_ENDPOINT,
   PERSONA_GUIDE_ENDPOINT,
   PERSONA_VERSIONS_ENDPOINT,
   PERSONA_VERSION_DETAIL_ENDPOINT,
@@ -53,6 +54,7 @@ export interface PersonaVersionResponse {
   name: string;
   handler: string;
   prompt: string;
+  description: string | null;
   is_active: boolean;
   model_id: string | null;
   image_url: string | null;
@@ -76,6 +78,10 @@ export interface PersonaRepoResponse {
   is_active: boolean;
   active_version_id: string | null;
   active_version: PersonaVersionResponse | null;
+  published_version_id: string | null;
+  published_version?: PersonaVersionResponse | null;
+  published_at: string | null;
+  is_published?: boolean;
   version_count: number;
   created_at: string;
   updated_at: string;
@@ -131,7 +137,11 @@ export interface Persona {
   isActive: boolean;
   isPaused: boolean;
   status: PersonaStatus;
+  /** Live/published version used for chat/library behavior. */
   activeVersionId: string | null;
+  /** Current working/configure version selected on the repo. */
+  workingVersionId: string | null;
+  publishedAt: string | null;
   versionCount: number;
   /** True when the active version has a non-empty system prompt. */
   hasSystemInstructions: boolean;
@@ -142,7 +152,8 @@ export interface Persona {
 }
 
 function normalizeRepo(repo: PersonaRepoResponse): Persona {
-  const v = repo.active_version;
+  const liveVersionId = repo.published_version_id ?? null;
+  const v = repo.published_version ?? repo.active_version;
   const handle = v?.handler
     ? `@${v.handler}`
     : `@${repo.name.toLowerCase().replace(/\s+/g, "_")}`;
@@ -150,25 +161,27 @@ function normalizeRepo(repo: PersonaRepoResponse): Persona {
     id: repo.id,
     name: repo.name,
     handle,
-    description: v?.prompt?.slice(0, 140) ?? "",
+    description: v?.description ?? "",
     imageUrl: v?.image_url ?? null,
     modelId:  v?.model_id  ?? null,
     tags: v?.persona_tags ?? [],
     temperature: v?.temperature ?? null,
     isActive: repo.is_active,
     isPaused: !repo.is_active && repo.version_count > 0,
-    status: !repo.active_version_id
+    status: !liveVersionId
       ? "draft"
       : repo.is_active
       ? "active"
       : "paused",
-    activeVersionId: repo.active_version_id,
+    activeVersionId: liveVersionId,
+    workingVersionId: repo.active_version_id,
+    publishedAt: repo.published_at ?? null,
     versionCount: repo.version_count,
     // If the list endpoint doesn't embed active_version (v is null) but
     // active_version_id exists, we can't inspect the prompt — assume it has
     // instructions. Only mark false when we have the version object and the
     // prompt is genuinely blank, or when there's no active version at all.
-    hasSystemInstructions: v !== null ? !!(v.prompt?.trim()) : repo.active_version_id !== null,
+    hasSystemInstructions: v !== null ? !!(v.prompt?.trim()) : liveVersionId !== null,
     sourceShareId: v?.source_share_id ?? null,
     createdAt: repo.created_at,
     updatedAt: repo.updated_at,
@@ -223,7 +236,7 @@ export async function getPersona(repoId: string): Promise<Persona> {
 }
 
 export async function getPersonaRepo(repoId: string): Promise<PersonaRepoResponse> {
-  return apiFetchJson<PersonaRepoResponse>(PERSONA_DETAIL_ENDPOINT(repoId));
+  return getPersonaRepoWithCache(repoId);
 }
 
 /**
@@ -251,6 +264,7 @@ export async function createPersonaRepo(params: {
   name: string;
   modelId: string;
   prompt?: string;
+  description?: string;
   temperature?: number | null;
   image?: File | null;
 }): Promise<PersonaRepoResponse> {
@@ -258,12 +272,17 @@ export async function createPersonaRepo(params: {
   form.append("name", params.name);
   if (params.modelId) form.append("model_id", params.modelId);
   if (params.prompt) form.append("prompt", params.prompt);
+  if (params.description) form.append("description", params.description);
   if (params.temperature != null) form.append("temperature", String(params.temperature));
   if (params.image) form.append("image", params.image);
-  return apiFetchJson<PersonaRepoResponse>(PERSONAS_ENDPOINT, {
+  const repo = await apiFetchJson<PersonaRepoResponse>(PERSONAS_ENDPOINT, {
     method: "POST",
     body: form,
   });
+  _personaDetailCache.set(repo.id, { data: repo, time: Date.now() });
+  _personasCache = null;
+  _personasCacheTime = 0;
+  return repo;
 }
 
 export async function deletePersona(repoId: string): Promise<void> {
@@ -277,6 +296,13 @@ export async function togglePause(repoId: string): Promise<void> {
 export async function setActiveVersion(repoId: string, versionId: string): Promise<PersonaRepoResponse> {
   return apiFetchJson<PersonaRepoResponse>(PERSONA_ACTIVE_ENDPOINT(repoId), {
     method: "PATCH",
+    body: JSON.stringify({ persona_id: versionId }),
+  });
+}
+
+export async function publishPersonaVersion(repoId: string, versionId: string): Promise<PersonaRepoResponse> {
+  return apiFetchJson<PersonaRepoResponse>(PERSONA_PUBLISH_ENDPOINT(repoId), {
+    method: "POST",
     body: JSON.stringify({ persona_id: versionId }),
   });
 }
@@ -309,6 +335,7 @@ export async function createVersion(params: {
   name: string;
   modelId: string;
   prompt?: string;
+  description?: string | null;
   temperature?: number | null;
   image?: File | null;
   /** Existing image URL to carry forward when no new image file is provided. */
@@ -318,6 +345,7 @@ export async function createVersion(params: {
   form.append("name", params.name);
   form.append("model_id", params.modelId);
   if (params.prompt) form.append("prompt", params.prompt);
+  if (params.description) form.append("description", params.description);
   if (params.temperature != null) form.append("temperature", String(params.temperature));
   let image: File | null = params.image ?? null;
   if (!image && params.imageUrl) image = await urlToImageFile(params.imageUrl);
@@ -427,6 +455,7 @@ export async function updateVersion(params: {
   versionId: string;
   name?: string;
   prompt?: string;
+  description?: string | null;
   modelId?: string;
   temperature?: number | null;
   persona_tags?: string[];
@@ -440,6 +469,7 @@ export async function updateVersion(params: {
   const patchBody: Record<string, unknown> = {};
   if (params.name != null)         patchBody.name         = params.name;
   if (params.prompt != null)       patchBody.prompt       = params.prompt;
+  if (params.description != null)  patchBody.description  = params.description;
   if (params.modelId != null)      patchBody.model_id     = params.modelId;
   if (params.temperature != null)  patchBody.temperature  = params.temperature;
   if (params.persona_tags != null) patchBody.persona_tags = params.persona_tags;

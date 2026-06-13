@@ -12,7 +12,7 @@
  *    FIRST explicit "Save version" must therefore UPDATE that provisional 001
  *    in place rather than minting a 002 — otherwise a brand-new agent ends up
  *    with two versions. Every save AFTER that creates a new version.
- *  - Publication state must be derived from the backend's `active_version_id`,
+ *  - Publication state must be derived from the backend's `published_version_id`,
  *    never from client-only storage, so that opening an already-published agent
  *    never shows a spurious "not published yet" warning or "Unpublished" chip.
  */
@@ -33,33 +33,33 @@ export function resolveSaveMode(args: {
   currentVersionId: string;
   /** The wizard-created version id, while it is still the untouched initial draft. Null once consumed. */
   initialVersionId: string | null;
-  /** The backend's currently-published/active version id (source of truth). */
-  activeVersionId: string | null;
+  /** The backend's currently published version id (source of truth). */
+  publishedVersionId: string | null;
 }): SaveMode {
-  const { currentVersionId, initialVersionId, activeVersionId } = args;
+  const { currentVersionId, initialVersionId, publishedVersionId } = args;
   const isProvisionalInitial =
     !!initialVersionId &&
     currentVersionId === initialVersionId &&
-    activeVersionId !== currentVersionId; // never been published
+    publishedVersionId !== currentVersionId; // never been published
   return isProvisionalInitial ? "update-in-place" : "create-new";
 }
 
 /**
  * Publication status of the version currently being edited, derived purely from
- * the backend's active version id plus local unsaved/pending state. Used by all
+ * the backend's published version id plus local unsaved/pending state. Used by all
  * five configure tabs so they agree on "Live" vs "Unpublished" and on whether
  * the leave-guard dialog should fire.
  */
 export function derivePublicationState(args: {
   repoId: string;
   versionId: string;
-  activeVersionId: string | null;
+  publishedVersionId: string | null;
   /** True when there are unsaved edits or pending change tags on the current tab. */
   hasUnsavedChanges: boolean;
 }): { isPublished: boolean; needsRepublish: boolean } {
-  const { repoId, versionId, activeVersionId, hasUnsavedChanges } = args;
+  const { repoId, versionId, publishedVersionId, hasUnsavedChanges } = args;
   const isPublished =
-    !!activeVersionId && activeVersionId === versionId && !hasUnsavedChanges;
+    !!publishedVersionId && publishedVersionId === versionId && !hasUnsavedChanges;
   // Needs (re)publishing whenever we have a real version that isn't the live one
   // with no pending edits. Covers first-time publish and re-publish alike.
   const needsRepublish = !!repoId && !!versionId && !isPublished;
@@ -68,20 +68,20 @@ export function derivePublicationState(args: {
 
 /**
  * Pick which version to open when the user clicks "Edit" without specifying a
- * version. Prefer the published (active) version so the user edits what is live
+ * version. Prefer the published version so the user edits what is live
  * and the publication state reads as "Live" — falling back to the most-recent
  * version only when nothing is published yet.
  */
 export function pickVersionToEdit(args: {
-  activeVersionId: string | null;
+  publishedVersionId: string | null;
   /** Version ids sorted newest-first. */
   versionsByRecency: string[];
 }): string | null {
-  const { activeVersionId, versionsByRecency } = args;
-  if (activeVersionId && versionsByRecency.includes(activeVersionId)) {
-    return activeVersionId;
+  const { publishedVersionId, versionsByRecency } = args;
+  if (publishedVersionId && versionsByRecency.includes(publishedVersionId)) {
+    return publishedVersionId;
   }
-  return versionsByRecency[0] ?? activeVersionId ?? null;
+  return versionsByRecency[0] ?? publishedVersionId ?? null;
 }
 
 /** Minimal shape of a knowledge item needed to decide inheritance. */

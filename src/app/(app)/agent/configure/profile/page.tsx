@@ -4,6 +4,8 @@ import React, { useState, useRef, Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
+  QuillWriteOneIcon,
+  ArrowUpRightOneIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
@@ -11,16 +13,12 @@ import { toast } from 'sonner'
 import ProfileTab from '@/app/(app)/agent/configure/components/ProfileTab'
 import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModal'
 import {
-  getPersonaRepo, updateVersion, setActiveVersion,
+  getPersonaRepo, updateVersion, publishPersonaVersion,
   bustPersonasCache,
 } from '@/lib/api/personas'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
 import { derivePublicationState } from '@/lib/persona-version-logic'
-
-function publishedVersionKey(repoId: string) {
-  return `persona_live_version_${repoId}`
-}
 
 function dataUrlToFile(dataUrl: string, filename: string): File {
   const [header, data] = dataUrl.split(',')
@@ -58,7 +56,7 @@ function PersonaConfigureProfileContent() {
     catch { return null }
   }
 
-  const { anyPanelOpen, updatePersonaInfo, personaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, registerAutoSave, setVersionsOpen, activeVersionId, markPublished } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, personaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, registerAutoSave, setVersionsOpen, publishedVersionId, markPublished } = usePersonaConfigure()
 
   const [isSaving,             setIsSaving]             = useState(false)
   const [isPublishing,         setIsPublishing]         = useState(false)
@@ -141,8 +139,7 @@ function PersonaConfigureProfileContent() {
           // No meaningful draft — overwrite all fields with real API data
           setPersonaName(repo.name || 'Agent Name')
           if (v?.image_url) setAvatarUrl(v.image_url)
-          // Description is already seeded from persona_wizard_purpose_{repoId} in the
-          // useState initializer — do NOT overwrite it with the system instruction here.
+          if (v?.description != null) setPersonaDescription(v.description)
         }
         // Clear one-shot wizard key so stale data doesn't bleed into the next wizard run.
         try { sessionStorage.removeItem('persona_wizard_starter') } catch { /* ignore */ }
@@ -211,7 +208,7 @@ function PersonaConfigureProfileContent() {
   const { isPublished, needsRepublish } = derivePublicationState({
     repoId,
     versionId,
-    activeVersionId,
+    publishedVersionId,
     hasUnsavedChanges: isDirty || pendingChangeTags.length > 0,
   })
 
@@ -227,7 +224,7 @@ function PersonaConfigureProfileContent() {
         repoId,
         versionId,
         name:         personaName,
-        prompt:       personaDescription,
+        description:  personaDescription,
         persona_tags: personaTags,
         image:        imageFile,
         imageUrl:     imageFile ? undefined : (avatarUrl ?? undefined),
@@ -236,6 +233,7 @@ function PersonaConfigureProfileContent() {
       setIsDirty(false)
       setVersionTags(versionId, pendingChangeTags)
       setPendingChangeTags([])
+      bustPersonasCache()
       refreshVersions()
       setVersionsOpen(true)
       toast.success('Profile saved')
@@ -249,7 +247,7 @@ function PersonaConfigureProfileContent() {
 
   async function handlePublish() {
     if (!repoId || !versionId) return
-    const wasPublished = !!activeVersionId
+    const wasPublished = !!publishedVersionId
     setIsPublishing(true)
     try {
       // If profile data is dirty, flush it to the current version in-place before publishing.
@@ -264,7 +262,7 @@ function PersonaConfigureProfileContent() {
           repoId,
           versionId,
           name:         personaName,
-          prompt:       personaDescription,
+          description:  personaDescription,
           persona_tags: personaTags,
           image:        imageFile,
           imageUrl:     imageFile ? undefined : (avatarUrl ?? undefined),
@@ -274,12 +272,10 @@ function PersonaConfigureProfileContent() {
         setVersionTags(versionId, pendingChangeTags)
         setPendingChangeTags([])
       }
-      await setActiveVersion(repoId, versionId)
+      await publishPersonaVersion(repoId, versionId)
       bustPersonasCache()
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem(publishedVersionKey(repoId), versionId)
         try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
-        try { localStorage.removeItem(`persona_needs_publish_${repoId}`) } catch { /* ignore */ }
         try { sessionStorage.removeItem(`persona_initial_version_${repoId}`) } catch { /* ignore */ }
       }
       markPublished(versionId)
@@ -308,7 +304,7 @@ function PersonaConfigureProfileContent() {
         repoId,
         versionId,
         name:         personaName,
-        prompt:       personaDescription,
+        description:  personaDescription,
         persona_tags: personaTags,
         // No image / imageUrl — avoid re-downloading remote URLs or uploading data: blobs on every tab switch.
       })
@@ -317,7 +313,10 @@ function PersonaConfigureProfileContent() {
       if (!avatarUrl?.startsWith('data:')) {
         isDirtyRef.current = false
         setIsDirty(false)
+        const cleanedTags = pendingChangeTags.filter(tag => tag !== 'Profile')
+        if (cleanedTags.length !== pendingChangeTags.length) setPendingChangeTags(cleanedTags)
       }
+      bustPersonasCache()
     } catch (err) {
       console.error('[ProfilePage] auto-save error:', err)
       // Don't block navigation on error — user can still explicitly save.
@@ -328,12 +327,6 @@ function PersonaConfigureProfileContent() {
     registerAutoSave(() => profileAutoSaveRef.current())
     return () => registerAutoSave(null)
   }, [registerAutoSave])
-
-  async function handleContinue() {
-    await profileAutoSaveRef.current()
-    const params = new URLSearchParams(searchParams.toString())
-    push(`/agent/configure/knowledge?${params.toString()}`)
-  }
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
@@ -505,9 +498,32 @@ function PersonaConfigureProfileContent() {
 
       {/* ── Bottom navigation ────────────────────────────────────────────────── */}
       <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '12px 16px 4px', borderTop: '1px solid var(--neutral-100)' }}>
-        <Button variant="default" size="sm" onClick={() => void handleContinue()}>
-          Continue
-        </Button>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {publishedVersionId != null && (
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<QuillWriteOneIcon size={16} />}
+              onClick={() => void handleSaveVersion()}
+              disabled={!repoId || !versionId || isSaving || !isDirty}
+              loading={isSaving}
+            >
+              {isSaving ? 'Saving…' : 'Save version'}
+            </Button>
+          )}
+          <Button
+            variant="default"
+            size="sm"
+            rightIcon={<ArrowUpRightOneIcon size={16} />}
+            onClick={() => void handlePublish()}
+            disabled={!repoId || !versionId || isPublishing}
+            loading={isPublishing}
+          >
+            {isPublishing
+              ? (publishedVersionId != null ? 'Republishing…' : 'Publishing…')
+              : (publishedVersionId != null ? 'Republish' : 'Publish')}
+          </Button>
+        </div>
       </div>
 
       {republishModalOpen && (

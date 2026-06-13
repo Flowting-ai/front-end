@@ -81,6 +81,8 @@ const RECOMMENDED: Persona[] = [
     isPaused: false,
     status: 'active',
     activeVersionId: null,
+    workingVersionId: null,
+    publishedAt: null,
     versionCount: 1,
     hasSystemInstructions: true,
     sourceShareId: null,
@@ -100,6 +102,8 @@ const RECOMMENDED: Persona[] = [
     isPaused: false,
     status: 'active',
     activeVersionId: null,
+    workingVersionId: null,
+    publishedAt: null,
     versionCount: 1,
     hasSystemInstructions: true,
     sourceShareId: null,
@@ -119,6 +123,8 @@ const RECOMMENDED: Persona[] = [
     isPaused: false,
     status: 'active',
     activeVersionId: null,
+    workingVersionId: null,
+    publishedAt: null,
     versionCount: 1,
     hasSystemInstructions: true,
     sourceShareId: null,
@@ -555,7 +561,6 @@ export default function PersonasPage() {
         // so stale empty arrays never shadow real API data via the ?? operator.
         const avatarOverrides:      Record<string, string>   = {}
         const tagOverrides:         Record<string, string[]> = {}
-        const unpublishedOverrides: Record<string, boolean>  = {}
         for (const p of list) {
           try {
             const raw = sessionStorage.getItem(`persona_profile_${p.id}`)
@@ -574,23 +579,10 @@ export default function PersonasPage() {
             if (typeof draftAvatar === 'string' && draftAvatar) avatarOverrides[p.id] = draftAvatar
             if (Array.isArray(draftTags) && draftTags.length > 0) tagOverrides[p.id]  = draftTags
           } catch { /* ignore quota / parse errors */ }
-          try {
-            if (localStorage.getItem(`persona_needs_publish_${p.id}`) === '1') {
-              // The backend is the source of truth: once the agent has a live
-              // (active) version, this client-side "needs publish" flag is stale —
-              // clear it so the "Unpublished" chip disappears after a successful
-              // publish instead of lingering.
-              if (p.activeVersionId) {
-                try { localStorage.removeItem(`persona_needs_publish_${p.id}`) } catch { /* ignore */ }
-              } else {
-                unpublishedOverrides[p.id] = true
-              }
-            }
-          } catch { /* ignore quota / storage errors */ }
         }
         setDraftAvatarMap(avatarOverrides)
         setDraftTagsMap(tagOverrides)
-        setUnpublishedMap(unpublishedOverrides)
+        setUnpublishedMap({})
       } catch (err) {
         console.error(err)
       } finally {

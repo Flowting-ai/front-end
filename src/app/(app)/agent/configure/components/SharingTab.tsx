@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Switch } from '@/components/Switch'
 import { Button } from '@/components/Button'
 import { CancelOneIcon, ArrowUpRightOneIcon } from '@strange-huge/icons'
@@ -226,9 +226,6 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
   const [isRevoking, setIsRevoking] = useState(false)
   const [tokenLimit, setTokenLimit] = useState(Math.floor(maxTokenLimit / 2))
 
-  // Sync share-link existence to shared progress indicator
-  useEffect(() => { setHasShareLink(!!linkShare) }, [linkShare, setHasShareLink])
-
   // ── Email share state ──────────────────────────────────────────────────────
   const [emailShares, setEmailShares] = useState<PersonaShare[]>([])
   const [emailInput, setEmailInput] = useState('')
@@ -236,33 +233,44 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [revokingEmailId, setRevokingEmailId] = useState<string | null>(null)
 
+  const currentLinkShare = linkShare?.persona_id === versionId ? linkShare : null
+  const currentEmailShares = emailShares.filter(share => share.persona_id === versionId)
+
+  // Sync share-link existence to shared progress indicator
+  useEffect(() => { setHasShareLink(!!currentLinkShare) }, [currentLinkShare, setHasShareLink])
+
   // ── Sync token limit defaults when plan resolves ──────────────────────────
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset defaults when the user's plan limit resolves
     setTokenLimit(Math.floor(maxTokenLimit / 2))
     setEmailTokenLimit(Math.floor(maxTokenLimit / 2))
   }, [maxTokenLimit])
 
-  // ── Load existing shares on mount ─────────────────────────────────────────
-  const loadShares = useCallback(async () => {
+  // ── Load existing shares for the current version ──────────────────────────
+  useEffect(() => {
     if (!versionId) return
-    try {
-      const all = await listShares()
+    let cancelled = false
+    listShares().then(all => {
+      if (cancelled) return
       const mine = all.filter(s => s.persona_id === versionId && s.is_active)
       const existing = mine.find(s => s.share_type === 'link') ?? null
       setLinkShare(existing)
       setSuperLinkEnabled(existing !== null)
       setEmailShares(mine.filter(s => s.share_type === 'email'))
-    } catch {
-      // silently ignore — share list failing shouldn't break the page
-    }
+    }).catch(() => {
+      if (cancelled) return
+      // Share state is version-scoped; do not keep a previous version's link visible on failures.
+      setLinkShare(null)
+      setSuperLinkEnabled(false)
+      setEmailShares([])
+    })
+    return () => { cancelled = true }
   }, [versionId])
-
-  useEffect(() => { loadShares() }, [loadShares])
 
   // ── Link share handlers ────────────────────────────────────────────────────
 
   async function handleGenerateLink() {
-    if (!repoId) {
+    if (!repoId || !versionId) {
       toast.error('Save the agent first before generating a share link.')
       return
     }
@@ -273,6 +281,12 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
         share_type: 'link',
         credit_limit: tokenLimit,
       })
+      if (share.persona_id !== versionId) {
+        setLinkShare(null)
+        setSuperLinkEnabled(false)
+        toast.error('The active version changed. Reopen Sharing and try again.')
+        return
+      }
       setLinkShare(share)
       toast.success('Share link generated')
     } catch (err) {
@@ -284,10 +298,10 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
   }
 
   async function handleRevokeLink() {
-    if (!linkShare) return
+    if (!currentLinkShare) return
     setIsRevoking(true)
     try {
-      await revokeShare(linkShare.id)
+      await revokeShare(currentLinkShare.id)
       setLinkShare(null)
       setSuperLinkEnabled(false)
       toast.success('Share link revoked')
@@ -299,8 +313,8 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
   }
 
   function handleCopy() {
-    if (!linkShare?.share_url) return
-    navigator.clipboard.writeText(canonicalShareUrl(linkShare.share_url)).catch(() => {})
+    if (!currentLinkShare?.share_url) return
+    navigator.clipboard.writeText(canonicalShareUrl(currentLinkShare.share_url)).catch(() => {})
     toast.success('Link copied')
   }
 
@@ -309,7 +323,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
   async function handleSendEmailInvite() {
     const email = emailInput.trim()
     if (!email) return
-    if (!repoId) {
+    if (!repoId || !versionId) {
       toast.error('Save the agent first before sending invites.')
       return
     }
@@ -325,6 +339,10 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
         recipient_emails: [email],
         credit_limit: emailTokenLimit,
       })
+      if (share.persona_id !== versionId) {
+        toast.error('The active version changed. Reopen Sharing and try again.')
+        return
+      }
       setEmailShares(prev => [...prev, share])
       setEmailInput('')
       toast.success(`Invite sent to ${email}`)
@@ -350,13 +368,13 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
 
   // ── Derived values ─────────────────────────────────────────────────────────
 
-  const displayUrl = linkShare?.share_url
-    ? canonicalShareUrl(linkShare.share_url).replace(/^https?:\/\//, '')
+  const displayUrl = currentLinkShare?.share_url
+    ? canonicalShareUrl(currentLinkShare.share_url).replace(/^https?:\/\//, '')
     : 'Your link will appear here'
 
   const usagePercent =
-    linkShare && linkShare.credit_limit
-      ? Math.min(100, Math.round((linkShare.credit_used / linkShare.credit_limit) * 100))
+    currentLinkShare && currentLinkShare.credit_limit
+      ? Math.min(100, Math.round((currentLinkShare.credit_used / currentLinkShare.credit_limit) * 100))
       : 0
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -485,7 +503,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
                     fontWeight: 500,
                     fontSize: 14,
                     lineHeight: '22px',
-                    color: linkShare ? 'var(--neutral-800)' : 'var(--neutral-300)',
+                    color: currentLinkShare ? 'var(--neutral-800)' : 'var(--neutral-300)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -497,7 +515,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
 
               {/* Action buttons */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                {linkShare ? (
+                {currentLinkShare ? (
                   <>
                     <button
                       onClick={handleRevokeLink}
@@ -542,7 +560,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
             </div>
 
             {/* Token limit — shown before generation so the user can configure it */}
-            {!linkShare && (
+            {!currentLinkShare && (
               <div
                 data-help-id="help-sharing-token"
                 style={{
@@ -596,7 +614,7 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
             )}
 
             {/* Token usage — shown after link is generated */}
-            {linkShare && (
+            {currentLinkShare && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <span
                   style={{
@@ -607,11 +625,11 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
                     color: 'var(--neutral-700)',
                   }}
                 >
-                  {linkShare.credit_limit !== null
-                    ? `${usagePercent}% used · ${linkShare.credit_used.toLocaleString()} / ${linkShare.credit_limit.toLocaleString()} credits`
-                    : `${linkShare.credit_used.toLocaleString()} credits used · No limit`}
+                  {currentLinkShare.credit_limit !== null
+                    ? `${usagePercent}% used · ${currentLinkShare.credit_used.toLocaleString()} / ${currentLinkShare.credit_limit.toLocaleString()} credits`
+                    : `${currentLinkShare.credit_used.toLocaleString()} credits used · No limit`}
                 </span>
-                {linkShare.credit_limit !== null && <UsageBar percent={usagePercent} />}
+                {currentLinkShare.credit_limit !== null && <UsageBar percent={usagePercent} />}
               </div>
             )}
           </div>
@@ -753,9 +771,9 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false }: 
         </div>
 
         {/* Existing email shares */}
-        {emailShares.length > 0 && (
+        {currentEmailShares.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {emailShares.map(share => {
+            {currentEmailShares.map(share => {
               const emails = share.recipient_emails ?? []
               const emailStr = emails.join(', ') || 'Unknown recipient'
               const pct = share.credit_limit
