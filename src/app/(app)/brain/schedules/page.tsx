@@ -16,7 +16,17 @@ import {
   type ScheduleEditData,
 } from '@/templates/Brain'
 import { BrainSidebarSections } from '../BrainSidebarSections'
-import { listTasks, getTask, runTaskNow, type Task, type TaskDetail } from '@/lib/api/tasks'
+import {
+  listTasks,
+  getTask,
+  runTaskNow,
+  updateTask,
+  deleteTask,
+  type Task,
+  type TaskDetail,
+  type ScheduledTaskRunResponse,
+} from '@/lib/api/tasks'
+import type { ScheduleRunRecord } from '@/templates/Brain'
 import { getAllScheduleLinks, getChatForSchedule, stashPendingPrompt } from '@/lib/scheduleLinks'
 import { useSearch } from '@/context/search-context'
 
@@ -82,6 +92,27 @@ function taskToListItem(task: Task, chatId?: string): ScheduleListItem {
   }
 }
 
+/** Map one backend run into a run-history record for the detail view. The
+ *  scheduled runner records no per-node steps, so each run becomes a single
+ *  status row; the synthesized result (or failure reason) shows when expanded. */
+function runToRecord(run: ScheduledTaskRunResponse): ScheduleRunRecord {
+  const whenIso  = run.completed_at ?? run.started_at ?? run.created_at ?? null
+  const isFailed = run.status === 'failed'
+  const isDone   = run.status === 'completed'
+  const stepStatus = isDone ? 'complete' : isFailed ? 'failed' : 'executing'
+  const stepLabel  = isFailed ? (run.error || 'Run failed')
+    : isDone ? 'Run completed'
+    : 'Running…'
+  return {
+    id:          run.id,
+    label:       whenIso ? formatNextRun(whenIso) : 'Run',
+    title:       isFailed ? 'Failed' : isDone ? 'Completed' : 'Running',
+    summary:     run.synthesis || (isFailed ? run.error ?? undefined : undefined),
+    steps:       [{ id: run.id, label: stepLabel, isCritical: false, status: stepStatus }],
+    completedAt: run.completed_at ? new Date(run.completed_at) : undefined,
+  }
+}
+
 function taskDetailToDetail(task: TaskDetail, chatId?: string): ScheduleDetailItem {
   return {
     id:           task.id,
@@ -91,7 +122,7 @@ function taskDetailToDetail(task: TaskDetail, chatId?: string): ScheduleDetailIt
     nextRun:      task.next_run_at ? formatNextRun(task.next_run_at) : undefined,
     isActive:     task.is_active,
     createdAt:    formatCreatedAt(task.created_at ?? ''),
-    runHistory:   [],
+    runHistory:   (task.runs ?? []).map(runToRecord),
     chatId,
   }
 }
@@ -245,21 +276,46 @@ function BrainSchedulesPageInner() {
     push(`/brain?fromSchedule=${encodeURIComponent(newId)}`)
   }, [editingSchedule, selectedId, idPrefix, push])
 
-  // ── Delete (local — no delete endpoint available yet) ─────────────────────
+  // ── Delete (DELETE /tasks/{id}; local-only items just drop from state) ────
 
   const handleDeleteConfirm = useCallback(() => {
-    setSchedules(prev => prev.filter(s => s.id !== selectedId))
-    localIdsRef.current.delete(selectedId ?? '')
+    const id = selectedId
+    if (!id) return
+    setDeleteModalOpen(false)
+    const removed = schedules.find(s => s.id === id)
+    // Optimistically drop it and return to the list.
+    setSchedules(prev => prev.filter(s => s.id !== id))
     setSelectedId(null)
     setSelectedDetail(null)
-    setDeleteModalOpen(false)
-  }, [selectedId])
+    // Never persisted to the backend — nothing to delete server-side.
+    if (localIdsRef.current.has(id)) {
+      localIdsRef.current.delete(id)
+      return
+    }
+    deleteTask(id)
+      .then(() => toast.success('Schedule deleted'))
+      .catch(() => {
+        // Restore the row so the user isn't left thinking it's gone.
+        if (removed) setSchedules(prev => [...prev, removed])
+        toast.error('Failed to delete schedule')
+      })
+  }, [selectedId, schedules])
 
-  // ── Toggle active (local optimistic — no patch endpoint available yet) ────
+  // ── Toggle active (PATCH /tasks/{id} — pause/resume; optimistic) ──────────
 
   const handleToggleActive = useCallback((active: boolean) => {
-    setSchedules(prev => prev.map(s => s.id === selectedId ? { ...s, isActive: active } : s))
+    const id = selectedId
+    if (!id) return
+    setSchedules(prev => prev.map(s => s.id === id ? { ...s, isActive: active } : s))
     setSelectedDetail(prev => prev ? { ...prev, isActive: active } : prev)
+    // Local-only items have no backend row yet — keep the optimistic state.
+    if (localIdsRef.current.has(id)) return
+    updateTask(id, { is_active: active }).catch(() => {
+      // Revert on failure (e.g. resuming a schedule with no future run → 409).
+      setSchedules(prev => prev.map(s => s.id === id ? { ...s, isActive: !active } : s))
+      setSelectedDetail(prev => prev ? { ...prev, isActive: !active } : prev)
+      toast.error(active ? 'Failed to resume schedule' : 'Failed to pause schedule')
+    })
   }, [selectedId])
 
   // ── Run now ────────────────────────────────────────────────────────────────

@@ -20,6 +20,8 @@ export interface ScheduleRunRecord {
   id:            string
   label:         string     // e.g. "Today · 8:00 AM" — shown in run card header
   steps:         PlanStep[]
+  title?:        string     // header label — "Completed", "Failed", "Running"
+  summary?:      string     // run result (synthesis) or failure reason, shown when expanded
   completedAt?:  Date
   onViewThread?: () => void  // navigate to the full thread for this run
 }
@@ -346,6 +348,8 @@ export function ScheduleDetailView({
                   steps={run.steps}
                   completedAt={run.completedAt}
                   runLabel={run.label}
+                  title={run.title}
+                  summary={run.summary}
                 />
                 {run.onViewThread && (
                   <button

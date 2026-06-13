@@ -101,6 +101,7 @@ export interface LoopHistoryCardProps {
   summary?:       string    // overall plan goal, shown above the step list
   completedAt?:   Date
   runLabel?:      string    // overrides the auto-formatted time (e.g. "Today · 8:00 AM")
+  title?:         string    // header label — defaults to "Completed" (e.g. "Failed" for a failed run)
   defaultOpen?:   boolean
 }
 
@@ -111,6 +112,7 @@ export function LoopHistoryCard({
   summary,
   completedAt,
   runLabel,
+  title = 'Completed',
   defaultOpen = false,
 }: LoopHistoryCardProps) {
   const items = groupConsecutive(steps)
@@ -169,7 +171,7 @@ export function LoopHistoryCard({
           color:      'var(--neutral-500)',
           lineHeight: 'var(--line-height-caption)',
         }}>
-          Completed
+          {title}
         </span>
 
         {/* Step count summary */}

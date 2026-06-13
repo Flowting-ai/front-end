@@ -57,6 +57,11 @@ export interface ScheduledTaskUpdate {
   is_active: boolean
 }
 
+export interface ScheduledTaskDeleteResponse {
+  deleted: boolean
+  task_id: string
+}
+
 // Aliases for back-compat with callers
 export type Task       = ScheduledTaskListItem
 export type TaskDetail = ScheduledTaskDetail
@@ -79,6 +84,11 @@ export function updateTask(taskId: string, body: ScheduledTaskUpdate): Promise<S
     method: 'PATCH',
     body:   JSON.stringify(body),
   })
+}
+
+/** DELETE /tasks/{task_id} — hard-delete a task and its run history. */
+export function deleteTask(taskId: string): Promise<ScheduledTaskDeleteResponse> {
+  return apiFetchJson<ScheduledTaskDeleteResponse>(TASK_BY_ID(taskId), { method: 'DELETE' })
 }
 
 /** POST /tasks/{task_id}/run — trigger an immediate run. */
