@@ -249,6 +249,15 @@ export default function BillingPage() {
     }
   }, [reload])
 
+  // Refresh on any balance change (e.g. a topup) so the plan card, per-category
+  // usage rows, and invoice history all reflect new credits without a reload.
+  // reload() re-pulls both /users/me (auth) and /stripe/billing (local state).
+  useEffect(() => {
+    const onCreditsUpdated = () => { void reload() }
+    window.addEventListener('credits:updated', onCreditsUpdated)
+    return () => window.removeEventListener('credits:updated', onCreditsUpdated)
+  }, [reload])
+
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const liveReady = isHydrated && !!user

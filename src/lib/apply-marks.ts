@@ -19,10 +19,9 @@ function collectTextNodes(root: Node, doc: Document): Entry[] {
   let n: Node | null
   while ((n = walker.nextNode())) {
     const t = n as Text
-    // Skip anything inside .katex — KaTeX elements are handled separately by
-    // applyKatexHighlights. Including their text nodes here would:
-    //  (a) corrupt offset arithmetic (MathML duplicates visible chars), and
-    //  (b) cause Range manipulation inside KaTeX's sizing spans, breaking layout.
+    // Skip anything inside .katex — LaTeX/KaTeX content is intentionally NOT
+    // highlighted. Including its text nodes here would also corrupt offset
+    // arithmetic (MathML duplicates visible chars) and break KaTeX layout.
     if (t.parentElement?.closest('.katex')) continue
     entries.push({ node: t, start: offset, len: t.length })
     offset += t.length
@@ -33,7 +32,7 @@ function collectTextNodes(root: Node, doc: Document): Entry[] {
 /**
  * In-place: inject `<mark data-highlight-id>` into a parsed DOM tree.
  * Handles cross-span matches (hljs keywords, etc.).
- * Does NOT touch .katex elements — use applyKatexHighlights for those.
+ * Does NOT touch .katex elements — LaTeX is never highlighted.
  */
 export function applyRangeMarks(root: Element, specs: HighlightSpec[], doc: Document): void {
   const entries = collectTextNodes(root, doc)
@@ -85,79 +84,18 @@ export function applyRangeMarks(root: Element, specs: HighlightSpec[], doc: Docu
   }
 }
 
-// ── KaTeX-specific highlight injection ───────────────────────────────────────
-//
-// KaTeX renders into a deeply-nested span tree for precise layout. Using Range
-// manipulation INSIDE that tree (extractContents) breaks the sizing spans and
-// corrupts the visual output.
-//
-// Strategy: leave KaTeX's internals untouched. Instead, wrap the outer
-// <span class="katex"> in a <mark> when the formula's visible text matches.
-//
-// Visible text is read from <span class="katex-html"> only — the sibling
-// <span class="katex-mathml"> contains a hidden MathML copy for screen readers
-// whose text content would produce doubled or extra characters.
-//
-// Match logic:
-//   visibleText.includes(spec.text)  — user selected a substring of the formula
-//   spec.text.includes(visibleText)  — user selected text spanning formula + more
-
-/**
- * Wrap each matching <span class="katex"> in a <mark>.
- */
-// Strip all whitespace (including newlines the browser inserts between
-// KaTeX stacking spans) and invisible Unicode glyphs (zero-width space,
-// non-breaking space, etc.) so that spec.text from sel.toString() can be
-// compared reliably against .katex-html.textContent.
-function normKatex(s: string): string {
-  return s.replace(/[\s​‌‍ ﻿]/g, '')
-}
-
-export function applyKatexHighlights(root: Element, specs: HighlightSpec[], doc: Document): void {
-  const katexEls = Array.from(root.querySelectorAll('.katex'))
-  if (!katexEls.length) return
-
-  for (const katexEl of katexEls) {
-    // Read visible text from katex-html only (not mathml / annotation text)
-    const katexHtml = katexEl.querySelector('.katex-html')
-    const rawVisible = (katexHtml ?? katexEl).textContent ?? ''
-    const visibleNorm = normKatex(rawVisible)
-    if (!visibleNorm) continue
-
-    const matchingSpec = specs.find(spec => {
-      const norm = normKatex(spec.text)
-      // Match when the formula's normalized visible text contains the
-      // normalized spec text.  Normalization removes whitespace / newlines
-      // that browsers insert between KaTeX stacking elements (fractions,
-      // integrals, etc.) when computing sel.toString().
-      return norm.length > 0 && visibleNorm.includes(norm)
-    })
-    if (!matchingSpec) continue
-
-    const { bg } = HIGHLIGHT_COLORS[matchingSpec.colorIndex]
-    const mark = doc.createElement('mark')
-    mark.setAttribute('data-highlight-id', matchingSpec.id)
-    // inline-block keeps the mark tight around the formula without
-    // disrupting the text baseline of surrounding content
-    mark.style.cssText =
-      `background-color:${bg};color:inherit;border-radius:3px;` +
-      `padding:1px 3px;display:inline-block;`
-    katexEl.parentNode?.insertBefore(mark, katexEl)
-    mark.appendChild(katexEl)
-  }
-}
-
 /**
  * Parse `html` into a temporary DOM, inject marks, return the modified HTML.
- * Handles both plain/hljs HTML (Range approach) and KaTeX HTML (wrap approach).
+ * Used for plain / hljs (syntax-highlighted) HTML via the Range approach.
+ *
+ * LaTeX/KaTeX content is intentionally never highlighted: collectTextNodes
+ * skips `.katex`, so any KaTeX present in `html` passes through untouched.
  */
 export function applyMarksToHtml(html: string, specs: HighlightSpec[], wrapTag = 'pre'): string {
   if (typeof window === 'undefined' || !specs.length) return html
   try {
     const doc  = new DOMParser().parseFromString(`<${wrapTag}>${html}</${wrapTag}>`, 'text/html')
     const root = doc.querySelector(wrapTag)!
-    // KaTeX first — wraps the outer .katex span, no inner DOM manipulation
-    applyKatexHighlights(root, specs, doc)
     // Range-based marks for all non-katex text (collectTextNodes skips .katex)
     applyRangeMarks(root, specs, doc)
     return root.innerHTML

@@ -28,6 +28,7 @@ import {
   PERSONA_CHATS_RENAME_ENDPOINT,
   PERSONA_CHAT_STOP_ENDPOINT,
   PERSONA_CHAT_DELETE_MESSAGE_ENDPOINT,
+  directUpload,
 } from "@/lib/config";
 
 // ── Backend types (match OpenAPI schema) ──────────────────────────────────────
@@ -275,7 +276,8 @@ export async function createPersonaRepo(params: {
   if (params.description) form.append("description", params.description);
   if (params.temperature != null) form.append("temperature", String(params.temperature));
   if (params.image) form.append("image", params.image);
-  const repo = await apiFetchJson<PersonaRepoResponse>(PERSONAS_ENDPOINT, {
+  // Direct-to-backend: image uploads can exceed the 4.5 MB serverless proxy cap.
+  const repo = await apiFetchJson<PersonaRepoResponse>(directUpload(PERSONAS_ENDPOINT), {
     method: "POST",
     body: form,
   });
@@ -350,7 +352,8 @@ export async function createVersion(params: {
   let image: File | null = params.image ?? null;
   if (!image && params.imageUrl) image = await urlToImageFile(params.imageUrl);
   if (image) form.append("image", image);
-  return apiFetchJson<PersonaVersionResponse>(PERSONA_VERSIONS_ENDPOINT(params.repoId), {
+  // Direct-to-backend: image uploads can exceed the 4.5 MB serverless proxy cap.
+  return apiFetchJson<PersonaVersionResponse>(directUpload(PERSONA_VERSIONS_ENDPOINT(params.repoId)), {
     method: "POST",
     body: form,
   });
@@ -490,8 +493,9 @@ export async function updateVersion(params: {
     if (params.removeDocumentIds && params.removeDocumentIds.length > 0) {
       form.append("remove_document_ids", params.removeDocumentIds.join(","));
     }
+    // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
     result = await apiFetchJson<PersonaVersionResponse>(
-      PERSONA_VERSION_FILES_ENDPOINT(params.repoId, params.versionId),
+      directUpload(PERSONA_VERSION_FILES_ENDPOINT(params.repoId, params.versionId)),
       { method: "PUT", body: form },
     );
   }
@@ -509,8 +513,9 @@ export async function deleteVersion(repoId: string, versionId: string): Promise<
 export async function uploadDocument(repoId: string, versionId: string, file: File): Promise<PersonaVersionResponse> {
   const form = new FormData();
   form.append("file", file);
+  // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
   return apiFetchJson<PersonaVersionResponse>(
-    PERSONA_VERSION_DOCUMENT_ENDPOINT(repoId, versionId),
+    directUpload(PERSONA_VERSION_DOCUMENT_ENDPOINT(repoId, versionId)),
     { method: "POST", body: form },
   );
 }
@@ -1117,9 +1122,14 @@ export async function testVersionStream(
 ): Promise<() => void> {
   const controller = new AbortController();
   const { body, headers } = buildStreamBody(input, options);
+  // Multipart (file attachments) bypasses the 4.5 MB serverless proxy cap by
+  // going direct to the backend; text-only stays on the same-origin proxy.
+  const endpoint = body instanceof FormData
+    ? directUpload(PERSONA_VERSION_TEST_ENDPOINT(repoId, versionId))
+    : PERSONA_VERSION_TEST_ENDPOINT(repoId, versionId);
   let response: Response;
   try {
-    response = await apiFetch(PERSONA_VERSION_TEST_ENDPOINT(repoId, versionId), {
+    response = await apiFetch(endpoint, {
       method: "POST",
       body,
       headers,
@@ -1162,9 +1172,14 @@ export async function createAndStreamPersonaChat(
 ): Promise<() => void> {
   const controller = new AbortController();
   const { body, headers } = buildStreamBody(input, options);
+  // Multipart (file attachments) bypasses the 4.5 MB serverless proxy cap by
+  // going direct to the backend; text-only stays on the same-origin proxy.
+  const endpoint = body instanceof FormData
+    ? directUpload(PERSONA_CHATS_CREATE_ENDPOINT(repoId))
+    : PERSONA_CHATS_CREATE_ENDPOINT(repoId);
   let response: Response;
   try {
-    response = await apiFetch(PERSONA_CHATS_CREATE_ENDPOINT(repoId), {
+    response = await apiFetch(endpoint, {
       method: "POST",
       body,
       headers,
@@ -1290,9 +1305,14 @@ export async function streamPersonaMessage(
 ): Promise<() => void> {
   const controller = new AbortController();
   const { body, headers } = buildStreamBody(input, options);
+  // Multipart (file attachments) bypasses the 4.5 MB serverless proxy cap by
+  // going direct to the backend; text-only stays on the same-origin proxy.
+  const endpoint = body instanceof FormData
+    ? directUpload(PERSONA_CHAT_STREAM_ENDPOINT(repoId, chatId))
+    : PERSONA_CHAT_STREAM_ENDPOINT(repoId, chatId);
   let response: Response;
   try {
-    response = await apiFetch(PERSONA_CHAT_STREAM_ENDPOINT(repoId, chatId), {
+    response = await apiFetch(endpoint, {
       method: "POST",
       body,
       headers,

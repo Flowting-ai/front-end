@@ -24,6 +24,9 @@ import {
 import { apiFetch } from "@/lib/api/client";
 import { PERSONA_CHAT_STOP_ENDPOINT } from "@/lib/config";
 import { logger } from "@/lib/logger";
+import { useCreditStatus, CREDITS_EXHAUSTED_EVENT } from "@/hooks/use-credit-status";
+import { CreditStatusBanner } from "@/components/CreditStatusBanner";
+import { toast } from "sonner";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -374,9 +377,21 @@ export function PersonaChatInterface({
 
   // ── Send message ──────────────────────────────────────────────────────────
 
+  // Individual credit/topup status — warning banner + hard send-gate.
+  const creditStatus = useCreditStatus();
+
   const handleSend = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if ((!trimmed && attachments.length === 0) || isStreaming) return;
+
+    // Hard-stop: an exhausted credit/topup user cannot send until they top up.
+    if (creditStatus.blocked) {
+      toast.error("You've used all your credits", {
+        description: 'Buy a top-up to continue using Souvenir.',
+      });
+      window.dispatchEvent(new Event(CREDITS_EXHAUSTED_EVENT));
+      return;
+    }
 
     const filesToSend = attachments.map(a => a.file);
 
@@ -453,7 +468,7 @@ export function PersonaChatInterface({
     } catch {
       setMessages(prev => prev.slice(0, prev.length - 2));
     }
-  }, [personaId, activeChatId, isStreaming, attachments, fetchAiResponse]);
+  }, [personaId, activeChatId, isStreaming, attachments, fetchAiResponse, creditStatus.blocked]);
 
   const chatId = activeChatId ?? "";
 
@@ -511,6 +526,7 @@ export function PersonaChatInterface({
             style={{ display: "none" }}
             aria-hidden="true"
           />
+          <CreditStatusBanner />
           <ChatInput
             value={input}
             onChange={setInput}
@@ -519,8 +535,8 @@ export function PersonaChatInterface({
             onFilePaste={(files) => setAttachments((prev) => processFiles(files, prev))}
             hasAttachments={attachments.length > 0}
             isStreaming={isStreaming}
-            disabled={isStreaming}
-            placeholder={`Message ${persona?.name || "persona"}…`}
+            disabled={isStreaming || creditStatus.blocked}
+            placeholder={creditStatus.blocked ? 'Credits exhausted. Buy a top-up to continue.' : `Message ${persona?.name || "persona"}…`}
             addMenu={
               <ChatAddMenu
                 webSearchEnabled={webSearchEnabled}

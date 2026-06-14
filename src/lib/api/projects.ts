@@ -8,6 +8,7 @@ import {
   PROJECT_CHAT_LINK_ENDPOINT,
   PROJECT_FILES_ENDPOINT,
   PROJECT_FILE_ENDPOINT,
+  directUpload,
 } from '@/lib/config'
 
 // ── Backend shapes (snake_case from FastAPI, matches OpenAPI components) ──────
@@ -152,7 +153,8 @@ export async function createProjectApi(params: CreateProjectParams): Promise<Api
   if (params.systemInstruction) form.append('system_instruction', params.systemInstruction)
   params.files?.forEach(f => form.append('files', f))
 
-  const project = await apiFetchJson<ProjectResponse>(PROJECTS_ENDPOINT, { method: 'POST', body: form })
+  // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
+  const project = await apiFetchJson<ProjectResponse>(directUpload(PROJECTS_ENDPOINT), { method: 'POST', body: form })
   return normalizeProject(project)
 }
 
@@ -186,7 +188,8 @@ export async function deleteProjectApi(projectId: string): Promise<void> {
 export async function addProjectFilesApi(projectId: string, files: File[]): Promise<ApiProject> {
   const form = new FormData()
   files.forEach(f => form.append('files', f))
-  const project = await apiFetchJson<ProjectResponse>(PROJECT_FILES_ENDPOINT(projectId), {
+  // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
+  const project = await apiFetchJson<ProjectResponse>(directUpload(PROJECT_FILES_ENDPOINT(projectId)), {
     method: 'PUT',
     body:   form,
   })

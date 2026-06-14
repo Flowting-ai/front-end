@@ -34,6 +34,16 @@ type HastNodeAny = {
 // Inline <code> spans are allowed to receive highlight marks.
 const SKIP_TAGS = new Set(['pre'])
 
+// True when a HAST element is a KaTeX subtree root (rehype-katex output). LaTeX
+// is intentionally never highlighted, so we don't descend into these — doing so
+// would mark text nodes inside the rendered formula and break its layout.
+function isKatexElement(node: HastNodeAny): boolean {
+  const cls = node.properties?.className
+  if (Array.isArray(cls)) return cls.some(c => typeof c === 'string' && c.split('-')[0] === 'katex')
+  if (typeof cls === 'string') return cls.split(/\s+/).some(c => c.split('-')[0] === 'katex')
+  return false
+}
+
 function walkNode(node: HastNodeAny, specs: HighlightSpec[]): void {
   if (!node.children) return
   const next: HastNodeAny[] = []
@@ -41,7 +51,7 @@ function walkNode(node: HastNodeAny, specs: HighlightSpec[]): void {
     if (child.type === 'text' && typeof child.value === 'string') {
       next.push(...annotateText(child.value, specs))
     } else {
-      if (!SKIP_TAGS.has(child.tagName ?? '')) walkNode(child, specs)
+      if (!SKIP_TAGS.has(child.tagName ?? '') && !isKatexElement(child)) walkNode(child, specs)
       next.push(child)
     }
   }

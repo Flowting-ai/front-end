@@ -19,7 +19,6 @@
 import React from "react"
 import katex from "katex"
 import { CodeBlock } from "@/components/chat/CodeBlock"
-import { applyMarksToHtml } from "@/lib/apply-marks"
 import { CitationChip } from "@/components/chat/ResponseBlocks"
 import { HighlightMark } from "@/components/HighlightMark"
 import { sanitizeKaTeX } from "@/lib/security"
@@ -28,11 +27,12 @@ import type { HighlightSpec } from "./markdown-utils"
 
 // ── KaTeX helpers ──────────────────────────────────────────────────────────────
 
-function renderKatex(math: string, display: boolean, key: string, highlights?: HighlightSpec[]): React.ReactNode {
+// LaTeX/KaTeX is intentionally never highlighted — render the sanitized KaTeX
+// output as-is, without injecting any highlight marks.
+function renderKatex(math: string, display: boolean, key: string): React.ReactNode {
   try {
     const rawHtml = katex.renderToString(math, { throwOnError: false, displayMode: display })
-    const sanitized = sanitizeKaTeX(rawHtml)
-    const html = highlights?.length ? applyMarksToHtml(sanitized, highlights, 'span') : sanitized
+    const html = sanitizeKaTeX(rawHtml)
     return (
       <span
         key={key}
@@ -139,13 +139,13 @@ function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): Reac
       nodes.push(<CitationChip key={key} n={n} citation={webCitations?.[n - 1]} />)
     } else if (m[10] !== undefined) {
       // $$display math$$ inline — consume both $$ pairs, render with KaTeX
-      nodes.push(renderKatex(m[10], false, key, ctx.highlights))
+      nodes.push(renderKatex(m[10], false, key))
     } else if (m[11] !== undefined) {
       // $inline math$ — render with KaTeX
-      nodes.push(renderKatex(m[11], false, key, ctx.highlights))
+      nodes.push(renderKatex(m[11], false, key))
     } else if (m[13] !== undefined) {
       // \(inline math\) — LaTeX \(...\) delimiter, render with KaTeX
-      nodes.push(renderKatex(m[13], false, key, ctx.highlights))
+      nodes.push(renderKatex(m[13], false, key))
     } else if (m[12] !== undefined) {
       // bare URL (https?://, www., or domain/path) — auto-link it
       const raw = m[12]
@@ -499,7 +499,7 @@ export function LineRenderer({ content, webCitations, highlights }: LineRenderer
         )
 
       case "latex":
-        return renderKatex(block.content, block.display, k, highlights)
+        return renderKatex(block.content, block.display, k)
 
       case "table":
         return (

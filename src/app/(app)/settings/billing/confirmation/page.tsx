@@ -4,6 +4,7 @@ import React, { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
 import { fetchBilling } from '@/lib/api/user'
+import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
 import { Button } from '@/components/Button'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -52,6 +53,9 @@ function BillingConfirmationContent() {
     document.cookie = 'souvenir_checkout_complete=; path=/; max-age=0; SameSite=Lax'
     void refreshUser()
     void fetchBilling()
+    // Also broadcast so any already-mounted app surfaces (chat gate, banners)
+    // refresh their credit balance — covers topups completed via Stripe redirect.
+    notifyCreditsUpdated()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const heading = isTopUp ? 'Credits Added!' : 'Payment Successful!'

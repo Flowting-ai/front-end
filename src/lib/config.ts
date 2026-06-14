@@ -1,8 +1,13 @@
 "use client";
 
-// Client-side requests go through a same-origin rewrite path to avoid CORS.
-// next.config.ts rewrites /api/backend/:path* → SERVER_URL/:path*.
+// Client-side requests go through a same-origin proxy to avoid CORS.
+// The streaming route handler at src/app/api/backend/[...path]/route.ts
+// forwards /api/backend/:path* → SERVER_URL/:path*.
 export const API_BASE_URL = "/api/backend";
+
+// Absolute backend origin (no trailing slash). Re-exported to the client via
+// next.config.ts `env.SERVER_URL`. Empty in environments where it isn't set.
+const SERVER_ORIGIN = (process.env.SERVER_URL ?? "").replace(/\/+$/, "");
 
 export const audience = process.env.AUTH0_AUDIENCE ?? "";
 
@@ -11,6 +16,34 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
 }
 
 const withBase = (path: string) => `${API_BASE_URL}${path}`;
+
+/**
+ * Rewrite a proxied `/api/backend/...` endpoint to a direct, absolute backend
+ * URL — bypassing the same-origin proxy.
+ *
+ * The proxy at `/api/backend/[...path]` runs as a Vercel serverless function,
+ * which hard-caps request bodies at 4.5 MB (FUNCTION_PAYLOAD_TOO_LARGE / 413).
+ * Multipart *file* uploads can easily exceed that, so on deployed environments
+ * they must talk to the backend directly. The browser's CSP `connect-src`
+ * already allows the backend origin (see next.config.ts), and `doFetch` injects
+ * the Auth0 Bearer token on absolute URLs too — so this is safe for
+ * authenticated calls. The backend's ALLOWED_ORIGIN / CORS must include the
+ * deployed site origin (verified: e.g. https://devapp.getsouvenir.com).
+ *
+ * The 4.5 MB cap is a Vercel serverless limit only — it does NOT apply to the
+ * route handler under local `next dev`. The backend CORS allowlist also does
+ * not include localhost. So we keep the same-origin proxy when running on
+ * localhost (and whenever SERVER_ORIGIN is unset), and go direct only on
+ * deployed origins where the cap actually bites and CORS is configured.
+ */
+const isLocalHost = (host: string): boolean =>
+  host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host.endsWith(".local");
+
+export const directUpload = (endpoint: string): string => {
+  if (!SERVER_ORIGIN || !endpoint.startsWith(API_BASE_URL)) return endpoint;
+  if (typeof window !== "undefined" && isLocalHost(window.location.hostname)) return endpoint;
+  return `${SERVER_ORIGIN}${endpoint.slice(API_BASE_URL.length)}`;
+};
 
 // ── Health ────────────────────────────────────────────────────────────────────
 export const HEALTH_ENDPOINT = withBase("/health");

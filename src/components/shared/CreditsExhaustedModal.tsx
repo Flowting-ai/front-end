@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/auth-context";
+import { useCreditStatus } from "@/hooks/use-credit-status";
 import { Button } from "@/components/Button";
 import { m, AnimatePresence } from "framer-motion";
 
@@ -42,35 +42,25 @@ const modalCardStyle: React.CSSProperties = {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 function CreditsExhaustedModalImpl() {
-  const { user } = useAuth();
+  const { blocked } = useCreditStatus();
   const router = useRouter();
   const [visible, setVisible] = useState(false);
   // Track whether we've already shown the modal this session so we don't
-  // re-pop it on every render if user dismisses it.
+  // re-pop it on every render if the user dismisses it.
   const hasShownRef = useRef(false);
 
-  const creditsRemaining = user?.creditsRemaining ?? null;
-  const creditsTotal = user?.creditsTotal ?? null;
-  const subscriptionStatus = user?.subscriptionStatus;
-  const hasActiveSubscription =
-    subscriptionStatus === "active" || subscriptionStatus === "trialing";
-  const hasEverHadCredits = creditsTotal !== null && creditsTotal > 0;
-
-  // Show automatically when credits drop to 0 (post-chat refresh).
-  // Only fires if the user has actually been allocated credits before —
-  // prevents triggering for fresh users who haven't claimed trial yet.
+  // Show automatically when the user is hard-blocked (credits exhausted) —
+  // trial and subscribers alike. Render is gated on `blocked` below, so a topup
+  // that clears the block auto-closes the modal without a setState here; we just
+  // re-arm the once-per-episode ref.
   useEffect(() => {
-    if (
-      creditsRemaining !== null &&
-      creditsRemaining <= 0 &&
-      hasEverHadCredits &&
-      !hasActiveSubscription &&
-      !hasShownRef.current
-    ) {
+    if (blocked && !hasShownRef.current) {
       hasShownRef.current = true;
       setVisible(true);
+    } else if (!blocked) {
+      hasShownRef.current = false;
     }
-  }, [creditsRemaining, hasActiveSubscription, hasEverHadCredits]);
+  }, [blocked]);
 
   // Listen for imperative "credits:exhausted" events (e.g. from blocked sends)
   useEffect(() => {
@@ -81,7 +71,7 @@ function CreditsExhaustedModalImpl() {
     return () => window.removeEventListener("credits:exhausted", handleExhausted);
   }, []);
 
-  const handleSubscribe = () => {
+  const handleBuyCredits = () => {
     setVisible(false);
     router.push("/settings/billing");
   };
@@ -92,7 +82,7 @@ function CreditsExhaustedModalImpl() {
 
   return (
     <AnimatePresence>
-      {visible && (
+      {visible && blocked && (
         <>
           {/* Backdrop */}
           <m.div
@@ -144,8 +134,8 @@ function CreditsExhaustedModalImpl() {
                 maxWidth: "340px",
               }}
             >
-              Your free trial credits have been exhausted. Subscribe to a plan to
-              continue using all features.
+              You&apos;ve used all your credits. Buy a top-up to continue using
+              Souvenir — your new credits apply instantly, no reload needed.
             </p>
 
             <div
@@ -157,8 +147,8 @@ function CreditsExhaustedModalImpl() {
                 maxWidth: "280px",
               }}
             >
-              <Button size="sm" fluid onClick={handleSubscribe}>
-                View plans & subscribe
+              <Button size="sm" fluid onClick={handleBuyCredits}>
+                Buy credits
               </Button>
               <Button size="sm" variant="ghost" fluid onClick={handleDismiss}>
                 Maybe later

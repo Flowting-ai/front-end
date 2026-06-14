@@ -29,6 +29,9 @@ import { useAuth } from "@/context/auth-context";
 import { useOrg } from "@/context/org-context";
 import { useRouter } from "next/navigation";
 import { InlineCreditNotice, type CreditNoticeStatus } from "@/components/InlineCreditNotice";
+import { CreditStatusBanner } from "@/components/CreditStatusBanner";
+import { useCreditStatus, CREDITS_EXHAUSTED_EVENT } from "@/hooks/use-credit-status";
+import { toast } from "sonner";
 import type { PinFolder } from "@/lib/api/pins";
 import type { PinMentionable } from "./PinMentionDropdown";
 import type { Source } from "@/types/chat";
@@ -295,6 +298,8 @@ export function ChatInterface({
 
   // Org context — pool status drives InlineCreditNotice above input
   const { plan, currentUserRole: orgRole } = useOrg();
+  // Individual credit/topup status — drives the warning banner + hard send-gate.
+  const creditStatus = useCreditStatus();
   const router = useRouter();
   const [dismissedCreditStatus, setDismissedCreditStatus] = useState<CreditNoticeStatus | null>(null);
 
@@ -685,6 +690,16 @@ export function ChatInterface({
     const allFiles = attachments.map((a) => a.file);
     if (!text.trim() && allFiles.length === 0) return;
 
+    // Hard-stop: an exhausted credit/topup user cannot send until they top up.
+    // Surfaces the global exhausted modal so they can buy credits.
+    if (creditStatus.blocked) {
+      toast.error("You've used all your credits", {
+        description: 'Buy a top-up to continue using Souvenir.',
+      });
+      window.dispatchEvent(new Event(CREDITS_EXHAUSTED_EVENT));
+      return;
+    }
+
     const content = text.trim();
     // Capture mentionedPins before clearing so they're stored on the optimistic message.
     const capturedMentionedPins = mentionedPins;
@@ -1042,6 +1057,9 @@ export function ChatInterface({
           )}
         </AnimatePresence>
 
+        {/* Individual credit/topup notice — 90% warning + exhaustion */}
+        <CreditStatusBanner />
+
         {/* position:relative wrapper lets PinMentionDropdown use absolute positioning */}
         <div
           ref={inputWrapperRef}
@@ -1099,8 +1117,14 @@ export function ChatInterface({
               )
             }
             isStreaming={isStreaming}
-            disabled={isStreaming || plan?.poolStatus === 'locked'}
-            placeholder={plan?.poolStatus === 'locked' ? 'Workspace locked. Contact your admin.' : 'How can I help you today?'}
+            disabled={isStreaming || plan?.poolStatus === 'locked' || creditStatus.blocked}
+            placeholder={
+              plan?.poolStatus === 'locked'
+                ? 'Workspace locked. Contact your admin.'
+                : creditStatus.blocked
+                  ? 'Credits exhausted. Buy a top-up to continue.'
+                  : 'How can I help you today?'
+            }
             onMentionChange={hidePinActions ? undefined : handleMentionChange}
             isPinDropdownOpen={hidePinActions ? false : showPinDropdown}
             onPinNavigate={hidePinActions ? undefined : handlePinNavigate}

@@ -254,6 +254,21 @@ function StreamingTextContent({ content, citations }: { content: string; citatio
   return <ContentRenderer content={content} webCitations={citations} isStreaming cursor={dot} />;
 }
 
+// Returns true when the selection range overlaps any rendered LaTeX/KaTeX
+// formula inside `root`. Used to hide the Highlight option for math, which is
+// intentionally not highlightable.
+function rangeIntersectsKatex(range: Range, root: HTMLElement): boolean {
+  const katexEls = root.querySelectorAll('.katex')
+  for (const el of katexEls) {
+    try {
+      if (range.intersectsNode(el)) return true
+    } catch {
+      /* detached / cross-document node — ignore */
+    }
+  }
+  return false
+}
+
 // ── Main ChatMessage Component ────────────────────────────────────────────────
 
 interface ChatMessageProps {
@@ -293,6 +308,9 @@ export function ChatMessage({
   const [copied, setCopied] = useState(false);
   const [selectionOpen, setSelectionOpen] = useState(false);
   const [selectionAnchor, setSelectionAnchor] = useState<DOMRect | null>(null);
+  // True when the current selection overlaps a rendered LaTeX/KaTeX formula.
+  // LaTeX is not highlightable, so the Highlight option is hidden in that case.
+  const [selectionHasLatex, setSelectionHasLatex] = useState(false);
   const [justModelSelected, setJustModelSelected] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -360,6 +378,9 @@ export function ChatMessage({
         if (!contentRef.current?.contains(range.commonAncestorContainer)) return
         const rect = range.getBoundingClientRect()
         if (!rect.width) return
+        // Hide the Highlight option when the selection overlaps a LaTeX/KaTeX
+        // formula — LaTeX is intentionally not highlightable.
+        setSelectionHasLatex(rangeIntersectsKatex(range, contentRef.current))
         setSelectionAnchor(rect)
         setSelectionOpen(true)
       })
@@ -1063,7 +1084,7 @@ export function ChatMessage({
         <SelectionPopover
           open={selectionOpen}
           anchorRect={selectionAnchor}
-          onHighlight={handleHighlight}
+          onHighlight={selectionHasLatex ? undefined : handleHighlight}
           onCopy={handleCopySelection}
         />
       )}

@@ -6,6 +6,7 @@ import { Button } from '@/components/Button'
 import { CardBrandLogo } from '@/components/CardBrandLogo'
 import type { CardBrand } from '@/components/CardBrandLogo'
 import { chargeTopUp, createTopUpSession, openBillingPortal, type BillingInfo } from '@/lib/api/user'
+import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
 import { toast } from 'sonner'
 
 const TITLE = 'var(--font-title)'
@@ -103,6 +104,8 @@ export function BuyCreditsModal({ open, onClose, billing, onSuccess }: BuyCredit
         const res = await chargeTopUp(usd)
         if (res.status === 'succeeded' || res.status === 'ok') {
           toast.success('Credits added successfully!')
+          // Refresh credits app-wide (chat gate, banners, sidebar) without a reload.
+          notifyCreditsUpdated()
           onSuccess()
           onClose()
           return

@@ -89,27 +89,37 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
   let creditsRemainingDisplay: string | null = null;
 
   if (plan && profile.usage) {
-    // Subscribed user — compute from plan credits
+    // Subscribed user — compute from plan credits.
     const c = usageToCredits(plan, profile.usage.monthly_used);
-    creditsTotal = c.total;
+    // Top-up credits are additive on top of the plan allowance and are NOT
+    // captured by the plan-tier constant, so fold them into total + remaining.
+    // Without this, a successful topup never increases the displayed balance
+    // and an exhausted subscriber would stay blocked after recharging.
+    const topup = Math.round((profile.usage.topup_credits ?? 0) * 1000);
+    creditsTotal = c.total + topup;
     creditsUsed = c.used;
-    creditsRemaining = c.remaining;
-    creditsDisplay = formatCredits(c.total);
-    creditsRemainingDisplay = formatCredits(c.remaining);
+    creditsRemaining = c.remaining + topup;
+    creditsDisplay = formatCredits(creditsTotal);
+    creditsRemainingDisplay = formatCredits(creditsRemaining);
   } else if (profile.credits) {
-    // Trial / unsubscribed user — use billing credits object directly
-    // Values are in dollars; multiply by 1000 for credit units display
-    // trial.amount is the original total allowance (stays constant)
+    // Trial / unsubscribed user — use billing credits object directly.
+    // Values are in dollars; multiply by 1000 for credit units display.
     const bc = profile.credits;
-    creditsTotal = bc.trial
-      ? Math.round(bc.trial.amount * 1000)
-      : Math.round(bc.total_credits * 1000);
-    const totalUsed =
-      (bc.used?.chat ?? 0) + (bc.used?.persona ?? 0) + (bc.used?.brain ?? 0);
-    creditsUsed = Math.round(totalUsed * 1000);
-    creditsRemaining = bc.trial
-      ? Math.round(bc.trial.remaining * 1000)
-      : Math.max(creditsTotal - creditsUsed, 0);
+    if (bc.trial) {
+      // trial.amount is the original trial allowance; top-ups stack on top of
+      // the trial pool so they survive exhaustion and recharge the balance.
+      const topup = Math.round((bc.topup_credits ?? 0) * 1000);
+      creditsTotal = Math.round(bc.trial.amount * 1000) + topup;
+      creditsUsed = Math.round(bc.trial.used * 1000);
+      creditsRemaining = Math.round(bc.trial.remaining * 1000) + topup;
+    } else {
+      // total_credits already includes plan + top-up balance.
+      creditsTotal = Math.round(bc.total_credits * 1000);
+      const totalUsed =
+        (bc.used?.chat ?? 0) + (bc.used?.persona ?? 0) + (bc.used?.brain ?? 0);
+      creditsUsed = Math.round(totalUsed * 1000);
+      creditsRemaining = Math.max(creditsTotal - creditsUsed, 0);
+    }
     creditsDisplay = formatCredits(creditsTotal);
     creditsRemainingDisplay = formatCredits(creditsRemaining);
   }
@@ -237,6 +247,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleExpired = () => void logout();
     window.addEventListener("auth:session-expired", handleExpired);
     return () => window.removeEventListener("auth:session-expired", handleExpired);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Refresh the profile whenever the credit balance changes (e.g. after a
+  // topup). Lets balances update app-wide — chat gate, banners, sidebar — with
+  // no manual page reload. Event name kept in sync with use-credit-status.ts.
+  useEffect(() => {
+    const handleCreditsUpdated = () => void refreshUser();
+    window.addEventListener("credits:updated", handleCreditsUpdated);
+    return () => window.removeEventListener("credits:updated", handleCreditsUpdated);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

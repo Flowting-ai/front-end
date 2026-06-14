@@ -22,6 +22,7 @@ import {
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
 import { useAuth } from '@/context/auth-context'
+import { useCreditStatus, CREDITS_EXHAUSTED_EVENT } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
 import { AccountMenu } from '@/components/AccountMenu'
 import { BrainSidebarSections } from './BrainSidebarSections'
@@ -989,6 +990,8 @@ function BrainPageInner() {
   const searchParams = useSearchParams()
   const { push, replace } = useRouter()
   const { user, logout, isAuthenticated } = useAuth()
+  // Individual credit/topup status — hard send-gate when exhausted.
+  const creditStatus = useCreditStatus()
   const chatIdFromUrl = searchParams.get('id')
 
   const displayName = user
@@ -2096,6 +2099,15 @@ function BrainPageInner() {
   // ── Send handler ──────────────────────────────────────────────────────────────
 
   const handleSend = useCallback((value: string) => {
+    // Hard-stop: an exhausted credit/topup user cannot send until they top up.
+    if (creditStatus.blocked) {
+      toast.error("You've used all your credits", {
+        description: 'Buy a top-up to continue using Souvenir.',
+      })
+      window.dispatchEvent(new Event(CREDITS_EXHAUSTED_EVENT))
+      return
+    }
+
     const terminalPhases: Phase[] = ['complete', 'cancelled', 'failed']
     if (terminalPhases.includes(phase)) {
       snapshotAndReset(
@@ -2157,7 +2169,7 @@ function BrainPageInner() {
   }, [
     phase, chatId, planSteps, userMessage, streamedContent,
     activePlanSummary, completedAt, streamImages, streamFiles, snapshotAndReset, runBrainStream,
-    brainAttachments, userAttachments,
+    brainAttachments, userAttachments, creditStatus.blocked,
   ])
 
   // ── Plan decisions ────────────────────────────────────────────────────────────
@@ -3030,7 +3042,7 @@ function BrainPageInner() {
       } : undefined}
       chatInputProps={{
         isStreaming: brainIsStreaming,
-        disabled: brainIsStreaming,
+        disabled: brainIsStreaming || creditStatus.blocked,
         onStop: handleStop,
         onFilePaste: (files) => setBrainAttachments((prev) => processFiles(files, prev)),
         addMenu,
