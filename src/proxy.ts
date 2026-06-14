@@ -34,12 +34,16 @@ function determineNextOnboardingPath(root: Record<string, unknown>): string {
     return false;
   };
 
-  // New frontend onboarding flow: welcome → role → tone → import (import saves and completes)
-  // All data is saved at once on the import step, so incomplete users
-  // always start from the beginning (/onboarding/welcome).
-  if (!filled("user_role", "userRole")) return "/onboarding/welcome";
-  if (!filled("ai_tone", "aiTone")) return "/onboarding/role";
-  // Both role and tone filled but onboarding not marked complete → import step
+  // Onboarding flow:
+  //   hello (name + role)            → saves user_role
+  //   account-type (just me / team)  → saves role_fit (just_me for individuals)
+  //     ├─ individual → import       (tone is skipped)
+  //     └─ team       → workspace     → saves role_fit (small_team / large_team) → import
+  //   import (bring context)         → marks onboarding complete
+  // Resume keys off the backend fields each step writes; both branches finish
+  // on the import step.
+  if (!filled("user_role", "userRole")) return "/onboarding/hello";
+  if (!filled("role_fit", "roleFit")) return "/onboarding/account-type";
   return "/onboarding/import";
 }
 

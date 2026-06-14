@@ -232,7 +232,7 @@ export default function OnboardingTonePage() {
 
       {/* Nav buttons */}
       <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-        <Button variant="secondary" size="sm" onClick={() => push("/onboarding/role")}>
+        <Button variant="secondary" size="sm" onClick={() => push("/onboarding/account-type")}>
           Back
         </Button>
         {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- onboarding wizard: "Continue" completes onboarding; flow context makes action clear */}

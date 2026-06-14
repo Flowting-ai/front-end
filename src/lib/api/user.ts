@@ -252,8 +252,18 @@ function normalizeUserProfile(raw: unknown): UserProfile {
       root.onboarding && typeof root.onboarding === "object"
         ? (() => {
             const o = root.onboarding as Record<string, unknown>;
+            // Mirror the server proxy's completion notion (userMeRootAllowsMainApp):
+            // a `metadata.status === "complete"` counts as complete even if the
+            // boolean `completed` flag lags. Keeping these in sync prevents the
+            // client OnboardingGuard from disagreeing with the proxy and causing
+            // an infinite /chat ⇄ /onboarding redirect loop.
+            const metadata =
+              o.metadata && typeof o.metadata === "object"
+                ? (o.metadata as Record<string, unknown>)
+                : {};
+            const completed = Boolean(o.completed) || metadata.status === "complete";
             return {
-              completed: Boolean(o.completed),
+              completed,
               user_role: typeof o.user_role === "string" ? o.user_role : null,
               ai_tone: typeof o.ai_tone === "string" ? o.ai_tone : null,
               role_fit: typeof o.role_fit === "string" ? o.role_fit : null,

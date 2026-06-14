@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useOnboarding } from "@/context/onboarding-context";
+import { useOnboarding, deriveRoleFit } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
@@ -40,9 +40,22 @@ export default function OnboardingImportPage() {
         updateOnboarding({
           user_role: data.role ?? null,
           ai_tone: data.tone,
+          // role_fit captures the account-type branch (just_me / small_team /
+          // large_team). updateOnboarding validates + drops it if unset.
+          role_fit: deriveRoleFit(data.accountType, data.companySize),
           onboarding_completed: true,
         }),
       ]);
+
+      // Persist the free-text "Other" role detail from the hello step as a user
+      // memory. Sent regardless of skipContext — it's a captured answer, not the
+      // optional bring-context paste. Fire and forget so it never blocks finish.
+      if (data.role === "Other" && data.roleOther.trim().length > 0) {
+        void apiFetch(MEMORY_USER_ENDPOINT, {
+          method: "POST",
+          body: JSON.stringify({ content: `My role: ${data.roleOther.trim()}` }),
+        });
+      }
 
       // Send user memory/context to backend if provided
       if (!skipContext && data.aiContext.trim().length > 0) {
@@ -339,7 +352,12 @@ export default function OnboardingImportPage() {
       {/* Action buttons */}
       {/* Action buttons */}
       <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-        <Button variant="secondary" size="sm" onClick={() => push("/onboarding/tone")} disabled={loading}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => push(data.accountType === "team" ? "/onboarding/workspace" : "/onboarding/account-type")}
+          disabled={loading}
+        >
           Back
         </Button>
         <Button
