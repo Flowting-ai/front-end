@@ -25,6 +25,21 @@ export interface TabItemProps
   'data-state'?: string
   /** When true, the item grows to fill its flex parent equally (fluid TabsList) */
   fluid?: boolean
+  /**
+   * Collapse mode (icon-rail tab strip): the label is hidden unless this item
+   * is selected, so only the active tab shows icon + label and the rest are
+   * icon-only. Driven by `collapse` on TabsList via context. The label fades in
+   * on activation; the label is always in the DOM (measurable + accessible).
+   */
+  collapse?: boolean
+  /**
+   * Collapse mode only — the reserved width (px) for the active label slot,
+   * measured by TabsList as the widest label across all tabs. Pinning the active
+   * slot to this constant keeps the active tab (and the whole strip) a fixed
+   * width regardless of which tab is selected, so the strip footprint never
+   * shifts on switch. `null` falls back to the label's natural width.
+   */
+  reservedLabelWidth?: number | null
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -40,6 +55,8 @@ export function TabItem(
     asChild = false,
     disableSelectedStyle = false,
     fluid = false,
+    collapse = false,
+    reservedLabelWidth = null,
     className,
     'data-state': dataState,
     ...props
@@ -121,22 +138,60 @@ export function TabItem(
         )}
 
         {/* Label */}
-        <span
-          style={{
-            position:   'relative',
-            fontFamily: 'var(--font-body)',
-            fontWeight: 'var(--font-weight-medium)',
-            fontSize:   isSmall ? 'var(--font-size-caption)' : 'var(--font-size-body)',
-            lineHeight: isSmall ? 'var(--line-height-caption)' : 'var(--line-height-body)',
-            color:      textColor,
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-            padding:    '0 2px',
-            transition: 'color 150ms',
-          }}
-        >
-          {children}
-        </span>
+        {children != null && children !== '' && (
+          collapse ? (
+            // Collapse mode: the label is ALWAYS in the DOM (measurable by TabsList +
+            // accessible to AT). Selected → a reserved-width slot (widest label across
+            // tabs) so the active tab is a constant width and the strip never reflows;
+            // non-selected → width 0 (icon-only). Fade is opacity-only.
+            <span
+              data-tab-collapse-label
+              style={{
+                display:        'inline-flex',
+                justifyContent: 'center',
+                overflow:       'hidden',
+                flexShrink:     0,
+                width:          isSelected ? (reservedLabelWidth ?? 'auto') : 0,
+                opacity:        isSelected ? 1 : 0,
+                transition:     'opacity 200ms ease',
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 'var(--font-weight-medium)',
+                  fontSize:   isSmall ? 'var(--font-size-caption)' : 'var(--font-size-body)',
+                  lineHeight: isSmall ? 'var(--line-height-caption)' : 'var(--line-height-body)',
+                  color:      textColor,
+                  whiteSpace: 'nowrap',
+                  padding:    '0 2px',
+                  // Slides in with the pill; clipped by the slot when inactive.
+                  transform:  isSelected ? 'translateX(0)' : 'translateX(-4px)',
+                  transition: 'color 150ms, transform 200ms ease',
+                }}
+              >
+                {children}
+              </span>
+            </span>
+          ) : (
+            <span
+              style={{
+                position:   'relative',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-medium)',
+                fontSize:   isSmall ? 'var(--font-size-caption)' : 'var(--font-size-body)',
+                lineHeight: isSmall ? 'var(--line-height-caption)' : 'var(--line-height-body)',
+                color:      textColor,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                padding:    '0 2px',
+                transition: 'color 150ms',
+              }}
+            >
+              {children}
+            </span>
+          )
+        )}
       </Comp>
     )
 }

@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { Suspense, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
 import { HighlightSidebar } from "./HighlightSidebar";
@@ -10,6 +10,8 @@ import { AppDialogs } from "./AppDialogs";
 import { FloatingPanel } from "./FloatingPanel";
 import { usePinboard } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
+import { useOrg } from "@/context/org-context";
+import { WorkspaceStatusBanner, type TokenStatus } from "@/components/WorkspaceStatusBanner";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -32,7 +34,14 @@ export function AppLayout({
 }: AppLayoutProps) {
   const { isOpen: pinboardOpen, close: closePinboard } = usePinboard()
   const { isOpen: highlightOpen, close: closeHighlight } = useHighlight()
+  const { plan, currentUserRole } = useOrg()
   const pathname = usePathname()
+  const router = useRouter()
+
+  const WORKSPACE_BANNER_STATUSES = new Set<string>(['warning_95', 'grace', 'locked'])
+  const workspaceBannerStatus = (plan?.poolStatus && WORKSPACE_BANNER_STATUSES.has(plan.poolStatus))
+    ? plan.poolStatus as TokenStatus
+    : null
   const isAnyProjectPage = pathname.startsWith('/project')
   // Suppress FloatingPanel on project listing / detail pages, but NOT on
   // project chat pages - those use the same global FloatingPanel as regular chats.
@@ -91,16 +100,34 @@ export function AppLayout({
         />
       </Suspense>
 
-      {/* ── Center column - neutral-50 bg, 10px vertical padding, 10px right gap (removed when any panel is open) ── */}
+      {/* ── Center column - neutral-50 bg, flex-column so credit banner sits above content ── */}
       <div
         style={{
           flex:            "1 0 0",
           minWidth:        0,
           display:         "flex",
-          padding:         (pinboardOpen || highlightOpen) ? "10px 0" : "10px 10px 10px 0",
+          flexDirection:   "column",
           backgroundColor: "var(--neutral-50)",
         }}
       >
+        {/* Workspace credit status banner — only shown when pool is low, in grace, or locked */}
+        {workspaceBannerStatus && (
+          <WorkspaceStatusBanner
+            tokenStatus={workspaceBannerStatus}
+            isAdmin={currentUserRole === 'admin'}
+            onAdminAction={() => router.push('/settings/org/plans')}
+          />
+        )}
+
+        {/* Content area with original 10px spacing */}
+        <div
+          style={{
+            flex:      "1 0 0",
+            minHeight: 0,
+            display:   "flex",
+            padding:   (pinboardOpen || highlightOpen) ? "10px 0" : "10px 10px 10px 0",
+          }}
+        >
         {isPersonaPage && !isPersonaChatPage ? (
           /* ── Non-chat persona pages (list, configure): plain main, no container ── */
           <main
@@ -171,6 +198,7 @@ export function AppLayout({
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* ── Right sidebar (Pinboard) ── */}

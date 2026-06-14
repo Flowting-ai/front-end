@@ -26,6 +26,9 @@ import {
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { usePinboard, type PinItem } from "@/context/pinboard-context";
 import { useAuth } from "@/context/auth-context";
+import { useOrg } from "@/context/org-context";
+import { useRouter } from "next/navigation";
+import { InlineCreditNotice, type CreditNoticeStatus } from "@/components/InlineCreditNotice";
 import type { PinFolder } from "@/lib/api/pins";
 import type { PinMentionable } from "./PinMentionDropdown";
 import type { Source } from "@/types/chat";
@@ -289,6 +292,17 @@ export function ChatInterface({
 
   // Auth context — refreshUser for updating usage after stream completes
   const { refreshUser } = useAuth();
+
+  // Org context — pool status drives InlineCreditNotice above input
+  const { plan, currentUserRole: orgRole } = useOrg();
+  const router = useRouter();
+  const [dismissedCreditStatus, setDismissedCreditStatus] = useState<CreditNoticeStatus | null>(null);
+
+  const CREDIT_NOTICE_STATUSES = new Set<string>(['warning_95', 'grace', 'locked']);
+  const creditNoticeStatus: CreditNoticeStatus | null =
+    plan?.poolStatus && CREDIT_NOTICE_STATUSES.has(plan.poolStatus) && plan.poolStatus !== dismissedCreditStatus
+      ? (plan.poolStatus as CreditNoticeStatus)
+      : null;
 
   // Pin data for the @-mention dropdown — read from context (no extra fetch).
   const { pins, isPinned } = usePinboard();
@@ -1015,6 +1029,19 @@ export function ChatInterface({
           alignItems: "center",
         }}
       >
+        {/* Workspace credit notice — team plan only, dismissible per status level */}
+        <AnimatePresence>
+          {creditNoticeStatus && (
+            <InlineCreditNotice
+              key={creditNoticeStatus}
+              status={creditNoticeStatus}
+              isAdmin={orgRole === 'admin'}
+              onAdminAction={() => router.push('/settings/org/plans')}
+              onDismiss={() => setDismissedCreditStatus(creditNoticeStatus)}
+            />
+          )}
+        </AnimatePresence>
+
         {/* position:relative wrapper lets PinMentionDropdown use absolute positioning */}
         <div
           ref={inputWrapperRef}
@@ -1072,8 +1099,8 @@ export function ChatInterface({
               )
             }
             isStreaming={isStreaming}
-            disabled={isStreaming}
-            placeholder="How can I help you today?"
+            disabled={isStreaming || plan?.poolStatus === 'locked'}
+            placeholder={plan?.poolStatus === 'locked' ? 'Workspace locked. Contact your admin.' : 'How can I help you today?'}
             onMentionChange={hidePinActions ? undefined : handleMentionChange}
             isPinDropdownOpen={hidePinActions ? false : showPinDropdown}
             onPinNavigate={hidePinActions ? undefined : handlePinNavigate}

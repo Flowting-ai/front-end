@@ -1132,6 +1132,8 @@ function BrainPageInner() {
   const [personaChipOpen,      setPersonaChipOpen]      = useState(false)
   const [chipPersonas,         setChipPersonas]         = useState<SelectedPersonaInfo[]>([])
   const [loadingChipPersonas,  setLoadingChipPersonas]  = useState(false)
+  // Guard: fetch personas at most once per page load — stale list is fine for chip selection.
+  const chipPersonasFetchedRef = useRef(false)
   const [brainAttachments,     setBrainAttachments]     = useState<PendingAttachment[]>([])
   const [userAttachments,      setUserAttachments]      = useState<UserAttachment[]>([])
 
@@ -1323,7 +1325,8 @@ function BrainPageInner() {
 
   // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
-    if (!personaChipOpen) return
+    if (!personaChipOpen || chipPersonasFetchedRef.current) return
+    chipPersonasFetchedRef.current = true
     setLoadingChipPersonas(true)
     fetchPersonas()
       .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))

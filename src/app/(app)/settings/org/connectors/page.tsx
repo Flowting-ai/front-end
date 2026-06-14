@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import * as Dialog from '@radix-ui/react-dialog'
-import { listConnectors, initiateLink, unlinkConnector } from '@/lib/api/connectors'
-import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
+import { listConnectors, initiateLink, unlinkConnector, updateConnector } from '@/lib/api/connectors'
+import type { ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
 import {
   ArrowDownOneIcon,
   ArrowRightOneIcon,
@@ -36,23 +36,55 @@ const FILTER_TABS: Array<{ id: FilterTab; label: string }> = [
 
 const CATEGORIES: CategoryTab[] = ['All', 'Productivity', 'Communication', 'Design', 'Interactive', 'Data']
 
-const TEAM_REQUESTS = [
+const CONNECTOR_CATEGORY_MAP: Record<string, CategoryTab> = {
+  github:    'Interactive',
+  gmail:     'Communication',
+  drive:     'Productivity',
+  hubspot:   'Data',
+  notion:    'Productivity',
+  pipedrive: 'Data',
+}
+
+interface ConnectorRequest {
+  slug:      string
+  name:      string
+  iconUrl?:  string
+  requester: string
+  daysAgo:   string
+  votes?:    string    // "3 others" — upvote count label
+  quote:     string
+  /** true = in catalog, admin can approve; false = not in catalog, must escalate to Souvenir */
+  available: boolean
+}
+
+const PENDING_FROM_TEAM: ConnectorRequest[] = [
   {
+    slug:      'hubspot',
     name:      'HubSpot',
     requester: 'Priya Nair',
-    meta:      '2 days ago · also upvoted by',
+    daysAgo:   '2 days ago',
     votes:     '3 others',
     quote:     'Need this to pull deal stages into the sales brain for weekly reports.',
-    primary:   'Approve & connect',
-    secondary: 'Decline',
+    available: true,
   },
   {
+    slug:      'notion',
     name:      'Notion',
     requester: 'Marcus Web',
-    meta:      '2 days ago',
+    daysAgo:   '2 days ago',
     quote:     'Our design docs live here — brain should be able to read them.',
-    primary:   'Approve & connect',
-    secondary: 'Decline',
+    available: true,
+  },
+]
+
+const PENDING_YOUR_ACCOUNTS: ConnectorRequest[] = [
+  {
+    slug:      'pipedrive',
+    name:      'Pipedrive',
+    requester: 'Harsh Patel',
+    daysAgo:   '1 day ago',
+    quote:     "This is our actual CRM — Salesforce connector won't help us.",
+    available: false,
   },
 ]
 
@@ -642,15 +674,72 @@ function SwitchRow() {
   )
 }
 
+// ── Scope badges (team/personal/accounts) ─────────────────────────────────────
+
+interface ConnectorScope {
+  teams?:        string[]
+  personal?:     boolean
+  accountCount?: number
+}
+
+function ScopeBadge({ label, variant }: { label: string; variant: 'team' | 'personal' | 'accounts' }) {
+  const cfg = {
+    team:     { bg: 'var(--blue-100, #cadcf1)',    border: 'rgba(13,110,178,0.5)',  text: 'var(--blue-700, #135487)' },
+    personal: { bg: 'var(--green-50, #f7fee6)',    border: 'rgba(128,183,7,0.5)',   text: 'var(--green-800, #456211)' },
+    accounts: { bg: 'var(--purple-100, #ded0df)',  border: 'rgba(103,79,104,0.5)',  text: 'var(--purple-700, #513853)' },
+  }[variant]
+  return (
+    <span style={{
+      display:         'inline-flex',
+      alignItems:      'center',
+      justifyContent:  'center',
+      padding:         '2px 4px',
+      borderRadius:    6,
+      overflow:        'clip',
+      position:        'relative',
+      flexShrink:      0,
+      backgroundColor: cfg.bg,
+      boxShadow:       `0px 1px 1.5px rgba(0,0,0,0.15), 0px 0px 0px 1px ${cfg.border}`,
+      fontFamily:      'var(--font-body)',
+      fontWeight:      500,
+      fontSize:        11,
+      lineHeight:      '16px',
+      color:           cfg.text,
+      whiteSpace:      'nowrap',
+    }}>
+      {label}
+    </span>
+  )
+}
+
+// ── Connector catalog tile ─────────────────────────────────────────────────────
+
 function ConnectorCatalogTile({
   connector,
   action,
   onAction,
+  scope,
 }: {
   connector: ConnectorCatalogEntry
   action:    'request' | 'manage' | 'add' | 'added'
   onAction?: () => void
+  scope?:    ConnectorScope
 }) {
+  const isManage = action === 'manage'
+  const category = connector.auth_mode === 'api_key' ? 'API Key' : 'OAuth'
+
+  const scopeBadges: React.ReactNode[] = []
+  if (scope?.teams) {
+    scope.teams.forEach(team => scopeBadges.push(<ScopeBadge key={`team-${team}`} label={team} variant="team" />))
+  }
+  if (scope?.personal) {
+    scopeBadges.push(<ScopeBadge key="personal" label="Personal" variant="personal" />)
+  }
+  if (scope?.accountCount != null && scope.accountCount > 0) {
+    const n = scope.accountCount
+    scopeBadges.push(<ScopeBadge key="accounts" label={`${n} ${n === 1 ? 'account' : 'accounts'}`} variant="accounts" />)
+  }
+
   return (
     <div
       style={{
@@ -658,57 +747,67 @@ function ConnectorCatalogTile({
         borderRadius:    16,
         boxShadow:       '0px 2px 2.8px 0px var(--neutral-200), 0px 0px 0px 1px var(--neutral-200)',
         padding:         16,
+        paddingBottom:   isManage ? 52 : 16,
         display:         'flex',
         flexDirection:   'column',
         gap:             12,
-        minHeight:       170,
+        minHeight:       isManage ? 190 : 170,
+        position:        'relative',
       }}
     >
+      {/* Header: icon + name/category + overflow menu */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '1 0 0' }}>
           <ConnectorIcon iconUrl={connector.icon_url} />
-          <TextBlock title={connector.display_name} />
+          <TextBlock title={connector.display_name} subtitle={category} />
         </div>
         <IconButton variant="ghost" size="sm" aria-label={`${connector.display_name} options`} icon={<MoreVerticalIcon size={20} />} />
       </div>
+
+      {/* Description — clamped for manage tiles */}
       <BodyText
         size={11}
         style={{
-          flex:       '1 0 0',
-          minHeight:  32,
-          overflow:   'visible',
-          whiteSpace: 'normal',
-          wordBreak:  'normal',
-        }}
+          flex:            '1 0 0',
+          minHeight:       32,
+          display:         '-webkit-box',
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: 'vertical',
+          overflow:        'hidden',
+          whiteSpace:      'normal',
+          wordBreak:       'normal',
+        } as React.CSSProperties}
       >
         {connector.description}
       </BodyText>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: action === 'added' ? 'space-between' : 'flex-end', gap: 8, width: '100%' }}>
-        {action === 'added' && (
-          <>
-            <Badge label="Available" color="Green" />
-            <span
-              style={{
-                display:    'inline-flex',
-                alignItems: 'center',
-                gap:        4,
-                color:      'var(--neutral-700)',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize:   14,
-                lineHeight: '22px',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <CheckmarkCircleTwoIcon size={16} />
-              Added
-            </span>
-          </>
-        )}
-        {action === 'add' && <Button variant="default" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={onAction}>Add</Button>}
-        {action === 'manage' && <Button variant="default" size="sm" onClick={onAction}>Manage</Button>}
-        {action === 'request' && <Button variant="default" size="sm" onClick={onAction}>Request</Button>}
-      </div>
+
+      {/* Scope badges — rendered when scope data is available */}
+      {isManage && scopeBadges.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {scopeBadges}
+        </div>
+      )}
+
+      {/* Action footer */}
+      {isManage ? (
+        <div style={{ position: 'absolute', bottom: 16, right: 16 }}>
+          <Button variant="outline" size="sm" onClick={onAction}>Manage</Button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: action === 'added' ? 'space-between' : 'flex-end', gap: 8, width: '100%' }}>
+          {action === 'added' && (
+            <>
+              <Badge label="Available" color="Green" />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--neutral-700)', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', whiteSpace: 'nowrap' }}>
+                <CheckmarkCircleTwoIcon size={16} />
+                Added
+              </span>
+            </>
+          )}
+          {action === 'add' && <Button variant="default" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={onAction}>Add account</Button>}
+          {action === 'request' && <Button variant="default" size="sm" onClick={onAction}>Request</Button>}
+        </div>
+      )}
     </div>
   )
 }
@@ -717,10 +816,12 @@ function AdminManageConnectors({
   connectors,
   onConnect,
   onDisconnect,
+  onManage,
 }: {
   connectors:   ConnectorCatalogEntry[]
   onConnect:    (slug: string) => void
   onDisconnect: (slug: string) => void
+  onManage?:    (entry: ConnectorCatalogEntry) => void
 }) {
   const [category, setCategory] = useState<CategoryTab>('All')
 
@@ -752,7 +853,7 @@ function AdminManageConnectors({
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
                 {linked.map(c => (
-                  <ConnectorCatalogTile key={c.slug} connector={c} action="manage" onAction={() => onDisconnect(c.slug)} />
+                  <ConnectorCatalogTile key={c.slug} connector={c} action="manage" onAction={() => onManage?.(c)} />
                 ))}
               </div>
             </div>
@@ -775,22 +876,30 @@ function AdminManageConnectors({
 }
 
 function RequestReviewRow({
-  request,
-  unavailable = false,
+  req,
+  onApprove,
+  onDecline,
+  onDismiss,
   onRequestSouvenir,
 }: {
-  request: {
-    name: string
-    requester: string
-    meta: string
-    votes?: string
-    quote: string
-    primary: string
-    secondary: string
-  }
-  unavailable?: boolean
+  req:                ConnectorRequest
+  onApprove?:         (slug: string) => Promise<void>
+  onDecline?:         (slug: string) => void
+  onDismiss?:         (slug: string) => void
   onRequestSouvenir?: () => void
 }) {
+  const [approving, setApproving] = useState(false)
+
+  async function handleApprove() {
+    if (!onApprove) return
+    setApproving(true)
+    try {
+      await onApprove(req.slug)
+    } finally {
+      setApproving(false)
+    }
+  }
+
   return (
     <div
       style={{
@@ -803,7 +912,9 @@ function RequestReviewRow({
         gap:             12,
       }}
     >
-      {unavailable ? (
+      {req.available ? (
+        <ConnectorIcon iconUrl={req.iconUrl} kind={req.slug as ConnectorKind} />
+      ) : (
         <div style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <div
             style={{
@@ -820,36 +931,91 @@ function RequestReviewRow({
             <PlusSignIcon size={22} />
           </div>
         </div>
-      ) : (
-        <ConnectorIcon kind="github" />
       )}
       <div style={{ minWidth: 0, flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <BodyText weight={500} color="var(--neutral-900)">{request.name}</BodyText>
-          <Badge label={unavailable ? 'NOT AVAILABLE' : 'PENDING'} color={unavailable ? 'Yellow' : 'Red'} />
+          <BodyText weight={500} color="var(--neutral-900)">{req.name}</BodyText>
+          <Badge label={req.available ? 'PENDING' : 'NOT AVAILABLE'} color={req.available ? 'Red' : 'Yellow'} />
         </div>
         <BodyText size={11}>
-          Requested by <span style={{ color: 'black' }}>{request.requester}</span> · {request.meta}
-          {request.votes && <> <span style={{ color: 'black' }}>{request.votes}</span></>}
+          Requested by{' '}
+          <span style={{ color: 'black' }}>{req.requester}</span>{' '}
+          · {req.daysAgo}
+          {req.votes && (
+            <> · also upvoted by <span style={{ color: 'black' }}>{req.votes}</span></>
+          )}
         </BodyText>
-        <BodyText size={11} color="var(--neutral-500)" family="var(--font-title)">&quot;{request.quote}&quot;</BodyText>
+        <BodyText size={11} color="var(--neutral-500)" family="var(--font-title)">&quot;{req.quote}&quot;</BodyText>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <DangerOutlineButton>{request.secondary}</DangerOutlineButton>
-        <Button
-          variant="default"
-          size="sm"
-          onClick={onRequestSouvenir}
-          rightIcon={unavailable ? <ArrowRightOneIcon size={16} /> : undefined}
-        >
-          {request.primary}
-        </Button>
+        {req.available ? (
+          <>
+            <DangerOutlineButton onClick={() => onDecline?.(req.slug)}>Decline</DangerOutlineButton>
+            <Button
+              variant="default"
+              size="sm"
+              loading={approving}
+              disabled={approving}
+              onClick={() => void handleApprove()}
+            >
+              Approve &amp; connect
+            </Button>
+          </>
+        ) : (
+          <>
+            <DangerOutlineButton onClick={() => onDismiss?.(req.slug)}>Dismiss</DangerOutlineButton>
+            <Button
+              variant="default"
+              size="sm"
+              rightIcon={<ArrowRightOneIcon size={16} />}
+              onClick={onRequestSouvenir}
+            >
+              Request from Souvenir
+            </Button>
+          </>
+        )}
       </div>
     </div>
   )
 }
 
-function RequestQueue({ onRequestSouvenir }: { onRequestSouvenir: () => void }) {
+function RequestQueue({
+  orgName,
+  isAdmin,
+  onRequestSouvenir,
+}: {
+  orgName:           string
+  isAdmin:           boolean
+  onRequestSouvenir: () => void
+}) {
+  const [teamRequests,    setTeamRequests]    = useState<ConnectorRequest[]>(PENDING_FROM_TEAM)
+  const [accountRequests, setAccountRequests] = useState<ConnectorRequest[]>(PENDING_YOUR_ACCOUNTS)
+
+  const badgeLabel = orgName ? `${orgName} · ${isAdmin ? 'Admin' : 'Member'}` : (isAdmin ? 'Admin' : 'Member')
+
+  async function handleApprove(slug: string) {
+    try {
+      const res = await initiateLink(slug)
+      if (res.redirect_url) {
+        window.location.href = res.redirect_url
+      } else {
+        setTeamRequests(prev => prev.filter(r => r.slug !== slug))
+        toast.success('Connector approved and connected')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to connect connector')
+    }
+  }
+
+  function handleDecline(slug: string) {
+    setTeamRequests(prev => prev.filter(r => r.slug !== slug))
+    toast.success('Request declined')
+  }
+
+  function handleDismiss(slug: string) {
+    setAccountRequests(prev => prev.filter(r => r.slug !== slug))
+  }
+
   return (
     <PageCard style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', gap: 24 }}>
@@ -857,38 +1023,49 @@ function RequestQueue({ onRequestSouvenir }: { onRequestSouvenir: () => void }) 
           <BodyText weight={500} color="var(--neutral-900)">My connectors</BodyText>
           <BodyText>Integrations available to you in this workspace. Connect your own accounts where needed.</BodyText>
         </div>
-        <Badge label="Souvenir Inc. · Member" color="Blue" />
+        <Badge label={badgeLabel} color={isAdmin ? 'Yellow' : 'Blue'} />
       </div>
 
       <div style={{ padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <BodyText weight={500} color="var(--neutral-900)">From your team</BodyText>
-            <BodyText>Available on Souvenir — approve to connect</BodyText>
-          </div>
-          {TEAM_REQUESTS.map(request => (
-            <RequestReviewRow key={request.name} request={request} />
-          ))}
-        </section>
+        {teamRequests.length > 0 && (
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <BodyText weight={500} color="var(--neutral-900)">From your team</BodyText>
+              <BodyText>Available on Souvenir — approve to connect</BodyText>
+            </div>
+            {teamRequests.map(req => (
+              <RequestReviewRow
+                key={req.slug}
+                req={req}
+                onApprove={handleApprove}
+                onDecline={handleDecline}
+              />
+            ))}
+          </section>
+        )}
 
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <BodyText weight={500} color="var(--neutral-900)">Your accounts</BodyText>
-            <BodyText>Enabled for the team — connect your own</BodyText>
-          </div>
-          <RequestReviewRow
-            unavailable
-            onRequestSouvenir={onRequestSouvenir}
-            request={{
-              name:      'Pipedrive',
-              requester: 'Harsh Patel',
-              meta:      '1 days ago',
-              quote:     "This is our actual CRM — Salesforce connector won't help us.",
-              primary:   'Request from Souvenir',
-              secondary: 'Dismiss',
-            }}
-          />
-        </section>
+        {accountRequests.length > 0 && (
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <BodyText weight={500} color="var(--neutral-900)">Your accounts</BodyText>
+              <BodyText>Enabled for the team — connect your own</BodyText>
+            </div>
+            {accountRequests.map(req => (
+              <RequestReviewRow
+                key={req.slug}
+                req={req}
+                onDismiss={handleDismiss}
+                onRequestSouvenir={onRequestSouvenir}
+              />
+            ))}
+          </section>
+        )}
+
+        {teamRequests.length === 0 && accountRequests.length === 0 && (
+          <BodyText color="var(--neutral-400)" style={{ textAlign: 'center', padding: '24px 0' }}>
+            No pending requests
+          </BodyText>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--neutral-500)' }}>
           <TokenSquareIcon size={24} />
@@ -905,14 +1082,23 @@ function AdminCatalog({
   connectors,
   onConnect,
   onDisconnect,
+  onManage,
   onRequestSouvenir,
 }: {
   connectors:        ConnectorCatalogEntry[]
   onConnect:         (slug: string) => void
   onDisconnect:      (slug: string) => void
+  onManage?:         (entry: ConnectorCatalogEntry) => void
   onRequestSouvenir: () => void
 }) {
   const [category, setCategory] = useState<CategoryTab>('All')
+
+  const filtered = category === 'All'
+    ? connectors
+    : connectors.filter(c => CONNECTOR_CATEGORY_MAP[c.slug] === category)
+
+  const linked   = filtered.filter(c => c.linked)
+  const unlinked = filtered.filter(c => !c.linked)
 
   return (
     <PageCard style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -928,61 +1114,70 @@ function AdminCatalog({
         </div>
       </div>
 
-      <div style={{ padding: '12px 24px', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-        {connectors.map(c => (
-          <ConnectorCatalogTile
-            key={c.slug}
-            connector={c}
-            action={c.linked ? 'added' : 'add'}
-            onAction={() => c.linked ? onDisconnect(c.slug) : onConnect(c.slug)}
-          />
-        ))}
+      {linked.length > 0 && (
+        <section style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BodyText weight={500} color="var(--neutral-900)">Connected</BodyText>
+            <Badge label={`${linked.length} active`} color="Green" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+            {linked.map(c => (
+              <ConnectorCatalogTile key={c.slug} connector={c} action="manage" onAction={() => onManage?.(c)} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {unlinked.length > 0 && (
+        <section style={{ padding: '12px 24px 12px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <BodyText weight={500} color="var(--neutral-900)">Available to connect</BodyText>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+            {unlinked.map(c => (
+              <ConnectorCatalogTile key={c.slug} connector={c} action="add" onAction={() => onConnect(c.slug)} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div style={{ padding: '0 24px 12px' }}>
         <div
           style={{
-            gridColumn:      '1 / span 3',
             backgroundColor: 'white',
             borderRadius:    16,
             boxShadow:       '0px 2px 2.8px 0px var(--neutral-200), 0px 0px 0px 1px var(--neutral-200)',
             padding:         16,
             display:         'flex',
-            alignItems:      'flex-start',
+            alignItems:      'center',
             gap:             24,
           }}
         >
-          <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center' }}>
-            <div style={{ width: 390, maxWidth: '100%', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div
-                style={{
-                  width:           40,
-                  height:          40,
-                  borderRadius:    999,
-                  border:          '3px solid black',
-                  display:         'flex',
-                  alignItems:      'center',
-                  justifyContent:  'center',
-                  color:           'black',
-                  flexShrink:      0,
-                  transform:       'rotate(-10deg)',
-                }}
-              >
-                <WorkflowSquareTenIcon size={22} />
-              </div>
-              <div style={{ minWidth: 0, flex: '1 0 0' }}>
-                <BodyText weight={500} color="var(--neutral-900)" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  Don&apos;t see what you need?
-                </BodyText>
-                <BodyText
-                  size={11}
-                  color="var(--neutral-500)"
-                  weight={500}
-                  style={{ width: 365, maxWidth: '100%', whiteSpace: 'normal', overflow: 'visible' }}
-                >
-                  If your tool isn&apos;t in the catalog, request it directly from Souvenir. We&apos;ll scope the integration and notify your workspace when it ships.
-                </BodyText>
-              </div>
+          <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width:           40,
+                height:          40,
+                borderRadius:    999,
+                border:          '3px solid black',
+                display:         'flex',
+                alignItems:      'center',
+                justifyContent:  'center',
+                color:           'black',
+                flexShrink:      0,
+                transform:       'rotate(-10deg)',
+              }}
+            >
+              <WorkflowSquareTenIcon size={22} />
+            </div>
+            <div style={{ minWidth: 0, flex: '1 0 0' }}>
+              <BodyText weight={500} color="var(--neutral-900)">
+                Don&apos;t see what you need?
+              </BodyText>
+              <BodyText size={11} color="var(--neutral-500)" weight={500} style={{ whiteSpace: 'normal' }}>
+                If your tool isn&apos;t in the catalog, request it directly from Souvenir. We&apos;ll scope the integration and notify your workspace when it ships.
+              </BodyText>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <div style={{ flexShrink: 0 }}>
             <Button variant="default" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={onRequestSouvenir}>
               Request from Souvenir
             </Button>
@@ -990,6 +1185,281 @@ function AdminCatalog({
         </div>
       </div>
     </PageCard>
+  )
+}
+
+// ── Policy dropdown (for tool permissions in WorkspaceManageModal) ─────────────
+
+type UIPolicy = 'Always allow' | 'Ask' | 'Never' | 'Allow once'
+
+const UI_TO_API_POLICY: Record<UIPolicy, ConnectorTool['policy']> = {
+  'Always allow': 'allow',
+  'Ask':          'ask',
+  'Never':        'block',
+  'Allow once':   'allow_once',
+}
+
+const API_TO_UI_POLICY: Record<ConnectorTool['policy'], UIPolicy> = {
+  allow:       'Always allow',
+  ask:         'Ask',
+  block:       'Never',
+  allow_once:  'Allow once',
+}
+
+const POLICY_OPTIONS: UIPolicy[] = ['Always allow', 'Ask', 'Never', 'Allow once']
+
+function PolicyDropdown({
+  value,
+  onChange,
+  disabled,
+}: {
+  value:    UIPolicy
+  onChange: (v: UIPolicy) => void
+  disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        disabled={disabled}
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display:         'inline-flex',
+          alignItems:      'center',
+          gap:             6,
+          padding:         '4px 10px',
+          borderRadius:    8,
+          border:          'none',
+          cursor:          disabled ? 'not-allowed' : 'pointer',
+          opacity:         disabled ? 0.5 : 1,
+          backgroundColor: 'white',
+          boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
+          fontFamily:      'var(--font-body)',
+          fontWeight:      500,
+          fontSize:        13,
+          lineHeight:      '20px',
+          color:           'var(--neutral-700)',
+          whiteSpace:      'nowrap',
+        }}
+      >
+        {value}
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="var(--neutral-500)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {open && (
+        <>
+          {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop for dropdown */}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position:        'absolute',
+            right:           0,
+            top:             'calc(100% + 4px)',
+            backgroundColor: 'white',
+            borderRadius:    10,
+            boxShadow:       '0px 4px 16px 0px rgba(38,33,30,0.12), 0px 0px 0px 1px var(--neutral-100)',
+            overflow:        'hidden',
+            zIndex:          20,
+            minWidth:        130,
+          }}>
+            {POLICY_OPTIONS.map(opt => (
+              <button
+                key={opt}
+                onClick={() => { onChange(opt); setOpen(false) }}
+                style={{
+                  display:         'flex',
+                  width:           '100%',
+                  padding:         '8px 12px',
+                  border:          'none',
+                  backgroundColor: opt === value ? 'var(--neutral-50)' : 'transparent',
+                  cursor:          'pointer',
+                  fontFamily:      'var(--font-body)',
+                  fontWeight:      opt === value ? 500 : 400,
+                  fontSize:        13,
+                  lineHeight:      '20px',
+                  color:           'var(--neutral-700)',
+                  textAlign:       'left',
+                  whiteSpace:      'nowrap',
+                }}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Workspace manage modal ─────────────────────────────────────────────────────
+
+function WorkspaceManageModal({
+  entry,
+  onClose,
+  onUpdate,
+  isAdmin,
+}: {
+  entry:    ConnectorCatalogEntry
+  onClose:  () => void
+  onUpdate: (updated: ConnectorCatalogEntry) => void
+  isAdmin:  boolean
+}) {
+  const [tools,          setTools]          = useState<ConnectorTool[]>(entry.tools ?? [])
+  const [saving,         setSaving]         = useState<string | null>(null)
+  const [disconnecting,  setDisconnecting]  = useState(false)
+  const [showDisconnect, setShowDisconnect] = useState(false)
+  const abortedRef = useRef(false)
+  useEffect(() => {
+    abortedRef.current = false
+    return () => { abortedRef.current = true }
+  }, [])
+
+  const handlePolicyChange = useCallback(async (toolSlug: string, uiPolicy: UIPolicy) => {
+    if (abortedRef.current) return
+    const apiPolicy = UI_TO_API_POLICY[uiPolicy]
+    setTools(prev => prev.map(t => t.slug === toolSlug ? { ...t, policy: apiPolicy } : t))
+    setSaving(toolSlug)
+    try {
+      // eslint-disable-next-line react-doctor/async-defer-await -- abort-guard: check after async call
+      const updated = await updateConnector(entry.slug, { permissions: [{ slug: toolSlug, policy: apiPolicy }] })
+      if (abortedRef.current) return
+      setTools(updated.tools ?? [])
+      onUpdate(updated)
+      toast.success('Permission updated')
+    } catch (err) {
+      if (abortedRef.current) return
+      setTools(entry.tools ?? [])
+      toast.error(err instanceof Error ? err.message : 'Failed to update permission')
+    } finally {
+      if (!abortedRef.current) setSaving(null)
+    }
+  }, [entry, onUpdate])
+
+  const handleDisconnect = useCallback(async () => {
+    if (abortedRef.current) return
+    setDisconnecting(true)
+    try {
+      // eslint-disable-next-line react-doctor/async-defer-await -- abort-guard: check after async call
+      await unlinkConnector(entry.slug)
+      if (abortedRef.current) return
+      toast.success(`${entry.display_name} disconnected`)
+      onUpdate({ ...entry, linked: false, tools: [] })
+      onClose()
+    } catch (err) {
+      if (abortedRef.current) return
+      toast.error(err instanceof Error ? err.message : 'Failed to disconnect')
+      setDisconnecting(false)
+    }
+  }, [entry, onUpdate, onClose])
+
+  return (
+    <>
+      {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop overlay */}
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(38,33,30,0.32)', zIndex: 50 }} />
+      <div
+        className="kaya-scrollbar"
+        style={{
+          position:        'fixed',
+          top:             '50%',
+          left:            '50%',
+          transform:       'translate(-50%, -50%)',
+          zIndex:          51,
+          backgroundColor: 'white',
+          borderRadius:    16,
+          boxShadow:       '0px 8px 32px 0px rgba(38,33,30,0.18), 0px 0px 0px 1px var(--neutral-100)',
+          width:           680,
+          maxWidth:        'calc(100vw - 48px)',
+          maxHeight:       'calc(100vh - 96px)',
+          overflowY:       'auto',
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px 16px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <ConnectorIcon iconUrl={entry.icon_url} />
+          <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <BodyText size={14} weight={500} color="var(--neutral-900)">{entry.display_name}</BodyText>
+            <span style={{
+              display:         'inline-flex',
+              alignItems:      'center',
+              alignSelf:       'flex-start',
+              padding:         '1px 6px',
+              borderRadius:    6,
+              backgroundColor: 'var(--green-50, #f7fee6)',
+              boxShadow:       '0px 0px 0px 1px rgba(128,183,7,0.4)',
+              fontFamily:      'var(--font-body)',
+              fontWeight:      500,
+              fontSize:        12,
+              lineHeight:      '16px',
+              color:           'var(--green-800, #456211)',
+            }}>
+              Connected
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: 'none', backgroundColor: 'transparent', cursor: 'pointer', flexShrink: 0, color: 'var(--neutral-500)' }}
+          >
+            <CancelOneIcon size={18} />
+          </button>
+        </div>
+
+        {/* Description */}
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <BodyText>{entry.description}</BodyText>
+        </div>
+
+        {/* Tool permissions */}
+        {tools.length > 0 && (
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+            <BodyText size={14} weight={500} color="var(--neutral-900)" style={{ marginBottom: 4 }}>Tool permissions</BodyText>
+            <BodyText size={11}>Choose when this connector can be used in chat and Brain.</BodyText>
+            <div style={{ display: 'flex', flexDirection: 'column', marginTop: 16 }}>
+              {tools.map((tool, idx) => (
+                <div key={tool.slug}>
+                  {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
+                    <span style={{ flex: '1 0 0', minWidth: 0, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {tool.slug}
+                    </span>
+                    <PolicyDropdown
+                      value={API_TO_UI_POLICY[tool.policy]}
+                      onChange={v => void handlePolicyChange(tool.slug, v)}
+                      disabled={saving === tool.slug}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Disconnect (admin only) */}
+        {isAdmin && (
+          <div style={{ padding: '16px 24px' }}>
+            {showDisconnect ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <BodyText color="var(--neutral-700)">
+                  Disconnecting <strong>{entry.display_name}</strong> removes it from the workspace and disables it for all members. This cannot be undone without reconnecting.
+                </BodyText>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <Button size="sm" variant="outline" disabled={disconnecting} onClick={() => setShowDisconnect(false)}>Cancel</Button>
+                  <Button size="sm" variant="secondary" disabled={disconnecting} loading={disconnecting} onClick={() => void handleDisconnect()}>
+                    <span style={{ color: 'var(--red-600, #DC2626)' }}>Yes, disconnect</span>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button size="sm" variant="secondary" disabled={disconnecting} onClick={() => setShowDisconnect(true)}>
+                  <span style={{ color: 'var(--red-600, #DC2626)' }}>Disconnect connector</span>
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   )
 }
 
@@ -1122,10 +1592,11 @@ function RequestFromSouvenirDialog({
 }
 
 export default function OrgConnectorsPage() {
-  const { currentUserRole } = useOrg()
+  const { org, currentUserRole } = useOrg()
   const isAdminView = currentUserRole === 'admin'
   const [tab,              setTab]              = useState<MainTab>('manage')
   const [requestModalOpen, setRequestModalOpen] = useState(false)
+  const [manageEntry,      setManageEntry]      = useState<ConnectorCatalogEntry | null>(null)
   const [connectors,       setConnectors]       = useState<ConnectorCatalogEntry[]>([])
   const [refreshToken,     setRefreshToken]     = useState(0)
 
@@ -1165,10 +1636,13 @@ export default function OrgConnectorsPage() {
   return (
     <PageShell>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ minHeight: 36 }}>
-          <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0 }}>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: '0 0 2px' }}>
             Connectors
           </h1>
+          <BodyText style={{ padding: '5px 6px' }}>
+            Tools your workspace can use across chat, projects, agents, and Brain. Owner &amp; Admins manage these; members request what they need.
+          </BodyText>
         </div>
         <TabGroup
           tabs={isAdminView
@@ -1193,14 +1667,22 @@ export default function OrgConnectorsPage() {
               connectors={connectors}
               onConnect={handleConnect}
               onDisconnect={handleDisconnect}
+              onManage={(e) => setManageEntry(e)}
             />
           )}
-          {activeTab === 'requests' && <RequestQueue onRequestSouvenir={() => setRequestModalOpen(true)} />}
+          {activeTab === 'requests' && (
+            <RequestQueue
+              orgName={org.name}
+              isAdmin={isAdminView}
+              onRequestSouvenir={() => setRequestModalOpen(true)}
+            />
+          )}
           {activeTab === 'catalog' && (
             <AdminCatalog
               connectors={connectors}
               onConnect={handleConnect}
               onDisconnect={handleDisconnect}
+              onManage={(e) => setManageEntry(e)}
               onRequestSouvenir={() => setRequestModalOpen(true)}
             />
           )}
@@ -1223,6 +1705,18 @@ export default function OrgConnectorsPage() {
       )}
 
       <RequestFromSouvenirDialog open={requestModalOpen} onOpenChange={setRequestModalOpen} />
+
+      {manageEntry && manageEntry.linked && (
+        <WorkspaceManageModal
+          entry={manageEntry}
+          onClose={() => setManageEntry(null)}
+          onUpdate={(updated) => {
+            setConnectors(prev => prev.map(c => c.slug === updated.slug ? updated : c))
+            if (!updated.linked) setManageEntry(null)
+          }}
+          isAdmin={isAdminView}
+        />
+      )}
     </PageShell>
   )
 }

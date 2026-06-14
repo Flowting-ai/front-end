@@ -91,13 +91,10 @@ export default function OnboardingWorkspacePage() {
   const handleContinue = () => {
     if (!canContinue || submitting) return;
     setSubmitting(true);
-    // Persist team sizing so a resume lands on the right branch. Org creation +
-    // the remaining team steps (invite teammates, connect integrations) slot in
-    // here once those frames land; for now the flow bridges to the shared
-    // import → /chat ending.
+    // Persist team sizing then advance to connectors → invite → /chat.
     const roleFit = deriveRoleFit("team", data.companySize);
     if (roleFit) void updateOnboarding({ role_fit: roleFit });
-    push("/onboarding/import");
+    push("/onboarding/connectors");
   };
 
   return (
@@ -126,6 +123,11 @@ export default function OnboardingWorkspacePage() {
           />
           <InputField
             label="Company website"
+            labelSuffix={
+              <span style={{ fontWeight: 400, color: "var(--neutral-400,#9e9792)" }}>
+                (optional)
+              </span>
+            }
             placeholder="https://"
             value={data.companyWebsite}
             onChange={setCompanyWebsite}

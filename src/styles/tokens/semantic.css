@@ -749,6 +749,7 @@
    ─────────────────────────────────────────────────────────────────────────── */
 
 .kds-tab-item:focus-visible,
+.kds-org-badge:focus-visible,
 .kaya-dropdown-item:focus-visible,
 .kaya-floating-menu-item:focus-visible,
 .kds-model-select-item:focus-visible,

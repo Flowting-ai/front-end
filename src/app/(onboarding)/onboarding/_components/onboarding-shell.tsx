@@ -13,15 +13,13 @@ const CANVAS_GRADIENT =
 
 // ── Logo glyph ──────────────────────────────────────────────────────────────────
 
-export function SouvenirGlyph({ size = 44 }: { size?: number }) {
+export function SouvenirGlyph({ size = 60 }: { size?: number }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- static SVG logo; Next Image adds no value for a 44px inline mark
+    // eslint-disable-next-line @next/next/no-img-element -- external SVG logo; Next Image adds no value here
     <img
-      src="/icons/souvenir-logo-gray.svg"
+      src="https://souvenirai-storage.s3.us-east-1.amazonaws.com/public/souvenir-blue.svg"
       alt="Souvenir"
-      width={size}
-      height={size}
-      style={{ display: "block" }}
+      style={{ display: "block", height: "auto", width: "auto", maxHeight: size, maxWidth: size }}
     />
   );
 }

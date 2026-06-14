@@ -10,6 +10,7 @@ import { PresetModelSelectorDialog } from "@/components/chat/PresetModelSelector
 import { ProjectsProvider } from "@/context/projects-context";
 import { OnboardingGuard } from "@/components/shared/OnboardingGuard";
 import { SearchProvider } from "@/context/search-context";
+import { OrgProvider } from "@/context/org-context";
 
 export default function AppGroupLayout({
   children,
@@ -18,6 +19,7 @@ export default function AppGroupLayout({
 }) {
   return (
     <OnboardingGuard>
+      <OrgProvider>
       <ProjectsProvider>
         <ChatHistoryProvider>
           <PinboardProvider>
@@ -34,6 +36,7 @@ export default function AppGroupLayout({
           </PinboardProvider>
         </ChatHistoryProvider>
       </ProjectsProvider>
+      </OrgProvider>
     </OnboardingGuard>
   );
 }

@@ -9,6 +9,7 @@ import type {
   OrgMember,
   Team,
   OrgPlan,
+  OrgRole,
 } from '@/types/teams'
 
 interface OrgContextValue {
@@ -17,6 +18,9 @@ interface OrgContextValue {
   members: OrgMember[]
   membersLoading: boolean
   plan: OrgPlan | null
+  /** Raw API role: 'owner' | 'admin' | 'member'. Use this for billing/ownership gates. */
+  orgRole: OrgRole
+  /** Legacy UI role: 'admin' (covers owner+admin) | 'member'. Use for general access checks. */
   currentUserRole: 'admin' | 'editor' | 'member'
   teams: Team[]
   teamsLoading: boolean
@@ -51,6 +55,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   const orgId = user?.orgId ?? null
 
   const [orgName,          setOrgName]          = useState('')
+  const [orgRole,          setOrgRole]          = useState<OrgRole>('member')
   const [currentUserRole,  setCurrentUserRole]  = useState<'admin' | 'editor' | 'member'>('member')
   const [plan,             setPlan]             = useState<OrgPlan | null>(null)
   const [members,          setMembers]          = useState<OrgMember[]>([])
@@ -69,6 +74,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     getOrg(orgId)
       .then(data => {
         setOrgName(data.name)
+        setOrgRole(data.role)
         setCurrentUserRole(
           data.role === 'owner' || data.role === 'admin' ? 'admin' : 'member',
         )
@@ -131,6 +137,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       members,
       membersLoading,
       plan,
+      orgRole,
       currentUserRole,
       teams,
       teamsLoading,

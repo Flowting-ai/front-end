@@ -116,6 +116,170 @@ function ChoiceCard({
   );
 }
 
+// ── Teams workspace preview (Figma 5795:65940) ────────────────────────────────
+// Decorative mockup of the Souvenir workspace chrome shown in the teams welcome.
+
+function TeamsWorkspacePreview() {
+  return (
+    <div
+      style={{
+        width: "100%",
+        backgroundColor: "var(--neutral-50, #f7f2ed)",
+        borderRadius: "16px",
+        paddingRight: "8px",
+        paddingTop: "8px",
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: "rgba(255,255,255,0.2)",
+          border: "1px solid var(--neutral-200, #d1c6bd)",
+          borderRadius: "16px",
+          padding: "10px",
+          height: "172px",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {/* Top bar */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          {/* Workspace selector pill */}
+          <div
+            style={{
+              position: "relative",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "5px 8px 7px",
+              borderRadius: "8px",
+              background: "linear-gradient(180deg, #524b47 0%, #26211e 100%)",
+              boxShadow:
+                "0px 0px 0px 1px black, 0px 1px 1px rgba(59,54,50,0.1), 0px 1.5px 3px rgba(59,54,50,0.4)",
+            }}
+          >
+            {/* Globe / Souvenir mark */}
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden>
+              <circle cx="10" cy="10" r="7" stroke="rgba(247,242,237,0.7)" strokeWidth="1.5" />
+              <path
+                d="M10 3C7.5 6.5 7.5 13.5 10 17M10 3C12.5 6.5 12.5 13.5 10 17M3 10h14"
+                stroke="rgba(247,242,237,0.7)"
+                strokeWidth="1.2"
+              />
+            </svg>
+            <span
+              style={{
+                color: "var(--neutral-50, #f7f2ed)",
+                fontSize: "11px",
+                fontWeight: 500,
+                fontFamily: "var(--font-body)",
+                whiteSpace: "nowrap",
+                textShadow:
+                  "0px 0.4px 0.4px rgba(255,255,255,0.25), 0px -0.7px 0.4px rgba(0,0,0,0.25)",
+              }}
+            >
+              Your workspace
+            </span>
+            <svg width="8" height="8" viewBox="0 0 12 12" fill="none" aria-hidden>
+              <path
+                d="M2.5 4.5l3.5 3.5 3.5-3.5"
+                stroke="rgba(247,242,237,0.5)"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {/* Inner highlight */}
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "inherit",
+                pointerEvents: "none",
+                boxShadow:
+                  "inset 0px 1px 0.4px rgba(247,242,237,0.3), inset 0px -2px 0.4px #120c08, inset 0px -2.5px 4px -2px rgba(247,242,237,0.5)",
+              }}
+            />
+          </div>
+
+          {/* Teams / grid icon */}
+          <div style={{ padding: "6px", borderRadius: "8px" }}>
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
+              <rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5" stroke="#b6aca4" strokeWidth="1.25" />
+              <rect x="11"   y="2.5" width="6.5" height="6.5" rx="1.5" stroke="#b6aca4" strokeWidth="1.25" />
+              <rect x="2.5"  y="11"  width="6.5" height="6.5" rx="1.5" stroke="#b6aca4" strokeWidth="1.25" />
+              <rect x="11"   y="11"  width="6.5" height="6.5" rx="1.5" stroke="#b6aca4" strokeWidth="1.25" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Floating side tool menu */}
+        <div
+          style={{
+            position: "absolute",
+            right: "10px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            backgroundColor: "var(--neutral-white, #fff)",
+            border: "1px solid var(--neutral-200, #d1c6bd)",
+            borderRadius: "10px",
+            padding: "4px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+            boxShadow:
+              "0px 1px 1px rgba(59,54,50,0.05), 0px 1.5px 3px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-200,#d1c6bd)",
+          }}
+        >
+          {/* Pin icon */}
+          <div style={{ padding: "5px", borderRadius: "6px" }}>
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
+              <path
+                d="M11.5 3.5l5 5-2.5 2.5-1.5-1.5-3 3v2l-1.5 1.5-3.5-3.5 1.5-1.5h2l3-3-1.5-1.5 2.5-2.5z"
+                stroke="#b6aca4"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          {/* Target/circle icon */}
+          <div style={{ padding: "5px", borderRadius: "6px" }}>
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
+              <circle cx="10" cy="10" r="6.5" stroke="#b6aca4" strokeWidth="1.25" />
+              <circle cx="10" cy="10" r="2.5" stroke="#b6aca4" strokeWidth="1.25" />
+            </svg>
+          </div>
+          {/* Quill/pen icon */}
+          <div style={{ padding: "5px", borderRadius: "6px" }}>
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
+              <path
+                d="M16 4C14 2 11 4 9 6L6 9l-2.5 5.5 5.5-2.5 3-3c2-2 4-5 4-5z"
+                stroke="#b6aca4"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path d="M9 6L14 11" stroke="#b6aca4" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+          </div>
+          {/* Inner bottom shadow overlay */}
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "inherit",
+              pointerEvents: "none",
+              boxShadow: "inset 0px -2px 0.4px var(--neutral-100,#ede1d7)",
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Souvenir wordmark ──────────────────────────────────────────────────────────
 
 function SouvenirWordmark() {
@@ -221,6 +385,7 @@ function WelcomeModalImpl() {
   }, [router]);
 
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "there";
+  const isTeamsUser = Boolean(user?.orgId);
 
   return (
     <AnimatePresence>
@@ -248,7 +413,64 @@ function WelcomeModalImpl() {
             style={modalCardStyle}
           >
             <AnimatePresence mode="wait">
-              {step === "welcome" && (
+              {step === "welcome" && isTeamsUser && (
+                <m.div
+                  key="step-welcome-teams"
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.18 }}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "20px",
+                    width: "100%",
+                  }}
+                >
+                  <SouvenirWordmark />
+
+                  <h2
+                    style={{
+                      fontFamily: "var(--font-title)",
+                      fontWeight: 400,
+                      fontSize: "24px",
+                      lineHeight: "32px",
+                      color: "var(--neutral-900, #26211e)",
+                      margin: 0,
+                      textAlign: "center",
+                    }}
+                  >
+                    {`Welcome, ${firstName}.`}
+                  </h2>
+
+                  <p
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontWeight: 400,
+                      fontSize: "16px",
+                      lineHeight: "22px",
+                      color: "var(--neutral-500, #6a625d)",
+                      margin: 0,
+                      textAlign: "center",
+                    }}
+                  >
+                    Your team workspace is ready to explore.
+                  </p>
+
+                  <TeamsWorkspacePreview />
+
+                  <Button
+                    size="sm"
+                    rightIcon={<span style={{ fontSize: 12 }}>→</span>}
+                    onClick={handleClose}
+                  >
+                    Start exploring
+                  </Button>
+                </m.div>
+              )}
+
+              {step === "welcome" && !isTeamsUser && (
                 <m.div
                   key="step-welcome"
                   initial={{ opacity: 0, x: -12 }}

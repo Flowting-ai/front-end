@@ -2,14 +2,20 @@
 
 import React, { use, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
+import { animate, motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { springs } from '@/lib/springs'
 import { TabItem } from '@/components/TabItem'
 
-// ── Size context - set by TabsList, consumed by TabsTrigger ───────────────────
+// ── Contexts — set by TabsList, consumed by TabsTrigger ───────────────────────
 
 type TabsSize = 'medium' | 'small'
-const TabsSizeContext  = React.createContext<TabsSize>('medium')
-const TabsFluidContext = React.createContext(false)
+const TabsSizeContext     = React.createContext<TabsSize>('medium')
+const TabsFluidContext    = React.createContext(false)
+const TabsCollapseContext = React.createContext(false)
+// Collapse mode: reserved width (px) for the active label slot = widest label
+// across all tabs. Keeps the active tab — and the whole strip — a constant width.
+const TabsMaxLabelContext = React.createContext<number | null>(null)
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -37,6 +43,13 @@ export interface TabsListProps
    * Negative = extends beyond; positive = inset. Default: -0.5.
    */
   pillBottomInset?: number
+  /**
+   * Collapse mode — only the active trigger shows its label; the rest render
+   * icon-only. The strip hugs its content and the sliding pill springs to fit
+   * the active trigger as the label mounts/unmounts. Mutually exclusive with
+   * `fluid` and `scrollable`. Used by the Sidebar section switcher.
+   */
+  collapse?: boolean
 }
 
 export interface TabsTriggerProps
@@ -53,12 +66,10 @@ export interface TabsContentProps
 export const Tabs = TabsPrimitive.Root
 Tabs.displayName = 'Tabs'
 
-const PILL_TRANSITION = 'transform 300ms cubic-bezier(0.16,1,0.3,1), width 300ms cubic-bezier(0.16,1,0.3,1)'
-
 // ── List (pill container) ─────────────────────────────────────────────────────
 //
 // Default mode - inline-flex, sizes to content. Pill layers (bg + shadow)
-// live inside rowRef, animated via Framer motion animate prop.
+// live inside rowRef, animated via Framer Motion animate prop.
 //
 // Scrollable mode - display:block fills the parent container. rowRef has
 // overflow-x:auto. The List clips in X (overflow-x:clip) so the shadow
@@ -73,23 +84,38 @@ const PILL_TRANSITION = 'transform 300ms cubic-bezier(0.16,1,0.3,1), width 300ms
 //   • Tab switch → spring via animate(from, to, { onUpdate }) → style.transform / style.width
 //   • Scroll     → shadowEl.style.transform directly - frame-perfect, zero lag
 
-export function TabsList({ ref, children, className, scrollable, fluid, size = 'medium', justify, pillTopInset = -0.5, pillBottomInset = -0.5, ...props }: TabsListProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.List>> }) {
+export function TabsList({
+  ref,
+  children,
+  className,
+  scrollable,
+  fluid,
+  collapse,
+  size = 'medium',
+  justify,
+  pillTopInset = -0.5,
+  pillBottomInset = -0.5,
+  ...props
+}: TabsListProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.List>> }) {
   const isSmall  = size === 'small'
   const radius   = isSmall ? '8px' : '10px'
 
   const rowRef    = useRef<HTMLDivElement>(null)
   const shadowRef = useRef<HTMLDivElement>(null)
-  const pillRef1  = useRef<HTMLDivElement>(null)
-  const pillRef2  = useRef<HTMLDivElement>(null)
   const [pill, setPill] = useState<{ x: number; width: number } | null>(null)
+  // Collapse mode: widest label width across tabs (reserved for the active slot).
+  const [maxLabelW, setMaxLabelW] = useState<number | null>(null)
   const [overflowing, setOverflowing] = useState(false)
   const [dragging, setDragging]       = useState(false)
   const dragState = useRef<{ startX: number; startScroll: number; moved: boolean; pointerId: number; target: Element | null } | null>(null)
 
-  const shadowXCur    = useRef(0)
-  const shadowWCur    = useRef(0)
-  const isFirstPill   = useRef(true)
-  const isFirstInline = useRef(true)
+  // Track current shadow position for spring start values.
+  const shadowXCur = useRef(0)
+  const shadowWCur = useRef(0)
+  // Cancels for in-flight spring animations.
+  const shadowAnimX = useRef<{ stop(): void } | null>(null)
+  const shadowAnimW = useRef<{ stop(): void } | null>(null)
+  const isFirstPill = useRef(true)
 
   // ── Measurement ────────────────────────────────────────────────────────────
 
@@ -115,56 +141,76 @@ export function TabsList({ ref, children, className, scrollable, fluid, size = '
     return () => { mo.disconnect(); ro.disconnect() }
   }, [measure])
 
+  // ── Collapse: measure the widest label so the active slot can be reserved ────
+  // Each tab's inner label span reports its natural offsetWidth even while its
+  // outer slot is clipped to width 0, so the max is available without rendering
+  // every label expanded. Re-measures on child change, container resize, and
+  // font load. The active tab is then pinned to this width → constant strip.
+  useLayoutEffect(() => {
+    if (!collapse) return
+    const row = rowRef.current
+    if (!row) return
+    const remeasure = () => {
+      const labels = row.querySelectorAll<HTMLElement>('[data-tab-collapse-label] > span')
+      let max = 0
+      labels.forEach((el) => { max = Math.max(max, el.offsetWidth) })
+      if (max > 0) setMaxLabelW((prev) => (prev === max ? prev : max))
+    }
+    remeasure()
+    const ro = new ResizeObserver(remeasure)
+    row.querySelectorAll('[data-tab-collapse-label] > span').forEach((el) => ro.observe(el))
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts
+    if (fonts?.ready) fonts.ready.then(remeasure).catch(() => {})
+    return () => ro.disconnect()
+  }, [collapse, children])
+
+  // Re-measure the pill once the reserved label width is applied (active tab
+  // width changes from natural → reserved), so the pill matches the new width.
+  useLayoutEffect(() => { measure() }, [maxLabelW, measure])
+
   // ── Scrollable: sync shadow DOM directly ────────────────────────────────────
 
-  const applyShadow = useCallback((x: number, w: number, instant = false) => {
+  const applyShadow = useCallback((x: number, w: number) => {
     const el = shadowRef.current
     if (!el) return
-    Object.assign(el.style, {
-      transition: instant ? 'none' : PILL_TRANSITION,
-      transform:  `translateX(${x}px)`,
-      width:      `${w}px`,
-    })
-    shadowXCur.current  = x
-    shadowWCur.current  = w
+    el.style.transform = `translateX(${x}px)`
+    el.style.width     = `${w}px`
+    shadowXCur.current = x
+    shadowWCur.current = w
   }, [])
 
-  // Animate scrollable shadow pill via CSS transitions (direct DOM — no React renders)
   useLayoutEffect(() => {
     if (!scrollable || !pill) return
     const sl      = rowRef.current?.scrollLeft ?? 0
     const targetX = pill.x - sl
 
     if (isFirstPill.current) {
-      applyShadow(targetX, pill.width, true)
+      applyShadow(targetX, pill.width)
       isFirstPill.current = false
       return
     }
 
-    applyShadow(targetX, pill.width)
-  }, [pill, scrollable, applyShadow])
+    shadowAnimX.current?.stop()
+    shadowAnimW.current?.stop()
 
-  // Animate inline (non-scrollable) pill via CSS transitions (direct DOM mutations)
-  useLayoutEffect(() => {
-    if (scrollable || !pill) return
-    const isFirst = isFirstInline.current
-    for (const el of [pillRef1.current, pillRef2.current]) {
-      if (!el) continue
-      if (isFirst) el.style.transition = 'none'
-      Object.assign(el.style, {
-        transform: `translateX(${pill.x}px)`,
-        width:     `${pill.width}px`,
-      })
-    }
-    if (isFirst) {
-      isFirstInline.current = false
-      requestAnimationFrame(() => {
-        for (const el of [pillRef1.current, pillRef2.current]) {
-          if (el) el.style.transition = PILL_TRANSITION
-        }
-      })
-    }
-  }, [pill, scrollable])
+    const fromX = shadowXCur.current
+    const fromW = shadowWCur.current
+
+    shadowAnimX.current = animate(fromX, targetX, {
+      ...springs.fast,
+      onUpdate: (v) => {
+        shadowXCur.current = v
+        if (shadowRef.current) shadowRef.current.style.transform = `translateX(${v}px)`
+      },
+    })
+    shadowAnimW.current = animate(fromW, pill.width, {
+      ...springs.fast,
+      onUpdate: (v) => {
+        shadowWCur.current = v
+        if (shadowRef.current) shadowRef.current.style.width = `${v}px`
+      },
+    })
+  }, [pill, scrollable, applyShadow])
 
   // ── Scrollable: detect overflow so the grab cursor only shows when draggable ──
 
@@ -249,9 +295,11 @@ export function TabsList({ ref, children, className, scrollable, fluid, size = '
   const handleScroll = useCallback(() => {
     const row = rowRef.current
     if (!row || !pill) return
+    shadowAnimX.current?.stop()
     const x = pill.x - row.scrollLeft
-    applyShadow(x, shadowWCur.current, true)
-  }, [pill, applyShadow])
+    shadowXCur.current = x
+    if (shadowRef.current) shadowRef.current.style.transform = `translateX(${x}px)`
+  }, [pill])
 
   // ── Pill base style (shared by all pill layers, size-aware) ────────────────
 
@@ -264,6 +312,8 @@ export function TabsList({ ref, children, className, scrollable, fluid, size = '
   }
 
   return (
+    <TabsMaxLabelContext.Provider value={collapse ? maxLabelW : null}>
+    <TabsCollapseContext.Provider value={!!collapse}>
     <TabsFluidContext.Provider value={!!fluid}>
     <TabsSizeContext.Provider value={size}>
       <TabsPrimitive.List
@@ -274,6 +324,7 @@ export function TabsList({ ref, children, className, scrollable, fluid, size = '
           display:    scrollable ? 'block' : fluid ? 'flex' : 'inline-flex',
           alignItems: 'flex-start',
           ...(fluid && { width: '100%' }),
+          ...(!scrollable && !fluid && { alignSelf: 'flex-start' }),
           ...(scrollable && {
             overflowX:          'clip' as React.CSSProperties['overflowX'],
             overflowY:          'visible',
@@ -337,21 +388,27 @@ export function TabsList({ ref, children, className, scrollable, fluid, size = '
         >
           {pill && (
             <>
-              {/* White bg - position set via useLayoutEffect DOM mutation */}
-              <div
-                ref={pillRef1}
+              {/* White bg — in scrollable mode has no outer shadow (hoisted above).
+                  Collapse mode uses a softer spring so the section switch reads as a
+                  deliberate glide rather than a snap (content tabs stay snappy). */}
+              <motion.div
                 aria-hidden
                 style={{
                   ...pillBase,
                   backgroundColor: 'var(--tab-item-bg-selected)',
                   ...(!scrollable && { boxShadow: 'var(--shadow-tab-item-selected)' }),
                 }}
+                animate={{ x: pill.x, width: pill.width }}
+                initial={false}
+                transition={collapse ? springs.moderate : springs.fast}
               />
-              {/* Inner bottom shadow - above the white bg */}
-              <div
-                ref={pillRef2}
+              {/* Inner bottom shadow — above the white bg */}
+              <motion.div
                 aria-hidden
                 style={{ ...pillBase, boxShadow: 'var(--shadow-tab-item-selected-inner)' }}
+                animate={{ x: pill.x, width: pill.width }}
+                initial={false}
+                transition={collapse ? springs.moderate : springs.fast}
               />
             </>
           )}
@@ -360,6 +417,8 @@ export function TabsList({ ref, children, className, scrollable, fluid, size = '
       </TabsPrimitive.List>
     </TabsSizeContext.Provider>
     </TabsFluidContext.Provider>
+    </TabsCollapseContext.Provider>
+    </TabsMaxLabelContext.Provider>
   )
 }
 
@@ -367,16 +426,24 @@ TabsList.displayName = 'TabsList'
 
 // ── Trigger ───────────────────────────────────────────────────────────────────
 
-export function TabsTrigger({ ref, children, icon, className, ...props }: TabsTriggerProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.Trigger>> }) {
-  const size    = use(TabsSizeContext)
-  const isFluid = use(TabsFluidContext)
+export function TabsTrigger({
+  ref,
+  children,
+  icon,
+  className,
+  ...props
+}: TabsTriggerProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.Trigger>> }) {
+  const size       = use(TabsSizeContext)
+  const isFluid    = use(TabsFluidContext)
+  const isCollapse = use(TabsCollapseContext)
+  const maxLabelW  = use(TabsMaxLabelContext)
   return (
     // asChild makes Radix use Slot - it merges data-state, aria-selected, role="tab"
     // etc. onto TabItem, which reads data-state to derive its selected visual state.
     // disableSelectedStyle suppresses TabItem's own bg/shadow since TabsList's
     // animated pill handles the selected treatment.
     <TabsPrimitive.Trigger asChild ref={ref} {...props}>
-      <TabItem icon={icon} size={size} disableSelectedStyle fluid={isFluid} className={className}>
+      <TabItem icon={icon} size={size} disableSelectedStyle fluid={isFluid} collapse={isCollapse} reservedLabelWidth={maxLabelW} className={className}>
         {children}
       </TabItem>
     </TabsPrimitive.Trigger>
@@ -387,7 +454,12 @@ TabsTrigger.displayName = 'TabsTrigger'
 
 // ── Content ───────────────────────────────────────────────────────────────────
 
-export function TabsContent({ ref, children, className, ...props }: TabsContentProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.Content>> }) {
+export function TabsContent({
+  ref,
+  children,
+  className,
+  ...props
+}: TabsContentProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.Content>> }) {
   return (
     <TabsPrimitive.Content ref={ref} className={cn(className)} {...props}>
       {children}

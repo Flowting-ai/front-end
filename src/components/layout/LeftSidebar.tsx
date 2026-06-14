@@ -12,12 +12,17 @@ import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
 import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
+import { listTasks } from "@/lib/api/tasks";
+import type { ScheduledTaskListItem } from "@/lib/api/tasks";
 import type { PersonaChatEventDetail } from "@/hooks/use-sidebar-events";
 import { ChatHistoryItem } from "./ChatHistoryItem";
 import { openDeleteChatDialog } from "./AppDialogs";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
 import type { ProjectChat } from "@/context/projects-context";
 import { useSearch } from "@/context/search-context";
+import { useOrg } from "@/context/org-context";
+import { TeamSwitcher } from "@/components/TeamSwitcher";
+import type { Team } from "@/types/teams";
 import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
 
@@ -343,7 +348,12 @@ function ProjectChatItem({ chat, isActive, onSelect, onRename, onDelete }: Proje
 const PROJECT_LIMIT = 2
 const CHAT_LIMIT    = 10
 
-function ProjectsSection() {
+interface ProjectsSectionProps {
+  label?: string
+  showNewProject?: boolean
+}
+
+function ProjectsSection({ label = "Projects", showNewProject = true }: ProjectsSectionProps) {
   const { push }    = useRouter()
   const pathname    = usePathname()
   const chatHistory = useChatHistoryContext()
@@ -381,7 +391,7 @@ function ProjectsSection() {
       <SidebarMenuItem
         fluid
         variant="header"
-        label="Projects"
+        label={label}
         shown={shown}
         onShowClick={() => setShown(s => !s)}
       />
@@ -394,13 +404,15 @@ function ProjectsSection() {
         onAnimationComplete={(def) => { if (def === "open") setOverflow("visible") }}
       >
         <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
-          <SidebarMenuItem
-            fluid
-            variant="default"
-            label="New project"
-            icon={<FolderAddIcon size={20} />}
-            onClick={() => push("/projects/new")}
-          />
+          {showNewProject && (
+            <SidebarMenuItem
+              fluid
+              variant="default"
+              label="New project"
+              icon={<FolderAddIcon size={20} />}
+              onClick={() => push("/projects/new")}
+            />
+          )}
 
           {projects.length === 0 && (
             <div style={{
@@ -470,6 +482,56 @@ function ProjectsSection() {
           )}
         </div>
       </m.div>
+    </>
+  )
+}
+
+// ── Teams sidebar components ──────────────────────────────────────────────────
+
+function SidebarDivider() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '2px 0' }}>
+      <div style={{ height: 1, width: 272, backgroundColor: 'rgba(59,54,50,0.15)' }} />
+    </div>
+  )
+}
+
+interface TeamsSidebarContentProps {
+  role: 'admin' | 'editor' | 'member'
+  teams: Team[]
+  activeTeamId: string | null
+  setActiveTeamId: (id: string | null) => void
+  onManageTeams: () => void
+}
+
+function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId, onManageTeams }: TeamsSidebarContentProps) {
+  const { push } = useRouter()
+  const canCreateProject = role !== 'member'
+  const isAdmin = role === 'admin'
+
+  return (
+    <>
+      <ProjectsSection label="Personal projects" showNewProject={canCreateProject} />
+      <SidebarDivider />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4 }}>
+        <TeamSwitcher
+          teams={teams.map(t => ({ id: t.id, name: t.name }))}
+          activeTeamId={activeTeamId}
+          isAdmin={isAdmin}
+          onTeamSelect={setActiveTeamId}
+          onManageTeams={onManageTeams}
+          style={{ width: '100%' }}
+        />
+        {canCreateProject && (
+          <SidebarMenuItem
+            fluid
+            variant="default"
+            label="New project"
+            icon={<FolderAddIcon size={20} />}
+            onClick={() => push("/projects/new")}
+          />
+        )}
+      </div>
     </>
   )
 }
@@ -868,6 +930,60 @@ function PersonasSectionAll() {
   )
 }
 
+// ── Brain Scheduled Tasks section ────────────────────────────────────────────
+// Receives pre-loaded tasks from LeftSidebarImpl so the list survives tab
+// switches without re-fetching on each brain-tab mount/unmount cycle.
+
+interface BrainScheduledTasksSectionProps {
+  tasks: ScheduledTaskListItem[];
+  loading: boolean;
+}
+
+function BrainScheduledTasksSection({ tasks, loading }: BrainScheduledTasksSectionProps) {
+  const { push } = useRouter();
+  const [shown, setShown] = useState(true);
+  const [overflow, setOverflow] = useState<"visible" | "hidden">("visible");
+
+  return (
+    <>
+      <SidebarMenuItem
+        fluid
+        variant="header"
+        label="Scheduled Tasks"
+        shown={shown}
+        onShowClick={() => setShown((s) => !s)}
+      />
+      <m.div
+        animate={shown ? "open" : "closed"}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow }}
+        onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden"); }}
+        onAnimationComplete={(def) => { if (def === "open") setOverflow("visible"); }}
+      >
+        <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+          {loading ? (
+            <>
+              <SidebarMenuSkeleton fluid />
+              <SidebarMenuSkeleton fluid />
+            </>
+          ) : tasks.length > 0 ? (
+            tasks.map((task) => (
+              <SidebarMenuItem
+                key={task.id}
+                fluid
+                variant="chat-item"
+                label={task.title}
+                onClick={() => push("/brain/schedules")}
+              />
+            ))
+          ) : null}
+        </div>
+      </m.div>
+    </>
+  );
+}
+
 // ── LeftSidebar ───────────────────────────────────────────────────────────────
 
 interface LeftSidebarProps {
@@ -887,6 +1003,7 @@ function LeftSidebarImpl({
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
   const { chats: projectChats } = useProjects();
+  const { orgId, org, currentUserRole, teams, activeTeamId, setActiveTeamId } = useOrg();
 
   // ── Global search ─────────────────────────────────────────────────────────
   const { searchOpen, openSearch } = useSearch();
@@ -913,6 +1030,21 @@ function LeftSidebarImpl({
   ) as 'chats' | 'agents' | 'brain' | 'new-chat' | 'projects';
 
   const collapsedRef = useRef<boolean>(readCollapsed());
+
+  // ── Brain scheduled tasks — fetched once when first visiting a brain page ──
+  // Lifted here so the list survives brain-tab switches without re-fetching.
+  const [brainTasks, setBrainTasks] = useState<ScheduledTaskListItem[]>([]);
+  const [brainTasksLoading, setBrainTasksLoading] = useState(false);
+  const brainTasksFetchedRef = useRef(false);
+  useEffect(() => {
+    if (!isBrainPage || brainTasksFetchedRef.current) return;
+    brainTasksFetchedRef.current = true;
+    setBrainTasksLoading(true);
+    listTasks()
+      .then(setBrainTasks)
+      .catch(() => {})
+      .finally(() => setBrainTasksLoading(false));
+  }, [isBrainPage]);
 
   // Exclude project chats from the Recents/Starred lists - they are already
   // shown inside the Projects section and would be confusing duplicates.
@@ -991,7 +1123,10 @@ function LeftSidebarImpl({
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
       onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }}
       onBrainClick={() => { toast.info("Opening Brain", { id: 'nav' }); push("/brain") }}
-      onOrganisationClick={user?.orgId ? () => { push("/settings/org") } : undefined}
+      onOrganisationClick={orgId ? () => { push("/settings/org") } : undefined}
+      orgName={orgId ? org.name : undefined}
+      orgId={orgId ?? undefined}
+      showAdmin={Boolean(orgId) && currentUserRole === 'admin'}
       accountMenu={(collapsed) => (
         <AccountMenu
           name={displayName || "Account"}
@@ -1009,7 +1144,19 @@ function LeftSidebarImpl({
           onLogOut={() => { if (isAuthenticated) { void logout() } else { push("/auth/login") } }}
         />
       )}
-      projectItems={<ProjectsSection />}
+      onSchedulesClick={() => { toast.info("Opening Schedules", { id: 'nav' }); push("/brain/schedules") }}
+      projectItems={orgId ? (
+        <TeamsSidebarContent
+          role={currentUserRole}
+          teams={teams}
+          activeTeamId={activeTeamId}
+          setActiveTeamId={setActiveTeamId}
+          onManageTeams={() => push("/settings/org/teams")}
+        />
+      ) : (
+        <ProjectsSection />
+      )}
+      scheduledTasksItems={isBrainPage ? <BrainScheduledTasksSection tasks={brainTasks} loading={brainTasksLoading} /> : undefined}
       recentItems={
         isPersonaPage ? (
           <PersonasSectionAll />

@@ -194,6 +194,8 @@ export const ORG_TEAM_EDITOR_ENDPOINT = (orgId: string, teamId: string, memberId
   withBase(`/organizations/${orgId}/teams/${teamId}/editors/${memberId}`)
 export const ORG_TEAM_INVITES_ENDPOINT = (orgId: string, teamId: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/invites`)
+export const ORG_TEAM_OVERFLOW_ENDPOINT = (orgId: string, teamId: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}/overflow`)
 export const TEAM_INVITE_PREVIEW_ENDPOINT = (inviteId: string) =>
   withBase(`/team-invite/${inviteId}`)
 export const TEAM_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>

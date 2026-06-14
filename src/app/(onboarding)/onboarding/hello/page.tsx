@@ -7,7 +7,7 @@ import { useOnboarding } from "@/context/onboarding-context";
 import type { OnboardingRole } from "@/context/onboarding-context";
 import { InputField } from "@/components/InputField";
 import { Dropdown, DropdownFloat } from "@/components/Dropdown";
-import { updateUser, updateOnboarding } from "@/lib/api/user";
+import { createUser, updateUser, updateOnboarding } from "@/lib/api/user";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
 const ROLES: OnboardingRole[] = [
@@ -117,6 +117,7 @@ export default function OnboardingHelloPage() {
   const { push } = useRouter();
   const { isHydrated, isAuthenticated, user, logout } = useAuth();
   const { data, setFirstName, setLastName, setRole, setRoleOther } = useOnboarding();
+  const [isSaving, setIsSaving] = useState(false);
 
   // Pre-fill name from the authenticated profile, skipping values that look like
   // an email (Auth0 defaults first_name to the email on new signups).
@@ -133,7 +134,10 @@ export default function OnboardingHelloPage() {
   // eslint-disable-next-line react-doctor/nextjs-no-client-side-redirect
   useEffect(() => {
     if (!isHydrated) return;
-    if (!isAuthenticated) window.location.href = "/auth/login";
+    if (!isAuthenticated) { window.location.href = "/auth/login"; return; }
+    // Upsert the backend user record (POST /users/create). Idempotent — safe to
+    // call on every page load. Ensures PATCH /users/me succeeds on the first visit.
+    void createUser();
   }, [isHydrated, isAuthenticated]);
 
   const canContinue =
@@ -142,12 +146,19 @@ export default function OnboardingHelloPage() {
     data.role !== null &&
     (data.role !== "Other" || data.roleOther.trim().length > 0);
 
-  const handleContinue = () => {
-    if (!canContinue) return;
-    // Persist name + role as the user progresses — fire and forget. The final
-    // commit (with role_fit + completion) happens on the import step.
-    void updateUser({ first_name: data.firstName.trim(), last_name: data.lastName.trim() });
-    void updateOnboarding({ user_role: data.role! });
+  const handleContinue = async () => {
+    if (!canContinue || isSaving) return;
+    setIsSaving(true);
+    try {
+      // Persist name + role before advancing. The final commit (role_fit +
+      // completion) happens on the import step.
+      await Promise.all([
+        updateUser({ first_name: data.firstName.trim(), last_name: data.lastName.trim() }),
+        updateOnboarding({ user_role: data.role! }),
+      ]);
+    } finally {
+      setIsSaving(false);
+    }
     push("/onboarding/account-type");
   };
 
@@ -163,8 +174,9 @@ export default function OnboardingHelloPage() {
         <OnboardingFooter
           onBack={() => void logout()}
           backLabel="Log out"
-          onContinue={handleContinue}
+          onContinue={() => { void handleContinue(); }}
           continueDisabled={!canContinue}
+          continueLoading={isSaving}
         />
       }
     >

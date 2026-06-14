@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding, deriveRoleFit } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
@@ -25,6 +25,12 @@ export default function OnboardingImportPage() {
   const { refreshUser, logout } = useAuth();
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Teams flow skips this page entirely — redirect to the invite step.
+  // eslint-disable-next-line react-doctor/nextjs-no-client-side-redirect
+  useEffect(() => {
+    if (data.accountType === "team") push("/onboarding/invite");
+  }, [data.accountType, push]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(UNIVERSAL_PROMPT);

@@ -66,6 +66,34 @@ export interface BillingPortalResponse {
   portal_url: string;
 }
 
+export interface PaymentMethodInfo {
+  brand:     string | null
+  last4:     string | null
+  exp_month: number | null
+  exp_year:  number | null
+  funding:   string | null
+}
+
+export interface InvoiceInfo {
+  amount_paid: number
+  currency:    string
+  status:      string | null
+  created:     string | null
+  invoice_url: string | null
+  invoice_pdf: string | null
+}
+
+export interface BillingInfo {
+  plan_type:            string | null
+  subscription_status:  string | null
+  current_period_end:   string | null
+  cancel_at_period_end: boolean
+  payment_method:       PaymentMethodInfo | null
+  invoices:             InvoiceInfo[]
+  upcoming_invoice:     unknown | null
+  credits:              unknown
+}
+
 // ── API functions ─────────────────────────────────────────────────────────────
 
 /**
@@ -151,10 +179,10 @@ export async function resumeSubscription(): Promise<SubscriptionActionResponse> 
 }
 
 /** GET /stripe/billing — payment method, invoices, upcoming invoice. */
-export async function fetchBilling(): Promise<Record<string, unknown> | null> {
+export async function fetchBilling(): Promise<BillingInfo | null> {
   const res = await apiFetch(STRIPE_BILLING_ENDPOINT, { method: "GET" });
   if (!res.ok) return null;
-  return res.json() as Promise<Record<string, unknown>>;
+  return res.json() as Promise<BillingInfo>;
 }
 
 /** POST /stripe/portal — create a Stripe-hosted billing portal session. */

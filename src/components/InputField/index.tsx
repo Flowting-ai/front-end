@@ -11,6 +11,8 @@ export interface InputFieldProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'size'> {
   /** Label rendered above the input - rendered as <label> for accessibility */
   label?: string
+  /** Optional node rendered inline after the label text (e.g. a muted "(optional)" tag) */
+  labelSuffix?: React.ReactNode
   /**
    * Show/hide the label slot (Figma: `label1`).
    * Defaults to true - only needed if you want to conditionally hide the label
@@ -57,6 +59,7 @@ const BASE_SHADOW = '0px 1px 1.5px 0px var(--neutral-700-12)'
 export function InputField({
       ref,
       label,
+      labelSuffix,
       showLabel    = true,
       subtitle,
       showSubtitle = true,
@@ -142,7 +145,7 @@ export function InputField({
           <Field.Label
             style={
               showLabel
-                ? { ...sharedTextStyle, color: labelColor }
+                ? { ...sharedTextStyle, color: labelColor, display: 'flex', alignItems: 'center', gap: 4 }
                 : {
                     position:   'absolute',
                     width:      1,
@@ -157,6 +160,7 @@ export function InputField({
             }
           >
             {label}
+            {labelSuffix}
           </Field.Label>
         )}
 
