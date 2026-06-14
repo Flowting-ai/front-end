@@ -33,7 +33,7 @@ import { AttachmentManager, type PendingAttachment } from '@/components/chat/Att
 import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
 import { Chip } from '@/components/Chip'
-import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon } from '@strange-huge/icons'
+import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon, ImageDownloadTwoIcon } from '@strange-huge/icons'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { fetchPersonas, getVersion } from '@/lib/api/personas'
 import type { PinFolder } from '@/lib/api/pins'
@@ -947,37 +947,81 @@ const feedLinkStyle: CSSProperties = {
 
 // ── Generated-image grid ──────────────────────────────────────────────────────
 // Renders images produced inside a turn (live stream or persisted history) as
-// actual thumbnails. Each opens full-size in a new tab. `unoptimized` skips the
-// Next image loader so presigned S3 URLs render without remote-pattern config.
+// actual thumbnails with a hover download button. `unoptimized` skips the Next
+// image loader so presigned S3 URLs render without remote-pattern config.
+
+/** Best-effort filename from the image URL path; falls back to image-N.png. */
+function deriveImageName(url: string, index: number): string {
+  try {
+    const last = new URL(url).pathname.split('/').pop()
+    if (last && /\.(png|jpe?g|webp|gif)$/i.test(last)) return last
+  } catch { /* not a parseable URL — use fallback */ }
+  return `image-${index + 1}.png`
+}
+
+function BrainGeneratedImage({ url, index }: { url: string; index: number }) {
+  const [hovered, setHovered] = useState(false)
+  const filename = deriveImageName(url, index)
+  // /api/download streams the image server-side with Content-Disposition:
+  // attachment, so the browser always saves it (a direct link would just open
+  // the raw image in a blank-looking tab, and a client fetch fails S3 CORS).
+  const downloadHref = `/api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position:     'relative',
+        borderRadius: 12,
+        overflow:     'hidden',
+        border:       '1px solid var(--neutral-200)',
+        maxWidth:     360,
+      }}
+    >
+      <Image
+        src={url}
+        alt="Generated image"
+        width={0}
+        height={0}
+        sizes="100%"
+        unoptimized
+        style={{ display: 'block', width: '100%', height: 'auto', maxHeight: 360, objectFit: 'cover' }}
+      />
+      <a
+        href={downloadHref}
+        download={filename}
+        aria-label="Download image"
+        title="Download image"
+        style={{
+          position:       'absolute',
+          top:            8,
+          right:          8,
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+          width:          28,
+          height:         28,
+          borderRadius:   8,
+          background:     'rgba(0,0,0,0.55)',
+          backdropFilter: 'blur(4px)',
+          color:          '#fff',
+          textDecoration: 'none',
+          opacity:        hovered ? 1 : 0,
+          transition:     'opacity 0.15s',
+        }}
+      >
+        <ImageDownloadTwoIcon size={16} />
+      </a>
+    </div>
+  )
+}
 
 function MessageImages({ images }: { images: { url: string }[] }) {
   if (images.length === 0) return null
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      {images.map((img) => (
-        <a
-          key={img.url}
-          href={img.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display:      'block',
-            borderRadius: 12,
-            overflow:     'hidden',
-            border:       '1px solid var(--neutral-200)',
-            maxWidth:     360,
-          }}
-        >
-          <Image
-            src={img.url}
-            alt="Generated image"
-            width={0}
-            height={0}
-            sizes="100%"
-            unoptimized
-            style={{ display: 'block', width: '100%', height: 'auto', maxHeight: 360, objectFit: 'cover' }}
-          />
-        </a>
+      {images.map((img, i) => (
+        <BrainGeneratedImage key={img.url} url={img.url} index={i} />
       ))}
     </div>
   )

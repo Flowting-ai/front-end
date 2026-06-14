@@ -32,20 +32,20 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
   const [hovered, setHovered] = useState(false);
 
   function handleDownload() {
-    fetch(img.url)
-      .then((res) => res.blob())
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = img.s3Key ? img.s3Key.split("/").pop() ?? "image.png" : `image-${index + 1}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-      })
-      .catch(() => {
-        // Fallback: open in new tab so the user can save manually
-        window.open(img.url, "_blank");
-      });
+    const filename = img.s3Key
+      ? img.s3Key.split("/").pop() ?? "image.png"
+      : `image-${index + 1}.png`;
+    // Route through the /api/download proxy: it streams the image server-side
+    // with Content-Disposition: attachment, so the browser always saves it.
+    // A direct client fetch would fail CORS on presigned S3 URLs and fall back
+    // to opening a blank tab.
+    const a = document.createElement("a");
+    a.href = `/api/download?url=${encodeURIComponent(img.url)}&filename=${encodeURIComponent(filename)}`;
+    a.download = filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
   return (
@@ -96,6 +96,7 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
               <IconButton
                 onClick={handleDownload}
                 aria-label="Download image"
+                icon={<ImageDownloadTwoIcon size={16} animated />}
                 style={{
                   background: "rgba(0,0,0,0.55)",
                   backdropFilter: "blur(4px)",
@@ -108,9 +109,7 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
                   alignItems: "center",
                   justifyContent: "center",
                 }}
-              >
-                <ImageDownloadTwoIcon size={16} animated />
-              </IconButton>
+              />
             </Tooltip>
           </m.div>
         )}
