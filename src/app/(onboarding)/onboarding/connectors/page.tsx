@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
+import { useAuth } from "@/context/auth-context";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
 // ── Connector definitions ───────────────────────────────────────────────────────
@@ -122,6 +123,7 @@ function ConnectorCard({
 
 export default function OnboardingConnectorsPage() {
   const { push } = useRouter();
+  const { logout } = useAuth();
   const { setConnectorCount } = useOnboarding();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -145,6 +147,15 @@ export default function OnboardingConnectorsPage() {
             setConnectorCount(selected.size);
             push("/onboarding/invite");
           }}
+          leftSlot={
+            <button
+              type="button"
+              onClick={() => void logout()}
+              style={{ background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 14, color: "#0d6eb2", textDecoration: "underline" }}
+            >
+              Log out
+            </button>
+          }
         />
       }
     >

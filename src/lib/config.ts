@@ -5,9 +5,10 @@
 // forwards /api/backend/:path* → SERVER_URL/:path*.
 export const API_BASE_URL = "/api/backend";
 
-// Absolute backend origin (no trailing slash). Re-exported to the client via
-// next.config.ts `env.SERVER_URL`. Empty in environments where it isn't set.
-const SERVER_ORIGIN = (process.env.SERVER_URL ?? "").replace(/\/+$/, "");
+// Absolute backend origin (no trailing slash).
+// NEXT_PUBLIC_SERVER_URL is the reliable client-bundle alias (see next.config.ts env block).
+// Falls back to SERVER_URL for local dev where next.config.ts bakes it under that key.
+const SERVER_ORIGIN = (process.env.NEXT_PUBLIC_SERVER_URL ?? process.env.SERVER_URL ?? "").replace(/\/+$/, "");
 
 export const audience = process.env.AUTH0_AUDIENCE ?? "";
 

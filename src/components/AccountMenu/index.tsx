@@ -19,8 +19,10 @@ import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 export interface AccountMenuProps {
   /** Display name shown in both trigger and identity header. */
   name: string
-  /** Plan label — "Pro", "Free", "Team", etc. */
+  /** Plan label — "Pro", "Free Trial", "Teams", etc. */
   plan?: string
+  /** When true the plan label renders in amber warning colour (e.g. "No Plan Selected"). */
+  planWarning?: boolean
   /** Credit count shown in the identity header badge. */
   credits?: number
   /** Avatar image URL. Falls back to initials if absent. */
@@ -148,8 +150,8 @@ const AvatarContent = ({ name, avatarSrc }: { name: string; avatarSrc?: string }
 const BODY_LH    = 22  // var(--line-height-body)    = 22px
 const CAPTION_LH = 16  // var(--line-height-caption) = 16px
 
-const IdentityRow = ({ name, plan, credits, avatarSrc }: {
-  name: string; plan?: string; credits?: number; avatarSrc?: string
+const IdentityRow = ({ name, plan, planWarning, credits, avatarSrc }: {
+  name: string; plan?: string; planWarning?: boolean; credits?: number; avatarSrc?: string
 }) => {
   const avatarSize = plan ? BODY_LH + CAPTION_LH : BODY_LH
 
@@ -201,21 +203,45 @@ const IdentityRow = ({ name, plan, credits, avatarSrc }: {
           {name}
         </p>
         {plan && (
-          <p
-            style={{
-              fontFamily:   'var(--font-body)',
-              fontWeight:   'var(--font-weight-regular)',
-              fontSize:     'var(--font-size-caption)',
-              lineHeight:   'var(--line-height-caption)',
-              color:        'var(--neutral-500)',
-              whiteSpace:   'nowrap',
-              overflow:     'hidden',
-              textOverflow: 'ellipsis',
-              margin:       0,
-            }}
-          >
-            {plan}
-          </p>
+          planWarning ? (
+            <span style={{
+              display:         'inline-flex',
+              alignItems:      'center',
+              gap:             4,
+              padding:         '1px 6px',
+              borderRadius:    20,
+              backgroundColor: 'var(--color-tag-Yellow-bg,#fef9c3)',
+              color:           'var(--color-tag-Yellow-text,#854d0e)',
+              fontFamily:      'var(--font-body)',
+              fontWeight:      'var(--font-weight-medium)',
+              fontSize:        'var(--font-size-caption)',
+              lineHeight:      'var(--line-height-caption)',
+              whiteSpace:      'nowrap',
+              flexShrink:      0,
+            }}>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+                <path d="M5 1.5L9 8.5H1L5 1.5Z" fill="var(--color-tag-Yellow-text,#854d0e)" />
+                <path d="M5 4.5v1.5M5 7.2v.3" stroke="#fef9c3" strokeWidth="1" strokeLinecap="round" />
+              </svg>
+              {plan}
+            </span>
+          ) : (
+            <p
+              style={{
+                fontFamily:   'var(--font-body)',
+                fontWeight:   'var(--font-weight-regular)',
+                fontSize:     'var(--font-size-caption)',
+                lineHeight:   'var(--line-height-caption)',
+                color:        'var(--neutral-500)',
+                whiteSpace:   'nowrap',
+                overflow:     'hidden',
+                textOverflow: 'ellipsis',
+                margin:       0,
+              }}
+            >
+              {plan}
+            </p>
+          )
         )}
       </div>
 
@@ -234,6 +260,7 @@ export function AccountMenu({
   ref,
   name,
   plan,
+  planWarning = false,
   credits,
   avatarSrc,
   open: controlledOpen,
@@ -269,6 +296,7 @@ export function AccountMenu({
       variant="account-item"
       label={name}
       sublabel={plan ?? ''}
+      sublabelWarning={planWarning}
       avatarSrc={avatarSrc}
       {...(collapsed ? { collapsed: true } : { fluid: true })}
       onSettingsClick={() => { onSettings?.(); handleOpenChange(true) }}
@@ -285,7 +313,7 @@ export function AccountMenu({
       >
         <Dropdown maxHeight={false} style={{ width: typeof panelWidth === 'number' ? `${panelWidth}px` : panelWidth }}>
           <Dropdown.Section fluid>
-            <IdentityRow name={name} plan={plan} credits={credits} avatarSrc={avatarSrc} />
+            <IdentityRow name={name} plan={plan} planWarning={planWarning} credits={credits} avatarSrc={avatarSrc} />
 
             <Dropdown.Item
               icon={<UserIcon />}

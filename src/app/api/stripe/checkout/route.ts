@@ -15,10 +15,26 @@ const getPriceMap = (): Record<string, string | undefined> => ({
   pro_annual: process.env.STRIPE_PRICE_PRO_ANNUAL,
   power_monthly: process.env.STRIPE_PRICE_POWER_MONTHLY,
   power_annual: process.env.STRIPE_PRICE_POWER_ANNUAL,
+  // Team volume tiers — each corresponds to a distinct Stripe Price
+  team_125_monthly:  process.env.STRIPE_PRICE_TEAMS_125_MONTHLY,
+  team_250_monthly:  process.env.STRIPE_PRICE_TEAMS_250_MONTHLY,
+  team_500_monthly:  process.env.STRIPE_PRICE_TEAMS_500_MONTHLY,
+  team_1000_monthly: process.env.STRIPE_PRICE_TEAMS_1000_MONTHLY,
+  team_1500_monthly: process.env.STRIPE_PRICE_TEAMS_1500_MONTHLY,
+  team_2000_monthly: process.env.STRIPE_PRICE_TEAMS_2000_MONTHLY,
+  team_125_annual:   process.env.STRIPE_PRICE_TEAMS_125_ANNUAL,
+  team_250_annual:   process.env.STRIPE_PRICE_TEAMS_250_ANNUAL,
+  team_500_annual:   process.env.STRIPE_PRICE_TEAMS_500_ANNUAL,
+  team_1000_annual:  process.env.STRIPE_PRICE_TEAMS_1000_ANNUAL,
+  team_1500_annual:  process.env.STRIPE_PRICE_TEAMS_1500_ANNUAL,
+  team_2000_annual:  process.env.STRIPE_PRICE_TEAMS_2000_ANNUAL,
 });
 
-const VALID_PLANS = ["starter", "pro", "power"] as const;
-const VALID_BILLING = ["monthly"] as const;
+const VALID_PLANS = [
+  "starter", "pro", "power",
+  "team_125", "team_250", "team_500", "team_1000", "team_1500", "team_2000",
+] as const;
+const VALID_BILLING = ["monthly", "annual"] as const;
 
 export async function POST(req: Request) {
   // 1. Verify Auth0 session (server-side)
@@ -71,11 +87,11 @@ export async function POST(req: Request) {
   const successUrl =
     checkoutFlow === "settings_change_plan"
       ? `${appBase}/settings/billing/confirmation?plan=${plan_type}&billing=${billing}`
-      : `${appBase}/settings/billing/confirmation?plan=${plan_type}&billing=${billing}`;
+      : `${appBase}/onboarding/pricing/confirmation?plan=${plan_type}&billing=${billing}`;
   const cancelUrl =
     checkoutFlow === "settings_change_plan"
       ? `${appBase}/settings/billing?checkout=cancelled`
-      : `${appBase}/settings/billing?checkout=cancelled`;
+      : `${appBase}/onboarding/plans?checkout=cancelled`;
 
   const stripe = getStripe();
   try {

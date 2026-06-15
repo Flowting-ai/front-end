@@ -43,18 +43,18 @@ function readCollapsed(): boolean {
 // Items with a real destination navigate there; the rest surface a "coming soon"
 // toast so nothing is ever a dead click.
 const ADMIN_SECTION_ROUTES: Record<string, string> = {
-  // Organization → /settings/org/*
-  general:           "/settings/org/general",
-  members:           "/settings/org/members",
-  teams:             "/settings/org/teams",
-  "plans-usage":     "/settings/org/plans",
-  analytics:         "/settings/org/analytics",
-  connectors:        "/settings/org/connectors",
-  security:          "/settings/org/security",
-  "activity-log":    "/settings/org/activity",
+  // Organization → /org/*
+  general:           "/org/general",
+  members:           "/org/members",
+  teams:             "/org/teams",
+  "plans-usage":     "/org/plans",
+  analytics:         "/org/analytics",
+  connectors:        "/org/connectors",
+  security:          "/org/security",
+  "activity-log":    "/org/activity",
   // Company Data → closest existing surface (org connectors)
-  "connected-data":  "/settings/org/connectors",
-  tools:             "/settings/org/connectors",
+  "connected-data":  "/org/connectors",
+  tools:             "/org/connectors",
   // Models → AI & Models
   "model-providers": "/settings/ai",
 };
@@ -1044,13 +1044,28 @@ function LeftSidebarImpl({
   const isPersonaPage = pathname?.startsWith("/agents") || pathname?.startsWith("/agent");
   const isProjectPage = pathname?.startsWith("/project") ?? false;
   const isBrainPage   = pathname?.startsWith("/brain") ?? false;
+  const isAdminPage   = pathname?.startsWith("/org") ?? false;
   const isNewChatPage = pathname === '/chat' && !chatSearchParams.get('id');
 
-  // Determines which Sidebar key to use (triggers remount on section change)
-  // and which nav item to pre-select on mount.
+  // Map the current /org/* path to its admin-section item id so the sidebar
+  // can highlight the correct row on initial mount / page refresh.
+  const adminItemId = !isAdminPage ? undefined
+    : pathname?.startsWith('/org/members')    ? 'members'
+    : pathname?.startsWith('/org/teams')      ? 'teams'
+    : pathname?.startsWith('/org/plans')      ? 'plans-usage'
+    : pathname?.startsWith('/org/analytics')  ? 'analytics'
+    : pathname?.startsWith('/org/connectors') ? 'connectors'
+    : pathname?.startsWith('/org/security')   ? 'security'
+    : pathname?.startsWith('/org/activity')   ? 'activity-log'
+    : 'general'
+
+  // Determines which Sidebar key to use (triggers remount on section change).
+  // Admin pages use a per-item key so the sidebar remounts on each admin page
+  // navigation, allowing defaultSelectedItem to pre-highlight the right row.
   const sidebarSectionKey = isPersonaPage ? 'persona'
     : isProjectPage ? 'projects'
     : isBrainPage   ? 'brain'
+    : isAdminPage   ? `admin-${adminItemId}`
     : isNewChatPage ? 'new-chat'
     : 'chat-board';
 
@@ -1058,9 +1073,10 @@ function LeftSidebarImpl({
     isPersonaPage ? 'agents'
     : isProjectPage ? 'projects'
     : isBrainPage   ? 'brain'
+    : isAdminPage   ? 'admin'
     : isNewChatPage ? 'new-chat'
     : 'chats'
-  ) as 'chats' | 'agents' | 'brain' | 'new-chat' | 'projects';
+  ) as 'chats' | 'agents' | 'brain' | 'admin' | 'new-chat' | 'projects';
 
   const collapsedRef = useRef<boolean>(readCollapsed());
 
@@ -1129,10 +1145,16 @@ function LeftSidebarImpl({
     ? user.firstName?.trim() || user.name?.split(" ")[0]?.trim() || ""
     : "";
 
-  // "pro" → "Pro", "starter" → "Starter", null / "none" → undefined (hidden)
-  const planLabel = user?.planType
-    ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
-    : undefined;
+  // Teams → "Teams" | paid → "Pro"/"Starter"/"Power" | trial → "Free Trial" | none → "No Plan Selected"
+  const planLabel = orgId
+    ? 'Teams'
+    : user?.planType
+      ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
+      : user?.isTrial
+        ? 'Free Trial'
+        : 'No Plan Selected'
+
+  const planWarning = !orgId && !user?.planType && !user?.isTrial
 
   // Credits shown in the account menu, by environment (kept isolated):
   //   • Organization → the SHARED org pool remaining (org-context / getOrgPlan)
@@ -1154,6 +1176,7 @@ function LeftSidebarImpl({
       key={sidebarSectionKey}
       defaultCollapsed={collapsedRef.current}
       defaultBodySection={computedDefaultBodySection}
+      defaultSelectedItem={adminItemId}
       searchActive={searchOpen}
       onCollapse={handleCollapse}
       onNewChat={handleNewChat}
@@ -1164,10 +1187,9 @@ function LeftSidebarImpl({
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
       onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }}
       onBrainClick={() => { toast.info("Opening Brain", { id: 'nav' }); push("/brain") }}
-      // The org badge switches the sidebar's body to the in-place "admin"
-      // section (handled inside Sidebar) — it must NOT navigate. (It previously
-      // pushed to /settings/org, which has no index route → 404.)
-      onOrganisationClick={undefined}
+      // Clicking the admin tab switches the sidebar body to admin AND navigates
+      // to General — always landing on General regardless of prior admin page.
+      onOrganisationClick={() => push('/org/general')}
       // adminGroups is intentionally NOT overridden — the Sidebar's default
       // groups (Organization / Company Data / Models) are the canonical content.
       // We only wire behaviour: navigate where a page exists, else "coming soon".
@@ -1184,6 +1206,7 @@ function LeftSidebarImpl({
         <AccountMenu
           name={displayName || "Account"}
           plan={planLabel}
+          planWarning={planWarning}
           credits={accountCredits}
           avatarSrc={user?.profilePicture ?? undefined}
           collapsed={collapsed}
@@ -1204,7 +1227,7 @@ function LeftSidebarImpl({
           teams={teams}
           activeTeamId={activeTeamId}
           setActiveTeamId={setActiveTeamId}
-          onManageTeams={() => push("/settings/org/teams")}
+          onManageTeams={() => push("/org/teams")}
         />
       ) : (
         <ProjectsSection />

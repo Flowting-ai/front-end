@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useMounted } from '@/hooks/use-mounted'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@/context/auth-context'
+import { useOrg } from '@/context/org-context'
 import {
   cancelSubscription,
   createCheckoutSession,
@@ -192,6 +193,7 @@ function UsageRow({ label, used, total, value }: { label: string; used: number; 
 
 export default function BillingPage() {
   const { user, refreshUser, isHydrated, jwtToken } = useAuth()
+  const { plan: orgPlan } = useOrg()
 
   const portalMounted = useMounted()
   // Lazy-init from the cached snapshot (runs once; SSR-safe — readCache returns
@@ -283,16 +285,22 @@ export default function BillingPage() {
   const billingCreditsUsed = billingBalance.used;
   const billingCreditsRemaining = billing?.credits ? billingBalance.remaining : null;
 
+  // For team/org accounts the credit pool lives on the organisation, not the
+  // personal Stripe subscription. Override with org plan values when present.
+  const isTeamAccount = Boolean(user?.orgId)
+  const orgCreditsTotal     = isTeamAccount && orgPlan ? Math.round(orgPlan.totalCredits * 1000) : null
+  const orgCreditsRemaining = isTeamAccount && orgPlan ? Math.round(orgPlan.remaining    * 1000) : null
+  const orgCreditsUsed      = isTeamAccount && orgPlan ? Math.round(orgPlan.used         * 1000) : null
+
   const liveSnap: BillingSnapshot | null = liveReady
     ? {
         planType:         user?.planType ?? null,
-        // /stripe/billing is the authoritative source for the Billing page:
-        // `total_credits` is the plan's monthly ALLOWANCE (granted + exposed by
-        // the backend), not a value reconstructed from balance. Fall back to the
-        // /users/me-derived figures only when billing hasn't loaded.
-        creditsTotal:     billingCreditsTotal     ?? user?.creditsTotal     ?? 0,
-        creditsRemaining: billingCreditsRemaining ?? user?.creditsRemaining ?? 0,
-        creditsUsed:      billingCreditsUsed       ?? user?.creditsUsed      ?? 0,
+        // Team accounts: use the org credit pool. Individual accounts: use
+        // /stripe/billing as authoritative (total_credits = monthly allowance),
+        // falling back to /users/me-derived figures only when billing hasn't loaded.
+        creditsTotal:     orgCreditsTotal     ?? billingCreditsTotal     ?? user?.creditsTotal     ?? 0,
+        creditsRemaining: orgCreditsRemaining ?? billingCreditsRemaining ?? user?.creditsRemaining ?? 0,
+        creditsUsed:      orgCreditsUsed      ?? billingCreditsUsed      ?? user?.creditsUsed      ?? 0,
         // Per-category absolute credits come ONLY from billing.credits. Current
         // backend puts them in `by_category`; the legacy shape used a per-category
         // `used` object. (usage.by_category from /users/me are PERCENTAGES, not

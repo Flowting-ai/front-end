@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import * as Dialog from '@radix-ui/react-dialog'
-import { listConnectors, initiateLink, unlinkConnector, updateConnector } from '@/lib/api/connectors'
+import { listConnectors, initiateLink, unlinkConnector, updateConnector, pollConnectorUntilActive } from '@/lib/api/connectors'
 import type { ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
 import { connectorLogoSrc } from '@/lib/connectorLogos'
 import {
@@ -487,6 +487,73 @@ function RequestCta({ onClick }: { onClick: () => void }) {
   )
 }
 
+// ── Shared search bar used in connector panels ────────────────────────────────
+// Clicking the search IconButton expands an input inline; a second IconButton
+// (CancelOneIcon) appears to clear the text while keeping the input open.
+// Pressing Escape or clicking the search icon again collapses and clears.
+
+function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen]   = useState(false)
+  const inputRef          = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus()
+  }, [open])
+
+  const handleToggle = () => {
+    if (open) { onChange(''); setOpen(false) }
+    else       { setOpen(true) }
+  }
+
+  // The clear IconButton is always mounted (never conditionally rendered) to
+  // avoid the @strange-huge/icons Framer Motion controls.set() invariant that
+  // fires when an icon-containing component mounts for the first time. Use
+  // visibility + pointer-events instead so the DOM node stays alive.
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder="Search…"
+        onKeyDown={e => { if (e.key === 'Escape') { onChange(''); setOpen(false) } }}
+        style={{
+          border:       open ? '1px solid var(--neutral-200)' : 'none',
+          borderRadius: 8,
+          padding:      open ? '4px 8px' : 0,
+          height:       32,
+          fontFamily:   'var(--font-body)',
+          fontSize:     13,
+          color:        'var(--neutral-900)',
+          background:   'white',
+          // eslint-disable-next-line react-doctor/no-outline-none -- global :focus-visible handles outline
+          outline:      'none',
+          width:        open ? 140 : 0,
+          overflow:     'hidden',
+          transition:   'width 150ms ease',
+        }}
+      />
+      <span style={{ visibility: open && !!value ? 'visible' : 'hidden', pointerEvents: open && !!value ? 'auto' : 'none' }}>
+        <IconButton
+          variant="ghost"
+          size="sm"
+          aria-label="Clear search"
+          icon={<CancelOneIcon size={20} />}
+          onClick={() => { onChange(''); inputRef.current?.focus() }}
+        />
+      </span>
+      <IconButton
+        variant="ghost"
+        size="sm"
+        aria-label={open ? 'Close search' : 'Search'}
+        icon={<SearchOneIcon size={20} />}
+        onClick={handleToggle}
+      />
+    </div>
+  )
+}
+
 function MyConnectors({
   onBrowse,
   connectors,
@@ -498,10 +565,15 @@ function MyConnectors({
   onConnect:    (slug: string) => void
   onDisconnect: (slug: string) => void
 }) {
-  const [filter, setFilter] = useState<FilterTab>('all')
+  const [filter,      setFilter]      = useState<FilterTab>('all')
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const sharedConnectors  = connectors.filter(c => c.auth_mode !== 'oauth2' && c.linked)
-  const accountConnectors = connectors.filter(c => c.auth_mode === 'oauth2')
+  const q = searchQuery.toLowerCase().trim()
+  const matchSearch = (c: ConnectorCatalogEntry) =>
+    !q || c.display_name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q)
+
+  const sharedConnectors  = connectors.filter(c => c.auth_mode !== 'oauth2' && c.linked).filter(matchSearch)
+  const accountConnectors = connectors.filter(c => c.auth_mode === 'oauth2').filter(matchSearch)
   const showShared   = filter === 'all' || filter === 'shared'
   const showAccounts = filter === 'all' || filter === 'accounts'
 
@@ -520,7 +592,7 @@ function MyConnectors({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
           <TabGroup tabs={FILTER_TABS} value={filter} onChange={setFilter} size="small" />
           <div style={{ position: 'absolute', right: 0 }}>
-            <IconButton variant="ghost" size="sm" aria-label="Search connectors" icon={<SearchOneIcon size={20} />} />
+            <SearchBar value={searchQuery} onChange={setSearchQuery} />
           </div>
         </div>
       </div>
@@ -602,7 +674,14 @@ function CatalogCard({
   connectors: ConnectorCatalogEntry[]
   onConnect:  (slug: string) => void
 }) {
-  const [category, setCategory] = useState<CategoryTab>('All')
+  const [category,    setCategory]    = useState<CategoryTab>('All')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const q = searchQuery.toLowerCase().trim()
+  const categoryFiltered = category === 'All' ? connectors : connectors.filter(c => CONNECTOR_CATEGORY_MAP[c.slug] === category)
+  const visible = categoryFiltered.filter(c =>
+    !q || c.display_name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q)
+  )
 
   return (
     <PageCard>
@@ -614,14 +693,14 @@ function CatalogCard({
           size="small"
         />
         <div style={{ position: 'absolute', right: 24, top: 13 }}>
-          <IconButton variant="ghost" size="sm" aria-label="Search connector catalog" icon={<SearchOneIcon size={20} />} />
+          <SearchBar value={searchQuery} onChange={setSearchQuery} />
         </div>
       </div>
 
       <div style={{ padding: '24px 24px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <BodyText weight={500} color="var(--neutral-900)">Available to connect</BodyText>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-          {connectors.map(c => (
+          {visible.map(c => (
             <ConnectorCatalogTile key={c.slug} connector={c} action="request" onAction={() => onConnect(c.slug)} />
           ))}
         </div>
@@ -811,10 +890,15 @@ function AdminManageConnectors({
   onDisconnect: (slug: string) => void
   onManage?:    (entry: ConnectorCatalogEntry) => void
 }) {
-  const [category, setCategory] = useState<CategoryTab>('All')
+  const [category,    setCategory]    = useState<CategoryTab>('All')
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const linked   = connectors.filter(c => c.linked)
-  const unlinked = connectors.filter(c => !c.linked)
+  const q = searchQuery.toLowerCase().trim()
+  const searchFiltered = connectors.filter(c =>
+    !q || c.display_name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q)
+  )
+  const linked   = searchFiltered.filter(c => c.linked)
+  const unlinked = searchFiltered.filter(c => !c.linked)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -828,7 +912,7 @@ function AdminManageConnectors({
             size="small"
           />
           <div style={{ position: 'absolute', right: 24, top: 13 }}>
-            <IconButton variant="ghost" size="sm" aria-label="Search connectors" icon={<SearchOneIcon size={20} />} />
+            <SearchBar value={searchQuery} onChange={setSearchQuery} />
           </div>
         </div>
 
@@ -985,7 +1069,16 @@ function RequestQueue({
     try {
       const res = await initiateLink(slug)
       if (res.redirect_url) {
-        window.location.href = res.redirect_url
+        const popup = window.open('', '_blank', 'width=900,height=700')
+        if (popup && !popup.closed) {
+          popup.location.href = res.redirect_url
+        } else {
+          window.open(res.redirect_url, '_blank', 'noopener')
+        }
+        await pollConnectorUntilActive(slug)
+        popup?.close()
+        setTeamRequests(prev => prev.filter(r => r.slug !== slug))
+        toast.success('Connector approved and connected')
       } else {
         setTeamRequests(prev => prev.filter(r => r.slug !== slug))
         toast.success('Connector approved and connected')
@@ -1079,11 +1172,16 @@ function AdminCatalog({
   onManage?:         (entry: ConnectorCatalogEntry) => void
   onRequestSouvenir: () => void
 }) {
-  const [category, setCategory] = useState<CategoryTab>('All')
+  const [category,    setCategory]    = useState<CategoryTab>('All')
+  const [searchQuery, setSearchQuery] = useState('')
 
+  const q = searchQuery.toLowerCase().trim()
+  const searchFiltered = connectors.filter(c =>
+    !q || c.display_name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q)
+  )
   const filtered = category === 'All'
-    ? connectors
-    : connectors.filter(c => CONNECTOR_CATEGORY_MAP[c.slug] === category)
+    ? searchFiltered
+    : searchFiltered.filter(c => CONNECTOR_CATEGORY_MAP[c.slug] === category)
 
   const linked   = filtered.filter(c => c.linked)
   const unlinked = filtered.filter(c => !c.linked)
@@ -1098,7 +1196,7 @@ function AdminCatalog({
           size="small"
         />
         <div style={{ position: 'absolute', right: 24, top: 13 }}>
-          <IconButton variant="ghost" size="sm" aria-label="Search connector catalog" icon={<SearchOneIcon size={20} />} />
+          <SearchBar value={searchQuery} onChange={setSearchQuery} />
         </div>
       </div>
 
@@ -1602,7 +1700,15 @@ export default function OrgConnectorsPage() {
     try {
       const res = await initiateLink(slug)
       if (res.redirect_url) {
-        window.location.href = res.redirect_url
+        const popup = window.open('', '_blank', 'width=900,height=700')
+        if (popup && !popup.closed) {
+          popup.location.href = res.redirect_url
+        } else {
+          window.open(res.redirect_url, '_blank', 'noopener')
+        }
+        await pollConnectorUntilActive(slug)
+        popup?.close()
+        setRefreshToken(t => t + 1)
       } else {
         setRefreshToken(t => t + 1)
       }

@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
+import { useAuth } from '@/context/auth-context'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 const SHADOW_INPUT    = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#ede1d7)'
@@ -572,6 +573,7 @@ function ConfigureStep() {
 const SUB = 'Name your team, add a logo, and invite your teammates. You all share one credit pool.'
 
 export default function WorkspaceSetupPage() {
+  const { logout } = useAuth()
   const [step, setStep] = useState<0 | 1>(0)
   const [name, setName] = useState('')
 
@@ -590,6 +592,7 @@ export default function WorkspaceSetupPage() {
             step={step}
             heading="Set up your team"
             sub={SUB}
+            onClose={() => void logout()}
             footer={
               <CardFooter
                 step={step}

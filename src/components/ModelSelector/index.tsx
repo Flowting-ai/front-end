@@ -74,8 +74,6 @@ type FeaturedMode = 'muse' | 'advanced'
 
 function FeaturedModeRow() {
   const [mode, setMode] = useState<FeaturedMode>('muse')
-  const description =
-    'Knows the work before you ask. Each task finds its way to the right mind, without you lifting a setting.'
 
   return (
     <div style={{
@@ -88,7 +86,7 @@ function FeaturedModeRow() {
       <div style={{ flex: '1 0 0', minWidth: 0 }}>
         <ModelFeaturedCard
           title="Muse"
-          description={description}
+          description="Cost-efficient routing for everyday tasks. Fast, smart, and easy on your credits."
           selected={mode === 'muse'}
           onSelectedChange={(next) => { if (next) setMode('muse') }}
         />
@@ -96,7 +94,7 @@ function FeaturedModeRow() {
       <div style={{ flex: '1 0 0', minWidth: 0 }}>
         <ModelFeaturedCard
           title="Advanced"
-          description={description}
+          description="Top-tier models for your most demanding work. Maximum quality, no compromises."
           selected={mode === 'advanced'}
           onSelectedChange={(next) => { if (next) setMode('advanced') }}
         />

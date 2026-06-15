@@ -60,6 +60,7 @@ export function AppLayout({
   // Persona chat pages manage their own scroll — disable the outer scrollable wrapper
   const isPersonaChatPage = /^\/agents\/[^\/]+\/chat/.test(pathname)
   const isSettingsPage = pathname.startsWith('/settings')
+  const isAdminPage    = pathname.startsWith('/org')
   // Brain pages use BrainShell which supplies its own full-screen layout (sidebar + center + context rail).
   const isBrainPage = pathname.startsWith('/brain')
 
@@ -115,7 +116,7 @@ export function AppLayout({
           <WorkspaceStatusBanner
             tokenStatus={workspaceBannerStatus}
             isAdmin={currentUserRole === 'admin'}
-            onAdminAction={() => router.push('/settings/org/plans')}
+            onAdminAction={() => router.push('/org/plans')}
           />
         )}
 
@@ -167,11 +168,13 @@ export function AppLayout({
             }}
           >
             {/* ── TopBar - absolute, overlaps the 1px border on three sides ── */}
-            <TopBar
-              showCitationsToggle={showCitationsToggle}
-              citationsOpen={citationsOpen}
-              onCitationsToggle={onCitationsToggle}
-            />
+            {!isAdminPage && (
+              <TopBar
+                showCitationsToggle={showCitationsToggle}
+                citationsOpen={citationsOpen}
+                onCitationsToggle={onCitationsToggle}
+              />
+            )}
 
             {/* ── Main content - fills remaining height ── */}
             <main
@@ -191,7 +194,7 @@ export function AppLayout({
             </main>
 
             {/* ── Floating action panel - mid-right of rounded container ── */}
-            {!isProjectPage && !isPersonaChatPage && (
+            {!isAdminPage && !isProjectPage && !isPersonaChatPage && (
               <Suspense fallback={null}>
                 <FloatingPanel />
               </Suspense>

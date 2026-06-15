@@ -264,6 +264,12 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
    * @default 'chats'
    */
   defaultBodySection?: 'chats' | 'agents' | 'brain' | 'admin' | 'new-chat' | 'projects'
+  /**
+   * Initial selected item id within the body section — overrides the default
+   * of using `defaultBodySection` as the selected id. Use to pre-highlight
+   * a specific admin nav item based on the current URL.
+   */
+  defaultSelectedItem?: string
   /** When true, the Search nav item is shown as selected (e.g. while the search modal is open). */
   searchActive?: boolean
   /**
@@ -926,6 +932,7 @@ export function Sidebar({
       onShowAllRecents,
       defaultCollapsed    = false,
       defaultBodySection,
+      defaultSelectedItem,
       searchActive,
       activeChatId,
       onSelectChat,
@@ -1001,7 +1008,7 @@ export function Sidebar({
     }
     const [activeFolder,    setActiveFolder]    = useState<string | null>(null)
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
-    const [selectedItem,    setSelectedItem]    = useState<string | null>(defaultBodySection ?? null)
+    const [selectedItem,    setSelectedItem]    = useState<string | null>(defaultSelectedItem ?? defaultBodySection ?? null)
     // bodySection controls which content area is shown in the scrollable body.
     const [bodySection, setBodySection] = useState<'chats' | 'agents' | 'brain' | 'admin'>(
       defaultBodySection === 'agents' ? 'agents'
@@ -1148,13 +1155,15 @@ export function Sidebar({
                 </button>
                 {orgName && (
                   <OrgBadge
-                    orgName={orgName}
+                    orgName={orgName.length > 10 ? orgName.slice(0, 10) + '…' : orgName}
+                    fullName={orgName}
                     orgLogoSrc={orgLogoSrc}
                     orgId={orgId}
                     color={orgColor}
                     interactive={showAdmin}
                     active={bodySection === 'admin'}
                     onClick={() => onSelectSection('admin')}
+                    maxNameWidth={100}
                   />
                 )}
               </div>

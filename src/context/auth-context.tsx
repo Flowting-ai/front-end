@@ -29,6 +29,8 @@ export interface AuthUser {
   phoneNumber?: string | null;
   profilePicture?: string | null;
   onboardingCompleted?: boolean | null;
+  /** True when the user is on an active free trial grant (1 000 credits). */
+  isTrial?: boolean;
   onboardingRole?: string | null;
   onboardingTone?: string | null;
   /** Backend onboarding `role_fit`: just_me | small_team | large_team. The
@@ -77,7 +79,20 @@ interface AuthContextValue {
 }
 
 function mapProfileToUser(profile: UserProfile): AuthUser {
-  const firstName = profile.first_name?.trim() || "";
+  // Auth0 sometimes defaults first_name to the user's email on new signups.
+  // Treat any name value that looks like an email as absent, consistent with
+  // the hello-page pre-fill filter (hello/page.tsx).
+  const rawFirstName = profile.first_name?.trim() ?? "";
+  const firstNameIsEmail = rawFirstName.includes("@");
+
+  // If the backend returns a combined `name` field (e.g. from Auth0) but
+  // no separate first_name, parse first_name from the combined name.
+  const rawProfileName = profile.name?.trim() ?? "";
+  const profileNameIsEmail = rawProfileName.includes("@");
+  const firstName =
+    (!firstNameIsEmail ? rawFirstName : "") ||
+    (!profileNameIsEmail ? rawProfileName.split(" ")[0]?.trim() ?? "" : "") ||
+    "";
   const rawLast = profile.last_name?.trim() || "";
   const lastName = rawLast.toLowerCase() === "user" ? "" : rawLast;
   const paymentMethods = profile.payment_methods ?? [];
@@ -109,10 +124,15 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
     email: profile.email,
     firstName,
     lastName,
-    name: [firstName, lastName].filter(Boolean).join(" ") || profile.email || null,
+    name:
+      [firstName, lastName].filter(Boolean).join(" ") ||
+      (!profileNameIsEmail ? rawProfileName : null) ||
+      profile.email ||
+      null,
     phoneNumber: profile.phone_number ?? null,
     profilePicture: profile.profile_picture ?? null,
     onboardingCompleted: profile.onboarding?.completed ?? null,
+    isTrial: balance.isTrial,
     onboardingRole: profile.onboarding?.user_role ?? null,
     onboardingTone: profile.onboarding?.ai_tone ?? null,
     roleFit: profile.onboarding?.role_fit ?? null,

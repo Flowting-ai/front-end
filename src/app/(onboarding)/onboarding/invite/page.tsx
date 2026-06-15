@@ -17,7 +17,7 @@ type InviteRole = (typeof INVITE_ROLES)[number];
 
 export default function OnboardingInvitePage() {
   const { push } = useRouter();
-  const { refreshUser } = useAuth();
+  const { refreshUser, logout } = useAuth();
   const { data } = useOnboarding();
   const [emails, setEmails] = useState("");
   const [role, setRole] = useState<InviteRole>("Member");
@@ -46,7 +46,6 @@ export default function OnboardingInvitePage() {
         updateOnboarding({
           user_role: data.role ?? null,
           role_fit: deriveRoleFit(data.accountType, data.companySize),
-          onboarding_completed: true,
         }),
       ]);
 
@@ -59,14 +58,7 @@ export default function OnboardingInvitePage() {
       }
 
       await refreshUser();
-      // Teams do NOT get the 1,000-credit trial modal (that's individual-only,
-      // shown via /chat?welcome=1). Instead, send team owners to the team
-      // welcome screen, carrying the workspace name + queued-connector count.
-      const params = new URLSearchParams();
-      if (data.companyName.trim()) params.set("name", data.companyName.trim());
-      if (data.firstName.trim()) params.set("owner", data.firstName.trim());
-      params.set("connectors", String(data.connectorCount));
-      push(`/welcome?${params.toString()}`);
+      push('/onboarding/plans');
     } catch (err) {
       console.error("Team onboarding submission failed", err);
     } finally {
@@ -103,8 +95,15 @@ export default function OnboardingInvitePage() {
         Know more about Role
       </button>
 
-      {/* Right: skip + continue */}
+      {/* Right: logout + skip + continue */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <button
+          type="button"
+          onClick={() => void logout()}
+          style={{ background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 14, color: "#0d6eb2", textDecoration: "underline" }}
+        >
+          Log out
+        </button>
         <Button
           variant="outline"
           size="sm"

@@ -230,7 +230,7 @@ export default function OrgTeamsPage() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => router.push(`/settings/org/teams/${team.id}`)}
+                  onClick={() => router.push(`/org/teams/${team.id}`)}
                 >
                   Team settings
                 </Button>

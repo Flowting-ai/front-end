@@ -3,6 +3,7 @@
 import React, { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
+import { updateOnboarding } from '@/lib/api/user'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const TITLE = 'var(--font-title)'
@@ -81,24 +82,29 @@ export default function PricingConfirmationPage() {
 function PricingConfirmationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { refreshUser } = useAuth()
+  const { user, refreshUser, logout } = useAuth()
 
   const planParam = searchParams.get('plan') ?? ''
   const billing   = searchParams.get('billing')
   const status    = searchParams.get('status')
 
-  const isFailed  = status === 'failed' || status === 'cancelled'
-  const planLabel = planParam ? planParam.charAt(0).toUpperCase() + planParam.slice(1) : null
+  const isFailed    = status === 'failed' || status === 'cancelled'
+  const isTeamPlan  = planParam.startsWith('team_')
+  const planLabel   = planParam ? planParam.charAt(0).toUpperCase() + planParam.slice(1) : null
   const billingLabel = billing === 'annual' ? 'Annual' : 'Monthly'
 
-  // Fire-and-forget: refresh auth + set bypass cookie once on mount.
-  // Empty deps is intentional — refreshUser is not useCallback-memoised in
-  // auth-context so including it in deps causes an infinite re-run loop.
+  const ownerName = user?.firstName?.trim() || user?.name?.split(' ')[0]?.trim() || ''
+
+  // On successful payment: mark onboarding complete, set bypass cookie, refresh user.
+  // Marking onboarding_completed here is essential for team users — they never hit
+  // the import page (the only other place that sets this flag), so without this the
+  // OnboardingGuard bounces them back to /onboarding/hello after they navigate into
+  // the app. Empty deps is intentional — refreshUser is not useCallback-memoised.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isFailed) return
     document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=120; SameSite=Lax'
-    void refreshUser()
+    void updateOnboarding({ onboarding_completed: true }).then(() => refreshUser())
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const iconBg  = isFailed ? C.redBg   : C.greenBg
@@ -174,6 +180,16 @@ function PricingConfirmationContent() {
               Contact support
             </a>
           </div>
+        ) : isTeamPlan ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+            <button
+              type="button"
+              onClick={() => router.push(`/welcome${ownerName ? `?owner=${encodeURIComponent(ownerName)}` : ''}`)}
+              style={primaryBtn}
+            >
+              Open your workspace
+            </button>
+          </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
             <button
@@ -192,6 +208,13 @@ function PricingConfirmationContent() {
             </button>
           </div>
         )}
+        <button
+          type="button"
+          onClick={() => void logout()}
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: BODY, fontSize: '13px', color: '#0d6eb2', textDecoration: 'underline', marginTop: 4 }}
+        >
+          Log out
+        </button>
       </div>
     </Shell>
   )

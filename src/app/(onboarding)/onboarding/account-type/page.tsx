@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import type { AccountType } from "@/context/onboarding-context";
+import { useAuth } from "@/context/auth-context";
 import { Badge } from "@/components/Badge";
 import { updateOnboarding } from "@/lib/api/user";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
@@ -154,8 +155,19 @@ function OptionCard({
   );
 }
 
+const LogoutLink = ({ onClick }: { onClick: () => void }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    style={{ background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 14, color: "#0d6eb2", textDecoration: "underline" }}
+  >
+    Log out
+  </button>
+);
+
 export default function OnboardingAccountTypePage() {
   const { push } = useRouter();
+  const { logout } = useAuth();
   const { data, setAccountType } = useOnboarding();
   const [selected, setSelected] = useState<AccountType | null>(data.accountType);
 
@@ -183,6 +195,7 @@ export default function OnboardingAccountTypePage() {
           onBack={() => push("/onboarding/hello")}
           onContinue={handleContinue}
           continueDisabled={!selected}
+          leftSlot={<LogoutLink onClick={() => void logout()} />}
         />
       }
     >

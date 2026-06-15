@@ -15,6 +15,7 @@ import { Divider }          from '@/components/Divider'
 import { AppInviteModal }   from '@/components/InviteModal'
 import { toast }           from 'sonner'
 import { useOrg }           from '@/context/org-context'
+import { useAuth }          from '@/context/auth-context'
 import { setMemberRole, removeMember } from '@/lib/api/organization'
 import type { OrgMember, WorkspaceRole, OrgRole } from '@/types/teams'
 
@@ -482,10 +483,26 @@ function RolesPermissionsSection() {
 
 export default function OrgMembersPage() {
   const { orgId, org, members: orgMembers, currentUserRole } = useOrg()
+  const { user } = useAuth()
   const isAdmin = currentUserRole === 'admin'
 
   const [members,     setMembers]     = useState<OrgMember[]>(orgMembers)
   const [inviteOpen,  setInviteOpen]  = useState(false)
+
+  // Replace the current user's member-list name with the auth-profile name.
+  // The plan API can return a stale or placeholder name (e.g. "Someone") when
+  // the Auth0 profile hasn't synced to the backend yet — the auth context is
+  // always the freshest source of truth for the logged-in user's own name.
+  // Best available name for the logged-in user: firstName+lastName first,
+  // then the combined `name` from the auth profile (if it's not just their email).
+  const currentUserName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
+    (user?.name && !user.name.includes('@') ? user.name : '')
+  const displayMembers = members.map(m =>
+    user?.email && m.email === user.email && currentUserName
+      ? { ...m, name: currentUserName }
+      : m
+  )
 
   // First admin is the workspace owner (cannot be removed)
   const ownerMemberId = members.find(m => m.role === 'admin')?.id ?? ''
@@ -588,7 +605,7 @@ export default function OrgMembersPage() {
 
         {/* Members table */}
         <MembersTable
-          members={members}
+          members={displayMembers}
           ownerMemberId={ownerMemberId}
           isAdmin={isAdmin}
           onChangeRole={handleChangeRole}

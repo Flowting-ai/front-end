@@ -22,15 +22,24 @@ Write it as a briefing for someone who has never met me. Plain prose only. Under
 export default function OnboardingImportPage() {
   const { push } = useRouter();
   const { data, setAiContext } = useOnboarding();
-  const { refreshUser, logout } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Teams flow skips this page entirely — redirect to the invite step.
+  // Teams skip the import page entirely. Check both the onboarding context
+  // (set during the current flow) and user.roleFit from auth (persisted across
+  // page loads, so it survives Stripe's full-page redirect resetting the context).
+  const isTeamUser =
+    data.accountType === "team" ||
+    user?.roleFit === "small_team" ||
+    user?.roleFit === "large_team";
+
   // eslint-disable-next-line react-doctor/nextjs-no-client-side-redirect
   useEffect(() => {
-    if (data.accountType === "team") push("/onboarding/invite");
-  }, [data.accountType, push]);
+    if (isTeamUser) push("/onboarding/plans");
+  }, [isTeamUser, push]);
+
+  if (isTeamUser) return null;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(UNIVERSAL_PROMPT);

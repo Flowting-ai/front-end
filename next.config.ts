@@ -49,10 +49,13 @@ const nextConfig: NextConfig = {
 
   // Re-export server-only env vars to the client bundle.
   // AUTH0_AUDIENCE is read by jwt-utils.ts (getAccessToken call).
-  // SERVER_URL is read by lib/config.ts (API_BASE_URL).
+  // SERVER_URL is read by lib/config.ts (directUpload) and the proxy route handler.
+  // NEXT_PUBLIC_SERVER_URL is the client-safe alias — using NEXT_PUBLIC_ prefix ensures
+  // Next.js reliably inlines it at build time regardless of version-specific env block behavior.
   env: {
     AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
     SERVER_URL: process.env.SERVER_URL,
+    NEXT_PUBLIC_SERVER_URL: process.env.SERVER_URL,
   },
 
   // NOTE: client-side API requests are proxied via the streaming route

@@ -66,8 +66,6 @@ interface ActionCard {
   icon: React.ReactNode;
   bg: string;
   titleWeight: number;
-  /** Route this card navigates to when clicked. */
-  href: string;
 }
 
 const ACTION_CARDS: ActionCard[] = [
@@ -78,7 +76,6 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <CheckCircleIcon />,
     bg: "var(--neutral-50, #f7f2ed)",
     titleWeight: 500,
-    href: "/settings/org/members",
   },
   {
     key: "team",
@@ -87,7 +84,6 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <ShapesIcon />,
     bg: "var(--neutral-white, #fff)",
     titleWeight: 500,
-    href: "/settings/org/teams",
   },
   {
     key: "project",
@@ -96,7 +92,6 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <FolderIcon />,
     bg: "var(--neutral-white, #fff)",
     titleWeight: 500,
-    href: "/projects",
   },
   {
     key: "slack",
@@ -105,7 +100,6 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <SlackLogo />,
     bg: "var(--neutral-white, #fff)",
     titleWeight: 600,
-    href: "/settings/org/connectors",
   },
   {
     key: "approval",
@@ -114,7 +108,6 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <WorkflowIcon />,
     bg: "var(--neutral-white, #fff)",
     titleWeight: 500,
-    href: "/settings/org/security",
   },
 ];
 
@@ -132,11 +125,9 @@ const CARD_BASE_STYLE: React.CSSProperties = {
   width: "100%",
 };
 
-function ActionCardView({ card, onClick }: { card: ActionCard; onClick: () => void }) {
+function ActionCardView({ card }: { card: ActionCard }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       style={{
         ...CARD_BASE_STYLE,
         backgroundColor: card.bg,
@@ -144,6 +135,7 @@ function ActionCardView({ card, onClick }: { card: ActionCard; onClick: () => vo
         flexDirection: "column",
         alignItems: "center",
         gap: 14,
+        cursor: "default",
       }}
     >
       <div
@@ -184,15 +176,13 @@ function ActionCardView({ card, onClick }: { card: ActionCard; onClick: () => vo
           {card.description}
         </p>
       </div>
-    </button>
+    </div>
   );
 }
 
-function InvoiceCardView({ onClick }: { onClick: () => void }) {
+function InvoiceCardView() {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       style={{
         ...CARD_BASE_STYLE,
         backgroundColor: "var(--neutral-100, #ede1d7)",
@@ -200,6 +190,7 @@ function InvoiceCardView({ onClick }: { onClick: () => void }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        cursor: "default",
       }}
     >
       <p
@@ -215,14 +206,14 @@ function InvoiceCardView({ onClick }: { onClick: () => void }) {
       >
         Invoice will arrive within 1 hour
       </p>
-    </button>
+    </div>
   );
 }
 
 // ── Content ──────────────────────────────────────────────────────────────────────
 
 function TeamWelcomeContent() {
-  const { push } = useRouter();
+  const router = useRouter();
   const { user } = useAuth();
   const params = useSearchParams();
 
@@ -283,15 +274,15 @@ function TeamWelcomeContent() {
         {/* Action grid — 3 columns × 2 rows */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, width: "100%" }}>
           {ACTION_CARDS.map((card) => (
-            <ActionCardView key={card.key} card={card} onClick={() => push(card.href)} />
+            <ActionCardView key={card.key} card={card} />
           ))}
-          <InvoiceCardView onClick={() => push("/settings/org/plans")} />
+          <InvoiceCardView />
         </div>
 
         {/* Primary action */}
         <div style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
           {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Open my workspace" is the explicit owner CTA into /chat */}
-          <Button size="sm" onClick={() => push("/chat")}>
+          <Button size="sm" onClick={() => router.push("/chat")}>
             Open my workspace
           </Button>
         </div>

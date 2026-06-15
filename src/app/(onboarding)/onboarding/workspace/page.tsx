@@ -69,7 +69,7 @@ function SizePill({
 
 export default function OnboardingWorkspacePage() {
   const { push } = useRouter();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { data, setAccountType, setCompanyName, setCompanyWebsite, setCompanySize } = useOnboarding();
   const [submitting, setSubmitting] = useState(false);
 
@@ -108,6 +108,15 @@ export default function OnboardingWorkspacePage() {
           onContinue={handleContinue}
           continueDisabled={!canContinue}
           continueLoading={submitting}
+          leftSlot={
+            <button
+              type="button"
+              onClick={() => void logout()}
+              style={{ background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 14, color: "#0d6eb2", textDecoration: "underline" }}
+            >
+              Log out
+            </button>
+          }
         />
       }
     >

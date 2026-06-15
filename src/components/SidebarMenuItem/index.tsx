@@ -56,6 +56,8 @@ export interface SidebarMenuItemProps extends React.HTMLAttributes<HTMLDivElemen
    * Triggered by Escape. Parent should switch back to chat-item variant.
    */
   onCancel?: () => void
+  /** Renders the sublabel in amber warning colour - account-item only */
+  sublabelWarning?: boolean
   /** Click handler for the settings icon button - account-item only */
   onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>
   /** Click handler for the "Show"/"Hide" toggle button on header hover - header only */
@@ -107,6 +109,7 @@ export function SidebarMenuItem({
       onRename,
       onCommit,
       onCancel,
+      sublabelWarning = false,
       onSettingsClick,
       onShowClick,
       shown = false,
@@ -578,7 +581,7 @@ export function SidebarMenuItem({
                     style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexShrink: 0 }}
                   >
                     <p style={bodyTextStyle}>{label}</p>
-                    <p style={{ ...captionTextStyle, color: 'var(--sidebar-menu-item-text)', fontWeight: 'var(--font-weight-regular)' }}>
+                    <p style={{ ...captionTextStyle, color: sublabelWarning ? 'var(--color-tag-Yellow-text,#854d0e)' : 'var(--sidebar-menu-item-text)', fontWeight: 'var(--font-weight-regular)' }}>
                       {sublabel}
                     </p>
                   </m.div>

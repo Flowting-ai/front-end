@@ -25,6 +25,8 @@ export function pickOrgColor(key: string): ChipColor {
 export interface OrgBadgeProps extends Omit<React.HTMLAttributes<HTMLElement>, 'color' | 'onClick'> {
   /** Organisation name shown in the badge. */
   orgName: string
+  /** Full name used for the title tooltip when orgName is truncated. Falls back to orgName. */
+  fullName?: string
   /** Org logo URL (any web image format). Falls back to a monogram when omitted. */
   orgLogoSrc?: string
   /** Stable id used to deterministically pick the colour. Falls back to `orgName`. */
@@ -37,7 +39,11 @@ export interface OrgBadgeProps extends Omit<React.HTMLAttributes<HTMLElement>, '
   active?: boolean
   /** Click handler — interactive only. */
   onClick?: () => void
-  /** Max width (px) for the name before ellipsis truncation. @default 120 */
+  /**
+   * Max width (px) of the entire badge before the name is ellipsis-clipped.
+   * Includes the avatar and padding — the name portion gets whatever remains.
+   * @default 160
+   */
   maxNameWidth?: number
 }
 
@@ -51,13 +57,14 @@ export function OrgBadge(
   {
     ref,
     orgName,
+    fullName,
     orgLogoSrc,
     orgId,
     color,
     interactive = false,
     active = false,
     onClick,
-    maxNameWidth = 120,
+    maxNameWidth = 160,
     className,
     ...rest
   }: OrgBadgeProps & { ref?: React.Ref<HTMLElement> },
@@ -97,10 +104,12 @@ export function OrgBadge(
   const inner = (
     <>
       {avatar}
-      {/* Org name — truncates; full name in title tooltip */}
+      {/* Org name — truncates via CSS ellipsis; full name in title tooltip */}
       <span
-        title={orgName}
+        title={fullName ?? orgName}
         style={{
+          flex:         '1 1 0',
+          minWidth:     0,
           padding:      '0 2px',
           fontFamily:   'var(--font-body)',
           fontWeight:   'var(--font-weight-medium)',
@@ -110,7 +119,6 @@ export function OrgBadge(
           whiteSpace:   'nowrap',
           overflow:     'hidden',
           textOverflow: 'ellipsis',
-          maxWidth:     `${maxNameWidth}px`,
         }}
       >
         {orgName}
@@ -125,6 +133,9 @@ export function OrgBadge(
     display:         'inline-flex',
     alignItems:      'center',
     flexShrink:      0,
+    minWidth:        0,
+    maxWidth:        `${maxNameWidth}px`,
+    overflow:        'hidden',
     padding:         '2px',
     border:          'none',
     borderRadius:    '6px',
