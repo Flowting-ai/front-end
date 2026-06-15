@@ -103,11 +103,26 @@ export interface TrialCredits {
 }
 
 export interface BillingCredits {
+  /** Period allowance (plan + top-up). NOTE: in the legacy shape this carried the
+   *  *remaining* balance; the current backend sends the full allowance and a
+   *  separate `remaining` field. */
   total_credits: number;
   plan_credits: number;
   topup_credits: number;
   trial?: TrialCredits | null;
-  used?: {
+  /** Remaining balance. Current backend sends this explicitly; absent in the
+   *  legacy shape (where `total_credits` was the remaining value). */
+  remaining?: number;
+  /** Credits drawn down this period (= allowance − remaining). Current backend
+   *  sends a scalar; the legacy shape sent a per-category object here (now moved
+   *  to `by_category`). Kept as a union for back-compat. */
+  used?:
+    | number
+    | { chat?: number; persona?: number; brain?: number }
+    | null;
+  /** Period spend by source area. Current backend field (replaces the legacy
+   *  per-category `used` object). */
+  by_category?: {
     chat?: number;
     persona?: number;
     brain?: number;
@@ -413,6 +428,38 @@ const TONE_API_MAP: Record<string, string> = {
   Warm: "empathetic",
 };
 
+// Reverse of ROLE_API_MAP / TONE_API_MAP: backend enum → friendly display label.
+// Used by Settings → Account so the role reads "Marketer" rather than the raw
+// enum "marketing_sales". Unknown/custom values pass through unchanged.
+const ROLE_DISPLAY_MAP: Record<string, string> = {
+  founder: "Founder",
+  marketing_sales: "Marketer",
+  creator: "Designer",
+  engineer: "Engineer",
+  enterprise: "Operator",
+  researcher: "Student / Researcher",
+  student: "Student / Researcher",
+  other: "Other",
+};
+
+const TONE_DISPLAY_MAP: Record<string, string> = {
+  concise: "Direct",
+  balanced: "Balanced",
+  empathetic: "Warm",
+};
+
+/** Backend role enum → display label (e.g. "marketing_sales" → "Marketer"). */
+export function roleDisplayLabel(value: string | null | undefined): string {
+  if (!value) return "";
+  return ROLE_DISPLAY_MAP[value] ?? value;
+}
+
+/** Backend tone enum → display label (e.g. "concise" → "Direct"). */
+export function toneDisplayLabel(value: string | null | undefined): string {
+  if (!value) return "";
+  return TONE_DISPLAY_MAP[value] ?? value;
+}
+
 // `role_fit` is a backend enum describing team size — it is NOT free text.
 // The onboarding UI has historically passed nicknames / "Other" role
 // descriptions here, which the backend rejects with a 422. We drop any value
@@ -553,16 +600,26 @@ export async function fetchBilling(): Promise<BillingInfo | null> {
                   } as TrialCredits;
                 })()
               : null;
+          // `used` may be a scalar (current backend) or a per-category object
+          // (legacy). Preserve whichever arrives.
           const used =
-            c.used && typeof c.used === "object"
-              ? (c.used as { chat?: number; persona?: number; brain?: number })
+            typeof c.used === "number"
+              ? c.used
+              : c.used && typeof c.used === "object"
+                ? (c.used as { chat?: number; persona?: number; brain?: number })
+                : null;
+          const byCategory =
+            c.by_category && typeof c.by_category === "object"
+              ? (c.by_category as { chat?: number; persona?: number; brain?: number })
               : null;
           return {
             total_credits: typeof c.total_credits === "number" ? c.total_credits : 0,
             plan_credits: typeof c.plan_credits === "number" ? c.plan_credits : 0,
             topup_credits: typeof c.topup_credits === "number" ? c.topup_credits : 0,
+            remaining: typeof c.remaining === "number" ? c.remaining : undefined,
             trial,
             used,
+            by_category: byCategory,
           } as BillingCredits;
         })()
       : null;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useOnboarding, deriveRoleFit } from "@/context/onboarding-context";
+import { useOnboarding, deriveRoleFit, effectiveUserRole } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
@@ -44,7 +44,9 @@ export default function OnboardingImportPage() {
       await Promise.all([
         updateUser({ first_name: data.firstName, last_name: data.lastName }),
         updateOnboarding({
-          user_role: data.role ?? null,
+          // Always the enum-safe value ("Other" → "other"). Free text 422s and
+          // would break completion. The custom "Other" detail goes to memory below.
+          user_role: effectiveUserRole(data),
           ai_tone: data.tone,
           // role_fit captures the account-type branch (just_me / small_team /
           // large_team). updateOnboarding validates + drops it if unset.
@@ -53,9 +55,10 @@ export default function OnboardingImportPage() {
         }),
       ]);
 
-      // Persist the free-text "Other" role detail from the hello step as a user
-      // memory. Sent regardless of skipContext — it's a captured answer, not the
-      // optional bring-context paste. Fire and forget so it never blocks finish.
+      // Capture the free-text "Other" role detail as a user memory — the backend
+      // user_role enum can't store it. Sent regardless of skipContext (it's a
+      // captured answer, not the optional paste); fire-and-forget so a memory
+      // failure never blocks onboarding completion.
       if (data.role === "Other" && data.roleOther.trim().length > 0) {
         void apiFetch(MEMORY_USER_ENDPOINT, {
           method: "POST",

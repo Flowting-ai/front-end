@@ -2,6 +2,7 @@
 
 import { apiFetch, apiFetchJson } from './client'
 import {
+  ORGANIZATIONS_ENDPOINT,
   ORG_ENDPOINT,
   ORG_SETTINGS_ENDPOINT,
   ORG_PLAN_ENDPOINT,
@@ -141,6 +142,43 @@ function normalizeAuditEntry(e: AuditEntryResponse): AuditLogEntry {
 }
 
 // ── API functions ─────────────────────────────────────────────────────────────
+
+/**
+ * Create a new organization (team workspace). The backend makes the calling
+ * user the owner and stamps `org_id` on their profile, which unlocks the
+ * Organization settings (members / teams / plans). Used by team onboarding.
+ */
+export async function createOrganization(params: {
+  name: string
+  description?: string
+  logoUrl?: string | null
+  tags?: string[]
+}): Promise<{ id: string; name: string; slug: string; role: OrgRole }> {
+  const body: Record<string, unknown> = { name: params.name }
+  if (params.description !== undefined) body.description = params.description
+  if (params.logoUrl !== undefined)     body.logoUrl     = params.logoUrl
+  if (params.tags !== undefined)        body.tags        = params.tags
+  const data = await apiFetchJson<OrganizationResponse>(ORGANIZATIONS_ENDPOINT, {
+    method: 'POST',
+    body:   JSON.stringify(body),
+  })
+  return { id: data.id, name: data.name, slug: data.slug, role: data.my_role ?? 'admin' }
+}
+
+/**
+ * List the organizations the current user belongs to. Used as a fallback to
+ * discover the user's org when `/users/me` doesn't include `org_id`, so team
+ * members still get their Organization settings.
+ */
+export async function listOrganizations(): Promise<Array<{ id: string; name: string; slug: string; role: OrgRole }>> {
+  const data = await apiFetchJson<OrganizationResponse[]>(ORGANIZATIONS_ENDPOINT)
+  return (data ?? []).map(o => ({
+    id:   o.id,
+    name: o.name,
+    slug: o.slug,
+    role: o.my_role ?? 'member',
+  }))
+}
 
 export async function getOrg(orgId: string): Promise<{ id: string; name: string; slug: string; description: string; logoUrl: string | null; role: OrgRole }> {
   const data = await apiFetchJson<OrganizationResponse>(ORG_ENDPOINT(orgId))

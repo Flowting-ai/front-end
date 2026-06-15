@@ -161,7 +161,7 @@ export function SettingsSidebar() {
           </div>
         </div>
 
-        {/* Organization section — visible to admins */}
+        {/* Organization section — visible to org admins/owners */}
         {isAdmin && (
           <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

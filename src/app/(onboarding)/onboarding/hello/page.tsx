@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { useOnboarding } from "@/context/onboarding-context";
+import { useOnboarding, effectiveUserRole } from "@/context/onboarding-context";
 import type { OnboardingRole } from "@/context/onboarding-context";
 import { InputField } from "@/components/InputField";
 import { Dropdown, DropdownFloat } from "@/components/Dropdown";
@@ -154,7 +154,7 @@ export default function OnboardingHelloPage() {
       // completion) happens on the import step.
       await Promise.all([
         updateUser({ first_name: data.firstName.trim(), last_name: data.lastName.trim() }),
-        updateOnboarding({ user_role: data.role! }),
+        updateOnboarding({ user_role: effectiveUserRole(data) }),
       ]);
     } finally {
       setIsSaving(false);

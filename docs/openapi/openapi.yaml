@@ -9277,6 +9277,7 @@ components:
         total_credits:
           type: number
           title: Total Credits
+          description: Period allowance (plan + top-up).
           default: 0
         plan_credits:
           type: number
@@ -9286,11 +9287,21 @@ components:
           type: number
           title: Topup Credits
           default: 0
+        remaining:
+          type: number
+          title: Remaining
+          description: Remaining balance (total_credits − used).
+          default: 0
         trial:
           anyOf:
             - $ref: '#/components/schemas/TrialCreditInfo'
             - type: 'null'
         used:
+          type: number
+          title: Used
+          description: Credits drawn down this period (allowance − remaining).
+          default: 0
+        by_category:
           $ref: '#/components/schemas/UsageBreakdown'
           default:
             chat: 0

@@ -6,6 +6,7 @@ import { useAuth } from "@/context/auth-context";
 import { useOnboarding, deriveRoleFit } from "@/context/onboarding-context";
 import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
+import { createOrganization } from "@/lib/api/organization";
 import { apiFetch } from "@/lib/api/client";
 import { MEMORY_USER_ENDPOINT } from "@/lib/config";
 import { Dropdown, DropdownFloat } from "@/components/Dropdown";
@@ -26,6 +27,20 @@ export default function OnboardingInvitePage() {
   const submitOnboarding = async () => {
     setLoading(true);
     try {
+      // Create the team's organization so the backend stamps org_id on the
+      // profile — that unlocks the Organization settings (members / teams /
+      // plans). Best-effort: a failure must NOT block onboarding completion.
+      if (data.companyName.trim().length > 0) {
+        try {
+          await createOrganization({
+            name: data.companyName.trim(),
+            tags: data.companySize ? [data.companySize] : [],
+          });
+        } catch (orgErr) {
+          console.error("Organization creation failed", orgErr);
+        }
+      }
+
       await Promise.all([
         updateUser({ first_name: data.firstName, last_name: data.lastName }),
         updateOnboarding({
@@ -44,7 +59,14 @@ export default function OnboardingInvitePage() {
       }
 
       await refreshUser();
-      push("/chat?welcome=1");
+      // Teams do NOT get the 1,000-credit trial modal (that's individual-only,
+      // shown via /chat?welcome=1). Instead, send team owners to the team
+      // welcome screen, carrying the workspace name + queued-connector count.
+      const params = new URLSearchParams();
+      if (data.companyName.trim()) params.set("name", data.companyName.trim());
+      if (data.firstName.trim()) params.set("owner", data.firstName.trim());
+      params.set("connectors", String(data.connectorCount));
+      push(`/welcome?${params.toString()}`);
     } catch (err) {
       console.error("Team onboarding submission failed", err);
     } finally {

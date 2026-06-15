@@ -9911,7 +9911,7 @@
           "slack"
         ],
         "summary": "Slack Install Url",
-        "description": "The \"Add to Slack\" URL — FE opens it; Slack redirects to the callback.",
+        "description": "The \"Add to Slack\" URL — FE opens it; Slack redirects to the callback.\nTeams-only: gated to org owners/admins.",
         "operationId": "slack_install_url_slack_install_get",
         "responses": {
           "200": {
@@ -10231,6 +10231,125 @@
         }
       }
     },
+    "/organizations/{organization_id}/transfer-owner": {
+      "post": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Transfer Owner",
+        "operationId": "transfer_owner_organizations__organization_id__transfer_owner_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferOwnerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/connectors/{slug}/used-by": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Connector Used By",
+        "operationId": "connector_used_by_organizations__organization_id__connectors__slug__used_by_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectorUsedByEntry"
+                  },
+                  "title": "Response Connector Used By Organizations  Organization Id  Connectors  Slug  Used By Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/organizations/{organization_id}/settings": {
       "get": {
         "tags": [
@@ -10462,6 +10581,364 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PoolStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/connectors/{slug}/accounts": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "List Org Connector Accounts",
+        "operationId": "list_org_connector_accounts_organizations__organization_id__connectors__slug__accounts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationConnectorAccountResponse"
+                  },
+                  "title": "Response List Org Connector Accounts Organizations  Organization Id  Connectors  Slug  Accounts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Create Org Connector Account",
+        "operationId": "create_org_connector_account_organizations__organization_id__connectors__slug__accounts_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationConnectionLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/connectors/accounts/{account_id}": {
+      "patch": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Update Org Connector Account",
+        "operationId": "update_org_connector_account_organizations__organization_id__connectors_accounts__account_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Account Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrganizationConnectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationConnectorAccountResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Delete Org Connector Account",
+        "operationId": "delete_org_connector_account_organizations__organization_id__connectors_accounts__account_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Account Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/slack/channels": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "List Slack Channels",
+        "operationId": "list_slack_channels_organizations__organization_id__slack_channels_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlackChannelsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/slack/channels/{channel_id}/mapping": {
+      "put": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Set Slack Channel Mapping",
+        "operationId": "set_slack_channel_mapping_organizations__organization_id__slack_channels__channel_id__mapping_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Channel Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetChannelMappingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlackChannelItem"
                 }
               }
             }
@@ -11541,6 +12018,72 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Add Team Editor",
+        "operationId": "add_team_editor_organizations__organization_id__teams__team_id__editors_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddTeamEditorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/organizations/{organization_id}/teams/{team_id}/editors/{member_id}": {
@@ -12415,6 +12958,19 @@
         ],
         "title": "AddProjectMemberRequest"
       },
+      "AddTeamEditorRequest": {
+        "properties": {
+          "userId": {
+            "type": "string",
+            "title": "Userid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "userId"
+        ],
+        "title": "AddTeamEditorRequest"
+      },
       "ApiKeyField": {
         "properties": {
           "name": {
@@ -12587,7 +13143,9 @@
               "total_credits": 0,
               "plan_credits": 0,
               "topup_credits": 0,
-              "used": {
+              "used": 0,
+              "remaining": 0,
+              "by_category": {
                 "brain": 0,
                 "chat": 0,
                 "persona": 0
@@ -13760,6 +14318,18 @@
             ],
             "title": "Target Team Id"
           },
+          "target_project_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Project Id"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -13936,6 +14506,40 @@
               }
             ],
             "title": "Workspace Linked By"
+          },
+          "shared_account_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared Account Id"
+          },
+          "account_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Label"
+          },
+          "account_identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Identifier"
           }
         },
         "type": "object",
@@ -13973,6 +14577,31 @@
         ],
         "title": "ConnectorRequestStatus"
       },
+      "ConnectorUsedByEntry": {
+        "properties": {
+          "surface": {
+            "type": "string",
+            "title": "Surface"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "surface",
+          "id",
+          "name"
+        ],
+        "title": "ConnectorUsedByEntry",
+        "description": "One surface that would be affected by disconnecting a connector."
+      },
       "CreateChatShareRequest": {
         "properties": {
           "chatId": {
@@ -14006,6 +14635,18 @@
               }
             ],
             "title": "Teamid"
+          },
+          "projectId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Projectid"
           }
         },
         "type": "object",
@@ -14095,6 +14736,32 @@
             "type": "array",
             "title": "Tags",
             "default": []
+          },
+          "allowedEmailDomains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowedemaildomains"
+          },
+          "companySize": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companysize"
           }
         },
         "type": "object",
@@ -14187,6 +14854,16 @@
             "title": "Topup Credits",
             "default": 0
           },
+          "used": {
+            "type": "number",
+            "title": "Used",
+            "default": 0
+          },
+          "remaining": {
+            "type": "number",
+            "title": "Remaining",
+            "default": 0
+          },
           "trial": {
             "anyOf": [
               {
@@ -14197,7 +14874,7 @@
               }
             ]
           },
-          "used": {
+          "by_category": {
             "$ref": "#/components/schemas/UsageBreakdown",
             "default": {
               "chat": 0,
@@ -14958,6 +15635,15 @@
         ],
         "title": "HighlightResponse"
       },
+      "HitlThreshold": {
+        "type": "string",
+        "enum": [
+          "auto_proceed",
+          "ask_tier_3_plus",
+          "ask_everything"
+        ],
+        "title": "HitlThreshold"
+      },
       "InvitePreview": {
         "properties": {
           "invite_id": {
@@ -15002,6 +15688,16 @@
             },
             "type": "array",
             "title": "Emails"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrganizationRole"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -15162,6 +15858,18 @@
               }
             ],
             "title": "Redirect Url"
+          },
+          "shared_account_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared Account Id"
           }
         },
         "type": "object",
@@ -15322,6 +16030,148 @@
         ],
         "title": "OnboardingSummary"
       },
+      "OrganizationConnectionLinkRequest": {
+        "properties": {
+          "init_data": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Init Data"
+          },
+          "accountLabel": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Accountlabel"
+          },
+          "accountIdentifier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accountidentifier"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accountLabel"
+        ],
+        "title": "OrganizationConnectionLinkRequest"
+      },
+      "OrganizationConnectorAccountResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "connector_slug": {
+            "type": "string",
+            "title": "Connector Slug"
+          },
+          "account_label": {
+            "type": "string",
+            "title": "Account Label"
+          },
+          "account_identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Identifier"
+          },
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "shared_team"
+            ],
+            "title": "Scope",
+            "default": "shared_team"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled",
+              "expired"
+            ],
+            "title": "Status",
+            "default": "active"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 1
+          },
+          "team_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Team Ids"
+          },
+          "linked_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked By User Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "connector_slug",
+          "account_label",
+          "connected",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "OrganizationConnectorAccountResponse"
+      },
       "OrganizationResponse": {
         "properties": {
           "id": {
@@ -15361,6 +16211,17 @@
             "title": "Tags",
             "default": []
           },
+          "company_size": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Size"
+          },
           "archived": {
             "type": "boolean",
             "title": "Archived"
@@ -15374,6 +16235,17 @@
                 "type": "null"
               }
             ]
+          },
+          "owner_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner User Id"
           },
           "created_at": {
             "type": "string",
@@ -15433,6 +16305,17 @@
             ],
             "title": "Allowed Email Domains"
           },
+          "company_size": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Size"
+          },
           "default_chat_visibility": {
             "type": "string",
             "title": "Default Chat Visibility",
@@ -15442,6 +16325,10 @@
             "type": "string",
             "title": "Default Persona Visibility",
             "default": "private"
+          },
+          "hitl_threshold": {
+            "$ref": "#/components/schemas/HitlThreshold",
+            "default": "ask_tier_3_plus"
           }
         },
         "type": "object",
@@ -15907,6 +16794,20 @@
             "type": "integer",
             "title": "Version Count",
             "default": 0
+          },
+          "visibility": {
+            "type": "string",
+            "title": "Visibility",
+            "default": "private"
+          },
+          "team_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Team Ids",
+            "default": []
           },
           "created_at": {
             "type": "string",
@@ -16646,8 +17547,7 @@
             "title": "Percent Used"
           },
           "pool_status": {
-            "type": "string",
-            "title": "Pool Status"
+            "$ref": "#/components/schemas/PoolStatus"
           },
           "members": {
             "items": {
@@ -16722,6 +17622,15 @@
         ],
         "title": "PlanType"
       },
+      "PoolStatus": {
+        "type": "string",
+        "enum": [
+          "healthy",
+          "warning_95",
+          "paused"
+        ],
+        "title": "PoolStatus"
+      },
       "PoolStatusResponse": {
         "properties": {
           "organization_id": {
@@ -16730,8 +17639,7 @@
             "title": "Organization Id"
           },
           "status": {
-            "type": "string",
-            "title": "Status"
+            "$ref": "#/components/schemas/PoolStatus"
           },
           "percent_used": {
             "type": "number",
@@ -16829,6 +17737,18 @@
             "format": "uuid",
             "title": "Id"
           },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          },
           "title": {
             "type": "string",
             "title": "Title"
@@ -16885,6 +17805,18 @@
             "type": "string",
             "format": "uuid",
             "title": "Id"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
           },
           "title": {
             "type": "string",
@@ -17657,6 +18589,25 @@
         "type": "object",
         "title": "SetCapRequest"
       },
+      "SetChannelMappingRequest": {
+        "properties": {
+          "projectId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Projectid"
+          }
+        },
+        "type": "object",
+        "title": "SetChannelMappingRequest",
+        "description": "Bind a channel to a project, or pass null to clear the mapping."
+      },
       "SetConnectorStatusRequest": {
         "properties": {
           "status": {
@@ -17712,6 +18663,21 @@
               }
             ],
             "title": "Teamid"
+          },
+          "teamIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teamids"
           }
         },
         "type": "object",
@@ -17719,7 +18685,7 @@
           "visibility"
         ],
         "title": "SetVisibilityRequest",
-        "description": "Shared by the persona/project/chat visibility setters."
+        "description": "Shared by the persona/project/chat visibility setters. `team_id` is the\nsingle-team form (projects/chats); personas also accept `team_ids` to deploy\nto several teams at once."
       },
       "ShareDashboardResponse": {
         "properties": {
@@ -17900,6 +18866,18 @@
             ],
             "title": "Target Team Id"
           },
+          "target_project_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Project Id"
+          },
           "forked_chat_id": {
             "anyOf": [
               {
@@ -18019,6 +18997,79 @@
           "created_at"
         ],
         "title": "SharedMessage"
+      },
+      "SlackChannelItem": {
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "title": "Channel Id"
+          },
+          "channel_name": {
+            "type": "string",
+            "title": "Channel Name"
+          },
+          "is_member": {
+            "type": "boolean",
+            "title": "Is Member",
+            "default": false
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "project_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "channel_id",
+          "channel_name"
+        ],
+        "title": "SlackChannelItem",
+        "description": "One workspace channel + its current project binding (if any)."
+      },
+      "SlackChannelsResponse": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/SlackChannelItem"
+            },
+            "type": "array",
+            "title": "Channels"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "team_name",
+          "channels"
+        ],
+        "title": "SlackChannelsResponse"
       },
       "SlackInstallURLResponse": {
         "properties": {
@@ -18229,6 +19280,18 @@
             "type": "boolean",
             "title": "Archived"
           },
+          "recovery_deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Deadline"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -18323,6 +19386,19 @@
           "status"
         ],
         "title": "TopUpChargeResponse"
+      },
+      "TransferOwnerRequest": {
+        "properties": {
+          "newOwnerUserId": {
+            "type": "string",
+            "title": "Newowneruserid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "newOwnerUserId"
+        ],
+        "title": "TransferOwnerRequest"
       },
       "TrialCreditInfo": {
         "properties": {
@@ -18439,6 +19515,18 @@
               }
             ],
             "title": "Credentials"
+          },
+          "sharedAccountId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharedaccountid"
           }
         },
         "type": "object",
@@ -18493,6 +19581,78 @@
         },
         "type": "object",
         "title": "UpdateOnboarding"
+      },
+      "UpdateOrganizationConnectionRequest": {
+        "properties": {
+          "accountLabel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accountlabel"
+          },
+          "accountIdentifier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accountidentifier"
+          },
+          "credentials": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credentials"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "disabled",
+                  "expired"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "expectedVersion": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedversion"
+          }
+        },
+        "type": "object",
+        "title": "UpdateOrganizationConnectionRequest"
       },
       "UpdateOrganizationRequest": {
         "properties": {
@@ -18602,6 +19762,18 @@
             ],
             "title": "Allowedemaildomains"
           },
+          "companySize": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companysize"
+          },
           "defaultChatVisibility": {
             "anyOf": [
               {
@@ -18623,6 +19795,16 @@
               }
             ],
             "title": "Defaultpersonavisibility"
+          },
+          "hitlThreshold": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HitlThreshold"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

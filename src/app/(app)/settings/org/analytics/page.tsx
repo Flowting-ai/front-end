@@ -144,12 +144,18 @@ function StatCard({
   helper,
   badge,
   wide = false,
+  rangeLabel,
+  progressValue = 0,
 }: {
   title: string
   value: string
   helper?: string
   badge?: React.ReactNode
   wide?: boolean
+  /** Wide variant only: "used / total" label shown beside the value. */
+  rangeLabel?: string
+  /** Wide variant only: 0–100 fill for the progress bar. */
+  progressValue?: number
 }) {
   return (
     <div
@@ -177,11 +183,13 @@ function StatCard({
               <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                 {value}
               </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0, whiteSpace: 'nowrap' }}>
-                41,200 / 60,000
-              </p>
+              {rangeLabel && (
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0, whiteSpace: 'nowrap' }}>
+                  {rangeLabel}
+                </p>
+              )}
             </div>
-            <ProgressBar value={51.25} height={4} />
+            <ProgressBar value={progressValue} height={4} />
           </div>
         </div>
       )}
@@ -514,6 +522,9 @@ export default function OrgUsageAnalyticsPage() {
 
   const totalCredits = plan?.totalCredits ?? 0
   const totalUsed    = plan?.used        ?? 0
+  const poolPercentUsed = totalCredits > 0
+    ? Math.min(100, Math.round((totalUsed / totalCredits) * 100))
+    : 0
 
   // Top users sorted by credit usage descending
   const topUsers = [...members]
@@ -591,6 +602,8 @@ export default function OrgUsageAnalyticsPage() {
               wide
               title="Credit Pool"
               value={`${totalCredits.toLocaleString()} credits`}
+              rangeLabel={`${totalUsed.toLocaleString()} / ${totalCredits.toLocaleString()}`}
+              progressValue={poolPercentUsed}
             />
             <StatCard
               title="Used"

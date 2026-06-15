@@ -280,6 +280,21 @@
 .kds-toast__icon   { color: inherit; }
 .kds-toast__loader { color: var(--neutral-700); }
 
+/* ── Input autofill — neutralise the browser's blue/yellow autofill fill ──────
+   Chrome paints a blue (or yellow) background on autofilled / pre-filled fields.
+   The inset box-shadow trick repaints it with the field's own background so KDS
+   inputs keep their normal appearance; the long transition defers the UA repaint. */
+.kds-input-field-input:-webkit-autofill,
+.kds-input-field-input:-webkit-autofill:hover,
+.kds-input-field-input:-webkit-autofill:focus,
+.kds-input-field-input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text-field-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--text-field-bg) inset;
+  box-shadow: 0 0 0 1000px var(--text-field-bg) inset;
+  caret-color: var(--text-field-text);
+  transition: background-color 9999s ease-in-out 0s;
+}
+
 /* ── Brain ContextRail — slide/fade panel (same pattern as Pinboard rail) ──── */
 .kds-context-rail {
   --context-rail-width: 300px;

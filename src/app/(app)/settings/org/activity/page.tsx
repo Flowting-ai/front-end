@@ -1,20 +1,44 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Divider } from '@/components/Divider'
 import { useOrg } from '@/context/org-context'
 import { listAudit } from '@/lib/api/organization'
+import { parseServerDate, formatServerDateTime } from '@/lib/utils/format-utils'
 import type { AuditLogEntry } from '@/types/teams'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// Backend timestamps are UTC, often without a 'Z' suffix — parseServerDate
+// normalises them so we don't get negative ("future") deltas from the local-time
+// misparse. Always uses Date.now() minus the parsed instant.
 function relativeTime(ts: string): string {
-  const ms   = Date.now() - new Date(ts).getTime()
+  const d = parseServerDate(ts)
+  if (!d) return ''
+  const ms = Date.now() - d.getTime()
+  if (ms < 60_000) return 'just now'
   const mins = Math.floor(ms / 60_000)
-  if (mins < 60)  return `${mins}m ago`
+  if (mins < 60) return `${mins}m ago`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24)   return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 30) return `${days}d ago`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months}mo ago`
+  return `${Math.floor(days / 365)}y ago`
+}
+
+// Friendly fallback when an actor/target id isn't in the member/team lists:
+// drop the "auth0|" prefix and truncate so the column isn't a wall of hash.
+function shortenId(id: string): string {
+  const bare = id.replace(/^auth0\|/, '')
+  return bare.length > 12 ? `${bare.slice(0, 6)}…${bare.slice(-4)}` : bare
+}
+
+// "invite_sent" → "Invite sent"
+function humanizeAction(action: string): string {
+  const spaced = action.replace(/_/g, ' ')
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
 const SELECT_STYLE: React.CSSProperties = {
@@ -34,12 +58,36 @@ const SELECT_STYLE: React.CSSProperties = {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrgActivityPage() {
-  const { orgId, currentUserRole } = useOrg()
+  const { orgId, currentUserRole, members, teams } = useOrg()
   const isAdmin = currentUserRole === 'admin'
 
   const [entries,      setEntries]      = useState<AuditLogEntry[]>([])
   const [loading,      setLoading]      = useState(false)
   const [filterAction, setFilterAction] = useState('all')
+
+  // user_id → display name (fall back to email, then a shortened id).
+  const memberNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const m of members) {
+      if (m.id) map.set(m.id, m.name?.trim() || m.email?.trim() || shortenId(m.id))
+    }
+    return map
+  }, [members])
+
+  // team id → team name, to resolve target ids in the Action column.
+  const teamNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const t of teams) map.set(t.id, t.name)
+    return map
+  }, [teams])
+
+  const actorLabel = (id: string): string => memberNameById.get(id) ?? shortenId(id)
+
+  // Resolve a target id to a human label when we can (currently teams).
+  const targetLabel = (type: string | null, id: string): string => {
+    if (type === 'team') return teamNameById.get(id) ?? shortenId(id)
+    return shortenId(id)
+  }
 
   useEffect(() => {
     if (!orgId) return
@@ -154,7 +202,7 @@ export default function OrgActivityPage() {
               {i > 0 && <Divider decorative style={{ backgroundColor: 'var(--neutral-100)', margin: 0 }} />}
               <div style={{ display: 'flex', alignItems: 'center', padding: '10px 24px' }}>
                 <span
-                  title={entry.createdAt}
+                  title={formatServerDateTime(entry.createdAt, entry.createdAt)}
                   style={{
                     width:      90,
                     flexShrink: 0,
@@ -166,13 +214,16 @@ export default function OrgActivityPage() {
                 >
                   {relativeTime(entry.createdAt)}
                 </span>
-                <span style={{ width: 180, flexShrink: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {entry.actorUserId}
+                <span
+                  title={entry.actorUserId}
+                  style={{ width: 180, flexShrink: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'default' }}
+                >
+                  {actorLabel(entry.actorUserId)}
                 </span>
                 <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  <span style={{ fontWeight: 500 }}>{entry.action}</span>
+                  <span style={{ fontWeight: 500 }}>{humanizeAction(entry.action)}</span>
                   {entry.targetType && (
-                    <span style={{ color: 'var(--neutral-500)' }}> · {entry.targetType}{entry.targetId ? ` ${entry.targetId}` : ''}</span>
+                    <span style={{ color: 'var(--neutral-500)' }}> · {entry.targetType}{entry.targetId ? ` ${targetLabel(entry.targetType, entry.targetId)}` : ''}</span>
                   )}
                 </p>
               </div>

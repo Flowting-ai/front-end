@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useOnboarding } from "@/context/onboarding-context";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
 // ── Connector definitions ───────────────────────────────────────────────────────
@@ -121,6 +122,7 @@ function ConnectorCard({
 
 export default function OnboardingConnectorsPage() {
   const { push } = useRouter();
+  const { setConnectorCount } = useOnboarding();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) =>
@@ -139,7 +141,10 @@ export default function OnboardingConnectorsPage() {
       footer={
         <OnboardingFooter
           onBack={() => push("/onboarding/workspace")}
-          onContinue={() => push("/onboarding/invite")}
+          onContinue={() => {
+            setConnectorCount(selected.size);
+            push("/onboarding/invite");
+          }}
         />
       }
     >

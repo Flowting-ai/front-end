@@ -16,7 +16,8 @@ import type {
   UserUsage,
 } from "@/lib/api/user";
 import { fetchCurrentUser } from "@/lib/api/user";
-import { usageToCredits, formatCredits } from "@/lib/plan-config";
+import { formatCredits } from "@/lib/plan-config";
+import { creditsFromUsage, creditsFromBilling } from "@/lib/credits";
 import { normalizePct } from "@/lib/utils/format-utils";
 
 export interface AuthUser {
@@ -30,6 +31,9 @@ export interface AuthUser {
   onboardingCompleted?: boolean | null;
   onboardingRole?: string | null;
   onboardingTone?: string | null;
+  /** Backend onboarding `role_fit`: just_me | small_team | large_team. The
+   *  authoritative signal for whether this account is a team (organization). */
+  roleFit?: string | null;
   planType?: "starter" | "pro" | "power" | null;
   planName?: string | null;
   subscriptionStatus?: string | null;
@@ -81,48 +85,25 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
     paymentMethods.find((m) => m.is_default) ?? paymentMethods[0] ?? null;
   const monthlyPctFromApi = normalizePct(profile.usage?.monthly_used_pct);
 
-  const plan = profile.plan_type;
-  let creditsTotal: number | null = null;
-  let creditsUsed: number | null = null;
-  let creditsRemaining: number | null = null;
-  let creditsDisplay: string | null = null;
-  let creditsRemainingDisplay: string | null = null;
-
-  if (plan && profile.usage) {
-    // Subscribed user — compute from plan credits.
-    const c = usageToCredits(plan, profile.usage.monthly_used);
-    // Top-up credits are additive on top of the plan allowance and are NOT
-    // captured by the plan-tier constant, so fold them into total + remaining.
-    // Without this, a successful topup never increases the displayed balance
-    // and an exhausted subscriber would stay blocked after recharging.
-    const topup = Math.round((profile.usage.topup_credits ?? 0) * 1000);
-    creditsTotal = c.total + topup;
-    creditsUsed = c.used;
-    creditsRemaining = c.remaining + topup;
-    creditsDisplay = formatCredits(creditsTotal);
-    creditsRemainingDisplay = formatCredits(creditsRemaining);
-  } else if (profile.credits) {
-    // Trial / unsubscribed user — use billing credits object directly.
-    // Values are in dollars; multiply by 1000 for credit units display.
-    const bc = profile.credits;
-    if (bc.trial) {
-      // trial.amount is the original trial allowance; top-ups stack on top of
-      // the trial pool so they survive exhaustion and recharge the balance.
-      const topup = Math.round((bc.topup_credits ?? 0) * 1000);
-      creditsTotal = Math.round(bc.trial.amount * 1000) + topup;
-      creditsUsed = Math.round(bc.trial.used * 1000);
-      creditsRemaining = Math.round(bc.trial.remaining * 1000) + topup;
-    } else {
-      // total_credits already includes plan + top-up balance.
-      creditsTotal = Math.round(bc.total_credits * 1000);
-      const totalUsed =
-        (bc.used?.chat ?? 0) + (bc.used?.persona ?? 0) + (bc.used?.brain ?? 0);
-      creditsUsed = Math.round(totalUsed * 1000);
-      creditsRemaining = Math.max(creditsTotal - creditsUsed, 0);
-    }
-    creditsDisplay = formatCredits(creditsTotal);
-    creditsRemainingDisplay = formatCredits(creditsRemaining);
-  }
+  // ── Personal (individual) credit balance ──────────────────────────────────
+  // Trial + paid are the SAME environment, derived in lib/credits.ts with the
+  // correct backend semantics (total_credits/usage.credits is the REMAINING
+  // balance, not the allowance; allowance = remaining + used). The ORGANIZATION
+  // pool is a separate environment (org-context / getOrgPlan), and org users are
+  // excluded from individual credit gating in useCreditStatus.
+  // /users/me carries the balance under `usage`; the top-level `credits` object
+  // is only populated by /stripe/billing — prefer usage, fall back to credits.
+  const balance = profile.usage
+    ? creditsFromUsage(profile.usage)
+    : creditsFromBilling(profile.credits);
+  const hasCredits = balance.isTrial || balance.total > 0 || balance.remaining > 0;
+  const creditsTotal: number | null = hasCredits ? balance.total : null;
+  const creditsUsed: number | null = hasCredits ? balance.used : null;
+  const creditsRemaining: number | null = hasCredits ? balance.remaining : null;
+  const creditsDisplay: string | null = hasCredits ? formatCredits(balance.total) : null;
+  const creditsRemainingDisplay: string | null = hasCredits
+    ? formatCredits(balance.remaining)
+    : null;
 
   return {
     email: profile.email,
@@ -134,6 +115,7 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
     onboardingCompleted: profile.onboarding?.completed ?? null,
     onboardingRole: profile.onboarding?.user_role ?? null,
     onboardingTone: profile.onboarding?.ai_tone ?? null,
+    roleFit: profile.onboarding?.role_fit ?? null,
     planType: profile.plan_type ?? null,
     planName: profile.plan_type ? profile.plan_type.toUpperCase() : "NONE",
     subscriptionStatus: profile.subscription_status ?? null,

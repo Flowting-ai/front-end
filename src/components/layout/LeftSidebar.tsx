@@ -33,6 +33,39 @@ function readCollapsed(): boolean {
   return localStorage.getItem("sidebar_collapsed") === "true";
 }
 
+// ── Organization admin nav ────────────────────────────────────────────────────
+// The sidebar's in-place "admin" body section (entered via the org badge) renders
+// the Sidebar component's default groups — Organization / Company Data / Models
+// (DEFAULT_ADMIN_GROUPS), matching the design-system "Org section" story. We don't
+// redefine that content here; we only wire each item's behaviour via
+// onAdminSectionClick. The `id`s below are those default item ids.
+//
+// Items with a real destination navigate there; the rest surface a "coming soon"
+// toast so nothing is ever a dead click.
+const ADMIN_SECTION_ROUTES: Record<string, string> = {
+  // Organization → /settings/org/*
+  general:           "/settings/org/general",
+  members:           "/settings/org/members",
+  teams:             "/settings/org/teams",
+  "plans-usage":     "/settings/org/plans",
+  analytics:         "/settings/org/analytics",
+  connectors:        "/settings/org/connectors",
+  security:          "/settings/org/security",
+  "activity-log":    "/settings/org/activity",
+  // Company Data → closest existing surface (org connectors)
+  "connected-data":  "/settings/org/connectors",
+  tools:             "/settings/org/connectors",
+  // Models → AI & Models
+  "model-providers": "/settings/ai",
+};
+
+// Items with no page yet — surfaced as "coming soon" (id → toast label).
+const ADMIN_SECTION_COMING_SOON: Record<string, string> = {
+  folders:  "Folders",
+  websites: "Websites",
+  triggers: "Triggers",
+};
+
 // ── Section show/hide animation - matches Sidebar design system ───────────────
 
 const sectionHeightVariants = {
@@ -1101,6 +1134,14 @@ function LeftSidebarImpl({
     ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
     : undefined;
 
+  // Credits shown in the account menu, by environment (kept isolated):
+  //   • Organization → the SHARED org pool remaining (org-context / getOrgPlan)
+  //   • Individual / trial → the personal balance (auth-context → lib/credits.ts)
+  // Org and personal balances never mix; we pick the source by environment.
+  const accountCredits = orgId
+    ? (typeof org?.creditPool?.remaining === "number" ? org.creditPool.remaining : undefined)
+    : (user?.creditsRemaining ?? undefined);
+
   const sectionProps: SectionProps = {
     activeChatId: resolvedActiveChatId,
     onSelectChat: handleSelectChat,
@@ -1123,7 +1164,19 @@ function LeftSidebarImpl({
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
       onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }}
       onBrainClick={() => { toast.info("Opening Brain", { id: 'nav' }); push("/brain") }}
-      onOrganisationClick={orgId ? () => { push("/settings/org") } : undefined}
+      // The org badge switches the sidebar's body to the in-place "admin"
+      // section (handled inside Sidebar) — it must NOT navigate. (It previously
+      // pushed to /settings/org, which has no index route → 404.)
+      onOrganisationClick={undefined}
+      // adminGroups is intentionally NOT overridden — the Sidebar's default
+      // groups (Organization / Company Data / Models) are the canonical content.
+      // We only wire behaviour: navigate where a page exists, else "coming soon".
+      onAdminSectionClick={(id) => {
+        const href = ADMIN_SECTION_ROUTES[id]
+        if (href) { push(href); return }
+        const label = ADMIN_SECTION_COMING_SOON[id] ?? id
+        toast.info(`${label} — coming soon`, { id: 'nav' })
+      }}
       orgName={orgId ? org.name : undefined}
       orgId={orgId ?? undefined}
       showAdmin={Boolean(orgId) && currentUserRole === 'admin'}
@@ -1131,7 +1184,7 @@ function LeftSidebarImpl({
         <AccountMenu
           name={displayName || "Account"}
           plan={planLabel}
-          credits={user?.creditsRemaining ?? undefined}
+          credits={accountCredits}
           avatarSrc={user?.profilePicture ?? undefined}
           collapsed={collapsed}
           panelWidth={274}

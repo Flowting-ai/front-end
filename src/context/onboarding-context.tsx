@@ -35,6 +35,8 @@ export interface OnboardingData {
   companyName: string;
   companyWebsite: string;
   companySize: CompanySize | null;
+  /** Number of connectors the team queued on the connectors step. */
+  connectorCount: number;
 }
 
 interface OnboardingContextValue {
@@ -50,6 +52,7 @@ interface OnboardingContextValue {
   setCompanyName: (v: string) => void;
   setCompanyWebsite: (v: string) => void;
   setCompanySize: (v: CompanySize) => void;
+  setConnectorCount: (v: number) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -67,6 +70,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     companyName: "",
     companyWebsite: "",
     companySize: null,
+    connectorCount: 0,
   });
 
   const update = <K extends keyof OnboardingData>(key: K, value: OnboardingData[K]) =>
@@ -87,6 +91,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         setCompanyName: (v) => update("companyName", v),
         setCompanyWebsite: (v) => update("companyWebsite", v),
         setCompanySize: (v) => update("companySize", v),
+        setConnectorCount: (v) => update("connectorCount", v),
       }}
     >
       {children}
@@ -98,6 +103,20 @@ export function useOnboarding() {
   const ctx = use(OnboardingContext);
   if (!ctx) throw new Error("useOnboarding must be used within OnboardingProvider");
   return ctx;
+}
+
+/**
+ * Resolves the value to persist as the backend `user_role`.
+ *
+ * IMPORTANT: `user_role` is a backend ENUM (founder | engineer | … | other).
+ * Sending free text (e.g. a custom "Other" description) is rejected with a 422,
+ * which fails the onboarding-completion PATCH and traps the user in a redirect
+ * loop back to /onboarding/hello. So we always send the preset display value —
+ * updateOnboarding maps it to the enum, and "Other" → "other". The custom
+ * "Other" detail is captured separately as a user memory (/memory/user).
+ */
+export function effectiveUserRole(data: OnboardingData): OnboardingRole | null {
+  return data.role;
 }
 
 /**

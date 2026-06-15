@@ -17,6 +17,7 @@ import { Button } from '@/components/Button'
 import { CardBrandLogo } from '@/components/CardBrandLogo'
 import type { CardBrand } from '@/components/CardBrandLogo'
 import { BuyCreditsModal } from '@/components/BuyCreditsModal'
+import { creditsFromBilling } from '@/lib/credits'
 import { toast } from 'sonner'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -266,35 +267,39 @@ export default function BillingPage() {
     billing?.upcoming_invoice?.next_payment_date ?? user?.nextBillingDate ?? user?.currentPeriodEnd,
   )
 
-  // Live snapshot (when the profile is loaded) or fall back to the cached one.
-  // Credits come from billing response (GET /stripe/billing → credits object)
-  // for trial users who have no plan_type on /users/me.
-  // trial.amount is the original total allowance; total_credits may decrease as credits are consumed.
-  const billingCreditsTotal = billing?.credits?.trial
-    ? Math.round(billing.credits.trial.amount * 1000)
-    : billing?.credits
-      ? Math.round(billing.credits.total_credits * 1000)
-      : null;
-  const billingCreditsUsed = billing?.credits?.trial
-    ? Math.round(billing.credits.trial.used * 1000)
-    : billing?.credits?.used
-      ? Math.round(((billing.credits.used.chat ?? 0) + (billing.credits.used.persona ?? 0) + (billing.credits.used.brain ?? 0)) * 1000)
-      : 0;
-  const billingCreditsRemaining = billing?.credits?.trial
-    ? Math.round(billing.credits.trial.remaining * 1000)
-    : billingCreditsTotal !== null
-      ? Math.max(0, billingCreditsTotal - billingCreditsUsed)
-      : null;
+  // Personal credit balance from the billing response (GET /stripe/billing).
+  // Derived in lib/credits.ts (handles both the current explicit-fields shape
+  // and the legacy shape). Used only as a fallback — the auth-context `user`
+  // values (also from lib/credits.ts) take precedence.
+  const billingBalance = creditsFromBilling(billing?.credits ?? null);
+  // Per-category spend in dollars: current backend `by_category`, falling back
+  // to the legacy per-category `used` object.
+  const billingPerCategory =
+    billing?.credits?.by_category ??
+    (billing?.credits?.used && typeof billing.credits.used === "object"
+      ? billing.credits.used
+      : {});
+  const billingCreditsTotal = billing?.credits ? billingBalance.total : null;
+  const billingCreditsUsed = billingBalance.used;
+  const billingCreditsRemaining = billing?.credits ? billingBalance.remaining : null;
 
   const liveSnap: BillingSnapshot | null = liveReady
     ? {
         planType:         user?.planType ?? null,
-        creditsTotal:     user?.creditsTotal     ?? billingCreditsTotal ?? 0,
-        creditsRemaining: user?.creditsRemaining ?? billingCreditsRemaining ?? 0,
-        creditsUsed:      user?.creditsUsed      ?? billingCreditsUsed ?? 0,
-        chatCredits:      Math.round((billing?.credits?.used?.chat ?? user?.usage?.by_category?.chat ?? 0) * 1000),
-        personaCredits:   Math.round((billing?.credits?.used?.persona ?? user?.usage?.by_category?.persona ?? 0) * 1000),
-        brainCredits:     Math.round((billing?.credits?.used?.brain ?? 0) * 1000),
+        // /stripe/billing is the authoritative source for the Billing page:
+        // `total_credits` is the plan's monthly ALLOWANCE (granted + exposed by
+        // the backend), not a value reconstructed from balance. Fall back to the
+        // /users/me-derived figures only when billing hasn't loaded.
+        creditsTotal:     billingCreditsTotal     ?? user?.creditsTotal     ?? 0,
+        creditsRemaining: billingCreditsRemaining ?? user?.creditsRemaining ?? 0,
+        creditsUsed:      billingCreditsUsed       ?? user?.creditsUsed      ?? 0,
+        // Per-category absolute credits come ONLY from billing.credits. Current
+        // backend puts them in `by_category`; the legacy shape used a per-category
+        // `used` object. (usage.by_category from /users/me are PERCENTAGES, not
+        // credits — never use those here.)
+        chatCredits:      Math.round((billingPerCategory.chat ?? 0) * 1000),
+        personaCredits:   Math.round((billingPerCategory.persona ?? 0) * 1000),
+        brainCredits:     Math.round((billingPerCategory.brain ?? 0) * 1000),
         nextBilling:      nextBillingLive,
         periodEnd:        billing?.current_period_end ?? user?.currentPeriodEnd ?? null,
         cancelAtPeriodEnd: billing?.cancel_at_period_end ?? user?.cancelAtPeriodEnd ?? false,

@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import * as Dialog from '@radix-ui/react-dialog'
 import { listConnectors, initiateLink, unlinkConnector, updateConnector } from '@/lib/api/connectors'
 import type { ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
+import { connectorLogoSrc } from '@/lib/connectorLogos'
 import {
   ArrowDownOneIcon,
   ArrowRightOneIcon,
@@ -57,36 +58,12 @@ interface ConnectorRequest {
   available: boolean
 }
 
-const PENDING_FROM_TEAM: ConnectorRequest[] = [
-  {
-    slug:      'hubspot',
-    name:      'HubSpot',
-    requester: 'Priya Nair',
-    daysAgo:   '2 days ago',
-    votes:     '3 others',
-    quote:     'Need this to pull deal stages into the sales brain for weekly reports.',
-    available: true,
-  },
-  {
-    slug:      'notion',
-    name:      'Notion',
-    requester: 'Marcus Web',
-    daysAgo:   '2 days ago',
-    quote:     'Our design docs live here — brain should be able to read them.',
-    available: true,
-  },
-]
+// Connector requests have no backend endpoint yet, so there is no real data to
+// show — start empty (the Requests tab renders its empty state). Replace these
+// with a real fetch once an endpoint exists; do NOT reintroduce sample data.
+const PENDING_FROM_TEAM: ConnectorRequest[] = []
 
-const PENDING_YOUR_ACCOUNTS: ConnectorRequest[] = [
-  {
-    slug:      'pipedrive',
-    name:      'Pipedrive',
-    requester: 'Harsh Patel',
-    daysAgo:   '1 day ago',
-    quote:     "This is our actual CRM — Salesforce connector won't help us.",
-    available: false,
-  },
-]
+const PENDING_YOUR_ACCOUNTS: ConnectorRequest[] = []
 
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
@@ -321,10 +298,21 @@ function LetterMark({
   )
 }
 
-function ConnectorIcon({ kind, iconUrl }: { kind?: ConnectorKind; iconUrl?: string }) {
+function ConnectorIcon({ kind, iconUrl, slug }: { kind?: ConnectorKind; iconUrl?: string; slug?: string }) {
   let mark: React.ReactNode
 
-  if (iconUrl) {
+  // Prefer the bundled brand logo by slug (same source as Settings → Connectors),
+  // then a backend icon_url, then the letter-mark fallback.
+  const localLogo = slug ? connectorLogoSrc(slug) : null
+
+  if (localLogo) {
+    mark = (
+      <div style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: 'white', boxShadow: '0px 0px 0px 1px var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- bundled brand asset, variable path prevents next/image static analysis */}
+        <img src={localLogo} alt="" width={24} height={24} style={{ objectFit: 'contain' }} />
+      </div>
+    )
+  } else if (iconUrl) {
     mark = (
       <div style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: 'white', boxShadow: '0px 0px 0px 1px var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
         <Image src={iconUrl} alt="" width={24} height={24} unoptimized />
@@ -432,7 +420,7 @@ function ConnectorRow({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '1 0 0' }}>
-        <ConnectorIcon iconUrl={connector.icon_url} />
+        <ConnectorIcon iconUrl={connector.icon_url} slug={connector.slug} />
         <TextBlock title={connector.display_name} subtitle={type} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
@@ -758,7 +746,7 @@ function ConnectorCatalogTile({
       {/* Header: icon + name/category + overflow menu */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '1 0 0' }}>
-          <ConnectorIcon iconUrl={connector.icon_url} />
+          <ConnectorIcon iconUrl={connector.icon_url} slug={connector.slug} />
           <TextBlock title={connector.display_name} subtitle={category} />
         </div>
         <IconButton variant="ghost" size="sm" aria-label={`${connector.display_name} options`} icon={<MoreVerticalIcon size={20} />} />
@@ -913,7 +901,7 @@ function RequestReviewRow({
       }}
     >
       {req.available ? (
-        <ConnectorIcon iconUrl={req.iconUrl} kind={req.slug as ConnectorKind} />
+        <ConnectorIcon iconUrl={req.iconUrl} kind={req.slug as ConnectorKind} slug={req.slug} />
       ) : (
         <div style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <div
@@ -1376,7 +1364,7 @@ function WorkspaceManageModal({
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px 16px', borderBottom: '1px solid var(--neutral-100)' }}>
-          <ConnectorIcon iconUrl={entry.icon_url} />
+          <ConnectorIcon iconUrl={entry.icon_url} slug={entry.slug} />
           <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <BodyText size={14} weight={500} color="var(--neutral-900)">{entry.display_name}</BodyText>
             <span style={{
