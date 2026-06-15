@@ -12,19 +12,22 @@ import {
   ArrowRightOneIcon,
   CancelOneIcon,
   CheckmarkCircleTwoIcon,
+  InformationCircleIcon,
   MoreVerticalIcon,
   PlusSignIcon,
   SearchOneIcon,
   TokenSquareIcon,
+  UserIcon,
   WorkflowSquareTenIcon,
 } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
+import { Switch } from '@/components/Switch'
 import { useOrg } from '@/context/org-context'
 
-type MainTab = 'my' | 'browse' | 'manage' | 'requests' | 'catalog'
+type MainTab = 'my' | 'browse' | 'manage' | 'requests' | 'permissions' | 'catalog'
 type FilterTab = 'all' | 'shared' | 'accounts'
 type CategoryTab = 'All' | 'Productivity' | 'Communication' | 'Design' | 'Interactive' | 'Data'
 type ConnectorKind = 'github' | 'gmail' | 'drive' | 'hubspot' | 'notion' | 'pipedrive'
@@ -64,6 +67,39 @@ interface ConnectorRequest {
 const PENDING_FROM_TEAM: ConnectorRequest[] = []
 
 const PENDING_YOUR_ACCOUNTS: ConnectorRequest[] = []
+
+interface EditorActivity {
+  id:        string
+  userName:  string
+  action:    string
+  timestamp: string
+}
+
+// No activity data yet — replace with a real fetch once an endpoint exists
+const RECENT_ACTIVITY: EditorActivity[] = []
+
+// ── Connector detail view types ───────────────────────────────────────────────
+
+type DetailTab = 'accounts' | 'used-by'
+type AccountTab = 'tools' | 'access' | 'settings'
+
+/** Scope of a connected account — determines badge colour and visibility rules */
+type AccountScope = 'shared' | 'personal' | 'shared-expired'
+
+interface ConnectorAccount {
+  id:      string
+  label:   string
+  email:   string
+  addedBy: string
+  scope:   AccountScope
+}
+
+interface ConnectorUsedByItem {
+  id:       string
+  name:     string
+  kind:     'persona' | 'brain'
+  subtitle: string
+}
 
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
@@ -1677,18 +1713,1144 @@ function RequestFromSouvenirDialog({
   )
 }
 
+// ── Tab count badge (blue pill) ───────────────────────────────────────────────
+
+function CountBadge({ count }: { count: number }) {
+  return (
+    <span
+      style={{
+        display:         'inline-flex',
+        alignItems:      'center',
+        justifyContent:  'center',
+        minWidth:        18,
+        height:          18,
+        padding:         '0 4px',
+        borderRadius:    8,
+        backgroundColor: 'var(--blue-500, #4a83bf)',
+        color:           'white',
+        fontFamily:      'var(--font-body)',
+        fontWeight:      500,
+        fontSize:        11,
+        lineHeight:      '16px',
+      }}
+    >
+      {count}
+    </span>
+  )
+}
+
+// ── Add / manage account modal ────────────────────────────────────────────────
+
+type AddAccountScope = 'personal' | 'shared-team'
+
+function AddAccountModal({
+  connector,
+  onClose,
+  onConnect,
+}: {
+  connector: ConnectorCatalogEntry
+  onClose:   () => void
+  onConnect: (slug: string) => void
+}) {
+  const [label, setLabel] = useState('')
+  const [scope, setScope] = useState<AddAccountScope>('personal')
+
+  function handleContinue() {
+    onConnect(connector.slug)
+    onClose()
+  }
+
+  return (
+    <>
+      {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position:       'fixed',
+          inset:          0,
+          backgroundColor:'rgba(18,12,8,0.5)',
+          backdropFilter: 'blur(2px)',
+          zIndex:         50,
+        }}
+      />
+      <div
+        style={{
+          position:        'fixed',
+          top:             '50%',
+          left:            '50%',
+          transform:       'translate(-50%, -50%)',
+          zIndex:          51,
+          width:           708,
+          maxWidth:        'calc(100vw - 48px)',
+          borderRadius:    20,
+          backgroundColor: '#f7f2ed',
+          boxShadow:       '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1), 0px 0px 0px 1px var(--neutral-100)',
+          padding:         8,
+        }}
+      >
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Header */}
+          <div style={{ padding: '12px 12px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <h2
+              style={{
+                flex:       '1 0 0',
+                fontFamily: 'var(--font-title)',
+                fontWeight: 400,
+                fontSize:   24,
+                lineHeight: '32px',
+                color:      'var(--neutral-900)',
+                margin:     0,
+              }}
+            >
+              Add a {connector.display_name} account
+            </h2>
+            <IconButton variant="ghost" size="sm" aria-label="Close" icon={<CancelOneIcon size={20} />} onClick={onClose} />
+          </div>
+
+          {/* Subtitle */}
+          <div style={{ padding: '0 12px 12px' }}>
+            <BodyText color="var(--neutral-500)">
+              Souvenir will be granted access to this account. You can set per-tool approvals after connecting.
+            </BodyText>
+          </div>
+
+          {/* Account label */}
+          <div
+            style={{
+              border:          '1px solid var(--neutral-200)',
+              borderRadius:    16,
+              padding:         12,
+              backgroundColor: 'var(--neutral-50)',
+              display:         'flex',
+              flexDirection:   'column',
+              gap:             12,
+            }}
+          >
+            <BodyText size={16} weight={500} color="var(--neutral-900)">Account label</BodyText>
+            <InputField
+              fluid
+              label="So you can tell connections apart."
+              placeholder="e.g Support inbox"
+              value={label}
+              onChange={setLabel}
+            />
+          </div>
+
+          {/* Scope section */}
+          <div style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <BodyText weight={500} color="var(--neutral-900)">Scope</BodyText>
+            <BodyText size={11}>Who can use this account.</BodyText>
+          </div>
+
+          {/* Scope radio cards */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Personal */}
+            <button
+              type="button"
+              onClick={() => setScope('personal')}
+              style={{
+                display:         'flex',
+                alignItems:      'center',
+                gap:             8,
+                padding:         12,
+                borderRadius:    16,
+                border:          'none',
+                cursor:          'pointer',
+                backgroundColor: 'white',
+                textAlign:       'left',
+                width:           '100%',
+                boxShadow:       scope === 'personal'
+                  ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--blue-500, #4a83bf)'
+                  : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+              }}
+            >
+              <span
+                style={{
+                  width:        20,
+                  height:       20,
+                  borderRadius: '50%',
+                  border:       `2px solid ${scope === 'personal' ? '#0a7aff' : 'var(--neutral-300, #a89e97)'}`,
+                  display:      'flex',
+                  alignItems:   'center',
+                  justifyContent:'center',
+                  flexShrink:   0,
+                }}
+              >
+                {scope === 'personal' && (
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#0a7aff' }} />
+                )}
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <BodyText size={16} weight={500} color="var(--neutral-900)">Personal</BodyText>
+                <BodyText>Only you. Stays private and never enters team work.</BodyText>
+              </div>
+            </button>
+
+            {/* Shared Team */}
+            <button
+              type="button"
+              onClick={() => setScope('shared-team')}
+              style={{
+                display:         'flex',
+                alignItems:      'center',
+                gap:             8,
+                padding:         12,
+                borderRadius:    16,
+                border:          'none',
+                cursor:          'pointer',
+                backgroundColor: 'white',
+                textAlign:       'left',
+                width:           '100%',
+                boxShadow:       scope === 'shared-team'
+                  ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--blue-500, #4a83bf)'
+                  : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+              }}
+            >
+              <span
+                style={{
+                  width:        20,
+                  height:       20,
+                  borderRadius: '50%',
+                  border:       `2px solid ${scope === 'shared-team' ? '#0a7aff' : 'var(--neutral-300, #a89e97)'}`,
+                  display:      'flex',
+                  alignItems:   'center',
+                  justifyContent:'center',
+                  flexShrink:   0,
+                }}
+              >
+                {scope === 'shared-team' && (
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#0a7aff' }} />
+                )}
+              </span>
+              <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                <div style={{ minWidth: 0 }}>
+                  <BodyText size={16} weight={500} color="var(--neutral-900)">Shared Team</BodyText>
+                  <BodyText>All members can attach it · Runs on the team plan.</BodyText>
+                </div>
+                {scope === 'shared-team' && (
+                  <Button variant="outline" size="sm" rightIcon={
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  }>
+                    Team Name
+                  </Button>
+                )}
+              </div>
+            </button>
+          </div>
+
+          {/* CTA */}
+          <div style={{ paddingTop: 12 }}>
+            <button
+              type="button"
+              onClick={handleContinue}
+              style={{
+                width:           '100%',
+                display:         'flex',
+                alignItems:      'center',
+                justifyContent:  'center',
+                gap:             6,
+                padding:         '8px 16px',
+                borderRadius:    10,
+                border:          'none',
+                cursor:          'pointer',
+                background:      'linear-gradient(to bottom, var(--neutral-700, #524b47), var(--neutral-900, #26211e))',
+                color:           'var(--neutral-50, #f7f2ed)',
+                fontFamily:      'var(--font-body)',
+                fontWeight:      500,
+                fontSize:        14,
+                lineHeight:      '22px',
+                boxShadow:       '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08',
+              }}
+            >
+              Continue with Google
+              <ArrowRightOneIcon size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── Account row (in Accounts tab) ─────────────────────────────────────────────
+
+function AccountRow({
+  account,
+  onManage,
+  onReconnect,
+}: {
+  account:     ConnectorAccount
+  onManage:    () => void
+  onReconnect: () => void
+}) {
+  const isExpired = account.scope === 'shared-expired'
+
+  let badge: React.ReactNode
+  if (account.scope === 'shared') {
+    badge = <ScopeBadge label="Shared Team" variant="team" />
+  } else if (account.scope === 'personal') {
+    badge = <ScopeBadge label="Personal" variant="personal" />
+  } else {
+    badge = <Badge label="Shared · Team" color="Red" />
+  }
+
+  return (
+    <div
+      style={{
+        padding:  '14px 24px',
+        display:  'flex',
+        alignItems:'center',
+        gap:      12,
+      }}
+    >
+      <div style={{ flex: '1 0 0', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <BodyText weight={500} color="var(--neutral-900)">{account.label}</BodyText>
+          {badge}
+        </div>
+        {isExpired ? (
+          <BodyText size={11} color="var(--red-400, #ee3030)">
+            Token expired — Souvenir can&apos;t use this account until it&apos;s reconnected
+          </BodyText>
+        ) : (
+          <BodyText size={11}>
+            {account.email} · added by {account.addedBy}
+          </BodyText>
+        )}
+      </div>
+      {isExpired ? (
+        <Button variant="outline" size="sm" onClick={onReconnect}>
+          Reconnect
+        </Button>
+      ) : (
+        <Button variant="outline" size="sm" rightIcon={<ArrowRightOneIcon size={16} />} onClick={onManage}>
+          Manage
+        </Button>
+      )}
+    </div>
+  )
+}
+
+// ── Connector detail view (Accounts / Used by tabs) ───────────────────────────
+
+function ConnectorDetailView({
+  connector,
+  onBack,
+  onConnect,
+}: {
+  connector: ConnectorCatalogEntry
+  onBack:    () => void
+  onConnect: (slug: string) => void
+}) {
+  const [detailTab,       setDetailTab]       = useState<DetailTab>('accounts')
+  const [addAccountOpen,  setAddAccountOpen]  = useState(false)
+  const [activeAccount,   setActiveAccount]   = useState<ConnectorAccount | null>(null)
+
+  // No backend yet — start empty, replace with real fetch once endpoint exists
+  const accounts: ConnectorAccount[]      = []
+  const usedByItems: ConnectorUsedByItem[] = []
+
+  const personaItems = usedByItems.filter(i => i.kind === 'persona')
+  const brainItems   = usedByItems.filter(i => i.kind === 'brain')
+  const usedByCount  = usedByItems.length
+
+  if (activeAccount) {
+    return (
+      <AccountDetailView
+        account={activeAccount}
+        connector={connector}
+        onBack={() => setActiveAccount(null)}
+      />
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        <button
+          type="button"
+          onClick={onBack}
+          style={{
+            display:         'inline-flex',
+            alignItems:      'center',
+            gap:             4,
+            padding:         0,
+            marginBottom:    4,
+            border:          'none',
+            background:      'transparent',
+            cursor:          'pointer',
+            fontFamily:      'var(--font-body)',
+            fontWeight:      400,
+            fontSize:        11,
+            lineHeight:      '16px',
+            color:           'var(--neutral-500)',
+            alignSelf:       'flex-start',
+          }}
+        >
+          ← Manage connectors
+        </button>
+        <h1
+          style={{
+            fontFamily: 'var(--font-title)',
+            fontWeight: 400,
+            fontSize:   24,
+            lineHeight: '32px',
+            color:      '#1a1916',
+            margin:     '0 0 2px',
+          }}
+        >
+          {connector.display_name}
+        </h1>
+        <BodyText style={{ padding: '5px 6px' }}>{connector.description}</BodyText>
+      </div>
+
+      {/* Tabs + Add account */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+        <TabGroup
+          tabs={[
+            { id: 'accounts', label: 'Accounts', badge: <CountBadge count={accounts.length} /> },
+            { id: 'used-by',  label: 'Used by',  badge: <CountBadge count={usedByCount} /> },
+          ]}
+          value={detailTab}
+          onChange={setDetailTab}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          leftIcon={<PlusSignIcon size={16} />}
+          onClick={() => setAddAccountOpen(true)}
+        >
+          Add account
+        </Button>
+      </div>
+
+      {/* Accounts tab */}
+      {detailTab === 'accounts' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <PageCard style={{ padding: '12px 0' }}>
+            {accounts.length === 0 ? (
+              <div style={{ padding: '32px 24px', textAlign: 'center' }}>
+                <BodyText color="var(--neutral-400)">No accounts connected yet</BodyText>
+              </div>
+            ) : (
+              accounts.map((account, idx) => (
+                <div key={account.id}>
+                  {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
+                  <AccountRow
+                    account={account}
+                    onManage={() => setActiveAccount(account)}
+                    onReconnect={() => onConnect(connector.slug)}
+                  />
+                </div>
+              ))
+            )}
+          </PageCard>
+
+          {/* Info banner */}
+          <div
+            style={{
+              display:         'flex',
+              alignItems:      'flex-start',
+              gap:             8,
+              padding:         '6px 10px',
+              borderRadius:    8,
+              backgroundColor: 'var(--blue-100, #cadcf1)',
+              boxShadow:       '0px 1px 1.5px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5), inset 0px 1px 0px rgba(231,244,253,0.7), inset 0px -1px 0px rgba(13,110,178,0.1)',
+            }}
+          >
+            <InformationCircleIcon size={16} style={{ color: 'var(--blue-700, #135487)', flexShrink: 0, marginTop: 3 }} />
+            <BodyText size={11} color="var(--blue-700, #135487)" weight={500}>
+              Shared accounts run on the team plan and are visible to members. Personal accounts stay private to their owner and only enter team work if the owner shares them.
+            </BodyText>
+          </div>
+        </div>
+      )}
+
+      {/* Used by tab */}
+      {detailTab === 'used-by' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {personaItems.length > 0 && (
+            <PageCard style={{ padding: '12px 0' }}>
+              <div style={{ padding: '12px 24px 20px', borderBottom: '1px solid var(--neutral-100)' }}>
+                <BodyText size={16} weight={500} color="var(--neutral-900)">
+                  Agents ({personaItems.length})
+                </BodyText>
+              </div>
+              {personaItems.map((item, idx) => (
+                <div key={item.id}>
+                  {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
+                  <UsedByRow item={item} />
+                </div>
+              ))}
+            </PageCard>
+          )}
+          {brainItems.length > 0 && (
+            <PageCard style={{ padding: '12px 0' }}>
+              <div style={{ padding: '12px 24px 20px', borderBottom: '1px solid var(--neutral-100)' }}>
+                <BodyText size={16} weight={500} color="var(--neutral-900)">
+                  Brain ({brainItems.length})
+                </BodyText>
+              </div>
+              {brainItems.map((item, idx) => (
+                <div key={item.id}>
+                  {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
+                  <UsedByRow item={item} />
+                </div>
+              ))}
+            </PageCard>
+          )}
+          {personaItems.length === 0 && brainItems.length === 0 && (
+            <PageCard style={{ padding: '32px 24px', textAlign: 'center' } as React.CSSProperties}>
+              <BodyText color="var(--neutral-400)">
+                No agents or Brain automations are using this connector
+              </BodyText>
+            </PageCard>
+          )}
+        </div>
+      )}
+
+      {addAccountOpen && (
+        <AddAccountModal
+          connector={connector}
+          onClose={() => setAddAccountOpen(false)}
+          onConnect={onConnect}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Used-by row ───────────────────────────────────────────────────────────────
+
+function UsedByRow({ item }: { item: ConnectorUsedByItem }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 24px' }}>
+      <div
+        style={{
+          width:           36,
+          height:          36,
+          borderRadius:    item.kind === 'persona' ? '50%' : 8,
+          backgroundColor: 'var(--blue-100, #cadcf1)',
+          display:         'flex',
+          alignItems:      'center',
+          justifyContent:  'center',
+          flexShrink:      0,
+          color:           'var(--blue-700, #135487)',
+        }}
+      >
+        {item.kind === 'persona' ? <UserIcon size={20} /> : <WorkflowSquareTenIcon size={20} />}
+      </div>
+      <div style={{ flex: '1 0 0', minWidth: 0 }}>
+        <BodyText weight={500} color="var(--neutral-900)">{item.name}</BodyText>
+        <BodyText size={11}>{item.subtitle}</BodyText>
+      </div>
+      <Button variant="outline" size="sm" rightIcon={<ArrowRightOneIcon size={16} />}>
+        View
+      </Button>
+    </div>
+  )
+}
+
+// ── Change scope modal ────────────────────────────────────────────────────────
+
+function ChangeScopeModal({
+  account,
+  connector,
+  onClose,
+}: {
+  account:   ConnectorAccount
+  connector: ConnectorCatalogEntry
+  onClose:   () => void
+}) {
+  const [scope, setScope] = useState<AddAccountScope>(
+    account.scope === 'personal' ? 'personal' : 'shared-team'
+  )
+
+  const affectedRows = [
+    { title: 'Disconnect account',  subtitle: `Remove this ${connector.display_name} account from Souvenir entirely.` },
+    { title: 'Project',             subtitle: 'Q3 Launch' },
+    { title: 'Brain automation',    subtitle: 'Weekly digest' },
+  ]
+
+  return (
+    <>
+      {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop */}
+      <div
+        onClick={onClose}
+        style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(18,12,8,0.5)', backdropFilter: 'blur(2px)', zIndex: 50 }}
+      />
+      <div
+        className="kaya-scrollbar"
+        style={{
+          position:        'fixed',
+          top:             '50%',
+          left:            '50%',
+          transform:       'translate(-50%, -50%)',
+          zIndex:          51,
+          width:           708,
+          maxWidth:        'calc(100vw - 48px)',
+          maxHeight:       'calc(100vh - 48px)',
+          overflowY:       'auto',
+          borderRadius:    20,
+          backgroundColor: '#f7f2ed',
+          boxShadow:       '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)',
+          padding:         8,
+        }}
+      >
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Header */}
+          <div style={{ padding: '12px 12px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <h2 style={{ flex: '1 0 0', fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+              Change scope
+            </h2>
+            <IconButton variant="ghost" size="sm" aria-label="Close" icon={<CancelOneIcon size={20} />} onClick={onClose} />
+          </div>
+
+          {/* Description */}
+          <div style={{ padding: '0 12px 12px' }}>
+            <BodyText color="var(--neutral-500)">
+              Pick a new scope. Souvenir disconnects this account and reconnects it under the new owner — scope cannot be switched in place.
+            </BodyText>
+          </div>
+
+          {/* Scope radio cards */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <button
+              type="button"
+              onClick={() => setScope('personal')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: 12, borderRadius: 16, border: 'none', cursor: 'pointer',
+                backgroundColor: 'white', textAlign: 'left', width: '100%',
+                boxShadow: scope === 'personal'
+                  ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--blue-500, #4a83bf)'
+                  : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+              }}
+            >
+              <span style={{ width: 20, height: 20, borderRadius: '50%', border: `2px solid ${scope === 'personal' ? '#0a7aff' : 'var(--neutral-300, #a89e97)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {scope === 'personal' && <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#0a7aff' }} />}
+              </span>
+              <div>
+                <BodyText size={16} weight={500} color="var(--neutral-900)">Personal</BodyText>
+                <BodyText>Only you. Stays private and never enters team work.</BodyText>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setScope('shared-team')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: 12, borderRadius: 16, border: 'none', cursor: 'pointer',
+                backgroundColor: 'white', textAlign: 'left', width: '100%',
+                boxShadow: scope === 'shared-team'
+                  ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--blue-500, #4a83bf)'
+                  : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+              }}
+            >
+              <span style={{ width: 20, height: 20, borderRadius: '50%', border: `2px solid ${scope === 'shared-team' ? '#0a7aff' : 'var(--neutral-300, #a89e97)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {scope === 'shared-team' && <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#0a7aff' }} />}
+              </span>
+              <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                <div>
+                  <BodyText size={16} weight={500} color="var(--neutral-900)">Shared Team</BodyText>
+                  <BodyText>All members can attach it · Runs on the team plan.</BodyText>
+                </div>
+                {scope === 'shared-team' && (
+                  <Button variant="outline" size="sm" rightIcon={
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  }>
+                    Team Name
+                  </Button>
+                )}
+              </div>
+            </button>
+          </div>
+
+          {/* Red danger impact section */}
+          <div style={{ border: '1px solid var(--red-400, #ee3030)', borderRadius: 16, overflow: 'hidden' }}>
+            {affectedRows.map((row, idx) => (
+              <div key={row.title}>
+                {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
+                <div style={{ padding: '6px 24px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+                  <div>
+                    <BodyText size={16} weight={500} color="var(--neutral-900)">{row.title}</BodyText>
+                    <BodyText size={11}>{row.subtitle}</BodyText>
+                  </div>
+                  <BodyText size={16} weight={600} color="var(--red-500, #c62b29)">5</BodyText>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <div style={{ paddingTop: 12 }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                background: 'linear-gradient(to bottom, var(--neutral-700, #524b47), var(--neutral-900, #26211e))',
+                color: 'var(--neutral-50, #f7f2ed)', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
+                boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08',
+              }}
+            >
+              Disconnect &amp; continue
+              <ArrowRightOneIcon size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── Disconnect account modal ───────────────────────────────────────────────────
+
+function DisconnectAccountModal({
+  connector,
+  onClose,
+}: {
+  connector: ConnectorCatalogEntry
+  onClose:   () => void
+}) {
+  const affectedRows = [
+    { title: 'Disconnect account',  subtitle: `Remove this ${connector.display_name} account from Souvenir entirely.` },
+    { title: 'Project',             subtitle: 'Q3 Launch' },
+    { title: 'Brain automation',    subtitle: 'Weekly digest' },
+  ]
+
+  return (
+    <>
+      {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop */}
+      <div
+        onClick={onClose}
+        style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(18,12,8,0.5)', backdropFilter: 'blur(2px)', zIndex: 50 }}
+      />
+      <div
+        className="kaya-scrollbar"
+        style={{
+          position:        'fixed',
+          top:             '50%',
+          left:            '50%',
+          transform:       'translate(-50%, -50%)',
+          zIndex:          51,
+          width:           708,
+          maxWidth:        'calc(100vw - 48px)',
+          maxHeight:       'calc(100vh - 48px)',
+          overflowY:       'auto',
+          borderRadius:    20,
+          backgroundColor: '#f7f2ed',
+          boxShadow:       '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)',
+          padding:         8,
+        }}
+      >
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Header */}
+          <div style={{ padding: '12px 12px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <h2 style={{ flex: '1 0 0', fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+              Disconnect account
+            </h2>
+            <IconButton variant="ghost" size="sm" aria-label="Close" icon={<CancelOneIcon size={20} />} onClick={onClose} />
+          </div>
+
+          {/* Description */}
+          <div style={{ padding: '0 12px 12px' }}>
+            <BodyText color="var(--neutral-500)">
+              Pick a new scope. Souvenir disconnects this account and reconnects it under the new owner — scope cannot be switched in place.
+            </BodyText>
+          </div>
+
+          {/* Red danger impact section */}
+          <div style={{ border: '1px solid var(--red-400, #ee3030)', borderRadius: 16, overflow: 'hidden' }}>
+            {affectedRows.map((row, idx) => (
+              <div key={row.title}>
+                {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
+                <div style={{ padding: '6px 24px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+                  <div>
+                    <BodyText size={16} weight={500} color="var(--neutral-900)">{row.title}</BodyText>
+                    <BodyText size={11}>{row.subtitle}</BodyText>
+                  </div>
+                  <BodyText size={16} weight={600} color="var(--red-500, #c62b29)">5</BodyText>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <div style={{ paddingTop: 12 }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                background: 'linear-gradient(to bottom, var(--neutral-700, #524b47), var(--neutral-900, #26211e))',
+                color: 'var(--neutral-50, #f7f2ed)', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
+                boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08',
+              }}
+            >
+              Disconnect
+              <ArrowRightOneIcon size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── Account detail view (Tools / Access / Settings tabs) ──────────────────────
+
+function AccountDetailView({
+  account,
+  connector,
+  onBack,
+}: {
+  account:   ConnectorAccount
+  connector: ConnectorCatalogEntry
+  onBack:    () => void
+}) {
+  const [accountTab,      setAccountTab]      = useState<AccountTab>('tools')
+  const [changeScopeOpen, setChangeScopeOpen] = useState(false)
+  const [disconnectOpen,  setDisconnectOpen]  = useState(false)
+  const [confirmLabel,    setConfirmLabel]    = useState('')
+  const [enabled,         setEnabled]         = useState(true)
+
+  const tools       = connector.tools ?? []
+  const scopeLabel  = account.scope === 'personal' ? 'Personal' : 'Shared · Team'
+  const scopeVariant: 'team' | 'personal' = account.scope === 'personal' ? 'personal' : 'team'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <button
+          type="button"
+          onClick={onBack}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0, border: 'none',
+            background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-body)',
+            fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', alignSelf: 'flex-start',
+          }}
+        >
+          ← {connector.display_name}
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>
+            {connector.display_name} — {account.label}
+          </h1>
+          <ScopeBadge label={scopeLabel} variant={scopeVariant} />
+        </div>
+        <BodyText style={{ padding: '0 6px' }}>
+          What Souvenir is allowed to do with this account. Ask = a human approves first (Approval Gate). High-impact actions default to Ask.
+        </BodyText>
+        <div style={{ display: 'flex', gap: 8, padding: '0 6px' }}>
+          <ScopeBadge label={account.email} variant="personal" />
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <TabGroup
+        tabs={[
+          { id: 'tools',    label: 'Tools',    badge: <CountBadge count={tools.length} /> },
+          { id: 'access',   label: 'Access' },
+          { id: 'settings', label: 'Settings' },
+        ]}
+        value={accountTab}
+        onChange={setAccountTab}
+      />
+
+      {/* ── Tools tab ── */}
+      {accountTab === 'tools' && (
+        <PageCard style={{ padding: '12px 0' }}>
+          <div style={{ padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24 }}>
+            <div>
+              <BodyText size={16} weight={500} color="var(--neutral-900)">Tool permissions</BodyText>
+              <BodyText size={11}>{connector.description}</BodyText>
+            </div>
+            <Button variant="default" size="sm">Allow all</Button>
+          </div>
+          {tools.length === 0 ? (
+            <div style={{ padding: '32px 24px', textAlign: 'center' }}>
+              <BodyText color="var(--neutral-400)">No tools configured</BodyText>
+            </div>
+          ) : (
+            tools.map((tool, idx) => (
+              <div key={tool.slug}>
+                {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 24px' }}>
+                  <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                    <BodyText weight={500} color="var(--neutral-900)">{tool.slug}</BodyText>
+                  </div>
+                  <PolicyDropdown value={API_TO_UI_POLICY[tool.policy]} onChange={() => {}} />
+                </div>
+              </div>
+            ))
+          )}
+        </PageCard>
+      )}
+
+      {/* ── Access tab ── */}
+      {accountTab === 'access' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Scope card */}
+          <PageCard style={{ padding: '12px 0' }}>
+            <div style={{ padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+              <BodyText size={16} weight={500} color="var(--neutral-900)">Scope</BodyText>
+              <BodyText size={11}>Who this account is available to. Scope is chosen when the account is connected.</BodyText>
+            </div>
+            <div style={{ padding: '10px 24px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24 }}>
+              <div>
+                <BodyText weight={500} color="var(--neutral-900)">{scopeLabel}</BodyText>
+                <BodyText size={11}>
+                  {account.scope === 'personal'
+                    ? 'Only you. Stays private and never enters team work.'
+                    : 'All members can attach this account. It runs on the team plan.'}
+                </BodyText>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setChangeScopeOpen(true)}>Change scope</Button>
+            </div>
+            <div style={{ padding: '0 24px 12px' }}>
+              <div
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 6px',
+                  borderRadius: 6, backgroundColor: 'var(--yellow-100, #e9dfc9)',
+                  boxShadow: '0px 1px 1.5px rgba(20,16,5,0.2), 0px 0px 0px 1px rgba(143,116,39,0.5)',
+                }}
+              >
+                <InformationCircleIcon size={10} style={{ color: 'var(--yellow-700, #6d5921)', flexShrink: 0 }} />
+                <BodyText size={11} color="var(--yellow-700, #6d5921)" weight={500}>
+                  Changing scope reconnects the account under a new owner — it cannot be switched in place.
+                </BodyText>
+              </div>
+            </div>
+          </PageCard>
+
+          {/* Who can use it card */}
+          <PageCard style={{ padding: '12px 0' }}>
+            <div style={{ padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+              <BodyText size={16} weight={500} color="var(--neutral-900)">Who can use it</BodyText>
+              <BodyText size={11}>Members of the workspace can attach this account to team resources.</BodyText>
+            </div>
+            <div style={{ padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+              <div>
+                <BodyText weight={500} color="var(--neutral-900)">Agents</BodyText>
+                <BodyText size={11}>—</BodyText>
+              </div>
+              <BodyText size={16} weight={600} color="var(--neutral-900)">0</BodyText>
+            </div>
+            <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />
+            <div style={{ padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+              <div>
+                <BodyText weight={500} color="var(--neutral-900)">Brain automations</BodyText>
+                <BodyText size={11}>—</BodyText>
+              </div>
+              <BodyText size={16} weight={600} color="var(--neutral-900)">0</BodyText>
+            </div>
+          </PageCard>
+        </div>
+      )}
+
+      {/* ── Settings tab ── */}
+      {accountTab === 'settings' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Account label */}
+          <PageCard style={{ padding: '12px 0' }}>
+            <div style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 24 }}>
+              <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                <BodyText size={16} weight={500} color="var(--neutral-900)">Account label</BodyText>
+                <BodyText size={11}>Souvenir uses the label to tell your connections apart.</BodyText>
+              </div>
+              <div style={{ width: 327, flexShrink: 0 }}>
+                <InputField
+                  fluid
+                  placeholder={`Type "${account.label}" to confirm`}
+                  value=""
+                  onChange={() => {}}
+                />
+              </div>
+            </div>
+          </PageCard>
+
+          {/* Enable connection */}
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius:    16,
+              boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+              padding:         '12px 24px',
+              display:         'flex',
+              alignItems:      'center',
+              justifyContent:  'space-between',
+              gap:             24,
+            }}
+          >
+            <div>
+              <BodyText size={16} weight={500} color="var(--neutral-900)">Enable connection</BodyText>
+              <BodyText>Allow Souvenir to use this {connector.display_name} account.</BodyText>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <Switch checked={enabled} onCheckedChange={setEnabled} />
+              <BodyText size={14} color="var(--neutral-900)">{enabled ? 'On' : 'Off'}</BodyText>
+            </div>
+          </div>
+
+          {/* Disconnect account */}
+          <div
+            style={{
+              border:       '1px solid var(--red-400, #ee3030)',
+              borderRadius: 16,
+              boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
+              padding:      '6px 24px 12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 24, paddingTop: 6, flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                <BodyText size={16} weight={500} color="var(--neutral-900)">Disconnect account</BodyText>
+                <BodyText>Remove this {connector.display_name} account from Souvenir entirely.</BodyText>
+              </div>
+              <div style={{ width: 327, flexShrink: 0 }}>
+                <InputField
+                  fluid
+                  placeholder={`Type "${account.label}" to confirm`}
+                  value={confirmLabel}
+                  onChange={setConfirmLabel}
+                />
+              </div>
+              <DangerOutlineButton onClick={() => setDisconnectOpen(true)}>
+                Disconnect account
+              </DangerOutlineButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {changeScopeOpen && (
+        <ChangeScopeModal account={account} connector={connector} onClose={() => setChangeScopeOpen(false)} />
+      )}
+      {disconnectOpen && (
+        <DisconnectAccountModal connector={connector} onClose={() => setDisconnectOpen(false)} />
+      )}
+    </div>
+  )
+}
+
+function PermissionsTab() {
+  const [canAddAccounts, setCanAddAccounts] = useState(true)
+  const [canApprove,     setCanApprove]     = useState(true)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Info banner */}
+      <div
+        style={{
+          display:         'flex',
+          alignItems:      'flex-start',
+          gap:             10,
+          padding:         '12px 16px',
+          borderRadius:    12,
+          backgroundColor: 'var(--blue-50, #eff6ff)',
+          boxShadow:       '0px 0px 0px 1px rgba(13,110,178,0.2)',
+        }}
+      >
+        <InformationCircleIcon size={18} style={{ color: 'var(--blue-600)', flexShrink: 0, marginTop: 2 }} />
+        <BodyText size={14} color="var(--blue-800, #1e4f78)">
+          Editor permissions apply to all editors in this workspace. Changes take effect immediately.
+        </BodyText>
+      </div>
+
+      {/* Editor permissions card */}
+      <PageCard>
+        <div style={{ padding: '16px 24px 20px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <BodyText size={14} weight={500} color="var(--neutral-900)">Editor permissions</BodyText>
+          <BodyText size={11}>Control what editors can do with workspace connectors.</BodyText>
+        </div>
+
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ flex: '1 0 0', minWidth: 0 }}>
+            <BodyText weight={500} color="var(--neutral-900)">Editors can add team accounts</BodyText>
+            <BodyText size={11}>Allow editors to connect new accounts to this workspace&apos;s connector list.</BodyText>
+          </div>
+          <Switch checked={canAddAccounts} onCheckedChange={setCanAddAccounts} />
+        </div>
+
+        <div style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ flex: '1 0 0', minWidth: 0 }}>
+            <BodyText weight={500} color="var(--neutral-900)">Editors can approve member requests</BodyText>
+            <BodyText size={11}>Allow editors to approve or decline connector requests from members.</BodyText>
+          </div>
+          <Switch checked={canApprove} onCheckedChange={setCanApprove} />
+        </div>
+      </PageCard>
+
+      {/* Recent editor activity */}
+      <PageCard>
+        <div style={{ padding: '16px 24px 20px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <BodyText size={14} weight={500} color="var(--neutral-900)">Recent editor activity</BodyText>
+          <BodyText size={11}>Actions taken by editors on this workspace&apos;s connectors.</BodyText>
+        </div>
+        <div style={{ padding: '12px 24px' }}>
+          {RECENT_ACTIVITY.length === 0 ? (
+            <BodyText color="var(--neutral-400)" style={{ textAlign: 'center', padding: '20px 0' }}>
+              No recent activity
+            </BodyText>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {RECENT_ACTIVITY.map((item, idx) => (
+                <div key={item.id}>
+                  {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
+                    <div
+                      style={{
+                        width:           32,
+                        height:          32,
+                        borderRadius:    '50%',
+                        backgroundColor: 'var(--blue-600)',
+                        display:         'flex',
+                        alignItems:      'center',
+                        justifyContent:  'center',
+                        flexShrink:      0,
+                      }}
+                    >
+                      <UserIcon size={16} color="white" />
+                    </div>
+                    <BodyText size={14} color="var(--neutral-700)" style={{ flex: '1 0 0', minWidth: 0 }}>
+                      <span style={{ fontWeight: 500, color: 'var(--neutral-900)' }}>{item.userName}</span>
+                      {' '}{item.action}
+                    </BodyText>
+                    <BodyText size={11} color="var(--neutral-400)" style={{ flexShrink: 0 }}>
+                      {item.timestamp}
+                    </BodyText>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </PageCard>
+    </div>
+  )
+}
+
 export default function OrgConnectorsPage() {
   const { org, currentUserRole } = useOrg()
   const isAdminView = currentUserRole === 'admin'
   const [tab,              setTab]              = useState<MainTab>('manage')
   const [requestModalOpen, setRequestModalOpen] = useState(false)
-  const [manageEntry,      setManageEntry]      = useState<ConnectorCatalogEntry | null>(null)
+  const [detailConnector,  setDetailConnector]  = useState<ConnectorCatalogEntry | null>(null)
   const [connectors,       setConnectors]       = useState<ConnectorCatalogEntry[]>([])
   const [refreshToken,     setRefreshToken]     = useState(0)
 
+  const pendingCount = PENDING_FROM_TEAM.length + PENDING_YOUR_ACCOUNTS.length
+
   const activeTab: MainTab = isAdminView
-    ? (tab === 'my' || tab === 'browse' ? 'manage' : tab)
-    : (tab === 'manage' || tab === 'requests' || tab === 'catalog' ? 'my' : tab)
+    ? (tab === 'browse' ? 'manage' : tab)
+    : (tab === 'manage' || tab === 'requests' || tab === 'permissions' || tab === 'catalog' ? 'my' : tab)
 
   useEffect(() => {
     listConnectors()
@@ -1727,6 +2889,20 @@ export default function OrgConnectorsPage() {
     }
   }
 
+  // When a connector is selected, render the detail drill-down instead of the tabs
+  if (detailConnector) {
+    return (
+      <PageShell>
+        <ConnectorDetailView
+          connector={detailConnector}
+          onBack={() => setDetailConnector(null)}
+          onConnect={handleConnect}
+        />
+        <RequestFromSouvenirDialog open={requestModalOpen} onOpenChange={setRequestModalOpen} />
+      </PageShell>
+    )
+  }
+
   return (
     <PageShell>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1741,9 +2917,37 @@ export default function OrgConnectorsPage() {
         <TabGroup
           tabs={isAdminView
             ? [
-                { id: 'manage',   label: 'Manage connectors' },
-                { id: 'requests', label: 'Request', badge: <Badge label="5" color="Red" /> },
-                { id: 'catalog',  label: 'Browse catalog' },
+                { id: 'manage',      label: 'Manage connectors' },
+                {
+                  id:    'requests',
+                  label: 'Approval request',
+                  badge: pendingCount > 0
+                    ? (
+                      <span
+                        style={{
+                          display:         'inline-flex',
+                          alignItems:      'center',
+                          justifyContent:  'center',
+                          minWidth:        18,
+                          height:          18,
+                          padding:         '0 5px',
+                          borderRadius:    999,
+                          backgroundColor: 'var(--red-500, #ef4444)',
+                          color:           'white',
+                          fontFamily:      'var(--font-body)',
+                          fontWeight:      600,
+                          fontSize:        11,
+                          lineHeight:      '16px',
+                        }}
+                      >
+                        {pendingCount}
+                      </span>
+                    )
+                    : undefined,
+                },
+                { id: 'permissions', label: 'Permissions' },
+                { id: 'my',          label: 'My connectors' },
+                { id: 'catalog',     label: 'Catalog' },
               ]
             : [
                 { id: 'my',     label: 'My Connectors' },
@@ -1761,7 +2965,7 @@ export default function OrgConnectorsPage() {
               connectors={connectors}
               onConnect={handleConnect}
               onDisconnect={handleDisconnect}
-              onManage={(e) => setManageEntry(e)}
+              onManage={(e) => setDetailConnector(e)}
             />
           )}
           {activeTab === 'requests' && (
@@ -1771,12 +2975,23 @@ export default function OrgConnectorsPage() {
               onRequestSouvenir={() => setRequestModalOpen(true)}
             />
           )}
+          {activeTab === 'permissions' && (
+            <PermissionsTab />
+          )}
+          {activeTab === 'my' && (
+            <MyConnectors
+              onBrowse={() => setTab('catalog')}
+              connectors={connectors}
+              onConnect={handleConnect}
+              onDisconnect={handleDisconnect}
+            />
+          )}
           {activeTab === 'catalog' && (
             <AdminCatalog
               connectors={connectors}
               onConnect={handleConnect}
               onDisconnect={handleDisconnect}
-              onManage={(e) => setManageEntry(e)}
+              onManage={(e) => setDetailConnector(e)}
               onRequestSouvenir={() => setRequestModalOpen(true)}
             />
           )}
@@ -1799,18 +3014,6 @@ export default function OrgConnectorsPage() {
       )}
 
       <RequestFromSouvenirDialog open={requestModalOpen} onOpenChange={setRequestModalOpen} />
-
-      {manageEntry && manageEntry.linked && (
-        <WorkspaceManageModal
-          entry={manageEntry}
-          onClose={() => setManageEntry(null)}
-          onUpdate={(updated) => {
-            setConnectors(prev => prev.map(c => c.slug === updated.slug ? updated : c))
-            if (!updated.linked) setManageEntry(null)
-          }}
-          isAdmin={isAdminView}
-        />
-      )}
     </PageShell>
   )
 }

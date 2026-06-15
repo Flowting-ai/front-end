@@ -133,7 +133,7 @@ export function PresetModelSelector(
              (Advanced label + Switch) at the right of the title row. */}
           <ModelFeaturedCard
             title="Muse"
-            description="Knows the work before you ask. Each task finds its way to the right mind, without you lifting a setting."
+            description="Cost-efficient routing for everyday tasks. Fast, smart, and easy on your credits."
             learnMoreHref="#"
           />
 

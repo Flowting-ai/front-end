@@ -62,9 +62,6 @@ const CAPTION_STYLE: React.CSSProperties = {
 
 type FeaturedMode = "muse" | "advanced"
 
-const FEATURED_DESCRIPTION =
-  "Knows the work before you ask. Each task finds its way to the right mind, without you lifting a setting."
-
 interface FeaturedModeRowProps {
   /** null means neither card is selected (a specific model is active) */
   mode: FeaturedMode | null
@@ -78,7 +75,7 @@ function FeaturedModeRow({ mode, onMuseSelect, onAdvancedSelect }: FeaturedModeR
       <div style={{ flex: "1 0 0", minWidth: 0 }}>
         <ModelFeaturedCard
           title="Muse"
-          description={FEATURED_DESCRIPTION}
+          description="Cost-efficient routing for everyday tasks. Fast, smart, and easy on your credits."
           selected={mode === "muse"}
           onSelectedChange={(next) => { if (next) onMuseSelect() }}
         />
@@ -86,7 +83,7 @@ function FeaturedModeRow({ mode, onMuseSelect, onAdvancedSelect }: FeaturedModeR
       <div style={{ flex: "1 0 0", minWidth: 0 }}>
         <ModelFeaturedCard
           title="Advanced"
-          description={FEATURED_DESCRIPTION}
+          description="Top-tier models for your most demanding work. Maximum quality, no compromises."
           selected={mode === "advanced"}
           onSelectedChange={(next) => { if (next) onAdvancedSelect() }}
         />

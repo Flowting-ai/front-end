@@ -386,17 +386,19 @@ export function TabsList({
             }),
           }}
         >
-          {pill && (
+          {/* In scrollable mode the active pill is handled by the hoisted
+              shadowRef (glass border outside the scroll container). Rendering
+              the white-bg + inner-shadow pair here as well would show two
+              active indicators simultaneously, so we skip it entirely. */}
+          {pill && !scrollable && (
             <>
-              {/* White bg — in scrollable mode has no outer shadow (hoisted above).
-                  Collapse mode uses a softer spring so the section switch reads as a
-                  deliberate glide rather than a snap (content tabs stay snappy). */}
+              {/* White bg + outer shadow */}
               <motion.div
                 aria-hidden
                 style={{
                   ...pillBase,
                   backgroundColor: 'var(--tab-item-bg-selected)',
-                  ...(!scrollable && { boxShadow: 'var(--shadow-tab-item-selected)' }),
+                  boxShadow: 'var(--shadow-tab-item-selected)',
                 }}
                 animate={{ x: pill.x, width: pill.width }}
                 initial={false}
