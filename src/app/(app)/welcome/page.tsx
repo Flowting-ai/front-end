@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
+import { toast } from "sonner";
 
 // ── Icons (monochrome line icons, inherit currentColor) ──────────────────────────
 
@@ -67,6 +68,7 @@ interface ActionCard {
   bg: string;
   titleWeight: number;
   route: string;
+  toastMessage: string;
 }
 
 const ACTION_CARDS: ActionCard[] = [
@@ -78,6 +80,7 @@ const ACTION_CARDS: ActionCard[] = [
     bg: "var(--neutral-50, #f7f2ed)",
     titleWeight: 500,
     route: "/org/members",
+    toastMessage: "Opening team members — add teammates, no per-seat cost.",
   },
   {
     key: "team",
@@ -87,6 +90,7 @@ const ACTION_CARDS: ActionCard[] = [
     bg: "var(--neutral-white, #fff)",
     titleWeight: 500,
     route: "/org/teams",
+    toastMessage: "Opening teams — create a dedicated workspace for your team.",
   },
   {
     key: "project",
@@ -96,6 +100,7 @@ const ACTION_CARDS: ActionCard[] = [
     bg: "var(--neutral-white, #fff)",
     titleWeight: 500,
     route: "/projects/new",
+    toastMessage: "Opening projects — set up a shared space for your work.",
   },
   {
     key: "slack",
@@ -104,7 +109,8 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <SlackLogo />,
     bg: "var(--neutral-white, #fff)",
     titleWeight: 600,
-    route: "/org/connectors",
+    route: "/org/connectors?q=slack",
+    toastMessage: "Opening connectors — link your Slack channels to give Brain context.",
   },
   {
     key: "approval",
@@ -114,6 +120,7 @@ const ACTION_CARDS: ActionCard[] = [
     bg: "var(--neutral-white, #fff)",
     titleWeight: 500,
     route: "/org/security",
+    toastMessage: "Opening security settings — configure your team's approval gates.",
   },
 ];
 
@@ -299,7 +306,7 @@ function TeamWelcomeContent() {
           {/* Action grid — 3 columns × 2 rows */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, width: "100%" }}>
             {ACTION_CARDS.map((card) => (
-              <ActionCardView key={card.key} card={card} onClick={() => router.push(card.route)} />
+              <ActionCardView key={card.key} card={card} onClick={() => { toast.info(card.toastMessage); router.push(card.route) }} />
             ))}
             <InvoiceCardView />
           </div>
@@ -307,7 +314,7 @@ function TeamWelcomeContent() {
           {/* Primary action */}
           <div style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
             {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Open my workspace" is the explicit owner CTA into /chat */}
-            <Button size="sm" onClick={() => router.push("/chat")}>
+            <Button size="sm" onClick={() => { toast.success("Welcome to your workspace!"); router.push("/chat") }}>
               Open my workspace
             </Button>
           </div>

@@ -16,14 +16,14 @@ type ConnectorDef = {
 };
 
 const CONNECTORS: ConnectorDef[] = [
-  { id: "gmail",            name: "Gmail",            category: "Communication", logoPath: "/connector-logos/gmail.svg"            },
-  { id: "google-ads",       name: "Google Ads",       category: "Marketing",     logoPath: "/connector-logos/google-ads.svg"       },
-  { id: "google-analytics", name: "Google Analytics", category: "Analytics",     logoPath: "/connector-logos/google-analytics.svg" },
-  { id: "google-calendar",  name: "Google Calendar",  category: "Productivity",  logoPath: "/connector-logos/google-calendar.svg"  },
-  { id: "google-docs",      name: "Google Docs",      category: "Productivity",  logoPath: "/connector-logos/google-docs.svg"      },
-  { id: "google-drive",     name: "Google Drive",     category: "Productivity",  logoPath: "/connector-logos/google-drive.svg"     },
-  { id: "google-sheets",    name: "Google Sheets",    category: "Productivity",  logoPath: "/connector-logos/google-sheets.svg"    },
-  { id: "klaviyo",          name: "Klaviyo",          category: "Marketing",     logoPath: "/connector-logos/klaviyo.svg"          },
+  { id: "slack",              name: "Slack",         category: "Messaging",            logoPath: "/connector-logos/slack.svg"              },
+  { id: "google-sheets",      name: "Google Sheets", category: "Productivity",         logoPath: "/connector-logos/google-sheets.svg"      },
+  { id: "notion",             name: "Notion",        category: "Productivity",         logoPath: "/connector-logos/notion.svg"             },
+  { id: "stripe",             name: "Stripe",        category: "Payments",             logoPath: "/connector-logos/stripe.svg"             },
+  { id: "clickup",            name: "ClickUp",       category: "Project Management",   logoPath: "/connector-logos/clickup.svg"            },
+  { id: "google-drive",       name: "Google Drive",  category: "Storage",              logoPath: "/connector-logos/google-drive.svg"       },
+  { id: "microsoft-onedrive", name: "OneDrive",      category: "Storage",              logoPath: "/connector-logos/microsoft-onedrive.svg" },
+  { id: "dropbox",            name: "Dropbox",       category: "Storage",              logoPath: "/connector-logos/dropbox.svg"            },
 ];
 
 // ── Card ────────────────────────────────────────────────────────────────────────

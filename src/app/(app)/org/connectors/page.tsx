@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState, Suspense } from 'react'
 import Image from 'next/image'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import * as Dialog from '@radix-ui/react-dialog'
 import { listConnectors, initiateLink, unlinkConnector, updateConnector, pollConnectorUntilActive } from '@/lib/api/connectors'
@@ -528,8 +529,8 @@ function RequestCta({ onClick }: { onClick: () => void }) {
 // (CancelOneIcon) appears to clear the text while keeping the input open.
 // Pressing Escape or clicking the search icon again collapses and clears.
 
-function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [open, setOpen]   = useState(false)
+function SearchBar({ value, onChange, initialOpen = false }: { value: string; onChange: (v: string) => void; initialOpen?: boolean }) {
+  const [open, setOpen]   = useState(initialOpen)
   const inputRef          = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -706,12 +707,14 @@ function NoticeCard() {
 function CatalogCard({
   connectors,
   onConnect,
+  initialSearch = '',
 }: {
-  connectors: ConnectorCatalogEntry[]
-  onConnect:  (slug: string) => void
+  connectors:     ConnectorCatalogEntry[]
+  onConnect:      (slug: string) => void
+  initialSearch?: string
 }) {
   const [category,    setCategory]    = useState<CategoryTab>('All')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(initialSearch)
 
   const q = searchQuery.toLowerCase().trim()
   const categoryFiltered = category === 'All' ? connectors : connectors.filter(c => CONNECTOR_CATEGORY_MAP[c.slug] === category)
@@ -729,7 +732,7 @@ function CatalogCard({
           size="small"
         />
         <div style={{ position: 'absolute', right: 24, top: 13 }}>
-          <SearchBar value={searchQuery} onChange={setSearchQuery} />
+          <SearchBar value={searchQuery} onChange={setSearchQuery} initialOpen={!!initialSearch} />
         </div>
       </div>
 
@@ -920,14 +923,16 @@ function AdminManageConnectors({
   onConnect,
   onDisconnect,
   onManage,
+  initialSearch = '',
 }: {
-  connectors:   ConnectorCatalogEntry[]
-  onConnect:    (slug: string) => void
-  onDisconnect: (slug: string) => void
-  onManage?:    (entry: ConnectorCatalogEntry) => void
+  connectors:    ConnectorCatalogEntry[]
+  onConnect:     (slug: string) => void
+  onDisconnect:  (slug: string) => void
+  onManage?:     (entry: ConnectorCatalogEntry) => void
+  initialSearch?: string
 }) {
   const [category,    setCategory]    = useState<CategoryTab>('All')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(initialSearch)
 
   const q = searchQuery.toLowerCase().trim()
   const searchFiltered = connectors.filter(c =>
@@ -948,7 +953,7 @@ function AdminManageConnectors({
             size="small"
           />
           <div style={{ position: 'absolute', right: 24, top: 13 }}>
-            <SearchBar value={searchQuery} onChange={setSearchQuery} />
+            <SearchBar value={searchQuery} onChange={setSearchQuery} initialOpen={!!initialSearch} />
           </div>
         </div>
 
@@ -2837,10 +2842,15 @@ function PermissionsTab() {
   )
 }
 
-export default function OrgConnectorsPage() {
+function OrgConnectorsPageContent() {
   const { org, currentUserRole } = useOrg()
+  const params = useSearchParams()
+  const initialSearch = params.get('q') ?? ''
   const isAdminView = currentUserRole === 'admin'
-  const [tab,              setTab]              = useState<MainTab>('manage')
+  const defaultTab: MainTab = initialSearch
+    ? (isAdminView ? 'manage' : 'browse')
+    : 'manage'
+  const [tab,              setTab]              = useState<MainTab>(defaultTab)
   const [requestModalOpen, setRequestModalOpen] = useState(false)
   const [detailConnector,  setDetailConnector]  = useState<ConnectorCatalogEntry | null>(null)
   const [connectors,       setConnectors]       = useState<ConnectorCatalogEntry[]>([])
@@ -2966,6 +2976,7 @@ export default function OrgConnectorsPage() {
               onConnect={handleConnect}
               onDisconnect={handleDisconnect}
               onManage={(e) => setDetailConnector(e)}
+              initialSearch={initialSearch}
             />
           )}
           {activeTab === 'requests' && (
@@ -3009,11 +3020,20 @@ export default function OrgConnectorsPage() {
           <CatalogCard
             connectors={connectors.filter(c => !c.linked)}
             onConnect={handleConnect}
+            initialSearch={initialSearch}
           />
         </div>
       )}
 
       <RequestFromSouvenirDialog open={requestModalOpen} onOpenChange={setRequestModalOpen} />
     </PageShell>
+  )
+}
+
+export default function OrgConnectorsPage() {
+  return (
+    <Suspense fallback={null}>
+      <OrgConnectorsPageContent />
+    </Suspense>
   )
 }
