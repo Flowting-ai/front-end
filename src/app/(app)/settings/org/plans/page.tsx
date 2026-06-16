@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { CancelOneIcon, PenOneIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
-import { CardBrandLogo } from '@/components/CardBrandLogo'
+import { CardBrandLogo, type CardBrand } from '@/components/CardBrandLogo'
 import { useOrg } from '@/context/org-context'
 import {
   fetchBilling,
@@ -12,454 +13,244 @@ import {
   type BillingInfo,
 } from '@/lib/api/stripe'
 
-// ── Stat card ─────────────────────────────────────────────────────────────────
+/*
+ * Settings → Organization → Billing ("Plans & Usage")
+ * Figma — Kaya Design System:
+ *   Teams Owner   6017:30243   Teams Admin   6017:30577
+ *   Ent.  Owner   6017:30739   Ent.  Admin   6017:31067
+ *   Buy more credits modal     6017:29823
+ *   Monthly spend cap modal    6017:30157
+ *
+ * Tokens (Figma → CSS var): all colors/spacing map onto the existing Kaya vars.
+ */
 
-function StatCard({
+// ── Shared style constants (exact Figma values) ───────────────────────────────
+
+const SHADOW_CARD    = '0px 2px 2.8px 0px rgba(82,75,71,0.12)'                                   // bordered section card
+const SHADOW_TILE     = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)' // white inner tile
+const SHADOW_HERO    = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 1px 0px 1px var(--neutral-100)'  // gradient hero panel
+const SHADOW_MODAL   = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)'
+const SHADOW_SWITCH_ON  = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.7)'
+const SHADOW_SWITCH_OFF = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
+const SHADOW_INPUT   = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+
+// Hero gradient — extracted verbatim from Figma (mauve + gold radial blend, image fill).
+const HERO_GRADIENT_TEAMS =
+  "url(\"data:image/svg+xml;utf8,<svg viewBox='0 0 1090 372' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'><rect x='0' y='0' height='100%' width='100%' fill='url(%23grad)' opacity='0.8'/><defs><radialGradient id='grad' gradientUnits='userSpaceOnUse' cx='0' cy='0' r='10' gradientTransform='matrix(182.6 25.368 -6.6498 62.021 18.115 356.78)'><stop stop-color='rgba(248,236,249,1)' offset='0.14157'/><stop stop-color='rgba(222,208,223,1)' offset='0.41669'/><stop stop-color='rgba(222,208,223,1)' offset='0.5657'/><stop stop-color='rgba(174,156,175,1)' offset='0.746'/><stop stop-color='rgba(149,129,151,1)' offset='0.83615'/><stop stop-color='rgba(125,103,127,1)' offset='0.92631'/></radialGradient></defs></svg>\"), " +
+  "url(\"data:image/svg+xml;utf8,<svg viewBox='0 0 1090 372' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'><rect x='0' y='0' height='100%' width='100%' fill='url(%23grad)' opacity='1'/><defs><radialGradient id='grad' gradientUnits='userSpaceOnUse' cx='0' cy='0' r='10' gradientTransform='matrix(140.38 29.757 -6.1283 47.447 440.34 312.89)'><stop stop-color='rgba(199,179,135,1)' offset='0.14157'/><stop stop-color='rgba(181,158,103,1)' offset='0.53394'/><stop stop-color='rgba(162,136,71,1)' offset='0.92631'/></radialGradient></defs></svg>\")"
+
+// ── Plan tiers (DECISIONS.md, matches Figma slider markers) ────────────────────
+
+const TIERS = [
+  { price: 125,   credits: 60_000 },
+  { price: 250,   credits: 125_000 },
+  { price: 500,   credits: 250_000 },
+  { price: 1_000, credits: 500_000 },
+  { price: 1_500, credits: 750_000 },
+  { price: 2_000, credits: 1_000_000 },
+]
+
+// Top-up packs (DECISIONS.md) — labels/prices per Figma "Buy more credits".
+const TOP_UPS = [
+  { badge: 'Small',    credits: 1_000,  price: 2 },
+  { badge: 'Save 7%',  credits: 5_000,  price: 10 },
+  { badge: 'Save 10%', credits: 15_000, price: 30 },
+  { badge: 'Save 15%', credits: 50_000, price: 100 },
+]
+
+// ── Small primitives ───────────────────────────────────────────────────────────
+
+const fmtUsd = (n: number) =>
+  `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+/** Read-only / toggleable switch — Figma 34×20, blue-400 on / neutral-100 off. */
+function Switch({
+  on,
+  onToggle,
+  disabled,
+}: {
+  on: boolean
+  onToggle?: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      disabled={disabled || !onToggle}
+      onClick={onToggle}
+      style={{
+        width:        34,
+        height:       20,
+        borderRadius: 20,
+        border:       'none',
+        padding:      0,
+        position:     'relative',
+        flexShrink:   0,
+        cursor:       disabled || !onToggle ? 'default' : 'pointer',
+        background:   on ? 'var(--blue-400)' : 'var(--neutral-100)',
+        boxShadow:    on ? SHADOW_SWITCH_ON : SHADOW_SWITCH_OFF,
+        transition:   'background 0.18s',
+      }}
+    >
+      <span style={{
+        display:      'block',
+        position:     'absolute',
+        top:          2,
+        left:         on ? 16 : 2,
+        width:        16,
+        height:       16,
+        borderRadius: 9.5,
+        background:   'var(--neutral-white, #fff)',
+        boxShadow:    on
+          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.4)'
+          : SHADOW_SWITCH_OFF,
+        transition:   'left 0.18s',
+      }} />
+    </button>
+  )
+}
+
+/** Pill badge — blue (info), yellow (note), neutral, green / red (status). */
+function Badge({ label, tone }: { label: string; tone: 'blue' | 'yellow' | 'neutral' | 'green' | 'red' }) {
+  const map = {
+    blue:    { bg: 'var(--blue-100)',    fg: 'var(--blue-700)',    ring: 'rgba(13,110,178,0.5)' },
+    yellow:  { bg: 'var(--yellow-100)',  fg: 'var(--yellow-700)',  ring: 'rgba(143,116,39,0.5)' },
+    neutral: { bg: 'var(--neutral-100)', fg: 'var(--neutral-700)', ring: 'rgba(106,98,93,0.5)' },
+    green:   { bg: 'var(--green-50)',    fg: 'var(--green-800)',   ring: 'rgba(128,183,7,0.5)' },
+    red:     { bg: 'var(--red-100)',     fg: 'var(--red-700)',     ring: 'rgba(159,38,35,0.5)' },
+  }[tone]
+  return (
+    <span style={{
+      display:        'inline-flex',
+      alignItems:     'center',
+      padding:        '2px 4px',
+      borderRadius:   6,
+      background:     map.bg,
+      color:          map.fg,
+      boxShadow:      `0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px ${map.ring}`,
+      fontFamily:     'var(--font-body)',
+      fontWeight:     500,
+      fontSize:       11,
+      lineHeight:     '16px',
+      whiteSpace:     'nowrap',
+    }}>
+      {label}
+    </span>
+  )
+}
+
+/** White stat tile — label / value / sub. */
+function StatTile({
   label,
   value,
   sub,
-  action,
-  muted,
+  flex,
+  children,
 }: {
-  label:   string
-  value:   string | number
-  sub?:    string
-  action?: React.ReactNode
-  muted?:  boolean
+  label:    string
+  value?:   string
+  sub?:     string
+  flex?:    boolean
+  children?: React.ReactNode
 }) {
   return (
     <div style={{
-      flex:            '1 1 160px',
-      minWidth:        0,
-      background:      'white',
-      borderRadius:    12,
-      padding:         '16px 18px',
-      boxShadow:       '0px 1px 2px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px var(--neutral-100)',
-      display:         'flex',
-      flexDirection:   'column',
-      gap:             3,
+      background:    'var(--neutral-white, #fff)',
+      borderRadius:  8,
+      padding:       12,
+      boxShadow:     SHADOW_TILE,
+      display:       'flex',
+      flexDirection: 'column',
+      gap:           6,
+      flex:          flex ? '1 1 0' : '1 1 200px',
+      minWidth:      160,
     }}>
-      <p style={{
-        fontFamily:    'var(--font-body)',
-        fontWeight:    500,
-        fontSize:      11,
-        lineHeight:    '16px',
-        color:         'var(--neutral-500)',
-        margin:        0,
-        textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-      }}>
+      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
         {label}
       </p>
-      <p style={{
-        fontFamily: 'var(--font-title)',
-        fontWeight: 400,
-        fontSize:   26,
-        lineHeight: '34px',
-        color:      muted ? 'var(--neutral-400)' : 'var(--neutral-900)',
-        margin:     0,
-      }}>
-        {typeof value === 'number' ? value.toLocaleString() : value}
-      </p>
+      {value !== undefined && (
+        <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+          {value}
+        </p>
+      )}
       {sub && (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
           {sub}
         </p>
       )}
-      {action}
+      {children}
     </div>
   )
 }
 
-// ── Buy More Credits modal ────────────────────────────────────────────────────
-
-const CREDIT_PACKS = [
-  { credits: 1_000,  price: 10 },
-  { credits: 5_000,  price: 45 },
-  { credits: 10_000, price: 80 },
-  { credits: 25_000, price: 175 },
-]
-
-function BuyMoreCreditsModal({
-  onClose,
-  billing,
+/** Bordered section card with a header row (title / subtitle / action). */
+function SectionCard({
+  title,
+  subtitle,
+  action,
+  children,
+  bodyPadding = '12px 24px',
+  bodyGap,
 }: {
-  onClose:  () => void
-  billing:  BillingInfo | null
+  title:        string
+  subtitle?:    string
+  action?:      React.ReactNode
+  children:     React.ReactNode
+  bodyPadding?: string
+  bodyGap?:     number
 }) {
-  const [selectedPack,      setSelectedPack]      = useState(1)
-  const [useCustom,         setUseCustom]         = useState(false)
-  const [customUsd,         setCustomUsd]         = useState('')
-  const [rechargeThreshold, setRechargeThreshold] = useState('')
-  const [paying,            setPaying]            = useState(false)
-
-  const pack    = CREDIT_PACKS[selectedPack]
-  const amtUsd  = useCustom ? (parseFloat(customUsd) || 0) : pack.price
-  const pm      = billing?.payment_method
-
-  const handlePay = async () => {
-    if (amtUsd < 1) { toast.error('Minimum $1'); return }
-    if (!pm)        { toast.error('No payment method on file.'); return }
-    setPaying(true)
-    try {
-      await chargeTopUp({ amount_usd: amtUsd })
-      toast.success('Credits added successfully!')
-      onClose()
-    } catch {
-      toast.error('Payment failed. Please try again.')
-    } finally {
-      setPaying(false)
-    }
-  }
-
   return (
-    <div
-      style={{
-        position:       'fixed',
-        inset:          0,
-        zIndex:         1000,
-        background:     'rgba(18,12,8,0.5)',
-        backdropFilter: 'blur(2px)',
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        padding:        24,
-      }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
+    <div style={{
+      border:        '1px solid var(--neutral-200)',
+      borderRadius:  16,
+      boxShadow:     SHADOW_CARD,
+      display:       'flex',
+      flexDirection: 'column',
+      gap:           12,
+      paddingTop:    12,
+      paddingBottom: 12,
+      overflow:      'hidden',
+      width:         '100%',
+    }}>
       <div style={{
-        background:   '#f7f2ed',
-        borderRadius: 20,
-        width:        '100%',
-        maxWidth:     460,
-        boxShadow:    '0px 8px 32px rgba(18,12,8,0.22)',
-        overflow:     'hidden',
+        borderBottom: '1px solid var(--neutral-100)',
+        padding:      '0 24px 24px',
+        display:      'flex',
+        alignItems:   'center',
+        gap:          12,
       }}>
-        {/* Header */}
-        <div style={{ padding: '24px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, color: 'var(--neutral-900)', margin: 0 }}>
-            Buy more credits
+        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+            {title}
           </p>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', color: 'var(--neutral-400)', fontSize: 20, lineHeight: 1, borderRadius: 6 }}
-          >
-            ×
-          </button>
-        </div>
-
-        <div style={{ padding: '18px 24px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-          {/* Credit pack options */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {CREDIT_PACKS.map((p, i) => {
-              const active = !useCustom && selectedPack === i
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => { setSelectedPack(i); setUseCustom(false) }}
-                  style={{
-                    display:         'flex',
-                    alignItems:      'center',
-                    justifyContent:  'space-between',
-                    padding:         '11px 14px',
-                    borderRadius:    10,
-                    border:          `1.5px solid ${active ? 'var(--neutral-800)' : 'var(--neutral-200)'}`,
-                    background:      active ? 'white' : 'transparent',
-                    cursor:          'pointer',
-                    textAlign:       'left',
-                    transition:      'border-color 0.12s, background 0.12s',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)' }}>
-                      {p.credits.toLocaleString()} credits
-                    </span>
-                    {i === 1 && (
-                      <span style={{
-                        fontFamily:  'var(--font-body)',
-                        fontSize:    11,
-                        fontWeight:  600,
-                        padding:     '2px 8px',
-                        borderRadius: 99,
-                        background:  'var(--blue-100)',
-                        color:       'var(--blue-700)',
-                      }}>
-                        Popular
-                      </span>
-                    )}
-                  </div>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14, color: 'var(--neutral-700)' }}>
-                    ${p.price}
-                  </span>
-                </button>
-              )
-            })}
-
-            {/* Other / custom */}
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => setUseCustom(true)}
-              onKeyDown={e => e.key === 'Enter' && setUseCustom(true)}
-              style={{
-                display:     'flex',
-                alignItems:  'center',
-                gap:         10,
-                padding:     '11px 14px',
-                borderRadius: 10,
-                border:      `1.5px solid ${useCustom ? 'var(--neutral-800)' : 'var(--neutral-200)'}`,
-                background:  useCustom ? 'white' : 'transparent',
-                cursor:      'pointer',
-              }}
-            >
-              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-700)', flexShrink: 0 }}>
-                Other
-              </span>
-              <input
-                type="text"
-                value={customUsd}
-                onChange={e => setCustomUsd(e.target.value)}
-                onClick={e => e.stopPropagation()}
-                placeholder="$  amount in USD"
-                style={{
-                  flex:       '1 0 0',
-                  border:     'none',
-                  background: 'transparent',
-                  outline:    'none',
-                  fontFamily: 'var(--font-body)',
-                  fontSize:   14,
-                  color:      'var(--neutral-700)',
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Auto-recharge threshold */}
-          <div>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-700)', margin: '0 0 6px' }}>
-              Auto-recharge when below
+          {subtitle && (
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+              {subtitle}
             </p>
-            <div style={{
-              display:      'flex',
-              alignItems:   'center',
-              gap:          8,
-              border:       '1.5px solid var(--neutral-200)',
-              borderRadius: 8,
-              padding:      '8px 12px',
-              background:   'white',
-            }}>
-              <input
-                type="text"
-                value={rechargeThreshold}
-                onChange={e => setRechargeThreshold(e.target.value)}
-                placeholder="e.g. 2000"
-                style={{ flex: '1 0 0', border: 'none', background: 'transparent', outline: 'none', fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-700)' }}
-              />
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', flexShrink: 0 }}>credits</span>
-            </div>
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--neutral-200)' }} />
-
-          {/* Summary */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-700)', margin: 0 }}>
-              Summary
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600)' }}>
-                {useCustom
-                  ? (customUsd ? `$${customUsd} USD` : '—')
-                  : `${pack.credits.toLocaleString()} credits`}
-              </span>
-              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14, color: 'var(--neutral-900)' }}>
-                {useCustom ? (customUsd ? `$${customUsd}` : '—') : `$${pack.price}`}
-              </span>
-            </div>
-
-            {pm ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 2 }}>
-                <CardBrandLogo brand={(pm.brand ?? 'visa') as Parameters<typeof CardBrandLogo>[0]['brand']} />
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-600)' }}>
-                  {pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1) : 'Card'} ···· {pm.last4 ?? '••••'}
-                </span>
-              </div>
-            ) : (
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>
-                No payment method on file
-              </p>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-            <Button variant="default" size="sm" onClick={handlePay} disabled={paying || !pm}>
-              {paying ? 'Processing…' : 'Pay now'}
-            </Button>
-          </div>
+          )}
         </div>
+        {action}
+      </div>
+      <div style={{ padding: bodyPadding, display: 'flex', flexDirection: 'column', gap: bodyGap }}>
+        {children}
       </div>
     </div>
   )
 }
 
-// ── Monthly Spend Cap modal ───────────────────────────────────────────────────
+// ── Page ────────────────────────────────────────────────────────────────────────
 
-function MonthlySpendCapModal({
-  onClose,
-  currentCap,
-  totalCredits,
-  onSaved,
-}: {
-  onClose:      () => void
-  currentCap:   number | null
-  totalCredits: number
-  onSaved:      (cap: number) => void
-}) {
-  const [capValue, setCapValue] = useState(currentCap != null ? String(currentCap) : '')
-  const [saving,   setSaving]   = useState(false)
-
-  const handleSave = async () => {
-    const cap = parseInt(capValue.replace(/[^0-9]/g, ''), 10)
-    if (!cap || cap < 1) { toast.error('Enter a valid cap amount'); return }
-    setSaving(true)
-    try {
-      await new Promise<void>(r => setTimeout(r, 500))
-      onSaved(cap)
-      toast.success('Spend cap saved')
-      onClose()
-    } catch {
-      toast.error('Failed to save spend cap')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const now        = new Date()
-  const cycleStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const cycleEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-  const fmt        = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-
-  return (
-    <div
-      style={{
-        position:       'fixed',
-        inset:          0,
-        zIndex:         1000,
-        background:     'rgba(18,12,8,0.5)',
-        backdropFilter: 'blur(2px)',
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        padding:        24,
-      }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div style={{
-        background:   '#f7f2ed',
-        borderRadius: 20,
-        width:        '100%',
-        maxWidth:     400,
-        boxShadow:    '0px 8px 32px rgba(18,12,8,0.22)',
-        overflow:     'hidden',
-      }}>
-        <div style={{ padding: '24px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, color: 'var(--neutral-900)', margin: 0 }}>
-            Monthly spend cap
-          </p>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', color: 'var(--neutral-400)', fontSize: 20, lineHeight: 1, borderRadius: 6 }}
-          >
-            ×
-          </button>
-        </div>
-
-        <div style={{ padding: '18px 24px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-700)', margin: '0 0 6px' }}>
-              Monthly credit cap
-            </p>
-            <div style={{
-              display:      'flex',
-              alignItems:   'center',
-              gap:          8,
-              border:       '1.5px solid var(--neutral-200)',
-              borderRadius: 8,
-              padding:      '10px 14px',
-              background:   'white',
-            }}>
-              <input
-                autoFocus
-                type="text"
-                value={capValue}
-                onChange={e => setCapValue(e.target.value)}
-                placeholder="e.g. 50000"
-                style={{ flex: '1 0 0', border: 'none', background: 'transparent', outline: 'none', fontFamily: 'var(--font-body)', fontSize: 15, color: 'var(--neutral-900)' }}
-              />
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', flexShrink: 0 }}>credits</span>
-            </div>
-          </div>
-
-          {/* Cycle summary */}
-          <div style={{
-            background:   'white',
-            borderRadius: 10,
-            padding:      '12px 14px',
-            display:      'flex',
-            flexDirection: 'column',
-            gap:          4,
-            boxShadow:    '0px 0px 0px 1px var(--neutral-100)',
-          }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-600)', margin: 0 }}>
-              Billing cycle: <strong style={{ color: 'var(--neutral-800)' }}>{fmt(cycleStart)} – {fmt(cycleEnd)}</strong>
-            </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-600)', margin: 0 }}>
-              Pool size: <strong style={{ color: 'var(--neutral-800)' }}>{totalCredits.toLocaleString()} credits</strong>
-            </p>
-          </div>
-
-          {/* Info badge */}
-          <div style={{
-            display:      'flex',
-            gap:          8,
-            alignItems:   'flex-start',
-            background:   'var(--blue-50)',
-            borderRadius: 8,
-            padding:      '10px 12px',
-          }}>
-            <span style={{ fontSize: 14, color: 'var(--blue-500)', flexShrink: 0, marginTop: 1 }}>ⓘ</span>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--blue-700)', margin: 0 }}>
-              Setting a cap won&apos;t cancel credits already committed in the current cycle.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-            <Button variant="default" size="sm" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : 'Save spend cap'}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
-
-export default function OrgPlansPage() {
-  const {
-    org,
-    orgId,
-    orgRole,
-    plan,
-    members: orgMembers,
-    membersLoading,
-  } = useOrg()
+export default function OrgBillingPage() {
+  const { org, orgId, orgRole, plan, members: orgMembers } = useOrg()
 
   const isOwner      = orgRole === 'owner'
   const isAdminish   = orgRole === 'owner' || orgRole === 'admin'
@@ -469,9 +260,43 @@ export default function OrgPlansPage() {
   const [billingLoading, setBillingLoading] = useState(false)
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false)
   const [spendCapOpen,   setSpendCapOpen]   = useState(false)
-  const [spendCap,       setSpendCap]       = useState<number | null>(null)
-  const [adminCanBuy,    setAdminCanBuy]    = useState(false)
-  const [adminCanSetCap, setAdminCanSetCap] = useState(false)
+
+  // Plan / config (no canonical backend source yet — sensible local defaults).
+  const totalCredits   = plan?.totalCredits ?? 0
+  const usedCredits    = plan?.used         ?? 0
+  const remainingCreds = plan?.remaining    ?? 0
+  const membersCount   = orgMembers.length
+
+  const currentTierIdx = useMemo(() => {
+    const i = TIERS.findIndex(t => t.credits === totalCredits)
+    return i >= 0 ? i : 0
+  }, [totalCredits])
+
+  const [tierIdx,  setTierIdx]  = useState(currentTierIdx)
+  const [annual,   setAnnual]   = useState(org.billingCycle === 'annual')
+  // Resync the slider when the backend plan tier resolves (render-phase reset).
+  const [seenTierIdx, setSeenTierIdx] = useState(currentTierIdx)
+  if (seenTierIdx !== currentTierIdx) {
+    setSeenTierIdx(currentTierIdx)
+    setTierIdx(currentTierIdx)
+  }
+
+  const tier        = TIERS[tierIdx] ?? TIERS[0]
+  const tierMonthly = annual ? Math.round(tier.price * 0.75) : tier.price
+
+  // Admin-permission toggles (owner-controlled).
+  const [permAddCredits, setPermAddCredits] = useState(true)
+  const [permManagePm,   setPermManagePm]   = useState(false)
+  const [permViewInv,    setPermViewInv]    = useState(true)
+
+  // Enterprise config.
+  const BLENDED_RATE_PER_1K = 2
+  const [spendCap,         setSpendCap]         = useState(2_500)   // dollars
+  const [autoRechargeOn,   setAutoRechargeOn]   = useState(true)
+  const [autoRechargeAmt]                       = useState(500)     // dollars added
+  const [autoRechargeBelow]                     = useState(100)     // dollars threshold
+  const currentCharges = (usedCredits / 1000) * BLENDED_RATE_PER_1K
+  const capPct         = spendCap > 0 ? Math.min(100, Math.round((currentCharges / spendCap) * 100)) : 0
 
   useEffect(() => {
     if (!orgId || !isAdminish) return
@@ -482,12 +307,8 @@ export default function OrgPlansPage() {
       .finally(() => setBillingLoading(false))
   }, [orgId, isAdminish])
 
-  const totalCredits   = plan?.totalCredits ?? 0
-  const usedCredits    = plan?.used         ?? 0
-  const remainingCreds = plan?.remaining    ?? 0
-  const membersCount   = orgMembers.length
-  const usedPct        = totalCredits > 0 ? Math.min(100, Math.round((usedCredits / totalCredits) * 100)) : 0
-  const pm             = billing?.payment_method
+  const pm = billing?.payment_method
+  const cardBrand = (pm?.brand ?? 'visa') as CardBrand
 
   const handleStripePortal = async () => {
     const url = await openBillingPortal()
@@ -495,10 +316,38 @@ export default function OrgPlansPage() {
     else toast.error('Could not open billing portal.')
   }
 
-  // ── Plan card gradient ───────────────────────────────────────────────────────
-  const planGradient = isEnterprise
-    ? 'radial-gradient(ellipse 70% 90% at -5% 115%, rgba(15,40,90,0.75) 0%, transparent 60%), radial-gradient(ellipse 55% 55% at 108% -8%, rgba(8,25,65,0.6) 0%, transparent 55%), #0d1520'
-    : 'radial-gradient(ellipse 75% 95% at -8% 118%, rgba(130,65,10,0.75) 0%, transparent 62%), radial-gradient(ellipse 55% 55% at 108% -8%, rgba(70,30,8,0.55) 0%, transparent 55%), #1c1208'
+  // Billing-cycle dates.
+  const now          = new Date()
+  const cycleStart   = new Date(now.getFullYear(), now.getMonth(), 1)
+  const cycleEnd     = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  const fmtShort     = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const nextBilling  = fmtDate(billing?.current_period_end) !== '—'
+    ? fmtDate(billing?.current_period_end)
+    : fmtShort(cycleEnd)
+
+  // ── Hero ──────────────────────────────────────────────────────────────────────
+  const hero = isEnterprise ? (
+    <EnterpriseHero
+      nextBilling={nextBilling}
+      usageAsOf={fmtDate(now.toISOString())}
+      currentCharges={currentCharges}
+      cycleLabel={`${fmtShort(cycleStart)} – ${fmtShort(cycleEnd)}`}
+      spendCap={spendCap}
+      onAddCredits={() => setBuyCreditsOpen(true)}
+    />
+  ) : (
+    <TeamsHero
+      isOwner={isOwner}
+      nextBilling={nextBilling}
+      monthlyPrice={tierMonthly}
+      tierIdx={tierIdx}
+      onTierChange={setTierIdx}
+      annual={annual}
+      onAnnualChange={setAnnual}
+      onContactSales={handleStripePortal}
+      onUpgrade={handleStripePortal}
+    />
+  )
 
   return (
     <div
@@ -514,495 +363,873 @@ export default function OrgPlansPage() {
         padding:        '64px 24px 48px',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* ── Page header ── */}
-        <div style={{ paddingLeft: 4, marginBottom: 4 }}>
-          <h1 style={{
-            fontFamily: 'var(--font-title)',
-            fontWeight: 400,
-            fontSize:   24,
-            lineHeight: '32px',
-            color:      'var(--neutral-900)',
-            margin:     0,
-          }}>
-            Plans &amp; Usage
+        {/* Page header */}
+        <div style={{ paddingLeft: 4 }}>
+          <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+            Billing
           </h1>
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 400,
-            fontSize:   14,
-            color:      'var(--neutral-500)',
-            margin:     0,
-          }}>
-            {isOwner
-              ? 'Manage your plan, credits, and billing details.'
-              : 'View workspace plan and credit usage.'}
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+            Pay only for what you use. No fixed monthly fee.
           </p>
         </div>
 
-        {/* ── Plan card ── */}
+        {/* Plan card: hero + stat tiles (+ enterprise config) in one bordered card */}
         <div style={{
-          borderRadius: 16,
-          background:   planGradient,
-          padding:      '22px 24px 22px',
-          boxShadow:    '0px 2px 10px rgba(18,12,8,0.28)',
-          overflow:     'hidden',
+          border:        '1px solid var(--neutral-200)',
+          borderRadius:  16,
+          boxShadow:     SHADOW_CARD,
+          padding:       12,
+          display:       'flex',
+          flexDirection: 'column',
+          gap:           12,
+          overflow:      'hidden',
         }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: isEnterprise ? 18 : 16 }}>
-            <div style={{ flex: '1 0 0', minWidth: 0 }}>
-              <span style={{
-                fontFamily:    'var(--font-body)',
-                fontWeight:    600,
-                fontSize:      11,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                background:    'rgba(255,255,255,0.14)',
-                color:         'rgba(255,255,255,0.85)',
-                padding:       '3px 9px',
-                borderRadius:  6,
-                display:       'inline-block',
-                marginBottom:  10,
-              }}>
-                {isEnterprise ? 'Enterprise' : 'Teams'}
-              </span>
-              <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 26, lineHeight: '34px', color: 'white', margin: 0 }}>
-                {isEnterprise ? 'Enterprise plan' : 'Teams plan'}
-              </p>
-              {!isEnterprise && (
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'rgba(255,255,255,0.55)', margin: '3px 0 0' }}>
-                  {org.billingCycle === 'annual'
-                    ? `$${org.monthlyPrice}/seat · billed annually`
-                    : `$${org.monthlyPrice}/seat/month`}
-                </p>
-              )}
-              {isEnterprise && (
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'rgba(255,255,255,0.55)', margin: '3px 0 0' }}>
-                  Custom pricing · {membersCount} member{membersCount !== 1 ? 's' : ''}
-                </p>
-              )}
-            </div>
+          {hero}
 
-            {/* Billing cycle toggle — Teams + Owner */}
-            {!isEnterprise && isOwner && (
-              <div style={{
-                display:    'flex',
-                alignItems: 'center',
-                background: 'rgba(255,255,255,0.1)',
-                borderRadius: 8,
-                padding:    3,
-                gap:        2,
-                flexShrink: 0,
-                marginTop:  2,
-              }}>
-                {(['monthly', 'annual'] as const).map(cycle => (
-                  <button
-                    key={cycle}
-                    onClick={handleStripePortal}
-                    style={{
-                      fontFamily:  'var(--font-body)',
-                      fontSize:    12,
-                      fontWeight:  500,
-                      padding:     '5px 12px',
-                      borderRadius: 6,
-                      border:      'none',
-                      cursor:      'pointer',
-                      background:  org.billingCycle === cycle ? 'rgba(255,255,255,0.18)' : 'transparent',
-                      color:       org.billingCycle === cycle ? 'white' : 'rgba(255,255,255,0.5)',
-                    }}
-                  >
-                    {cycle === 'monthly' ? 'Monthly' : 'Yearly'}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Enterprise: usage bar + CTAs */}
-          {isEnterprise && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>
-                    Credits used this cycle
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.75)' }}>
-                    {usedCredits.toLocaleString()} / {totalCredits.toLocaleString()}
-                  </span>
-                </div>
-                <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.14)', overflow: 'hidden' }}>
-                  <div style={{
-                    height:     '100%',
-                    width:      `${usedPct}%`,
-                    background: 'white',
-                    borderRadius: 99,
-                    transition: 'width 0.3s ease',
-                    minWidth:   usedPct > 0 ? 6 : 0,
-                  }} />
-                </div>
-              </div>
-
-              {/* Owner CTAs */}
-              {isOwner && (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <Button variant="secondary" size="sm" onClick={() => setBuyCreditsOpen(true)}>
-                    Buy more credits
-                  </Button>
-                  <button
-                    onClick={() => setSpendCapOpen(true)}
-                    style={{
-                      fontFamily:  'var(--font-body)',
-                      fontWeight:  500,
-                      fontSize:    13,
-                      padding:     '6px 14px',
-                      borderRadius: 8,
-                      border:      '1.5px solid rgba(255,255,255,0.22)',
-                      background:  'transparent',
-                      color:       'rgba(255,255,255,0.7)',
-                      cursor:      'pointer',
-                    }}
-                  >
-                    {spendCap != null ? `Cap: ${spendCap.toLocaleString()} credits` : 'Set monthly cap'}
-                  </button>
-                </div>
-              )}
-
-              {/* Admin can buy (if owner enabled it) */}
-              {!isOwner && isAdminish && adminCanBuy && (
-                <Button variant="secondary" size="sm" onClick={() => setBuyCreditsOpen(true)} style={{ alignSelf: 'flex-start' }}>
-                  Buy more credits
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* Teams: manage plan */}
-          {!isEnterprise && isOwner && (
-            <div style={{ marginTop: 4 }}>
-              <Button variant="secondary" size="sm" onClick={handleStripePortal}>
-                Manage plan →
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* ── Stats grid ── */}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {/* Teams shows Total; Enterprise doesn't (usage is on the card) */}
-          {!isEnterprise && (
-            <StatCard
-              label="Total credits"
-              value={totalCredits}
-              sub={`${usedPct}% used this cycle`}
-            />
-          )}
-          <StatCard label="Credits used"      value={usedCredits}    sub="this billing cycle" />
-          <StatCard label="Credits remaining" value={remainingCreds} />
-          <StatCard label="Members"           value={membersCount}   sub="in this workspace" />
-
-          {/* Enterprise extra cards */}
-          {isEnterprise && (
+          {isEnterprise ? (
             <>
-              <StatCard
-                label="Monthly spend cap"
-                value={spendCap != null ? spendCap.toLocaleString() : '—'}
-                sub={spendCap != null ? 'credits / month' : 'no cap set'}
-                muted={spendCap == null}
-                action={isOwner ? (
-                  <button
-                    onClick={() => setSpendCapOpen(true)}
-                    style={{
-                      fontFamily:  'var(--font-body)',
-                      fontSize:    12,
-                      color:       'var(--blue-500)',
-                      background:  'none',
-                      border:      'none',
-                      cursor:      'pointer',
-                      padding:     '4px 0 0',
-                      textAlign:   'left',
-                    }}
-                  >
-                    {spendCap != null ? 'Edit cap →' : 'Set cap →'}
-                  </button>
-                ) : (
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: '4px 0 0' }}>
-                    Set by owner
-                  </p>
-                )}
-              />
-              <StatCard
-                label="Auto-recharge"
-                value={plan?.poolStatus ?? 'Off'}
-                sub="recharge status"
-                action={isOwner ? (
-                  <button
-                    onClick={() => setBuyCreditsOpen(true)}
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize:   12,
-                      color:      'var(--blue-500)',
-                      background: 'none',
-                      border:     'none',
-                      cursor:     'pointer',
-                      padding:    '4px 0 0',
-                      textAlign:  'left',
-                    }}
-                  >
-                    Configure →
-                  </button>
-                ) : undefined}
-              />
+              <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+                <StatTile flex label="Credits used this cycle" value={usedCredits.toLocaleString()} sub={`Projected month-end: ~${projectMonthEnd(usedCredits, now)}`} />
+                <StatTile flex label="Seats active" value={String(membersCount)} sub="Unlimited · billed by usage" />
+                <StatTile flex label="Blended rate" value={`$${BLENDED_RATE_PER_1K.toFixed(2)} / 1k`} />
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <ConfigTile
+                  title="Monthly spend cap"
+                  desc="Hard ceiling on charges — no surprise bills."
+                  amount={`$${spendCap.toLocaleString()}`}
+                  amountSub={`${fmtUsd(currentCharges)} used · ${capPct}% of cap`}
+                  switchLabel="Enforced by owner"
+                  switchOn
+                  actionLabel={isOwner ? 'Change cap' : 'Request change'}
+                  onAction={() => isOwner ? setSpendCapOpen(true) : toast.success('Spend-cap change requested from the owner.')}
+                />
+                <ConfigTile
+                  title="Auto-recharge"
+                  desc="Top up automatically so usage never pauses."
+                  amount={`$${autoRechargeAmt}`}
+                  amountSub={`added when balance falls below $${autoRechargeBelow}`}
+                  switchLabel={autoRechargeOn ? 'On' : 'Off'}
+                  switchOn={autoRechargeOn}
+                  onSwitch={isOwner ? () => setAutoRechargeOn(v => !v) : undefined}
+                  actionLabel="Edit threshold"
+                  onAction={() => isOwner ? setBuyCreditsOpen(true) : toast.success('Auto-recharge change requested from the owner.')}
+                />
+              </div>
             </>
+          ) : (
+            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+              <StatTile label="Shared credits"    value={totalCredits.toLocaleString()}   sub={`Resets ${nextBilling}`} />
+              <StatTile label="Credits Remaining" value={remainingCreds.toLocaleString()} sub={`${usedCredits.toLocaleString()} used this month`} />
+              <StatTile label="Seats used"        value={String(membersCount)}            sub="Unlimited seats" />
+              {/* Need more credits */}
+              <div style={{
+                background:    'var(--neutral-white, #fff)',
+                borderRadius:  8,
+                padding:       12,
+                boxShadow:     SHADOW_TILE,
+                display:       'flex',
+                flexDirection: 'column',
+                gap:           6,
+                flex:          '1 1 220px',
+                minWidth:      200,
+              }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                  Need more credits ?
+                </p>
+                <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                  Top-up packs. Unused credits roll 1 billing cycle.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button variant="secondary" onClick={() => setBuyCreditsOpen(true)}>Buy more Credits</Button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
-        {/* ── Payment — Owner only ── */}
+        {/* Payment — owner only */}
         {isOwner && (
-          <div style={{
-            border:       '1px solid var(--neutral-200)',
-            borderRadius: 16,
-            boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-            overflow:     'hidden',
-          }}>
-            <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '16px 24px' }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 15, color: 'var(--neutral-900)', margin: 0 }}>
-                Payment
-              </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: '2px 0 0' }}>
-                Billing details and subscription.
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 24px' }}>
-              {billingLoading ? (
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0, flex: '1 0 0' }}>
-                  Loading…
+          <SectionCard title="Payment" subtitle="Manage your billing details.">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <CardBrandLogo brand={cardBrand} />
+              <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                  {billingLoading ? 'Loading…' : pm ? `Card ending in ${pm.last4 ?? '••••'}` : 'No payment method on file'}
                 </p>
-              ) : pm ? (
-                <>
-                  <CardBrandLogo brand={(pm.brand ?? 'visa') as Parameters<typeof CardBrandLogo>[0]['brand']} />
-                  <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
-                      {pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1) : 'Card'} ···· {pm.last4 ?? '••••'}
-                    </p>
-                    {pm.exp_month && pm.exp_year && (
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0 }}>
-                        Expires {String(pm.exp_month).padStart(2, '0')}/{pm.exp_year}
-                      </p>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
-                    No payment method on file
-                  </p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0 }}>
-                    Add a card to continue your subscription.
-                  </p>
-                </div>
-              )}
-              <Button variant="secondary" size="sm" onClick={handleStripePortal}>
-                Manage on Stripe
-              </Button>
-            </div>
-
-            {billing?.subscription_status && (
-              <div style={{ borderTop: '1px solid var(--neutral-100)', padding: '10px 24px', display: 'flex', alignItems: 'center' }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0, flex: '1 0 0' }}>
-                  Subscription: <strong style={{ color: 'var(--neutral-800)' }}>{billing.subscription_status}</strong>
-                  {billing.current_period_end && (
-                    <span style={{ color: 'var(--neutral-400)' }}>
-                      {' '}· renews {new Date(billing.current_period_end).toLocaleDateString()}
-                    </span>
-                  )}
-                  {billing.cancel_at_period_end && (
-                    <span style={{ color: 'var(--red-500)' }}> · cancels at period end</span>
-                  )}
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                  {pm?.exp_month && pm?.exp_year
+                    ? `Expiry ${String(pm.exp_month).padStart(2, '0')}/${pm.exp_year}`
+                    : 'Add a card to continue.'}
                 </p>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Admin permissions — Owner only ── */}
-        {isOwner && (
-          <div style={{
-            border:       '1px solid var(--neutral-200)',
-            borderRadius: 16,
-            boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-            overflow:     'hidden',
-          }}>
-            <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '16px 24px' }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 15, color: 'var(--neutral-900)', margin: 0 }}>
-                Admin permissions
-              </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: '2px 0 0' }}>
-                Control what workspace admins can do.
-              </p>
+              <Button variant="secondary" onClick={handleStripePortal}>Manage on Stripe</Button>
             </div>
-
-            {[
-              {
-                label: 'Allow admins to buy more credits',
-                sub:   'Admins can purchase additional credits for the workspace.',
-                value: adminCanBuy,
-                set:   setAdminCanBuy,
-              },
-              {
-                label: 'Allow admins to set monthly spend cap',
-                sub:   'Admins can configure the monthly credit spend limit.',
-                value: adminCanSetCap,
-                set:   setAdminCanSetCap,
-              },
-            ].map((row, i, arr) => (
-              <div
-                key={i}
-                style={{
-                  display:      'flex',
-                  alignItems:   'center',
-                  gap:          12,
-                  padding:      '14px 24px',
-                  borderBottom: i < arr.length - 1 ? '1px solid var(--neutral-100)' : undefined,
-                }}
-              >
-                <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
-                    {row.label}
-                  </p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0 }}>
-                    {row.sub}
-                  </p>
-                </div>
-                <button
-                  role="switch"
-                  aria-checked={row.value}
-                  onClick={() => row.set(v => !v)}
-                  style={{
-                    width:      40,
-                    height:     24,
-                    borderRadius: 12,
-                    border:     'none',
-                    cursor:     'pointer',
-                    background: row.value ? 'var(--neutral-900)' : 'var(--neutral-200)',
-                    position:   'relative',
-                    flexShrink: 0,
-                    padding:    0,
-                    transition: 'background 0.2s',
-                  }}
-                >
-                  <span style={{
-                    display:      'block',
-                    width:        18,
-                    height:       18,
-                    borderRadius: '50%',
-                    background:   'white',
-                    position:     'absolute',
-                    top:          3,
-                    left:         row.value ? 19 : 3,
-                    transition:   'left 0.18s',
-                    boxShadow:    '0 1px 3px rgba(0,0,0,0.22)',
-                  }} />
-                </button>
-              </div>
-            ))}
-          </div>
+          </SectionCard>
         )}
 
-        {/* ── Invoice history — Adminish ── */}
+        {/* Admin permissions — owner only */}
+        {isOwner && (
+          <SectionCard title="Admin permissions" subtitle="Applies to everyone with the Admin role." bodyGap={0} bodyPadding="0">
+            <PermissionRow
+              label="Add credits / top up"
+              desc="Buy credits, within the spend cap."
+              on={permAddCredits}
+              onToggle={() => setPermAddCredits(v => !v)}
+            />
+            <PermissionRow
+              label="Manage payment method"
+              desc="View and update the card on file."
+              on={permManagePm}
+              onToggle={() => setPermManagePm(v => !v)}
+            />
+            <PermissionRow
+              label="View invoices"
+              desc="See and download billing history."
+              on={permViewInv}
+              onToggle={() => setPermViewInv(v => !v)}
+            />
+            <PermissionRow
+              label="Change plan"
+              desc="Switch tiers or cancel the subscription."
+              badge={<Badge label="Owner only" tone="yellow" />}
+            />
+          </SectionCard>
+        )}
+
+        {/* Invoice history — adminish */}
         {isAdminish && (
-          <div style={{
-            border:       '1px solid var(--neutral-200)',
-            borderRadius: 16,
-            boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-            overflow:     'hidden',
-          }}>
-            <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '16px 24px' }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 15, color: 'var(--neutral-900)', margin: 0 }}>
-                Invoice history
-              </p>
-            </div>
-
-            {billingLoading ? (
-              <div style={{ padding: '24px', textAlign: 'center' }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                  Loading invoices…
-                </p>
-              </div>
-            ) : (billing?.invoices ?? []).length === 0 ? (
-              <div style={{ padding: '24px', textAlign: 'center' }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                  No invoices yet.
-                </p>
-              </div>
-            ) : (
-              (billing?.invoices ?? []).map((inv, i, arr) => (
-                <div
-                  key={i}
-                  style={{
-                    display:      'flex',
-                    alignItems:   'center',
-                    gap:          12,
-                    padding:      '12px 24px',
-                    borderBottom: i < arr.length - 1 ? '1px solid var(--neutral-100)' : undefined,
-                  }}
-                >
-                  <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
-                      {inv.created
-                        ? new Date(inv.created).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-                        : '—'}
-                    </p>
-                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0 }}>
-                      ${(inv.amount_paid / 100).toFixed(2)}{inv.currency ? ` ${inv.currency.toUpperCase()}` : ''}
-                    </p>
-                  </div>
-
-                  <span style={{
-                    fontFamily:  'var(--font-body)',
-                    fontSize:    12,
-                    fontWeight:  500,
-                    padding:     '3px 10px',
-                    borderRadius: 99,
-                    background:  inv.status === 'paid' ? 'var(--green-100)' : 'var(--neutral-100)',
-                    color:       inv.status === 'paid' ? 'var(--green-700)' : 'var(--neutral-600)',
-                  }}>
-                    {inv.status ?? '—'}
-                  </span>
-
-                  {inv.invoice_pdf && (
-                    <a
-                      href={inv.invoice_pdf}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', textDecoration: 'none' }}
-                    >
-                      PDF ↓
-                    </a>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
+          <SectionCard
+            title="Invoice history"
+            action={<Button variant="secondary" onClick={() => toast.success('Exporting all invoices…')}>Export all</Button>}
+            bodyPadding="0 24px 12px"
+          >
+            <InvoiceTable billing={billing} loading={billingLoading} />
+          </SectionCard>
         )}
-
       </div>
 
-      {/* ── Modals ── */}
+      {/* Modals */}
       {buyCreditsOpen && (
-        <BuyMoreCreditsModal
-          onClose={() => setBuyCreditsOpen(false)}
-          billing={billing}
-        />
+        <BuyMoreCreditsModal onClose={() => setBuyCreditsOpen(false)} billing={billing} cardBrand={cardBrand} />
       )}
       {spendCapOpen && (
         <MonthlySpendCapModal
           onClose={() => setSpendCapOpen(false)}
           currentCap={spendCap}
-          totalCredits={totalCredits}
+          usedThisCycle={currentCharges}
+          cycleLabel={`${fmtShort(cycleStart)} – ${fmtShort(cycleEnd)}`}
           onSaved={cap => setSpendCap(cap)}
         />
       )}
     </div>
+  )
+}
+
+function projectMonthEnd(used: number, now: Date): string {
+  const day  = now.getDate()
+  const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const proj = day > 0 ? Math.round((used / day) * days) : used
+  return proj >= 1_000_000 ? `${(proj / 1_000_000).toFixed(2)}M` : proj.toLocaleString()
+}
+
+// ── Teams hero ──────────────────────────────────────────────────────────────────
+
+function TeamsHero({
+  isOwner,
+  nextBilling,
+  monthlyPrice,
+  tierIdx,
+  onTierChange,
+  annual,
+  onAnnualChange,
+  onContactSales,
+  onUpgrade,
+}: {
+  isOwner:        boolean
+  nextBilling:    string
+  monthlyPrice:   number
+  tierIdx:        number
+  onTierChange:   (i: number) => void
+  annual:         boolean
+  onAnnualChange: (v: boolean) => void
+  onContactSales: () => void
+  onUpgrade:      () => void
+}) {
+  const tier = TIERS[tierIdx] ?? TIERS[0]
+  return (
+    <HeroShell>
+      {/* Header block */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+          Team Plan
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+            Next billing: {nextBilling}
+          </p>
+          <Badge label={`${monthlyPrice}$/month`} tone="blue" />
+        </div>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+          Shared credits · Unlimited seats · Admin controls · Audit trail
+        </p>
+      </div>
+
+      {/* Owner: cycle toggle */}
+      {isOwner && (
+        <div style={{
+          display:      'inline-flex',
+          alignSelf:    'flex-start',
+          alignItems:   'center',
+          gap:          4,
+          padding:      4,
+          borderRadius: 10,
+          background:   'rgba(247,242,237,0.5)',
+          boxShadow:    'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
+        }}>
+          <CycleTab active={!annual} onClick={() => onAnnualChange(false)}>Monthly</CycleTab>
+          <CycleTab active={annual}  onClick={() => onAnnualChange(true)}>Yearly</CycleTab>
+          <Badge label="Save 25%" tone="yellow" />
+        </div>
+      )}
+
+      {/* Price */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+        <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+          ${monthlyPrice}/month
+        </p>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+          {tier.credits.toLocaleString()} credits/month
+        </p>
+      </div>
+
+      {isOwner ? (
+        <>
+          <TierSlider tierIdx={tierIdx} onChange={onTierChange} />
+          {/* Footer */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
+            <p style={{ fontFamily: 'var(--font-code)', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
+              Need an extra discount to join the Enterprise plan.{' '}
+              <button
+                type="button"
+                onClick={onContactSales}
+                style={{ fontFamily: 'var(--font-code)', fontSize: 13, color: 'var(--neutral-black, #000)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Contact us →
+              </button>
+            </p>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <Button variant="secondary" onClick={onContactSales}>Contact Sales Team</Button>
+              <Button variant="default" onClick={onUpgrade}>Upgrade plan</Button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div style={{ display: 'flex' }}>
+          <Button variant="secondary" onClick={onContactSales}>Request plan change</Button>
+        </div>
+      )}
+    </HeroShell>
+  )
+}
+
+function CycleTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  if (active) {
+    return <Button variant="default" onClick={onClick}>{children}</Button>
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        fontFamily:   'var(--font-body)',
+        fontWeight:   500,
+        fontSize:     14,
+        lineHeight:   '22px',
+        color:        'var(--neutral-500)',
+        background:   'none',
+        border:       'none',
+        cursor:       'pointer',
+        padding:      '7px 10px',
+        borderRadius: 10,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+// ── Enterprise hero ───────────────────────────────────────────────────────────
+
+function EnterpriseHero({
+  nextBilling,
+  usageAsOf,
+  currentCharges,
+  cycleLabel,
+  spendCap,
+  onAddCredits,
+}: {
+  nextBilling:    string
+  usageAsOf:      string
+  currentCharges: number
+  cycleLabel:     string
+  spendCap:       number
+  onAddCredits:   () => void
+}) {
+  const pct = spendCap > 0 ? Math.min(100, (currentCharges / spendCap) * 100) : 0
+  return (
+    <HeroShell>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+          Enterprise
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+            Next billing: {nextBilling}
+          </p>
+          <Badge label="Volume pricing" tone="blue" />
+        </div>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+          Billed monthly in arrears · Net 30 · Usage as of {usageAsOf}
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+        <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+          {fmtUsd(currentCharges)}
+        </p>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+          current charges this cycle
+        </p>
+      </div>
+
+      <ProgressBar pct={pct} />
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-600)' }}>
+          Cycle: {cycleLabel}
+        </span>
+        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-white, #fff)' }}>
+          Spend cap ${spendCap.toLocaleString()}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex' }}>
+        <Button variant="secondary" onClick={onAddCredits}>Add credits</Button>
+      </div>
+    </HeroShell>
+  )
+}
+
+/** Gradient hero panel shell. The Figma fill uses preserveAspectRatio=none → stretch. */
+function HeroShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      borderRadius:    8,
+      padding:         24,
+      display:         'flex',
+      flexDirection:   'column',
+      gap:             16,
+      boxShadow:       SHADOW_HERO,
+      backgroundImage: HERO_GRADIENT_TEAMS,
+      backgroundSize:  '100% 100%',
+      backgroundRepeat: 'no-repeat',
+      overflow:        'hidden',
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function ProgressBar({ pct }: { pct: number }) {
+  return (
+    <div style={{ position: 'relative', height: 4, borderRadius: 2, background: 'white', width: '100%' }}>
+      <div style={{ position: 'absolute', left: 0, top: 0, height: 4, borderRadius: 2, background: 'var(--neutral-900)', width: `${pct}%`, transition: 'width 0.3s ease' }} />
+      <div style={{ position: 'absolute', left: `calc(${pct}% - 5px)`, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: 'var(--neutral-900)', boxShadow: '0 0 0 2px white' }} />
+    </div>
+  )
+}
+
+// ── Tier slider (interactive) ─────────────────────────────────────────────────
+
+function TierSlider({ tierIdx, onChange }: { tierIdx: number; onChange: (i: number) => void }) {
+  const n   = TIERS.length
+  const pct = n > 1 ? (tierIdx / (n - 1)) * 100 : 0
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div
+        role="slider"
+        aria-valuemin={0}
+        aria-valuemax={n - 1}
+        aria-valuenow={tierIdx}
+        tabIndex={0}
+        onKeyDown={e => {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowUp')   onChange(Math.min(n - 1, tierIdx + 1))
+          if (e.key === 'ArrowLeft'  || e.key === 'ArrowDown') onChange(Math.max(0, tierIdx - 1))
+        }}
+        onClick={e => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          const ratio = (e.clientX - rect.left) / rect.width
+          onChange(Math.max(0, Math.min(n - 1, Math.round(ratio * (n - 1)))))
+        }}
+        style={{ position: 'relative', height: 14, display: 'flex', alignItems: 'center', cursor: 'pointer', outline: 'none' }}
+      >
+        <div style={{ position: 'relative', height: 4, borderRadius: 2, background: 'white', width: '100%' }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, height: 4, borderRadius: 2, background: 'var(--neutral-900)', width: `${pct}%` }} />
+          <div style={{ position: 'absolute', left: `calc(${pct}% - 5px)`, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: 'var(--neutral-900)', boxShadow: '0 0 0 2px white' }} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        {TIERS.map((t, i) => (
+          <button
+            key={t.price}
+            type="button"
+            onClick={() => onChange(i)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+          >
+            <span style={{ fontFamily: 'var(--font-body)', fontWeight: i === tierIdx ? 600 : 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-900)' }}>
+              ${t.price}/mo
+            </span>
+            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-600)' }}>
+              {(t.credits / 1000).toFixed(0)}k
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Enterprise config tile (spend cap / auto-recharge) ─────────────────────────
+
+function ConfigTile({
+  title,
+  desc,
+  amount,
+  amountSub,
+  switchLabel,
+  switchOn,
+  onSwitch,
+  actionLabel,
+  onAction,
+}: {
+  title:       string
+  desc:        string
+  amount:      string
+  amountSub:   string
+  switchLabel: string
+  switchOn:    boolean
+  onSwitch?:   () => void
+  actionLabel: string
+  onAction:    () => void
+}) {
+  return (
+    <div style={{
+      background:    'var(--neutral-white, #fff)',
+      borderRadius:  8,
+      padding:       12,
+      boxShadow:     SHADOW_TILE,
+      display:       'flex',
+      flexDirection: 'column',
+      gap:           9,
+      flex:          '1 1 340px',
+      minWidth:      300,
+    }}>
+      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>{title}</p>
+      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>{desc}</p>
+      <p style={{ margin: 0 }}>
+        <span style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)' }}>{amount}</span>
+        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, color: 'var(--neutral-500)' }}>{'  '}{amountSub}</span>
+      </p>
+      <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Switch on={switchOn} onToggle={onSwitch} />
+          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-black, #000)' }}>{switchLabel}</span>
+        </div>
+        <Button variant="secondary" onClick={onAction}>{actionLabel}</Button>
+      </div>
+    </div>
+  )
+}
+
+// ── Admin permission row ────────────────────────────────────────────────────────
+
+function PermissionRow({
+  label,
+  desc,
+  on,
+  onToggle,
+  badge,
+}: {
+  label:     string
+  desc:      string
+  on?:       boolean
+  onToggle?: () => void
+  badge?:    React.ReactNode
+}) {
+  return (
+    <div style={{ padding: '12px 24px' }}>
+      <div style={{
+        background:   'var(--neutral-white, #fff)',
+        borderRadius: 16,
+        padding:      12,
+        boxShadow:    SHADOW_TILE,
+        display:      'flex',
+        alignItems:   'center',
+        gap:          8,
+      }}>
+        <div style={{ flex: '1 0 0', minWidth: 0 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>{label}</p>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>{desc}</p>
+        </div>
+        {badge ?? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Switch on={!!on} onToggle={onToggle} />
+            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-black, #000)' }}>
+              {on ? 'On' : 'Off'}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Invoice table ─────────────────────────────────────────────────────────────
+
+function InvoiceTable({ billing, loading }: { billing: BillingInfo | null; loading: boolean }) {
+  const invoices = billing?.invoices ?? []
+
+  const cellHead: React.CSSProperties = { flex: '1 0 0', minWidth: 0, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }
+  const cellBody: React.CSSProperties = { flex: '1 0 0', minWidth: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }
+
+  return (
+    <div style={{
+      background:   'var(--neutral-white, #fff)',
+      borderRadius: 8,
+      padding:      12,
+      boxShadow:    SHADOW_TILE,
+    }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', gap: 24, padding: '0 12px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
+        <span style={cellHead}>Date</span>
+        <span style={cellHead}>Amount</span>
+        <span style={cellHead}>Status</span>
+        <span style={{ width: 200, textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }}>Actions</span>
+      </div>
+
+      {loading ? (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', textAlign: 'center', padding: 24, margin: 0 }}>Loading invoices…</p>
+      ) : invoices.length === 0 ? (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', textAlign: 'center', padding: 24, margin: 0 }}>No invoices yet.</p>
+      ) : (
+        invoices.map((inv, i) => {
+          const paid = inv.status === 'paid'
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 24, padding: 12, borderBottom: i < invoices.length - 1 ? '1px solid var(--neutral-100)' : undefined }}>
+              <span style={cellBody}>{fmtDate(inv.created)}</span>
+              <span style={cellBody}>{fmtUsd(inv.amount_paid ?? 0)}</span>
+              <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                <Badge label={paid ? 'Paid' : (inv.status ?? 'Open')} tone={paid ? 'green' : 'red'} />
+              </div>
+              <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}>
+                {inv.invoice_pdf || inv.invoice_url ? (
+                  <a
+                    href={(inv.invoice_pdf ?? inv.invoice_url)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', textDecoration: 'underline' }}
+                  >
+                    View
+                  </a>
+                ) : (
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-400)' }}>View</span>
+                )}
+              </div>
+            </div>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
+// ── Modal shell ───────────────────────────────────────────────────────────────
+
+function ModalShell({
+  title,
+  subtitle,
+  maxWidth,
+  onClose,
+  children,
+  footer,
+  footerNote,
+}: {
+  title:       string
+  subtitle:    string
+  maxWidth:    number
+  onClose:     () => void
+  children:    React.ReactNode
+  footer:      React.ReactNode
+  footerNote:  string
+}) {
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(18,12,8,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+      }}
+    >
+      <div style={{ background: 'var(--neutral-50, #f7f2ed)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto' }} className="kaya-scrollbar">
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Header */}
+          <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '0 12px 24px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <p style={{ flex: '1 0 0', fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>{title}</p>
+            <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex', color: 'var(--neutral-700)' }}>
+              <CancelOneIcon size={20} />
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Subtitle */}
+            <div style={{ padding: '0 12px 24px' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>{subtitle}</p>
+            </div>
+            {children}
+            {/* Footer */}
+            <div style={{ padding: '24px 0 12px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+              {footer}
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>{footerNote}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InputField({
+  label,
+  value,
+  onChange,
+  prefix,
+  placeholder,
+}: {
+  label:        string
+  value:        string
+  onChange:     (v: string) => void
+  prefix?:      string
+  placeholder?: string
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>{label}</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+        {prefix && <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600)', padding: '0 2px' }}>{prefix}</span>}
+        <input
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          style={{ flex: '1 0 0', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', padding: '0 2px' }}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ── Buy more credits modal ───────────────────────────────────────────────────
+
+function BuyMoreCreditsModal({
+  onClose,
+  billing,
+  cardBrand,
+}: {
+  onClose:   () => void
+  billing:   BillingInfo | null
+  cardBrand: CardBrand
+}) {
+  const [selected,  setSelected]  = useState(1)
+  const [custom,    setCustom]    = useState('')
+  const [threshold, setThreshold] = useState('100')
+  const [paying,    setPaying]    = useState(false)
+
+  const pm        = billing?.payment_method
+  const usingCustom = custom.trim() !== ''
+  const amountUsd = usingCustom ? (parseFloat(custom) || 0) : TOP_UPS[selected]!.price
+  const credits   = usingCustom ? Math.round(amountUsd * 1000) : TOP_UPS[selected]!.credits
+  const tax       = +(amountUsd * 0.0).toFixed(2)
+  const total     = amountUsd + tax
+
+  const handlePay = async () => {
+    if (amountUsd < 1) { toast.error('Minimum $1'); return }
+    if (!pm)           { toast.error('No payment method on file.'); return }
+    setPaying(true)
+    try {
+      await chargeTopUp({ amount_usd: amountUsd })
+      toast.success('Credits added successfully!')
+      onClose()
+    } catch {
+      toast.error('Payment failed. Please try again.')
+    } finally {
+      setPaying(false)
+    }
+  }
+
+  return (
+    <ModalShell
+      title="Buy more credits"
+      subtitle="Top up automatically when your balance runs low, so usage never pauses."
+      maxWidth={720}
+      onClose={onClose}
+      footer={
+        <Button variant="default" fluid onClick={handlePay} loading={paying} disabled={!pm}>
+          {`Pay ${fmtUsd(total)} now`}
+        </Button>
+      }
+      footerNote="By clicking Pay now, you allow Souvenir to charge your card in the amount above."
+    >
+      {/* Packs + inputs */}
+      <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {TOP_UPS.map((p, i) => {
+            const active = !usingCustom && selected === i
+            return (
+              <button
+                key={p.badge}
+                type="button"
+                onClick={() => { setSelected(i); setCustom('') }}
+                style={{
+                  flex: '1 1 120px', minWidth: 110,
+                  background: 'white', borderRadius: 8, padding: 12,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9,
+                  cursor: 'pointer', border: 'none',
+                  boxShadow: active
+                    ? `${SHADOW_CARD}, 0px 0px 0px 1.5px var(--blue-400)`
+                    : SHADOW_TILE,
+                }}
+              >
+                <Badge label={p.badge} tone="neutral" />
+                <span style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--blue-700)' }}>${p.price}</span>
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)' }}>{p.credits.toLocaleString()} credits</span>
+              </button>
+            )
+          })}
+        </div>
+        <InputField label="Other" value={custom} onChange={setCustom} placeholder="Amount" />
+        <InputField label="Recharge when balance falls below" value={threshold} onChange={setThreshold} prefix="$" />
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+          We&apos;ll add the recharge amount automatically whenever your balance drops under this.
+        </p>
+      </div>
+
+      {/* Summary */}
+      <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: 24, display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <SummaryRow label="Extra credits" value={`${credits.toLocaleString()} credits`} />
+          <SummaryRow label="Estimated tax" value={fmtUsd(tax)} />
+        </div>
+        <div style={{ padding: 24 }}>
+          <SummaryRow label="Total due" value={fmtUsd(total)} />
+        </div>
+      </div>
+
+      {/* Payment method */}
+      <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>Payment method</p>
+        <CardBrandLogo brand={cardBrand} />
+        <div>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+            {pm ? `Card ending in ${pm.last4 ?? '••••'}` : 'No card on file'}
+          </p>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+            {pm?.exp_month && pm?.exp_year ? `Expiry ${String(pm.exp_month).padStart(2, '0')}/${pm.exp_year}` : '—'}
+          </p>
+        </div>
+        <button aria-label="Edit payment method" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 10, display: 'flex', color: 'var(--neutral-700)' }}>
+          <PenOneIcon size={20} />
+        </button>
+      </div>
+    </ModalShell>
+  )
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <span style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)' }}>{label}</span>
+      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)' }}>{value}</span>
+    </div>
+  )
+}
+
+// ── Monthly spend cap modal ──────────────────────────────────────────────────
+
+function MonthlySpendCapModal({
+  onClose,
+  currentCap,
+  usedThisCycle,
+  cycleLabel,
+  onSaved,
+}: {
+  onClose:       () => void
+  currentCap:    number
+  usedThisCycle: number
+  cycleLabel:    string
+  onSaved:       (cap: number) => void
+}) {
+  const [cap,    setCap]    = useState(String(currentCap))
+  const [saving, setSaving] = useState(false)
+  const capNum = parseInt(cap.replace(/[^0-9]/g, ''), 10) || 0
+
+  const handleSave = async () => {
+    if (capNum < 1) { toast.error('Enter a valid cap amount'); return }
+    setSaving(true)
+    try {
+      await new Promise<void>(r => setTimeout(r, 400))
+      onSaved(capNum)
+      toast.success('Spend cap saved')
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <ModalShell
+      title="Monthly spend cap"
+      subtitle="A hard ceiling on usage charges. No surprise bills."
+      maxWidth={460}
+      onClose={onClose}
+      footer={
+        <Button variant="default" fluid onClick={handleSave} loading={saving}>Save spend cap</Button>
+      }
+      footerNote="Takes effect immediately for the current billing cycle."
+    >
+      <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12 }}>
+        <InputField label="Cap amount" value={cap} onChange={setCap} prefix="$" placeholder="Amount" />
+      </div>
+
+      <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: 12 }}>
+          <SummaryRow label={`Used this cycle (${cycleLabel})`} value={fmtUsd(usedThisCycle)} />
+          <SummaryRow label="Selected cap" value={fmtUsd(capNum)} />
+        </div>
+      </div>
+
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+        padding: '2px 4px', borderRadius: 6,
+        background: 'var(--blue-100)', color: 'var(--blue-700)',
+        boxShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5)',
+      }}>
+        <InformationCircleIcon size={10} />
+        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px' }}>
+          When you reach the cap, usage pauses until you raise it or the cycle resets. Admins and members are notified.
+        </span>
+      </div>
+    </ModalShell>
   )
 }

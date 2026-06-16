@@ -241,7 +241,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    window.location.href = "/auth/logout";
+    // Pass an explicit, slash-free returnTo. The Auth0 SDK (v4) catch-all at
+    // /auth/logout otherwise defaults post_logout_redirect_uri to APP_BASE_URL,
+    // which carries a trailing slash ("http://localhost:3000/") that Auth0
+    // rejects as a non-allowlisted logout URL — so the IdP logout silently fails
+    // and the browser bounces back with the session intact. Targeting
+    // /auth/login (an allowlisted logout URL) makes logout reliable everywhere.
+    const returnTo = `${window.location.origin}/auth/login`;
+    window.location.href = `/auth/logout?returnTo=${encodeURIComponent(returnTo)}`;
   };
 
   // Listen for session-expired events

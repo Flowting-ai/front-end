@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { MoreVerticalIcon } from '@strange-huge/icons'
+import { useAuth } from '@/context/auth-context'
 
 // ── Inline SVGs ───────────────────────────────────────────────────────────────
 
@@ -309,6 +310,7 @@ const SESSIONS = [
 ]
 
 export default function SecurityPage() {
+  const { logout } = useAuth()
   const [sessions, setSessions] = useState(SESSIONS)
 
   const removeSession = (index: number) => {
@@ -506,7 +508,7 @@ export default function SecurityPage() {
               </div>
             }
             subtitle="Protect your account - review and remove sessions you don't recognise."
-            right={<GhostButton>Log out all devices</GhostButton>}
+            right={<GhostButton onClick={() => { void logout() }}>Log out all devices</GhostButton>}
           />
           {sessions.map((session, i) => (
             // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- sessions are ordered by recency, index is stable

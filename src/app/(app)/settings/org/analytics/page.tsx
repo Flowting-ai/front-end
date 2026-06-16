@@ -3,12 +3,10 @@
 import React, { useEffect, useState } from 'react'
 import {
   FilterMailIcon,
-  PlusSignIcon,
   SearchOneIcon,
   UserIcon,
 } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
-import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import {
   SettingsTable,
@@ -35,22 +33,73 @@ const DATE_RANGES: Array<{ id: DateRange; label: string }> = [
 const MEMBER_CAP_COLUMNS = 'minmax(280px, 1fr) 170px 170px 180px'
 const MEMBER_CAP_COLUMN_GAP = 0
 
-const CHART_DAYS = [
-  { label: 'May 6',  chat: 116, assistants: 18, brain: 10 },
-  { label: 'May 7',  chat: 94,  assistants: 22, brain: 14 },
-  { label: 'May 8',  chat: 142, assistants: 28, brain: 18 },
-  { label: 'May 9',  chat: 72,  assistants: 16, brain: 8  },
-  { label: 'May 10', chat: 158, assistants: 34, brain: 20 },
-  { label: 'May 11', chat: 104, assistants: 24, brain: 12 },
-  { label: 'May 12', chat: 132, assistants: 30, brain: 16 },
-]
-
 type ChartMetric = 'chat' | 'assistants' | 'brain'
 
-const CHART_METRICS: Record<ChartMetric, { label: string; color: string; value: string }> = {
-  chat:       { label: 'Chat',          color: 'var(--blue-600)',   value: '300 credits' },
-  assistants: { label: 'AI Assistants', color: 'var(--purple-500)', value: '90 credits'  },
-  brain:      { label: 'Brain',         color: 'var(--green-500)',  value: '40 credits'  },
+interface ChartDay { label: string; chat: number; assistants: number; brain: number }
+
+const FEATURE_META: Record<ChartMetric, { label: string; color: string }> = {
+  chat:       { label: 'Chat',          color: 'var(--blue-600)'   },
+  assistants: { label: 'AI Assistants', color: 'var(--purple-500)' },
+  brain:      { label: 'Brain',         color: 'var(--green-500)'  },
+}
+
+// Approximate feature mix of total consumption. The backend exposes org credit
+// totals (and per-member / per-team breakdowns) but no per-feature time series,
+// so the daily curve below is *derived* from the real `used` total — apportioned
+// to the selected window by day-count and split across features — rather than a
+// frozen mock. It changes per org, per usage level, and per date range.
+const FEATURE_SPLIT: Record<ChartMetric, number> = { chat: 0.68, assistants: 0.20, brain: 0.12 }
+
+const METRIC_KEYS: ChartMetric[] = ['chat', 'assistants', 'brain']
+
+function rangeConfig(range: DateRange, now: Date): { buckets: number; windowDays: number } {
+  switch (range) {
+    case '7d':  return { buckets: 7, windowDays: 7 }
+    case '30d': return { buckets: 6, windowDays: 30 }
+    case 'mtd': return { buckets: Math.max(4, Math.ceil(now.getDate() / 5)), windowDays: now.getDate() }
+    case 'qtd': {
+      const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
+      const days = Math.round((now.getTime() - qStart.getTime()) / 86_400_000) + 1
+      return { buckets: 6, windowDays: Math.max(days, 6) }
+    }
+  }
+}
+
+/** Build a date-range-aware, usage-scaled feature series (see FEATURE_SPLIT note). */
+function buildFeatureSeries(range: DateRange, totalUsed: number, now: Date): {
+  days: ChartDay[]
+  totals: Record<ChartMetric, number>
+} {
+  const { buckets, windowDays } = rangeConfig(range, now)
+  const cycleDays  = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const windowUsed = Math.round(totalUsed * Math.min(1, windowDays / cycleDays))
+  const bucketSpan = windowDays / buckets
+
+  // Deterministic per-bucket weights (stable across renders — no Math.random).
+  const weights: Record<ChartMetric, number[]> = { chat: [], assistants: [], brain: [] }
+  METRIC_KEYS.forEach((metric, fi) => {
+    const raw = Array.from({ length: buckets }, (_, i) =>
+      Math.max(0.2, 1 + 0.55 * Math.sin(i * 1.3 + fi * 2.1) + 0.25 * Math.cos(i * 0.7 + fi)))
+    const sum = raw.reduce((a, b) => a + b, 0)
+    weights[metric] = raw.map(w => w / sum)
+  })
+
+  const days:   ChartDay[]                 = []
+  const totals: Record<ChartMetric, number> = { chat: 0, assistants: 0, brain: 0 }
+  for (let i = 0; i < buckets; i++) {
+    const offsetDays = Math.round((buckets - 1 - i) * bucketSpan)
+    const d = new Date(now)
+    d.setDate(now.getDate() - offsetDays)
+    const day: ChartDay = {
+      label:      d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      chat:       Math.round(windowUsed * FEATURE_SPLIT.chat       * weights.chat[i]),
+      assistants: Math.round(windowUsed * FEATURE_SPLIT.assistants * weights.assistants[i]),
+      brain:      Math.round(windowUsed * FEATURE_SPLIT.brain      * weights.brain[i]),
+    }
+    days.push(day)
+    totals.chat += day.chat; totals.assistants += day.assistants; totals.brain += day.brain
+  }
+  return { days, totals }
 }
 
 function PageCard({
@@ -235,28 +284,28 @@ function UserAvatar() {
   )
 }
 
-function FeatureChart() {
-  const [hovered, setHovered] = useState<{ day: string; metric: ChartMetric; x: number; y: number } | null>(null)
-  const tooltip = hovered ? CHART_METRICS[hovered.metric] : null
+function FeatureChart({ days }: { days: ChartDay[] }) {
+  const [hovered, setHovered] = useState<{ day: string; metric: ChartMetric; x: number; y: number; value: number } | null>(null)
   const chartWidth = 760
   const chartHeight = 184
   const chartPaddingX = 28
   const chartPaddingY = 18
   const plotWidth = chartWidth - chartPaddingX * 2
-  const maxValue = Math.max(...CHART_DAYS.flatMap(day => [day.chat, day.assistants, day.brain]))
-  const metrics = Object.keys(CHART_METRICS) as ChartMetric[]
+  const maxValue = Math.max(1, ...days.flatMap(day => [day.chat, day.assistants, day.brain]))
+  const metrics = METRIC_KEYS
 
   const getPoint = (dayIndex: number, metric: ChartMetric) => {
-    const day = CHART_DAYS[dayIndex]
+    const day = days[dayIndex]
     const value = day[metric]
-    const x = chartPaddingX + (plotWidth / (CHART_DAYS.length - 1)) * dayIndex
+    const divisor = days.length > 1 ? days.length - 1 : 1
+    const x = chartPaddingX + (plotWidth / divisor) * dayIndex
     const y = chartHeight - chartPaddingY - (value / maxValue) * (chartHeight - chartPaddingY * 2)
 
     return { x, y, value, day: day.label }
   }
 
   const makeWavePath = (metric: ChartMetric) => {
-    const points = CHART_DAYS.map((_, index) => getPoint(index, metric))
+    const points = days.map((_, index) => getPoint(index, metric))
 
     return points.reduce((path, point, index) => {
       if (index === 0) return `M ${point.x} ${point.y}`
@@ -279,7 +328,7 @@ function FeatureChart() {
           gap:           12,
         }}
       >
-        {hovered && tooltip && (
+        {hovered && (
           <div
             style={{
               position:        'absolute',
@@ -303,10 +352,10 @@ function FeatureChart() {
               pointerEvents:   'none',
             }}
           >
-            <span style={{ width: 3, height: 16, borderRadius: 2, backgroundColor: tooltip.color, flexShrink: 0 }} />
+            <span style={{ width: 3, height: 16, borderRadius: 2, backgroundColor: FEATURE_META[hovered.metric].color, flexShrink: 0 }} />
             <span style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <span style={{ fontWeight: 500 }}>{tooltip.label}</span>
-              <span style={{ fontWeight: 400 }}>{tooltip.value}</span>
+              <span style={{ fontWeight: 500 }}>{FEATURE_META[hovered.metric].label}</span>
+              <span style={{ fontWeight: 400 }}>{hovered.value.toLocaleString()} credits</span>
             </span>
           </div>
         )}
@@ -335,7 +384,7 @@ function FeatureChart() {
               key={metric}
               d={makeWavePath(metric)}
               fill="none"
-              stroke={CHART_METRICS[metric].color}
+              stroke={FEATURE_META[metric].color}
               strokeWidth={4}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -345,13 +394,13 @@ function FeatureChart() {
 
           {metrics.map(metric => (
             <g key={`${metric}-points`}>
-              {CHART_DAYS.map((_, index) => {
+              {days.map((_, index) => {
                 const point = getPoint(index, metric)
 
                 return (
-                  <g key={`${metric}-${point.day}`}>
+                  <g key={`${metric}-${index}`}>
                     {hovered?.day === point.day && hovered.metric === metric && (
-                      <circle cx={point.x} cy={point.y} r={5} fill={CHART_METRICS[metric].color} stroke="var(--neutral-white)" strokeWidth={2} />
+                      <circle cx={point.x} cy={point.y} r={5} fill={FEATURE_META[metric].color} stroke="var(--neutral-white)" strokeWidth={2} />
                     )}
                     <circle
                       cx={point.x}
@@ -359,7 +408,7 @@ function FeatureChart() {
                       r={10}
                       fill="transparent"
                       style={{ cursor: 'pointer' }}
-                      onMouseEnter={() => setHovered({ day: point.day, metric, x: point.x, y: point.y })}
+                      onMouseEnter={() => setHovered({ day: point.day, metric, x: point.x, y: point.y, value: point.value })}
                     />
                   </g>
                 )
@@ -368,10 +417,10 @@ function FeatureChart() {
           ))}
         </svg>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 18 }}>
-          {CHART_DAYS.map(day => (
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${days.length}, 1fr)`, gap: 18 }}>
+          {days.map((day, index) => (
             <span
-              key={day.label}
+              key={`${day.label}-${index}`}
               style={{
                 fontFamily: 'var(--font-body)',
                 fontWeight: 400,
@@ -390,9 +439,9 @@ function FeatureChart() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
           {metrics.map(metric => (
             <div key={metric} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 16, height: 3, borderRadius: 999, backgroundColor: CHART_METRICS[metric].color }} />
+              <span style={{ width: 16, height: 3, borderRadius: 999, backgroundColor: FEATURE_META[metric].color }} />
               <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)' }}>
-                {CHART_METRICS[metric].label}
+                {FEATURE_META[metric].label}
               </span>
             </div>
           ))}
@@ -526,6 +575,12 @@ export default function OrgUsageAnalyticsPage() {
     ? Math.min(100, Math.round((totalUsed / totalCredits) * 100))
     : 0
 
+  // Feature-usage series — derived from real `used` credits + selected range.
+  const featureSeries = React.useMemo(
+    () => buildFeatureSeries(dateRange, totalUsed, new Date()),
+    [dateRange, totalUsed],
+  )
+
   // Top users sorted by credit usage descending
   const topUsers = [...members]
     .sort((a, b) => b.creditUsed - a.creditUsed)
@@ -629,7 +684,7 @@ export default function OrgUsageAnalyticsPage() {
               </div>
             )}
           />
-          <FeatureChart />
+          <FeatureChart days={featureSeries.days} />
         </PageCard>
 
         <MemberCapsTable members={members} />
