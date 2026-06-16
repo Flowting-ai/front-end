@@ -1051,7 +1051,7 @@ export function ChatInterface({
               key={creditNoticeStatus}
               status={creditNoticeStatus}
               isAdmin={orgRole === 'admin'}
-              onAdminAction={() => router.push('/settings/org/plans')}
+              onAdminAction={() => router.push('/org/plans')}
               onDismiss={() => setDismissedCreditStatus(creditNoticeStatus)}
             />
           )}

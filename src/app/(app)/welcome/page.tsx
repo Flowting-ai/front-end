@@ -66,6 +66,7 @@ interface ActionCard {
   icon: React.ReactNode;
   bg: string;
   titleWeight: number;
+  route: string;
 }
 
 const ACTION_CARDS: ActionCard[] = [
@@ -76,6 +77,7 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <CheckCircleIcon />,
     bg: "var(--neutral-50, #f7f2ed)",
     titleWeight: 500,
+    route: "/org/members",
   },
   {
     key: "team",
@@ -84,6 +86,7 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <ShapesIcon />,
     bg: "var(--neutral-white, #fff)",
     titleWeight: 500,
+    route: "/org/teams",
   },
   {
     key: "project",
@@ -92,6 +95,7 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <FolderIcon />,
     bg: "var(--neutral-white, #fff)",
     titleWeight: 500,
+    route: "/projects/new",
   },
   {
     key: "slack",
@@ -100,6 +104,7 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <SlackLogo />,
     bg: "var(--neutral-white, #fff)",
     titleWeight: 600,
+    route: "/org/connectors",
   },
   {
     key: "approval",
@@ -108,6 +113,7 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <WorkflowIcon />,
     bg: "var(--neutral-white, #fff)",
     titleWeight: 500,
+    route: "/org/security",
   },
 ];
 
@@ -125,9 +131,11 @@ const CARD_BASE_STYLE: React.CSSProperties = {
   width: "100%",
 };
 
-function ActionCardView({ card }: { card: ActionCard }) {
+function ActionCardView({ card, onClick }: { card: ActionCard; onClick: () => void }) {
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
       style={{
         ...CARD_BASE_STYLE,
         backgroundColor: card.bg,
@@ -135,7 +143,6 @@ function ActionCardView({ card }: { card: ActionCard }) {
         flexDirection: "column",
         alignItems: "center",
         gap: 14,
-        cursor: "default",
       }}
     >
       <div
@@ -176,7 +183,7 @@ function ActionCardView({ card }: { card: ActionCard }) {
           {card.description}
         </p>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -226,68 +233,87 @@ function TeamWelcomeContent() {
   const connectorClause = `${connectorCount} connector${connectorCount === 1 ? "" : "s"} queued`;
 
   return (
-    <div
-      style={{
-        flex: "1 0 0",
-        minHeight: 0,
-        width: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "40px 24px",
-        boxSizing: "border-box",
-      }}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%", maxWidth: 653 }}>
-        {/* Heading block */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG logo */}
-          <img src="/icons/souvenir-logo-gray.svg" alt="Souvenir" width={44} height={44} style={{ display: "block" }} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <h1
-              style={{
-                fontFamily: "var(--font-title)",
-                fontWeight: 400,
-                fontSize: 24,
-                lineHeight: "32px",
-                color: "#000",
-                margin: 0,
-              }}
-            >
-              {`Welcome, ${firstName}. You're the Owner.`}
-            </h1>
-            <p
-              style={{
-                fontFamily: "var(--font-body)",
-                fontWeight: 400,
-                fontSize: 16,
-                lineHeight: "22px",
-                color: "var(--neutral-600, #6a625d)",
-                margin: 0,
-              }}
-            >
-              {`${workspaceName} is set up with ${connectorClause}. Finish the rest from settings anytime`}
-            </p>
+    <>
+      {/* Dark gradient overlay — position:fixed puts it in the root stacking context above
+          the app chrome (sidebar, nav) which lives in an isolation:isolate container.
+          pointer-events:all blocks interaction with everything behind it. */}
+      <div
+        aria-hidden
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 1000,
+          background: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.52) 100%)",
+          pointerEvents: "all",
+        }}
+      />
+
+      {/* Welcome content — also fixed, z-index above the overlay, so the cards and
+          button remain fully interactive while everything else is blocked. */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 1001,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "40px 24px",
+          boxSizing: "border-box",
+          overflowY: "auto",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%", maxWidth: 653 }}>
+          {/* Heading block */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- static SVG logo */}
+            <img src="/icons/souvenir-logo-gray.svg" alt="Souvenir" width={44} height={44} style={{ display: "block" }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <h1
+                style={{
+                  fontFamily: "var(--font-title)",
+                  fontWeight: 400,
+                  fontSize: 24,
+                  lineHeight: "32px",
+                  color: "#000",
+                  margin: 0,
+                }}
+              >
+                {`Welcome, ${firstName}. You're the Owner.`}
+              </h1>
+              <p
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontWeight: 400,
+                  fontSize: 16,
+                  lineHeight: "22px",
+                  color: "var(--neutral-600, #6a625d)",
+                  margin: 0,
+                }}
+              >
+                {`${workspaceName} is set up with ${connectorClause}. Finish the rest from settings anytime`}
+              </p>
+            </div>
+          </div>
+
+          {/* Action grid — 3 columns × 2 rows */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, width: "100%" }}>
+            {ACTION_CARDS.map((card) => (
+              <ActionCardView key={card.key} card={card} onClick={() => router.push(card.route)} />
+            ))}
+            <InvoiceCardView />
+          </div>
+
+          {/* Primary action */}
+          <div style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
+            {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Open my workspace" is the explicit owner CTA into /chat */}
+            <Button size="sm" onClick={() => router.push("/chat")}>
+              Open my workspace
+            </Button>
           </div>
         </div>
-
-        {/* Action grid — 3 columns × 2 rows */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, width: "100%" }}>
-          {ACTION_CARDS.map((card) => (
-            <ActionCardView key={card.key} card={card} />
-          ))}
-          <InvoiceCardView />
-        </div>
-
-        {/* Primary action */}
-        <div style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
-          {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Open my workspace" is the explicit owner CTA into /chat */}
-          <Button size="sm" onClick={() => router.push("/chat")}>
-            Open my workspace
-          </Button>
-        </div>
       </div>
-    </div>
+    </>
   );
 }
 

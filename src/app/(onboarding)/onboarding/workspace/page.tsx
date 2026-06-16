@@ -8,6 +8,7 @@ import type { CompanySize } from "@/context/onboarding-context";
 import { InputField } from "@/components/InputField";
 import { deriveRoleFit } from "@/context/onboarding-context";
 import { updateOnboarding } from "@/lib/api/user";
+import { updateOrg } from "@/lib/api/organization";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
 const SIZES: CompanySize[] = ["1-10", "11-50", "51-200", "200+"];
@@ -88,12 +89,20 @@ export default function OnboardingWorkspacePage() {
 
   const canContinue = data.companyName.trim().length > 0 && data.companySize !== null;
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!canContinue || submitting) return;
     setSubmitting(true);
-    // Persist team sizing then advance to connectors → invite → /chat.
-    const roleFit = deriveRoleFit("team", data.companySize);
-    if (roleFit) void updateOnboarding({ role_fit: roleFit });
+    try {
+      const roleFit = deriveRoleFit("team", data.companySize);
+      const tasks: Promise<unknown>[] = [];
+      if (roleFit) tasks.push(updateOnboarding({ role_fit: roleFit }));
+      // Update the placeholder org name (created at account-type step) with
+      // the company name the user just entered.
+      if (user?.orgId) tasks.push(updateOrg(user.orgId, { name: data.companyName.trim() }));
+      await Promise.all(tasks);
+    } catch {
+      // Non-fatal: proceed even if the org rename fails
+    }
     push("/onboarding/connectors");
   };
 
@@ -105,7 +114,7 @@ export default function OnboardingWorkspacePage() {
       footer={
         <OnboardingFooter
           onBack={() => push("/onboarding/account-type")}
-          onContinue={handleContinue}
+          onContinue={() => void handleContinue()}
           continueDisabled={!canContinue}
           continueLoading={submitting}
           leftSlot={

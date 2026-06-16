@@ -990,6 +990,8 @@ function BrainGeneratedImage({ url, index }: { url: string; index: number }) {
       <a
         href={downloadHref}
         download={filename}
+        target="_blank"
+        rel="noopener noreferrer"
         aria-label="Download image"
         title="Download image"
         style={{

@@ -4,7 +4,7 @@ import React, { useCallback, useRef, useMemo, useState, useEffect, Suspense } fr
 import { m } from "framer-motion";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { FolderAddIcon, MoreHorizontalIcon, PlusSignIcon } from "@strange-huge/icons";
+import { FolderAddIcon, MoreHorizontalIcon, PlusSignIcon, UserAiIcon } from "@strange-huge/icons";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
 import { AccountMenu } from "@/components/AccountMenu";
 import { useAuth } from "@/context/auth-context";
@@ -731,8 +731,6 @@ function PersonasSectionAll() {
   const activePersonaId = personaMatch?.[1] ?? null
   const activeChatId    = personaSearchParams.get("chatId")
 
-  const [shown,           setShown]           = useState(true)
-  const [overflow,        setOverflow]        = useState<"visible" | "hidden">("visible")
   const [personas,        setPersonas]        = useState<Persona[]>([])
   // eslint-disable-next-line react-doctor/rendering-usetransition-loading -- guards async fetch, not a state transition
   const [isLoading,       setIsLoading]       = useState(true)
@@ -855,22 +853,16 @@ function PersonasSectionAll() {
     })
   }, [])
 
+  const [shown, setShown] = useState(true)
+
   return (
     <>
-      <SidebarMenuItem
-        fluid
-        variant="header"
-        label="Agents"
-        shown={shown}
-        onShowClick={() => setShown(s => !s)}
-      />
+      <SidebarMenuItem fluid variant="header" label="Agents" shown={shown} onShowClick={() => setShown(s => !s)} />
       <m.div
-        animate={shown ? "open" : "closed"}
+        animate={shown ? 'open' : 'closed'}
         initial={false}
         variants={sectionHeightVariants}
-        style={{ overflow }}
-        onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden") }}
-        onAnimationComplete={(def) => { if (def === "open") setOverflow("visible") }}
+        style={{ overflow: shown ? 'visible' : 'hidden' }}
       >
         <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
           {isLoading && Array.from({ length: 3 }).map((_, i) => (
@@ -906,6 +898,7 @@ function PersonasSectionAll() {
                 key={persona.id}
                 fluid
                 label={persona.name}
+                icon={<UserAiIcon size={20} animated />}
                 active={isActive}
                 expanded={isExpanded}
                 onClick={() => push(`/agents/${persona.id}/chat`)}
@@ -1186,6 +1179,7 @@ function LeftSidebarImpl({
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
       onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }}
+      onNewAgentChat={() => push("/agents")}
       onBrainClick={() => { toast.info("Opening Brain", { id: 'nav' }); push("/brain") }}
       // Clicking the admin tab switches the sidebar body to admin AND navigates
       // to General — always landing on General regardless of prior admin page.

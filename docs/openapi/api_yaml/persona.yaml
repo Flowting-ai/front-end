@@ -1709,11 +1709,19 @@ components:
               format: uuid
             - type: 'null'
           title: Teamid
+        teamIds:
+          anyOf:
+            - items:
+                type: string
+                format: uuid
+              type: array
+            - type: 'null'
+          title: Teamids
       type: object
       required:
         - visibility
       title: SetVisibilityRequest
-      description: Shared by the persona/project/chat visibility setters.
+      description: "Shared by the persona/project/chat visibility setters. `team_id` is the\nsingle-team form (projects/chats); personas also accept `team_ids` to deploy\nto several teams at once."
     HTTPValidationError:
       properties:
         detail:
@@ -1769,6 +1777,17 @@ components:
           type: integer
           title: Version Count
           default: 0
+        visibility:
+          type: string
+          title: Visibility
+          default: private
+        team_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          title: Team Ids
+          default: []
         created_at:
           type: string
           format: date-time

@@ -42,7 +42,8 @@ function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string
     const a = document.createElement("a");
     a.href = `/api/download?url=${encodeURIComponent(img.url)}&filename=${encodeURIComponent(filename)}`;
     a.download = filename;
-    a.rel = "noopener";
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
     document.body.appendChild(a);
     a.click();
     a.remove();

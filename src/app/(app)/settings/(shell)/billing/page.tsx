@@ -3,11 +3,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useMounted } from '@/hooks/use-mounted'
 import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import {
   cancelSubscription,
-  createCheckoutSession,
   fetchBilling,
   openBillingPortal,
   resumeSubscription,
@@ -53,12 +53,6 @@ const PLAN_FEATURE_LIST: Record<string, string[]> = {
   pro:     ['Advanced routing', 'Model compare', 'Unlimited agents', 'Cost savings report', 'Brain & Automation', 'Connectors', 'Pins', 'Projects'],
   power:   ['Advanced routing', 'Model compare', 'Unlimited agents', 'Advanced analytics', 'Brain & Automation', 'Connectors', 'Pins', 'Projects'],
 }
-
-const PLAN_OPTIONS: { id: UserPlanType; label: string; price: number }[] = [
-  { id: 'starter', label: 'Starter', price: 12  },
-  { id: 'pro',     label: 'Pro',     price: 25  },
-  { id: 'power',   label: 'Power',   price: 100 },
-]
 
 // sessionStorage keys — last-known snapshot so returning from Stripe paints
 // instantly instead of flashing an empty "No Plan" state while data reloads.
@@ -192,6 +186,7 @@ function UsageRow({ label, used, total, value }: { label: string; used: number; 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function BillingPage() {
+  const router = useRouter()
   const { user, refreshUser, isHydrated, jwtToken } = useAuth()
   const { plan: orgPlan } = useOrg()
 
@@ -202,8 +197,6 @@ export default function BillingPage() {
   const [billing,             setBilling]             = useState<BillingInfo | null>(() => readCache<BillingInfo>(BILL_KEY))
   const [billingLoaded,       setBillingLoaded]       = useState(false)
   const [snap]                                        = useState<BillingSnapshot | null>(() => readCache<BillingSnapshot>(SNAP_KEY))
-  const [showChangePlanDialog, setShowChangePlanDialog] = useState(false)
-  const [changingToPlan,       setChangingToPlan]       = useState<UserPlanType | null>(null)
   const [showBuyCreditsModal,  setShowBuyCreditsModal]  = useState(false)
   const [openingPortal,        setOpeningPortal]        = useState(false)
   const [showCancelDialog,     setShowCancelDialog]     = useState(false)
@@ -353,19 +346,6 @@ export default function BillingPage() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
-  const handleChangePlan = async (targetPlan: UserPlanType) => {
-    if (targetPlan === planType || changingToPlan) return
-    setChangingToPlan(targetPlan)
-    try {
-      const checkout = await createCheckoutSession(targetPlan, 'monthly')
-      document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
-      window.location.href = checkout.checkout_url
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update plan')
-      setChangingToPlan(null)
-    }
-  }
-
   const handleOpenPortal = async () => {
     if (openingPortal) return
     setOpeningPortal(true)
@@ -419,50 +399,6 @@ export default function BillingPage() {
     backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center',
   }
 
-  const changePlanDialog = portalMounted && showChangePlanDialog
-    ? createPortal(
-        // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
-        <div style={backdropStyle} onClick={() => { if (!changingToPlan) setShowChangePlanDialog(false) }}>
-          {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
-          <div style={dialogCardStyle} onClick={e => e.stopPropagation()}>
-            <div>
-              <p style={{ fontFamily: BODY, fontWeight: 600, fontSize: 16, lineHeight: '24px', color: C.ink, margin: 0 }}>Change plan</p>
-              <p style={{ ...regMuted, margin: '8px 0 0' }}>You will be redirected to Stripe to complete the change.</p>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {PLAN_OPTIONS.map(plan => {
-                const isCurrent = planType === plan.id
-                const isLoading = changingToPlan === plan.id
-                return (
-                  <button
-                    key={plan.id}
-                    disabled={isCurrent || changingToPlan !== null}
-                    onClick={() => { void handleChangePlan(plan.id) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '12px 16px', borderRadius: 10,
-                      border: isCurrent ? `1.5px solid ${C.ink}` : `1px solid ${C.border}`,
-                      backgroundColor: isCurrent ? 'var(--neutral-50)' : C.white,
-                      cursor: isCurrent || changingToPlan !== null ? 'default' : 'pointer',
-                      opacity: changingToPlan !== null && !isLoading ? 0.5 : 1, textAlign: 'left',
-                    }}
-                  >
-                    <div>
-                      <p style={{ ...medLabel(14) }}>{plan.label}</p>
-                      <p style={{ ...regMuted, fontSize: 13, lineHeight: '20px' }}>${plan.price}/mo</p>
-                    </div>
-                    {isCurrent && !isLoading && <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 12, color: C.muted }}>Current</span>}
-                    {isLoading && <span style={{ fontFamily: BODY, fontWeight: 400, fontSize: 12, color: C.muted }}>Redirecting…</span>}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )
-    : null
-
   const cancelDialog = portalMounted && showCancelDialog
     ? createPortal(
         // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
@@ -493,7 +429,6 @@ export default function BillingPage() {
 
   return (
     <>
-      {changePlanDialog}
       {cancelDialog}
       <BuyCreditsModal
         open={showBuyCreditsModal}
@@ -596,7 +531,7 @@ export default function BillingPage() {
                 )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 12 }}>
-                  <Button variant="default" size="md" onClick={() => setShowChangePlanDialog(true)}>
+                  <Button variant="default" size="md" onClick={() => router.push('/settings/billing/change-plan')}>
                     Change Plan
                   </Button>
                   {hasActiveSub && !cancelAtPeriodEnd && (

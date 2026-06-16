@@ -114,7 +114,7 @@ function normalizePlan(p: PlanResponse): OrgPlan {
     remaining:      p.remaining,
     percentUsed:    p.percent_used,
     poolStatus:     p.pool_status,
-    members:        p.members.map(normalizeMember),
+    members:        (p.members ?? []).map(normalizeMember),
   }
 }
 

@@ -48,14 +48,14 @@ export async function POST(req: Request) {
   }
 
   // 2. Parse & validate body
-  let body: { plan_type?: string; billing?: string; checkout_flow?: string };
+  let body: { plan_type?: string; billing?: string; checkout_flow?: string; org_id?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { plan_type, billing } = body;
+  const { plan_type, billing, org_id } = body;
   const checkoutFlow =
     body.checkout_flow === "settings_change_plan"
       ? "settings_change_plan"
@@ -82,6 +82,9 @@ export async function POST(req: Request) {
   }
 
   // 3. Create Stripe Checkout Session
+  if (!process.env.APP_BASE_URL) {
+    console.warn("APP_BASE_URL is not set — Stripe redirect URLs will point to localhost. Set this in your Vercel environment variables.");
+  }
   const appBase = (process.env.APP_BASE_URL || "http://localhost:3000").replace(/\/+$/, "");
 
   const successUrl =
@@ -103,6 +106,7 @@ export async function POST(req: Request) {
         auth0_user_id: session.user.sub as string,
         plan_type,
         billing,
+        ...(org_id ? { org_id } : {}),
       },
       success_url: successUrl,
       cancel_url: cancelUrl,
@@ -113,9 +117,10 @@ export async function POST(req: Request) {
       session_id: checkoutSession.id,
     });
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
     console.error("Stripe checkout error:", err);
     return NextResponse.json(
-      { error: "Failed to create checkout session." },
+      { error: "Failed to create checkout session.", detail },
       { status: 500 },
     );
   }

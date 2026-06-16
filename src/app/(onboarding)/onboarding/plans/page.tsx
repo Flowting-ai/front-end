@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useOnboarding } from '@/context/onboarding-context'
 import { useAuth } from '@/context/auth-context'
 import { apiFetch } from '@/lib/api/client'
-import { SouvenirGlyph } from '../_components/onboarding-shell'
+
 
 const CANVAS_GRADIENT =
   'linear-gradient(180deg, var(--neutral-50,#f7f2ed) 3.76%, var(--neutral-100,#ede1d7) 75%, var(--neutral-200,#d1c6bd) 116.79%)'
@@ -125,7 +126,6 @@ function BillingToggle({ billing, onChange }: { billing: Billing; onChange: (b: 
       alignItems: 'center',
       gap: 4,
       padding: 2,
-      paddingRight: 6,
       borderRadius: 10,
       backgroundColor: 'rgba(247,242,237,0.5)',
       boxShadow: [
@@ -162,7 +162,6 @@ function BillingToggle({ billing, onChange }: { billing: Billing; onChange: (b: 
       >
         Yearly
       </button>
-      <YellowBadge>Save 25%</YellowBadge>
     </div>
   )
 }
@@ -183,8 +182,9 @@ function SlackLogo() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OnboardingPlansPage() {
+  const { push } = useRouter()
   const { data } = useOnboarding()
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
   const [tierIndex, setTierIndex] = useState(0)
   const [billing,   setBilling]   = useState<Billing>('monthly')
   const [loading,   setLoading]   = useState(false)
@@ -192,7 +192,7 @@ export default function OnboardingPlansPage() {
 
   const tier      = TIERS[tierIndex]!
   const fillPct   = tierIndex === 0 ? 0 : Math.round((tierIndex / (TIERS.length - 1)) * 100)
-  const firstName = data.firstName.trim() || 'your team'
+
 
   const displayPrice  = billing === 'monthly' ? tier.monthlyPrice : tier.annualPrice
   const sliderBg      = `linear-gradient(to right, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.9) ${fillPct}%, rgba(255,255,255,0.28) ${fillPct}%, rgba(255,255,255,0.28) 100%)`
@@ -207,6 +207,7 @@ export default function OnboardingPlansPage() {
           plan_type:      tier.planType,
           billing,
           checkout_flow:  'onboarding',
+          org_id:         user?.orgId ?? undefined,
         }),
       })
       if (!res.ok) {
@@ -267,45 +268,30 @@ export default function OnboardingPlansPage() {
         gap: 32,
       }}>
 
-        {/* ── Page header ── */}
-        <div style={{ width: '100%', maxWidth: 1060 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
-            <SouvenirGlyph size={44} />
-            <button
-              type="button"
-              onClick={() => void logout()}
-              style={{ background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 14, color: '#0d6eb2', textDecoration: 'underline' }}
-            >
-              Log out
-            </button>
+        {/* ── Top bar: back · billing toggle · logout ── */}
+        <div style={{ width: '100%', maxWidth: 1060, display: 'flex', alignItems: 'center', justifyContent: 'space-evenly' }}>
+          <button
+            type="button"
+            onClick={() => push('/onboarding/account-type')}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600,#6a625d)' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M10 13L5 8l5-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Back
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BillingToggle billing={billing} onChange={setBilling} />
+            <YellowBadge>Save 25%</YellowBadge>
           </div>
-          <h1 style={{
-            fontFamily: 'var(--font-title)',
-            fontWeight: 400,
-            fontSize: 24,
-            lineHeight: '32px',
-            color: 'var(--neutral-800,#3b3632)',
-            margin: '0 0 8px 0',
-          }}>
-            Set up your team workspace, {firstName}.
-          </h1>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 400,
-              fontSize: 16,
-              lineHeight: '22px',
-              color: 'var(--neutral-800,#3b3632)',
-              margin: 0,
-            }}>
-              Pick a plan to power your Brain, agents, and automations across the team.
-            </p>
-            <YellowBadge>Shared credits · unlimited members · cancel anytime</YellowBadge>
-          </div>
+          <button
+            type="button"
+            onClick={() => void logout()}
+            style={{ background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 14, color: '#0d6eb2', textDecoration: 'underline' }}
+          >
+            Log out
+          </button>
         </div>
-
-        {/* ── Billing toggle ── */}
-        <BillingToggle billing={billing} onChange={setBilling} />
 
         {/* ── Plan cards ── */}
         <div style={{

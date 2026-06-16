@@ -46,7 +46,7 @@ const STRIP_RESPONSE_HEADERS = new Set([
   "keep-alive",
 ])
 
-async function proxy(
+async function handler(
   req: NextRequest,
   ctx: { params: Promise<{ path: string[] }> },
 ): Promise<Response> {
@@ -109,10 +109,10 @@ async function proxy(
 }
 
 export {
-  proxy as GET,
-  proxy as POST,
-  proxy as PUT,
-  proxy as PATCH,
-  proxy as DELETE,
-  proxy as OPTIONS,
+  handler as GET,
+  handler as POST,
+  handler as PUT,
+  handler as PATCH,
+  handler as DELETE,
+  handler as OPTIONS,
 }

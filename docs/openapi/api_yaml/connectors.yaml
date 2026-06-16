@@ -190,6 +190,22 @@ components:
             - type: string
             - type: 'null'
           title: Workspace Linked By
+        shared_account_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Shared Account Id
+        account_label:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Account Label
+        account_identifier:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Account Identifier
       type: object
       required:
         - slug
@@ -223,6 +239,12 @@ components:
               type: object
             - type: 'null'
           title: Credentials
+        sharedAccountId:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Sharedaccountid
       type: object
       title: UpdateConnectorRequest
     LinkRequest:
@@ -252,6 +274,12 @@ components:
             - type: string
             - type: 'null'
           title: Redirect Url
+        shared_account_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Shared Account Id
       type: object
       required:
         - connector_slug

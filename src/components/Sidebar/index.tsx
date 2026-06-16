@@ -535,7 +535,6 @@ function DefaultAgentItems({ agents, activeFolder, expandedFolders, selectedItem
 
   return (
     <>
-      <SidebarMenuItem fluid variant="header" label="Agents" shown={shown} onShowClick={() => setShown(s => !s)} />
       <m.div
         animate={shown ? 'open' : 'closed'}
         initial={false}
@@ -550,13 +549,6 @@ function DefaultAgentItems({ agents, activeFolder, expandedFolders, selectedItem
           variants={sectionStaggerVariants}
           style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
         >
-          <m.div variants={sectionItemVariants}>
-            <SidebarMenuItem fluid variant="default" label="New agent" icon={<FolderAddIcon size={20} />}
-              selected={selectedItem === 'new-agent'}
-              onClick={() => { onSelect('new-agent'); onNewAgent?.() }}
-            />
-          </m.div>
-
           {visibleAgents.map((agent) => (
             <m.div key={agent.id} variants={sectionItemVariants}>
               <SidebarProjectsSection
@@ -954,7 +946,7 @@ export function Sidebar({
       onShowAllSchedules,
       brainRecentItems,
       brainScheduleItems,
-      agents              = DEFAULT_AGENTS,
+      agents              = [],
       agentItems,
       onNewAgentChat,
       onNewAgent,
@@ -1077,7 +1069,7 @@ export function Sidebar({
     }, [handleCollapse])
 
     const computedNewChatLabel = newChatLabel ?? (
-      bodySection === 'agents' ? 'New agent chat' :
+      bodySection === 'agents' ? 'All Agents' :
       bodySection === 'brain'  ? 'New thread' :
       'New chat'
     )
@@ -1383,7 +1375,7 @@ export function Sidebar({
                   </div>
                 </div>
               )}
-              {bodySection === 'agents' && (
+              {bodySection === 'agents' && (agents.length > 0 || agentItems != null) && (
                 <div key="agents-section" style={{
                   display:       'flex',
                   flexDirection: 'column',
@@ -1471,7 +1463,7 @@ export function Sidebar({
                 flexDirection: 'column',
                 paddingLeft:   '8px',
                 paddingRight:  '8px',
-                paddingTop:    '8px',
+                paddingTop:    '0px',
                 paddingBottom: '64px',
                 flexShrink:    0,
               }}>

@@ -10,6 +10,7 @@ import {
 } from '@/lib/api/persona-shares'
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
+import { fetchModelsWithCache } from '@/lib/ai-models'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,16 @@ function ShareAcceptContent() {
   const [preview, setPreview] = useState<PersonaSharePreview | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [isAccepting, setIsAccepting] = useState(false)
+  const [modelName, setModelName] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchModelsWithCache().then(models => {
+      if (preview?.model_id) {
+        const match = models.find(m => String(m.modelId) === String(preview.model_id))
+        if (match) setModelName(match.modelName)
+      }
+    }).catch(() => {})
+  }, [preview?.model_id])
 
   useEffect(() => {
     if (!params.id) return
@@ -317,7 +328,7 @@ function ShareAcceptContent() {
       {/* Meta row: model, temperature, credits, expiry */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {preview.model_id && (
-          <MetaRow label="Model" value={preview.model_id} />
+          <MetaRow label="Model" value={modelName ?? preview.model_id} />
         )}
         {preview.temperature !== null && (
           <MetaRow label="Temperature" value={String(preview.temperature)} />

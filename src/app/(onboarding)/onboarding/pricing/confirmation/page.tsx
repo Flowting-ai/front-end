@@ -3,7 +3,6 @@
 import React, { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
-import { updateOnboarding } from '@/lib/api/user'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const TITLE = 'var(--font-title)'
@@ -82,7 +81,7 @@ export default function PricingConfirmationPage() {
 function PricingConfirmationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, refreshUser, logout } = useAuth()
+  const { user, logout } = useAuth()
 
   const planParam = searchParams.get('plan') ?? ''
   const billing   = searchParams.get('billing')
@@ -103,8 +102,10 @@ function PricingConfirmationContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isFailed) return
-    document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=120; SameSite=Lax'
-    void updateOnboarding({ onboarding_completed: true }).then(() => refreshUser())
+    // Set a short-lived bypass cookie so the OnboardingGuard doesn't redirect
+    // while the user continues through workspace → connectors → invite.
+    // onboarding_completed is marked at the end of the invite step.
+    document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=600; SameSite=Lax'
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const iconBg  = isFailed ? C.redBg   : C.greenBg
@@ -184,10 +185,10 @@ function PricingConfirmationContent() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
             <button
               type="button"
-              onClick={() => router.push(`/welcome${ownerName ? `?owner=${encodeURIComponent(ownerName)}` : ''}`)}
+              onClick={() => router.push('/onboarding/workspace')}
               style={primaryBtn}
             >
-              Open your workspace
+              Continue with onboarding
             </button>
           </div>
         ) : (

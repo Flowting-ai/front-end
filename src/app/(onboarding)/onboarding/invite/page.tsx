@@ -46,6 +46,7 @@ export default function OnboardingInvitePage() {
         updateOnboarding({
           user_role: data.role ?? null,
           role_fit: deriveRoleFit(data.accountType, data.companySize),
+          onboarding_completed: true,
         }),
       ]);
 
@@ -58,7 +59,12 @@ export default function OnboardingInvitePage() {
       }
 
       await refreshUser();
-      push('/onboarding/plans');
+
+      const ownerParam = data.firstName.trim() ? `owner=${encodeURIComponent(data.firstName.trim())}` : '';
+      const nameParam  = data.companyName.trim() ? `name=${encodeURIComponent(data.companyName.trim())}` : '';
+      const connParam  = `connectors=${data.connectorCount ?? 0}`;
+      const query      = [ownerParam, nameParam, connParam].filter(Boolean).join('&');
+      push(`/welcome${query ? `?${query}` : ''}`);
     } catch (err) {
       console.error("Team onboarding submission failed", err);
     } finally {

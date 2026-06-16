@@ -7,6 +7,7 @@ import type { AccountType } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
 import { Badge } from "@/components/Badge";
 import { updateOnboarding } from "@/lib/api/user";
+import { createOrganization } from "@/lib/api/organization";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
 // ── Icons ───────────────────────────────────────────────────────────────────────
@@ -167,23 +168,35 @@ const LogoutLink = ({ onClick }: { onClick: () => void }) => (
 
 export default function OnboardingAccountTypePage() {
   const { push } = useRouter();
-  const { logout } = useAuth();
+  const { logout, user, refreshUser } = useAuth();
   const { data, setAccountType } = useOnboarding();
   const [selected, setSelected] = useState<AccountType | null>(data.accountType);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleContinue = () => {
-    if (!selected) return;
+  const handleContinue = async () => {
+    if (!selected || submitting) return;
     setAccountType(selected);
     if (selected === "individual") {
-      // Individuals skip the tone step. Persist the account choice so a mid-flow
-      // resume lands correctly, then go to the import finish line, which marks
-      // onboarding complete and lands on /chat with the welcome (credits) modal.
       void updateOnboarding({ role_fit: "just_me" });
       push("/onboarding/import");
-    } else {
-      // role_fit for teams is set on the workspace step once company size is known.
-      push("/onboarding/workspace");
+      return;
     }
+    // Team branch: create the org immediately so it exists when the Stripe
+    // webhook fires after payment. The user will rename it at the workspace step.
+    setSubmitting(true);
+    try {
+      if (!user?.orgId) {
+        const orgName = data.firstName.trim()
+          ? `${data.firstName.trim()}'s workspace`
+          : "My workspace";
+        await createOrganization({ name: orgName });
+        await refreshUser();
+      }
+    } catch {
+      // Best-effort: proceed even if org creation fails (e.g. org already exists)
+    }
+    setSubmitting(false);
+    push("/onboarding/plans");
   };
 
   return (
@@ -193,8 +206,9 @@ export default function OnboardingAccountTypePage() {
       footer={
         <OnboardingFooter
           onBack={() => push("/onboarding/hello")}
-          onContinue={handleContinue}
-          continueDisabled={!selected}
+          onContinue={() => void handleContinue()}
+          continueDisabled={!selected || submitting}
+          continueLoading={submitting}
           leftSlot={<LogoutLink onClick={() => void logout()} />}
         />
       }

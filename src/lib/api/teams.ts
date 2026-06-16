@@ -7,6 +7,8 @@ import {
   ORG_TEAM_EDITORS_ENDPOINT,
   ORG_TEAM_EDITOR_ENDPOINT,
   ORG_TEAM_INVITES_ENDPOINT,
+  TEAM_INVITE_PREVIEW_ENDPOINT,
+  TEAM_INVITE_ACCEPT_ENDPOINT,
 } from '@/lib/config'
 import type { Team, TeamEditor, TeamInvite } from '@/types/teams'
 
@@ -144,4 +146,40 @@ export async function inviteTeamMembers(orgId: string, teamId: string, emails: s
     body: JSON.stringify({ emails }),
   })
   return normalizeInvite(data)
+}
+
+// ── Team invite preview / accept ──────────────────────────────────────────────
+
+interface InvitePreviewResponse {
+  invite_id: string
+  team_id:   string
+  team_name: string
+  invited_by_name: string
+  expires_at: string
+}
+
+export interface TeamInvitePreview {
+  inviteId:      string
+  teamId:        string
+  teamName:      string
+  invitedByName: string
+  expiresAt:     string
+}
+
+export async function getTeamInvitePreview(inviteId: string): Promise<TeamInvitePreview> {
+  const data = await apiFetchJson<InvitePreviewResponse>(TEAM_INVITE_PREVIEW_ENDPOINT(inviteId))
+  return {
+    inviteId:      data.invite_id,
+    teamId:        data.team_id,
+    teamName:      data.team_name,
+    invitedByName: data.invited_by_name,
+    expiresAt:     data.expires_at,
+  }
+}
+
+export async function acceptTeamInvite(inviteId: string): Promise<Team> {
+  const data = await apiFetchJson<TeamResponse>(TEAM_INVITE_ACCEPT_ENDPOINT(inviteId), {
+    method: 'POST',
+  })
+  return normalizeTeam(data)
 }
