@@ -936,11 +936,9 @@ function AdminManageConnectors({
   const [searchQuery, setSearchQuery] = useState(initialSearch)
 
   const q = searchQuery.toLowerCase().trim()
-  const searchFiltered = connectors.filter(c =>
-    !q || c.display_name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q)
-  )
-  const linked   = searchFiltered.filter(c => c.linked)
-  const unlinked = searchFiltered.filter(c => !c.linked)
+  const active = connectors
+    .filter(c => c.org_enabled === true)
+    .filter(c => !q || c.display_name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -958,31 +956,28 @@ function AdminManageConnectors({
           </div>
         </div>
 
-        {linked.length > 0 && (
-          <section style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <BodyText weight={500} color="var(--neutral-900)">Connected</BodyText>
-                <Badge label={`${linked.length} active`} color="Green" />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-                {linked.map(c => (
-                  <ConnectorCatalogTile key={c.slug} connector={c} action="manage" onAction={() => onManage?.(c)} />
-                ))}
-              </div>
+        {active.length > 0 ? (
+          <section style={{ padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BodyText weight={500} color="var(--neutral-900)">Enabled for org</BodyText>
+              <Badge label={`${active.length} active`} color="Green" />
             </div>
-          </section>
-        )}
-
-        {unlinked.length > 0 && (
-          <section style={{ padding: '12px 24px 12px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <BodyText weight={500} color="var(--neutral-900)">Available to connect</BodyText>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-              {unlinked.map(c => (
-                <ConnectorCatalogTile key={c.slug} connector={c} action="add" onAction={() => onConnect(c.slug)} />
+              {active.map(c => (
+                <ConnectorCatalogTile
+                  key={c.slug}
+                  connector={c}
+                  action={c.linked ? 'manage' : 'add'}
+                  onAction={() => c.linked ? onManage?.(c) : onConnect(c.slug)}
+                />
               ))}
             </div>
           </section>
+        ) : (
+          <div style={{ padding: '32px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+            <BodyText color="var(--neutral-500)">No connectors enabled yet.</BodyText>
+            <BodyText size={12} color="var(--neutral-400)">Go to the <strong>Catalog</strong> tab to enable connectors for your org.</BodyText>
+          </div>
         )}
       </PageCard>
     </div>
@@ -1286,8 +1281,9 @@ function CatalogToggleRow({
       setEnabled(true)
       try {
         await onToggle(connector.slug, true)
-      } catch {
+      } catch (err) {
         setEnabled(false)
+        toast.error(err instanceof Error ? err.message : `Failed to enable ${connector.display_name}`)
       } finally {
         setToggling(false)
       }
@@ -1300,8 +1296,9 @@ function CatalogToggleRow({
     setPendingDisable(false)
     try {
       await onToggle(connector.slug, false)
-    } catch {
+    } catch (err) {
       setEnabled(true)
+      toast.error(err instanceof Error ? err.message : `Failed to disable ${connector.display_name}`)
     } finally {
       setToggling(false)
     }
@@ -1319,7 +1316,9 @@ function CatalogToggleRow({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <Switch checked={enabled} onCheckedChange={checked => void handleSwitchChange(checked)} disabled={toggling} />
-          <BodyText size={12} color="var(--neutral-500)" style={{ width: 28 }}>{enabled ? 'On' : 'Off'}</BodyText>
+          <BodyText size={12} color={toggling ? 'var(--neutral-300)' : 'var(--neutral-500)'} style={{ width: 28 }}>
+            {toggling ? '…' : enabled ? 'On' : 'Off'}
+          </BodyText>
         </div>
         <Button
           variant="outline"
@@ -1400,9 +1399,14 @@ function AdminCatalog({
     const next = shouldEnable
       ? [...new Set([...enabledSlugs, slug])]
       : enabledSlugs.filter(s => s !== slug)
+    const displayName = connectors.find(c => c.slug === slug)?.display_name ?? slug
     await updateOrgCatalog(orgId, next)
     onRefresh()
-    toast.success(shouldEnable ? `${slug} enabled in catalog` : `${slug} removed from catalog`)
+    if (shouldEnable) {
+      toast.success(`${displayName} enabled — it will appear in Manage connectors`)
+    } else {
+      toast.success(`${displayName} disabled and removed from catalog`)
+    }
   }
 
   return (

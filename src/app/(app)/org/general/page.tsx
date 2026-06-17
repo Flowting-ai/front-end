@@ -3,7 +3,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { ArrowDownOneIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
+import { Dropdown, DropdownFloat } from '@/components/Dropdown'
+import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
 import { getOrg, updateOrg, getOrgSettings, updateOrgSettings, deleteOrg, transferOrgOwnership, listMembers } from '@/lib/api/organization'
@@ -170,46 +173,77 @@ function FieldRow({
 
 // ── Visibility select ─────────────────────────────────────────────────────────
 
+const VISIBILITY_OPTIONS = [
+  { value: 'private', label: 'Private by default' },
+  { value: 'team',    label: 'Team only'           },
+]
+
 function VisibilitySelect({
   value,
   onChange,
   disabled,
 }: {
-  value:    string
-  onChange: (v: string) => void
+  value:     string
+  onChange:  (v: string) => void
   disabled?: boolean
 }) {
-  const options = [
-    { value: 'private',  label: 'Private by default' },
-    { value: 'team',     label: 'Team only' },
-    { value: 'public',   label: 'Public' },
-  ]
+  const [open, setOpen] = useState(false)
+  const label = VISIBILITY_OPTIONS.find(o => o.value === value)?.label ?? value
+
   return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      disabled={disabled}
-      style={{
-        height:          36,
-        backgroundColor: 'white',
-        borderRadius:    10,
-        boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)',
-        border:          'none',
-        padding:         '0 10px',
-        fontFamily:      'var(--font-body)',
-        fontWeight:      400,
-        fontSize:        14,
-        lineHeight:      '22px',
-        color:           'var(--neutral-700)',
-        width:           327,
-        cursor:          disabled ? 'default' : 'pointer',
-        outline:         'none',
-      }}
+    <DropdownFloat
+      open={open}
+      onOpenChange={v => { if (!disabled) setOpen(v) }}
+      placement="bottom-end"
+      offset={4}
+      trigger={
+        <button
+          type="button"
+          disabled={disabled}
+          style={{
+            display:         'flex',
+            alignItems:      'center',
+            justifyContent:  'space-between',
+            gap:             8,
+            width:           327,
+            height:          36,
+            padding:         '0 10px',
+            borderRadius:    10,
+            border:          'none',
+            backgroundColor: 'white',
+            boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)',
+            cursor:          disabled ? 'not-allowed' : 'pointer',
+            opacity:         disabled ? 0.6 : 1,
+            outline:         'none',
+            flexShrink:      0,
+          }}
+        >
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 400,
+            fontSize:   14,
+            lineHeight: '22px',
+            color:      'var(--neutral-700)',
+          }}>
+            {label}
+          </span>
+          <ArrowDownOneIcon size={12} color="var(--neutral-400)" />
+        </button>
+      }
     >
-      {options.map(o => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
+      <Dropdown style={{ width: 327 }}>
+        {VISIBILITY_OPTIONS.map(o => (
+          <DropdownMenuItem
+            key={o.value}
+            fluid
+            label={o.label}
+            selected={o.value === value}
+            icon={o.value === value ? <TickTwoIcon size={14} /> : undefined}
+            onClick={() => { onChange(o.value); setOpen(false) }}
+          />
+        ))}
+      </Dropdown>
+    </DropdownFloat>
   )
 }
 

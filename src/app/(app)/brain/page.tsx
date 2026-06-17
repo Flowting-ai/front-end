@@ -22,6 +22,7 @@ import {
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
 import { useAuth } from '@/context/auth-context'
+import { useOrg } from '@/context/org-context'
 import { useCreditStatus, CREDITS_EXHAUSTED_EVENT } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
 import { AccountMenu } from '@/components/AccountMenu'
@@ -1036,6 +1037,7 @@ function BrainPageInner() {
   const searchParams = useSearchParams()
   const { push, replace } = useRouter()
   const { user, logout, isAuthenticated } = useAuth()
+  const { orgId, org, currentUserRole } = useOrg()
   // Individual credit/topup status — hard send-gate when exhausted.
   const creditStatus = useCreditStatus()
   const chatIdFromUrl = searchParams.get('id')
@@ -3125,6 +3127,24 @@ function BrainPageInner() {
         onBrainClick:    () => push('/brain'),
         onSearch:        openSearch,
         searchActive:    searchOpen,
+        orgId:           orgId ?? undefined,
+        orgName:         orgId ? org.name : undefined,
+        showAdmin:       Boolean(orgId) && currentUserRole === 'admin',
+        onOrganisationClick: () => push('/org/general'),
+        onAdminSectionClick: (id: string) => {
+          const routes: Record<string, string> = {
+            general:           '/org/general',
+            members:           '/org/members',
+            teams:             '/org/teams',
+            'plans-usage':     '/org/plans',
+            connectors:        '/settings/connectors',
+            'model-providers': '/settings/ai',
+          }
+          const href = routes[id]
+          if (href) { push(href); return }
+          const coming: Record<string, string> = { folders: 'Folders', websites: 'Websites', triggers: 'Triggers' }
+          toast.info(`${coming[id] ?? id} — coming soon`, { id: 'nav' })
+        },
         accountMenu: (collapsed) => (
           <AccountMenu
             name={displayName || 'Account'}

@@ -18,6 +18,7 @@ import { IconButton } from '@/components/IconButton'
 import { FloatingMenu } from '@/components/FloatingMenu'
 import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 import { Dropdown } from '@/components/Dropdown'
+import { Tooltip } from '@/components/Tooltip'
 import { Popover } from '@/components/Popover'
 import { ModelSelector } from '@/components/ModelSelector'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
@@ -387,12 +388,14 @@ export function ChatBoard({
                 icon={<BubbleChatTemporaryIcon />}
                 onClick={onTemporaryChat}
               />
-              <IconButton
-                variant="ghost"
-                aria-label="Share chat"
-                icon={<ShareOneIcon />}
-                onClick={onShare}
-              />
+              <Tooltip content="Share" side="bottom">
+                <IconButton
+                  variant="ghost"
+                  aria-label="Share chat"
+                  icon={<ShareOneIcon animated />}
+                  onClick={onShare}
+                />
+              </Tooltip>
             </div>
           </div>
 

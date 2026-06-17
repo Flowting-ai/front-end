@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
+import { updateOrgCatalog } from "@/lib/api/connectors";
+import { toast } from "sonner";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
 // ── Connector definitions ───────────────────────────────────────────────────────
@@ -123,9 +125,10 @@ function ConnectorCard({
 
 export default function OnboardingConnectorsPage() {
   const { push } = useRouter();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { setConnectorCount } = useOnboarding();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected,   setSelected]   = useState<Set<string>>(new Set());
+  const [continuing, setContinuing] = useState(false);
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -135,6 +138,19 @@ export default function OnboardingConnectorsPage() {
       return next;
     });
 
+  async function handleContinue() {
+    setContinuing(true);
+    if (selected.size > 0 && user?.orgId) {
+      try {
+        await updateOrgCatalog(user.orgId, [...selected]);
+      } catch {
+        toast.error("Couldn't save connector preferences — you can enable them later in Org → Connectors.");
+      }
+    }
+    setConnectorCount(selected.size);
+    push("/onboarding/invite");
+  }
+
   return (
     <OnboardingScreen
       title="What does your team use?"
@@ -143,10 +159,9 @@ export default function OnboardingConnectorsPage() {
       footer={
         <OnboardingFooter
           onBack={() => push("/onboarding/workspace")}
-          onContinue={() => {
-            setConnectorCount(selected.size);
-            push("/onboarding/invite");
-          }}
+          onContinue={() => void handleContinue()}
+          continueDisabled={continuing}
+          continueLoading={continuing}
           leftSlot={
             <button
               type="button"
