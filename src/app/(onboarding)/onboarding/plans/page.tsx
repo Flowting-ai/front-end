@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useOnboarding } from '@/context/onboarding-context'
 import { useAuth } from '@/context/auth-context'
-import { apiFetch } from '@/lib/api/client'
+import { createCheckoutSession } from '@/lib/api/user'
 
 
 const CANVAS_GRADIENT =
@@ -184,7 +184,7 @@ function SlackLogo() {
 export default function OnboardingPlansPage() {
   const { push } = useRouter()
   const { data } = useOnboarding()
-  const { logout, user } = useAuth()
+  const { logout } = useAuth()
   const [tierIndex, setTierIndex] = useState(0)
   const [billing,   setBilling]   = useState<Billing>('monthly')
   const [loading,   setLoading]   = useState(false)
@@ -201,24 +201,13 @@ export default function OnboardingPlansPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiFetch('/api/stripe/checkout', {
-        method: 'POST',
-        body: JSON.stringify({
-          plan_type:      tier.planType,
-          billing,
-          checkout_flow:  'onboarding',
-          org_id:         user?.orgId ?? undefined,
-        }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { error?: string }
-        throw new Error(body.error ?? 'Checkout failed')
-      }
-      const { checkout_url } = await res.json() as { checkout_url: string }
+      // Identity comes from the JWT; the backend owns the Stripe price for this
+      // (plan, billing) pair. We only send { plan, billing }.
+      const { checkout_url } = await createCheckoutSession(tier.planType, billing)
       window.location.href = checkout_url
     } catch (err) {
       console.error('Checkout error:', err)
-      setError('Something went wrong. Please try again.')
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
       setLoading(false)
     }
   }

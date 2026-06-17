@@ -4,7 +4,7 @@ import React, { useCallback, useRef, useMemo, useState, useEffect, Suspense } fr
 import { m } from "framer-motion";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { FolderAddIcon, MoreHorizontalIcon, PlusSignIcon, UserAiIcon } from "@strange-huge/icons";
+import { FolderAddIcon, MoreHorizontalIcon, PlusSignIcon } from "@strange-huge/icons";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
 import { AccountMenu } from "@/components/AccountMenu";
 import { useAuth } from "@/context/auth-context";
@@ -898,7 +898,7 @@ function PersonasSectionAll() {
                 key={persona.id}
                 fluid
                 label={persona.name}
-                icon={<UserAiIcon size={20} animated />}
+                icon={null}
                 active={isActive}
                 expanded={isExpanded}
                 onClick={() => push(`/agents/${persona.id}/chat`)}
@@ -1209,6 +1209,7 @@ function LeftSidebarImpl({
           onProfile={() => push("/settings/account")}
           onUpgradePlan={() => push("/settings/billing")}
           onSettings={() => push("/settings")}
+          onOrganization={orgId ? () => push("/org/general") : undefined}
           onWhatsNew={() => toast.info("What's new — coming soon!")}
           onHelp={() => push("/settings/help")}
           onLogOut={() => { if (isAuthenticated) { void logout() } else { push("/auth/login") } }}

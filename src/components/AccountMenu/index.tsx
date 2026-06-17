@@ -9,6 +9,7 @@ import {
   InformationCircleIcon,
   ArrowRightOneIcon,
   ArrowRightTwoIcon,
+  CourtHouseIcon,
 } from '@strange-huge/icons'
 import { Dropdown, type DropdownPlacement } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
@@ -36,12 +37,14 @@ export interface AccountMenuProps {
   panelWidth?: number | string
   /** Renders the trigger in icon-only collapsed mode. Pass through when used inside a collapsible Sidebar. */
   collapsed?: boolean
-  onProfile?:     () => void
-  onUpgradePlan?: () => void
-  onSettings?:    () => void
-  onWhatsNew?:    () => void
-  onHelp?:        () => void
-  onLogOut?:      () => void
+  onProfile?:      () => void
+  onUpgradePlan?:  () => void
+  onSettings?:     () => void
+  /** When provided, an "Organization" item is shown between Settings and What's new. */
+  onOrganization?: () => void
+  onWhatsNew?:     () => void
+  onHelp?:         () => void
+  onLogOut?:       () => void
 }
 
 // ── Shortcut pill (⌘ ,) ────────────────────────────────────────────────────────
@@ -271,6 +274,7 @@ export function AccountMenu({
   onProfile,
   onUpgradePlan,
   onSettings,
+  onOrganization,
   onWhatsNew,
   onHelp,
   onLogOut,
@@ -337,6 +341,14 @@ export function AccountMenu({
               fluid
               onClick={() => { onSettings?.(); close() }}
             />
+            {onOrganization && (
+              <Dropdown.Item
+                icon={<CourtHouseIcon animated />}
+                label="Organization"
+                fluid
+                onClick={() => { onOrganization(); close() }}
+              />
+            )}
             <Dropdown.Item
               icon={<LogoIcon />}
               label="What's new"

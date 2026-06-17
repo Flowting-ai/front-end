@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { useAuth } from '@/context/auth-context'
 import { fetchTeams, bustTeamsCache } from '@/lib/api/teams'
-import { getOrg, getOrgPlan, listOrganizations } from '@/lib/api/organization'
+import { getOrg, getOrgPlan, listMembers, listOrganizations } from '@/lib/api/organization'
 import type {
   WorkspaceOrg,
   OrgMember,
@@ -127,17 +127,23 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setRoleResolved(true))
   }, [orgId, orgIdResolved, isTeamPlan])
 
-  // Fetch plan + members (plan endpoint bundles members)
+  // Fetch plan (credit pool) and the authoritative member list. Members come
+  // from the dedicated /members endpoint so roles (owner/admin/member) are
+  // accurate; the plan endpoint is used only for the credit pool. They're
+  // fetched independently so a failure in one doesn't blank the other; the
+  // plan's bundled members are a fallback if /members fails.
   useEffect(() => {
     if (!orgId) return
     setMembersLoading(true)
-    getOrgPlan(orgId)
-      .then(p => {
-        setPlan(p)
-        setMembers(p.members)
+    const planP = getOrgPlan(orgId).then(p => setPlan(p)).catch(console.error)
+    const membersP = listMembers(orgId)
+      .then(setMembers)
+      .catch(async () => {
+        // Fallback: reuse the members bundled in the plan response.
+        const p = await getOrgPlan(orgId).catch(() => null)
+        if (p) setMembers(p.members)
       })
-      .catch(console.error)
-      .finally(() => setMembersLoading(false))
+    Promise.all([planP, membersP]).finally(() => setMembersLoading(false))
   }, [orgId, planRefreshToken])
 
   // Fetch teams

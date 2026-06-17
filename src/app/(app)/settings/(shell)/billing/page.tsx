@@ -12,7 +12,6 @@ import {
   openBillingPortal,
   resumeSubscription,
   type BillingInfo,
-  type UserPlanType,
 } from '@/lib/api/user'
 import { Button } from '@/components/Button'
 import { CardBrandLogo } from '@/components/CardBrandLogo'
@@ -56,12 +55,17 @@ const PLAN_FEATURE_LIST: Record<string, string[]> = {
 
 // sessionStorage keys — last-known snapshot so returning from Stripe paints
 // instantly instead of flashing an empty "No Plan" state while data reloads.
-const SNAP_KEY = 'kaya:billing:snapshot:v1'
+// v2: snapshot now carries `isTeamAccount` and a string planType ('teams'),
+// so a refresh paints the right plan immediately instead of flashing the trial
+// state. Bumped from v1 to discard the older shape.
+const SNAP_KEY = 'kaya:billing:snapshot:v2'
 const BILL_KEY = 'kaya:billing:info:v1'
 
 /** Minimal display snapshot persisted across the Stripe round-trip. */
 interface BillingSnapshot {
-  planType:         UserPlanType | null
+  planType:         string | null
+  /** True for team/org accounts — persisted so a refresh never flashes "Trial". */
+  isTeamAccount:    boolean
   creditsTotal:     number
   creditsRemaining: number
   creditsUsed:      number
@@ -188,7 +192,7 @@ function UsageRow({ label, used, total, value }: { label: string; used: number; 
 export default function BillingPage() {
   const router = useRouter()
   const { user, refreshUser, isHydrated, jwtToken } = useAuth()
-  const { plan: orgPlan } = useOrg()
+  const { plan: orgPlan, orgId } = useOrg()
 
   const portalMounted = useMounted()
   // Lazy-init from the cached snapshot (runs once; SSR-safe — readCache returns
@@ -280,14 +284,29 @@ export default function BillingPage() {
 
   // For team/org accounts the credit pool lives on the organisation, not the
   // personal Stripe subscription. Override with org plan values when present.
-  const isTeamAccount = Boolean(user?.orgId)
-  const orgCreditsTotal     = isTeamAccount && orgPlan ? Math.round(orgPlan.totalCredits * 1000) : null
-  const orgCreditsRemaining = isTeamAccount && orgPlan ? Math.round(orgPlan.remaining    * 1000) : null
-  const orgCreditsUsed      = isTeamAccount && orgPlan ? Math.round(orgPlan.used         * 1000) : null
+  //
+  // `user.orgId` alone is unreliable — /users/me often omits it for team owners
+  // and members. Treat the account as a team when ANY of these hold: the profile
+  // carries an org id, the org-context resolved one (via listOrganizations), or
+  // the onboarding role_fit marks them as a team. This is the single guardrail
+  // that keeps team accounts out of the trial/individual UI.
+  const liveIsTeamAccount = Boolean(
+    billing?.plan_type === 'teams' ||
+    user?.orgId ||
+    orgId ||
+    user?.roleFit === 'small_team' ||
+    user?.roleFit === 'large_team',
+  )
+  const orgCreditsTotal     = liveIsTeamAccount && orgPlan ? Math.round(orgPlan.totalCredits * 1000) : null
+  const orgCreditsRemaining = liveIsTeamAccount && orgPlan ? Math.round(orgPlan.remaining    * 1000) : null
+  const orgCreditsUsed      = liveIsTeamAccount && orgPlan ? Math.round(orgPlan.used         * 1000) : null
 
   const liveSnap: BillingSnapshot | null = liveReady
     ? {
-        planType:         user?.planType ?? null,
+        // Plan source of truth: /stripe/billing ('teams' for orgs), then the
+        // user profile. Persisted so a refresh paints the right plan instantly.
+        planType:         billing?.plan_type ?? user?.planType ?? null,
+        isTeamAccount:    liveIsTeamAccount,
         // Team accounts: use the org credit pool. Individual accounts: use
         // /stripe/billing as authoritative (total_credits = monthly allowance),
         // falling back to /users/me-derived figures only when billing hasn't loaded.
@@ -322,19 +341,31 @@ export default function BillingPage() {
   const creditsTotal     = display?.creditsTotal     ?? 0
   const creditsRemaining = display?.creditsRemaining ?? 0
   const creditsUsed      = display?.creditsUsed      ?? 0
-  const isTrialUser       = !planType && creditsTotal > 0
-  const planName         = planType ? planType.charAt(0).toUpperCase() + planType.slice(1) : isTrialUser ? 'Trial' : 'No'
-  const planPrice        = planType ? (PLAN_PRICES[planType] ?? 0) : 0
-  const planFeatures     = planType ? (PLAN_FEATURE_LIST[planType] ?? []) : []
+  // Team flag: live signal OR the cached snapshot — the cached value is what
+  // kills the trial→teams flicker on refresh (first paint already knows).
+  const isTeamAccount    = liveIsTeamAccount || (display?.isTeamAccount ?? false)
+  // The known individual paid tiers (drive price + feature list). 'teams' and
+  // any unknown value resolve to null here.
+  const individualPlan   = planType && planType in PLAN_PRICES ? planType : null
+  // Team/org accounts are never on a trial — the Teams plan has no trial.
+  const isTrialUser      = !isTeamAccount && !planType && creditsTotal > 0
+  const planName         = isTeamAccount
+    ? 'Teams'
+    : individualPlan ? individualPlan.charAt(0).toUpperCase() + individualPlan.slice(1) : isTrialUser ? 'Trial' : 'No'
+  const planPrice        = individualPlan ? (PLAN_PRICES[individualPlan] ?? 0) : 0
+  const planFeatures     = individualPlan ? (PLAN_FEATURE_LIST[individualPlan] ?? []) : []
   const chatCredits      = display?.chatCredits      ?? 0
   const personaCredits   = display?.personaCredits   ?? 0
   const brainCredits     = display?.brainCredits     ?? 0
   const nextBilling      = display?.nextBilling      ?? '-'
   const periodEnd        = display?.periodEnd        ?? null
   const cancelAtPeriodEnd = display?.cancelAtPeriodEnd ?? false
-  const hasActiveSub      = Boolean(planType)
+  // Cancel/Resume act on the personal Stripe subscription, so only individual
+  // paid plans expose them — team billing is managed at the org level.
+  const hasActiveSub      = Boolean(individualPlan)
 
   const pm        = billing?.payment_method ?? null
+  const hasPaymentMethod = Boolean(pm && pm.last4)
   const invoices  = billing?.invoices ?? []
   // Payment / invoice cards: cached billing paints instantly; show skeleton only
   // when we have nothing cached and the first fetch hasn't returned yet.
@@ -615,6 +646,10 @@ export default function BillingPage() {
             </SectionCard>
 
             {/* ── Payment ── */}
+            {/* Only shown when a payment method is on file. While billing is still
+                loading we render the skeleton; once loaded with no card, the whole
+                section is hidden. */}
+            {(billingPending || hasPaymentMethod) && (
             <SectionCard>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 24px 24px', borderBottom: `1px solid ${C.hair}` }}>
                 <p style={medLabel(16)}>Payment</p>
@@ -635,15 +670,14 @@ export default function BillingPage() {
                         {pm.exp_month && pm.exp_year ? `Expiry ${String(pm.exp_month).padStart(2, '0')}/${pm.exp_year}` : 'No expiry on file'}
                       </p>
                     </>
-                  ) : (
-                    <p style={medLabel(16)}>No payment method on file</p>
-                  )}
+                  ) : null}
                 </div>
                 <Button variant="secondary" size="md" loading={openingPortal} onClick={() => { void handleOpenPortal() }}>
                   Manage on Stripe
                 </Button>
               </div>
             </SectionCard>
+            )}
 
             {/* ── Invoice history ── */}
             <SectionCard>

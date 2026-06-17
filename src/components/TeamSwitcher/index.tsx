@@ -50,27 +50,53 @@ export interface TeamSwitcherProps extends React.HTMLAttributes<HTMLDivElement> 
   onTeamSelect?: (teamId: string | null) => void
   /** Fires when "Manage teams →" is clicked (Admin only) */
   onManageTeams?: () => void
-  /** Fires when the collapse chevron is clicked */
-  onToggleCollapse?: () => void
-  isCollapsed?: boolean
 }
 
-// ── Team avatar dot ───────────────────────────────────────────────────────────
+// ── Team avatar — rounded square with the team's initial, gradient by id ──────
 
-function TeamDot({ teamId, size = 18 }: { teamId: string; size?: number }) {
+function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string; size?: number }) {
   return (
     <span
       aria-hidden
       style={{
-        display:    'inline-flex',
-        width:      size,
-        height:     size,
-        borderRadius: '50%',
-        background: getTeamGradient(teamId),
-        flexShrink: 0,
-        boxShadow:  '0px 1px 2px rgba(0,0,0,0.15)',
+        position:     'relative',
+        display:      'inline-flex',
+        width:        size,
+        height:       size,
+        borderRadius: 4,
+        background:   getTeamGradient(teamId),
+        flexShrink:   0,
+        overflow:     'hidden',
       }}
-    />
+    >
+      <span
+        aria-hidden
+        style={{
+          position:      'absolute',
+          inset:         0,
+          borderRadius:  4,
+          pointerEvents: 'none',
+          boxShadow:     'inset 0px 4px 4px 0px rgba(0,0,0,0.25), inset 0px -1px 0.4px 0px rgba(18,60,95,0.65)',
+        }}
+      />
+      <span
+        style={{
+          position:       'absolute',
+          inset:          0,
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+          fontFamily:     'var(--font-title)',
+          fontWeight:     500,
+          fontSize:       11,
+          lineHeight:     1,
+          color:          'var(--neutral-white)',
+          userSelect:     'none',
+        }}
+      >
+        {name.charAt(0).toUpperCase()}
+      </span>
+    </span>
   )
 }
 
@@ -84,8 +110,6 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
       isAdmin = false,
       onTeamSelect,
       onManageTeams,
-      onToggleCollapse,
-      isCollapsed = false,
       className,
       style,
       ...props
@@ -130,49 +154,40 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
         onKeyDown={handleKeyDown}
         {...props}
       >
-        {/* ── Header row — trigger + collapse chevron ── */}
-        <div
+        {/* ── Header row — the whole row is the dropdown trigger ── */}
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={`Switch team — currently ${activeTeam?.name ?? 'no team selected'}`}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
           style={{
             display:        'flex',
             alignItems:     'center',
             justifyContent: 'space-between',
+            width:          '100%',
             borderRadius:   8,
             padding:        '4px 6px',
             backgroundColor: hovered ? 'var(--neutral-900-04, rgba(38,33,30,0.04))' : 'transparent',
+            border:         'none',
+            cursor:         'pointer',
+            outline:        'none',
             transition:     'background-color 120ms ease',
           }}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
         >
-          {/* Left: dot + team name (this IS the dropdown trigger) */}
-          <button
-            ref={triggerRef}
-            type="button"
-            onClick={() => setOpen(o => !o)}
-            aria-haspopup="menu"
-            aria-expanded={open}
-            aria-label={`Switch team — currently ${activeTeam?.name ?? 'no team selected'}`}
-            style={{
-              display:    'flex',
-              alignItems: 'center',
-              gap:        8,
-              background: 'none',
-              border:     'none',
-              cursor:     'pointer',
-              padding:    0,
-              minWidth:   0,
-              flex:       '1 0 0',
-              outline:    'none',
-            }}
-          >
-            {activeTeam && <TeamDot teamId={activeTeam.id} size={16} />}
+          {/* Left: avatar + team name */}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: '1 0 0' }}>
+            {activeTeam && <TeamAvatar teamId={activeTeam.id} name={activeTeam.name} size={20} />}
             <span
               style={{
                 fontFamily:   'var(--font-body)',
                 fontWeight:   'var(--font-weight-medium)',
                 fontSize:     'var(--font-size-caption)',
                 lineHeight:   'var(--line-height-caption)',
-                color:        'var(--sidebar-menu-item-text, var(--neutral-600))',
+                color:        'var(--neutral-500)',
                 overflow:     'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace:   'nowrap',
@@ -180,35 +195,24 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
             >
               {activeTeam?.name ?? 'Teams'}
             </span>
-          </button>
+          </span>
 
-          {/* Right: collapse chevron */}
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            aria-label={isCollapsed ? 'Expand team projects' : 'Collapse team projects'}
+          {/* Right: chevron in a Shortcut Container box */}
+          <span
             style={{
               display:        'flex',
               alignItems:     'center',
               justifyContent: 'center',
-              width:          20,
-              height:         20,
-              background:     'none',
-              border:         'none',
-              cursor:         'pointer',
-              padding:        0,
+              borderRadius:   4,
+              padding:        2,
               flexShrink:     0,
-              color:          'var(--neutral-400)',
-              outline:        'none',
-              // Chevron is hover-only — fades in when the header row is hovered
-              opacity:        hovered ? 1 : 0,
-              transform:      isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
-              transition:     'transform 200ms ease, opacity 120ms ease',
+              background:     'linear-gradient(180deg, var(--neutral-white) 0%, var(--neutral-50) 100%)',
+              boxShadow:      '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
             }}
           >
-            <ArrowDownOneIcon size={12} />
-          </button>
-        </div>
+            <ArrowDownOneIcon size={16} color="var(--neutral-500)" />
+          </span>
+        </button>
 
         {/* ── Dropdown panel ── */}
         <AnimatePresence>
@@ -242,7 +246,7 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
                     label={team.name}
                     subLabel={team.projectCount != null ? `${team.projectCount} project${team.projectCount !== 1 ? 's' : ''}` : undefined}
                     selected={team.id === activeTeamId}
-                    icon={<TeamDot teamId={team.id} size={18} />}
+                    icon={<TeamAvatar teamId={team.id} name={team.name} size={20} />}
                     onClick={() => { onTeamSelect?.(team.id); setOpen(false) }}
                   />
                 ))}

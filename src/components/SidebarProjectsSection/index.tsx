@@ -77,8 +77,9 @@ export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDi
   /**
    * Custom icon for the header row. Must accept a `triggered` prop.
    * Defaults to `<FolderOneIcon size={20} />` with open/closed variant driven by state.
+   * Pass `null` to render no icon at all.
    */
-  icon?: React.ReactElement<{ triggered?: boolean }>
+  icon?: React.ReactElement<{ triggered?: boolean }> | null
   /**
    * Optional badge rendered between the label and the expand arrow.
    * Use for status indicators (e.g. a "Shared" pill).
@@ -236,11 +237,13 @@ export function SidebarProjectsSection({
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, minWidth: 0, flex: 1 }}>
             {/* ── Folder icon - visual only ── */}
-            <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
-              {icon
-                ? React.cloneElement(icon, { triggered: isHovered })
-                : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
-            </div>
+            {icon !== null && (
+              <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
+                {icon
+                  ? React.cloneElement(icon, { triggered: isHovered })
+                  : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
+              </div>
+            )}
             {isEditing ? (
               <input
                 ref={inputRef}
@@ -377,7 +380,7 @@ export function SidebarProjectsSection({
             >
               <m.div
                 variants={staggerVariants}
-                style={{ paddingLeft: '28px', display: 'flex', flexDirection: 'column', gap: '4px' }}
+                style={{ paddingLeft: icon === null ? '6px' : '28px', display: 'flex', flexDirection: 'column', gap: '4px' }}
               >
                 {React.Children.map(children, (child, i) => (
                   // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- React.Children.map order is stable; no IDs on children

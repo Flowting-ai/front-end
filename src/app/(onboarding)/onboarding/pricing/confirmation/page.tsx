@@ -112,9 +112,11 @@ function PricingConfirmationContent() {
   const heading = isFailed ? 'Payment Failed' : 'Payment Successful!'
   const description = isFailed
     ? 'Your payment could not be processed. No charge was made to your account.'
-    : planLabel
-      ? `You're now on the ${planLabel} plan${billing ? ` (${billingLabel})` : ''}. Your workspace is ready.`
-      : 'Your subscription is active. Your workspace is ready.'
+    : isTeamPlan
+      ? "You've subscribed to a Team plan. Your workspace is ready."
+      : planLabel
+        ? `You're now on the ${planLabel} plan${billing ? ` (${billingLabel})` : ''}. Your workspace is ready.`
+        : 'Your subscription is active. Your workspace is ready.'
 
   return (
     <Shell>

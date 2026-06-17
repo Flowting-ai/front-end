@@ -81,12 +81,6 @@ export default function OnboardingWorkspacePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Seed the workspace name with the user's first name as a friendly default.
-  useEffect(() => {
-    if (!data.companyName && user?.firstName) setCompanyName(user.firstName);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
   const canContinue = data.companyName.trim().length > 0 && data.companySize !== null;
 
   const handleContinue = async () => {

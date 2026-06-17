@@ -8,6 +8,7 @@ import {
   ORG_PLAN_ENDPOINT,
   ORG_PLAN_USAGE_ENDPOINT,
   ORG_AUDIT_ENDPOINT,
+  ORG_MEMBERS_ENDPOINT,
   ORG_MEMBER_ENDPOINT,
   ORG_MEMBER_ROLE_ENDPOINT,
   ORG_MEMBER_CAP_ENDPOINT,
@@ -40,6 +41,7 @@ interface MemberResponse {
   email: string | null
   role: OrgRole
   credit_cap: number | null
+  credit_extra?: number
   credit_used: number
   invite_status: 'active' | 'pending'
 }
@@ -97,6 +99,7 @@ function normalizeMember(m: MemberResponse): OrgMember {
     name:            m.name ?? '',
     email:           m.email ?? '',
     role,
+    orgRole:         m.role,
     inviteStatus,
     teamMemberships: [],
     creditUsed:      m.credit_used,
@@ -232,6 +235,16 @@ export async function updateOrgSettings(
 export async function getOrgPlan(orgId: string): Promise<OrgPlan> {
   const data = await apiFetchJson<PlanResponse>(ORG_PLAN_ENDPOINT(orgId))
   return normalizePlan(data)
+}
+
+/**
+ * GET /organizations/{id}/members — the authoritative member list with real
+ * roles (owner | admin | member). Use this (not the plan's bundled members) to
+ * render roles on the Members and Activity pages.
+ */
+export async function listMembers(orgId: string): Promise<OrgMember[]> {
+  const data = await apiFetchJson<MemberResponse[]>(ORG_MEMBERS_ENDPOINT(orgId))
+  return (data ?? []).map(normalizeMember)
 }
 
 export async function getOrgPlanUsage(orgId: string): Promise<OrgPlanUsage> {

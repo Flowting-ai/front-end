@@ -249,6 +249,8 @@ export const ORG_POOL_STATUS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/pool-status`)
 export const ORG_AUDIT_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/audit`)
+export const ORG_MEMBERS_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/members`)
 export const ORG_MEMBER_ENDPOINT = (orgId: string, memberId: string) =>
   withBase(`/organizations/${orgId}/members/${memberId}`)
 export const ORG_MEMBER_ROLE_ENDPOINT = (orgId: string, memberId: string) =>

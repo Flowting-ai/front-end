@@ -96,19 +96,22 @@ function RoleDropdown({
 
 function RoleButton({
   role,
+  label: labelProp,
   isOwner = false,
   isAdmin = true,
   onClick,
   btnRef,
 }: {
   role:     WorkspaceRole
+  /** Explicit display label (e.g. "Owner"). Falls back to the capitalised role. */
+  label?:   string
   isOwner?: boolean
   isAdmin?: boolean
   onClick?: () => void
   btnRef?:  (el: HTMLButtonElement | null) => void
 }) {
   const [hov, setHov] = React.useState(false)
-  const label = role.charAt(0).toUpperCase() + role.slice(1)
+  const label = labelProp ?? role.charAt(0).toUpperCase() + role.slice(1)
 
   if (isOwner || !isAdmin) {
     return (
@@ -358,6 +361,7 @@ function MembersTable({
               <div style={{ width: 110, display: 'flex', justifyContent: 'flex-start', flexShrink: 0, position: 'relative' }}>
                 <RoleButton
                   role={member.role}
+                  label={member.orgRole.charAt(0).toUpperCase() + member.orgRole.slice(1)}
                   isOwner={isOwner}
                   isAdmin={isAdmin}
                   btnRef={el => { triggerRefs.current[member.id] = el }}
@@ -506,8 +510,12 @@ export default function OrgMembersPage() {
       : m
   )
 
-  // First admin is the workspace owner (cannot be removed)
-  const ownerMemberId = members.find(m => m.role === 'admin')?.id ?? ''
+  // The workspace owner (cannot be removed). Use the real backend role; fall
+  // back to the first admin only if no member is flagged as owner.
+  const ownerMemberId =
+    members.find(m => m.orgRole === 'owner')?.id ??
+    members.find(m => m.role === 'admin')?.id ??
+    ''
 
   const totalMembers   = members.length
   const adminCount     = members.filter(m => m.role === 'admin').length
@@ -553,6 +561,7 @@ export default function OrgMembersPage() {
         name:            email.split('@')[0] ?? email,
         email,
         role,
+        orgRole:         role === 'admin' ? 'admin' : 'member',
         inviteStatus:    'invite_sent',
         teamMemberships: [],
         creditUsed:      0,

@@ -16,10 +16,16 @@ import { apiFetch, apiFetchJson, ApiError } from "./client";
 
 export type PlanType = "starter" | "pro" | "power" | "trial";
 
+/** All plan keys accepted by POST /stripe/checkout (individual + team tiers). */
+export type CheckoutPlan =
+  | "starter" | "pro" | "power"
+  | "team_125" | "team_250" | "team_500" | "team_1000" | "team_1500" | "team_2000";
+
 export interface CreateCheckoutSessionRequest {
-  plan_type: PlanType;
-  /** Default 'monthly'. */
-  billing?:  string;
+  /** Plan key — the backend maps it to the right Stripe price. */
+  plan: CheckoutPlan;
+  /** monthly | annual. Default 'monthly'. */
+  billing?: "monthly" | "annual";
 }
 
 export interface CreateCheckoutSessionResponse {
@@ -103,6 +109,8 @@ export interface BillingInfo {
 export async function createCheckout(
   body: CreateCheckoutSessionRequest,
 ): Promise<CreateCheckoutSessionResponse> {
+  // Body is exactly { plan, billing } — identity comes from the JWT and the
+  // backend owns the Stripe price ids. Never send user/auth0 ids or price_id.
   return apiFetchJson<CreateCheckoutSessionResponse>(STRIPE_CHECKOUT_ENDPOINT, {
     method: "POST",
     body:   JSON.stringify({ billing: "monthly", ...body }),

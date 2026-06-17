@@ -32,7 +32,11 @@ export interface OrgMember {
   name: string
   email: string
   avatarUrl?: string
+  /** UI role used by the editable role control: owner+admin collapse to 'admin'. */
   role: WorkspaceRole
+  /** Raw backend role ('owner' | 'admin' | 'member') — use for display so the
+   *  workspace owner shows as "Owner" rather than "Admin". */
+  orgRole: OrgRole
   inviteStatus: InviteStatus
   teamMemberships: TeamMembership[]
   creditUsed: number
