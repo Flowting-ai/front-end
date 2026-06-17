@@ -42,7 +42,7 @@ import {
   type TeamConnectionEntry,
 } from '@/lib/api/teams'
 import { listMembers } from '@/lib/api/organization'
-import { listConnectors } from '@/lib/api/connectors'
+import { listConnectors, listOrgCatalog } from '@/lib/api/connectors'
 import type { ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
 import type { Team, TeamEditor, OrgMember } from '@/types/teams'
 import { toast } from 'sonner'
@@ -289,7 +289,9 @@ function TeamConnectorsCard({ orgId, teamId, isAdmin }: { orgId: string; teamId:
     setLoading(true)
     Promise.all([
       listTeamConnectors(orgId, teamId),
-      listConnectors(),
+      // Admins use the org catalog so they see all connectors with org_enabled status.
+      // Non-admins use the personal catalog which is already pre-filtered to org-enabled slugs.
+      isAdmin ? listOrgCatalog(orgId) : listConnectors(),
     ])
       .then(([conns, cat]) => {
         setConnectors(conns)
@@ -297,16 +299,18 @@ function TeamConnectorsCard({ orgId, teamId, isAdmin }: { orgId: string; teamId:
       })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [orgId, teamId])
+  }, [orgId, teamId, isAdmin])
 
   // Resolve display name from catalog; falls back to slug if catalog not yet loaded.
   const displayName = (slug: string) =>
     catalog.find(c => c.slug === slug)?.display_name ?? slug
 
-  // Connectors available to request: exclude pending/approved (denied can be re-requested).
-  const requestableCatalog = catalog.filter(
-    c => !connectors.some(tc => tc.connectorSlug === c.slug && tc.status !== 'denied'),
-  )
+  // Connectors available to request:
+  // - When admin, only org-enabled slugs can be team-requested without a 403.
+  // - Exclude connectors already pending/approved (denied rows can be re-requested).
+  const requestableCatalog = catalog
+    .filter(c => !isAdmin || c.org_enabled === true)
+    .filter(c => !connectors.some(tc => tc.connectorSlug === c.slug && tc.status !== 'denied'))
 
   const handleOpenRequest = () => {
     setRequestOpen(true)
@@ -372,22 +376,36 @@ function TeamConnectorsCard({ orgId, teamId, isAdmin }: { orgId: string; teamId:
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
               {isAdmin ? 'Add connector (auto-approved)' : 'Request connector for team'}
             </p>
-            <select
-              value={selectedSlug}
-              onChange={e => setSelectedSlug(e.target.value)}
-              style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)', border: '1px solid var(--neutral-200)', borderRadius: 8, padding: '8px 12px', backgroundColor: 'white', width: '100%' }}
-            >
-              <option value="">Select connector…</option>
-              {requestableCatalog.map(c => (
-                <option key={c.slug} value={c.slug}>{c.display_name}</option>
-              ))}
-            </select>
-            <InputField value={note} onChange={setNote} placeholder="Optional note for admin…" fluid />
+            {requestableCatalog.length === 0 ? (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0 }}>
+                {loading
+                  ? 'Loading…'
+                  : isAdmin
+                    ? 'All org-enabled connectors are already added to this team. Enable more connectors in Org → Connectors.'
+                    : 'No connectors available to request. All org-enabled connectors are already pending or approved for this team.'}
+              </p>
+            ) : (
+              <>
+                <select
+                  value={selectedSlug}
+                  onChange={e => setSelectedSlug(e.target.value)}
+                  style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)', border: '1px solid var(--neutral-200)', borderRadius: 8, padding: '8px 12px', backgroundColor: 'white', width: '100%' }}
+                >
+                  <option value="">Select connector…</option>
+                  {requestableCatalog.map(c => (
+                    <option key={c.slug} value={c.slug}>{c.display_name}</option>
+                  ))}
+                </select>
+                <InputField value={note} onChange={setNote} placeholder="Optional note for admin…" fluid />
+              </>
+            )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <Button variant="outline" size="sm" onClick={() => setRequestOpen(false)}>Cancel</Button>
-              <Button variant="default" size="sm" disabled={!selectedSlug || submitting} onClick={handleRequest}>
-                {submitting ? 'Sending…' : isAdmin ? 'Add' : 'Request'}
-              </Button>
+              {requestableCatalog.length > 0 && (
+                <Button variant="default" size="sm" disabled={!selectedSlug || submitting} onClick={handleRequest}>
+                  {submitting ? 'Sending…' : isAdmin ? 'Add' : 'Request'}
+                </Button>
+              )}
             </div>
           </div>
         )}

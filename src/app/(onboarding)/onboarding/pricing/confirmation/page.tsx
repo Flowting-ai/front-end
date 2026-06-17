@@ -90,7 +90,7 @@ function PricingConfirmationContent() {
   const status    = searchParams.get('status')
 
   const isFailed    = status === 'failed' || status === 'cancelled'
-  const isTeamPlan  = planParam.startsWith('team_')
+  const isTeamPlan  = planParam.startsWith('team_') || planParam === 'teams'
   const planLabel   = planParam ? planParam.charAt(0).toUpperCase() + planParam.slice(1) : null
   const billingLabel = billing === 'annual' ? 'Annual' : 'Monthly'
 
@@ -202,17 +202,10 @@ function PricingConfirmationContent() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
             <button
               type="button"
-              onClick={() => router.push('/settings/billing')}
+              onClick={() => router.push('/onboarding/import')}
               style={primaryBtn}
             >
-              Go to billing &amp; usage
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push('/chat')}
-              style={ghostBtn}
-            >
-              Go to Dashboard
+              Continue with onboarding
             </button>
           </div>
         )}

@@ -5,10 +5,11 @@ import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import * as Dialog from '@radix-ui/react-dialog'
-import { listConnectors, initiateLink, unlinkConnector, updateConnector, pollConnectorUntilActive } from '@/lib/api/connectors'
+import { listConnectors, initiateLink, unlinkConnector, updateConnector, pollConnectorUntilActive, listOrgCatalog, updateOrgCatalog } from '@/lib/api/connectors'
 import type { ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
-import { listOrgConnectorAccounts, createOrgConnectorAccount, deleteOrgConnectorAccount, getConnectorUsedBy } from '@/lib/api/org-connectors'
-import type { OrgConnectorAccount } from '@/lib/api/org-connectors'
+import { listOrgConnectorAccounts, createOrgConnectorAccount, deleteOrgConnectorAccount, getConnectorUsedBy, updateOrgConnectorAccount, pollOrgConnectorAccountUntilConnected, listPersonalRequests, reviewPersonalRequest } from '@/lib/api/org-connectors'
+import type { OrgConnectorAccount, PersonalConnectorRequest } from '@/lib/api/org-connectors'
+import { ApiError } from '@/lib/api/client'
 import { connectorLogoSrc } from '@/lib/connectorLogos'
 import {
   ArrowDownOneIcon,
@@ -64,13 +65,6 @@ interface ConnectorRequest {
   available: boolean
 }
 
-// Connector requests have no backend endpoint yet, so there is no real data to
-// show — start empty (the Requests tab renders its empty state). Replace these
-// with a real fetch once an endpoint exists; do NOT reintroduce sample data.
-const PENDING_FROM_TEAM: ConnectorRequest[] = []
-
-const PENDING_YOUR_ACCOUNTS: ConnectorRequest[] = []
-
 interface EditorActivity {
   id:        string
   userName:  string
@@ -95,6 +89,9 @@ interface ConnectorAccount {
   email:   string
   addedBy: string
   scope:   AccountScope
+  version: number
+  status:  'active' | 'disabled' | 'expired'
+  teamIds: string[]
 }
 
 interface ConnectorUsedByItem {
@@ -402,11 +399,12 @@ function PageCard({
   )
 }
 
-function DangerOutlineButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+function DangerOutlineButton({ children, onClick, disabled }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       style={{
         display:         'inline-flex',
         alignItems:      'center',
@@ -415,7 +413,7 @@ function DangerOutlineButton({ children, onClick }: { children: React.ReactNode;
         padding:         '6px 10px 8px',
         borderRadius:    10,
         border:          'none',
-        cursor:          'pointer',
+        cursor:          disabled ? 'not-allowed' : 'pointer',
         backgroundColor: 'white',
         boxShadow:       '0px 1.091px 1.091px 0px rgba(24,2,2,0.05), 0px 1.455px 3.127px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-100), inset 0px -2.182px 0.364px 0px var(--red-100)',
         fontFamily:      'var(--font-body)',
@@ -425,6 +423,7 @@ function DangerOutlineButton({ children, onClick }: { children: React.ReactNode;
         color:           'var(--red-700)',
         whiteSpace:      'nowrap',
         flexShrink:      0,
+        opacity:         disabled ? 0.5 : 1,
       }}
     >
       {children}
@@ -1094,98 +1093,146 @@ function RequestReviewRow({
   )
 }
 
+function PersonalRequestRow({
+  request,
+  displayName,
+  onApprove,
+  onDecline,
+}: {
+  request:     PersonalConnectorRequest
+  displayName: string
+  onApprove:   () => Promise<void>
+  onDecline:   () => Promise<void>
+}) {
+  const [approving, setApproving] = useState(false)
+  const [declining, setDeclining] = useState(false)
+
+  const daysAgo = (() => {
+    const d = Math.floor((Date.now() - new Date(request.createdAt).getTime()) / 86_400_000)
+    if (d === 0) return 'today'
+    if (d === 1) return '1 day ago'
+    return `${d} days ago`
+  })()
+
+  return (
+    <div
+      style={{
+        display:         'flex',
+        alignItems:      'center',
+        gap:             12,
+        padding:         '10px 16px',
+        backgroundColor: 'white',
+        borderRadius:    12,
+        boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px var(--neutral-100)',
+      }}
+    >
+      <ConnectorIcon slug={request.connectorSlug} />
+      <div style={{ flex: '1 0 0', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <BodyText weight={500} color="var(--neutral-900)">{displayName}</BodyText>
+          <Badge label="PENDING" color="Yellow" />
+        </div>
+        <BodyText size={11} color="var(--neutral-500)">
+          Requested by {request.userName ?? request.userId} · {daysAgo}
+        </BodyText>
+        {request.note && (
+          <BodyText size={11} color="var(--neutral-600)" style={{ fontStyle: 'italic', marginTop: 2 }}>
+            &ldquo;{request.note}&rdquo;
+          </BodyText>
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+        <DangerOutlineButton
+          disabled={approving || declining}
+          onClick={() => {
+            setDeclining(true)
+            void onDecline().finally(() => setDeclining(false))
+          }}
+        >
+          {declining ? 'Declining…' : 'Decline'}
+        </DangerOutlineButton>
+        <Button
+          variant="default"
+          size="sm"
+          disabled={approving || declining}
+          onClick={() => {
+            setApproving(true)
+            void onApprove().finally(() => setApproving(false))
+          }}
+        >
+          {approving ? 'Approving…' : 'Approve'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function RequestQueue({
+  orgId,
   orgName,
   isAdmin,
+  connectors,
   onRequestSouvenir,
 }: {
+  orgId:             string
   orgName:           string
   isAdmin:           boolean
+  connectors:        ConnectorCatalogEntry[]
   onRequestSouvenir: () => void
 }) {
-  const [teamRequests,    setTeamRequests]    = useState<ConnectorRequest[]>(PENDING_FROM_TEAM)
-  const [accountRequests, setAccountRequests] = useState<ConnectorRequest[]>(PENDING_YOUR_ACCOUNTS)
+  const [requests, setRequests] = useState<PersonalConnectorRequest[]>([])
+  const [loading,  setLoading]  = useState(true)
 
   const badgeLabel = orgName ? `${orgName} · ${isAdmin ? 'Admin' : 'Member'}` : (isAdmin ? 'Admin' : 'Member')
 
-  async function handleApprove(slug: string) {
-    try {
-      const res = await initiateLink(slug)
-      if (res.redirect_url) {
-        const popup = window.open('', '_blank', 'width=900,height=700')
-        if (popup && !popup.closed) {
-          popup.location.href = res.redirect_url
-        } else {
-          window.open(res.redirect_url, '_blank', 'noopener')
-        }
-        await pollConnectorUntilActive(slug)
-        popup?.close()
-        setTeamRequests(prev => prev.filter(r => r.slug !== slug))
-        toast.success('Connector approved and connected')
-      } else {
-        setTeamRequests(prev => prev.filter(r => r.slug !== slug))
-        toast.success('Connector approved and connected')
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to connect connector')
-    }
+  useEffect(() => {
+    if (!isAdmin) { setLoading(false); return }
+    listPersonalRequests(orgId)
+      .then(list => setRequests(list.filter(r => r.status === 'pending')))
+      .catch(err => toast.error(err instanceof Error ? err.message : 'Failed to load requests'))
+      .finally(() => setLoading(false))
+  }, [orgId, isAdmin])
+
+  const displayName = (slug: string) => connectors.find(c => c.slug === slug)?.display_name ?? slug
+
+  async function handleApprove(id: string) {
+    await reviewPersonalRequest(orgId, id, 'approved')
+    setRequests(prev => prev.filter(r => r.id !== id))
+    toast.success('Request approved — user now has personal access')
   }
 
-  function handleDecline(slug: string) {
-    setTeamRequests(prev => prev.filter(r => r.slug !== slug))
+  async function handleDecline(id: string) {
+    await reviewPersonalRequest(orgId, id, 'denied')
+    setRequests(prev => prev.filter(r => r.id !== id))
     toast.success('Request declined')
-  }
-
-  function handleDismiss(slug: string) {
-    setAccountRequests(prev => prev.filter(r => r.slug !== slug))
   }
 
   return (
     <PageCard style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', gap: 24 }}>
         <div style={{ flex: '1 0 0', minWidth: 0 }}>
-          <BodyText weight={500} color="var(--neutral-900)">My connectors</BodyText>
-          <BodyText>Integrations available to you in this workspace. Connect your own accounts where needed.</BodyText>
+          <BodyText weight={500} color="var(--neutral-900)">Personal access requests</BodyText>
+          <BodyText>Members requesting access to connectors outside the org catalog.</BodyText>
         </div>
         <Badge label={badgeLabel} color={isAdmin ? 'Yellow' : 'Blue'} />
       </div>
 
       <div style={{ padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {teamRequests.length > 0 && (
+        {loading ? (
+          <BodyText color="var(--neutral-400)" style={{ textAlign: 'center', padding: '24px 0' }}>Loading…</BodyText>
+        ) : requests.length > 0 ? (
           <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <BodyText weight={500} color="var(--neutral-900)">From your team</BodyText>
-              <BodyText>Available on Souvenir — approve to connect</BodyText>
-            </div>
-            {teamRequests.map(req => (
-              <RequestReviewRow
-                key={req.slug}
-                req={req}
-                onApprove={handleApprove}
-                onDecline={handleDecline}
+            {requests.map(req => (
+              <PersonalRequestRow
+                key={req.id}
+                request={req}
+                displayName={displayName(req.connectorSlug)}
+                onApprove={() => handleApprove(req.id)}
+                onDecline={() => handleDecline(req.id)}
               />
             ))}
           </section>
-        )}
-
-        {accountRequests.length > 0 && (
-          <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <BodyText weight={500} color="var(--neutral-900)">Your accounts</BodyText>
-              <BodyText>Enabled for the team — connect your own</BodyText>
-            </div>
-            {accountRequests.map(req => (
-              <RequestReviewRow
-                key={req.slug}
-                req={req}
-                onDismiss={handleDismiss}
-                onRequestSouvenir={onRequestSouvenir}
-              />
-            ))}
-          </section>
-        )}
-
-        {teamRequests.length === 0 && accountRequests.length === 0 && (
+        ) : (
           <BodyText color="var(--neutral-400)" style={{ textAlign: 'center', padding: '24px 0' }}>
             No pending requests
           </BodyText>
@@ -1194,7 +1241,7 @@ function RequestQueue({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--neutral-500)' }}>
           <TokenSquareIcon size={24} />
           <BodyText>
-            Approving a connector here adds it to <span style={{ color: 'black' }}>Shared connectors</span> or enables it as a <span style={{ color: 'black' }}>Per-member</span> type, depending on the integration.
+            Approving grants the member personal access to the connector, even if it&apos;s not in the org catalog.
           </BodyText>
         </div>
       </div>
@@ -1202,73 +1249,204 @@ function RequestQueue({
   )
 }
 
+function CatalogToggleRow({
+  connector,
+  orgId,
+  enabledSlugs,
+  onManage,
+  onConnect,
+  onToggle,
+}: {
+  connector:    ConnectorCatalogEntry
+  orgId:        string
+  enabledSlugs: string[]
+  onManage:     (e: ConnectorCatalogEntry) => void
+  onConnect:    (slug: string) => void
+  onToggle:     (slug: string, enabled: boolean) => Promise<void>
+}) {
+  const [enabled,        setEnabled]        = useState(connector.org_enabled === true)
+  const [pendingDisable, setPendingDisable] = useState(false)
+  const [usedByCount,    setUsedByCount]    = useState<number | null>(null)
+  const [toggling,       setToggling]       = useState(false)
+
+  const handleSwitchChange = async (checked: boolean) => {
+    if (!checked) {
+      setToggling(true)
+      try {
+        const usedBy = await getConnectorUsedBy(orgId, connector.slug)
+        setUsedByCount(usedBy.length)
+      } catch {
+        setUsedByCount(0)
+      } finally {
+        setToggling(false)
+      }
+      setPendingDisable(true)
+    } else {
+      setToggling(true)
+      setEnabled(true)
+      try {
+        await onToggle(connector.slug, true)
+      } catch {
+        setEnabled(false)
+      } finally {
+        setToggling(false)
+      }
+    }
+  }
+
+  const handleConfirmDisable = async () => {
+    setToggling(true)
+    setEnabled(false)
+    setPendingDisable(false)
+    try {
+      await onToggle(connector.slug, false)
+    } catch {
+      setEnabled(true)
+    } finally {
+      setToggling(false)
+    }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 24px' }}>
+        <ConnectorIcon slug={connector.slug} iconUrl={connector.icon_url} />
+        <div style={{ flex: '1 0 0', minWidth: 0 }}>
+          <BodyText weight={500} color="var(--neutral-900)">{connector.display_name}</BodyText>
+          <BodyText size={11} color="var(--neutral-500)">
+            {connector.auth_mode === 'api_key' ? 'API Key' : 'OAuth'}{connector.linked ? ' · Connected' : ''}
+          </BodyText>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <Switch checked={enabled} onCheckedChange={checked => void handleSwitchChange(checked)} disabled={toggling} />
+          <BodyText size={12} color="var(--neutral-500)" style={{ width: 28 }}>{enabled ? 'On' : 'Off'}</BodyText>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => connector.linked ? onManage(connector) : onConnect(connector.slug)}
+        >
+          {connector.linked ? 'Manage' : 'Connect'}
+        </Button>
+      </div>
+      {pendingDisable && (
+        <div
+          style={{
+            margin:          '0 24px 10px',
+            padding:         '8px 14px',
+            backgroundColor: 'var(--red-50, #fff1f0)',
+            border:          '1px solid var(--red-200, #fca5a5)',
+            borderRadius:    10,
+            display:         'flex',
+            alignItems:      'center',
+            gap:             12,
+            flexWrap:        'wrap',
+          }}
+        >
+          <BodyText size={12} color="var(--red-700, #b91c1c)" style={{ flex: '1 0 0' }}>
+            {usedByCount
+              ? `⚠ ${usedByCount} agent${usedByCount !== 1 ? 's' : ''} use this connector. `
+              : ''}
+            Disabling removes {connector.display_name} from the org catalog — members will lose access.
+          </BodyText>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button size="sm" variant="outline" onClick={() => { setPendingDisable(false); setEnabled(true) }}>
+              Cancel
+            </Button>
+            <button
+              type="button"
+              disabled={toggling}
+              onClick={() => void handleConfirmDisable()}
+              style={{
+                padding: '4px 12px', borderRadius: 8, border: '1px solid var(--red-400, #ee3030)',
+                background: 'var(--red-500, #c62b29)', color: 'white', cursor: 'pointer',
+                fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
+              }}
+            >
+              Confirm disable
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AdminCatalog({
   connectors,
+  orgId,
   onConnect,
   onDisconnect,
   onManage,
   onRequestSouvenir,
+  onRefresh,
 }: {
   connectors:        ConnectorCatalogEntry[]
+  orgId:             string
   onConnect:         (slug: string) => void
   onDisconnect:      (slug: string) => void
   onManage?:         (entry: ConnectorCatalogEntry) => void
   onRequestSouvenir: () => void
+  onRefresh:         () => void
 }) {
-  const [category,    setCategory]    = useState<CategoryTab>('All')
   const [searchQuery, setSearchQuery] = useState('')
 
-  const q = searchQuery.toLowerCase().trim()
-  const searchFiltered = connectors.filter(c =>
-    !q || c.display_name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q)
-  )
-  const filtered = category === 'All'
-    ? searchFiltered
-    : searchFiltered.filter(c => CONNECTOR_CATEGORY_MAP[c.slug] === category)
+  const q       = searchQuery.toLowerCase().trim()
+  const visible = connectors.filter(c => !q || c.display_name.toLowerCase().includes(q) || c.slug.includes(q))
 
-  const linked   = filtered.filter(c => c.linked)
-  const unlinked = filtered.filter(c => !c.linked)
+  const enabledSlugs = connectors.filter(c => c.org_enabled).map(c => c.slug)
+
+  async function handleToggle(slug: string, shouldEnable: boolean) {
+    const next = shouldEnable
+      ? [...new Set([...enabledSlugs, slug])]
+      : enabledSlugs.filter(s => s !== slug)
+    await updateOrgCatalog(orgId, next)
+    onRefresh()
+    toast.success(shouldEnable ? `${slug} enabled in catalog` : `${slug} removed from catalog`)
+  }
 
   return (
-    <PageCard style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', position: 'relative' }}>
-        <TabGroup
-          tabs={CATEGORIES.map(item => ({ id: item, label: item }))}
-          value={category}
-          onChange={setCategory}
-          size="small"
-        />
-        <div style={{ position: 'absolute', right: 24, top: 13 }}>
-          <SearchBar value={searchQuery} onChange={setSearchQuery} />
+    <PageCard style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', gap: 0 }}>
+      {/* Header */}
+      <div style={{ padding: '12px 24px 14px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+        <div>
+          <BodyText weight={500} color="var(--neutral-900)">Org connector catalog</BodyText>
+          <BodyText size={11} color="var(--neutral-500)">Toggle which connectors are available to your team members.</BodyText>
         </div>
+        <SearchBar value={searchQuery} onChange={setSearchQuery} />
       </div>
 
-      {linked.length > 0 && (
-        <section style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BodyText weight={500} color="var(--neutral-900)">Connected</BodyText>
-            <Badge label={`${linked.length} active`} color="Green" />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-            {linked.map(c => (
-              <ConnectorCatalogTile key={c.slug} connector={c} action="manage" onAction={() => onManage?.(c)} />
-            ))}
-          </div>
-        </section>
+      {/* Column headers */}
+      <div style={{ padding: '6px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 32 }} />
+        <BodyText size={11} color="var(--neutral-400)" style={{ flex: '1 0 0' }}>Connector</BodyText>
+        <BodyText size={11} color="var(--neutral-400)" style={{ width: 70, textAlign: 'center' }}>Org enabled</BodyText>
+        <div style={{ width: 80 }} />
+      </div>
+
+      {/* Rows */}
+      {visible.map((c, idx) => (
+        <div key={c.slug}>
+          {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
+          <CatalogToggleRow
+            connector={c}
+            orgId={orgId}
+            enabledSlugs={enabledSlugs}
+            onManage={entry => onManage?.(entry)}
+            onConnect={onConnect}
+            onToggle={handleToggle}
+          />
+        </div>
+      ))}
+
+      {visible.length === 0 && (
+        <div style={{ padding: '24px', textAlign: 'center' }}>
+          <BodyText color="var(--neutral-400)">No connectors match your search.</BodyText>
+        </div>
       )}
 
-      {unlinked.length > 0 && (
-        <section style={{ padding: '12px 24px 12px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <BodyText weight={500} color="var(--neutral-900)">Available to connect</BodyText>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-            {unlinked.map(c => (
-              <ConnectorCatalogTile key={c.slug} connector={c} action="add" onAction={() => onConnect(c.slug)} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <div style={{ padding: '0 24px 12px' }}>
+      {/* Footer CTA */}
+      <div style={{ padding: '12px 24px', borderTop: '1px solid var(--neutral-100)', marginTop: 4 }}>
         <div
           style={{
             backgroundColor: 'white',
@@ -1283,26 +1461,17 @@ function AdminCatalog({
           <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
             <div
               style={{
-                width:           40,
-                height:          40,
-                borderRadius:    999,
-                border:          '3px solid black',
-                display:         'flex',
-                alignItems:      'center',
-                justifyContent:  'center',
-                color:           'black',
-                flexShrink:      0,
-                transform:       'rotate(-10deg)',
+                width: 40, height: 40, borderRadius: 999, border: '3px solid black',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'black', flexShrink: 0, transform: 'rotate(-10deg)',
               }}
             >
               <WorkflowSquareTenIcon size={22} />
             </div>
             <div style={{ minWidth: 0, flex: '1 0 0' }}>
-              <BodyText weight={500} color="var(--neutral-900)">
-                Don&apos;t see what you need?
-              </BodyText>
+              <BodyText weight={500} color="var(--neutral-900)">Don&apos;t see what you need?</BodyText>
               <BodyText size={11} color="var(--neutral-500)" weight={500} style={{ whiteSpace: 'normal' }}>
-                If your tool isn&apos;t in the catalog, request it directly from Souvenir. We&apos;ll scope the integration and notify your workspace when it ships.
+                Request a new integration directly from Souvenir. We&apos;ll scope it and notify your workspace when it ships.
               </BodyText>
             </div>
           </div>
@@ -1766,6 +1935,7 @@ function AddAccountModal({
   const [label,    setLabel]    = useState('')
   const [scope,    setScope]    = useState<AddAccountScope>('personal')
   const [creating, setCreating] = useState(false)
+  const [polling,  setPolling]  = useState(false)
 
   async function handleContinue() {
     if (scope === 'shared-team') {
@@ -1776,12 +1946,23 @@ function AddAccountModal({
           const popup = window.open('', '_blank', 'width=900,height=700')
           if (popup && !popup.closed) popup.location.href = res.redirectUrl
           else window.open(res.redirectUrl, '_blank', 'noopener')
+          setPolling(true)
+          try {
+            await pollOrgConnectorAccountUntilConnected(orgId, connector.slug, res.sharedAccountId)
+            popup?.close()
+          } catch {
+            popup?.close()
+            toast.warning('OAuth flow timed out. The account was created — check the accounts list.')
+          }
+          setPolling(false)
         }
         onAccountCreated()
         onClose()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to create shared account')
+      } finally {
         setCreating(false)
+        setPolling(false)
       }
     } else {
       onConnect(connector.slug)
@@ -1995,7 +2176,7 @@ function AddAccountModal({
                 opacity:         creating ? 0.6 : 1,
               }}
             >
-              {creating ? 'Creating…' : (scope === 'shared-team' ? 'Create shared account' : 'Continue with Google')}
+              {polling ? 'Connecting…' : creating ? 'Creating…' : (scope === 'shared-team' ? 'Create shared account' : 'Continue with Google')}
               {!creating && <ArrowRightOneIcon size={16} />}
             </button>
           </div>
@@ -2073,6 +2254,9 @@ function orgAccountToLocal(a: OrgConnectorAccount): ConnectorAccount {
     email:   a.accountIdentifier ?? '',
     addedBy: a.linkedByUserId,
     scope:   a.status === 'active' ? 'shared' : 'shared-expired',
+    version: a.version,
+    status:  a.status,
+    teamIds: a.teamIds,
   }
 }
 
@@ -2501,8 +2685,10 @@ function DisconnectAccountModal({
     }
   }
 
-  const affectedRows = [
-    { title: 'Disconnect account',  subtitle: `Remove this ${connector.display_name} account from Souvenir entirely.` },
+  const teamCount = account.teamIds.length
+  const affectedRows: Array<{ title: string; subtitle: string; count?: number }> = [
+    { title: 'Remove shared account', subtitle: `Permanently removes this ${connector.display_name} account from the org.` },
+    ...(teamCount > 0 ? [{ title: 'Teams affected', subtitle: `${teamCount} team${teamCount !== 1 ? 's' : ''} using this account will lose the shared connection.`, count: teamCount }] : []),
   ]
 
   return (
@@ -2556,7 +2742,9 @@ function DisconnectAccountModal({
                     <BodyText size={16} weight={500} color="var(--neutral-900)">{row.title}</BodyText>
                     <BodyText size={11}>{row.subtitle}</BodyText>
                   </div>
-                  <BodyText size={16} weight={600} color="var(--red-500, #c62b29)">5</BodyText>
+                  {row.count != null && (
+                    <BodyText size={16} weight={600} color="var(--red-500, #c62b29)">{row.count}</BodyText>
+                  )}
                 </div>
               </div>
             ))}
@@ -2606,7 +2794,49 @@ function AccountDetailView({
   const [changeScopeOpen, setChangeScopeOpen] = useState(false)
   const [disconnectOpen,  setDisconnectOpen]  = useState(false)
   const [confirmLabel,    setConfirmLabel]    = useState('')
-  const [enabled,         setEnabled]         = useState(true)
+  const [enabled,         setEnabled]         = useState(account.status === 'active')
+  const [labelValue,      setLabelValue]      = useState(account.label)
+  const [savingLabel,     setSavingLabel]     = useState(false)
+  const [savingStatus,    setSavingStatus]    = useState(false)
+  const [conflictErr,     setConflictErr]     = useState('')
+  const [accountVersion,  setAccountVersion]  = useState(account.version)
+
+  const handleSaveLabel = async () => {
+    setSavingLabel(true)
+    setConflictErr('')
+    try {
+      const updated = await updateOrgConnectorAccount(orgId, account.id, { accountLabel: labelValue, expectedVersion: accountVersion })
+      setAccountVersion(updated.version)
+      toast.success('Label updated')
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setConflictErr('This account was changed by someone else. Reload and try again.')
+      } else {
+        toast.error(err instanceof Error ? err.message : 'Failed to save label')
+      }
+    } finally {
+      setSavingLabel(false)
+    }
+  }
+
+  const handleToggleEnabled = async (checked: boolean) => {
+    setEnabled(checked)
+    setSavingStatus(true)
+    setConflictErr('')
+    try {
+      const updated = await updateOrgConnectorAccount(orgId, account.id, { status: checked ? 'active' : 'disabled', expectedVersion: accountVersion })
+      setAccountVersion(updated.version)
+    } catch (err) {
+      setEnabled(!checked)
+      if (err instanceof ApiError && err.status === 409) {
+        setConflictErr('This account was changed by someone else. Reload and try again.')
+      } else {
+        toast.error(err instanceof Error ? err.message : 'Failed to update status')
+      }
+    } finally {
+      setSavingStatus(false)
+    }
+  }
 
   const tools       = connector.tools ?? []
   const scopeLabel  = account.scope === 'personal' ? 'Personal' : 'Shared · Team'
@@ -2746,6 +2976,13 @@ function AccountDetailView({
       {/* ── Settings tab ── */}
       {accountTab === 'settings' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Conflict error banner */}
+          {conflictErr && (
+            <div style={{ padding: '8px 16px', backgroundColor: 'var(--red-50)', border: '1px solid var(--red-300)', borderRadius: 10 }}>
+              <BodyText size={12} color="var(--red-700)">{conflictErr}</BodyText>
+            </div>
+          )}
+
           {/* Account label */}
           <PageCard style={{ padding: '12px 0' }}>
             <div style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 24 }}>
@@ -2753,13 +2990,16 @@ function AccountDetailView({
                 <BodyText size={16} weight={500} color="var(--neutral-900)">Account label</BodyText>
                 <BodyText size={11}>Souvenir uses the label to tell your connections apart.</BodyText>
               </div>
-              <div style={{ width: 327, flexShrink: 0 }}>
+              <div style={{ width: 327, flexShrink: 0, display: 'flex', gap: 8 }}>
                 <InputField
                   fluid
-                  placeholder={`Type "${account.label}" to confirm`}
-                  value=""
-                  onChange={() => {}}
+                  placeholder="Account label"
+                  value={labelValue}
+                  onChange={setLabelValue}
                 />
+                <Button variant="outline" size="sm" disabled={savingLabel || labelValue === account.label} onClick={() => void handleSaveLabel()}>
+                  {savingLabel ? 'Saving…' : 'Save'}
+                </Button>
               </div>
             </div>
           </PageCard>
@@ -2782,7 +3022,7 @@ function AccountDetailView({
               <BodyText>Allow Souvenir to use this {connector.display_name} account.</BodyText>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <Switch checked={enabled} onCheckedChange={setEnabled} />
+              <Switch checked={enabled} onCheckedChange={checked => void handleToggleEnabled(checked)} disabled={savingStatus} />
               <BodyText size={14} color="var(--neutral-900)">{enabled ? 'On' : 'Off'}</BodyText>
             </div>
           </div>
@@ -2944,7 +3184,7 @@ function OrgConnectorsPageContent() {
   const [connectors,       setConnectors]       = useState<ConnectorCatalogEntry[]>([])
   const [refreshToken,     setRefreshToken]     = useState(0)
 
-  const pendingCount = PENDING_FROM_TEAM.length + PENDING_YOUR_ACCOUNTS.length
+  const [pendingCount, setPendingCount] = useState(0)
 
   const activeTab: MainTab = isAdminView
     ? (tab === 'browse' ? 'manage' : tab)
@@ -2955,6 +3195,13 @@ function OrgConnectorsPageContent() {
       .then(setConnectors)
       .catch(err => toast.error(err instanceof Error ? err.message : 'Failed to load connectors'))
   }, [refreshToken])
+
+  useEffect(() => {
+    if (!isAdminView || !org?.id) return
+    listPersonalRequests(org.id)
+      .then(list => setPendingCount(list.filter(r => r.status === 'pending').length))
+      .catch(() => {})
+  }, [isAdminView, org?.id, refreshToken])
 
   async function handleConnect(slug: string) {
     try {
@@ -3070,8 +3317,10 @@ function OrgConnectorsPageContent() {
           )}
           {activeTab === 'requests' && (
             <RequestQueue
+              orgId={org.id}
               orgName={org.name}
               isAdmin={isAdminView}
+              connectors={connectors}
               onRequestSouvenir={() => setRequestModalOpen(true)}
             />
           )}
@@ -3089,10 +3338,12 @@ function OrgConnectorsPageContent() {
           {activeTab === 'catalog' && (
             <AdminCatalog
               connectors={connectors}
+              orgId={org.id}
               onConnect={handleConnect}
               onDisconnect={handleDisconnect}
               onManage={(e) => setDetailConnector(e)}
               onRequestSouvenir={() => setRequestModalOpen(true)}
+              onRefresh={() => setRefreshToken(t => t + 1)}
             />
           )}
         </>
