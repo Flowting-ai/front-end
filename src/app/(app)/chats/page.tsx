@@ -15,6 +15,8 @@ import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useProjects } from '@/context/projects-context'
 import { usePinboard } from '@/context/pinboard-context'
 import { addChatToProject } from '@/lib/api/projects'
+import { listSharedWithMe, forkChatShare } from '@/lib/api/chat-shares'
+import type { SharedChatItem } from '@/lib/api/chat-shares'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -54,6 +56,10 @@ export default function ChatsPage() {
   const [moveModalOpen, setMoveModalOpen] = useState(false)
   const [searchQuery,   setSearchQuery]   = useState('')
   const [isMoving,      setIsMoving]      = useState(false)
+  const [activeTab,     setActiveTab]     = useState<'my' | 'shared'>('my')
+  const [sharedItems,   setSharedItems]   = useState<SharedChatItem[]>([])
+  const [sharedLoading, setSharedLoading] = useState(false)
+  const [forkingId,     setForkingId]     = useState<string | null>(null)
 
   // ── Derived ──────────────────────────────────────────────────────────────────
 
@@ -155,6 +161,30 @@ export default function ChatsPage() {
     }
   }, [selectedIds, projects, chats, removeLocal, exitSelection, addChat])
 
+  const handleTabChange = useCallback((tab: 'my' | 'shared') => {
+    setActiveTab(tab)
+    if (tab === 'shared' && sharedItems.length === 0) {
+      setSharedLoading(true)
+      listSharedWithMe()
+        .then(setSharedItems)
+        .catch(() => toast.error('Failed to load shared chats'))
+        .finally(() => setSharedLoading(false))
+    }
+  }, [sharedItems.length])
+
+  const handleFork = useCallback(async (shareId: string) => {
+    setForkingId(shareId)
+    try {
+      const { chatId } = await forkChatShare(shareId)
+      toast.success('Chat copied to your history')
+      push(`/chat?id=${chatId}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to copy chat')
+    } finally {
+      setForkingId(null)
+    }
+  }, [push])
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -243,6 +273,81 @@ export default function ChatsPage() {
             )}
           </AnimatePresence>
         </div>
+
+        {/* ── Tabs ─────────────────────────────────────────────────────────── */}
+        {!selectionMode && (
+          <div style={{ display: 'flex', gap: 4, padding: '4px 0 12px', borderBottom: '1px solid var(--neutral-100)', marginBottom: 12 }}>
+            {(['my', 'shared'] as const).map(tab => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => handleTabChange(tab)}
+                style={{
+                  padding:         '5px 12px',
+                  borderRadius:    8,
+                  border:          'none',
+                  cursor:          'pointer',
+                  fontFamily:      'var(--font-body)',
+                  fontWeight:      activeTab === tab ? 600 : 400,
+                  fontSize:        14,
+                  lineHeight:      '22px',
+                  backgroundColor: activeTab === tab ? 'var(--neutral-100)' : 'transparent',
+                  color:           activeTab === tab ? 'var(--neutral-900)' : 'var(--neutral-500)',
+                  transition:      'background 120ms',
+                }}
+              >
+                {tab === 'my' ? 'My chats' : 'Shared with me'}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ── Shared with me view ─────────────────────────────────────────── */}
+        {activeTab === 'shared' && !selectionMode && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {sharedLoading && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: '32px 0', textAlign: 'center' }}>Loading…</p>
+            )}
+            {!sharedLoading && sharedItems.length === 0 && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: '32px 0', textAlign: 'center' }}>No chats have been shared with you yet.</p>
+            )}
+            {sharedItems.map(item => (
+              <div
+                key={item.shareId}
+                style={{
+                  display:         'flex',
+                  alignItems:      'center',
+                  gap:             12,
+                  padding:         '12px 16px',
+                  borderRadius:    12,
+                  backgroundColor: 'white',
+                  boxShadow:       '0px 1px 2px rgba(18,12,8,0.08), 0px 0px 0px 1px var(--neutral-100)',
+                }}
+              >
+                <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.chatTitle || 'Untitled chat'}
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0 }}>
+                    Shared by {item.sharedByName ?? 'someone'} · {item.mode === 'editable' ? 'Editable' : 'Read-only'}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={forkingId === item.shareId}
+                  onClick={() => handleFork(item.shareId)}
+                >
+                  {forkingId === item.shareId ? 'Copying…' : 'Open copy'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── My chats content (original) ──────────────────────────────────── */}
+        {(activeTab === 'my' || selectionMode) && (
+          <>
 
         {/* ── Search — hidden in selection mode ───────────────────────────── */}
         <AnimatePresence initial={false}>
@@ -369,6 +474,9 @@ export default function ChatsPage() {
 
           </div>
         ) : null}
+
+          </>
+        )}
 
       </div>
 

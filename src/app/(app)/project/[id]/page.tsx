@@ -15,6 +15,11 @@ import { useFileUpload } from '@/hooks/use-file-upload'
 import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow'
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
+import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
+import { setProjectVisibility } from '@/lib/api/projects'
+import { fetchTeams } from '@/lib/api/teams'
+import { useOrg } from '@/context/org-context'
+import type { Team } from '@/types/teams'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { SystemInstructionsModal } from '@/components/SystemInstructionsModal'
 import { ChatInput } from '@/components/chat/ChatInput'
@@ -40,6 +45,7 @@ export default function ProjectPage() {
   const { open: openModelSelector } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
 
+  const { orgId } = useOrg()
   const project = getProject(params.id)
   const chats   = getChats(params.id)
 
@@ -67,6 +73,11 @@ export default function ProjectPage() {
   const [newChatAttachments,   setNewChatAttachments]   = useState<PendingAttachment[]>([])
   const [pendingFiles,     setPendingFiles]     = useState<File[]>([])
   const [projectLoading,   setProjectLoading]   = useState(true)
+  const [shareOpen,        setShareOpen]        = useState(false)
+  const [teams,            setTeams]            = useState<Team[]>([])
+  const [shareTeamId,      setShareTeamId]      = useState('')
+  const [shareVisibility,  setShareVisibility]  = useState<'private' | 'team'>('private')
+  const [sharingSaving,    setSharingSaving]    = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
@@ -107,6 +118,28 @@ export default function ProjectPage() {
     // the page's onChatCreated callback links it back to this project.
     push(`/project/${projectId}/chat/new?q=${encodeURIComponent(text.trim())}`)
     setChatInputValue('')
+  }
+
+  function handleOpenShare() {
+    setShareVisibility(project?.teamId ? 'team' : 'private')
+    setShareTeamId(project?.teamId ?? '')
+    setShareOpen(true)
+    if (orgId && teams.length === 0) {
+      fetchTeams(orgId).then(setTeams).catch(console.error)
+    }
+  }
+
+  async function handleSaveVisibility() {
+    setSharingSaving(true)
+    try {
+      await setProjectVisibility(projectId, shareVisibility, shareVisibility === 'team' ? shareTeamId : undefined)
+      toast.success('Project visibility updated')
+      setShareOpen(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update visibility')
+    } finally {
+      setSharingSaving(false)
+    }
   }
 
   return (
@@ -226,7 +259,7 @@ export default function ProjectPage() {
                   variant="outline"
                   size="md"
                   rightIcon={<ShareOneIcon size={16} />}
-                  disabled
+                  onClick={handleOpenShare}
                 >
                   Share
                 </Button>
@@ -493,6 +526,12 @@ export default function ProjectPage() {
                   }}
                   onRemove={(fileId) => removeFile(projectId, fileId)}
                 />
+                {project.teamId && (
+                  <ProjectMembersPanel
+                    teamId={project.teamId}
+                    projectId={projectId}
+                  />
+                )}
               </div>
             </div>
           </m.div>
@@ -516,6 +555,108 @@ export default function ProjectPage() {
         onSave={(text) => updateProject(projectId, { instructions: text })}
         onClose={() => setInstructionsOpen(false)}
       />
+
+      {/* ── Project share / visibility modal ─────────────────────────── */}
+      {shareOpen && (
+        <>
+          {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- modal backdrop */}
+          <div
+            onClick={() => setShareOpen(false)}
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(18,12,8,0.4)', backdropFilter: 'blur(2px)', zIndex: 50 }}
+          />
+          <div
+            style={{
+              position:        'fixed',
+              top:             '50%',
+              left:            '50%',
+              transform:       'translate(-50%, -50%)',
+              zIndex:          51,
+              width:           480,
+              maxWidth:        'calc(100vw - 48px)',
+              borderRadius:    16,
+              backgroundColor: 'white',
+              boxShadow:       '0px 8px 32px rgba(18,12,8,0.18), 0px 0px 0px 1px var(--neutral-100)',
+              padding:         24,
+              display:         'flex',
+              flexDirection:   'column',
+              gap:             16,
+            }}
+          >
+            <div>
+              <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: '0 0 4px' }}>
+                Share project
+              </p>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
+                Control who can access this project.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {(['private', 'team'] as const).map(v => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setShareVisibility(v)}
+                  style={{
+                    display:         'flex',
+                    alignItems:      'center',
+                    gap:             10,
+                    padding:         '10px 14px',
+                    borderRadius:    10,
+                    border:          'none',
+                    cursor:          'pointer',
+                    backgroundColor: 'white',
+                    textAlign:       'left',
+                    width:           '100%',
+                    boxShadow:       shareVisibility === v
+                      ? '0px 0px 0px 2px var(--blue-500, #4a83bf)'
+                      : '0px 0px 0px 1px var(--neutral-200)',
+                  }}
+                >
+                  <span style={{
+                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                    border: `2px solid ${shareVisibility === v ? '#0a7aff' : 'var(--neutral-300)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {shareVisibility === v && <span style={{ width: 9, height: 9, borderRadius: '50%', backgroundColor: '#0a7aff' }} />}
+                  </span>
+                  <div>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
+                      {v === 'private' ? 'Private' : 'Team'}
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)', margin: 0 }}>
+                      {v === 'private' ? 'Only you can see this project.' : 'All members of a team can access it.'}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {shareVisibility === 'team' && (
+              <select
+                value={shareTeamId}
+                onChange={e => setShareTeamId(e.target.value)}
+                style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)', border: '1px solid var(--neutral-200)', borderRadius: 8, padding: '8px 12px', backgroundColor: 'white', width: '100%' }}
+              >
+                <option value="">Select team…</option>
+                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4 }}>
+              <Button variant="outline" size="sm" onClick={() => setShareOpen(false)}>Cancel</Button>
+              <Button
+                variant="default"
+                size="sm"
+                disabled={sharingSaving || (shareVisibility === 'team' && !shareTeamId)}
+                onClick={() => void handleSaveVisibility()}
+              >
+                {sharingSaving ? 'Saving…' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

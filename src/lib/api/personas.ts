@@ -28,6 +28,7 @@ import {
   PERSONA_CHATS_RENAME_ENDPOINT,
   PERSONA_CHAT_STOP_ENDPOINT,
   PERSONA_CHAT_DELETE_MESSAGE_ENDPOINT,
+  PERSONA_VISIBILITY_ENDPOINT,
   directUpload,
 } from "@/lib/config";
 
@@ -307,6 +308,20 @@ export async function publishPersonaVersion(repoId: string, versionId: string): 
     method: "POST",
     body: JSON.stringify({ persona_id: versionId }),
   });
+}
+
+/** PATCH /persona/{repoId}/visibility — 204 */
+export async function setPersonaVisibility(
+  repoId: string,
+  visibility: 'private' | 'team',
+  teamIds?: string[],
+): Promise<void> {
+  const body: Record<string, unknown> = { visibility }
+  if (visibility === 'team' && teamIds?.length) body.teamIds = teamIds
+  await apiFetch(PERSONA_VISIBILITY_ENDPOINT(repoId), {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
 }
 
 // ── Version CRUD ──────────────────────────────────────────────────────────────

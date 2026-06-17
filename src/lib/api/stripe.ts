@@ -72,6 +72,26 @@ export interface BillingPortalResponse {
   portal_url: string;
 }
 
+/** Matches OpenAPI TrialCreditInfo. */
+export interface TrialCreditInfo {
+  amount:      number;
+  remaining:   number;
+  used:        number;
+  starts_at?:  string | null;
+  expires_at:  string;
+}
+
+/** Matches OpenAPI CreditSummary — the credit state inside BillingInfo. */
+export interface CreditSummary {
+  total_credits:  number;
+  plan_credits:   number;
+  topup_credits:  number;
+  used:           number;
+  remaining:      number;
+  trial?:         TrialCreditInfo | null;
+  by_category?:   { chat?: number; persona?: number; brain?: number } | null;
+}
+
 export interface PaymentMethodInfo {
   brand:     string | null
   last4:     string | null
@@ -89,6 +109,13 @@ export interface InvoiceInfo {
   invoice_pdf: string | null
 }
 
+/** Matches OpenAPI UpcomingInvoiceInfo. */
+export interface UpcomingInvoiceInfo {
+  amount_due:          number
+  currency:            string
+  next_payment_date:   string | null
+}
+
 export interface BillingInfo {
   plan_type:            string | null
   subscription_status:  string | null
@@ -96,8 +123,8 @@ export interface BillingInfo {
   cancel_at_period_end: boolean
   payment_method:       PaymentMethodInfo | null
   invoices:             InvoiceInfo[]
-  upcoming_invoice:     unknown | null
-  credits:              unknown
+  upcoming_invoice:     UpcomingInvoiceInfo | null
+  credits:              CreditSummary
 }
 
 // ── API functions ─────────────────────────────────────────────────────────────

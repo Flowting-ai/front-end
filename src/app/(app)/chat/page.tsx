@@ -26,6 +26,12 @@ import { Button } from "@/components/Button";
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from "@/components/chat/AddMenu";
 import { fetchPersonas, getVersion } from "@/lib/api/personas";
 import { ModelMenu } from "@/components/chat/ModelMenu";
+import { toast } from "sonner";
+import { setChatVisibility } from "@/lib/api/chat";
+import { listChatShares, deleteChatShare, type ChatShare } from "@/lib/api/chat-shares";
+import { fetchTeams } from "@/lib/api/teams";
+import { useOrg } from "@/context/org-context";
+import type { Team } from "@/types/teams";
 import {
   GlobalSearchIcon,
   QuillWriteTwoIcon,
@@ -37,6 +43,7 @@ import {
   StickyNoteTwoIcon,
   AuctionIcon,
   FolderOneIcon,
+  ShareOneIcon,
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
 import type { PinFolder } from "@/lib/api/pins";
@@ -228,6 +235,7 @@ export default function ChatPage() {
 function ChatPageInner() {
   const searchParams = useSearchParams();
   const { replace } = useRouter();
+  const { orgId } = useOrg();
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
 
@@ -248,6 +256,16 @@ function ChatPageInner() {
   const [loadingChipPersonas, setLoadingChipPersonas] = useState(false);
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
   const [selectedPersona,  setSelectedPersona]  = useState<SelectedPersonaInfo | null>(null);
+
+  // Chat share/visibility state
+  const [chatShareOpen,       setChatShareOpen]       = useState(false);
+  const [chatShareVisibility, setChatShareVisibility] = useState<"private" | "team">("private");
+  const [chatShareTeamId,     setChatShareTeamId]     = useState("");
+  const [chatShareTeams,      setChatShareTeams]      = useState<Team[]>([]);
+  const [chatShareSaving,     setChatShareSaving]     = useState(false);
+  const [existingShares,      setExistingShares]      = useState<ChatShare[]>([]);
+  const [sharesLoading,       setSharesLoading]       = useState(false);
+  const [revokingShareId,     setRevokingShareId]     = useState<string | null>(null);
 
   // Tracks which chatIds were created in this session as persona chats.
   // This prevents routing an existing regular chatId through the persona endpoint.
@@ -781,6 +799,50 @@ function ChatPageInner() {
     setSelectedMode(null);
   };
 
+  function handleOpenChatShare() {
+    setChatShareVisibility("private");
+    setChatShareTeamId("");
+    setExistingShares([]);
+    setChatShareOpen(true);
+    if (orgId && chatShareTeams.length === 0) {
+      fetchTeams(orgId).then(setChatShareTeams).catch(console.error);
+    }
+    if (activeChatId) {
+      setSharesLoading(true);
+      listChatShares(activeChatId)
+        .then(setExistingShares)
+        .catch(console.error)
+        .finally(() => setSharesLoading(false));
+    }
+  }
+
+  async function handleRevokeShare(shareId: string) {
+    setRevokingShareId(shareId);
+    try {
+      await deleteChatShare(shareId);
+      setExistingShares(prev => prev.filter(s => s.id !== shareId));
+      toast.success("Share revoked");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to revoke share");
+    } finally {
+      setRevokingShareId(null);
+    }
+  }
+
+  async function handleSaveChatShare() {
+    if (!activeChatId) return;
+    setChatShareSaving(true);
+    try {
+      await setChatVisibility(activeChatId, chatShareVisibility, chatShareVisibility === "team" ? chatShareTeamId : undefined);
+      toast.success("Chat visibility updated");
+      setChatShareOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update visibility");
+    } finally {
+      setChatShareSaving(false);
+    }
+  }
+
   return (
     <div
       style={{
@@ -1049,6 +1111,198 @@ function ChatPageInner() {
         onConfirm={handleModelSwitchConfirm}
         onCancel={handleModelSwitchCancel}
       />
+
+      {/* Chat share / visibility button — only shown when a chat is active */}
+      {activeChatId && !chatShareOpen && (
+        <button
+          type="button"
+          onClick={handleOpenChatShare}
+          aria-label="Share chat"
+          style={{
+            position:        "absolute",
+            top:             12,
+            right:           16,
+            zIndex:          10,
+            display:         "flex",
+            alignItems:      "center",
+            gap:             6,
+            padding:         "5px 12px",
+            borderRadius:    8,
+            border:          "none",
+            cursor:          "pointer",
+            backgroundColor: "white",
+            boxShadow:       "0px 1px 2px rgba(18,12,8,0.12), 0px 0px 0px 1px var(--neutral-100)",
+            fontFamily:      "var(--font-body)",
+            fontWeight:      500,
+            fontSize:        13,
+            lineHeight:      "20px",
+            color:           "var(--neutral-700)",
+          }}
+        >
+          <ShareOneIcon size={14} />
+          Share
+        </button>
+      )}
+
+      {/* Chat share / visibility modal */}
+      {chatShareOpen && (
+        <>
+          {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- modal backdrop */}
+          <div
+            onClick={() => setChatShareOpen(false)}
+            style={{ position: "fixed", inset: 0, backgroundColor: "rgba(18,12,8,0.4)", backdropFilter: "blur(2px)", zIndex: 50 }}
+          />
+          <div
+            style={{
+              position:        "fixed",
+              top:             "50%",
+              left:            "50%",
+              transform:       "translate(-50%, -50%)",
+              zIndex:          51,
+              width:           460,
+              maxWidth:        "calc(100vw - 48px)",
+              borderRadius:    16,
+              backgroundColor: "white",
+              boxShadow:       "0px 8px 32px rgba(18,12,8,0.18), 0px 0px 0px 1px var(--neutral-100)",
+              padding:         24,
+              display:         "flex",
+              flexDirection:   "column",
+              gap:             16,
+            }}
+          >
+            <div>
+              <p style={{ fontFamily: "var(--font-title)", fontWeight: 400, fontSize: 20, lineHeight: "28px", color: "var(--neutral-900)", margin: "0 0 4px" }}>
+                Share chat
+              </p>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--neutral-500)", margin: 0 }}>
+                Control who can access this conversation.
+              </p>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {(["private", "team"] as const).map(v => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setChatShareVisibility(v)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+                    borderRadius: 10, border: "none", cursor: "pointer", backgroundColor: "white",
+                    textAlign: "left", width: "100%",
+                    boxShadow: chatShareVisibility === v
+                      ? "0px 0px 0px 2px var(--blue-500, #4a83bf)"
+                      : "0px 0px 0px 1px var(--neutral-200)",
+                  }}
+                >
+                  <span style={{
+                    width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+                    border: `2px solid ${chatShareVisibility === v ? "#0a7aff" : "var(--neutral-300)"}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    {chatShareVisibility === v && <span style={{ width: 9, height: 9, borderRadius: "50%", backgroundColor: "#0a7aff" }} />}
+                  </span>
+                  <div>
+                    <p style={{ fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 14, color: "var(--neutral-900)", margin: 0 }}>
+                      {v === "private" ? "Private" : "Team"}
+                    </p>
+                    <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--neutral-500)", margin: 0 }}>
+                      {v === "private" ? "Only you can see this chat." : "All members of a team can access it."}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {chatShareVisibility === "team" && (
+              <select
+                value={chatShareTeamId}
+                onChange={e => setChatShareTeamId(e.target.value)}
+                style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--neutral-900)", border: "1px solid var(--neutral-200)", borderRadius: 8, padding: "8px 12px", backgroundColor: "white", width: "100%" }}
+              >
+                <option value="">Select team…</option>
+                {chatShareTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            )}
+
+            {/* Existing shares */}
+            {(sharesLoading || existingShares.length > 0) && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 4 }}>
+                <div style={{ height: 1, backgroundColor: "var(--neutral-100)" }} />
+                <p style={{ fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, color: "var(--neutral-600)", margin: 0 }}>
+                  Active shares
+                </p>
+                {sharesLoading ? (
+                  <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--neutral-400)", margin: 0 }}>Loading…</p>
+                ) : (
+                  existingShares.map(share => {
+                    const label = share.targetTeamId
+                      ? (chatShareTeams.find(t => t.id === share.targetTeamId)?.name ?? "Team")
+                      : share.targetProjectId
+                      ? "Project"
+                      : "User"
+                    const isRevoking = revokingShareId === share.id
+                    return (
+                      <div
+                        key={share.id}
+                        style={{
+                          display:         "flex",
+                          alignItems:      "center",
+                          justifyContent:  "space-between",
+                          padding:         "8px 12px",
+                          borderRadius:    8,
+                          backgroundColor: "var(--neutral-50)",
+                          border:          "1px solid var(--neutral-100)",
+                          gap:             12,
+                        }}
+                      >
+                        <div>
+                          <p style={{ fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, color: "var(--neutral-800)", margin: 0 }}>
+                            {label}
+                          </p>
+                          <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-400)", margin: "2px 0 0", textTransform: "capitalize" }}>
+                            {share.mode.replace("_", " ")}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleRevokeShare(share.id)}
+                          disabled={isRevoking}
+                          style={{
+                            padding:         "4px 10px",
+                            borderRadius:    6,
+                            border:          "1px solid var(--neutral-200)",
+                            backgroundColor: "transparent",
+                            fontFamily:      "var(--font-body)",
+                            fontSize:        12,
+                            fontWeight:      500,
+                            color:           isRevoking ? "var(--neutral-400)" : "#ee3030",
+                            cursor:          isRevoking ? "not-allowed" : "pointer",
+                            flexShrink:      0,
+                          }}
+                        >
+                          {isRevoking ? "Revoking…" : "Revoke"}
+                        </button>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 4 }}>
+              <Button variant="outline" size="sm" onClick={() => setChatShareOpen(false)}>Cancel</Button>
+              <Button
+                variant="default"
+                size="sm"
+                disabled={chatShareSaving || (chatShareVisibility === "team" && !chatShareTeamId)}
+                onClick={() => void handleSaveChatShare()}
+              >
+                {chatShareSaving ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

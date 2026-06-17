@@ -4,11 +4,10 @@ import React, { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
-import { fetchBilling } from '@/lib/api/user'
+import { fetchBilling } from '@/lib/api/stripe'
 import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
 import { Button } from '@/components/Button'
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
 const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
 
@@ -28,15 +27,15 @@ function CheckCircleIcon() {
   )
 }
 
-export default function BillingConfirmationPage() {
+export default function OrgBillingConfirmationPage() {
   return (
     <Suspense fallback={null}>
-      <BillingConfirmationContent />
+      <OrgBillingConfirmationContent />
     </Suspense>
   )
 }
 
-function BillingConfirmationContent() {
+function OrgBillingConfirmationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { refreshUser } = useAuth()
@@ -48,18 +47,11 @@ function BillingConfirmationContent() {
   const planLabel = plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : null
   const isTopUp   = type === 'topup'
 
-  // Fire-and-forget: refresh auth + billing + org plan once on mount.
-  // Empty deps is intentional — refreshUser/refreshMembers are not useCallback-
-  // memoised in their contexts, so including them causes an infinite re-run loop.
   useEffect(() => {
     document.cookie = 'souvenir_checkout_complete=; path=/; max-age=0; SameSite=Lax'
     void refreshUser()
     void fetchBilling()
-    // Re-fetch the org credit pool so team plan credits land in the UI without
-    // waiting for the next org-context mount cycle.
     refreshMembers()
-    // Also broadcast so any already-mounted app surfaces (chat gate, banners)
-    // refresh their credit balance — covers topups completed via Stripe redirect.
     notifyCreditsUpdated()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -128,8 +120,8 @@ function BillingConfirmationContent() {
 
         {/* CTAs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 320 }}>
-          <Button fluid onClick={() => router.push('/settings/billing')}>
-            Go to usage &amp; billing
+          <Button fluid onClick={() => router.push('/org/plans')}>
+            Go to Plans &amp; Usage
           </Button>
           <Button variant="ghost" fluid onClick={() => router.push('/chat')}>
             Go to Dashboard

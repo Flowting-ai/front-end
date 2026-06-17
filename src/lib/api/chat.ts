@@ -10,6 +10,7 @@ import {
   CHAT_STOP_ENDPOINT,
   CHAT_SAVE_TO_DRIVE_ENDPOINT,
   CHAT_PROMPT_RESPOND_ENDPOINT,
+  CHAT_VISIBILITY_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
 import type {
@@ -455,4 +456,18 @@ export async function respondToChatPrompt(
   if (!res.ok && res.status !== 204) {
     throw new ApiError(res.status, "prompt_respond_failed", "Failed to respond to prompt");
   }
+}
+
+/** PATCH /chats/{chat_id}/visibility */
+export async function setChatVisibility(
+  chatId: string,
+  visibility: "private" | "team",
+  teamId?: string,
+): Promise<void> {
+  const body: Record<string, unknown> = { visibility };
+  if (visibility === "team" && teamId) body.teamId = teamId;
+  await apiFetch(CHAT_VISIBILITY_ENDPOINT(chatId), {
+    method: "PATCH",
+    body:   JSON.stringify(body),
+  });
 }

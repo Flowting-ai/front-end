@@ -26,6 +26,7 @@ export interface AuthUser {
   name?: string | null;
   firstName?: string | null;
   lastName?: string | null;
+  nickname?: string | null;
   phoneNumber?: string | null;
   profilePicture?: string | null;
   onboardingCompleted?: boolean | null;
@@ -124,6 +125,7 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
     email: profile.email,
     firstName,
     lastName,
+    nickname: profile.nickname ?? null,
     name:
       [firstName, lastName].filter(Boolean).join(" ") ||
       (!profileNameIsEmail ? rawProfileName : null) ||

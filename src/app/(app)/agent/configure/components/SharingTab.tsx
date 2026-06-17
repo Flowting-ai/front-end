@@ -11,8 +11,10 @@ import {
   revokeShare,
   type PersonaShare,
 } from '@/lib/api/persona-shares'
+import { setPersonaVisibility } from '@/lib/api/personas'
 import { ApiError } from '@/lib/api/client'
 import { useAuth } from '@/context/auth-context'
+import { useOrg } from '@/context/org-context'
 import { getShareTokenLimit } from '@/lib/plan-config'
 import { canonicalShareUrl } from '@/lib/share-url'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
@@ -215,10 +217,13 @@ function UsageBar({ percent }: { percent: number }) {
 
 export default function SharingTab({ repoId, versionId, hasTeamsPlan = false, onChanged }: SharingTabProps) {
   const { user } = useAuth()
+  const { orgId, teams } = useOrg()
   const maxTokenLimit = getShareTokenLimit(user?.planType)
   const { setHasShareLink } = usePersonaConfigure()
 
-  const [visibility, setVisibility] = useState<Visibility>('private')
+  const [visibility,        setVisibility]        = useState<Visibility>('private')
+  const [selectedTeamId,    setSelectedTeamId]    = useState('')
+  const [visibilitySaving,  setVisibilitySaving]  = useState(false)
 
   // ── Link share state ───────────────────────────────────────────────────────
   const [superLinkEnabled, setSuperLinkEnabled] = useState(false)
@@ -427,9 +432,9 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false, on
             label="Team"
             description="Everyone in your workspace can use it."
             selected={visibility === 'team'}
-            locked
-            badge={<TeamPlanBadge />}
-            onClick={() => {}}
+            locked={!orgId}
+            badge={!orgId ? <TeamPlanBadge /> : undefined}
+            onClick={() => setVisibility('team')}
           />
           <VisibilityRow
             label="Community"
@@ -438,6 +443,60 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false, on
             locked
             onClick={() => {}}
           />
+        </div>
+
+        {/* Team selector — shown when Team is selected and user is in an org */}
+        {visibility === 'team' && orgId && (
+          <select
+            value={selectedTeamId}
+            onChange={e => setSelectedTeamId(e.target.value)}
+            style={{
+              fontFamily:      'var(--font-body)',
+              fontSize:        14,
+              color:           'var(--neutral-900)',
+              border:          '1px solid var(--neutral-200)',
+              borderRadius:    8,
+              padding:         '8px 12px',
+              backgroundColor: 'white',
+              width:           '100%',
+            }}
+          >
+            <option value="">Select team…</option>
+            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
+
+        {/* Save visibility button */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={
+              visibilitySaving ||
+              !repoId ||
+              (visibility === 'team' && (!orgId || !selectedTeamId))
+            }
+            onClick={async () => {
+              if (!repoId) { toast.error('Save the agent first.'); return }
+              if (visibility === 'team' && !selectedTeamId) { toast.error('Select a team.'); return }
+              setVisibilitySaving(true)
+              try {
+                await setPersonaVisibility(
+                  repoId,
+                  visibility === 'private' ? 'private' : 'team',
+                  visibility === 'team' ? [selectedTeamId] : undefined,
+                )
+                onChanged?.()
+                toast.success('Visibility updated')
+              } catch (err) {
+                toast.error((err as ApiError).message ?? 'Failed to update visibility')
+              } finally {
+                setVisibilitySaving(false)
+              }
+            }}
+          >
+            {visibilitySaving ? 'Saving…' : 'Save visibility'}
+          </Button>
         </div>
       </div>
 

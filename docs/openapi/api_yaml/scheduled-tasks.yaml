@@ -1,417 +1,665 @@
-openapi: 3.1.0
-info:
-  title: FastAPI - scheduled-tasks
-  version: 0.1.0
-paths:
-  /tasks:
-    get:
-      tags:
-        - scheduled-tasks
-      summary: List Tasks
-      operationId: list_tasks_tasks_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ScheduledTaskListItem'
-                type: array
-                title: Response List Tasks Tasks Get
-      security:
-        - HTTPBearer: []
-  /tasks/{task_id}:
-    get:
-      tags:
-        - scheduled-tasks
-      summary: Get Task
-      operationId: get_task_tasks__task_id__get
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: task_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            title: Task Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduledTaskDetail'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    patch:
-      tags:
-        - scheduled-tasks
-      summary: Update Task
-      description: |-
-        Pause (is_active=false) or resume (is_active=true) a task. Resuming
-        recomputes next_run_at from the schedule; a schedule with no future run
-        can't be resumed.
-      operationId: update_task_tasks__task_id__patch
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: task_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            title: Task Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ScheduledTaskUpdate'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduledTaskDetail'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    delete:
-      tags:
-        - scheduled-tasks
-      summary: Delete Task
-      description: |-
-        Hard-delete a task and its run history (runs/logs go via FK CASCADE).
-        A run already in flight finishes headlessly but can no longer write back
-        to the task row.
-      operationId: delete_task_tasks__task_id__delete
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: task_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            title: Task Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduledTaskDeleteResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /tasks/{task_id}/run:
-    post:
-      tags:
-        - scheduled-tasks
-      summary: Run Now
-      operationId: run_now_tasks__task_id__run_post
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: task_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            title: Task Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-components:
-  schemas:
-    ScheduledTaskListItem:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        title:
-          type: string
-          title: Title
-        plan_text:
-          type: string
-          title: Plan Text
-          default: ''
-        schedule_json:
-          additionalProperties: true
-          type: object
-          title: Schedule Json
-        is_active:
-          type: boolean
-          title: Is Active
-        next_run_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Next Run At
-        last_run_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Last Run At
-        run_count:
-          type: integer
-          title: Run Count
-        success_count:
-          type: integer
-          title: Success Count
-          default: 0
-        failure_count:
-          type: integer
-          title: Failure Count
-          default: 0
-        created_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Created At
-        updated_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Updated At
-        success_rate:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Success Rate
-          description: |-
-            Completed runs / runs that reached a terminal status. None until the
-            task has run at least once.
-          readOnly: true
-      type: object
-      required:
-        - id
-        - title
-        - schedule_json
-        - is_active
-        - run_count
-        - success_rate
-      title: ScheduledTaskListItem
-      description: Row returned by GET /tasks.
-    ScheduledTaskDetail:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        title:
-          type: string
-          title: Title
-        plan_text:
-          type: string
-          title: Plan Text
-          default: ''
-        schedule_json:
-          additionalProperties: true
-          type: object
-          title: Schedule Json
-        is_active:
-          type: boolean
-          title: Is Active
-        next_run_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Next Run At
-        last_run_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Last Run At
-        run_count:
-          type: integer
-          title: Run Count
-        success_count:
-          type: integer
-          title: Success Count
-          default: 0
-        failure_count:
-          type: integer
-          title: Failure Count
-          default: 0
-        created_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Created At
-        updated_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Updated At
-        plan_json:
-          additionalProperties: true
-          type: object
-          title: Plan Json
-        runs:
-          items:
-            $ref: '#/components/schemas/ScheduledTaskRunResponse'
-          type: array
-          title: Runs
-          default: []
-        success_rate:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Success Rate
-          description: |-
-            Completed runs / runs that reached a terminal status. None until the
-            task has run at least once.
-          readOnly: true
-      type: object
-      required:
-        - id
-        - title
-        - schedule_json
-        - is_active
-        - run_count
-        - plan_json
-        - success_rate
-      title: ScheduledTaskDetail
-      description: GET /tasks/{id} — task + plan + run history.
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
-    ScheduledTaskUpdate:
-      properties:
-        is_active:
-          type: boolean
-          title: Is Active
-      type: object
-      required:
-        - is_active
-      title: ScheduledTaskUpdate
-      description: PATCH /tasks/{id} — pause/resume from the UI.
-    ScheduledTaskDeleteResponse:
-      properties:
-        deleted:
-          type: boolean
-          title: Deleted
-        task_id:
-          type: string
-          format: uuid
-          title: Task Id
-      type: object
-      required:
-        - deleted
-        - task_id
-      title: ScheduledTaskDeleteResponse
-      description: DELETE /tasks/{id}.
-    ScheduledTaskRunResponse:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        status:
-          type: string
-          title: Status
-        started_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Started At
-        completed_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Completed At
-        error:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Error
-        synthesis:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Synthesis
-        created_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Created At
-      type: object
-      required:
-        - id
-        - status
-      title: ScheduledTaskRunResponse
-    ValidationError:
-      properties:
-        loc:
-          items:
-            anyOf:
-              - type: string
-              - type: integer
-          type: array
-          title: Location
-        msg:
-          type: string
-          title: Message
-        type:
-          type: string
-          title: Error Type
-        input:
-          title: Input
-        ctx:
-          type: object
-          title: Context
-      type: object
-      required:
-        - loc
-        - msg
-        - type
-      title: ValidationError
-  securitySchemes:
-    HTTPBearer:
-      type: http
-      scheme: bearer
+{
+    "openapi":  "3.1.0",
+    "info":  {
+                 "title":  "FastAPI - scheduled-tasks",
+                 "version":  "0.1.0"
+             },
+    "paths":  {
+                  "/tasks":  {
+                                 "get":  {
+                                             "tags":  [
+                                                          "scheduled-tasks"
+                                                      ],
+                                             "summary":  "List Tasks",
+                                             "operationId":  "list_tasks_tasks_get",
+                                             "responses":  {
+                                                               "200":  {
+                                                                           "description":  "Successful Response",
+                                                                           "content":  {
+                                                                                           "application/json":  {
+                                                                                                                    "schema":  {
+                                                                                                                                   "items":  {
+                                                                                                                                                 "$ref":  "#/components/schemas/ScheduledTaskListItem"
+                                                                                                                                             },
+                                                                                                                                   "type":  "array",
+                                                                                                                                   "title":  "Response List Tasks Tasks Get"
+                                                                                                                               }
+                                                                                                                }
+                                                                                       }
+                                                                       }
+                                                           },
+                                             "security":  [
+                                                              {
+                                                                  "HTTPBearer":  [
+
+                                                                                 ]
+                                                              }
+                                                          ]
+                                         }
+                             },
+                  "/tasks/{task_id}":  {
+                                           "get":  {
+                                                       "tags":  [
+                                                                    "scheduled-tasks"
+                                                                ],
+                                                       "summary":  "Get Task",
+                                                       "operationId":  "get_task_tasks__task_id__get",
+                                                       "security":  [
+                                                                        {
+                                                                            "HTTPBearer":  [
+
+                                                                                           ]
+                                                                        }
+                                                                    ],
+                                                       "parameters":  [
+                                                                          {
+                                                                              "name":  "task_id",
+                                                                              "in":  "path",
+                                                                              "required":  true,
+                                                                              "schema":  {
+                                                                                             "type":  "string",
+                                                                                             "format":  "uuid",
+                                                                                             "title":  "Task Id"
+                                                                                         }
+                                                                          }
+                                                                      ],
+                                                       "responses":  {
+                                                                         "200":  {
+                                                                                     "description":  "Successful Response",
+                                                                                     "content":  {
+                                                                                                     "application/json":  {
+                                                                                                                              "schema":  {
+                                                                                                                                             "$ref":  "#/components/schemas/ScheduledTaskDetail"
+                                                                                                                                         }
+                                                                                                                          }
+                                                                                                 }
+                                                                                 },
+                                                                         "422":  {
+                                                                                     "description":  "Validation Error",
+                                                                                     "content":  {
+                                                                                                     "application/json":  {
+                                                                                                                              "schema":  {
+                                                                                                                                             "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                         }
+                                                                                                                          }
+                                                                                                 }
+                                                                                 }
+                                                                     }
+                                                   },
+                                           "patch":  {
+                                                         "tags":  [
+                                                                      "scheduled-tasks"
+                                                                  ],
+                                                         "summary":  "Update Task",
+                                                         "description":  "Pause (is_active=false) or resume (is_active=true) a task. Resuming\nrecomputes next_run_at from the schedule; a schedule with no future run\ncan't be resumed.",
+                                                         "operationId":  "update_task_tasks__task_id__patch",
+                                                         "security":  [
+                                                                          {
+                                                                              "HTTPBearer":  [
+
+                                                                                             ]
+                                                                          }
+                                                                      ],
+                                                         "parameters":  [
+                                                                            {
+                                                                                "name":  "task_id",
+                                                                                "in":  "path",
+                                                                                "required":  true,
+                                                                                "schema":  {
+                                                                                               "type":  "string",
+                                                                                               "format":  "uuid",
+                                                                                               "title":  "Task Id"
+                                                                                           }
+                                                                            }
+                                                                        ],
+                                                         "requestBody":  {
+                                                                             "required":  true,
+                                                                             "content":  {
+                                                                                             "application/json":  {
+                                                                                                                      "schema":  {
+                                                                                                                                     "$ref":  "#/components/schemas/ScheduledTaskUpdate"
+                                                                                                                                 }
+                                                                                                                  }
+                                                                                         }
+                                                                         },
+                                                         "responses":  {
+                                                                           "200":  {
+                                                                                       "description":  "Successful Response",
+                                                                                       "content":  {
+                                                                                                       "application/json":  {
+                                                                                                                                "schema":  {
+                                                                                                                                               "$ref":  "#/components/schemas/ScheduledTaskDetail"
+                                                                                                                                           }
+                                                                                                                            }
+                                                                                                   }
+                                                                                   },
+                                                                           "422":  {
+                                                                                       "description":  "Validation Error",
+                                                                                       "content":  {
+                                                                                                       "application/json":  {
+                                                                                                                                "schema":  {
+                                                                                                                                               "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                           }
+                                                                                                                            }
+                                                                                                   }
+                                                                                   }
+                                                                       }
+                                                     },
+                                           "delete":  {
+                                                          "tags":  [
+                                                                       "scheduled-tasks"
+                                                                   ],
+                                                          "summary":  "Delete Task",
+                                                          "description":  "Hard-delete a task and its run history (runs/logs go via FK CASCADE).\nA run already in flight finishes headlessly but can no longer write back\nto the task row.",
+                                                          "operationId":  "delete_task_tasks__task_id__delete",
+                                                          "security":  [
+                                                                           {
+                                                                               "HTTPBearer":  [
+
+                                                                                              ]
+                                                                           }
+                                                                       ],
+                                                          "parameters":  [
+                                                                             {
+                                                                                 "name":  "task_id",
+                                                                                 "in":  "path",
+                                                                                 "required":  true,
+                                                                                 "schema":  {
+                                                                                                "type":  "string",
+                                                                                                "format":  "uuid",
+                                                                                                "title":  "Task Id"
+                                                                                            }
+                                                                             }
+                                                                         ],
+                                                          "responses":  {
+                                                                            "200":  {
+                                                                                        "description":  "Successful Response",
+                                                                                        "content":  {
+                                                                                                        "application/json":  {
+                                                                                                                                 "schema":  {
+                                                                                                                                                "$ref":  "#/components/schemas/ScheduledTaskDeleteResponse"
+                                                                                                                                            }
+                                                                                                                             }
+                                                                                                    }
+                                                                                    },
+                                                                            "422":  {
+                                                                                        "description":  "Validation Error",
+                                                                                        "content":  {
+                                                                                                        "application/json":  {
+                                                                                                                                 "schema":  {
+                                                                                                                                                "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                            }
+                                                                                                                             }
+                                                                                                    }
+                                                                                    }
+                                                                        }
+                                                      }
+                                       },
+                  "/tasks/{task_id}/run":  {
+                                               "post":  {
+                                                            "tags":  [
+                                                                         "scheduled-tasks"
+                                                                     ],
+                                                            "summary":  "Run Now",
+                                                            "operationId":  "run_now_tasks__task_id__run_post",
+                                                            "security":  [
+                                                                             {
+                                                                                 "HTTPBearer":  [
+
+                                                                                                ]
+                                                                             }
+                                                                         ],
+                                                            "parameters":  [
+                                                                               {
+                                                                                   "name":  "task_id",
+                                                                                   "in":  "path",
+                                                                                   "required":  true,
+                                                                                   "schema":  {
+                                                                                                  "type":  "string",
+                                                                                                  "format":  "uuid",
+                                                                                                  "title":  "Task Id"
+                                                                                              }
+                                                                               }
+                                                                           ],
+                                                            "responses":  {
+                                                                              "200":  {
+                                                                                          "description":  "Successful Response",
+                                                                                          "content":  {
+                                                                                                          "application/json":  {
+                                                                                                                                   "schema":  {
+
+                                                                                                                                              }
+                                                                                                                               }
+                                                                                                      }
+                                                                                      },
+                                                                              "422":  {
+                                                                                          "description":  "Validation Error",
+                                                                                          "content":  {
+                                                                                                          "application/json":  {
+                                                                                                                                   "schema":  {
+                                                                                                                                                  "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                              }
+                                                                                                                               }
+                                                                                                      }
+                                                                                      }
+                                                                          }
+                                                        }
+                                           }
+              },
+    "components":  {
+                       "schemas":  {
+                                       "HTTPValidationError":  {
+                                                                   "properties":  {
+                                                                                      "detail":  {
+                                                                                                     "items":  {
+                                                                                                                   "$ref":  "#/components/schemas/ValidationError"
+                                                                                                               },
+                                                                                                     "type":  "array",
+                                                                                                     "title":  "Detail"
+                                                                                                 }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "title":  "HTTPValidationError"
+                                                               },
+                                       "ScheduledTaskDeleteResponse":  {
+                                                                           "properties":  {
+                                                                                              "deleted":  {
+                                                                                                              "type":  "boolean",
+                                                                                                              "title":  "Deleted"
+                                                                                                          },
+                                                                                              "task_id":  {
+                                                                                                              "type":  "string",
+                                                                                                              "format":  "uuid",
+                                                                                                              "title":  "Task Id"
+                                                                                                          }
+                                                                                          },
+                                                                           "type":  "object",
+                                                                           "required":  [
+                                                                                            "deleted",
+                                                                                            "task_id"
+                                                                                        ],
+                                                                           "title":  "ScheduledTaskDeleteResponse",
+                                                                           "description":  "DELETE /tasks/{id}."
+                                                                       },
+                                       "ScheduledTaskDetail":  {
+                                                                   "properties":  {
+                                                                                      "id":  {
+                                                                                                 "type":  "string",
+                                                                                                 "format":  "uuid",
+                                                                                                 "title":  "Id"
+                                                                                             },
+                                                                                      "title":  {
+                                                                                                    "type":  "string",
+                                                                                                    "title":  "Title"
+                                                                                                },
+                                                                                      "plan_text":  {
+                                                                                                        "type":  "string",
+                                                                                                        "title":  "Plan Text",
+                                                                                                        "default":  ""
+                                                                                                    },
+                                                                                      "schedule_json":  {
+                                                                                                            "additionalProperties":  true,
+                                                                                                            "type":  "object",
+                                                                                                            "title":  "Schedule Json"
+                                                                                                        },
+                                                                                      "is_active":  {
+                                                                                                        "type":  "boolean",
+                                                                                                        "title":  "Is Active"
+                                                                                                    },
+                                                                                      "next_run_at":  {
+                                                                                                          "anyOf":  [
+                                                                                                                        {
+                                                                                                                            "type":  "string",
+                                                                                                                            "format":  "date-time"
+                                                                                                                        },
+                                                                                                                        {
+                                                                                                                            "type":  "null"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                                          "title":  "Next Run At"
+                                                                                                      },
+                                                                                      "last_run_at":  {
+                                                                                                          "anyOf":  [
+                                                                                                                        {
+                                                                                                                            "type":  "string",
+                                                                                                                            "format":  "date-time"
+                                                                                                                        },
+                                                                                                                        {
+                                                                                                                            "type":  "null"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                                          "title":  "Last Run At"
+                                                                                                      },
+                                                                                      "run_count":  {
+                                                                                                        "type":  "integer",
+                                                                                                        "title":  "Run Count"
+                                                                                                    },
+                                                                                      "success_count":  {
+                                                                                                            "type":  "integer",
+                                                                                                            "title":  "Success Count",
+                                                                                                            "default":  0
+                                                                                                        },
+                                                                                      "failure_count":  {
+                                                                                                            "type":  "integer",
+                                                                                                            "title":  "Failure Count",
+                                                                                                            "default":  0
+                                                                                                        },
+                                                                                      "created_at":  {
+                                                                                                         "anyOf":  [
+                                                                                                                       {
+                                                                                                                           "type":  "string",
+                                                                                                                           "format":  "date-time"
+                                                                                                                       },
+                                                                                                                       {
+                                                                                                                           "type":  "null"
+                                                                                                                       }
+                                                                                                                   ],
+                                                                                                         "title":  "Created At"
+                                                                                                     },
+                                                                                      "updated_at":  {
+                                                                                                         "anyOf":  [
+                                                                                                                       {
+                                                                                                                           "type":  "string",
+                                                                                                                           "format":  "date-time"
+                                                                                                                       },
+                                                                                                                       {
+                                                                                                                           "type":  "null"
+                                                                                                                       }
+                                                                                                                   ],
+                                                                                                         "title":  "Updated At"
+                                                                                                     },
+                                                                                      "plan_json":  {
+                                                                                                        "additionalProperties":  true,
+                                                                                                        "type":  "object",
+                                                                                                        "title":  "Plan Json"
+                                                                                                    },
+                                                                                      "runs":  {
+                                                                                                   "items":  {
+                                                                                                                 "$ref":  "#/components/schemas/ScheduledTaskRunResponse"
+                                                                                                             },
+                                                                                                   "type":  "array",
+                                                                                                   "title":  "Runs",
+                                                                                                   "default":  [
+
+                                                                                                               ]
+                                                                                               },
+                                                                                      "success_rate":  {
+                                                                                                           "anyOf":  [
+                                                                                                                         {
+                                                                                                                             "type":  "number"
+                                                                                                                         },
+                                                                                                                         {
+                                                                                                                             "type":  "null"
+                                                                                                                         }
+                                                                                                                     ],
+                                                                                                           "title":  "Success Rate",
+                                                                                                           "description":  "Completed runs / runs that reached a terminal status. None until the\ntask has run at least once.",
+                                                                                                           "readOnly":  true
+                                                                                                       }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "required":  [
+                                                                                    "id",
+                                                                                    "title",
+                                                                                    "schedule_json",
+                                                                                    "is_active",
+                                                                                    "run_count",
+                                                                                    "plan_json",
+                                                                                    "success_rate"
+                                                                                ],
+                                                                   "title":  "ScheduledTaskDetail",
+                                                                   "description":  "GET /tasks/{id} — task + plan + run history."
+                                                               },
+                                       "ScheduledTaskListItem":  {
+                                                                     "properties":  {
+                                                                                        "id":  {
+                                                                                                   "type":  "string",
+                                                                                                   "format":  "uuid",
+                                                                                                   "title":  "Id"
+                                                                                               },
+                                                                                        "title":  {
+                                                                                                      "type":  "string",
+                                                                                                      "title":  "Title"
+                                                                                                  },
+                                                                                        "plan_text":  {
+                                                                                                          "type":  "string",
+                                                                                                          "title":  "Plan Text",
+                                                                                                          "default":  ""
+                                                                                                      },
+                                                                                        "schedule_json":  {
+                                                                                                              "additionalProperties":  true,
+                                                                                                              "type":  "object",
+                                                                                                              "title":  "Schedule Json"
+                                                                                                          },
+                                                                                        "is_active":  {
+                                                                                                          "type":  "boolean",
+                                                                                                          "title":  "Is Active"
+                                                                                                      },
+                                                                                        "next_run_at":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "string",
+                                                                                                                              "format":  "date-time"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "null"
+                                                                                                                          }
+                                                                                                                      ],
+                                                                                                            "title":  "Next Run At"
+                                                                                                        },
+                                                                                        "last_run_at":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "string",
+                                                                                                                              "format":  "date-time"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "null"
+                                                                                                                          }
+                                                                                                                      ],
+                                                                                                            "title":  "Last Run At"
+                                                                                                        },
+                                                                                        "run_count":  {
+                                                                                                          "type":  "integer",
+                                                                                                          "title":  "Run Count"
+                                                                                                      },
+                                                                                        "success_count":  {
+                                                                                                              "type":  "integer",
+                                                                                                              "title":  "Success Count",
+                                                                                                              "default":  0
+                                                                                                          },
+                                                                                        "failure_count":  {
+                                                                                                              "type":  "integer",
+                                                                                                              "title":  "Failure Count",
+                                                                                                              "default":  0
+                                                                                                          },
+                                                                                        "created_at":  {
+                                                                                                           "anyOf":  [
+                                                                                                                         {
+                                                                                                                             "type":  "string",
+                                                                                                                             "format":  "date-time"
+                                                                                                                         },
+                                                                                                                         {
+                                                                                                                             "type":  "null"
+                                                                                                                         }
+                                                                                                                     ],
+                                                                                                           "title":  "Created At"
+                                                                                                       },
+                                                                                        "updated_at":  {
+                                                                                                           "anyOf":  [
+                                                                                                                         {
+                                                                                                                             "type":  "string",
+                                                                                                                             "format":  "date-time"
+                                                                                                                         },
+                                                                                                                         {
+                                                                                                                             "type":  "null"
+                                                                                                                         }
+                                                                                                                     ],
+                                                                                                           "title":  "Updated At"
+                                                                                                       },
+                                                                                        "success_rate":  {
+                                                                                                             "anyOf":  [
+                                                                                                                           {
+                                                                                                                               "type":  "number"
+                                                                                                                           },
+                                                                                                                           {
+                                                                                                                               "type":  "null"
+                                                                                                                           }
+                                                                                                                       ],
+                                                                                                             "title":  "Success Rate",
+                                                                                                             "description":  "Completed runs / runs that reached a terminal status. None until the\ntask has run at least once.",
+                                                                                                             "readOnly":  true
+                                                                                                         }
+                                                                                    },
+                                                                     "type":  "object",
+                                                                     "required":  [
+                                                                                      "id",
+                                                                                      "title",
+                                                                                      "schedule_json",
+                                                                                      "is_active",
+                                                                                      "run_count",
+                                                                                      "success_rate"
+                                                                                  ],
+                                                                     "title":  "ScheduledTaskListItem",
+                                                                     "description":  "Row returned by GET /tasks."
+                                                                 },
+                                       "ScheduledTaskRunResponse":  {
+                                                                        "properties":  {
+                                                                                           "id":  {
+                                                                                                      "type":  "string",
+                                                                                                      "format":  "uuid",
+                                                                                                      "title":  "Id"
+                                                                                                  },
+                                                                                           "status":  {
+                                                                                                          "type":  "string",
+                                                                                                          "title":  "Status"
+                                                                                                      },
+                                                                                           "started_at":  {
+                                                                                                              "anyOf":  [
+                                                                                                                            {
+                                                                                                                                "type":  "string",
+                                                                                                                                "format":  "date-time"
+                                                                                                                            },
+                                                                                                                            {
+                                                                                                                                "type":  "null"
+                                                                                                                            }
+                                                                                                                        ],
+                                                                                                              "title":  "Started At"
+                                                                                                          },
+                                                                                           "completed_at":  {
+                                                                                                                "anyOf":  [
+                                                                                                                              {
+                                                                                                                                  "type":  "string",
+                                                                                                                                  "format":  "date-time"
+                                                                                                                              },
+                                                                                                                              {
+                                                                                                                                  "type":  "null"
+                                                                                                                              }
+                                                                                                                          ],
+                                                                                                                "title":  "Completed At"
+                                                                                                            },
+                                                                                           "error":  {
+                                                                                                         "anyOf":  [
+                                                                                                                       {
+                                                                                                                           "type":  "string"
+                                                                                                                       },
+                                                                                                                       {
+                                                                                                                           "type":  "null"
+                                                                                                                       }
+                                                                                                                   ],
+                                                                                                         "title":  "Error"
+                                                                                                     },
+                                                                                           "synthesis":  {
+                                                                                                             "anyOf":  [
+                                                                                                                           {
+                                                                                                                               "type":  "string"
+                                                                                                                           },
+                                                                                                                           {
+                                                                                                                               "type":  "null"
+                                                                                                                           }
+                                                                                                                       ],
+                                                                                                             "title":  "Synthesis"
+                                                                                                         },
+                                                                                           "created_at":  {
+                                                                                                              "anyOf":  [
+                                                                                                                            {
+                                                                                                                                "type":  "string",
+                                                                                                                                "format":  "date-time"
+                                                                                                                            },
+                                                                                                                            {
+                                                                                                                                "type":  "null"
+                                                                                                                            }
+                                                                                                                        ],
+                                                                                                              "title":  "Created At"
+                                                                                                          }
+                                                                                       },
+                                                                        "type":  "object",
+                                                                        "required":  [
+                                                                                         "id",
+                                                                                         "status"
+                                                                                     ],
+                                                                        "title":  "ScheduledTaskRunResponse"
+                                                                    },
+                                       "ScheduledTaskUpdate":  {
+                                                                   "properties":  {
+                                                                                      "is_active":  {
+                                                                                                        "type":  "boolean",
+                                                                                                        "title":  "Is Active"
+                                                                                                    }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "required":  [
+                                                                                    "is_active"
+                                                                                ],
+                                                                   "title":  "ScheduledTaskUpdate",
+                                                                   "description":  "PATCH /tasks/{id} — pause/resume from the UI."
+                                                               },
+                                       "ValidationError":  {
+                                                               "properties":  {
+                                                                                  "loc":  {
+                                                                                              "items":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "string"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "integer"
+                                                                                                                          }
+                                                                                                                      ]
+                                                                                                        },
+                                                                                              "type":  "array",
+                                                                                              "title":  "Location"
+                                                                                          },
+                                                                                  "msg":  {
+                                                                                              "type":  "string",
+                                                                                              "title":  "Message"
+                                                                                          },
+                                                                                  "type":  {
+                                                                                               "type":  "string",
+                                                                                               "title":  "Error Type"
+                                                                                           },
+                                                                                  "input":  {
+                                                                                                "title":  "Input"
+                                                                                            },
+                                                                                  "ctx":  {
+                                                                                              "type":  "object",
+                                                                                              "title":  "Context"
+                                                                                          }
+                                                                              },
+                                                               "type":  "object",
+                                                               "required":  [
+                                                                                "loc",
+                                                                                "msg",
+                                                                                "type"
+                                                                            ],
+                                                               "title":  "ValidationError"
+                                                           }
+                                   },
+                       "securitySchemes":  {
+                                               "HTTPBearer":  {
+                                                                  "type":  "http",
+                                                                  "scheme":  "bearer"
+                                                              }
+                                           }
+                   }
+}

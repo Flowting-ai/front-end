@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useOnboarding } from '@/context/onboarding-context'
 import { useAuth } from '@/context/auth-context'
-import { createCheckoutSession } from '@/lib/api/user'
+import { createCheckout } from '@/lib/api/stripe'
 
 
 const CANVAS_GRADIENT =
@@ -203,7 +203,7 @@ export default function OnboardingPlansPage() {
     try {
       // Identity comes from the JWT; the backend owns the Stripe price for this
       // (plan, billing) pair. We only send { plan, billing }.
-      const { checkout_url } = await createCheckoutSession(tier.planType, billing)
+      const { checkout_url } = await createCheckout({ plan: tier.planType, billing })
       window.location.href = checkout_url
     } catch (err) {
       console.error('Checkout error:', err)

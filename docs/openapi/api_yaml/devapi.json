@@ -3918,6 +3918,74 @@
         }
       }
     },
+    "/persona/{repo_id}/versions/{persona_id}/connector-hints": {
+      "patch": {
+        "tags": [
+          "persona"
+        ],
+        "summary": "Set Version Connector Hints",
+        "operationId": "set_version_connector_hints_persona__repo_id__versions__persona_id__connector_hints_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Repo Id"
+            }
+          },
+          {
+            "name": "persona_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Persona Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetConnectorHints"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/persona/{repo_id}/versions/{persona_id}/blocked-connectors/{slug}": {
       "delete": {
         "tags": [
@@ -10350,6 +10418,312 @@
         }
       }
     },
+    "/organizations/{organization_id}/connectors/catalog": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "List Connector Catalog",
+        "operationId": "list_connector_catalog_organizations__organization_id__connectors_catalog_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectorCatalogEntry"
+                  },
+                  "title": "Response List Connector Catalog Organizations  Organization Id  Connectors Catalog Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Update Connector Catalog",
+        "operationId": "update_connector_catalog_organizations__organization_id__connectors_catalog_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateConnectorCatalogRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectorCatalogEntry"
+                  },
+                  "title": "Response Update Connector Catalog Organizations  Organization Id  Connectors Catalog Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/connectors/{slug}/personal-request": {
+      "post": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Request Personal Connector",
+        "operationId": "request_personal_connector_organizations__organization_id__connectors__slug__personal_request_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PersonalConnectorRequestBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalConnectorRequestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/connectors/personal-requests": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "List Personal Connector Requests",
+        "operationId": "list_personal_connector_requests_organizations__organization_id__connectors_personal_requests_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonalConnectorRequestResponse"
+                  },
+                  "title": "Response List Personal Connector Requests Organizations  Organization Id  Connectors Personal Requests Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/connectors/personal-requests/{request_id}": {
+      "patch": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Review Personal Connector Request",
+        "operationId": "review_personal_connector_request_organizations__organization_id__connectors_personal_requests__request_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewPersonalConnectorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalConnectorRequestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/organizations/{organization_id}/settings": {
       "get": {
         "tags": [
@@ -10939,6 +11313,162 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SlackChannelItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/members": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "List Members",
+        "operationId": "list_members_organizations__organization_id__members_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberResponse"
+                  },
+                  "title": "Response List Members Organizations  Organization Id  Members Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/members/admins": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "List Admin Members",
+        "operationId": "list_admin_members_organizations__organization_id__members_admins_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberResponse"
+                  },
+                  "title": "Response List Admin Members Organizations  Organization Id  Members Admins Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/members/regular": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "List Regular Members",
+        "operationId": "list_regular_members_organizations__organization_id__members_regular_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberResponse"
+                  },
+                  "title": "Response List Regular Members Organizations  Organization Id  Members Regular Get"
                 }
               }
             }
@@ -12500,6 +13030,74 @@
         }
       }
     },
+    "/organizations/{organization_id}/overflow/{request_id}/approve": {
+      "post": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Approve Overflow",
+        "operationId": "approve_overflow_organizations__organization_id__overflow__request_id__approve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverflowApproveBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverflowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/organizations/{organization_id}/audit": {
       "get": {
         "tags": [
@@ -13016,6 +13614,28 @@
             "type": "string",
             "title": "Actor User Id"
           },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "actor_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Email"
+          },
           "action": {
             "type": "string",
             "title": "Action"
@@ -13155,6 +13775,14 @@
         },
         "type": "object",
         "title": "BillingInfo"
+      },
+      "BillingInterval": {
+        "type": "string",
+        "enum": [
+          "monthly",
+          "annual"
+        ],
+        "title": "BillingInterval"
       },
       "BillingPortalResponse": {
         "properties": {
@@ -13431,6 +14059,17 @@
             ],
             "title": "Persona Tags"
           },
+          "connector_hints": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connector Hints"
+          },
           "knowledge_urls": {
             "anyOf": [
               {
@@ -13536,6 +14175,17 @@
               }
             ],
             "title": "Persona Tags"
+          },
+          "connector_hints": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connector Hints"
           },
           "knowledge_urls": {
             "anyOf": [
@@ -14295,6 +14945,28 @@
             "type": "string",
             "title": "Shared By User Id"
           },
+          "shared_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared By Name"
+          },
+          "shared_by_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared By Email"
+          },
           "target_user_id": {
             "anyOf": [
               {
@@ -14305,6 +14977,28 @@
               }
             ],
             "title": "Target User Id"
+          },
+          "target_user_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target User Name"
+          },
+          "target_user_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target User Email"
           },
           "target_team_id": {
             "anyOf": [
@@ -14540,6 +15234,40 @@
               }
             ],
             "title": "Account Identifier"
+          },
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/OrganizationConnectorAccountResponse"
+            },
+            "type": "array",
+            "title": "Accounts"
+          },
+          "org_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Enabled"
+          },
+          "personal_access_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "approved",
+                  "denied"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personal Access Status"
           }
         },
         "type": "object",
@@ -14657,18 +15385,17 @@
       },
       "CreateCheckoutSessionRequest": {
         "properties": {
-          "plan_type": {
-            "$ref": "#/components/schemas/PlanType"
+          "plan": {
+            "$ref": "#/components/schemas/PlanKey"
           },
           "billing": {
-            "type": "string",
-            "title": "Billing",
+            "$ref": "#/components/schemas/BillingInterval",
             "default": "monthly"
           }
         },
         "type": "object",
         "required": [
-          "plan_type"
+          "plan"
         ],
         "title": "CreateCheckoutSessionRequest"
       },
@@ -15920,6 +16647,11 @@
             ],
             "title": "Credit Cap"
           },
+          "credit_extra": {
+            "type": "number",
+            "title": "Credit Extra",
+            "default": 0
+          },
           "credit_used": {
             "type": "number",
             "title": "Credit Used",
@@ -16247,6 +16979,28 @@
             ],
             "title": "Owner User Id"
           },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "owner_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Email"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -16337,6 +17091,23 @@
         ],
         "title": "OrganizationSettingsResponse"
       },
+      "OverflowApproveBody": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "title": "OverflowApproveBody"
+      },
       "OverflowRequestBody": {
         "properties": {
           "amount": {
@@ -16370,6 +17141,39 @@
             "type": "string",
             "format": "uuid",
             "title": "Team Id"
+          },
+          "requested_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By User Id"
+          },
+          "requested_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By Name"
+          },
+          "requested_by_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By Email"
           },
           "amount": {
             "anyOf": [
@@ -16931,6 +17735,14 @@
             "title": "Persona Tags",
             "default": []
           },
+          "connector_hints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Connector Hints",
+            "default": []
+          },
           "blocked_connectors": {
             "items": {
               "type": "string"
@@ -17412,6 +18224,14 @@
             "title": "Persona Tags",
             "default": []
           },
+          "connector_hints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Connector Hints",
+            "default": []
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -17433,6 +18253,106 @@
           "updated_at"
         ],
         "title": "PersonaVersionListItem"
+      },
+      "PersonalConnectorRequestBody": {
+        "properties": {
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "PersonalConnectorRequestBody"
+      },
+      "PersonalConnectorRequestResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "user_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Name"
+          },
+          "user_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Email"
+          },
+          "connector_slug": {
+            "type": "string",
+            "title": "Connector Slug"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConnectorRequestStatus"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          },
+          "requested_by_user_id": {
+            "type": "string",
+            "title": "Requested By User Id"
+          },
+          "reviewed_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By User Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "user_id",
+          "connector_slug",
+          "status",
+          "requested_by_user_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PersonalConnectorRequestResponse"
       },
       "PinCategory": {
         "type": "string",
@@ -17515,6 +18435,22 @@
         ],
         "title": "PinResponse"
       },
+      "PlanKey": {
+        "type": "string",
+        "enum": [
+          "starter",
+          "pro",
+          "power",
+          "team_125",
+          "team_250",
+          "team_500",
+          "team_1000",
+          "team_1500",
+          "team_2000"
+        ],
+        "title": "PlanKey",
+        "description": "The single plan identifier the FE sends. Teams keys carry the volume tier;\nthe BE maps key + billing to a Stripe price (the price is the source of truth\nfor plan/tier downstream)."
+      },
       "PlanResponse": {
         "properties": {
           "organization_id": {
@@ -17570,7 +18506,7 @@
           "pool_status"
         ],
         "title": "PlanResponse",
-        "description": "The Plans & Usage view: pool totals + per-member caps/usage."
+        "description": "The Plans & Usage view: pool totals + per-member allocations/usage."
       },
       "PlanSummary": {
         "properties": {
@@ -17610,17 +18546,6 @@
         },
         "type": "object",
         "title": "PlanSummary"
-      },
-      "PlanType": {
-        "type": "string",
-        "enum": [
-          "starter",
-          "pro",
-          "power",
-          "trial",
-          "teams"
-        ],
-        "title": "PlanType"
       },
       "PoolStatus": {
         "type": "string",
@@ -18094,6 +19019,18 @@
           "slug"
         ],
         "title": "RequestConnectorRequest"
+      },
+      "ReviewPersonalConnectorRequest": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ConnectorRequestStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ReviewPersonalConnectorRequest"
       },
       "SaveToDriveRequest": {
         "properties": {
@@ -18607,6 +19544,21 @@
         "type": "object",
         "title": "SetChannelMappingRequest",
         "description": "Bind a channel to a project, or pass null to clear the mapping."
+      },
+      "SetConnectorHints": {
+        "properties": {
+          "slugs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Slugs",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "SetConnectorHints",
+        "description": "Replace a persona version's soft connector hints with `slugs`."
       },
       "SetConnectorStatusRequest": {
         "properties": {
@@ -19221,6 +20173,28 @@
             "type": "string",
             "title": "Requested By User Id"
           },
+          "requested_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By Name"
+          },
+          "requested_by_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By Email"
+          },
           "note": {
             "type": "string",
             "title": "Note",
@@ -19485,6 +20459,20 @@
           "currency"
         ],
         "title": "UpcomingInvoiceInfo"
+      },
+      "UpdateConnectorCatalogRequest": {
+        "properties": {
+          "connectorSlugs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Connectorslugs",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "UpdateConnectorCatalogRequest"
       },
       "UpdateConnectorRequest": {
         "properties": {
@@ -19895,6 +20883,20 @@
               }
             ],
             "title": "Persona Tags"
+          },
+          "connector_hints": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connector Hints"
           }
         },
         "type": "object",
@@ -20232,7 +21234,7 @@
           "response"
         ],
         "title": "UserPromptResponse",
-        "description": "FE's answer to a mid-stream `user_prompt` SSE event. `response`\nis intentionally untyped — it's whatever the prompt's `options` /\n`kind` defines (a string for choice/permission, a free-form string\nor object for input, etc.)."
+        "description": "FE's answer to a mid-stream `user_prompt` SSE event. `response`\nis intentionally untyped — it's whatever the prompt's `options` /\n`kind` defines (a string for choice/permission, a free-form string\nor object for input, etc.). For question prompts we also accept a\ndirect {\"answers\": ...} body and wrap it into the standard response."
       },
       "UserResponse": {
         "properties": {

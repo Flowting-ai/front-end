@@ -8,10 +8,12 @@ import {
   ORG_PLAN_ENDPOINT,
   ORG_PLAN_USAGE_ENDPOINT,
   ORG_AUDIT_ENDPOINT,
+  ORG_TRANSFER_OWNER_ENDPOINT,
   ORG_MEMBERS_ENDPOINT,
   ORG_MEMBER_ENDPOINT,
   ORG_MEMBER_ROLE_ENDPOINT,
   ORG_MEMBER_CAP_ENDPOINT,
+  ORG_OVERFLOW_APPROVE_ENDPOINT,
 } from '@/lib/config'
 import type { OrgRole, OrgSettings, OrgMember, OrgPlan, OrgPlanUsage, AuditLogEntry } from '@/types/teams'
 
@@ -102,8 +104,8 @@ function normalizeMember(m: MemberResponse): OrgMember {
     orgRole:         m.role,
     inviteStatus,
     teamMemberships: [],
-    creditUsed:      m.credit_used,
-    creditCap:       m.credit_cap ?? undefined,
+    creditUsed:      inviteStatus === 'invite_sent' ? 0 : Math.round(m.credit_used * 1000),
+    creditCap:       m.credit_cap != null ? Math.round(m.credit_cap * 1000) : undefined,
   }
 }
 
@@ -211,6 +213,20 @@ export async function updateOrg(
   return { id: data.id, name: data.name, slug: data.slug }
 }
 
+export async function deleteOrg(orgId: string, confirmName: string): Promise<void> {
+  await apiFetch(ORG_ENDPOINT(orgId), {
+    method: 'DELETE',
+    body:   JSON.stringify({ confirmName }),
+  })
+}
+
+export async function transferOrgOwnership(orgId: string, newOwnerUserId: string): Promise<void> {
+  await apiFetch(ORG_TRANSFER_OWNER_ENDPOINT(orgId), {
+    method: 'POST',
+    body:   JSON.stringify({ newOwnerUserId }),
+  })
+}
+
 export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
   const data = await apiFetchJson<OrganizationSettingsResponse>(ORG_SETTINGS_ENDPOINT(orgId))
   return normalizeSettings(data)
@@ -281,4 +297,59 @@ export async function setMemberCap(orgId: string, memberId: string, cap: number 
 
 export async function removeMember(orgId: string, memberId: string): Promise<void> {
   await apiFetch(ORG_MEMBER_ENDPOINT(orgId, memberId), { method: 'DELETE' })
+}
+
+// ── Overflow ──────────────────────────────────────────────────────────────────
+
+export interface OverflowResponse {
+  id: string
+  teamId: string
+  requestedByUserId: string
+  requestedByName: string | null
+  requestedByEmail: string | null
+  amount: number
+  note: string | null
+  status: 'open' | 'resolved'
+  createdAt: string
+}
+
+interface OverflowResponseRaw {
+  id: string
+  team_id: string
+  requested_by_user_id: string
+  requested_by_name: string | null
+  requested_by_email: string | null
+  amount: number
+  note: string | null
+  status: 'open' | 'resolved'
+  created_at: string
+}
+
+function normalizeOverflow(r: OverflowResponseRaw): OverflowResponse {
+  return {
+    id:                  r.id,
+    teamId:              r.team_id,
+    requestedByUserId:   r.requested_by_user_id,
+    requestedByName:     r.requested_by_name,
+    requestedByEmail:    r.requested_by_email,
+    amount:              r.amount,
+    note:                r.note,
+    status:              r.status,
+    createdAt:           r.created_at,
+  }
+}
+
+/** POST /organizations/{id}/overflow/{requestId}/approve */
+export async function approveOverflow(
+  orgId: string,
+  requestId: string,
+  amount?: number,
+): Promise<OverflowResponse> {
+  const body: Record<string, unknown> = {}
+  if (amount !== undefined) body.amount = amount
+  const data = await apiFetchJson<OverflowResponseRaw>(
+    ORG_OVERFLOW_APPROVE_ENDPOINT(orgId, requestId),
+    { method: 'POST', body: JSON.stringify(body) },
+  )
+  return normalizeOverflow(data)
 }

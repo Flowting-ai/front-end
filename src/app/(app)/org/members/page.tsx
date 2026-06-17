@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { SearchOneIcon, FilterMailIcon } from '@strange-huge/icons'
@@ -16,8 +16,9 @@ import { AppInviteModal }   from '@/components/InviteModal'
 import { toast }           from 'sonner'
 import { useOrg }           from '@/context/org-context'
 import { useAuth }          from '@/context/auth-context'
-import { setMemberRole, removeMember } from '@/lib/api/organization'
+import { setMemberRole, removeMember, getOrgSettings, listMembers, setMemberCap } from '@/lib/api/organization'
 import { inviteTeamMembers } from '@/lib/api/teams'
+import { updateUser } from '@/lib/api/user'
 import type { OrgMember, WorkspaceRole, OrgRole } from '@/types/teams'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
@@ -259,24 +260,123 @@ function TeamsBadges({ teams }: { teams: OrgMember['teamMemberships'] }) {
   )
 }
 
+// ── Assign-team dropdown ──────────────────────────────────────────────────────
+
+function AssignTeamButton({
+  teams,
+  assigning,
+  onSelect,
+}: {
+  teams:     { id: string; name: string }[]
+  assigning: boolean
+  onSelect:  (teamId: string) => void
+}) {
+  const [open,      setOpen]      = useState(false)
+  const triggerRef  = useRef<HTMLButtonElement>(null)
+  const panelRef    = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: r.left })
+    }
+    const h = (e: MouseEvent) => {
+      if (
+        panelRef.current?.contains(e.target as Node) ||
+        triggerRef.current?.contains(e.target as Node)
+      ) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', h, { capture: true })
+    return () => document.removeEventListener('mousedown', h, { capture: true })
+  }, [open])
+
+  if (teams.length === 0) return null
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        disabled={assigning}
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display:         'flex',
+          alignItems:      'center',
+          gap:             4,
+          padding:         '3px 8px',
+          borderRadius:    6,
+          border:          '1px dashed var(--neutral-300)',
+          backgroundColor: 'transparent',
+          cursor:          assigning ? 'not-allowed' : 'pointer',
+          fontFamily:      'var(--font-body)',
+          fontWeight:      500,
+          fontSize:        12,
+          color:           'var(--neutral-500)',
+          opacity:         assigning ? 0.5 : 1,
+          transition:      'border-color 120ms, color 120ms',
+        }}
+      >
+        {assigning ? 'Assigning…' : '+ Assign team'}
+      </button>
+
+      {open && pos && createPortal(
+        <div
+          ref={panelRef}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 300, minWidth: 180 }}
+        >
+          <AnimatePresence>
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.12 } }}
+              exit={{ opacity: 0, y: -4, transition: { duration: 0.08 } }}
+            >
+              <Popover variant="dropdown" maxHeight={false} style={{ padding: 4 }}>
+                {teams.map(team => (
+                  <DropdownMenuItem
+                    key={team.id}
+                    fluid
+                    label={team.name}
+                    onClick={() => { setOpen(false); onSelect(team.id) }}
+                  />
+                ))}
+              </Popover>
+            </motion.div>
+          </AnimatePresence>
+        </div>,
+        document.body,
+      )}
+    </>
+  )
+}
+
 // ── Members table ─────────────────────────────────────────────────────────────
 
 function MembersTable({
   members,
   ownerMemberId,
   isAdmin,
+  loading,
+  availableTeams,
   onChangeRole,
   onRemove,
   onInviteClick,
+  onAssignTeam,
 }: {
-  members:       OrgMember[]
-  ownerMemberId: string
-  isAdmin:       boolean
-  onChangeRole:  (id: string, role: WorkspaceRole) => void
-  onRemove:      (id: string) => void
-  onInviteClick: () => void
+  members:        OrgMember[]
+  ownerMemberId:  string
+  isAdmin:        boolean
+  loading?:       boolean
+  availableTeams: { id: string; name: string }[]
+  onChangeRole:   (id: string, role: WorkspaceRole) => void
+  onRemove:       (id: string) => void
+  onInviteClick:  () => void
+  onAssignTeam:   (memberId: string, teamId: string) => Promise<void>
 }) {
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const [openDropdown,  setOpenDropdown]  = useState<string | null>(null)
+  const [assigningId,   setAssigningId]   = useState<string | null>(null)
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
   return (
@@ -321,7 +421,13 @@ function MembersTable({
       </div>
 
       {/* Rows */}
-      {members.length === 0 ? (
+      {loading ? (
+        <div style={{ padding: '32px 24px', textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+            Loading members…
+          </p>
+        </div>
+      ) : members.length === 0 ? (
         <div style={{ padding: '32px 24px', textAlign: 'center' }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
             No members yet
@@ -380,8 +486,19 @@ function MembersTable({
               </div>
 
               {/* Teams */}
-              <div style={{ width: 200, flexShrink: 0 }}>
+              <div style={{ width: 200, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <TeamsBadges teams={member.teamMemberships} />
+                {isAdmin && member.teamMemberships.length === 0 && member.inviteStatus !== 'invite_sent' && (
+                  <AssignTeamButton
+                    teams={availableTeams}
+                    assigning={assigningId === member.id}
+                    onSelect={async teamId => {
+                      setAssigningId(member.id)
+                      try { await onAssignTeam(member.id, teamId) }
+                      finally { setAssigningId(null) }
+                    }}
+                  />
+                )}
               </div>
 
               {/* Actions */}
@@ -487,23 +604,53 @@ function RolesPermissionsSection() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrgMembersPage() {
-  const { orgId, org, members: orgMembers, currentUserRole, teams } = useOrg()
+  const { orgId, org, members: orgMembers, membersLoading, currentUserRole, teams } = useOrg()
   const { user } = useAuth()
   const isAdmin = currentUserRole === 'admin'
 
-  const [members,       setMembers]       = useState<OrgMember[]>(orgMembers)
-  const [inviteOpen,    setInviteOpen]    = useState(false)
-  const [inviteLoading, setInviteLoading] = useState(false)
+  const [members,        setMembers]        = useState<OrgMember[]>(orgMembers)
 
-  // Replace the current user's member-list name with the auth-profile name.
-  // The plan API can return a stale or placeholder name (e.g. "Someone") when
-  // the Auth0 profile hasn't synced to the backend yet — the auth context is
-  // always the freshest source of truth for the logged-in user's own name.
-  // Best available name for the logged-in user: firstName+lastName first,
-  // then the combined `name` from the auth profile (if it's not just their email).
+  // Sync context members into local state when the API response arrives.
+  // useState only uses its initial value once, so without this effect the table
+  // stays empty until the component is remounted.
+  useEffect(() => {
+    setMembers(orgMembers)
+  }, [orgMembers])
+  const [inviteOpen,     setInviteOpen]     = useState(false)
+  const [inviteLoading,  setInviteLoading]  = useState(false)
+  const [allowedDomains, setAllowedDomains] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!orgId) return
+    getOrgSettings(orgId)
+      .then(s => setAllowedDomains(s.allowedEmailDomains ?? []))
+      .catch(() => { /* non-fatal — open invite if settings unavailable */ })
+  }, [orgId])
+
+  // Sync the current user's name to the backend when it appears stale
+  // ("Someone" or empty) — mirrors how the individual plan syncs via
+  // updateUser() during onboarding/settings.
   const currentUserName =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
     (user?.name && !user.name.includes('@') ? user.name : '')
+
+  useEffect(() => {
+    if (!user?.email || !currentUserName) return
+    const self = members.find(m => m.email === user.email)
+    if (!self) return
+    const nameIsStale = !self.name || self.name.toLowerCase() === 'someone'
+    if (!nameIsStale) return
+    const [first, ...rest] = currentUserName.split(' ')
+    updateUser({ first_name: first ?? '', last_name: rest.join(' ') || null })
+      .then(() => {
+        setMembers(prev => prev.map(m =>
+          m.email === user.email ? { ...m, name: currentUserName } : m,
+        ))
+      })
+      .catch(() => { /* non-fatal — UI already shows the correct name via displayMembers */ })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.email, currentUserName, members.length])
+
   const displayMembers = members.map(m =>
     user?.email && m.email === user.email && currentUserName
       ? { ...m, name: currentUserName }
@@ -534,6 +681,23 @@ export default function OrgMembersPage() {
     }
   }
 
+  const handleAssignTeam = async (memberId: string, teamId: string) => {
+    const member = members.find(m => m.id === memberId)
+    if (!member || !orgId) return
+    try {
+      await inviteTeamMembers(orgId, teamId, [member.email])
+      const team = teams.find(t => t.id === teamId)
+      setMembers(prev => prev.map(m =>
+        m.id === memberId
+          ? { ...m, teamMemberships: [...m.teamMemberships, { teamId, teamName: team?.name ?? '', isTeamOwner: false }] }
+          : m,
+      ))
+      toast.success(`Assigned to ${team?.name ?? 'team'}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to assign team')
+    }
+  }
+
   const handleRemove = async (id: string) => {
     const prev = members
     setMembers(ms => ms.filter(m => m.id !== id))
@@ -546,8 +710,19 @@ export default function OrgMembersPage() {
     }
   }
 
-  const handleInvite = async (email: string, role: WorkspaceRole) => {
+  const handleInvite = async (email: string, role: WorkspaceRole, creditCap?: number) => {
     if (!orgId) return
+
+    if (allowedDomains.length > 0) {
+      const domain = email.trim().split('@')[1]?.toLowerCase() ?? ''
+      if (!allowedDomains.includes(domain)) {
+        toast.error('Email domain not allowed', {
+          description: `Invites are restricted to: ${allowedDomains.join(', ')}`,
+        })
+        return
+      }
+    }
+
     const teamId = teams[0]?.id
     if (!teamId) {
       toast.error('Create a team first before inviting members')
@@ -556,6 +731,24 @@ export default function OrgMembersPage() {
     setInviteLoading(true)
     try {
       await inviteTeamMembers(orgId, teamId, [email])
+
+      // If a cap was set, fetch the fresh member list to get the real user_id
+      // (pending invitees are present in the list immediately with invite_status='pending')
+      let resolvedCap: number | undefined
+      if (creditCap && creditCap > 0) {
+        try {
+          const fresh = await listMembers(orgId)
+          const match = fresh.find(m => m.email.toLowerCase() === email.trim().toLowerCase())
+          if (match) {
+            const capDollars = creditCap / 1000
+            await setMemberCap(orgId, match.id, capDollars)
+            resolvedCap = creditCap
+          }
+        } catch {
+          // cap set failed silently — member can be capped later from analytics page
+        }
+      }
+
       setMembers(prev => [...prev, {
         id:              `invite_${Date.now()}`,
         name:            email.split('@')[0] ?? email,
@@ -565,6 +758,7 @@ export default function OrgMembersPage() {
         inviteStatus:    'invite_sent',
         teamMemberships: [],
         creditUsed:      0,
+        ...(resolvedCap != null ? { creditCap: resolvedCap } : {}),
       }])
       setInviteOpen(false)
       toast.success('Invite sent')
@@ -632,9 +826,12 @@ export default function OrgMembersPage() {
           members={displayMembers}
           ownerMemberId={ownerMemberId}
           isAdmin={isAdmin}
+          loading={membersLoading}
+          availableTeams={teams.map(t => ({ id: t.id, name: t.name }))}
           onChangeRole={handleChangeRole}
           onRemove={handleRemove}
           onInviteClick={() => setInviteOpen(true)}
+          onAssignTeam={handleAssignTeam}
         />
 
         {/* Roles & Permissions */}

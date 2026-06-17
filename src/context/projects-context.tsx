@@ -62,6 +62,7 @@ export interface Project {
   name:         string
   description:  string
   instructions: string
+  teamId:       string | null
   tags:         ProjectTag[]
   files:        ProjectFile[]
   chatCount:    number
@@ -129,6 +130,7 @@ function summaryToProject(s: ApiProjectSummary): Project {
     name:         s.title,
     description:  s.description,
     instructions: '',
+    teamId:       null,
     tags:         loadStoredTags(s.id),
     files:        [],
     chatCount:    s.chatCount,
@@ -163,6 +165,7 @@ function apiToProject(
     name:         api.title,
     description:  api.description,
     instructions: api.systemInstruction,
+    teamId:       api.teamId ?? existing?.teamId ?? null,
     tags:         existing?.tags ?? loadStoredTags(api.id),
     files,
     chatCount:    existing?.chatCount ?? 0,

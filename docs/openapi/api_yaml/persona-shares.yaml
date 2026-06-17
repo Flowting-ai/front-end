@@ -1,803 +1,1331 @@
-openapi: 3.1.0
-info:
-  title: FastAPI - persona-shares
-  version: 0.1.0
-paths:
-  /persona-shares:
-    get:
-      tags:
-        - persona-shares
-      summary: List Shares
-      operationId: list_shares_persona_shares_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/PersonaShareResponse'
-                type: array
-                title: Response List Shares Persona Shares Get
-      security:
-        - HTTPBearer: []
-    post:
-      tags:
-        - persona-shares
-      summary: Create Share
-      operationId: create_share_persona_shares_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PersonaShareCreate'
-        required: true
-      responses:
-        '201':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonaShareResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-      security:
-        - HTTPBearer: []
-  /persona-shares/received:
-    get:
-      tags:
-        - persona-shares
-      summary: List Received
-      description: Personas in my account that I accepted from someone else's share.
-      operationId: list_received_persona_shares_received_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ReceivedShareResponse'
-                type: array
-                title: Response List Received Persona Shares Received Get
-      security:
-        - HTTPBearer: []
-  /persona-shares/sent:
-    get:
-      tags:
-        - persona-shares
-      summary: List Sent
-      description: Recipients of my shares — who got which persona, and their usage.
-      operationId: list_sent_persona_shares_sent_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/SentShareResponse'
-                type: array
-                title: Response List Sent Persona Shares Sent Get
-      security:
-        - HTTPBearer: []
-  /persona-shares/dashboard:
-    get:
-      tags:
-        - persona-shares
-      summary: Dashboard
-      description: |-
-        Super Links dashboard: link totals, conversations & credits this month with
-        deltas, a daily credit series, and the per-link cards. `window` (days) drives
-        the chart; accepts 7, 30, or 90.
-      operationId: dashboard_persona_shares_dashboard_get
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: window
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 30
-            title: Window
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ShareDashboardResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /persona-shares/{share_id}:
-    get:
-      tags:
-        - persona-shares
-      summary: Preview Share
-      operationId: preview_share_persona_shares__share_id__get
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: share_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            title: Share Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonaSharePreview'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    delete:
-      tags:
-        - persona-shares
-      summary: Revoke Share
-      operationId: revoke_share_persona_shares__share_id__delete
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: share_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            title: Share Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /persona-shares/{share_id}/accept:
-    post:
-      tags:
-        - persona-shares
-      summary: Accept Share
-      operationId: accept_share_persona_shares__share_id__accept_post
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: share_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            title: Share Id
-      responses:
-        '201':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonaResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-components:
-  schemas:
-    PersonaShareResponse:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        persona_id:
-          type: string
-          format: uuid
-          title: Persona Id
-        shared_by_user_id:
-          type: string
-          title: Shared By User Id
-        share_type:
-          type: string
-          title: Share Type
-        recipient_emails:
-          anyOf:
-            - items:
-                type: string
-              type: array
-            - type: 'null'
-          title: Recipient Emails
-        credit_limit:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Credit Limit
-        credit_used:
-          type: number
-          title: Credit Used
-        credit_remaining:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Credit Remaining
-        expires_at:
-          type: string
-          format: date-time
-          title: Expires At
-        is_active:
-          type: boolean
-          title: Is Active
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        share_url:
-          type: string
-          title: Share Url
-        persona_name:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Persona Name
-        pct_used:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Pct Used
-        recipients:
-          items:
-            $ref: '#/components/schemas/ShareRecipientSummary'
-          type: array
-          title: Recipients
-          default: []
-      type: object
-      required:
-        - id
-        - persona_id
-        - shared_by_user_id
-        - share_type
-        - credit_used
-        - expires_at
-        - is_active
-        - created_at
-        - share_url
-      title: PersonaShareResponse
-    PersonaShareCreate:
-      properties:
-        persona_repo_id:
-          type: string
-          format: uuid
-          title: Persona Repo Id
-        share_type:
-          type: string
-          enum:
-            - link
-            - email
-          title: Share Type
-        recipient_emails:
-          anyOf:
-            - items:
-                type: string
-              type: array
-            - type: 'null'
-          title: Recipient Emails
-        credit_limit:
-          anyOf:
-            - type: number
-              exclusiveMinimum: 0
-            - type: 'null'
-          title: Credit Limit
-        expires_at:
-          anyOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-          title: Expires At
-      type: object
-      required:
-        - persona_repo_id
-        - share_type
-      title: PersonaShareCreate
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
-    ReceivedShareResponse:
-      properties:
-        persona_id:
-          type: string
-          format: uuid
-          title: Persona Id
-        persona_repo_id:
-          type: string
-          format: uuid
-          title: Persona Repo Id
-        share_id:
-          type: string
-          format: uuid
-          title: Share Id
-        name:
-          type: string
-          title: Name
-        description:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Description
-        image_url:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Image Url
-        shared_by_name:
-          type: string
-          title: Shared By Name
-        shared_by_email:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Shared By Email
-        credit_limit:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Credit Limit
-        credit_used:
-          type: number
-          title: Credit Used
-        credit_remaining:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Credit Remaining
-        is_available:
-          type: boolean
-          title: Is Available
-        is_active:
-          type: boolean
-          title: Is Active
-        expires_at:
-          type: string
-          format: date-time
-          title: Expires At
-      type: object
-      required:
-        - persona_id
-        - persona_repo_id
-        - share_id
-        - name
-        - shared_by_name
-        - credit_used
-        - is_available
-        - is_active
-        - expires_at
-      title: ReceivedShareResponse
-      description: A persona in my account that I accepted from someone else's share.
-    SentShareResponse:
-      properties:
-        share_id:
-          type: string
-          format: uuid
-          title: Share Id
-        persona_id:
-          type: string
-          format: uuid
-          title: Persona Id
-        recipient_user_id:
-          type: string
-          title: Recipient User Id
-        recipient_name:
-          type: string
-          title: Recipient Name
-        recipient_email:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Recipient Email
-        credit_limit:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Credit Limit
-        credit_used:
-          type: number
-          title: Credit Used
-        credit_remaining:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Credit Remaining
-        is_active:
-          type: boolean
-          title: Is Active
-        accepted_at:
-          type: string
-          format: date-time
-          title: Accepted At
-      type: object
-      required:
-        - share_id
-        - persona_id
-        - recipient_user_id
-        - recipient_name
-        - credit_used
-        - is_active
-        - accepted_at
-      title: SentShareResponse
-      description: A recipient of one of my shares — who got which persona, and their usage.
-    ShareDashboardResponse:
-      properties:
-        summary:
-          $ref: '#/components/schemas/ShareDashboardSummary'
-        daily:
-          items:
-            $ref: '#/components/schemas/DashboardDailyPoint'
-          type: array
-          title: Daily
-        window_days:
-          type: integer
-          title: Window Days
-        links:
-          items:
-            $ref: '#/components/schemas/PersonaShareResponse'
-          type: array
-          title: Links
-      type: object
-      required:
-        - summary
-        - daily
-        - window_days
-        - links
-      title: ShareDashboardResponse
-    PersonaSharePreview:
-      properties:
-        share_id:
-          type: string
-          format: uuid
-          title: Share Id
-        persona_name:
-          type: string
-          title: Persona Name
-        description:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Description
-        prompt:
-          type: string
-          title: Prompt
-        model_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Model Id
-        temperature:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Temperature
-        image_url:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Image Url
-        shared_by_name:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Shared By Name
-        shared_by_email:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Shared By Email
-        expires_at:
-          type: string
-          format: date-time
-          title: Expires At
-        credit_limit:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Credit Limit
-        credit_remaining:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Credit Remaining
-      type: object
-      required:
-        - share_id
-        - persona_name
-        - prompt
-        - expires_at
-      title: PersonaSharePreview
-    PersonaResponse:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        persona_repo_id:
-          type: string
-          format: uuid
-          title: Persona Repo Id
-        name:
-          type: string
-          title: Name
-        handler:
-          type: string
-          title: Handler
-        prompt:
-          type: string
-          title: Prompt
-        description:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Description
-        is_active:
-          type: boolean
-          title: Is Active
-        model_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Model Id
-        image_url:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Image Url
-        image_s3_key:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Image S3 Key
-        temperature:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Temperature
-        version_tags:
-          items:
-            type: string
-          type: array
-          title: Version Tags
-          default: []
-        persona_tags:
-          items:
-            type: string
-          type: array
-          title: Persona Tags
-          default: []
-        blocked_connectors:
-          items:
-            type: string
-          type: array
-          title: Blocked Connectors
-          default: []
-        documents:
-          items:
-            $ref: '#/components/schemas/PersonaDocumentResponse'
-          type: array
-          title: Documents
-          default: []
-        links:
-          items:
-            $ref: '#/components/schemas/PersonaDocumentResponse'
-          type: array
-          title: Links
-          default: []
-        total_usage:
-          type: number
-          title: Total Usage
-          default: 0
-        source_share_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Source Share Id
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-      type: object
-      required:
-        - id
-        - persona_repo_id
-        - name
-        - handler
-        - prompt
-        - is_active
-        - created_at
-        - updated_at
-      title: PersonaResponse
-    ShareRecipientSummary:
-      properties:
-        recipient_user_id:
-          type: string
-          title: Recipient User Id
-        recipient_name:
-          type: string
-          title: Recipient Name
-        recipient_email:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Recipient Email
-        message_count:
-          type: integer
-          title: Message Count
-        credit_used:
-          type: number
-          title: Credit Used
-        credit_remaining:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Credit Remaining
-        is_active:
-          type: boolean
-          title: Is Active
-        accepted_at:
-          type: string
-          format: date-time
-          title: Accepted At
-      type: object
-      required:
-        - recipient_user_id
-        - recipient_name
-        - message_count
-        - credit_used
-        - is_active
-        - accepted_at
-      title: ShareRecipientSummary
-      description: Who accepted a link and how they've used it — embedded per link.
-    ValidationError:
-      properties:
-        loc:
-          items:
-            anyOf:
-              - type: string
-              - type: integer
-          type: array
-          title: Location
-        msg:
-          type: string
-          title: Message
-        type:
-          type: string
-          title: Error Type
-        input:
-          title: Input
-        ctx:
-          type: object
-          title: Context
-      type: object
-      required:
-        - loc
-        - msg
-        - type
-      title: ValidationError
-    ShareDashboardSummary:
-      properties:
-        active_links:
-          type: integer
-          title: Active Links
-        total_links:
-          type: integer
-          title: Total Links
-        conversations:
-          type: integer
-          title: Conversations
-        conversations_delta_pct:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Conversations Delta Pct
-        credits_this_month:
-          type: number
-          title: Credits This Month
-        credits_delta_pct:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Credits Delta Pct
-      type: object
-      required:
-        - active_links
-        - total_links
-        - conversations
-        - credits_this_month
-      title: ShareDashboardSummary
-    DashboardDailyPoint:
-      properties:
-        date:
-          type: string
-          format: date
-          title: Date
-        credits:
-          type: number
-          title: Credits
-      type: object
-      required:
-        - date
-        - credits
-      title: DashboardDailyPoint
-    PersonaDocumentResponse:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        document_filename:
-          type: string
-          title: Document Filename
-        source_url:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Source Url
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        size_bytes:
-          anyOf:
-            - type: integer
-            - type: 'null'
-          title: Size Bytes
-        content_type:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Content Type
-        download_url:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Download Url
-      type: object
-      required:
-        - id
-        - document_filename
-        - created_at
-      title: PersonaDocumentResponse
-  securitySchemes:
-    HTTPBearer:
-      type: http
-      scheme: bearer
+﻿{
+    "openapi":  "3.1.0",
+    "info":  {
+                 "title":  "FastAPI - persona-shares",
+                 "version":  "0.1.0"
+             },
+    "paths":  {
+                  "/persona-shares":  {
+                                          "get":  {
+                                                      "tags":  [
+                                                                   "persona-shares"
+                                                               ],
+                                                      "summary":  "List Shares",
+                                                      "operationId":  "list_shares_persona_shares_get",
+                                                      "responses":  {
+                                                                        "200":  {
+                                                                                    "description":  "Successful Response",
+                                                                                    "content":  {
+                                                                                                    "application/json":  {
+                                                                                                                             "schema":  {
+                                                                                                                                            "items":  {
+                                                                                                                                                          "$ref":  "#/components/schemas/PersonaShareResponse"
+                                                                                                                                                      },
+                                                                                                                                            "type":  "array",
+                                                                                                                                            "title":  "Response List Shares Persona Shares Get"
+                                                                                                                                        }
+                                                                                                                         }
+                                                                                                }
+                                                                                }
+                                                                    },
+                                                      "security":  [
+                                                                       {
+                                                                           "HTTPBearer":  [
+
+                                                                                          ]
+                                                                       }
+                                                                   ]
+                                                  },
+                                          "post":  {
+                                                       "tags":  [
+                                                                    "persona-shares"
+                                                                ],
+                                                       "summary":  "Create Share",
+                                                       "operationId":  "create_share_persona_shares_post",
+                                                       "requestBody":  {
+                                                                           "content":  {
+                                                                                           "application/json":  {
+                                                                                                                    "schema":  {
+                                                                                                                                   "$ref":  "#/components/schemas/PersonaShareCreate"
+                                                                                                                               }
+                                                                                                                }
+                                                                                       },
+                                                                           "required":  true
+                                                                       },
+                                                       "responses":  {
+                                                                         "201":  {
+                                                                                     "description":  "Successful Response",
+                                                                                     "content":  {
+                                                                                                     "application/json":  {
+                                                                                                                              "schema":  {
+                                                                                                                                             "$ref":  "#/components/schemas/PersonaShareResponse"
+                                                                                                                                         }
+                                                                                                                          }
+                                                                                                 }
+                                                                                 },
+                                                                         "422":  {
+                                                                                     "description":  "Validation Error",
+                                                                                     "content":  {
+                                                                                                     "application/json":  {
+                                                                                                                              "schema":  {
+                                                                                                                                             "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                         }
+                                                                                                                          }
+                                                                                                 }
+                                                                                 }
+                                                                     },
+                                                       "security":  [
+                                                                        {
+                                                                            "HTTPBearer":  [
+
+                                                                                           ]
+                                                                        }
+                                                                    ]
+                                                   }
+                                      },
+                  "/persona-shares/received":  {
+                                                   "get":  {
+                                                               "tags":  [
+                                                                            "persona-shares"
+                                                                        ],
+                                                               "summary":  "List Received",
+                                                               "description":  "Personas in my account that I accepted from someone else\u0027s share.",
+                                                               "operationId":  "list_received_persona_shares_received_get",
+                                                               "responses":  {
+                                                                                 "200":  {
+                                                                                             "description":  "Successful Response",
+                                                                                             "content":  {
+                                                                                                             "application/json":  {
+                                                                                                                                      "schema":  {
+                                                                                                                                                     "items":  {
+                                                                                                                                                                   "$ref":  "#/components/schemas/ReceivedShareResponse"
+                                                                                                                                                               },
+                                                                                                                                                     "type":  "array",
+                                                                                                                                                     "title":  "Response List Received Persona Shares Received Get"
+                                                                                                                                                 }
+                                                                                                                                  }
+                                                                                                         }
+                                                                                         }
+                                                                             },
+                                                               "security":  [
+                                                                                {
+                                                                                    "HTTPBearer":  [
+
+                                                                                                   ]
+                                                                                }
+                                                                            ]
+                                                           }
+                                               },
+                  "/persona-shares/sent":  {
+                                               "get":  {
+                                                           "tags":  [
+                                                                        "persona-shares"
+                                                                    ],
+                                                           "summary":  "List Sent",
+                                                           "description":  "Recipients of my shares â€” who got which persona, and their usage.",
+                                                           "operationId":  "list_sent_persona_shares_sent_get",
+                                                           "responses":  {
+                                                                             "200":  {
+                                                                                         "description":  "Successful Response",
+                                                                                         "content":  {
+                                                                                                         "application/json":  {
+                                                                                                                                  "schema":  {
+                                                                                                                                                 "items":  {
+                                                                                                                                                               "$ref":  "#/components/schemas/SentShareResponse"
+                                                                                                                                                           },
+                                                                                                                                                 "type":  "array",
+                                                                                                                                                 "title":  "Response List Sent Persona Shares Sent Get"
+                                                                                                                                             }
+                                                                                                                              }
+                                                                                                     }
+                                                                                     }
+                                                                         },
+                                                           "security":  [
+                                                                            {
+                                                                                "HTTPBearer":  [
+
+                                                                                               ]
+                                                                            }
+                                                                        ]
+                                                       }
+                                           },
+                  "/persona-shares/dashboard":  {
+                                                    "get":  {
+                                                                "tags":  [
+                                                                             "persona-shares"
+                                                                         ],
+                                                                "summary":  "Dashboard",
+                                                                "description":  "Super Links dashboard: link totals, conversations \u0026 credits this month with\ndeltas, a daily credit series, and the per-link cards. `window` (days) drives\nthe chart; accepts 7, 30, or 90.",
+                                                                "operationId":  "dashboard_persona_shares_dashboard_get",
+                                                                "security":  [
+                                                                                 {
+                                                                                     "HTTPBearer":  [
+
+                                                                                                    ]
+                                                                                 }
+                                                                             ],
+                                                                "parameters":  [
+                                                                                   {
+                                                                                       "name":  "window",
+                                                                                       "in":  "query",
+                                                                                       "required":  false,
+                                                                                       "schema":  {
+                                                                                                      "type":  "integer",
+                                                                                                      "default":  30,
+                                                                                                      "title":  "Window"
+                                                                                                  }
+                                                                                   }
+                                                                               ],
+                                                                "responses":  {
+                                                                                  "200":  {
+                                                                                              "description":  "Successful Response",
+                                                                                              "content":  {
+                                                                                                              "application/json":  {
+                                                                                                                                       "schema":  {
+                                                                                                                                                      "$ref":  "#/components/schemas/ShareDashboardResponse"
+                                                                                                                                                  }
+                                                                                                                                   }
+                                                                                                          }
+                                                                                          },
+                                                                                  "422":  {
+                                                                                              "description":  "Validation Error",
+                                                                                              "content":  {
+                                                                                                              "application/json":  {
+                                                                                                                                       "schema":  {
+                                                                                                                                                      "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                                  }
+                                                                                                                                   }
+                                                                                                          }
+                                                                                          }
+                                                                              }
+                                                            }
+                                                },
+                  "/persona-shares/{share_id}":  {
+                                                     "get":  {
+                                                                 "tags":  [
+                                                                              "persona-shares"
+                                                                          ],
+                                                                 "summary":  "Preview Share",
+                                                                 "operationId":  "preview_share_persona_shares__share_id__get",
+                                                                 "security":  [
+                                                                                  {
+                                                                                      "HTTPBearer":  [
+
+                                                                                                     ]
+                                                                                  }
+                                                                              ],
+                                                                 "parameters":  [
+                                                                                    {
+                                                                                        "name":  "share_id",
+                                                                                        "in":  "path",
+                                                                                        "required":  true,
+                                                                                        "schema":  {
+                                                                                                       "type":  "string",
+                                                                                                       "format":  "uuid",
+                                                                                                       "title":  "Share Id"
+                                                                                                   }
+                                                                                    }
+                                                                                ],
+                                                                 "responses":  {
+                                                                                   "200":  {
+                                                                                               "description":  "Successful Response",
+                                                                                               "content":  {
+                                                                                                               "application/json":  {
+                                                                                                                                        "schema":  {
+                                                                                                                                                       "$ref":  "#/components/schemas/PersonaSharePreview"
+                                                                                                                                                   }
+                                                                                                                                    }
+                                                                                                           }
+                                                                                           },
+                                                                                   "422":  {
+                                                                                               "description":  "Validation Error",
+                                                                                               "content":  {
+                                                                                                               "application/json":  {
+                                                                                                                                        "schema":  {
+                                                                                                                                                       "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                                   }
+                                                                                                                                    }
+                                                                                                           }
+                                                                                           }
+                                                                               }
+                                                             },
+                                                     "delete":  {
+                                                                    "tags":  [
+                                                                                 "persona-shares"
+                                                                             ],
+                                                                    "summary":  "Revoke Share",
+                                                                    "operationId":  "revoke_share_persona_shares__share_id__delete",
+                                                                    "security":  [
+                                                                                     {
+                                                                                         "HTTPBearer":  [
+
+                                                                                                        ]
+                                                                                     }
+                                                                                 ],
+                                                                    "parameters":  [
+                                                                                       {
+                                                                                           "name":  "share_id",
+                                                                                           "in":  "path",
+                                                                                           "required":  true,
+                                                                                           "schema":  {
+                                                                                                          "type":  "string",
+                                                                                                          "format":  "uuid",
+                                                                                                          "title":  "Share Id"
+                                                                                                      }
+                                                                                       }
+                                                                                   ],
+                                                                    "responses":  {
+                                                                                      "200":  {
+                                                                                                  "description":  "Successful Response",
+                                                                                                  "content":  {
+                                                                                                                  "application/json":  {
+                                                                                                                                           "schema":  {
+
+                                                                                                                                                      }
+                                                                                                                                       }
+                                                                                                              }
+                                                                                              },
+                                                                                      "422":  {
+                                                                                                  "description":  "Validation Error",
+                                                                                                  "content":  {
+                                                                                                                  "application/json":  {
+                                                                                                                                           "schema":  {
+                                                                                                                                                          "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                                      }
+                                                                                                                                       }
+                                                                                                              }
+                                                                                              }
+                                                                                  }
+                                                                }
+                                                 },
+                  "/persona-shares/{share_id}/accept":  {
+                                                            "post":  {
+                                                                         "tags":  [
+                                                                                      "persona-shares"
+                                                                                  ],
+                                                                         "summary":  "Accept Share",
+                                                                         "operationId":  "accept_share_persona_shares__share_id__accept_post",
+                                                                         "security":  [
+                                                                                          {
+                                                                                              "HTTPBearer":  [
+
+                                                                                                             ]
+                                                                                          }
+                                                                                      ],
+                                                                         "parameters":  [
+                                                                                            {
+                                                                                                "name":  "share_id",
+                                                                                                "in":  "path",
+                                                                                                "required":  true,
+                                                                                                "schema":  {
+                                                                                                               "type":  "string",
+                                                                                                               "format":  "uuid",
+                                                                                                               "title":  "Share Id"
+                                                                                                           }
+                                                                                            }
+                                                                                        ],
+                                                                         "responses":  {
+                                                                                           "201":  {
+                                                                                                       "description":  "Successful Response",
+                                                                                                       "content":  {
+                                                                                                                       "application/json":  {
+                                                                                                                                                "schema":  {
+                                                                                                                                                               "$ref":  "#/components/schemas/PersonaResponse"
+                                                                                                                                                           }
+                                                                                                                                            }
+                                                                                                                   }
+                                                                                                   },
+                                                                                           "422":  {
+                                                                                                       "description":  "Validation Error",
+                                                                                                       "content":  {
+                                                                                                                       "application/json":  {
+                                                                                                                                                "schema":  {
+                                                                                                                                                               "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                                           }
+                                                                                                                                            }
+                                                                                                                   }
+                                                                                                   }
+                                                                                       }
+                                                                     }
+                                                        }
+              },
+    "components":  {
+                       "schemas":  {
+                                       "DashboardDailyPoint":  {
+                                                                   "properties":  {
+                                                                                      "date":  {
+                                                                                                   "type":  "string",
+                                                                                                   "format":  "date",
+                                                                                                   "title":  "Date"
+                                                                                               },
+                                                                                      "credits":  {
+                                                                                                      "type":  "number",
+                                                                                                      "title":  "Credits"
+                                                                                                  }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "required":  [
+                                                                                    "date",
+                                                                                    "credits"
+                                                                                ],
+                                                                   "title":  "DashboardDailyPoint"
+                                                               },
+                                       "HTTPValidationError":  {
+                                                                   "properties":  {
+                                                                                      "detail":  {
+                                                                                                     "items":  {
+                                                                                                                   "$ref":  "#/components/schemas/ValidationError"
+                                                                                                               },
+                                                                                                     "type":  "array",
+                                                                                                     "title":  "Detail"
+                                                                                                 }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "title":  "HTTPValidationError"
+                                                               },
+                                       "PersonaDocumentResponse":  {
+                                                                       "properties":  {
+                                                                                          "id":  {
+                                                                                                     "type":  "string",
+                                                                                                     "format":  "uuid",
+                                                                                                     "title":  "Id"
+                                                                                                 },
+                                                                                          "document_filename":  {
+                                                                                                                    "type":  "string",
+                                                                                                                    "title":  "Document Filename"
+                                                                                                                },
+                                                                                          "source_url":  {
+                                                                                                             "anyOf":  [
+                                                                                                                           {
+                                                                                                                               "type":  "string"
+                                                                                                                           },
+                                                                                                                           {
+                                                                                                                               "type":  "null"
+                                                                                                                           }
+                                                                                                                       ],
+                                                                                                             "title":  "Source Url"
+                                                                                                         },
+                                                                                          "created_at":  {
+                                                                                                             "type":  "string",
+                                                                                                             "format":  "date-time",
+                                                                                                             "title":  "Created At"
+                                                                                                         },
+                                                                                          "size_bytes":  {
+                                                                                                             "anyOf":  [
+                                                                                                                           {
+                                                                                                                               "type":  "integer"
+                                                                                                                           },
+                                                                                                                           {
+                                                                                                                               "type":  "null"
+                                                                                                                           }
+                                                                                                                       ],
+                                                                                                             "title":  "Size Bytes"
+                                                                                                         },
+                                                                                          "content_type":  {
+                                                                                                               "anyOf":  [
+                                                                                                                             {
+                                                                                                                                 "type":  "string"
+                                                                                                                             },
+                                                                                                                             {
+                                                                                                                                 "type":  "null"
+                                                                                                                             }
+                                                                                                                         ],
+                                                                                                               "title":  "Content Type"
+                                                                                                           },
+                                                                                          "download_url":  {
+                                                                                                               "anyOf":  [
+                                                                                                                             {
+                                                                                                                                 "type":  "string"
+                                                                                                                             },
+                                                                                                                             {
+                                                                                                                                 "type":  "null"
+                                                                                                                             }
+                                                                                                                         ],
+                                                                                                               "title":  "Download Url"
+                                                                                                           }
+                                                                                      },
+                                                                       "type":  "object",
+                                                                       "required":  [
+                                                                                        "id",
+                                                                                        "document_filename",
+                                                                                        "created_at"
+                                                                                    ],
+                                                                       "title":  "PersonaDocumentResponse"
+                                                                   },
+                                       "PersonaResponse":  {
+                                                               "properties":  {
+                                                                                  "id":  {
+                                                                                             "type":  "string",
+                                                                                             "format":  "uuid",
+                                                                                             "title":  "Id"
+                                                                                         },
+                                                                                  "persona_repo_id":  {
+                                                                                                          "type":  "string",
+                                                                                                          "format":  "uuid",
+                                                                                                          "title":  "Persona Repo Id"
+                                                                                                      },
+                                                                                  "name":  {
+                                                                                               "type":  "string",
+                                                                                               "title":  "Name"
+                                                                                           },
+                                                                                  "handler":  {
+                                                                                                  "type":  "string",
+                                                                                                  "title":  "Handler"
+                                                                                              },
+                                                                                  "prompt":  {
+                                                                                                 "type":  "string",
+                                                                                                 "title":  "Prompt"
+                                                                                             },
+                                                                                  "description":  {
+                                                                                                      "anyOf":  [
+                                                                                                                    {
+                                                                                                                        "type":  "string"
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "type":  "null"
+                                                                                                                    }
+                                                                                                                ],
+                                                                                                      "title":  "Description"
+                                                                                                  },
+                                                                                  "is_active":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "title":  "Is Active"
+                                                                                                },
+                                                                                  "model_id":  {
+                                                                                                   "anyOf":  [
+                                                                                                                 {
+                                                                                                                     "type":  "string",
+                                                                                                                     "format":  "uuid"
+                                                                                                                 },
+                                                                                                                 {
+                                                                                                                     "type":  "null"
+                                                                                                                 }
+                                                                                                             ],
+                                                                                                   "title":  "Model Id"
+                                                                                               },
+                                                                                  "image_url":  {
+                                                                                                    "anyOf":  [
+                                                                                                                  {
+                                                                                                                      "type":  "string"
+                                                                                                                  },
+                                                                                                                  {
+                                                                                                                      "type":  "null"
+                                                                                                                  }
+                                                                                                              ],
+                                                                                                    "title":  "Image Url"
+                                                                                                },
+                                                                                  "image_s3_key":  {
+                                                                                                       "anyOf":  [
+                                                                                                                     {
+                                                                                                                         "type":  "string"
+                                                                                                                     },
+                                                                                                                     {
+                                                                                                                         "type":  "null"
+                                                                                                                     }
+                                                                                                                 ],
+                                                                                                       "title":  "Image S3 Key"
+                                                                                                   },
+                                                                                  "temperature":  {
+                                                                                                      "anyOf":  [
+                                                                                                                    {
+                                                                                                                        "type":  "number"
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "type":  "null"
+                                                                                                                    }
+                                                                                                                ],
+                                                                                                      "title":  "Temperature"
+                                                                                                  },
+                                                                                  "version_tags":  {
+                                                                                                       "items":  {
+                                                                                                                     "type":  "string"
+                                                                                                                 },
+                                                                                                       "type":  "array",
+                                                                                                       "title":  "Version Tags",
+                                                                                                       "default":  [
+
+                                                                                                                   ]
+                                                                                                   },
+                                                                                  "persona_tags":  {
+                                                                                                       "items":  {
+                                                                                                                     "type":  "string"
+                                                                                                                 },
+                                                                                                       "type":  "array",
+                                                                                                       "title":  "Persona Tags",
+                                                                                                       "default":  [
+
+                                                                                                                   ]
+                                                                                                   },
+                                                                                  "connector_hints":  {
+                                                                                                              "items":  {
+                                                                                                                            "type":  "string"
+                                                                                                                        },
+                                                                                                              "type":  "array",
+                                                                                                              "title":  "Connector Hints",
+                                                                                                              "default":  [
+
+                                                                                                                          ]
+                                                                                                          },
+                                                                                  "blocked_connectors":  {
+                                                                                                             "items":  {
+                                                                                                                           "type":  "string"
+                                                                                                                       },
+                                                                                                             "type":  "array",
+                                                                                                             "title":  "Blocked Connectors",
+                                                                                                             "default":  [
+
+                                                                                                                         ]
+                                                                                                         },
+                                                                                  "documents":  {
+                                                                                                    "items":  {
+                                                                                                                  "$ref":  "#/components/schemas/PersonaDocumentResponse"
+                                                                                                              },
+                                                                                                    "type":  "array",
+                                                                                                    "title":  "Documents",
+                                                                                                    "default":  [
+
+                                                                                                                ]
+                                                                                                },
+                                                                                  "links":  {
+                                                                                                "items":  {
+                                                                                                              "$ref":  "#/components/schemas/PersonaDocumentResponse"
+                                                                                                          },
+                                                                                                "type":  "array",
+                                                                                                "title":  "Links",
+                                                                                                "default":  [
+
+                                                                                                            ]
+                                                                                            },
+                                                                                  "total_usage":  {
+                                                                                                      "type":  "number",
+                                                                                                      "title":  "Total Usage",
+                                                                                                      "default":  0
+                                                                                                  },
+                                                                                  "source_share_id":  {
+                                                                                                          "anyOf":  [
+                                                                                                                        {
+                                                                                                                            "type":  "string",
+                                                                                                                            "format":  "uuid"
+                                                                                                                        },
+                                                                                                                        {
+                                                                                                                            "type":  "null"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                                          "title":  "Source Share Id"
+                                                                                                      },
+                                                                                  "created_at":  {
+                                                                                                     "type":  "string",
+                                                                                                     "format":  "date-time",
+                                                                                                     "title":  "Created At"
+                                                                                                 },
+                                                                                  "updated_at":  {
+                                                                                                     "type":  "string",
+                                                                                                     "format":  "date-time",
+                                                                                                     "title":  "Updated At"
+                                                                                                 }
+                                                                              },
+                                                               "type":  "object",
+                                                               "required":  [
+                                                                                "id",
+                                                                                "persona_repo_id",
+                                                                                "name",
+                                                                                "handler",
+                                                                                "prompt",
+                                                                                "is_active",
+                                                                                "created_at",
+                                                                                "updated_at"
+                                                                            ],
+                                                               "title":  "PersonaResponse"
+                                                           },
+                                       "PersonaShareCreate":  {
+                                                                  "properties":  {
+                                                                                     "persona_repo_id":  {
+                                                                                                             "type":  "string",
+                                                                                                             "format":  "uuid",
+                                                                                                             "title":  "Persona Repo Id"
+                                                                                                         },
+                                                                                     "share_type":  {
+                                                                                                        "type":  "string",
+                                                                                                        "enum":  [
+                                                                                                                     "link",
+                                                                                                                     "email"
+                                                                                                                 ],
+                                                                                                        "title":  "Share Type"
+                                                                                                    },
+                                                                                     "recipient_emails":  {
+                                                                                                              "anyOf":  [
+                                                                                                                            {
+                                                                                                                                "items":  {
+                                                                                                                                              "type":  "string"
+                                                                                                                                          },
+                                                                                                                                "type":  "array"
+                                                                                                                            },
+                                                                                                                            {
+                                                                                                                                "type":  "null"
+                                                                                                                            }
+                                                                                                                        ],
+                                                                                                              "title":  "Recipient Emails"
+                                                                                                          },
+                                                                                     "credit_limit":  {
+                                                                                                          "anyOf":  [
+                                                                                                                        {
+                                                                                                                            "type":  "number",
+                                                                                                                            "exclusiveMinimum":  0
+                                                                                                                        },
+                                                                                                                        {
+                                                                                                                            "type":  "null"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                                          "title":  "Credit Limit"
+                                                                                                      },
+                                                                                     "expires_at":  {
+                                                                                                        "anyOf":  [
+                                                                                                                      {
+                                                                                                                          "type":  "string",
+                                                                                                                          "format":  "date-time"
+                                                                                                                      },
+                                                                                                                      {
+                                                                                                                          "type":  "null"
+                                                                                                                      }
+                                                                                                                  ],
+                                                                                                        "title":  "Expires At"
+                                                                                                    }
+                                                                                 },
+                                                                  "type":  "object",
+                                                                  "required":  [
+                                                                                   "persona_repo_id",
+                                                                                   "share_type"
+                                                                               ],
+                                                                  "title":  "PersonaShareCreate"
+                                                              },
+                                       "PersonaSharePreview":  {
+                                                                   "properties":  {
+                                                                                      "share_id":  {
+                                                                                                       "type":  "string",
+                                                                                                       "format":  "uuid",
+                                                                                                       "title":  "Share Id"
+                                                                                                   },
+                                                                                      "persona_name":  {
+                                                                                                           "type":  "string",
+                                                                                                           "title":  "Persona Name"
+                                                                                                       },
+                                                                                      "description":  {
+                                                                                                          "anyOf":  [
+                                                                                                                        {
+                                                                                                                            "type":  "string"
+                                                                                                                        },
+                                                                                                                        {
+                                                                                                                            "type":  "null"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                                          "title":  "Description"
+                                                                                                      },
+                                                                                      "prompt":  {
+                                                                                                     "type":  "string",
+                                                                                                     "title":  "Prompt"
+                                                                                                 },
+                                                                                      "model_id":  {
+                                                                                                       "anyOf":  [
+                                                                                                                     {
+                                                                                                                         "type":  "string",
+                                                                                                                         "format":  "uuid"
+                                                                                                                     },
+                                                                                                                     {
+                                                                                                                         "type":  "null"
+                                                                                                                     }
+                                                                                                                 ],
+                                                                                                       "title":  "Model Id"
+                                                                                                   },
+                                                                                      "temperature":  {
+                                                                                                          "anyOf":  [
+                                                                                                                        {
+                                                                                                                            "type":  "number"
+                                                                                                                        },
+                                                                                                                        {
+                                                                                                                            "type":  "null"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                                          "title":  "Temperature"
+                                                                                                      },
+                                                                                      "image_url":  {
+                                                                                                        "anyOf":  [
+                                                                                                                      {
+                                                                                                                          "type":  "string"
+                                                                                                                      },
+                                                                                                                      {
+                                                                                                                          "type":  "null"
+                                                                                                                      }
+                                                                                                                  ],
+                                                                                                        "title":  "Image Url"
+                                                                                                    },
+                                                                                      "shared_by_name":  {
+                                                                                                             "anyOf":  [
+                                                                                                                           {
+                                                                                                                               "type":  "string"
+                                                                                                                           },
+                                                                                                                           {
+                                                                                                                               "type":  "null"
+                                                                                                                           }
+                                                                                                                       ],
+                                                                                                             "title":  "Shared By Name"
+                                                                                                         },
+                                                                                      "shared_by_email":  {
+                                                                                                              "anyOf":  [
+                                                                                                                            {
+                                                                                                                                "type":  "string"
+                                                                                                                            },
+                                                                                                                            {
+                                                                                                                                "type":  "null"
+                                                                                                                            }
+                                                                                                                        ],
+                                                                                                              "title":  "Shared By Email"
+                                                                                                          },
+                                                                                      "expires_at":  {
+                                                                                                         "type":  "string",
+                                                                                                         "format":  "date-time",
+                                                                                                         "title":  "Expires At"
+                                                                                                     },
+                                                                                      "credit_limit":  {
+                                                                                                           "anyOf":  [
+                                                                                                                         {
+                                                                                                                             "type":  "number"
+                                                                                                                         },
+                                                                                                                         {
+                                                                                                                             "type":  "null"
+                                                                                                                         }
+                                                                                                                     ],
+                                                                                                           "title":  "Credit Limit"
+                                                                                                       },
+                                                                                      "credit_remaining":  {
+                                                                                                               "anyOf":  [
+                                                                                                                             {
+                                                                                                                                 "type":  "number"
+                                                                                                                             },
+                                                                                                                             {
+                                                                                                                                 "type":  "null"
+                                                                                                                             }
+                                                                                                                         ],
+                                                                                                               "title":  "Credit Remaining"
+                                                                                                           }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "required":  [
+                                                                                    "share_id",
+                                                                                    "persona_name",
+                                                                                    "prompt",
+                                                                                    "expires_at"
+                                                                                ],
+                                                                   "title":  "PersonaSharePreview"
+                                                               },
+                                       "PersonaShareResponse":  {
+                                                                    "properties":  {
+                                                                                       "id":  {
+                                                                                                  "type":  "string",
+                                                                                                  "format":  "uuid",
+                                                                                                  "title":  "Id"
+                                                                                              },
+                                                                                       "persona_id":  {
+                                                                                                          "type":  "string",
+                                                                                                          "format":  "uuid",
+                                                                                                          "title":  "Persona Id"
+                                                                                                      },
+                                                                                       "shared_by_user_id":  {
+                                                                                                                 "type":  "string",
+                                                                                                                 "title":  "Shared By User Id"
+                                                                                                             },
+                                                                                       "share_type":  {
+                                                                                                          "type":  "string",
+                                                                                                          "title":  "Share Type"
+                                                                                                      },
+                                                                                       "recipient_emails":  {
+                                                                                                                "anyOf":  [
+                                                                                                                              {
+                                                                                                                                  "items":  {
+                                                                                                                                                "type":  "string"
+                                                                                                                                            },
+                                                                                                                                  "type":  "array"
+                                                                                                                              },
+                                                                                                                              {
+                                                                                                                                  "type":  "null"
+                                                                                                                              }
+                                                                                                                          ],
+                                                                                                                "title":  "Recipient Emails"
+                                                                                                            },
+                                                                                       "credit_limit":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "number"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "null"
+                                                                                                                          }
+                                                                                                                      ],
+                                                                                                            "title":  "Credit Limit"
+                                                                                                        },
+                                                                                       "credit_used":  {
+                                                                                                           "type":  "number",
+                                                                                                           "title":  "Credit Used"
+                                                                                                       },
+                                                                                       "credit_remaining":  {
+                                                                                                                "anyOf":  [
+                                                                                                                              {
+                                                                                                                                  "type":  "number"
+                                                                                                                              },
+                                                                                                                              {
+                                                                                                                                  "type":  "null"
+                                                                                                                              }
+                                                                                                                          ],
+                                                                                                                "title":  "Credit Remaining"
+                                                                                                            },
+                                                                                       "expires_at":  {
+                                                                                                          "type":  "string",
+                                                                                                          "format":  "date-time",
+                                                                                                          "title":  "Expires At"
+                                                                                                      },
+                                                                                       "is_active":  {
+                                                                                                         "type":  "boolean",
+                                                                                                         "title":  "Is Active"
+                                                                                                     },
+                                                                                       "created_at":  {
+                                                                                                          "type":  "string",
+                                                                                                          "format":  "date-time",
+                                                                                                          "title":  "Created At"
+                                                                                                      },
+                                                                                       "share_url":  {
+                                                                                                         "type":  "string",
+                                                                                                         "title":  "Share Url"
+                                                                                                     },
+                                                                                       "persona_name":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "string"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "null"
+                                                                                                                          }
+                                                                                                                      ],
+                                                                                                            "title":  "Persona Name"
+                                                                                                        },
+                                                                                       "pct_used":  {
+                                                                                                        "anyOf":  [
+                                                                                                                      {
+                                                                                                                          "type":  "number"
+                                                                                                                      },
+                                                                                                                      {
+                                                                                                                          "type":  "null"
+                                                                                                                      }
+                                                                                                                  ],
+                                                                                                        "title":  "Pct Used"
+                                                                                                    },
+                                                                                       "recipients":  {
+                                                                                                          "items":  {
+                                                                                                                        "$ref":  "#/components/schemas/ShareRecipientSummary"
+                                                                                                                    },
+                                                                                                          "type":  "array",
+                                                                                                          "title":  "Recipients",
+                                                                                                          "default":  [
+
+                                                                                                                      ]
+                                                                                                      }
+                                                                                   },
+                                                                    "type":  "object",
+                                                                    "required":  [
+                                                                                     "id",
+                                                                                     "persona_id",
+                                                                                     "shared_by_user_id",
+                                                                                     "share_type",
+                                                                                     "credit_used",
+                                                                                     "expires_at",
+                                                                                     "is_active",
+                                                                                     "created_at",
+                                                                                     "share_url"
+                                                                                 ],
+                                                                    "title":  "PersonaShareResponse"
+                                                                },
+                                       "ReceivedShareResponse":  {
+                                                                     "properties":  {
+                                                                                        "persona_id":  {
+                                                                                                           "type":  "string",
+                                                                                                           "format":  "uuid",
+                                                                                                           "title":  "Persona Id"
+                                                                                                       },
+                                                                                        "persona_repo_id":  {
+                                                                                                                "type":  "string",
+                                                                                                                "format":  "uuid",
+                                                                                                                "title":  "Persona Repo Id"
+                                                                                                            },
+                                                                                        "share_id":  {
+                                                                                                         "type":  "string",
+                                                                                                         "format":  "uuid",
+                                                                                                         "title":  "Share Id"
+                                                                                                     },
+                                                                                        "name":  {
+                                                                                                     "type":  "string",
+                                                                                                     "title":  "Name"
+                                                                                                 },
+                                                                                        "description":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "string"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "null"
+                                                                                                                          }
+                                                                                                                      ],
+                                                                                                            "title":  "Description"
+                                                                                                        },
+                                                                                        "image_url":  {
+                                                                                                          "anyOf":  [
+                                                                                                                        {
+                                                                                                                            "type":  "string"
+                                                                                                                        },
+                                                                                                                        {
+                                                                                                                            "type":  "null"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                                          "title":  "Image Url"
+                                                                                                      },
+                                                                                        "shared_by_name":  {
+                                                                                                               "type":  "string",
+                                                                                                               "title":  "Shared By Name"
+                                                                                                           },
+                                                                                        "shared_by_email":  {
+                                                                                                                "anyOf":  [
+                                                                                                                              {
+                                                                                                                                  "type":  "string"
+                                                                                                                              },
+                                                                                                                              {
+                                                                                                                                  "type":  "null"
+                                                                                                                              }
+                                                                                                                          ],
+                                                                                                                "title":  "Shared By Email"
+                                                                                                            },
+                                                                                        "credit_limit":  {
+                                                                                                             "anyOf":  [
+                                                                                                                           {
+                                                                                                                               "type":  "number"
+                                                                                                                           },
+                                                                                                                           {
+                                                                                                                               "type":  "null"
+                                                                                                                           }
+                                                                                                                       ],
+                                                                                                             "title":  "Credit Limit"
+                                                                                                         },
+                                                                                        "credit_used":  {
+                                                                                                            "type":  "number",
+                                                                                                            "title":  "Credit Used"
+                                                                                                        },
+                                                                                        "credit_remaining":  {
+                                                                                                                 "anyOf":  [
+                                                                                                                               {
+                                                                                                                                   "type":  "number"
+                                                                                                                               },
+                                                                                                                               {
+                                                                                                                                   "type":  "null"
+                                                                                                                               }
+                                                                                                                           ],
+                                                                                                                 "title":  "Credit Remaining"
+                                                                                                             },
+                                                                                        "is_available":  {
+                                                                                                             "type":  "boolean",
+                                                                                                             "title":  "Is Available"
+                                                                                                         },
+                                                                                        "is_active":  {
+                                                                                                          "type":  "boolean",
+                                                                                                          "title":  "Is Active"
+                                                                                                      },
+                                                                                        "expires_at":  {
+                                                                                                           "type":  "string",
+                                                                                                           "format":  "date-time",
+                                                                                                           "title":  "Expires At"
+                                                                                                       }
+                                                                                    },
+                                                                     "type":  "object",
+                                                                     "required":  [
+                                                                                      "persona_id",
+                                                                                      "persona_repo_id",
+                                                                                      "share_id",
+                                                                                      "name",
+                                                                                      "shared_by_name",
+                                                                                      "credit_used",
+                                                                                      "is_available",
+                                                                                      "is_active",
+                                                                                      "expires_at"
+                                                                                  ],
+                                                                     "title":  "ReceivedShareResponse",
+                                                                     "description":  "A persona in my account that I accepted from someone else\u0027s share."
+                                                                 },
+                                       "SentShareResponse":  {
+                                                                 "properties":  {
+                                                                                    "share_id":  {
+                                                                                                     "type":  "string",
+                                                                                                     "format":  "uuid",
+                                                                                                     "title":  "Share Id"
+                                                                                                 },
+                                                                                    "persona_id":  {
+                                                                                                       "type":  "string",
+                                                                                                       "format":  "uuid",
+                                                                                                       "title":  "Persona Id"
+                                                                                                   },
+                                                                                    "recipient_user_id":  {
+                                                                                                              "type":  "string",
+                                                                                                              "title":  "Recipient User Id"
+                                                                                                          },
+                                                                                    "recipient_name":  {
+                                                                                                           "type":  "string",
+                                                                                                           "title":  "Recipient Name"
+                                                                                                       },
+                                                                                    "recipient_email":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "string"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "null"
+                                                                                                                          }
+                                                                                                                      ],
+                                                                                                            "title":  "Recipient Email"
+                                                                                                        },
+                                                                                    "credit_limit":  {
+                                                                                                         "anyOf":  [
+                                                                                                                       {
+                                                                                                                           "type":  "number"
+                                                                                                                       },
+                                                                                                                       {
+                                                                                                                           "type":  "null"
+                                                                                                                       }
+                                                                                                                   ],
+                                                                                                         "title":  "Credit Limit"
+                                                                                                     },
+                                                                                    "credit_used":  {
+                                                                                                        "type":  "number",
+                                                                                                        "title":  "Credit Used"
+                                                                                                    },
+                                                                                    "credit_remaining":  {
+                                                                                                             "anyOf":  [
+                                                                                                                           {
+                                                                                                                               "type":  "number"
+                                                                                                                           },
+                                                                                                                           {
+                                                                                                                               "type":  "null"
+                                                                                                                           }
+                                                                                                                       ],
+                                                                                                             "title":  "Credit Remaining"
+                                                                                                         },
+                                                                                    "is_active":  {
+                                                                                                      "type":  "boolean",
+                                                                                                      "title":  "Is Active"
+                                                                                                  },
+                                                                                    "accepted_at":  {
+                                                                                                        "type":  "string",
+                                                                                                        "format":  "date-time",
+                                                                                                        "title":  "Accepted At"
+                                                                                                    }
+                                                                                },
+                                                                 "type":  "object",
+                                                                 "required":  [
+                                                                                  "share_id",
+                                                                                  "persona_id",
+                                                                                  "recipient_user_id",
+                                                                                  "recipient_name",
+                                                                                  "credit_used",
+                                                                                  "is_active",
+                                                                                  "accepted_at"
+                                                                              ],
+                                                                 "title":  "SentShareResponse",
+                                                                 "description":  "A recipient of one of my shares â€” who got which persona, and their usage."
+                                                             },
+                                       "ShareDashboardResponse":  {
+                                                                      "properties":  {
+                                                                                         "summary":  {
+                                                                                                         "$ref":  "#/components/schemas/ShareDashboardSummary"
+                                                                                                     },
+                                                                                         "daily":  {
+                                                                                                       "items":  {
+                                                                                                                     "$ref":  "#/components/schemas/DashboardDailyPoint"
+                                                                                                                 },
+                                                                                                       "type":  "array",
+                                                                                                       "title":  "Daily"
+                                                                                                   },
+                                                                                         "window_days":  {
+                                                                                                             "type":  "integer",
+                                                                                                             "title":  "Window Days"
+                                                                                                         },
+                                                                                         "links":  {
+                                                                                                       "items":  {
+                                                                                                                     "$ref":  "#/components/schemas/PersonaShareResponse"
+                                                                                                                 },
+                                                                                                       "type":  "array",
+                                                                                                       "title":  "Links"
+                                                                                                   }
+                                                                                     },
+                                                                      "type":  "object",
+                                                                      "required":  [
+                                                                                       "summary",
+                                                                                       "daily",
+                                                                                       "window_days",
+                                                                                       "links"
+                                                                                   ],
+                                                                      "title":  "ShareDashboardResponse"
+                                                                  },
+                                       "ShareDashboardSummary":  {
+                                                                     "properties":  {
+                                                                                        "active_links":  {
+                                                                                                             "type":  "integer",
+                                                                                                             "title":  "Active Links"
+                                                                                                         },
+                                                                                        "total_links":  {
+                                                                                                            "type":  "integer",
+                                                                                                            "title":  "Total Links"
+                                                                                                        },
+                                                                                        "conversations":  {
+                                                                                                              "type":  "integer",
+                                                                                                              "title":  "Conversations"
+                                                                                                          },
+                                                                                        "conversations_delta_pct":  {
+                                                                                                                        "anyOf":  [
+                                                                                                                                      {
+                                                                                                                                          "type":  "number"
+                                                                                                                                      },
+                                                                                                                                      {
+                                                                                                                                          "type":  "null"
+                                                                                                                                      }
+                                                                                                                                  ],
+                                                                                                                        "title":  "Conversations Delta Pct"
+                                                                                                                    },
+                                                                                        "credits_this_month":  {
+                                                                                                                   "type":  "number",
+                                                                                                                   "title":  "Credits This Month"
+                                                                                                               },
+                                                                                        "credits_delta_pct":  {
+                                                                                                                  "anyOf":  [
+                                                                                                                                {
+                                                                                                                                    "type":  "number"
+                                                                                                                                },
+                                                                                                                                {
+                                                                                                                                    "type":  "null"
+                                                                                                                                }
+                                                                                                                            ],
+                                                                                                                  "title":  "Credits Delta Pct"
+                                                                                                              }
+                                                                                    },
+                                                                     "type":  "object",
+                                                                     "required":  [
+                                                                                      "active_links",
+                                                                                      "total_links",
+                                                                                      "conversations",
+                                                                                      "credits_this_month"
+                                                                                  ],
+                                                                     "title":  "ShareDashboardSummary"
+                                                                 },
+                                       "ShareRecipientSummary":  {
+                                                                     "properties":  {
+                                                                                        "recipient_user_id":  {
+                                                                                                                  "type":  "string",
+                                                                                                                  "title":  "Recipient User Id"
+                                                                                                              },
+                                                                                        "recipient_name":  {
+                                                                                                               "type":  "string",
+                                                                                                               "title":  "Recipient Name"
+                                                                                                           },
+                                                                                        "recipient_email":  {
+                                                                                                                "anyOf":  [
+                                                                                                                              {
+                                                                                                                                  "type":  "string"
+                                                                                                                              },
+                                                                                                                              {
+                                                                                                                                  "type":  "null"
+                                                                                                                              }
+                                                                                                                          ],
+                                                                                                                "title":  "Recipient Email"
+                                                                                                            },
+                                                                                        "message_count":  {
+                                                                                                              "type":  "integer",
+                                                                                                              "title":  "Message Count"
+                                                                                                          },
+                                                                                        "credit_used":  {
+                                                                                                            "type":  "number",
+                                                                                                            "title":  "Credit Used"
+                                                                                                        },
+                                                                                        "credit_remaining":  {
+                                                                                                                 "anyOf":  [
+                                                                                                                               {
+                                                                                                                                   "type":  "number"
+                                                                                                                               },
+                                                                                                                               {
+                                                                                                                                   "type":  "null"
+                                                                                                                               }
+                                                                                                                           ],
+                                                                                                                 "title":  "Credit Remaining"
+                                                                                                             },
+                                                                                        "is_active":  {
+                                                                                                          "type":  "boolean",
+                                                                                                          "title":  "Is Active"
+                                                                                                      },
+                                                                                        "accepted_at":  {
+                                                                                                            "type":  "string",
+                                                                                                            "format":  "date-time",
+                                                                                                            "title":  "Accepted At"
+                                                                                                        }
+                                                                                    },
+                                                                     "type":  "object",
+                                                                     "required":  [
+                                                                                      "recipient_user_id",
+                                                                                      "recipient_name",
+                                                                                      "message_count",
+                                                                                      "credit_used",
+                                                                                      "is_active",
+                                                                                      "accepted_at"
+                                                                                  ],
+                                                                     "title":  "ShareRecipientSummary",
+                                                                     "description":  "Who accepted a link and how they\u0027ve used it â€” embedded per link."
+                                                                 },
+                                       "ValidationError":  {
+                                                               "properties":  {
+                                                                                  "loc":  {
+                                                                                              "items":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "string"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "integer"
+                                                                                                                          }
+                                                                                                                      ]
+                                                                                                        },
+                                                                                              "type":  "array",
+                                                                                              "title":  "Location"
+                                                                                          },
+                                                                                  "msg":  {
+                                                                                              "type":  "string",
+                                                                                              "title":  "Message"
+                                                                                          },
+                                                                                  "type":  {
+                                                                                               "type":  "string",
+                                                                                               "title":  "Error Type"
+                                                                                           },
+                                                                                  "input":  {
+                                                                                                "title":  "Input"
+                                                                                            },
+                                                                                  "ctx":  {
+                                                                                              "type":  "object",
+                                                                                              "title":  "Context"
+                                                                                          }
+                                                                              },
+                                                               "type":  "object",
+                                                               "required":  [
+                                                                                "loc",
+                                                                                "msg",
+                                                                                "type"
+                                                                            ],
+                                                               "title":  "ValidationError"
+                                                           }
+                                   },
+                       "securitySchemes":  {
+                                               "HTTPBearer":  {
+                                                                  "type":  "http",
+                                                                  "scheme":  "bearer"
+                                                              }
+                                           }
+                   }
+}

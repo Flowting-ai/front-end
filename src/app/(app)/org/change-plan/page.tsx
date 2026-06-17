@@ -69,7 +69,7 @@ function Hairline() {
   return <div style={{ height: 1, width: '100%', backgroundColor: '#e5e5e5' }} />
 }
 
-export default function ChangePlanPage() {
+export default function OrgChangePlanPage() {
   const router = useRouter()
   const { user } = useAuth()
   const { org } = useOrg()
@@ -192,7 +192,7 @@ export default function ChangePlanPage() {
           backgroundColor: '#f7f2ed',
         }}
       >
-        {/* Back button — fixed to top-left of the page */}
+        {/* Back button */}
         <div style={{
           width: '100%', maxWidth: 1200,
           paddingTop: 24, paddingBottom: 0,
@@ -200,7 +200,7 @@ export default function ChangePlanPage() {
         }}>
           <button
             type="button"
-            onClick={() => router.push('/settings/billing')}
+            onClick={() => router.push('/org/plans')}
             style={{
               display:         'inline-flex',
               alignItems:      'center',
@@ -223,7 +223,7 @@ export default function ChangePlanPage() {
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
               <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Back to Billing
+            Back to Plans
           </button>
         </div>
 

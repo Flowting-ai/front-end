@@ -51,7 +51,7 @@ function RoleSelect({
     <DropdownFloat
       open={open}
       onOpenChange={setOpen}
-      placement="bottom-start"
+      placement="top-start"
       offset={4}
       trigger={
         <button
@@ -116,7 +116,7 @@ function RoleSelect({
 export default function OnboardingHelloPage() {
   const { push } = useRouter();
   const { isHydrated, isAuthenticated, user, logout } = useAuth();
-  const { data, setFirstName, setLastName, setRole, setRoleOther } = useOnboarding();
+  const { data, setFirstName, setLastName, setNickname, setRole, setRoleOther } = useOnboarding();
   const [isSaving, setIsSaving] = useState(false);
 
   // Pre-fill name from the authenticated profile, skipping values that look like
@@ -127,6 +127,7 @@ export default function OnboardingHelloPage() {
     const ln = user?.lastName ?? "";
     if (fn && fn !== email && !fn.includes("@") && !data.firstName) setFirstName(fn);
     if (ln && ln !== email && !ln.includes("@") && !data.lastName) setLastName(ln);
+    if (user?.nickname && !data.nickname) setNickname(user.nickname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -153,7 +154,11 @@ export default function OnboardingHelloPage() {
       // Persist name + role before advancing. The final commit (role_fit +
       // completion) happens on the import step.
       await Promise.all([
-        updateUser({ first_name: data.firstName.trim(), last_name: data.lastName.trim() }),
+        updateUser({
+          first_name: data.firstName.trim(),
+          last_name: data.lastName.trim(),
+          nickname: data.nickname.trim() || null,
+        }),
         updateOnboarding({ user_role: effectiveUserRole(data) }),
       ]);
     } finally {
@@ -186,6 +191,15 @@ export default function OnboardingHelloPage() {
           <InputField label="First name" placeholder="First name" value={data.firstName} onChange={setFirstName} fluid />
           <InputField label="Last name" placeholder="Last name" value={data.lastName} onChange={setLastName} fluid />
         </div>
+
+        {/* Display name */}
+        <InputField
+          label="Display name"
+          placeholder="Nickname or preferred name"
+          value={data.nickname}
+          onChange={setNickname}
+          fluid
+        />
 
         {/* Role */}
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

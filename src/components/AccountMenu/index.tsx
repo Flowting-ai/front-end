@@ -9,7 +9,7 @@ import {
   InformationCircleIcon,
   ArrowRightOneIcon,
   ArrowRightTwoIcon,
-  CourtHouseIcon,
+  UserAddOneIcon,
 } from '@strange-huge/icons'
 import { Dropdown, type DropdownPlacement } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
@@ -343,7 +343,7 @@ export function AccountMenu({
             />
             {onOrganization && (
               <Dropdown.Item
-                icon={<CourtHouseIcon animated />}
+                icon={<UserAddOneIcon animated />}
                 label="Organization"
                 fluid
                 onClick={() => { onOrganization(); close() }}

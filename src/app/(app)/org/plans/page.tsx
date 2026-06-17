@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { CancelOneIcon, PenOneIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
@@ -250,6 +251,7 @@ function SectionCard({
 // ── Page ────────────────────────────────────────────────────────────────────────
 
 export default function OrgBillingPage() {
+  const router = useRouter()
   const { org, orgId, orgRole, plan, members: orgMembers } = useOrg()
 
   const isOwner      = orgRole === 'owner'
@@ -346,7 +348,7 @@ export default function OrgBillingPage() {
       annual={annual}
       onAnnualChange={setAnnual}
       onContactSales={handleStripePortal}
-      onUpgrade={handleStripePortal}
+      onUpgrade={() => router.push('/org/change-plan')}
     />
   )
 

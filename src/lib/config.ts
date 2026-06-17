@@ -80,7 +80,9 @@ export const CHAT_STREAM_ENDPOINT = (chatId: string) =>
 export const CHAT_STOP_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/stop`);
 export const CHAT_DELETE_ENDPOINT = (chatId: string) =>
-  withBase(`/chats/${chatId}`);
+  withBase(`/chats/${chatId}`)
+export const CHAT_VISIBILITY_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}/visibility`);
 export const CHAT_STAR_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/star`);
 export const DELETE_MESSAGE_ENDPOINT = (messageId: string) =>
@@ -170,6 +172,7 @@ export const PIN_COMMENT_CRUD_ENDPOINT = (pinId: string, commentId: string) => w
 // ── Projects ──────────────────────────────────────────────────────────────────
 export const PROJECTS_ENDPOINT = withBase('/projects')
 export const PROJECT_DETAIL_ENDPOINT = (projectId: string) => withBase(`/projects/${projectId}`)
+export const PROJECT_VISIBILITY_ENDPOINT = (projectId: string) => withBase(`/projects/${projectId}/visibility`)
 export const PROJECT_CHATS_ENDPOINT  = (projectId: string) => withBase(`/projects/${projectId}/chats`)
 export const PROJECT_CHAT_LINK_ENDPOINT = (projectId: string, chatId: string) =>
   withBase(`/projects/${projectId}/chats/${chatId}`)
@@ -230,6 +233,18 @@ export const ORG_TEAM_INVITES_ENDPOINT = (orgId: string, teamId: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/invites`)
 export const ORG_TEAM_OVERFLOW_ENDPOINT = (orgId: string, teamId: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/overflow`)
+export const ORG_TEAM_PROJECT_MEMBERS_ENDPOINT = (orgId: string, teamId: string, projectId: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}/projects/${projectId}/members`)
+export const ORG_TEAM_PROJECT_MEMBER_ENDPOINT = (orgId: string, teamId: string, projectId: string, memberId: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}/projects/${projectId}/members/${memberId}`)
+export const ORG_TEAM_CONNECTORS_ENDPOINT = (orgId: string, teamId: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}/connectors`)
+export const ORG_TEAM_CONNECTOR_ENDPOINT = (orgId: string, teamId: string, slug: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}/connectors/${encodeURIComponent(slug)}`)
+export const ORG_TEAM_CONNECTIONS_ENDPOINT = (orgId: string, teamId: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}/connections`)
+export const ORG_TEAM_CONNECTION_ENDPOINT = (orgId: string, teamId: string, slug: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}/connections/${encodeURIComponent(slug)}`)
 export const TEAM_INVITE_PREVIEW_ENDPOINT = (inviteId: string) =>
   withBase(`/team-invite/${inviteId}`)
 export const TEAM_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>
@@ -249,6 +264,22 @@ export const ORG_POOL_STATUS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/pool-status`)
 export const ORG_AUDIT_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/audit`)
+export const ORG_TRANSFER_OWNER_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/transfer-owner`)
+export const ORG_CONNECTOR_ACCOUNTS_ENDPOINT = (orgId: string, slug: string) =>
+  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/accounts`)
+export const ORG_CONNECTOR_ACCOUNT_ENDPOINT = (orgId: string, accountId: string) =>
+  withBase(`/organizations/${orgId}/connectors/accounts/${accountId}`)
+export const ORG_CONNECTOR_USED_BY_ENDPOINT = (orgId: string, slug: string) =>
+  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/used-by`)
+export const ORG_CATALOG_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/connectors/catalog`)
+export const ORG_PERSONAL_REQUEST_ENDPOINT = (orgId: string, slug: string) =>
+  withBase(`/organizations/${orgId}/connectors/${encodeURIComponent(slug)}/personal-request`)
+export const ORG_PERSONAL_REQUESTS_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/connectors/personal-requests`)
+export const ORG_PERSONAL_REQUEST_DETAIL_ENDPOINT = (orgId: string, requestId: string) =>
+  withBase(`/organizations/${orgId}/connectors/personal-requests/${requestId}`)
 export const ORG_MEMBERS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/members`)
 export const ORG_MEMBER_ENDPOINT = (orgId: string, memberId: string) =>
@@ -257,3 +288,23 @@ export const ORG_MEMBER_ROLE_ENDPOINT = (orgId: string, memberId: string) =>
   withBase(`/organizations/${orgId}/members/${memberId}/role`)
 export const ORG_MEMBER_CAP_ENDPOINT = (orgId: string, memberId: string) =>
   withBase(`/organizations/${orgId}/members/${memberId}/cap`)
+
+// ── Chat shares ────────────────────────────────────────────────────────────────
+export const CHAT_SHARES_ENDPOINT                = withBase('/chat-shares')
+export const CHAT_SHARES_SHARED_WITH_ME_ENDPOINT = withBase('/chat-shares/shared-with-me')
+export const CHAT_SHARE_ENDPOINT = (shareId: string) => withBase(`/chat-shares/${shareId}`)
+export const CHAT_SHARE_FORK_ENDPOINT = (shareId: string) => withBase(`/chat-shares/${shareId}/fork`)
+
+// ── Slack mapping ──────────────────────────────────────────────────────────────
+export const ORG_SLACK_CHANNELS_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/slack/channels`)
+export const ORG_SLACK_CHANNEL_MAPPING_ENDPOINT = (orgId: string, channelId: string) =>
+  withBase(`/organizations/${orgId}/slack/channels/${encodeURIComponent(channelId)}/mapping`)
+
+// ── Persona visibility ─────────────────────────────────────────────────────────
+export const PERSONA_VISIBILITY_ENDPOINT = (repoId: string) =>
+  withBase(`/persona/${repoId}/visibility`)
+
+// ── Overflow approve ───────────────────────────────────────────────────────────
+export const ORG_OVERFLOW_APPROVE_ENDPOINT = (orgId: string, requestId: string) =>
+  withBase(`/organizations/${orgId}/overflow/${requestId}/approve`)

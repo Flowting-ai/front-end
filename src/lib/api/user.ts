@@ -150,6 +150,7 @@ export interface UserProfile {
   last_name: string | null;
   /** Full name as returned by Auth0 / backend (e.g. "given_name family_name"). Used as a fallback when first_name is null. */
   name?: string | null;
+  nickname?: string | null;
   email: string | null;
   phone_number: string | null;
   profile_picture: string | null;
@@ -199,6 +200,7 @@ function normalizeUserProfile(raw: unknown): UserProfile {
     first_name: typeof root.first_name === "string" ? root.first_name : null,
     last_name: typeof root.last_name === "string" ? root.last_name : null,
     name: typeof root.name === "string" ? root.name : null,
+    nickname: typeof root.nickname === "string" ? root.nickname : null,
     email: typeof root.email === "string" ? root.email : null,
     phone_number: typeof root.phone_number === "string" ? root.phone_number : null,
     profile_picture: typeof root.profile_picture === "string" ? root.profile_picture : null,
@@ -405,6 +407,7 @@ export async function createUser(): Promise<UserProfile | null> {
 export async function updateUser(payload: {
   first_name?: string | null;
   last_name?: string | null;
+  nickname?: string | null;
   phone_number?: string | null;
   profile_picture?: string | null;
 }): Promise<UserProfile | null> {

@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
+import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 import { Slot } from '@radix-ui/react-slot'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
@@ -23,7 +24,7 @@ export interface InviteModalProps extends React.HTMLAttributes<HTMLDivElement> {
   loading?: boolean
   disabled?: boolean
   onClose?: () => void
-  onInvite?: (params: { email: string; role: WorkspaceRole }) => void
+  onInvite?: (params: { email: string; role: WorkspaceRole; creditCap?: number }) => void
   asChild?: boolean
 }
 
@@ -171,8 +172,9 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     const Comp = (asChild ? Slot : 'div') as React.ElementType
 
     const inputRef = useRef<HTMLInputElement>(null)
-    const [email, setEmail] = useState('')
-    const [role,  setRole]  = useState<WorkspaceRole>('member')
+    const [email,     setEmail]     = useState('')
+    const [role,      setRole]      = useState<WorkspaceRole>('member')
+    const [capDraft,  setCapDraft]  = useState('')
 
     useEffect(() => { inputRef.current?.focus() }, [])
 
@@ -193,9 +195,11 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     const handleSubmit = useCallback(() => {
       const trimmed = email.trim()
       if (!trimmed || loading) return
-      onInvite?.({ email: trimmed, role })
+      const capVal = capDraft.trim() === '' ? undefined : parseInt(capDraft.trim(), 10)
+      onInvite?.({ email: trimmed, role, creditCap: capVal && capVal > 0 ? capVal : undefined })
       setEmail('')
-    }, [email, loading, onInvite, role])
+      setCapDraft('')
+    }, [capDraft, email, loading, onInvite, role])
 
     const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter') { e.preventDefault(); handleSubmit() }
@@ -291,6 +295,53 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
           {ROLE_DESCRIPTIONS[role]}
         </p>
 
+        {/* Credit cap */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize:   'var(--font-size-caption)',
+            lineHeight: 'var(--line-height-caption)',
+            color:      'var(--neutral-600)',
+          }}>
+            Credit cap (optional)
+          </span>
+          <div style={{
+            display:         'flex',
+            alignItems:      'center',
+            padding:         '7px 10px',
+            borderRadius:    10,
+            backgroundColor: 'var(--neutral-white)',
+            boxShadow:       SHADOW_INPUT,
+            boxSizing:       'border-box' as const,
+          }}>
+            <input
+              type="number"
+              min={1}
+              aria-label="Credit cap"
+              placeholder="No limit"
+              value={capDraft}
+              onChange={e => setCapDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSubmit() } }}
+              style={{
+                flex:       1,
+                border:     'none',
+                outline:    'none',
+                background: 'transparent',
+                fontFamily: 'var(--font-body)',
+                fontSize:   'var(--font-size-body)',
+                fontWeight: 400,
+                color:      'var(--neutral-900)',
+                minWidth:   0,
+                MozAppearance: 'textfield' as React.CSSProperties['MozAppearance'],
+              }}
+            />
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', flexShrink: 0, paddingLeft: 6 }}>
+              credits
+            </span>
+          </div>
+        </div>
+
         {/* Footer */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
@@ -317,7 +368,7 @@ InviteModal.displayName = 'InviteModal'
 export interface AppInviteModalProps {
   isOpen:         boolean
   onClose:        () => void
-  onInvite:       (email: string, role: WorkspaceRole) => void
+  onInvite:       (email: string, role: WorkspaceRole, creditCap?: number) => void
   workspaceName?: string
   loading?:       boolean
 }
@@ -345,11 +396,14 @@ export function AppInviteModal({ isOpen, onClose, onInvite, workspaceName, loadi
             outline:   'none',
           }}
         >
+          <VisuallyHidden.Root asChild>
+            <Dialog.Title>{workspaceName ? `Invite to ${workspaceName}` : 'Invite member'}</Dialog.Title>
+          </VisuallyHidden.Root>
           <InviteModal
             workspaceName={workspaceName}
             loading={loading}
             onClose={onClose}
-            onInvite={({ email, role }) => onInvite(email, role)}
+            onInvite={({ email, role, creditCap }) => onInvite(email, role, creditCap)}
           />
         </Dialog.Content>
       </Dialog.Portal>

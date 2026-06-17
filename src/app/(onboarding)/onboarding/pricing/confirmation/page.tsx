@@ -3,6 +3,8 @@
 import React, { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
+import { fetchBilling } from '@/lib/api/user'
+import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const TITLE = 'var(--font-title)'
@@ -81,7 +83,7 @@ export default function PricingConfirmationPage() {
 function PricingConfirmationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, logout } = useAuth()
+  const { user, logout, refreshUser } = useAuth()
 
   const planParam = searchParams.get('plan') ?? ''
   const billing   = searchParams.get('billing')
@@ -106,6 +108,9 @@ function PricingConfirmationContent() {
     // while the user continues through workspace → connectors → invite.
     // onboarding_completed is marked at the end of the invite step.
     document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=600; SameSite=Lax'
+    void refreshUser()
+    void fetchBilling()
+    notifyCreditsUpdated()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const iconBg  = isFailed ? C.redBg   : C.greenBg

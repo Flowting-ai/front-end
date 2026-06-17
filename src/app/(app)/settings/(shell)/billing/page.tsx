@@ -307,10 +307,16 @@ export default function BillingPage() {
         // user profile. Persisted so a refresh paints the right plan instantly.
         planType:         billing?.plan_type ?? user?.planType ?? null,
         isTeamAccount:    liveIsTeamAccount,
-        // Team accounts: use the org credit pool. Individual accounts: use
-        // /stripe/billing as authoritative (total_credits = monthly allowance),
-        // falling back to /users/me-derived figures only when billing hasn't loaded.
-        creditsTotal:     orgCreditsTotal     ?? billingCreditsTotal     ?? user?.creditsTotal     ?? 0,
+        // Credits land on the individual account (GET /stripe/billing) for both
+        // individual and team plans — the org pool is derived from the same
+        // individual subscription and tracks multi-member consumption on top.
+        // Use billing as the source of truth for the TOTAL (avoids showing 0 when
+        // the org plan webhook hasn't landed yet — orgCreditsTotal can be 0, not
+        // null, which would otherwise swallow the billing fallback via ??).
+        creditsTotal:     billingCreditsTotal     ?? orgCreditsTotal     ?? user?.creditsTotal     ?? 0,
+        // Remaining and used reflect the pool after all members' consumption —
+        // the org plan tracks this more accurately than the individual billing.
+        // Fall back to billing when org plan hasn't loaded yet.
         creditsRemaining: orgCreditsRemaining ?? billingCreditsRemaining ?? user?.creditsRemaining ?? 0,
         creditsUsed:      orgCreditsUsed      ?? billingCreditsUsed      ?? user?.creditsUsed      ?? 0,
         // Per-category absolute credits come ONLY from billing.credits. Current

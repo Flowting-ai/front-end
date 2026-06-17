@@ -5,6 +5,7 @@ import {
   CONNECTORS_ENDPOINT,
   CONNECTOR_DETAIL_ENDPOINT,
   CONNECTOR_LINK_ENDPOINT,
+  ORG_CATALOG_ENDPOINT,
 } from '@/lib/config'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -52,16 +53,55 @@ export function oauthNeedsInitFields(
     && c.api_key_fields.length > 0
 }
 
+export type PersonalAccessStatus = 'pending' | 'approved' | 'denied'
+
+/**
+ * Org shared account as embedded in ConnectorCatalogEntry.accounts.
+ * Mirrors OrgConnectorAccount from org-connectors.ts — kept separate to avoid
+ * a circular import between the two API modules.
+ */
+export interface ConnectorAccount {
+  id:               string
+  organizationId:   string
+  connectorSlug:    string
+  accountLabel:     string
+  accountIdentifier: string | null
+  connected:        boolean
+  status:           'active' | 'disabled' | 'expired'
+  version:          number
+  teamIds:          string[]
+  linkedByUserId:   string
+  createdAt:        string
+  updatedAt:        string
+}
+
 export interface ConnectorCatalogEntry {
-  slug:            string
-  display_name:    string
-  auth_mode:       'oauth2' | 'api_key'
-  description:     string
-  tools?:          ConnectorTool[]
-  api_key_fields?: ApiKeyField[]
-  linked:          boolean
+  slug:                   string
+  display_name:           string
+  auth_mode:              'oauth2' | 'api_key'
+  description:            string
+  tools?:                 ConnectorTool[]
+  api_key_fields?:        ApiKeyField[]
+  /** True when the current user's personal connector is linked. */
+  linked:                 boolean
+  /** True when a shared team account is attached and connected. */
+  workspace_linked:       boolean
+  /** User ID that linked the team/shared workspace account. */
+  workspace_linked_by:    string | null
+  /** ID of the org shared account currently attached to the team connector. */
+  shared_account_id:      string | null
+  /** Admin-friendly label of the attached org shared account. */
+  account_label:          string | null
+  /** Provider identity (e.g. email/login) of the attached shared account. */
+  account_identifier:     string | null
+  /** Org shared accounts for this connector. Populated for admins/editors. */
+  accounts?:              ConnectorAccount[]
+  /** Whether the slug is enabled in the org catalog. null outside org context. */
+  org_enabled:            boolean | null
+  /** Current user's personal access request status, or null. */
+  personal_access_status: PersonalAccessStatus | null
   /** Not in OpenAPI spec — kept for back-compat with code that reads it. */
-  icon_url?:       string
+  icon_url?:              string
 }
 
 export interface ConnectorListResponse {
@@ -120,6 +160,27 @@ export async function unlinkConnector(slug: string): Promise<void> {
   if (!res.ok && res.status !== 204) {
     throw new Error(`Failed to unlink connector: ${res.status}`)
   }
+}
+
+// ── Org connector catalog (admin) ─────────────────────────────────────────────
+
+/** GET /organizations/{id}/connectors/catalog — admin-only. */
+export async function listOrgCatalog(orgId: string): Promise<ConnectorCatalogEntry[]> {
+  return apiFetchJson<ConnectorCatalogEntry[]>(ORG_CATALOG_ENDPOINT(orgId))
+}
+
+/**
+ * PUT /organizations/{id}/connectors/catalog — admin-only.
+ * Replaces the org allowlist with the provided slug list.
+ */
+export async function updateOrgCatalog(
+  orgId: string,
+  connectorSlugs: string[],
+): Promise<ConnectorCatalogEntry[]> {
+  return apiFetchJson<ConnectorCatalogEntry[]>(ORG_CATALOG_ENDPOINT(orgId), {
+    method: 'PUT',
+    body: JSON.stringify({ connectorSlugs }),
+  })
 }
 
 // ── Credential-field metadata ─────────────────────────────────────────────────

@@ -1,362 +1,725 @@
-openapi: 3.1.0
-info:
-  title: FastAPI - connectors
-  version: 0.1.0
-paths:
-  /connectors:
-    get:
-      tags:
-        - connectors
-      summary: List Connectors
-      operationId: list_connectors_connectors_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ConnectorListResponse'
-      security:
-        - HTTPBearer: []
-  /connectors/{slug}:
-    get:
-      tags:
-        - connectors
-      summary: Get Connector
-      operationId: get_connector_connectors__slug__get
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-            title: Slug
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ConnectorCatalogEntry'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    patch:
-      tags:
-        - connectors
-      summary: Update Connector
-      operationId: update_connector_connectors__slug__patch
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-            title: Slug
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateConnectorRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ConnectorCatalogEntry'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    delete:
-      tags:
-        - connectors
-      summary: Unlink Connector
-      operationId: unlink_connector_connectors__slug__delete
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-            title: Slug
-      responses:
-        '204':
-          description: Successful Response
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /connectors/{slug}/link:
-    post:
-      tags:
-        - connectors
-      summary: Initiate Link
-      operationId: initiate_link_connectors__slug__link_post
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-            title: Slug
-      requestBody:
-        content:
-          application/json:
-            schema:
-              anyOf:
-                - $ref: '#/components/schemas/LinkRequest'
-                - type: 'null'
-              title: Body
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LinkResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-components:
-  schemas:
-    ConnectorListResponse:
-      properties:
-        connectors:
-          items:
-            $ref: '#/components/schemas/ConnectorCatalogEntry'
-          type: array
-          title: Connectors
-      type: object
-      required:
-        - connectors
-      title: ConnectorListResponse
-    ConnectorCatalogEntry:
-      properties:
-        slug:
-          type: string
-          title: Slug
-        display_name:
-          type: string
-          title: Display Name
-        auth_mode:
-          type: string
-          enum:
-            - oauth2
-            - api_key
-          title: Auth Mode
-        description:
-          type: string
-          title: Description
-        tools:
-          items:
-            $ref: '#/components/schemas/ToolEntry'
-          type: array
-          title: Tools
-        api_key_fields:
-          items:
-            $ref: '#/components/schemas/ApiKeyField'
-          type: array
-          title: Api Key Fields
-        linked:
-          type: boolean
-          title: Linked
-        workspace_linked:
-          type: boolean
-          title: Workspace Linked
-          default: false
-        workspace_linked_by:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Workspace Linked By
-        shared_account_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Shared Account Id
-        account_label:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Account Label
-        account_identifier:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Account Identifier
-      type: object
-      required:
-        - slug
-        - display_name
-        - auth_mode
-        - description
-        - linked
-      title: ConnectorCatalogEntry
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
-    UpdateConnectorRequest:
-      properties:
-        permissions:
-          anyOf:
-            - items:
-                $ref: '#/components/schemas/ToolEntry'
-              type: array
-            - type: 'null'
-          title: Permissions
-        credentials:
-          anyOf:
-            - additionalProperties:
-                type: string
-              type: object
-            - type: 'null'
-          title: Credentials
-        sharedAccountId:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Sharedaccountid
-      type: object
-      title: UpdateConnectorRequest
-    LinkRequest:
-      properties:
-        init_data:
-          anyOf:
-            - additionalProperties:
-                type: string
-              type: object
-            - type: 'null'
-          title: Init Data
-      type: object
-      title: LinkRequest
-      description: |-
-        Body for POST /connectors/{slug}/link. Most OAuth connectors don't
-        need anything here, but per-tenant OAuth (Shopify subdomain, etc.)
-        requires init fields up front — the FE collects them via a small form
-        matching the connector's `api_key_fields` and submits them in
-        `init_data` (e.g. {"subdomain": "store-name"}).
-    LinkResponse:
-      properties:
-        connector_slug:
-          type: string
-          title: Connector Slug
-        redirect_url:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Redirect Url
-        shared_account_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Shared Account Id
-      type: object
-      required:
-        - connector_slug
-      title: LinkResponse
-    ToolEntry:
-      properties:
-        slug:
-          type: string
-          title: Slug
-        policy:
-          type: string
-          enum:
-            - allow
-            - block
-            - ask
-            - allow_once
-          title: Policy
-          default: ask
-      type: object
-      required:
-        - slug
-      title: ToolEntry
-    ApiKeyField:
-      properties:
-        name:
-          type: string
-          title: Name
-        label:
-          type: string
-          title: Label
-        help:
-          type: string
-          title: Help
-          default: ''
-        secret:
-          type: boolean
-          title: Secret
-          default: false
-        required:
-          type: boolean
-          title: Required
-          default: true
-      type: object
-      required:
-        - name
-        - label
-      title: ApiKeyField
-      description: |-
-        One credential input the FE renders for an api_key connector. Mirrors
-        Composio's connected-account initiation field metadata.
-    ValidationError:
-      properties:
-        loc:
-          items:
-            anyOf:
-              - type: string
-              - type: integer
-          type: array
-          title: Location
-        msg:
-          type: string
-          title: Message
-        type:
-          type: string
-          title: Error Type
-        input:
-          title: Input
-        ctx:
-          type: object
-          title: Context
-      type: object
-      required:
-        - loc
-        - msg
-        - type
-      title: ValidationError
-  securitySchemes:
-    HTTPBearer:
-      type: http
-      scheme: bearer
+{
+    "openapi":  "3.1.0",
+    "info":  {
+                 "title":  "FastAPI - connectors",
+                 "version":  "0.1.0"
+             },
+    "paths":  {
+                  "/connectors":  {
+                                      "get":  {
+                                                  "tags":  [
+                                                               "connectors"
+                                                           ],
+                                                  "summary":  "List Connectors",
+                                                  "operationId":  "list_connectors_connectors_get",
+                                                  "responses":  {
+                                                                    "200":  {
+                                                                                "description":  "Successful Response",
+                                                                                "content":  {
+                                                                                                "application/json":  {
+                                                                                                                         "schema":  {
+                                                                                                                                        "$ref":  "#/components/schemas/ConnectorListResponse"
+                                                                                                                                    }
+                                                                                                                     }
+                                                                                            }
+                                                                            }
+                                                                },
+                                                  "security":  [
+                                                                   {
+                                                                       "HTTPBearer":  [
+
+                                                                                      ]
+                                                                   }
+                                                               ]
+                                              }
+                                  },
+                  "/connectors/{slug}":  {
+                                             "get":  {
+                                                         "tags":  [
+                                                                      "connectors"
+                                                                  ],
+                                                         "summary":  "Get Connector",
+                                                         "operationId":  "get_connector_connectors__slug__get",
+                                                         "security":  [
+                                                                          {
+                                                                              "HTTPBearer":  [
+
+                                                                                             ]
+                                                                          }
+                                                                      ],
+                                                         "parameters":  [
+                                                                            {
+                                                                                "name":  "slug",
+                                                                                "in":  "path",
+                                                                                "required":  true,
+                                                                                "schema":  {
+                                                                                               "type":  "string",
+                                                                                               "title":  "Slug"
+                                                                                           }
+                                                                            }
+                                                                        ],
+                                                         "responses":  {
+                                                                           "200":  {
+                                                                                       "description":  "Successful Response",
+                                                                                       "content":  {
+                                                                                                       "application/json":  {
+                                                                                                                                "schema":  {
+                                                                                                                                               "$ref":  "#/components/schemas/ConnectorCatalogEntry"
+                                                                                                                                           }
+                                                                                                                            }
+                                                                                                   }
+                                                                                   },
+                                                                           "422":  {
+                                                                                       "description":  "Validation Error",
+                                                                                       "content":  {
+                                                                                                       "application/json":  {
+                                                                                                                                "schema":  {
+                                                                                                                                               "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                           }
+                                                                                                                            }
+                                                                                                   }
+                                                                                   }
+                                                                       }
+                                                     },
+                                             "patch":  {
+                                                           "tags":  [
+                                                                        "connectors"
+                                                                    ],
+                                                           "summary":  "Update Connector",
+                                                           "operationId":  "update_connector_connectors__slug__patch",
+                                                           "security":  [
+                                                                            {
+                                                                                "HTTPBearer":  [
+
+                                                                                               ]
+                                                                            }
+                                                                        ],
+                                                           "parameters":  [
+                                                                              {
+                                                                                  "name":  "slug",
+                                                                                  "in":  "path",
+                                                                                  "required":  true,
+                                                                                  "schema":  {
+                                                                                                 "type":  "string",
+                                                                                                 "title":  "Slug"
+                                                                                             }
+                                                                              }
+                                                                          ],
+                                                           "requestBody":  {
+                                                                               "required":  true,
+                                                                               "content":  {
+                                                                                               "application/json":  {
+                                                                                                                        "schema":  {
+                                                                                                                                       "$ref":  "#/components/schemas/UpdateConnectorRequest"
+                                                                                                                                   }
+                                                                                                                    }
+                                                                                           }
+                                                                           },
+                                                           "responses":  {
+                                                                             "200":  {
+                                                                                         "description":  "Successful Response",
+                                                                                         "content":  {
+                                                                                                         "application/json":  {
+                                                                                                                                  "schema":  {
+                                                                                                                                                 "$ref":  "#/components/schemas/ConnectorCatalogEntry"
+                                                                                                                                             }
+                                                                                                                              }
+                                                                                                     }
+                                                                                     },
+                                                                             "422":  {
+                                                                                         "description":  "Validation Error",
+                                                                                         "content":  {
+                                                                                                         "application/json":  {
+                                                                                                                                  "schema":  {
+                                                                                                                                                 "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                             }
+                                                                                                                              }
+                                                                                                     }
+                                                                                     }
+                                                                         }
+                                                       },
+                                             "delete":  {
+                                                            "tags":  [
+                                                                         "connectors"
+                                                                     ],
+                                                            "summary":  "Unlink Connector",
+                                                            "operationId":  "unlink_connector_connectors__slug__delete",
+                                                            "security":  [
+                                                                             {
+                                                                                 "HTTPBearer":  [
+
+                                                                                                ]
+                                                                             }
+                                                                         ],
+                                                            "parameters":  [
+                                                                               {
+                                                                                   "name":  "slug",
+                                                                                   "in":  "path",
+                                                                                   "required":  true,
+                                                                                   "schema":  {
+                                                                                                  "type":  "string",
+                                                                                                  "title":  "Slug"
+                                                                                              }
+                                                                               }
+                                                                           ],
+                                                            "responses":  {
+                                                                              "204":  {
+                                                                                          "description":  "Successful Response"
+                                                                                      },
+                                                                              "422":  {
+                                                                                          "description":  "Validation Error",
+                                                                                          "content":  {
+                                                                                                          "application/json":  {
+                                                                                                                                   "schema":  {
+                                                                                                                                                  "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                              }
+                                                                                                                               }
+                                                                                                      }
+                                                                                      }
+                                                                          }
+                                                        }
+                                         },
+                  "/connectors/{slug}/link":  {
+                                                  "post":  {
+                                                               "tags":  [
+                                                                            "connectors"
+                                                                        ],
+                                                               "summary":  "Initiate Link",
+                                                               "operationId":  "initiate_link_connectors__slug__link_post",
+                                                               "security":  [
+                                                                                {
+                                                                                    "HTTPBearer":  [
+
+                                                                                                   ]
+                                                                                }
+                                                                            ],
+                                                               "parameters":  [
+                                                                                  {
+                                                                                      "name":  "slug",
+                                                                                      "in":  "path",
+                                                                                      "required":  true,
+                                                                                      "schema":  {
+                                                                                                     "type":  "string",
+                                                                                                     "title":  "Slug"
+                                                                                                 }
+                                                                                  }
+                                                                              ],
+                                                               "requestBody":  {
+                                                                                   "content":  {
+                                                                                                   "application/json":  {
+                                                                                                                            "schema":  {
+                                                                                                                                           "anyOf":  [
+                                                                                                                                                         {
+                                                                                                                                                             "$ref":  "#/components/schemas/LinkRequest"
+                                                                                                                                                         },
+                                                                                                                                                         {
+                                                                                                                                                             "type":  "null"
+                                                                                                                                                         }
+                                                                                                                                                     ],
+                                                                                                                                           "title":  "Body"
+                                                                                                                                       }
+                                                                                                                        }
+                                                                                               }
+                                                                               },
+                                                               "responses":  {
+                                                                                 "200":  {
+                                                                                             "description":  "Successful Response",
+                                                                                             "content":  {
+                                                                                                             "application/json":  {
+                                                                                                                                      "schema":  {
+                                                                                                                                                     "$ref":  "#/components/schemas/LinkResponse"
+                                                                                                                                                 }
+                                                                                                                                  }
+                                                                                                         }
+                                                                                         },
+                                                                                 "422":  {
+                                                                                             "description":  "Validation Error",
+                                                                                             "content":  {
+                                                                                                             "application/json":  {
+                                                                                                                                      "schema":  {
+                                                                                                                                                     "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                                 }
+                                                                                                                                  }
+                                                                                                         }
+                                                                                         }
+                                                                             }
+                                                           }
+                                              }
+              },
+    "components":  {
+                       "schemas":  {
+                                       "ApiKeyField":  {
+                                                           "properties":  {
+                                                                              "name":  {
+                                                                                           "type":  "string",
+                                                                                           "title":  "Name"
+                                                                                       },
+                                                                              "label":  {
+                                                                                            "type":  "string",
+                                                                                            "title":  "Label"
+                                                                                        },
+                                                                              "help":  {
+                                                                                           "type":  "string",
+                                                                                           "title":  "Help",
+                                                                                           "default":  ""
+                                                                                       },
+                                                                              "secret":  {
+                                                                                             "type":  "boolean",
+                                                                                             "title":  "Secret",
+                                                                                             "default":  false
+                                                                                         },
+                                                                              "required":  {
+                                                                                               "type":  "boolean",
+                                                                                               "title":  "Required",
+                                                                                               "default":  true
+                                                                                           }
+                                                                          },
+                                                           "type":  "object",
+                                                           "required":  [
+                                                                            "name",
+                                                                            "label"
+                                                                        ],
+                                                           "title":  "ApiKeyField",
+                                                           "description":  "One credential input the FE renders for an api_key connector. Mirrors\nComposio's connected-account initiation field metadata."
+                                                       },
+                                       "ConnectorCatalogEntry":  {
+                                                                     "properties":  {
+                                                                                        "slug":  {
+                                                                                                     "type":  "string",
+                                                                                                     "title":  "Slug"
+                                                                                                 },
+                                                                                        "display_name":  {
+                                                                                                             "type":  "string",
+                                                                                                             "title":  "Display Name"
+                                                                                                         },
+                                                                                        "auth_mode":  {
+                                                                                                          "type":  "string",
+                                                                                                          "enum":  [
+                                                                                                                       "oauth2",
+                                                                                                                       "api_key"
+                                                                                                                   ],
+                                                                                                          "title":  "Auth Mode"
+                                                                                                      },
+                                                                                        "description":  {
+                                                                                                            "type":  "string",
+                                                                                                            "title":  "Description"
+                                                                                                        },
+                                                                                        "tools":  {
+                                                                                                      "items":  {
+                                                                                                                    "$ref":  "#/components/schemas/ToolEntry"
+                                                                                                                },
+                                                                                                      "type":  "array",
+                                                                                                      "title":  "Tools"
+                                                                                                  },
+                                                                                        "api_key_fields":  {
+                                                                                                               "items":  {
+                                                                                                                             "$ref":  "#/components/schemas/ApiKeyField"
+                                                                                                                         },
+                                                                                                               "type":  "array",
+                                                                                                               "title":  "Api Key Fields"
+                                                                                                           },
+                                                                                        "linked":  {
+                                                                                                       "type":  "boolean",
+                                                                                                       "title":  "Linked"
+                                                                                                   },
+                                                                                        "workspace_linked":  {
+                                                                                                                 "type":  "boolean",
+                                                                                                                 "title":  "Workspace Linked",
+                                                                                                                 "default":  false
+                                                                                                             },
+                                                                                        "workspace_linked_by":  {
+                                                                                                                    "anyOf":  [
+                                                                                                                                  {
+                                                                                                                                      "type":  "string"
+                                                                                                                                  },
+                                                                                                                                  {
+                                                                                                                                      "type":  "null"
+                                                                                                                                  }
+                                                                                                                              ],
+                                                                                                                    "title":  "Workspace Linked By"
+                                                                                                                },
+                                                                                        "shared_account_id":  {
+                                                                                                                  "anyOf":  [
+                                                                                                                                {
+                                                                                                                                    "type":  "string",
+                                                                                                                                    "format":  "uuid"
+                                                                                                                                },
+                                                                                                                                {
+                                                                                                                                    "type":  "null"
+                                                                                                                                }
+                                                                                                                            ],
+                                                                                                                  "title":  "Shared Account Id"
+                                                                                                              },
+                                                                                        "account_label":  {
+                                                                                                              "anyOf":  [
+                                                                                                                            {
+                                                                                                                                "type":  "string"
+                                                                                                                            },
+                                                                                                                            {
+                                                                                                                                "type":  "null"
+                                                                                                                            }
+                                                                                                                        ],
+                                                                                                              "title":  "Account Label"
+                                                                                                          },
+                                                                                        "account_identifier":  {
+                                                                                                                   "anyOf":  [
+                                                                                                                                 {
+                                                                                                                                     "type":  "string"
+                                                                                                                                 },
+                                                                                                                                 {
+                                                                                                                                     "type":  "null"
+                                                                                                                                 }
+                                                                                                                             ],
+                                                                                                                   "title":  "Account Identifier"
+                                                                                                               },
+                                                                                        "accounts":  {
+                                                                                                         "items":  {
+                                                                                                                       "$ref":  "#/components/schemas/OrganizationConnectorAccountResponse"
+                                                                                                                   },
+                                                                                                         "type":  "array",
+                                                                                                         "title":  "Accounts"
+                                                                                                     },
+                                                                                        "org_enabled":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "boolean"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "null"
+                                                                                                                          }
+                                                                                                                      ],
+                                                                                                            "title":  "Org Enabled"
+                                                                                                        },
+                                                                                        "personal_access_status":  {
+                                                                                                                       "anyOf":  [
+                                                                                                                                     {
+                                                                                                                                         "type":  "string",
+                                                                                                                                         "enum":  [
+                                                                                                                                                      "pending",
+                                                                                                                                                      "approved",
+                                                                                                                                                      "denied"
+                                                                                                                                                  ]
+                                                                                                                                     },
+                                                                                                                                     {
+                                                                                                                                         "type":  "null"
+                                                                                                                                     }
+                                                                                                                                 ],
+                                                                                                                       "title":  "Personal Access Status"
+                                                                                                                   }
+                                                                                    },
+                                                                     "type":  "object",
+                                                                     "required":  [
+                                                                                      "slug",
+                                                                                      "display_name",
+                                                                                      "auth_mode",
+                                                                                      "description",
+                                                                                      "linked"
+                                                                                  ],
+                                                                     "title":  "ConnectorCatalogEntry"
+                                                                 },
+                                       "ConnectorListResponse":  {
+                                                                     "properties":  {
+                                                                                        "connectors":  {
+                                                                                                           "items":  {
+                                                                                                                         "$ref":  "#/components/schemas/ConnectorCatalogEntry"
+                                                                                                                     },
+                                                                                                           "type":  "array",
+                                                                                                           "title":  "Connectors"
+                                                                                                       }
+                                                                                    },
+                                                                     "type":  "object",
+                                                                     "required":  [
+                                                                                      "connectors"
+                                                                                  ],
+                                                                     "title":  "ConnectorListResponse"
+                                                                 },
+                                       "HTTPValidationError":  {
+                                                                   "properties":  {
+                                                                                      "detail":  {
+                                                                                                     "items":  {
+                                                                                                                   "$ref":  "#/components/schemas/ValidationError"
+                                                                                                               },
+                                                                                                     "type":  "array",
+                                                                                                     "title":  "Detail"
+                                                                                                 }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "title":  "HTTPValidationError"
+                                                               },
+                                       "LinkRequest":  {
+                                                           "properties":  {
+                                                                              "init_data":  {
+                                                                                                "anyOf":  [
+                                                                                                              {
+                                                                                                                  "additionalProperties":  {
+                                                                                                                                               "type":  "string"
+                                                                                                                                           },
+                                                                                                                  "type":  "object"
+                                                                                                              },
+                                                                                                              {
+                                                                                                                  "type":  "null"
+                                                                                                              }
+                                                                                                          ],
+                                                                                                "title":  "Init Data"
+                                                                                            }
+                                                                          },
+                                                           "type":  "object",
+                                                           "title":  "LinkRequest",
+                                                           "description":  "Body for POST /connectors/{slug}/link. Most OAuth connectors don't\nneed anything here, but per-tenant OAuth (Shopify subdomain, etc.)\nrequires init fields up front — the FE collects them via a small form\nmatching the connector's `api_key_fields` and submits them in\n`init_data` (e.g. {\"subdomain\": \"store-name\"})."
+                                                       },
+                                       "LinkResponse":  {
+                                                            "properties":  {
+                                                                               "connector_slug":  {
+                                                                                                      "type":  "string",
+                                                                                                      "title":  "Connector Slug"
+                                                                                                  },
+                                                                               "redirect_url":  {
+                                                                                                    "anyOf":  [
+                                                                                                                  {
+                                                                                                                      "type":  "string"
+                                                                                                                  },
+                                                                                                                  {
+                                                                                                                      "type":  "null"
+                                                                                                                  }
+                                                                                                              ],
+                                                                                                    "title":  "Redirect Url"
+                                                                                                },
+                                                                               "shared_account_id":  {
+                                                                                                         "anyOf":  [
+                                                                                                                       {
+                                                                                                                           "type":  "string",
+                                                                                                                           "format":  "uuid"
+                                                                                                                       },
+                                                                                                                       {
+                                                                                                                           "type":  "null"
+                                                                                                                       }
+                                                                                                                   ],
+                                                                                                         "title":  "Shared Account Id"
+                                                                                                     }
+                                                                           },
+                                                            "type":  "object",
+                                                            "required":  [
+                                                                             "connector_slug"
+                                                                         ],
+                                                            "title":  "LinkResponse"
+                                                        },
+                                       "OrganizationConnectorAccountResponse":  {
+                                                                                     "properties":  {
+                                                                                                        "id":  {
+                                                                                                                   "type":  "string",
+                                                                                                                   "format":  "uuid",
+                                                                                                                   "title":  "Id"
+                                                                                                               },
+                                                                                                        "organization_id":  {
+                                                                                                                                "type":  "string",
+                                                                                                                                "format":  "uuid",
+                                                                                                                                "title":  "Organization Id"
+                                                                                                                            },
+                                                                                                        "connector_slug":  {
+                                                                                                                               "type":  "string",
+                                                                                                                               "title":  "Connector Slug"
+                                                                                                                           },
+                                                                                                        "account_label":  {
+                                                                                                                              "type":  "string",
+                                                                                                                              "title":  "Account Label"
+                                                                                                                          },
+                                                                                                        "account_identifier":  {
+                                                                                                                                   "anyOf":  [
+                                                                                                                                                 {
+                                                                                                                                                     "type":  "string"
+                                                                                                                                                 },
+                                                                                                                                                 {
+                                                                                                                                                     "type":  "null"
+                                                                                                                                                 }
+                                                                                                                                             ],
+                                                                                                                                   "title":  "Account Identifier"
+                                                                                                                               },
+                                                                                                        "connected":  {
+                                                                                                                          "type":  "boolean",
+                                                                                                                          "title":  "Connected"
+                                                                                                                      },
+                                                                                                        "scope":  {
+                                                                                                                      "type":  "string",
+                                                                                                                      "enum":  [
+                                                                                                                                   "personal",
+                                                                                                                                   "shared_team"
+                                                                                                                               ],
+                                                                                                                      "title":  "Scope",
+                                                                                                                      "default":  "shared_team"
+                                                                                                                  },
+                                                                                                        "status":  {
+                                                                                                                       "type":  "string",
+                                                                                                                       "enum":  [
+                                                                                                                                    "active",
+                                                                                                                                    "disabled",
+                                                                                                                                    "expired"
+                                                                                                                                ],
+                                                                                                                       "title":  "Status",
+                                                                                                                       "default":  "active"
+                                                                                                                   },
+                                                                                                        "version":  {
+                                                                                                                        "type":  "integer",
+                                                                                                                        "title":  "Version",
+                                                                                                                        "default":  1
+                                                                                                                    },
+                                                                                                        "team_ids":  {
+                                                                                                                         "items":  {
+                                                                                                                                       "type":  "string",
+                                                                                                                                       "format":  "uuid"
+                                                                                                                                   },
+                                                                                                                         "type":  "array",
+                                                                                                                         "title":  "Team Ids"
+                                                                                                                     },
+                                                                                                        "linked_by_user_id":  {
+                                                                                                                                  "anyOf":  [
+                                                                                                                                                {
+                                                                                                                                                    "type":  "string"
+                                                                                                                                                },
+                                                                                                                                                {
+                                                                                                                                                    "type":  "null"
+                                                                                                                                                }
+                                                                                                                                            ],
+                                                                                                                                  "title":  "Linked By User Id"
+                                                                                                                              },
+                                                                                                        "created_at":  {
+                                                                                                                           "type":  "string",
+                                                                                                                           "format":  "date-time",
+                                                                                                                           "title":  "Created At"
+                                                                                                                       },
+                                                                                                        "updated_at":  {
+                                                                                                                           "type":  "string",
+                                                                                                                           "format":  "date-time",
+                                                                                                                           "title":  "Updated At"
+                                                                                                                       }
+                                                                                                    },
+                                                                                     "type":  "object",
+                                                                                     "required":  [
+                                                                                                      "id",
+                                                                                                      "organization_id",
+                                                                                                      "connector_slug",
+                                                                                                      "account_label",
+                                                                                                      "connected",
+                                                                                                      "created_at",
+                                                                                                      "updated_at"
+                                                                                                  ],
+                                                                                     "title":  "OrganizationConnectorAccountResponse"
+                                                                                 },
+                                       "ToolEntry":  {
+                                                         "properties":  {
+                                                                            "slug":  {
+                                                                                         "type":  "string",
+                                                                                         "title":  "Slug"
+                                                                                     },
+                                                                            "policy":  {
+                                                                                           "type":  "string",
+                                                                                           "enum":  [
+                                                                                                        "allow",
+                                                                                                        "block",
+                                                                                                        "ask",
+                                                                                                        "allow_once"
+                                                                                                    ],
+                                                                                           "title":  "Policy",
+                                                                                           "default":  "ask"
+                                                                                       }
+                                                                        },
+                                                         "type":  "object",
+                                                         "required":  [
+                                                                          "slug"
+                                                                      ],
+                                                         "title":  "ToolEntry"
+                                                     },
+                                       "UpdateConnectorRequest":  {
+                                                                      "properties":  {
+                                                                                         "permissions":  {
+                                                                                                             "anyOf":  [
+                                                                                                                           {
+                                                                                                                               "items":  {
+                                                                                                                                             "$ref":  "#/components/schemas/ToolEntry"
+                                                                                                                                         },
+                                                                                                                               "type":  "array"
+                                                                                                                           },
+                                                                                                                           {
+                                                                                                                               "type":  "null"
+                                                                                                                           }
+                                                                                                                       ],
+                                                                                                             "title":  "Permissions"
+                                                                                                         },
+                                                                                         "credentials":  {
+                                                                                                             "anyOf":  [
+                                                                                                                           {
+                                                                                                                               "additionalProperties":  {
+                                                                                                                                                            "type":  "string"
+                                                                                                                                                        },
+                                                                                                                               "type":  "object"
+                                                                                                                           },
+                                                                                                                           {
+                                                                                                                               "type":  "null"
+                                                                                                                           }
+                                                                                                                       ],
+                                                                                                             "title":  "Credentials"
+                                                                                                         },
+                                                                                         "sharedAccountId":  {
+                                                                                                                 "anyOf":  [
+                                                                                                                               {
+                                                                                                                                   "type":  "string",
+                                                                                                                                   "format":  "uuid"
+                                                                                                                               },
+                                                                                                                               {
+                                                                                                                                   "type":  "null"
+                                                                                                                               }
+                                                                                                                           ],
+                                                                                                                 "title":  "Sharedaccountid"
+                                                                                                             }
+                                                                                     },
+                                                                      "type":  "object",
+                                                                      "title":  "UpdateConnectorRequest"
+                                                                  },
+                                       "ValidationError":  {
+                                                               "properties":  {
+                                                                                  "loc":  {
+                                                                                              "items":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "string"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "integer"
+                                                                                                                          }
+                                                                                                                      ]
+                                                                                                        },
+                                                                                              "type":  "array",
+                                                                                              "title":  "Location"
+                                                                                          },
+                                                                                  "msg":  {
+                                                                                              "type":  "string",
+                                                                                              "title":  "Message"
+                                                                                          },
+                                                                                  "type":  {
+                                                                                               "type":  "string",
+                                                                                               "title":  "Error Type"
+                                                                                           },
+                                                                                  "input":  {
+                                                                                                "title":  "Input"
+                                                                                            },
+                                                                                  "ctx":  {
+                                                                                              "type":  "object",
+                                                                                              "title":  "Context"
+                                                                                          }
+                                                                              },
+                                                               "type":  "object",
+                                                               "required":  [
+                                                                                "loc",
+                                                                                "msg",
+                                                                                "type"
+                                                                            ],
+                                                               "title":  "ValidationError"
+                                                           }
+                                   },
+                       "securitySchemes":  {
+                                               "HTTPBearer":  {
+                                                                  "type":  "http",
+                                                                  "scheme":  "bearer"
+                                                              }
+                                           }
+                   }
+}

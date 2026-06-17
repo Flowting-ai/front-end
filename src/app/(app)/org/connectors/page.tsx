@@ -7,6 +7,8 @@ import { toast } from 'sonner'
 import * as Dialog from '@radix-ui/react-dialog'
 import { listConnectors, initiateLink, unlinkConnector, updateConnector, pollConnectorUntilActive } from '@/lib/api/connectors'
 import type { ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
+import { listOrgConnectorAccounts, createOrgConnectorAccount, deleteOrgConnectorAccount, getConnectorUsedBy } from '@/lib/api/org-connectors'
+import type { OrgConnectorAccount } from '@/lib/api/org-connectors'
 import { connectorLogoSrc } from '@/lib/connectorLogos'
 import {
   ArrowDownOneIcon,
@@ -1750,19 +1752,41 @@ type AddAccountScope = 'personal' | 'shared-team'
 
 function AddAccountModal({
   connector,
+  orgId,
   onClose,
   onConnect,
+  onAccountCreated,
 }: {
-  connector: ConnectorCatalogEntry
-  onClose:   () => void
-  onConnect: (slug: string) => void
+  connector:        ConnectorCatalogEntry
+  orgId:            string
+  onClose:          () => void
+  onConnect:        (slug: string) => void
+  onAccountCreated: () => void
 }) {
-  const [label, setLabel] = useState('')
-  const [scope, setScope] = useState<AddAccountScope>('personal')
+  const [label,    setLabel]    = useState('')
+  const [scope,    setScope]    = useState<AddAccountScope>('personal')
+  const [creating, setCreating] = useState(false)
 
-  function handleContinue() {
-    onConnect(connector.slug)
-    onClose()
+  async function handleContinue() {
+    if (scope === 'shared-team') {
+      setCreating(true)
+      try {
+        const res = await createOrgConnectorAccount(orgId, connector.slug, { accountLabel: label || connector.display_name })
+        if (res.redirectUrl) {
+          const popup = window.open('', '_blank', 'width=900,height=700')
+          if (popup && !popup.closed) popup.location.href = res.redirectUrl
+          else window.open(res.redirectUrl, '_blank', 'noopener')
+        }
+        onAccountCreated()
+        onClose()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to create shared account')
+        setCreating(false)
+      }
+    } else {
+      onConnect(connector.slug)
+      onClose()
+    }
   }
 
   return (
@@ -1949,7 +1973,8 @@ function AddAccountModal({
           <div style={{ paddingTop: 12 }}>
             <button
               type="button"
-              onClick={handleContinue}
+              disabled={creating}
+              onClick={() => void handleContinue()}
               style={{
                 width:           '100%',
                 display:         'flex',
@@ -1959,7 +1984,7 @@ function AddAccountModal({
                 padding:         '8px 16px',
                 borderRadius:    10,
                 border:          'none',
-                cursor:          'pointer',
+                cursor:          creating ? 'not-allowed' : 'pointer',
                 background:      'linear-gradient(to bottom, var(--neutral-700, #524b47), var(--neutral-900, #26211e))',
                 color:           'var(--neutral-50, #f7f2ed)',
                 fontFamily:      'var(--font-body)',
@@ -1967,10 +1992,11 @@ function AddAccountModal({
                 fontSize:        14,
                 lineHeight:      '22px',
                 boxShadow:       '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08',
+                opacity:         creating ? 0.6 : 1,
               }}
             >
-              Continue with Google
-              <ArrowRightOneIcon size={16} />
+              {creating ? 'Creating…' : (scope === 'shared-team' ? 'Create shared account' : 'Continue with Google')}
+              {!creating && <ArrowRightOneIcon size={16} />}
             </button>
           </div>
         </div>
@@ -2040,22 +2066,50 @@ function AccountRow({
 
 // ── Connector detail view (Accounts / Used by tabs) ───────────────────────────
 
+function orgAccountToLocal(a: OrgConnectorAccount): ConnectorAccount {
+  return {
+    id:      a.id,
+    label:   a.accountLabel,
+    email:   a.accountIdentifier ?? '',
+    addedBy: a.linkedByUserId,
+    scope:   a.status === 'active' ? 'shared' : 'shared-expired',
+  }
+}
+
 function ConnectorDetailView({
   connector,
+  orgId,
   onBack,
   onConnect,
 }: {
   connector: ConnectorCatalogEntry
+  orgId:     string
   onBack:    () => void
   onConnect: (slug: string) => void
 }) {
   const [detailTab,       setDetailTab]       = useState<DetailTab>('accounts')
   const [addAccountOpen,  setAddAccountOpen]  = useState(false)
   const [activeAccount,   setActiveAccount]   = useState<ConnectorAccount | null>(null)
+  const [accounts,        setAccounts]        = useState<ConnectorAccount[]>([])
+  const [usedByItems,     setUsedByItems]     = useState<ConnectorUsedByItem[]>([])
 
-  // No backend yet — start empty, replace with real fetch once endpoint exists
-  const accounts: ConnectorAccount[]      = []
-  const usedByItems: ConnectorUsedByItem[] = []
+  const loadAccounts = useCallback(() => {
+    listOrgConnectorAccounts(orgId, connector.slug)
+      .then(list => setAccounts(list.map(orgAccountToLocal)))
+      .catch(err => toast.error(err instanceof Error ? err.message : 'Failed to load accounts'))
+  }, [orgId, connector.slug])
+
+  useEffect(() => {
+    loadAccounts()
+    getConnectorUsedBy(orgId, connector.slug)
+      .then(list => setUsedByItems(list.map(i => ({
+        id:       i.id,
+        name:     i.name,
+        kind:     i.surface === 'brain' ? ('brain' as const) : ('persona' as const),
+        subtitle: i.surface,
+      }))))
+      .catch(() => { /* used-by is optional, suppress error */ })
+  }, [orgId, connector.slug, loadAccounts])
 
   const personaItems = usedByItems.filter(i => i.kind === 'persona')
   const brainItems   = usedByItems.filter(i => i.kind === 'brain')
@@ -2066,7 +2120,9 @@ function ConnectorDetailView({
       <AccountDetailView
         account={activeAccount}
         connector={connector}
+        orgId={orgId}
         onBack={() => setActiveAccount(null)}
+        onDeleted={() => { setActiveAccount(null); loadAccounts() }}
       />
     )
   }
@@ -2220,8 +2276,10 @@ function ConnectorDetailView({
       {addAccountOpen && (
         <AddAccountModal
           connector={connector}
+          orgId={orgId}
           onClose={() => setAddAccountOpen(false)}
           onConnect={onConnect}
+          onAccountCreated={loadAccounts}
         />
       )}
     </div>
@@ -2417,16 +2475,34 @@ function ChangeScopeModal({
 // ── Disconnect account modal ───────────────────────────────────────────────────
 
 function DisconnectAccountModal({
+  account,
   connector,
+  orgId,
   onClose,
+  onDeleted,
 }: {
+  account:   ConnectorAccount
   connector: ConnectorCatalogEntry
+  orgId:     string
   onClose:   () => void
+  onDeleted: () => void
 }) {
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDisconnect() {
+    setDeleting(true)
+    try {
+      await deleteOrgConnectorAccount(orgId, account.id)
+      toast.success(`${account.label} disconnected`)
+      onDeleted()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to disconnect')
+      setDeleting(false)
+    }
+  }
+
   const affectedRows = [
     { title: 'Disconnect account',  subtitle: `Remove this ${connector.display_name} account from Souvenir entirely.` },
-    { title: 'Project',             subtitle: 'Q3 Launch' },
-    { title: 'Brain automation',    subtitle: 'Weekly digest' },
   ]
 
   return (
@@ -2490,17 +2566,19 @@ function DisconnectAccountModal({
           <div style={{ paddingTop: 12 }}>
             <button
               type="button"
-              onClick={onClose}
+              disabled={deleting}
+              onClick={() => void handleDisconnect()}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                padding: '8px 16px', borderRadius: 10, border: 'none', cursor: deleting ? 'not-allowed' : 'pointer',
                 background: 'linear-gradient(to bottom, var(--neutral-700, #524b47), var(--neutral-900, #26211e))',
                 color: 'var(--neutral-50, #f7f2ed)', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
                 boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08',
+                opacity: deleting ? 0.6 : 1,
               }}
             >
-              Disconnect
-              <ArrowRightOneIcon size={16} />
+              {deleting ? 'Disconnecting…' : 'Disconnect'}
+              {!deleting && <ArrowRightOneIcon size={16} />}
             </button>
           </div>
         </div>
@@ -2514,11 +2592,15 @@ function DisconnectAccountModal({
 function AccountDetailView({
   account,
   connector,
+  orgId,
   onBack,
+  onDeleted,
 }: {
   account:   ConnectorAccount
   connector: ConnectorCatalogEntry
+  orgId:     string
   onBack:    () => void
+  onDeleted: () => void
 }) {
   const [accountTab,      setAccountTab]      = useState<AccountTab>('tools')
   const [changeScopeOpen, setChangeScopeOpen] = useState(false)
@@ -2739,7 +2821,13 @@ function AccountDetailView({
         <ChangeScopeModal account={account} connector={connector} onClose={() => setChangeScopeOpen(false)} />
       )}
       {disconnectOpen && (
-        <DisconnectAccountModal connector={connector} onClose={() => setDisconnectOpen(false)} />
+        <DisconnectAccountModal
+          account={account}
+          connector={connector}
+          orgId={orgId}
+          onClose={() => setDisconnectOpen(false)}
+          onDeleted={onDeleted}
+        />
       )}
     </div>
   )
@@ -2905,6 +2993,7 @@ function OrgConnectorsPageContent() {
       <PageShell>
         <ConnectorDetailView
           connector={detailConnector}
+          orgId={org.id}
           onBack={() => setDetailConnector(null)}
           onConnect={handleConnect}
         />

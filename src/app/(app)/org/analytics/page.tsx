@@ -5,6 +5,9 @@ import {
   FilterMailIcon,
   SearchOneIcon,
   UserIcon,
+  PenOneIcon,
+  TickTwoIcon,
+  CancelOneIcon,
 } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 import { IconButton } from '@/components/IconButton'
@@ -17,8 +20,9 @@ import {
   SettingsTableToolbar,
 } from '@/components/SettingsTable'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
+import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
-import { getOrgPlanUsage } from '@/lib/api/organization'
+import { getOrgPlanUsage, setMemberCap } from '@/lib/api/organization'
 import type { OrgMember, TeamBurn } from '@/types/teams'
 
 type DateRange = '7d' | '30d' | 'mtd' | 'qtd'
@@ -451,7 +455,158 @@ function FeatureChart({ days }: { days: ChartDay[] }) {
   )
 }
 
-function MemberCapsTable({ members }: { members: OrgMember[] }) {
+// ── Editable cap cell (admin only) ───────────────────────────────────────────
+
+function CapCell({
+  memberId,
+  orgId,
+  initialCap,
+}: {
+  memberId:   string
+  orgId:      string | null
+  initialCap: number | undefined
+}) {
+  // initialCap is already in credits (normalizeMember converts dollars→credits)
+  // committedCap tracks the last successfully saved value so the view updates
+  // immediately without waiting for useOrg to re-fetch the members list.
+  const [committedCap, setCommittedCap] = useState<number | undefined>(initialCap)
+  const [editing,      setEditing]      = useState(false)
+  const [draft,        setDraft]        = useState(() => initialCap != null ? String(initialCap) : '')
+  const [saving,       setSaving]       = useState(false)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  function startEdit() {
+    setDraft(committedCap != null ? String(committedCap) : '')
+    setEditing(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }
+
+  function cancelEdit() {
+    setDraft(committedCap != null ? String(committedCap) : '')
+    setEditing(false)
+  }
+
+  async function save() {
+    if (!orgId) return
+    const trimmed   = draft.trim()
+    const creditVal = trimmed === '' ? null : parseInt(trimmed, 10)
+    if (trimmed !== '' && (isNaN(creditVal!) || creditVal! <= 0)) {
+      setDraft(committedCap != null ? String(committedCap) : '')
+      setEditing(false)
+      return
+    }
+    // backend expects dollars; 1000 credits = $1
+    const capDollars = creditVal == null ? null : creditVal / 1000
+    setSaving(true)
+    try {
+      await setMemberCap(orgId, memberId, capDollars)
+      setCommittedCap(creditVal ?? undefined)
+      toast.success('Credit cap updated')
+      setEditing(false)
+    } catch {
+      toast.error('Failed to update cap')
+      setDraft(committedCap != null ? String(committedCap) : '')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div
+          style={{
+            display:         'flex',
+            alignItems:      'center',
+            height:          32,
+            borderRadius:    8,
+            backgroundColor: 'var(--neutral-white)',
+            boxShadow:       '0px 0px 0px 1.5px var(--neutral-400)',
+            opacity:         saving ? 0.6 : 1,
+            transition:      'opacity 150ms',
+          }}
+        >
+          <input
+            ref={inputRef}
+            type="number"
+            min={1}
+            value={draft}
+            placeholder="No limit"
+            disabled={saving}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { void save() }
+              if (e.key === 'Escape') { cancelEdit() }
+            }}
+            style={{
+              width:      90,
+              padding:    '0 10px',
+              border:     'none',
+              outline:    'none',
+              background: 'transparent',
+              fontFamily: 'var(--font-body)',
+              fontWeight: 400,
+              fontSize:   14,
+              color:      'var(--neutral-700)',
+              MozAppearance: 'textfield' as React.CSSProperties['MozAppearance'],
+            }}
+          />
+        </div>
+        <IconButton
+          variant="ghost"
+          size="sm"
+          aria-label="Save cap"
+          disabled={saving}
+          icon={<TickTwoIcon size={16} color="var(--green-600)" />}
+          onClick={() => { void save() }}
+        />
+        <IconButton
+          variant="ghost"
+          size="sm"
+          aria-label="Cancel"
+          disabled={saving}
+          icon={<CancelOneIcon size={16} color="var(--neutral-400)" />}
+          onClick={cancelEdit}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ textAlign: 'right' }}>
+        {committedCap != null ? (
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '18px', color: 'var(--neutral-800)', margin: 0 }}>
+            {committedCap.toLocaleString()} credits
+          </p>
+        ) : (
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, color: 'var(--neutral-300)', margin: 0 }}>
+            No cap
+          </p>
+        )}
+      </div>
+      <IconButton
+        variant="ghost"
+        size="sm"
+        aria-label="Edit cap"
+        icon={<PenOneIcon size={14} />}
+        onClick={startEdit}
+      />
+    </div>
+  )
+}
+
+// ── Member caps table ─────────────────────────────────────────────────────────
+
+function MemberCapsTable({
+  members,
+  orgId,
+  isAdmin,
+}: {
+  members: OrgMember[]
+  orgId:   string | null
+  isAdmin: boolean
+}) {
   return (
     <SettingsTable>
       <SettingsTableToolbar title="Per-member credit usage">
@@ -464,7 +619,9 @@ function MemberCapsTable({ members }: { members: OrgMember[] }) {
       <SettingsTableHeader columns={MEMBER_CAP_COLUMNS} columnGap={MEMBER_CAP_COLUMN_GAP}>
         <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
         <SettingsTableHeaderCell align="center">Credits used</SettingsTableHeaderCell>
-        <SettingsTableHeaderCell align="center">Cap</SettingsTableHeaderCell>
+        <SettingsTableHeaderCell align="center">
+          {isAdmin ? 'Assign cap' : 'Cap'}
+        </SettingsTableHeaderCell>
         <SettingsTableHeaderCell align="center">Usage</SettingsTableHeaderCell>
       </SettingsTableHeader>
 
@@ -483,29 +640,46 @@ function MemberCapsTable({ members }: { members: OrgMember[] }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                 <UserAvatar />
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {member.name || member.email}
-                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {member.name || member.email}
+                    </p>
+                    {member.inviteStatus === 'invite_sent' && (
+                      <Badge color="Neutral" label="Invite sent" />
+                    )}
+                  </div>
                   <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {member.email}
                   </p>
                 </div>
               </div>
             </SettingsTableCell>
+
             <SettingsTableCell align="center">
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                 {member.creditUsed.toLocaleString()}
               </p>
             </SettingsTableCell>
+
             <SettingsTableCell align="center">
-              {member.creditCap != null
-                ? <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>{member.creditCap.toLocaleString()}</p>
-                : <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-300)' }}>No cap</span>
-              }
+              {isAdmin ? (
+                <CapCell memberId={member.id} orgId={orgId} initialCap={member.creditCap} />
+              ) : member.creditCap != null ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                  {member.creditCap.toLocaleString()}
+                </p>
+              ) : (
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-300)' }}>No cap</span>
+              )}
             </SettingsTableCell>
+
             <SettingsTableCell align="center">
-              <div style={{ width: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 100, flexShrink: 0 }}>
                 {usagePct > 0 ? <ProgressBar value={usagePct} /> : null}
+                <Badge
+                  color={usagePct >= 90 ? 'Red' : usagePct >= 60 ? 'Yellow' : 'Green'}
+                  label={`${usagePct}%`}
+                />
               </div>
             </SettingsTableCell>
           </SettingsTableRow>
@@ -558,7 +732,7 @@ function RankedList({
 }
 
 export default function OrgUsageAnalyticsPage() {
-  const { orgId, members, membersLoading, plan } = useOrg()
+  const { orgId, members, membersLoading, plan, currentUserRole } = useOrg()
   const [dateRange,  setDateRange]  = useState<DateRange>('7d')
   const [teamUsage,  setTeamUsage]  = useState<TeamBurn[]>([])
 
@@ -581,8 +755,10 @@ export default function OrgUsageAnalyticsPage() {
     [dateRange, totalUsed],
   )
 
+  const activeMembers = members.filter(m => m.inviteStatus !== 'invite_sent')
+
   // Top users sorted by credit usage descending
-  const topUsers = [...members]
+  const topUsers = [...activeMembers]
     .sort((a, b) => b.creditUsed - a.creditUsed)
     .map(m => ({
       name:    m.name || m.email,
@@ -687,7 +863,7 @@ export default function OrgUsageAnalyticsPage() {
           <FeatureChart days={featureSeries.days} />
         </PageCard>
 
-        <MemberCapsTable members={members} />
+        <MemberCapsTable members={activeMembers} orgId={orgId} isAdmin={currentUserRole === 'admin'} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <RankedList title="Top users by credit usage" items={topUsers} />

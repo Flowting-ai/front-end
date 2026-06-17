@@ -1,574 +1,966 @@
-openapi: 3.1.0
-info:
-  title: FastAPI - stripe
-  version: 0.1.0
-paths:
-  /stripe/checkout:
-    post:
-      tags:
-        - stripe
-      summary: Create Checkout
-      operationId: create_checkout_stripe_checkout_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateCheckoutSessionRequest'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CreateCheckoutSessionResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-      security:
-        - HTTPBearer: []
-  /stripe/topup:
-    post:
-      tags:
-        - stripe
-      summary: Create Topup
-      operationId: create_topup_stripe_topup_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTopUpSessionRequest'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CreateTopUpSessionResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-      security:
-        - HTTPBearer: []
-  /stripe/topup/charge:
-    post:
-      tags:
-        - stripe
-      summary: Charge Topup Now
-      operationId: charge_topup_now_stripe_topup_charge_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTopUpSessionRequest'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TopUpChargeResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-      security:
-        - HTTPBearer: []
-  /stripe/trial:
-    post:
-      tags:
-        - stripe
-      summary: Start My Trial
-      operationId: start_my_trial_stripe_trial_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UsageResponse'
-      security:
-        - HTTPBearer: []
-  /stripe/subscription:
-    delete:
-      tags:
-        - stripe
-      summary: Cancel My Subscription
-      operationId: cancel_my_subscription_stripe_subscription_delete
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SubscriptionActionResponse'
-      security:
-        - HTTPBearer: []
-  /stripe/subscription/resume:
-    post:
-      tags:
-        - stripe
-      summary: Resume My Subscription
-      operationId: resume_my_subscription_stripe_subscription_resume_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SubscriptionActionResponse'
-      security:
-        - HTTPBearer: []
-  /stripe/billing:
-    get:
-      tags:
-        - stripe
-      summary: Get My Billing
-      operationId: get_my_billing_stripe_billing_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BillingInfo'
-      security:
-        - HTTPBearer: []
-  /stripe/portal:
-    post:
-      tags:
-        - stripe
-      summary: Open Billing Portal
-      operationId: open_billing_portal_stripe_portal_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BillingPortalResponse'
-      security:
-        - HTTPBearer: []
-components:
-  schemas:
-    CreateCheckoutSessionRequest:
-      properties:
-        plan_type:
-          $ref: '#/components/schemas/PlanType'
-        billing:
-          type: string
-          title: Billing
-          default: monthly
-      type: object
-      required:
-        - plan_type
-      title: CreateCheckoutSessionRequest
-    CreateCheckoutSessionResponse:
-      properties:
-        checkout_url:
-          type: string
-          title: Checkout Url
-        session_id:
-          type: string
-          title: Session Id
-      type: object
-      required:
-        - checkout_url
-        - session_id
-      title: CreateCheckoutSessionResponse
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
-    CreateTopUpSessionRequest:
-      properties:
-        amount_usd:
-          type: number
-          minimum: 1
-          title: Amount Usd
-          description: 'Dollars to add as credit (1:1 conversion). Stripe minimum: $1.'
-        idempotency_key:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Idempotency Key
-      type: object
-      required:
-        - amount_usd
-      title: CreateTopUpSessionRequest
-    CreateTopUpSessionResponse:
-      properties:
-        checkout_url:
-          type: string
-          title: Checkout Url
-      type: object
-      required:
-        - checkout_url
-      title: CreateTopUpSessionResponse
-    TopUpChargeResponse:
-      properties:
-        status:
-          type: string
-          title: Status
-        client_secret:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Client Secret
-      type: object
-      required:
-        - status
-      title: TopUpChargeResponse
-    UsageResponse:
-      properties:
-        credits:
-          type: number
-          title: Credits
-        plan_credits:
-          type: number
-          title: Plan Credits
-          default: 0
-        topup_credits:
-          type: number
-          title: Topup Credits
-          default: 0
-        used:
-          type: number
-          title: Used
-          default: 0
-        trial:
-          anyOf:
-            - $ref: '#/components/schemas/TrialSummary'
-            - type: 'null'
-        spent_this_period:
-          type: number
-          title: Spent This Period
-          default: 0
-        by_category:
-          $ref: '#/components/schemas/CategoryUsage'
-          default:
-            chat: 0
-            persona: 0
-            brain: 0
-      type: object
-      required:
-        - credits
-      title: UsageResponse
-    SubscriptionActionResponse:
-      properties:
-        status:
-          type: string
-          title: Status
-        plan_type:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Plan Type
-        current_period_end:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Current Period End
-      type: object
-      required:
-        - status
-      title: SubscriptionActionResponse
-    BillingInfo:
-      properties:
-        plan_type:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Plan Type
-        subscription_status:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Subscription Status
-        current_period_end:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Current Period End
-        cancel_at_period_end:
-          type: boolean
-          title: Cancel At Period End
-          default: false
-        payment_method:
-          anyOf:
-            - $ref: '#/components/schemas/PaymentMethodInfo'
-            - type: 'null'
-        invoices:
-          items:
-            $ref: '#/components/schemas/InvoiceInfo'
-          type: array
-          title: Invoices
-          default: []
-        upcoming_invoice:
-          anyOf:
-            - $ref: '#/components/schemas/UpcomingInvoiceInfo'
-            - type: 'null'
-        credits:
-          $ref: '#/components/schemas/CreditSummary'
-          default:
-            total_credits: 0
-            plan_credits: 0
-            topup_credits: 0
-            used:
-              brain: 0
-              chat: 0
-              persona: 0
-      type: object
-      title: BillingInfo
-    BillingPortalResponse:
-      properties:
-        portal_url:
-          type: string
-          title: Portal Url
-      type: object
-      required:
-        - portal_url
-      title: BillingPortalResponse
-    PlanType:
-      type: string
-      enum:
-        - starter
-        - pro
-        - power
-        - trial
-        - teams
-      title: PlanType
-    ValidationError:
-      properties:
-        loc:
-          items:
-            anyOf:
-              - type: string
-              - type: integer
-          type: array
-          title: Location
-        msg:
-          type: string
-          title: Message
-        type:
-          type: string
-          title: Error Type
-        input:
-          title: Input
-        ctx:
-          type: object
-          title: Context
-      type: object
-      required:
-        - loc
-        - msg
-        - type
-      title: ValidationError
-    TrialSummary:
-      properties:
-        remaining:
-          type: number
-          title: Remaining
-        expires_at:
-          type: string
-          title: Expires At
-      type: object
-      required:
-        - remaining
-        - expires_at
-      title: TrialSummary
-    CategoryUsage:
-      properties:
-        chat:
-          type: number
-          title: Chat
-          default: 0
-        persona:
-          type: number
-          title: Persona
-          default: 0
-        brain:
-          type: number
-          title: Brain
-          default: 0
-      type: object
-      title: CategoryUsage
-    PaymentMethodInfo:
-      properties:
-        brand:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Brand
-        last4:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Last4
-        exp_month:
-          anyOf:
-            - type: integer
-            - type: 'null'
-          title: Exp Month
-        exp_year:
-          anyOf:
-            - type: integer
-            - type: 'null'
-          title: Exp Year
-        funding:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Funding
-      type: object
-      title: PaymentMethodInfo
-    InvoiceInfo:
-      properties:
-        amount_paid:
-          type: number
-          title: Amount Paid
-        currency:
-          type: string
-          title: Currency
-        status:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Status
-        created:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Created
-        invoice_url:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Invoice Url
-        invoice_pdf:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Invoice Pdf
-      type: object
-      required:
-        - amount_paid
-        - currency
-      title: InvoiceInfo
-    UpcomingInvoiceInfo:
-      properties:
-        amount_due:
-          type: number
-          title: Amount Due
-        currency:
-          type: string
-          title: Currency
-        next_payment_date:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Next Payment Date
-      type: object
-      required:
-        - amount_due
-        - currency
-      title: UpcomingInvoiceInfo
-    CreditSummary:
-      properties:
-        total_credits:
-          type: number
-          title: Total Credits
-          description: Period allowance (plan + top-up).
-          default: 0
-        plan_credits:
-          type: number
-          title: Plan Credits
-          default: 0
-        topup_credits:
-          type: number
-          title: Topup Credits
-          default: 0
-        remaining:
-          type: number
-          title: Remaining
-          description: Remaining balance (total_credits − used).
-          default: 0
-        trial:
-          anyOf:
-            - $ref: '#/components/schemas/TrialCreditInfo'
-            - type: 'null'
-        used:
-          type: number
-          title: Used
-          description: Credits drawn down this period (allowance − remaining).
-          default: 0
-        by_category:
-          $ref: '#/components/schemas/UsageBreakdown'
-          default:
-            chat: 0
-            persona: 0
-            brain: 0
-      type: object
-      title: CreditSummary
-    TrialCreditInfo:
-      properties:
-        amount:
-          type: number
-          title: Amount
-        remaining:
-          type: number
-          title: Remaining
-        used:
-          type: number
-          title: Used
-        starts_at:
-          anyOf:
-            - type: string
-            - type: 'null'
-          title: Starts At
-        expires_at:
-          type: string
-          title: Expires At
-      type: object
-      required:
-        - amount
-        - remaining
-        - used
-        - expires_at
-      title: TrialCreditInfo
-    UsageBreakdown:
-      properties:
-        chat:
-          type: number
-          title: Chat
-          default: 0
-        persona:
-          type: number
-          title: Persona
-          default: 0
-        brain:
-          type: number
-          title: Brain
-          default: 0
-      type: object
-      title: UsageBreakdown
-      description: Credits spent this period, by source area.
-  securitySchemes:
-    HTTPBearer:
-      type: http
-      scheme: bearer
+{
+    "openapi":  "3.1.0",
+    "info":  {
+                 "title":  "FastAPI - stripe",
+                 "version":  "0.1.0"
+             },
+    "paths":  {
+                  "/stripe/checkout":  {
+                                           "post":  {
+                                                        "tags":  [
+                                                                     "stripe"
+                                                                 ],
+                                                        "summary":  "Create Checkout",
+                                                        "operationId":  "create_checkout_stripe_checkout_post",
+                                                        "requestBody":  {
+                                                                            "content":  {
+                                                                                            "application/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/components/schemas/CreateCheckoutSessionRequest"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                        },
+                                                                            "required":  true
+                                                                        },
+                                                        "responses":  {
+                                                                          "200":  {
+                                                                                      "description":  "Successful Response",
+                                                                                      "content":  {
+                                                                                                      "application/json":  {
+                                                                                                                               "schema":  {
+                                                                                                                                              "$ref":  "#/components/schemas/CreateCheckoutSessionResponse"
+                                                                                                                                          }
+                                                                                                                           }
+                                                                                                  }
+                                                                                  },
+                                                                          "422":  {
+                                                                                      "description":  "Validation Error",
+                                                                                      "content":  {
+                                                                                                      "application/json":  {
+                                                                                                                               "schema":  {
+                                                                                                                                              "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                          }
+                                                                                                                           }
+                                                                                                  }
+                                                                                  }
+                                                                      },
+                                                        "security":  [
+                                                                         {
+                                                                             "HTTPBearer":  [
+
+                                                                                            ]
+                                                                         }
+                                                                     ]
+                                                    }
+                                       },
+                  "/stripe/topup":  {
+                                        "post":  {
+                                                     "tags":  [
+                                                                  "stripe"
+                                                              ],
+                                                     "summary":  "Create Topup",
+                                                     "operationId":  "create_topup_stripe_topup_post",
+                                                     "requestBody":  {
+                                                                         "content":  {
+                                                                                         "application/json":  {
+                                                                                                                  "schema":  {
+                                                                                                                                 "$ref":  "#/components/schemas/CreateTopUpSessionRequest"
+                                                                                                                             }
+                                                                                                              }
+                                                                                     },
+                                                                         "required":  true
+                                                                     },
+                                                     "responses":  {
+                                                                       "200":  {
+                                                                                   "description":  "Successful Response",
+                                                                                   "content":  {
+                                                                                                   "application/json":  {
+                                                                                                                            "schema":  {
+                                                                                                                                           "$ref":  "#/components/schemas/CreateTopUpSessionResponse"
+                                                                                                                                       }
+                                                                                                                        }
+                                                                                               }
+                                                                               },
+                                                                       "422":  {
+                                                                                   "description":  "Validation Error",
+                                                                                   "content":  {
+                                                                                                   "application/json":  {
+                                                                                                                            "schema":  {
+                                                                                                                                           "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                       }
+                                                                                                                        }
+                                                                                               }
+                                                                               }
+                                                                   },
+                                                     "security":  [
+                                                                      {
+                                                                          "HTTPBearer":  [
+
+                                                                                         ]
+                                                                      }
+                                                                  ]
+                                                 }
+                                    },
+                  "/stripe/topup/charge":  {
+                                               "post":  {
+                                                            "tags":  [
+                                                                         "stripe"
+                                                                     ],
+                                                            "summary":  "Charge Topup Now",
+                                                            "operationId":  "charge_topup_now_stripe_topup_charge_post",
+                                                            "requestBody":  {
+                                                                                "content":  {
+                                                                                                "application/json":  {
+                                                                                                                         "schema":  {
+                                                                                                                                        "$ref":  "#/components/schemas/CreateTopUpSessionRequest"
+                                                                                                                                    }
+                                                                                                                     }
+                                                                                            },
+                                                                                "required":  true
+                                                                            },
+                                                            "responses":  {
+                                                                              "200":  {
+                                                                                          "description":  "Successful Response",
+                                                                                          "content":  {
+                                                                                                          "application/json":  {
+                                                                                                                                   "schema":  {
+                                                                                                                                                  "$ref":  "#/components/schemas/TopUpChargeResponse"
+                                                                                                                                              }
+                                                                                                                               }
+                                                                                                      }
+                                                                                      },
+                                                                              "422":  {
+                                                                                          "description":  "Validation Error",
+                                                                                          "content":  {
+                                                                                                          "application/json":  {
+                                                                                                                                   "schema":  {
+                                                                                                                                                  "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                              }
+                                                                                                                               }
+                                                                                                      }
+                                                                                      }
+                                                                          },
+                                                            "security":  [
+                                                                             {
+                                                                                 "HTTPBearer":  [
+
+                                                                                                ]
+                                                                             }
+                                                                         ]
+                                                        }
+                                           },
+                  "/stripe/trial":  {
+                                        "post":  {
+                                                     "tags":  [
+                                                                  "stripe"
+                                                              ],
+                                                     "summary":  "Start My Trial",
+                                                     "operationId":  "start_my_trial_stripe_trial_post",
+                                                     "responses":  {
+                                                                       "200":  {
+                                                                                   "description":  "Successful Response",
+                                                                                   "content":  {
+                                                                                                   "application/json":  {
+                                                                                                                            "schema":  {
+                                                                                                                                           "$ref":  "#/components/schemas/UsageResponse"
+                                                                                                                                       }
+                                                                                                                        }
+                                                                                               }
+                                                                               }
+                                                                   },
+                                                     "security":  [
+                                                                      {
+                                                                          "HTTPBearer":  [
+
+                                                                                         ]
+                                                                      }
+                                                                  ]
+                                                 }
+                                    },
+                  "/stripe/subscription":  {
+                                               "delete":  {
+                                                              "tags":  [
+                                                                           "stripe"
+                                                                       ],
+                                                              "summary":  "Cancel My Subscription",
+                                                              "operationId":  "cancel_my_subscription_stripe_subscription_delete",
+                                                              "responses":  {
+                                                                                "200":  {
+                                                                                            "description":  "Successful Response",
+                                                                                            "content":  {
+                                                                                                            "application/json":  {
+                                                                                                                                     "schema":  {
+                                                                                                                                                    "$ref":  "#/components/schemas/SubscriptionActionResponse"
+                                                                                                                                                }
+                                                                                                                                 }
+                                                                                                        }
+                                                                                        }
+                                                                            },
+                                                              "security":  [
+                                                                               {
+                                                                                   "HTTPBearer":  [
+
+                                                                                                  ]
+                                                                               }
+                                                                           ]
+                                                          }
+                                           },
+                  "/stripe/subscription/resume":  {
+                                                      "post":  {
+                                                                   "tags":  [
+                                                                                "stripe"
+                                                                            ],
+                                                                   "summary":  "Resume My Subscription",
+                                                                   "operationId":  "resume_my_subscription_stripe_subscription_resume_post",
+                                                                   "responses":  {
+                                                                                     "200":  {
+                                                                                                 "description":  "Successful Response",
+                                                                                                 "content":  {
+                                                                                                                 "application/json":  {
+                                                                                                                                          "schema":  {
+                                                                                                                                                         "$ref":  "#/components/schemas/SubscriptionActionResponse"
+                                                                                                                                                     }
+                                                                                                                                      }
+                                                                                                             }
+                                                                                             }
+                                                                                 },
+                                                                   "security":  [
+                                                                                    {
+                                                                                        "HTTPBearer":  [
+
+                                                                                                       ]
+                                                                                    }
+                                                                                ]
+                                                               }
+                                                  },
+                  "/stripe/billing":  {
+                                          "get":  {
+                                                      "tags":  [
+                                                                   "stripe"
+                                                               ],
+                                                      "summary":  "Get My Billing",
+                                                      "operationId":  "get_my_billing_stripe_billing_get",
+                                                      "responses":  {
+                                                                        "200":  {
+                                                                                    "description":  "Successful Response",
+                                                                                    "content":  {
+                                                                                                    "application/json":  {
+                                                                                                                             "schema":  {
+                                                                                                                                            "$ref":  "#/components/schemas/BillingInfo"
+                                                                                                                                        }
+                                                                                                                         }
+                                                                                                }
+                                                                                }
+                                                                    },
+                                                      "security":  [
+                                                                       {
+                                                                           "HTTPBearer":  [
+
+                                                                                          ]
+                                                                       }
+                                                                   ]
+                                                  }
+                                      },
+                  "/stripe/portal":  {
+                                         "post":  {
+                                                      "tags":  [
+                                                                   "stripe"
+                                                               ],
+                                                      "summary":  "Open Billing Portal",
+                                                      "operationId":  "open_billing_portal_stripe_portal_post",
+                                                      "responses":  {
+                                                                        "200":  {
+                                                                                    "description":  "Successful Response",
+                                                                                    "content":  {
+                                                                                                    "application/json":  {
+                                                                                                                             "schema":  {
+                                                                                                                                            "$ref":  "#/components/schemas/BillingPortalResponse"
+                                                                                                                                        }
+                                                                                                                         }
+                                                                                                }
+                                                                                }
+                                                                    },
+                                                      "security":  [
+                                                                       {
+                                                                           "HTTPBearer":  [
+
+                                                                                          ]
+                                                                       }
+                                                                   ]
+                                                  }
+                                     }
+              },
+    "components":  {
+                       "schemas":  {
+                                       "BillingInfo":  {
+                                                           "properties":  {
+                                                                              "plan_type":  {
+                                                                                                "anyOf":  [
+                                                                                                              {
+                                                                                                                  "type":  "string"
+                                                                                                              },
+                                                                                                              {
+                                                                                                                  "type":  "null"
+                                                                                                              }
+                                                                                                          ],
+                                                                                                "title":  "Plan Type"
+                                                                                            },
+                                                                              "subscription_status":  {
+                                                                                                          "anyOf":  [
+                                                                                                                        {
+                                                                                                                            "type":  "string"
+                                                                                                                        },
+                                                                                                                        {
+                                                                                                                            "type":  "null"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                                          "title":  "Subscription Status"
+                                                                                                      },
+                                                                              "current_period_end":  {
+                                                                                                         "anyOf":  [
+                                                                                                                       {
+                                                                                                                           "type":  "string"
+                                                                                                                       },
+                                                                                                                       {
+                                                                                                                           "type":  "null"
+                                                                                                                       }
+                                                                                                                   ],
+                                                                                                         "title":  "Current Period End"
+                                                                                                     },
+                                                                              "cancel_at_period_end":  {
+                                                                                                           "type":  "boolean",
+                                                                                                           "title":  "Cancel At Period End",
+                                                                                                           "default":  false
+                                                                                                       },
+                                                                              "payment_method":  {
+                                                                                                     "anyOf":  [
+                                                                                                                   {
+                                                                                                                       "$ref":  "#/components/schemas/PaymentMethodInfo"
+                                                                                                                   },
+                                                                                                                   {
+                                                                                                                       "type":  "null"
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                 },
+                                                                              "invoices":  {
+                                                                                               "items":  {
+                                                                                                             "$ref":  "#/components/schemas/InvoiceInfo"
+                                                                                                         },
+                                                                                               "type":  "array",
+                                                                                               "title":  "Invoices",
+                                                                                               "default":  [
+
+                                                                                                           ]
+                                                                                           },
+                                                                              "upcoming_invoice":  {
+                                                                                                       "anyOf":  [
+                                                                                                                     {
+                                                                                                                         "$ref":  "#/components/schemas/UpcomingInvoiceInfo"
+                                                                                                                     },
+                                                                                                                     {
+                                                                                                                         "type":  "null"
+                                                                                                                     }
+                                                                                                                 ]
+                                                                                                   },
+                                                                              "credits":  {
+                                                                                              "$ref":  "#/components/schemas/CreditSummary",
+                                                                                              "default":  {
+                                                                                                              "total_credits":  0,
+                                                                                                              "plan_credits":  0,
+                                                                                                              "topup_credits":  0,
+                                                                                                              "used":  0,
+                                                                                                              "remaining":  0,
+                                                                                                              "by_category":  {
+                                                                                                                                  "brain":  0,
+                                                                                                                                  "chat":  0,
+                                                                                                                                  "persona":  0
+                                                                                                                              }
+                                                                                                          }
+                                                                                          }
+                                                                          },
+                                                           "type":  "object",
+                                                           "title":  "BillingInfo"
+                                                       },
+                                       "BillingInterval":  {
+                                                               "type":  "string",
+                                                               "enum":  [
+                                                                            "monthly",
+                                                                            "annual"
+                                                                        ],
+                                                               "title":  "BillingInterval"
+                                                           },
+                                       "BillingPortalResponse":  {
+                                                                     "properties":  {
+                                                                                        "portal_url":  {
+                                                                                                           "type":  "string",
+                                                                                                           "title":  "Portal Url"
+                                                                                                       }
+                                                                                    },
+                                                                     "type":  "object",
+                                                                     "required":  [
+                                                                                      "portal_url"
+                                                                                  ],
+                                                                     "title":  "BillingPortalResponse"
+                                                                 },
+                                       "CategoryUsage":  {
+                                                             "properties":  {
+                                                                                "chat":  {
+                                                                                             "type":  "number",
+                                                                                             "title":  "Chat",
+                                                                                             "default":  0
+                                                                                         },
+                                                                                "persona":  {
+                                                                                                "type":  "number",
+                                                                                                "title":  "Persona",
+                                                                                                "default":  0
+                                                                                            },
+                                                                                "brain":  {
+                                                                                              "type":  "number",
+                                                                                              "title":  "Brain",
+                                                                                              "default":  0
+                                                                                          }
+                                                                            },
+                                                             "type":  "object",
+                                                             "title":  "CategoryUsage"
+                                                         },
+                                       "CreateCheckoutSessionRequest":  {
+                                                                            "properties":  {
+                                                                                               "plan":  {
+                                                                                                            "$ref":  "#/components/schemas/PlanKey"
+                                                                                                        },
+                                                                                               "billing":  {
+                                                                                                               "$ref":  "#/components/schemas/BillingInterval",
+                                                                                                               "default":  "monthly"
+                                                                                                           }
+                                                                                           },
+                                                                            "type":  "object",
+                                                                            "required":  [
+                                                                                             "plan"
+                                                                                         ],
+                                                                            "title":  "CreateCheckoutSessionRequest"
+                                                                        },
+                                       "CreateCheckoutSessionResponse":  {
+                                                                             "properties":  {
+                                                                                                "checkout_url":  {
+                                                                                                                     "type":  "string",
+                                                                                                                     "title":  "Checkout Url"
+                                                                                                                 },
+                                                                                                "session_id":  {
+                                                                                                                   "type":  "string",
+                                                                                                                   "title":  "Session Id"
+                                                                                                               }
+                                                                                            },
+                                                                             "type":  "object",
+                                                                             "required":  [
+                                                                                              "checkout_url",
+                                                                                              "session_id"
+                                                                                          ],
+                                                                             "title":  "CreateCheckoutSessionResponse"
+                                                                         },
+                                       "CreateTopUpSessionRequest":  {
+                                                                         "properties":  {
+                                                                                            "amount_usd":  {
+                                                                                                               "type":  "number",
+                                                                                                               "minimum":  1,
+                                                                                                               "title":  "Amount Usd",
+                                                                                                               "description":  "Dollars to add as credit (1:1 conversion). Stripe minimum: $1."
+                                                                                                           },
+                                                                                            "idempotency_key":  {
+                                                                                                                    "anyOf":  [
+                                                                                                                                  {
+                                                                                                                                      "type":  "string"
+                                                                                                                                  },
+                                                                                                                                  {
+                                                                                                                                      "type":  "null"
+                                                                                                                                  }
+                                                                                                                              ],
+                                                                                                                    "title":  "Idempotency Key"
+                                                                                                                }
+                                                                                        },
+                                                                         "type":  "object",
+                                                                         "required":  [
+                                                                                          "amount_usd"
+                                                                                      ],
+                                                                         "title":  "CreateTopUpSessionRequest"
+                                                                     },
+                                       "CreateTopUpSessionResponse":  {
+                                                                          "properties":  {
+                                                                                             "checkout_url":  {
+                                                                                                                  "type":  "string",
+                                                                                                                  "title":  "Checkout Url"
+                                                                                                              }
+                                                                                         },
+                                                                          "type":  "object",
+                                                                          "required":  [
+                                                                                           "checkout_url"
+                                                                                       ],
+                                                                          "title":  "CreateTopUpSessionResponse"
+                                                                      },
+                                       "CreditSummary":  {
+                                                             "properties":  {
+                                                                                "total_credits":  {
+                                                                                                      "type":  "number",
+                                                                                                      "title":  "Total Credits",
+                                                                                                      "default":  0
+                                                                                                  },
+                                                                                "plan_credits":  {
+                                                                                                     "type":  "number",
+                                                                                                     "title":  "Plan Credits",
+                                                                                                     "default":  0
+                                                                                                 },
+                                                                                "topup_credits":  {
+                                                                                                      "type":  "number",
+                                                                                                      "title":  "Topup Credits",
+                                                                                                      "default":  0
+                                                                                                  },
+                                                                                "used":  {
+                                                                                             "type":  "number",
+                                                                                             "title":  "Used",
+                                                                                             "default":  0
+                                                                                         },
+                                                                                "remaining":  {
+                                                                                                  "type":  "number",
+                                                                                                  "title":  "Remaining",
+                                                                                                  "default":  0
+                                                                                              },
+                                                                                "trial":  {
+                                                                                              "anyOf":  [
+                                                                                                            {
+                                                                                                                "$ref":  "#/components/schemas/TrialCreditInfo"
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "type":  "null"
+                                                                                                            }
+                                                                                                        ]
+                                                                                          },
+                                                                                "by_category":  {
+                                                                                                    "$ref":  "#/components/schemas/UsageBreakdown",
+                                                                                                    "default":  {
+                                                                                                                    "chat":  0,
+                                                                                                                    "persona":  0,
+                                                                                                                    "brain":  0
+                                                                                                                }
+                                                                                                }
+                                                                            },
+                                                             "type":  "object",
+                                                             "title":  "CreditSummary"
+                                                         },
+                                       "HTTPValidationError":  {
+                                                                   "properties":  {
+                                                                                      "detail":  {
+                                                                                                     "items":  {
+                                                                                                                   "$ref":  "#/components/schemas/ValidationError"
+                                                                                                               },
+                                                                                                     "type":  "array",
+                                                                                                     "title":  "Detail"
+                                                                                                 }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "title":  "HTTPValidationError"
+                                                               },
+                                       "InvoiceInfo":  {
+                                                           "properties":  {
+                                                                              "amount_paid":  {
+                                                                                                  "type":  "number",
+                                                                                                  "title":  "Amount Paid"
+                                                                                              },
+                                                                              "currency":  {
+                                                                                               "type":  "string",
+                                                                                               "title":  "Currency"
+                                                                                           },
+                                                                              "status":  {
+                                                                                             "anyOf":  [
+                                                                                                           {
+                                                                                                               "type":  "string"
+                                                                                                           },
+                                                                                                           {
+                                                                                                               "type":  "null"
+                                                                                                           }
+                                                                                                       ],
+                                                                                             "title":  "Status"
+                                                                                         },
+                                                                              "created":  {
+                                                                                              "anyOf":  [
+                                                                                                            {
+                                                                                                                "type":  "string"
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "type":  "null"
+                                                                                                            }
+                                                                                                        ],
+                                                                                              "title":  "Created"
+                                                                                          },
+                                                                              "invoice_url":  {
+                                                                                                  "anyOf":  [
+                                                                                                                {
+                                                                                                                    "type":  "string"
+                                                                                                                },
+                                                                                                                {
+                                                                                                                    "type":  "null"
+                                                                                                                }
+                                                                                                            ],
+                                                                                                  "title":  "Invoice Url"
+                                                                                              },
+                                                                              "invoice_pdf":  {
+                                                                                                  "anyOf":  [
+                                                                                                                {
+                                                                                                                    "type":  "string"
+                                                                                                                },
+                                                                                                                {
+                                                                                                                    "type":  "null"
+                                                                                                                }
+                                                                                                            ],
+                                                                                                  "title":  "Invoice Pdf"
+                                                                                              }
+                                                                          },
+                                                           "type":  "object",
+                                                           "required":  [
+                                                                            "amount_paid",
+                                                                            "currency"
+                                                                        ],
+                                                           "title":  "InvoiceInfo"
+                                                       },
+                                       "PaymentMethodInfo":  {
+                                                                 "properties":  {
+                                                                                    "brand":  {
+                                                                                                  "anyOf":  [
+                                                                                                                {
+                                                                                                                    "type":  "string"
+                                                                                                                },
+                                                                                                                {
+                                                                                                                    "type":  "null"
+                                                                                                                }
+                                                                                                            ],
+                                                                                                  "title":  "Brand"
+                                                                                              },
+                                                                                    "last4":  {
+                                                                                                  "anyOf":  [
+                                                                                                                {
+                                                                                                                    "type":  "string"
+                                                                                                                },
+                                                                                                                {
+                                                                                                                    "type":  "null"
+                                                                                                                }
+                                                                                                            ],
+                                                                                                  "title":  "Last4"
+                                                                                              },
+                                                                                    "exp_month":  {
+                                                                                                      "anyOf":  [
+                                                                                                                    {
+                                                                                                                        "type":  "integer"
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "type":  "null"
+                                                                                                                    }
+                                                                                                                ],
+                                                                                                      "title":  "Exp Month"
+                                                                                                  },
+                                                                                    "exp_year":  {
+                                                                                                     "anyOf":  [
+                                                                                                                   {
+                                                                                                                       "type":  "integer"
+                                                                                                                   },
+                                                                                                                   {
+                                                                                                                       "type":  "null"
+                                                                                                                   }
+                                                                                                               ],
+                                                                                                     "title":  "Exp Year"
+                                                                                                 },
+                                                                                    "funding":  {
+                                                                                                    "anyOf":  [
+                                                                                                                  {
+                                                                                                                      "type":  "string"
+                                                                                                                  },
+                                                                                                                  {
+                                                                                                                      "type":  "null"
+                                                                                                                  }
+                                                                                                              ],
+                                                                                                    "title":  "Funding"
+                                                                                                }
+                                                                                },
+                                                                 "type":  "object",
+                                                                 "title":  "PaymentMethodInfo"
+                                                             },
+                                       "PlanKey":  {
+                                                       "type":  "string",
+                                                       "enum":  [
+                                                                    "starter",
+                                                                    "pro",
+                                                                    "power",
+                                                                    "team_125",
+                                                                    "team_250",
+                                                                    "team_500",
+                                                                    "team_1000",
+                                                                    "team_1500",
+                                                                    "team_2000"
+                                                                ],
+                                                       "title":  "PlanKey",
+                                                       "description":  "The single plan identifier the FE sends. Teams keys carry the volume tier;\nthe BE maps key + billing to a Stripe price (the price is the source of truth\nfor plan/tier downstream)."
+                                                   },
+                                       "SubscriptionActionResponse":  {
+                                                                          "properties":  {
+                                                                                             "status":  {
+                                                                                                            "type":  "string",
+                                                                                                            "title":  "Status"
+                                                                                                        },
+                                                                                             "plan_type":  {
+                                                                                                               "anyOf":  [
+                                                                                                                             {
+                                                                                                                                 "type":  "string"
+                                                                                                                             },
+                                                                                                                             {
+                                                                                                                                 "type":  "null"
+                                                                                                                             }
+                                                                                                                         ],
+                                                                                                               "title":  "Plan Type"
+                                                                                                           },
+                                                                                             "current_period_end":  {
+                                                                                                                        "anyOf":  [
+                                                                                                                                      {
+                                                                                                                                          "type":  "string"
+                                                                                                                                      },
+                                                                                                                                      {
+                                                                                                                                          "type":  "null"
+                                                                                                                                      }
+                                                                                                                                  ],
+                                                                                                                        "title":  "Current Period End"
+                                                                                                                    }
+                                                                                         },
+                                                                          "type":  "object",
+                                                                          "required":  [
+                                                                                           "status"
+                                                                                       ],
+                                                                          "title":  "SubscriptionActionResponse"
+                                                                      },
+                                       "TopUpChargeResponse":  {
+                                                                   "properties":  {
+                                                                                      "status":  {
+                                                                                                     "type":  "string",
+                                                                                                     "title":  "Status"
+                                                                                                 },
+                                                                                      "client_secret":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "string"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "null"
+                                                                                                                          }
+                                                                                                                      ],
+                                                                                                            "title":  "Client Secret"
+                                                                                                        }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "required":  [
+                                                                                    "status"
+                                                                                ],
+                                                                   "title":  "TopUpChargeResponse"
+                                                               },
+                                       "TrialCreditInfo":  {
+                                                               "properties":  {
+                                                                                  "amount":  {
+                                                                                                 "type":  "number",
+                                                                                                 "title":  "Amount"
+                                                                                             },
+                                                                                  "remaining":  {
+                                                                                                    "type":  "number",
+                                                                                                    "title":  "Remaining"
+                                                                                                },
+                                                                                  "used":  {
+                                                                                               "type":  "number",
+                                                                                               "title":  "Used"
+                                                                                           },
+                                                                                  "starts_at":  {
+                                                                                                    "anyOf":  [
+                                                                                                                  {
+                                                                                                                      "type":  "string"
+                                                                                                                  },
+                                                                                                                  {
+                                                                                                                      "type":  "null"
+                                                                                                                  }
+                                                                                                              ],
+                                                                                                    "title":  "Starts At"
+                                                                                                },
+                                                                                  "expires_at":  {
+                                                                                                     "type":  "string",
+                                                                                                     "title":  "Expires At"
+                                                                                                 }
+                                                                              },
+                                                               "type":  "object",
+                                                               "required":  [
+                                                                                "amount",
+                                                                                "remaining",
+                                                                                "used",
+                                                                                "expires_at"
+                                                                            ],
+                                                               "title":  "TrialCreditInfo"
+                                                           },
+                                       "TrialSummary":  {
+                                                            "properties":  {
+                                                                               "remaining":  {
+                                                                                                 "type":  "number",
+                                                                                                 "title":  "Remaining"
+                                                                                             },
+                                                                               "expires_at":  {
+                                                                                                  "type":  "string",
+                                                                                                  "title":  "Expires At"
+                                                                                              }
+                                                                           },
+                                                            "type":  "object",
+                                                            "required":  [
+                                                                             "remaining",
+                                                                             "expires_at"
+                                                                         ],
+                                                            "title":  "TrialSummary"
+                                                        },
+                                       "UpcomingInvoiceInfo":  {
+                                                                   "properties":  {
+                                                                                      "amount_due":  {
+                                                                                                         "type":  "number",
+                                                                                                         "title":  "Amount Due"
+                                                                                                     },
+                                                                                      "currency":  {
+                                                                                                       "type":  "string",
+                                                                                                       "title":  "Currency"
+                                                                                                   },
+                                                                                      "next_payment_date":  {
+                                                                                                                "anyOf":  [
+                                                                                                                              {
+                                                                                                                                  "type":  "string"
+                                                                                                                              },
+                                                                                                                              {
+                                                                                                                                  "type":  "null"
+                                                                                                                              }
+                                                                                                                          ],
+                                                                                                                "title":  "Next Payment Date"
+                                                                                                            }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "required":  [
+                                                                                    "amount_due",
+                                                                                    "currency"
+                                                                                ],
+                                                                   "title":  "UpcomingInvoiceInfo"
+                                                               },
+                                       "UsageBreakdown":  {
+                                                              "properties":  {
+                                                                                 "chat":  {
+                                                                                              "type":  "number",
+                                                                                              "title":  "Chat",
+                                                                                              "default":  0
+                                                                                          },
+                                                                                 "persona":  {
+                                                                                                 "type":  "number",
+                                                                                                 "title":  "Persona",
+                                                                                                 "default":  0
+                                                                                             },
+                                                                                 "brain":  {
+                                                                                               "type":  "number",
+                                                                                               "title":  "Brain",
+                                                                                               "default":  0
+                                                                                           }
+                                                                             },
+                                                              "type":  "object",
+                                                              "title":  "UsageBreakdown",
+                                                              "description":  "Credits spent this period, by source area."
+                                                          },
+                                       "UsageResponse":  {
+                                                             "properties":  {
+                                                                                "credits":  {
+                                                                                                "type":  "number",
+                                                                                                "title":  "Credits"
+                                                                                            },
+                                                                                "plan_credits":  {
+                                                                                                     "type":  "number",
+                                                                                                     "title":  "Plan Credits",
+                                                                                                     "default":  0
+                                                                                                 },
+                                                                                "topup_credits":  {
+                                                                                                      "type":  "number",
+                                                                                                      "title":  "Topup Credits",
+                                                                                                      "default":  0
+                                                                                                  },
+                                                                                "used":  {
+                                                                                             "type":  "number",
+                                                                                             "title":  "Used",
+                                                                                             "default":  0
+                                                                                         },
+                                                                                "trial":  {
+                                                                                              "anyOf":  [
+                                                                                                            {
+                                                                                                                "$ref":  "#/components/schemas/TrialSummary"
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "type":  "null"
+                                                                                                            }
+                                                                                                        ]
+                                                                                          },
+                                                                                "spent_this_period":  {
+                                                                                                          "type":  "number",
+                                                                                                          "title":  "Spent This Period",
+                                                                                                          "default":  0
+                                                                                                      },
+                                                                                "by_category":  {
+                                                                                                    "$ref":  "#/components/schemas/CategoryUsage",
+                                                                                                    "default":  {
+                                                                                                                    "chat":  0,
+                                                                                                                    "persona":  0,
+                                                                                                                    "brain":  0
+                                                                                                                }
+                                                                                                }
+                                                                            },
+                                                             "type":  "object",
+                                                             "required":  [
+                                                                              "credits"
+                                                                          ],
+                                                             "title":  "UsageResponse"
+                                                         },
+                                       "ValidationError":  {
+                                                               "properties":  {
+                                                                                  "loc":  {
+                                                                                              "items":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "string"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "integer"
+                                                                                                                          }
+                                                                                                                      ]
+                                                                                                        },
+                                                                                              "type":  "array",
+                                                                                              "title":  "Location"
+                                                                                          },
+                                                                                  "msg":  {
+                                                                                              "type":  "string",
+                                                                                              "title":  "Message"
+                                                                                          },
+                                                                                  "type":  {
+                                                                                               "type":  "string",
+                                                                                               "title":  "Error Type"
+                                                                                           },
+                                                                                  "input":  {
+                                                                                                "title":  "Input"
+                                                                                            },
+                                                                                  "ctx":  {
+                                                                                              "type":  "object",
+                                                                                              "title":  "Context"
+                                                                                          }
+                                                                              },
+                                                               "type":  "object",
+                                                               "required":  [
+                                                                                "loc",
+                                                                                "msg",
+                                                                                "type"
+                                                                            ],
+                                                               "title":  "ValidationError"
+                                                           }
+                                   },
+                       "securitySchemes":  {
+                                               "HTTPBearer":  {
+                                                                  "type":  "http",
+                                                                  "scheme":  "bearer"
+                                                              }
+                                           }
+                   }
+}

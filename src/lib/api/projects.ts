@@ -4,6 +4,7 @@ import { apiFetch, apiFetchJson, ApiError } from './client'
 import {
   PROJECTS_ENDPOINT,
   PROJECT_DETAIL_ENDPOINT,
+  PROJECT_VISIBILITY_ENDPOINT,
   PROJECT_CHATS_ENDPOINT,
   PROJECT_CHAT_LINK_ENDPOINT,
   PROJECT_FILES_ENDPOINT,
@@ -35,6 +36,7 @@ export interface ProjectResponse {
   title:              string
   description:        string
   system_instruction: string
+  team_id?:           string | null
   created_at:         string
   updated_at:         string
   documents:          ProjectDocumentResponse[]
@@ -72,6 +74,7 @@ export interface ApiProject {
   title:             string
   description:       string
   systemInstruction: string
+  teamId:            string | null
   createdAt:         string
   updatedAt:         string
   documents:         ApiProjectDocument[]
@@ -108,6 +111,7 @@ function normalizeProject(p: ProjectResponse): ApiProject {
     title:             p.title,
     description:       p.description,
     systemInstruction: p.system_instruction,
+    teamId:            p.team_id ?? null,
     createdAt:         p.created_at,
     updatedAt:         p.updated_at,
     documents:         (p.documents ?? []).map(normalizeDocument),
@@ -221,4 +225,18 @@ export async function addChatToProject(projectId: string, chatId: string): Promi
 /** DELETE /projects/{project_id}/chats/{chat_id} */
 export async function removeChatFromProject(projectId: string, chatId: string): Promise<void> {
   await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'DELETE' })
+}
+
+/** PATCH /projects/{project_id}/visibility */
+export async function setProjectVisibility(
+  projectId: string,
+  visibility: 'private' | 'team',
+  teamId?: string,
+): Promise<void> {
+  const body: Record<string, unknown> = { visibility }
+  if (visibility === 'team' && teamId) body.teamId = teamId
+  await apiFetch(PROJECT_VISIBILITY_ENDPOINT(projectId), {
+    method: 'PATCH',
+    body:   JSON.stringify(body),
+  })
 }
