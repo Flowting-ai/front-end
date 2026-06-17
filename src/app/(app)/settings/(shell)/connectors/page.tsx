@@ -17,6 +17,8 @@ import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/ap
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
 import { CONNECTOR_LOGO_MAP } from '@/lib/connectorLogos'
+import { useAuth } from '@/context/auth-context'
+import { useOrg } from '@/context/org-context'
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 
@@ -67,7 +69,7 @@ function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; s
 
   if (localLogo) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset, variable path prevents next/image static analysis
+      // eslint-disable-next-line @next/next/no-img-element -- local brand asset, variable path prevents next/image static analysis
       <img
         src={localLogo}
         alt={entry.display_name}
@@ -80,7 +82,7 @@ function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; s
 
   if (entry.icon_url) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- dynamic connector icon URL, external domain not in next config
+      // eslint-disable-next-line @next/next/no-img-element -- dynamic connector icon URL, external domain not in next config
       <img
         src={entry.icon_url}
         alt={entry.display_name}
@@ -135,6 +137,22 @@ const API_TO_UI: Record<ConnectorTool['policy'], UIPolicy> = {
 
 const POLICY_OPTIONS: UIPolicy[] = ['Always allow', 'Ask', 'Never', 'Allow once']
 
+function connectedWorkspaceAccounts(entry: ConnectorCatalogEntry) {
+  return (entry.accounts ?? []).filter(account => account.connected && account.status === 'active')
+}
+
+function hasConnectedWorkspaceAccount(entry: ConnectorCatalogEntry): boolean {
+  return entry.workspace_linked || connectedWorkspaceAccounts(entry).length > 0
+}
+
+function workspaceAccountLabel(entry: ConnectorCatalogEntry): string {
+  return entry.account_label ?? entry.account_identifier ?? 'Shared account'
+}
+
+function sharedAccountCountLabel(count: number): string {
+  return `${count} shared account${count === 1 ? '' : 's'}`
+}
+
 // ── Policy dropdown ───────────────────────────────────────────────────────────
 
 function PolicyDropdown({
@@ -178,7 +196,6 @@ function PolicyDropdown({
       </button>
       {open && (
         <>
-          {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
           <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setOpen(false)} />
           <div style={{
             position:        'absolute',
@@ -233,7 +250,6 @@ function ToolPermissionsModal({
   onUpdate: (updated: ConnectorCatalogEntry) => void
 }) {
   // local copy of tools so UI updates optimistically
-  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [tools,              setTools]              = useState<ConnectorTool[]>(entry.tools ?? [])
   const [saving,             setSaving]             = useState<string | null>(null)  // slug being saved
   const [unlinking,          setUnlinking]          = useState(false)
@@ -255,7 +271,6 @@ function ToolPermissionsModal({
     setTools(prev => prev.map(t => t.slug === toolSlug ? { ...t, policy: apiPolicy } : t))
     setSaving(toolSlug)
     try {
-      // eslint-disable-next-line react-doctor/async-defer-await -- abort-guard: check if unmounted after async call, not before
       const updated = await updateConnector(entry.slug, {
         permissions: [{ slug: toolSlug, policy: apiPolicy }],
       })
@@ -278,7 +293,6 @@ function ToolPermissionsModal({
     if (abortedRef.current) return
     setUnlinking(true)
     try {
-      // eslint-disable-next-line react-doctor/async-defer-await -- abort-guard: check if unmounted after async call, not before
       await unlinkConnector(entry.slug)
       if (abortedRef.current) return
       toast.success(`${entry.display_name} disconnected`)
@@ -298,7 +312,6 @@ function ToolPermissionsModal({
     setAllowingAll(true)
     setTools(prev => prev.map(t => ({ ...t, policy: 'allow' as const })))
     try {
-      // eslint-disable-next-line react-doctor/async-defer-await -- abort-guard: check if unmounted after async call, not before
       const updated = await updateConnector(entry.slug, {
         permissions: tools.map(t => ({ slug: t.slug, policy: 'allow' as const })),
       })
@@ -323,7 +336,6 @@ function ToolPermissionsModal({
 
   return (
     <>
-      {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop overlay closes modal; keyboard via Escape in useEffect */}
       <div
         onClick={onClose}
         style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(38,33,30,0.32)', zIndex: 50 }}
@@ -707,7 +719,6 @@ function ApiKeyForm({
               border:          '1px solid var(--neutral-300)',
               fontFamily:      'var(--font-body)',
               fontSize:        13,
-              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline:         'none',
               width:           '100%',
               boxSizing:       'border-box',
@@ -744,10 +755,12 @@ function ConnectorCard({
   entry,
   onManage,
   onUpdate,
+  mode = 'personal',
 }: {
-  entry:    ConnectorCatalogEntry
-  onManage: (e: ConnectorCatalogEntry) => void
-  onUpdate: (updated: ConnectorCatalogEntry) => void
+  entry:     ConnectorCatalogEntry
+  onManage:  (e: ConnectorCatalogEntry) => void
+  onUpdate:  (updated: ConnectorCatalogEntry) => void
+  mode?:     'personal' | 'workspace'
 }) {
   const [showApiForm, setShowApiForm] = useState(false)
   const { state, errorMsg, apiKeyValues, setApiKeyValues, startOAuth, submitApiKey } = useConnectFlow(entry, (updated) => {
@@ -755,10 +768,14 @@ function ConnectorCard({
     onUpdate(updated)
   })
 
-  const isActive     = entry.linked
+  const isWorkspace  = mode === 'workspace'
+  const isActive     = isWorkspace ? entry.workspace_linked : entry.linked
   const isPolling    = state === 'polling'
   const isOpening    = state === 'opening'
   const isSubmitting = state === 'submitting'
+  const sharedAccounts = connectedWorkspaceAccounts(entry)
+  const accountCount = sharedAccounts.length
+  const workspaceConnected = hasConnectedWorkspaceAccount(entry)
 
   // api_key connectors and per-tenant OAuth connectors (Shopify BYOA, which
   // declares required init fields like client_id/client_secret) both collect a
@@ -779,7 +796,7 @@ function ConnectorCard({
       backgroundColor: 'white',
       borderRadius:    16,
       padding:         16,
-      paddingBottom:   showApiForm ? 16 : 60,
+      paddingBottom:   isWorkspace || showApiForm ? 16 : 60,
       display:         'flex',
       flexDirection:   'column',
       gap:             12,
@@ -834,6 +851,93 @@ function ConnectorCard({
         {entry.description}
       </p>
 
+      {isWorkspace && (
+        <div style={{
+          borderRadius:    10,
+          backgroundColor: 'var(--neutral-50)',
+          boxShadow:       '0px 0px 0px 1px var(--neutral-200)',
+          padding:         '10px 12px',
+          display:         'flex',
+          flexDirection:   'column',
+          gap:             6,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize:   12,
+              fontWeight: 500,
+              lineHeight: '16px',
+              color:      'var(--neutral-600)',
+              margin:     0,
+            }}>
+              Workspace shared account
+            </p>
+            <span style={{
+              display:         'inline-flex',
+              alignItems:      'center',
+              padding:         '1px 6px',
+              borderRadius:    6,
+              backgroundColor: workspaceConnected ? 'var(--green-50)' : 'white',
+              boxShadow:       workspaceConnected
+                ? '0px 0px 0px 1px rgba(128,183,7,0.4)'
+                : '0px 0px 0px 1px var(--neutral-200)',
+              fontFamily:      'var(--font-body)',
+              fontWeight:      500,
+              fontSize:        11,
+              lineHeight:      '16px',
+              color:           workspaceConnected ? 'var(--green-800)' : 'var(--neutral-500)',
+              whiteSpace:      'nowrap',
+            }}>
+              {workspaceConnected ? 'Connected' : 'Not attached'}
+            </span>
+          </div>
+          <div>
+            <p style={{
+              fontFamily:   'var(--font-body)',
+              fontSize:     13,
+              fontWeight:   500,
+              lineHeight:   '20px',
+              color:        'var(--neutral-900)',
+              margin:       0,
+              overflow:     'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace:   'nowrap',
+            }}>
+              {entry.shared_account_id ? workspaceAccountLabel(entry) : accountCount > 0 ? sharedAccountCountLabel(accountCount) : 'No account attached'}
+            </p>
+            {entry.account_label && entry.account_identifier && (
+              <p style={{
+                fontFamily:   'var(--font-body)',
+                fontSize:     12,
+                lineHeight:   '16px',
+                color:        'var(--neutral-500)',
+                margin:       0,
+                overflow:     'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace:   'nowrap',
+              }}>
+                {entry.account_identifier}
+              </p>
+            )}
+            {!entry.shared_account_id && accountCount > 0 && (
+              <p style={{
+                fontFamily:   'var(--font-body)',
+                fontSize:     12,
+                lineHeight:   '16px',
+                color:        'var(--neutral-500)',
+                margin:       0,
+                overflow:     'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace:   'nowrap',
+              }}>
+                {sharedAccounts.slice(0, 2).map(a => a.accountLabel).join(', ')}
+                {accountCount > 2 ? ` +${accountCount - 2} more` : ''}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Error message */}
       {state === 'error' && errorMsg && (
         <p style={{
@@ -850,7 +954,7 @@ function ConnectorCard({
           (Shopify). For OAuth the fields are posted as init_data via startOAuth,
           which then opens the hosted connect popup; for api_key they're PATCHed.
           Button is hidden while this is open. */}
-      {showApiForm && !isActive && (
+      {showApiForm && !isActive && !isWorkspace && (
         <ApiKeyForm
           fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD]}
           values={apiKeyValues}
@@ -862,7 +966,7 @@ function ConnectorCard({
       )}
 
       {/* Action button — absolute bottom-right so all cards align regardless of content height */}
-      {!showApiForm && (
+      {!showApiForm && !isWorkspace && (
         <div style={{ position: 'absolute', bottom: 16, right: 16 }}>
           {isActive ? (
             <Button
@@ -921,8 +1025,9 @@ function SkeletonCard() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export default function ConnectorsPage() {
+  const { user } = useAuth()
+  const { orgId } = useOrg()
   const [mainTab,        setMainTab]        = useState('my')
   const [searchQuery,    setSearchQuery]    = useState('')
   const [isSearching,    setIsSearching]    = useState(false)
@@ -947,7 +1052,14 @@ export default function ConnectorsPage() {
     }
   }, [])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- initial connector load hydrates local UI state from the API
   useEffect(() => { void fetchConnectors() }, [fetchConnectors])
+
+  const isTeamsPlan = user?.roleFit === 'small_team' || user?.roleFit === 'large_team'
+  const hasWorkspacePlan = isTeamsPlan || Boolean(user?.orgId ?? orgId)
+  const hasWorkspaceConnectors = connectors.some(hasConnectedWorkspaceAccount)
+  const canSeeWorkspaceTab = hasWorkspacePlan || hasWorkspaceConnectors
+  const activeMainTab = canSeeWorkspaceTab ? mainTab : 'my'
 
   // Update a single entry in state (after connect / permission change / disconnect)
   const handleUpdate = useCallback((updated: ConnectorCatalogEntry) => {
@@ -977,8 +1089,16 @@ export default function ConnectorsPage() {
     return connectors
   })()
 
-  const connected  = filtered.filter(c => c.linked)
-  const available  = filtered.filter(c => !c.linked)
+  const activeFiltered = activeMainTab === 'workspace'
+    ? filtered.filter(hasConnectedWorkspaceAccount)
+    : filtered
+  const connected  = activeFiltered.filter(c => activeMainTab === 'workspace' ? hasConnectedWorkspaceAccount(c) : c.linked)
+  const available  = activeFiltered.filter(c => activeMainTab === 'workspace' ? !hasConnectedWorkspaceAccount(c) : !c.linked)
+  const emptyMessage = searchQuery
+    ? `No connectors found for "${searchQuery}"`
+    : activeMainTab === 'workspace'
+      ? 'No connected workspace shared accounts yet.'
+      : 'No connectors available.'
 
   return (
     <>
@@ -1016,12 +1136,14 @@ export default function ConnectorsPage() {
             }}>
               Connectors
             </h1>
-            <Tabs value={mainTab} onValueChange={setMainTab}>
-              <TabsList>
-                <TabsTrigger value="my">My Connectors</TabsTrigger>
-                <TabsTrigger value="workspace">Workspace Connectors</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {canSeeWorkspaceTab && (
+              <Tabs value={activeMainTab} onValueChange={setMainTab}>
+                <TabsList>
+                  <TabsTrigger value="my">My Connectors</TabsTrigger>
+                  <TabsTrigger value="workspace">Workspace Connectors</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
           </div>
 
           {/* Suggestions toggle */}
@@ -1099,7 +1221,6 @@ export default function ConnectorsPage() {
                     flex:       '1 0 0',
                     minWidth:   0,
                     border:     'none',
-                    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                     outline:    'none',
                     fontFamily: 'var(--font-body)',
                     fontWeight: 400,
@@ -1152,7 +1273,7 @@ export default function ConnectorsPage() {
                     Retry
                   </button>
                 </div>
-              ) : filtered.length === 0 ? (
+              ) : activeFiltered.length === 0 ? (
                 <p style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 400,
@@ -1162,7 +1283,7 @@ export default function ConnectorsPage() {
                   padding:    '24px 8px',
                   textAlign:  'center',
                 }}>
-                  {searchQuery ? `No connectors found for "${searchQuery}"` : 'No connectors available.'}
+                  {emptyMessage}
                 </p>
               ) : (
                 <>
@@ -1178,7 +1299,7 @@ export default function ConnectorsPage() {
                           color:      'var(--neutral-900)',
                           margin:     0,
                         }}>
-                          Connected
+                          {activeMainTab === 'workspace' ? 'Connected workspace accounts' : 'Connected'}
                         </p>
                         <span style={{
                           display:         'inline-flex',
@@ -1193,7 +1314,7 @@ export default function ConnectorsPage() {
                           lineHeight:      '16px',
                           color:           'var(--green-800)',
                         }}>
-                          {connected.length} active
+                          {connected.length} {activeMainTab === 'workspace' ? 'shared' : 'active'}
                         </span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
@@ -1203,6 +1324,7 @@ export default function ConnectorsPage() {
                             entry={c}
                             onManage={handleManage}
                             onUpdate={handleUpdate}
+                            mode={activeMainTab === 'workspace' ? 'workspace' : 'personal'}
                           />
                         ))}
                       </div>
@@ -1220,7 +1342,9 @@ export default function ConnectorsPage() {
                         color:      'var(--neutral-900)',
                         margin:     '0 0 12px',
                       }}>
-                        {connected.length > 0 ? 'Available to connect' : 'All Connectors'}
+                        {activeMainTab === 'workspace'
+                          ? connected.length > 0 ? 'Other connected workspace accounts' : 'Connected workspace accounts'
+                          : connected.length > 0 ? 'Available to connect' : 'All Connectors'}
                       </p>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                         {available.map(c => (
@@ -1229,6 +1353,7 @@ export default function ConnectorsPage() {
                             entry={c}
                             onManage={handleManage}
                             onUpdate={handleUpdate}
+                            mode={activeMainTab === 'workspace' ? 'workspace' : 'personal'}
                           />
                         ))}
                       </div>

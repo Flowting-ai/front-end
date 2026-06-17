@@ -381,6 +381,26 @@ export async function listTeamConnections(orgId: string, teamId: string): Promis
   return list.map(normalizeConnection)
 }
 
+export async function createTeamConnectionAccount(
+  orgId: string,
+  teamId: string,
+  slug: string,
+  params: { accountLabel: string; accountIdentifier?: string; initData?: Record<string, string> },
+): Promise<{ connectorSlug: string; redirectUrl: string | null; sharedAccountId: string | null }> {
+  const body: Record<string, unknown> = { accountLabel: params.accountLabel }
+  if (params.accountIdentifier) body.accountIdentifier = params.accountIdentifier
+  if (params.initData)          body.init_data          = params.initData
+  const data = await apiFetchJson<{ connector_slug: string; redirect_url: string | null; shared_account_id: string | null }>(
+    `${ORG_TEAM_CONNECTION_ENDPOINT(orgId, teamId, slug)}/link`,
+    { method: 'POST', body: JSON.stringify(body) },
+  )
+  return {
+    connectorSlug:    data.connector_slug,
+    redirectUrl:      data.redirect_url,
+    sharedAccountId:  data.shared_account_id,
+  }
+}
+
 export async function attachSharedAccount(
   orgId: string,
   teamId: string,

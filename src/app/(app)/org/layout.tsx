@@ -1,21 +1,24 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useOrg } from '@/context/org-context'
 
 export default function OrgAdminLayout({ children }: { children: React.ReactNode }) {
   const { currentUserRole, orgReady } = useOrg()
   const { replace } = useRouter()
+  const pathname = usePathname()
+  const allowMemberConnectors = pathname === '/org/connectors'
+  const canView = currentUserRole === 'admin' || allowMemberConnectors
 
   useEffect(() => {
-    if (orgReady && currentUserRole !== 'admin') {
+    if (orgReady && !canView) {
       replace('/chat')
     }
-  }, [orgReady, currentUserRole, replace])
+  }, [canView, orgReady, replace])
 
   if (!orgReady) return null
-  if (currentUserRole !== 'admin') return null
+  if (!canView) return null
 
   return <>{children}</>
 }
