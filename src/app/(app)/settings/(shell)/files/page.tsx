@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { useAuth } from '@/context/auth-context'
+import { FilesSkeleton } from '../SettingsSkeleton'
 
 // ── Local helpers ─────────────────────────────────────────────────────────────
 
@@ -436,6 +437,7 @@ const RETENTION_OPTIONS = ['30 days', '60 days', '90 days']
 
 export default function FilesPage() {
   const { user } = useAuth()
+  if (!user) return <FilesSkeleton />
 
   const planName    = user?.planName ?? 'Starter'
   const storageLimit = planName.toLowerCase().includes('power') ? '20 GB'

@@ -10,6 +10,7 @@ import {
   SidebarLeftIcon,
   MoreHorizontalIcon,
   BubbleChatIcon,
+  BubbleChatAddIcon,
   UserAiIcon,
   NeuralNetworkIcon,
   CalendarThreeIcon,
@@ -35,6 +36,7 @@ import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
 import { AccountMenu } from '@/components/AccountMenu'
 import { OrgBadge } from '@/components/OrgBadge'
+import { Chip } from '@/components/Chip'
 import type { ChipColor } from '@/components/Chip'
 
 // ── Souvenir wordmark SVG (115×20px) ──────────────────────────────────────────
@@ -306,6 +308,8 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
    * Only Owner/Admin roles should pass this. @default false
    */
   showAdmin?: boolean
+  /** Secondary label shown below the org name in the interactive badge — e.g. "Admin", "Owner". */
+  orgBadgeSublabel?: string
   /** Grouped org/admin nav shown in the admin body. Defaults to the standard three groups. */
   adminGroups?: SidebarAdminGroup[]
   /** Fires when an org/admin row is clicked. */
@@ -936,6 +940,7 @@ export function Sidebar({
       orgId,
       orgColor,
       showAdmin           = false,
+      orgBadgeSublabel,
       adminGroups         = DEFAULT_ADMIN_GROUPS,
       onAdminSectionClick,
       adminItems,
@@ -1147,18 +1152,8 @@ export function Sidebar({
                 >
                   <SouvenirWordmark />
                 </button>
-                {orgName && (
-                  <OrgBadge
-                    orgName={orgName.length > 10 ? orgName.slice(0, 10) + '…' : orgName}
-                    fullName={orgName}
-                    orgLogoSrc={orgLogoSrc}
-                    orgId={orgId}
-                    color={orgColor}
-                    interactive={showAdmin}
-                    active={bodySection === 'admin'}
-                    onClick={() => onSelectSection('admin')}
-                    maxNameWidth={100}
-                  />
+                {orgBadgeSublabel && (
+                  <Chip size="Small" color="Purple" label={orgBadgeSublabel} />
                 )}
               </div>
             )}
@@ -1203,6 +1198,24 @@ export function Sidebar({
             </div>
           )}
 
+          {/* Manage Organization — shown below tabs for all sections when admin */}
+          {showAdmin && !isCollapsed && (
+            <div style={{ paddingLeft: '12px', paddingRight: '12px', display: 'flex' }}>
+              <OrgBadge
+                orgName={orgName ?? ''}
+                fullName={orgName}
+                orgLogoSrc={orgLogoSrc}
+                orgId={orgId}
+                color={orgColor}
+                interactive
+                fluid
+                active={bodySection === 'admin'}
+                onClick={() => onSelectSection('admin')}
+                sublabel={orgBadgeSublabel}
+              />
+            </div>
+          )}
+
           {/* ── Nav strip — Primary action + Search + section-specific items ── */}
           <div style={{
             display:       'flex',
@@ -1223,7 +1236,7 @@ export function Sidebar({
                   variant="new-chat"
                   label={computedNewChatLabel}
                   selected={newChatButtonSelected ?? selectedItem === 'new-chat'}
-                  icon={bodySection === 'agents' ? <UserAiIcon size={20} /> : undefined}
+                  icon={<BubbleChatAddIcon size={20} animated />}
                   onClick={() => {
                     setSelectedItem('new-chat')
                     setActiveFolder(null)

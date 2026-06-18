@@ -533,12 +533,13 @@ function SidebarDivider() {
 interface TeamsSidebarContentProps {
   role: 'admin' | 'editor' | 'member'
   teams: Team[]
+  teamRoles?: Map<string, 'admin' | 'editor' | 'member'>
   activeTeamId: string | null
   setActiveTeamId: (id: string | null) => void
   onManageTeams: () => void
 }
 
-function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId, onManageTeams }: TeamsSidebarContentProps) {
+function TeamsSidebarContent({ role, teams, teamRoles, activeTeamId, setActiveTeamId, onManageTeams }: TeamsSidebarContentProps) {
   const { push } = useRouter()
   const canCreateProject = role !== 'member'
   const isAdmin = role === 'admin'
@@ -549,7 +550,11 @@ function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId, onMan
       <SidebarDivider />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4 }}>
         <TeamSwitcher
-          teams={teams.map(t => ({ id: t.id, name: t.name }))}
+          teams={teams.map(t => ({
+            id:   t.id,
+            name: t.name,
+            role: role === 'admin' ? 'admin' : (teamRoles?.get(t.id) ?? role),
+          }))}
           activeTeamId={activeTeamId}
           isAdmin={isAdmin}
           onTeamSelect={setActiveTeamId}
@@ -1030,7 +1035,15 @@ function LeftSidebarImpl({
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
   const { chats: projectChats } = useProjects();
-  const { orgId, org, currentUserRole, teams, activeTeamId, setActiveTeamId } = useOrg();
+  const { orgId, org, orgRole, currentUserRole, teams, members, activeTeamId, setActiveTeamId } = useOrg();
+
+  const selfMember = members.find(m => m.email === user?.email)
+  const teamRoleMap = new Map<string, 'admin' | 'editor' | 'member'>(
+    (selfMember?.teamMemberships ?? []).map(tm => [
+      tm.teamId,
+      tm.isTeamOwner ? 'admin' : currentUserRole,
+    ])
+  )
 
   // ── Global search ─────────────────────────────────────────────────────────
   const { searchOpen, openSearch } = useSearch();
@@ -1140,9 +1153,13 @@ function LeftSidebarImpl({
     ? user.firstName?.trim() || user.name?.split(" ")[0]?.trim() || ""
     : "";
 
-  // Teams → "Teams" | paid → "Pro"/"Starter"/"Power" | trial → "Free Trial" | none → "No Plan Selected"
+  const orgBadgeSublabel = orgId && orgRole
+    ? orgRole.charAt(0).toUpperCase() + orgRole.slice(1)
+    : undefined
+
+  // Teams → "Teams | Admin/Editor/Member" | paid → "Pro"/"Starter"/"Power" | trial → "Free Trial" | none → "No Plan Selected"
   const planLabel = orgId
-    ? 'Teams'
+    ? `Teams | ${org?.name ?? 'Teams'}`
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : user?.isTrial
@@ -1198,6 +1215,7 @@ function LeftSidebarImpl({
       orgName={orgId ? org.name : undefined}
       orgId={orgId ?? undefined}
       showAdmin={Boolean(orgId) && currentUserRole === 'admin'}
+      orgBadgeSublabel={orgBadgeSublabel}
       accountMenu={(collapsed) => (
         <AccountMenu
           name={displayName || "Account"}
@@ -1222,6 +1240,7 @@ function LeftSidebarImpl({
         <TeamsSidebarContent
           role={currentUserRole}
           teams={teams}
+          teamRoles={teamRoleMap}
           activeTeamId={activeTeamId}
           setActiveTeamId={setActiveTeamId}
           onManageTeams={() => push("/org/teams")}

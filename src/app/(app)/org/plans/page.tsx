@@ -248,6 +248,114 @@ function SectionCard({
   )
 }
 
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+
+function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: string | number; height: number; radius?: number }) {
+  return (
+    <div style={{
+      width, height, borderRadius: radius,
+      background: 'linear-gradient(90deg, var(--neutral-200) 25%, var(--neutral-100) 50%, var(--neutral-200) 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'plansSkeletonShimmer 1.4s ease-in-out infinite',
+      flexShrink: 0,
+    }} />
+  )
+}
+
+function PlansPageSkeleton() {
+  return (
+    <>
+      <style>{`@keyframes plansSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+      <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+        {/* Page header */}
+        <div style={{ paddingLeft: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <SkeletonBlock width={80} height={24} radius={6} />
+          <SkeletonBlock width={240} height={14} radius={4} />
+        </div>
+
+        {/* Hero panel skeleton */}
+        <div style={{ borderRadius: 8, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, background: 'var(--neutral-100)', boxShadow: SHADOW_HERO }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <SkeletonBlock width={120} height={24} radius={6} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <SkeletonBlock width={150} height={14} radius={4} />
+              <SkeletonBlock width={80} height={22} radius={6} />
+            </div>
+            <SkeletonBlock width={300} height={14} radius={4} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+            <SkeletonBlock width={110} height={32} radius={6} />
+            <SkeletonBlock width={140} height={14} radius={4} />
+          </div>
+          <SkeletonBlock width="100%" height={4} radius={2} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <SkeletonBlock width={150} height={13} radius={4} />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <SkeletonBlock width={130} height={32} radius={8} />
+              <SkeletonBlock width={110} height={32} radius={8} />
+            </div>
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+          {[0, 1, 2, 3].map(i => (
+            <div key={i} style={{ background: 'var(--neutral-white, #fff)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, flex: '1 1 200px', minWidth: 160, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <SkeletonBlock width={110} height={14} radius={4} />
+              <SkeletonBlock width={60} height={24} radius={6} />
+              <SkeletonBlock width={130} height={13} radius={4} />
+            </div>
+          ))}
+        </div>
+
+        {/* Payment section card */}
+        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', width: '100%' }}>
+          <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '0 24px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <SkeletonBlock width={80} height={16} radius={4} />
+              <SkeletonBlock width={210} height={14} radius={4} />
+            </div>
+          </div>
+          <div style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <SkeletonBlock width={44} height={28} radius={6} />
+            <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <SkeletonBlock width={180} height={16} radius={4} />
+              <SkeletonBlock width={100} height={14} radius={4} />
+            </div>
+            <SkeletonBlock width={150} height={32} radius={8} />
+          </div>
+        </div>
+
+        {/* Invoice history section card */}
+        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', width: '100%' }}>
+          <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '0 24px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: '1 0 0' }}><SkeletonBlock width={120} height={16} radius={4} /></div>
+            <SkeletonBlock width={100} height={32} radius={8} />
+          </div>
+          <div style={{ padding: '0 24px 12px' }}>
+            <div style={{ background: 'var(--neutral-white, #fff)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE }}>
+              <div style={{ display: 'flex', gap: 24, padding: '0 12px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
+                {['Date', 'Amount', 'Status'].map(k => <SkeletonBlock key={k} width={55} height={13} radius={4} />)}
+                <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
+              </div>
+              {[0, 1, 2].map((i, idx) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 24, padding: 12, borderBottom: idx < 2 ? '1px solid var(--neutral-100)' : undefined }}>
+                  <SkeletonBlock width={80} height={14} radius={4} />
+                  <SkeletonBlock width={60} height={14} radius={4} />
+                  <SkeletonBlock width={45} height={20} radius={6} />
+                  <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={36} height={14} radius={4} /></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </>
+  )
+}
+
 // ── Page ────────────────────────────────────────────────────────────────────────
 
 export default function OrgBillingPage() {
@@ -259,7 +367,7 @@ export default function OrgBillingPage() {
   const isEnterprise = org.plan === 'enterprise'
 
   const [billing,        setBilling]        = useState<BillingInfo | null>(null)
-  const [billingLoading, setBillingLoading] = useState(false)
+  const [billingLoading, setBillingLoading] = useState(true)
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false)
   const [spendCapOpen,   setSpendCapOpen]   = useState(false)
 
@@ -302,7 +410,7 @@ export default function OrgBillingPage() {
   const capPct         = spendCap > 0 ? Math.min(100, Math.round((currentCharges / spendCap) * 100)) : 0
 
   useEffect(() => {
-    if (!orgId || !isAdminish) return
+    if (!orgId || !isAdminish) { setBillingLoading(false); return }
     setBillingLoading(true)
     fetchBilling()
       .then(setBilling)
@@ -327,6 +435,14 @@ export default function OrgBillingPage() {
   const nextBilling  = fmtDate(billing?.current_period_end) !== '—'
     ? fmtDate(billing?.current_period_end)
     : fmtShort(cycleEnd)
+
+  if (billingLoading) {
+    return (
+      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
+        <PlansPageSkeleton />
+      </div>
+    )
+  }
 
   // ── Hero ──────────────────────────────────────────────────────────────────────
   const hero = isEnterprise ? (

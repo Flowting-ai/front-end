@@ -55,6 +55,78 @@ const SELECT_STYLE: React.CSSProperties = {
   cursor:          'pointer',
 }
 
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+
+function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: string | number; height: number; radius?: number }) {
+  return (
+    <div style={{
+      width, height, borderRadius: radius,
+      background: 'linear-gradient(90deg, var(--neutral-100) 25%, var(--neutral-50) 50%, var(--neutral-100) 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'activitySkeletonShimmer 1.4s ease-in-out infinite',
+      flexShrink: 0,
+    }} />
+  )
+}
+
+const SKELETON_ROWS: Array<{ actor: number; action: number }> = [
+  { actor: 130, action: 200 },
+  { actor: 110, action: 160 },
+  { actor: 145, action: 220 },
+  { actor: 100, action: 180 },
+  { actor: 135, action: 195 },
+  { actor: 115, action: 170 },
+  { actor: 150, action: 210 },
+  { actor: 105, action: 155 },
+]
+
+function ActivityPageSkeleton() {
+  return (
+    <>
+      <style>{`@keyframes activitySkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* Page header */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <SkeletonBlock width={140} height={28} radius={6} />
+          <SkeletonBlock width={260} height={14} radius={4} />
+        </div>
+
+        {/* Filter bar */}
+        <SkeletonBlock width={140} height={32} radius={8} />
+
+        {/* Table card */}
+        <div style={{ borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: '#f9f5f1', boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)', overflow: 'hidden' }}>
+          {/* Column headers */}
+          <div style={{ display: 'flex', alignItems: 'center', padding: '6px 24px 8px', borderBottom: '1px solid var(--neutral-100)' }}>
+            <div style={{ width: 90,  flexShrink: 0 }}><SkeletonBlock width={40} height={12} radius={4} /></div>
+            <div style={{ width: 180, flexShrink: 0 }}><SkeletonBlock width={45} height={12} radius={4} /></div>
+            <div style={{ flex: '1 0 0' }}><SkeletonBlock width={55} height={12} radius={4} /></div>
+          </div>
+
+          {/* Skeleton rows */}
+          {SKELETON_ROWS.map((row, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', margin: 0 }} />}
+              <div style={{ display: 'flex', alignItems: 'center', padding: '10px 24px' }}>
+                <div style={{ width: 90,  flexShrink: 0 }}><SkeletonBlock width={60} height={12} radius={4} /></div>
+                <div style={{ width: 180, flexShrink: 0 }}><SkeletonBlock width={row.actor} height={12} radius={4} /></div>
+                <div style={{ flex: '1 0 0' }}><SkeletonBlock width={row.action} height={12} radius={4} /></div>
+              </div>
+            </React.Fragment>
+          ))}
+
+          {/* Footer */}
+          <div style={{ padding: '10px 24px', borderTop: '1px solid var(--neutral-100)' }}>
+            <SkeletonBlock width={280} height={12} radius={4} />
+          </div>
+        </div>
+
+      </div>
+    </>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrgActivityPage() {
@@ -62,7 +134,7 @@ export default function OrgActivityPage() {
   const isAdmin = currentUserRole === 'admin'
 
   const [entries,      setEntries]      = useState<AuditLogEntry[]>([])
-  const [loading,      setLoading]      = useState(false)
+  const [loading,      setLoading]      = useState(true)
   const [filterAction, setFilterAction] = useState('all')
 
   // user_id → display name (fall back to email, then a shortened id).
@@ -90,7 +162,7 @@ export default function OrgActivityPage() {
   }
 
   useEffect(() => {
-    if (!orgId) return
+    if (!orgId) { setLoading(false); return }
     setLoading(true)
     listAudit(orgId, { limit: 100 })
       .then(setEntries)
@@ -102,6 +174,14 @@ export default function OrgActivityPage() {
   const actionTypes = ['all', ...Array.from(new Set(entries.map(e => e.action))).sort()]
 
   const filtered = entries.filter(e => filterAction === 'all' || e.action === filterAction)
+
+  if (loading) {
+    return (
+      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
+        <ActivityPageSkeleton />
+      </div>
+    )
+  }
 
   return (
     <div

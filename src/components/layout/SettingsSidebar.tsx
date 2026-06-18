@@ -15,6 +15,7 @@ import { IconButton } from '@/components/IconButton'
 import { AccountMenu } from '@/components/AccountMenu'
 import { Badge } from '@/components/Badge'
 import { useAuth } from '@/context/auth-context'
+import { useOrg } from '@/context/org-context'
 import { toast } from 'sonner'
 
 const MY_SETTINGS_ITEMS = [
@@ -34,14 +35,23 @@ export function SettingsSidebar() {
   const { push } = useRouter()
   const pathname = usePathname()
   const { user, logout, isAuthenticated } = useAuth()
+  const { orgId, org, currentUserRole } = useOrg()
 
   const displayName = user
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
     : ''
 
-  const planLabel = user?.planType
-    ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
-    : undefined
+  const planLabel = orgId
+    ? `Teams | ${org?.name ?? 'Teams'}`
+    : user?.planType
+      ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
+      : undefined
+
+  const planWarning = !orgId && !user?.planType && !user?.isTrial
+
+  const accountCredits = orgId
+    ? (typeof org?.creditPool?.remaining === 'number' ? org.creditPool.remaining : undefined)
+    : (user?.creditsRemaining ?? undefined)
 
   return (
     <div
@@ -159,7 +169,8 @@ export function SettingsSidebar() {
         <AccountMenu
           name={displayName || 'Account'}
           plan={planLabel}
-          credits={user?.creditsRemaining ?? undefined}
+          planWarning={planWarning}
+          credits={accountCredits}
           avatarSrc={user?.profilePicture ?? undefined}
           collapsed={false}
           panelWidth={274}
@@ -167,6 +178,7 @@ export function SettingsSidebar() {
           onProfile={() => push('/settings/account')}
           onUpgradePlan={() => push('/settings/billing')}
           onSettings={() => push('/settings')}
+          onOrganization={orgId ? () => push('/org/general') : undefined}
           onWhatsNew={() => toast.info("What's new — coming soon!")}
           onHelp={() => push('/settings/help')}
           onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}

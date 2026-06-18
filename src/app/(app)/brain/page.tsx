@@ -1046,8 +1046,14 @@ function BrainPageInner() {
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
     : ''
 
-  const planLabel = user?.planType
-    ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
+  const planLabel = orgId
+    ? `Teams | ${org?.name ?? 'Teams'}`
+    : user?.planType
+      ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
+      : undefined
+
+  const orgBadgeSublabel = orgId && currentUserRole
+    ? currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1)
     : undefined
 
   // ── Sidebar collapse state — shared via localStorage with all other pages ─────
@@ -3130,6 +3136,7 @@ function BrainPageInner() {
         orgId:           orgId ?? undefined,
         orgName:         orgId ? org.name : undefined,
         showAdmin:       Boolean(orgId) && currentUserRole === 'admin',
+        orgBadgeSublabel,
         onOrganisationClick: () => push('/org/general'),
         onAdminSectionClick: (id: string) => {
           const routes: Record<string, string> = {

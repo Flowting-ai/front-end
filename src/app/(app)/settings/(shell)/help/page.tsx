@@ -1,6 +1,7 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+import { HelpSkeleton } from '../SettingsSkeleton'
 
 // ── External link arrow icon ──────────────────────────────────────────────────
 
@@ -154,6 +155,9 @@ function CardHeader({ title, subtitle }: { title: string; subtitle: string }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HelpPage() {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return <HelpSkeleton />
   return (
     <div
       className="kaya-scrollbar"

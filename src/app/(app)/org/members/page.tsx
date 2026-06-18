@@ -601,6 +601,105 @@ function RolesPermissionsSection() {
   )
 }
 
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+
+function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: string | number; height: number; radius?: number }) {
+  return (
+    <div style={{
+      width, height, borderRadius: radius,
+      background: 'linear-gradient(90deg, var(--neutral-100) 25%, var(--neutral-50) 50%, var(--neutral-100) 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'membersSkeletonShimmer 1.4s ease-in-out infinite',
+      flexShrink: 0,
+    }} />
+  )
+}
+
+function MembersPageSkeleton() {
+  return (
+    <>
+      <style>{`@keyframes membersSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+      <div style={{ width: '100%', maxWidth: 960, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+        {/* Page header */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <SkeletonBlock width={120} height={28} radius={6} />
+          <SkeletonBlock width={320} height={14} radius={4} />
+        </div>
+
+        {/* Stats row */}
+        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, padding: 12, display: 'flex', gap: 9 }}>
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{ flex: '1 0 0', minWidth: 0, backgroundColor: i === 0 ? 'var(--neutral-50)' : 'var(--neutral-white)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 6, boxShadow: i === 0 ? 'none' : '0px 1px 2px 0px rgba(82,75,71,0.08), 0px 0px 0px 1px var(--neutral-100)' }}>
+              <SkeletonBlock width={90} height={13} radius={4} />
+              <SkeletonBlock width={40} height={28} radius={6} />
+              <SkeletonBlock width={100} height={12} radius={4} />
+            </div>
+          ))}
+        </div>
+
+        {/* Members table skeleton */}
+        <div style={{ borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: '#f9f5f1', boxShadow: SHADOW_CARD, overflow: 'hidden', width: '100%' }}>
+          {/* Table header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+            <SkeletonBlock width={120} height={16} radius={4} />
+            <div style={{ flex: '1 0 0' }} />
+            <SkeletonBlock width={32} height={32} radius={8} />
+            <SkeletonBlock width={32} height={32} radius={8} />
+            <SkeletonBlock width={110} height={32} radius={8} />
+          </div>
+          {/* Column headers */}
+          <div style={{ display: 'flex', alignItems: 'center', padding: '2px 24px 8px' }}>
+            <div style={{ flex: '1 0 0', minWidth: 200 }}><SkeletonBlock width={60} height={13} radius={4} /></div>
+            <div style={{ width: 110 }}><SkeletonBlock width={40} height={13} radius={4} /></div>
+            <div style={{ width: 200 }}><SkeletonBlock width={50} height={13} radius={4} /></div>
+            <div style={{ minWidth: 180, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={60} height={13} radius={4} /></div>
+          </div>
+          {/* Member rows */}
+          {[0, 1, 2, 3].map((i, idx) => (
+            <React.Fragment key={i}>
+              {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', margin: 0 }} />}
+              <div style={{ display: 'flex', alignItems: 'center', padding: '10px 24px' }}>
+                <div style={{ flex: '1 0 0', minWidth: 200, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <SkeletonBlock width={32} height={32} radius={16} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <SkeletonBlock width={120} height={13} radius={4} />
+                    <SkeletonBlock width={160} height={11} radius={4} />
+                  </div>
+                </div>
+                <div style={{ width: 110 }}><SkeletonBlock width={70} height={28} radius={8} /></div>
+                <div style={{ width: 200 }}><SkeletonBlock width={80} height={20} radius={6} /></div>
+                <div style={{ minWidth: 180, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={72} height={28} radius={8} /></div>
+              </div>
+            </React.Fragment>
+          ))}
+          {/* Footer */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 24px', borderTop: '1px solid var(--neutral-100)' }}>
+            <SkeletonBlock width={160} height={13} radius={4} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <SkeletonBlock width={32} height={32} radius={8} />
+              <SkeletonBlock width={32} height={32} radius={8} />
+              <SkeletonBlock width={32} height={32} radius={8} />
+            </div>
+          </div>
+        </div>
+
+        {/* Roles & Permissions skeleton */}
+        <div style={{ borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: '#f9f5f1', overflow: 'hidden', width: '100%', boxShadow: SHADOW_CARD }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '12px 24px 16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <SkeletonBlock width={150} height={15} radius={4} />
+              <SkeletonBlock width={280} height={13} radius={4} />
+            </div>
+            <SkeletonBlock width={16} height={16} radius={4} />
+          </div>
+        </div>
+
+      </div>
+    </>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrgMembersPage() {
@@ -767,6 +866,14 @@ export default function OrgMembersPage() {
     } finally {
       setInviteLoading(false)
     }
+  }
+
+  if (membersLoading) {
+    return (
+      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
+        <MembersPageSkeleton />
+      </div>
+    )
   }
 
   return (

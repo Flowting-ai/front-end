@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Switch }   from '@/components/Switch'
 import { Checkbox } from '@/components/Checkbox'
+import { NotificationsSkeleton } from '../SettingsSkeleton'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -241,7 +242,10 @@ function CardHeader({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function NotificationsPage() {
+  const [mounted, setMounted] = useState(false)
   const [prefs, setPrefs] = useState<NotifMap>(DEFAULTS)
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return <NotificationsSkeleton />
 
   const [budgetAlerts, setBudgetAlerts] = useState({
     pct65:  true,

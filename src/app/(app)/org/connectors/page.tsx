@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowDownOneIcon,
@@ -21,6 +21,7 @@ import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
 import { Switch } from '@/components/Switch'
+import Tabs from '@/components/Tabs'
 import { useOrg } from '@/context/org-context'
 import {
   DEFAULT_API_KEY_FIELD,
@@ -221,61 +222,6 @@ function PageCard({ children, style }: { children: React.ReactNode; style?: Reac
   )
 }
 
-function TabGroup<T extends string>({
-  tabs,
-  value,
-  onChange,
-}: {
-  tabs: Array<{ id: T; label: string; badge?: React.ReactNode }>
-  value: T
-  onChange: (value: T) => void
-}) {
-  return (
-    <div
-      style={{
-        display: 'inline-flex',
-        alignSelf: 'flex-start',
-        width: 'fit-content',
-        alignItems: 'center',
-        gap: 4,
-        borderRadius: 10,
-        backgroundColor: 'rgba(247,242,237,0.5)',
-        boxShadow: 'inset 0px -1px 0px rgba(255,255,255,0.9), inset 0px 1px 0px var(--neutral-100), inset 0px 0px 4px rgba(209,198,189,0.5)',
-      }}
-    >
-      {tabs.map(tab => {
-        const selected = tab.id === value
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => onChange(tab.id)}
-            style={{
-              border: 'none',
-              borderRadius: 10,
-              padding: '7px 8px',
-              backgroundColor: selected ? 'white' : 'transparent',
-              boxShadow: selected ? '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 0px rgba(38,33,30,0.1)' : undefined,
-              color: selected ? 'var(--blue-600)' : 'var(--neutral-700)',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 14,
-              lineHeight: '22px',
-              whiteSpace: 'nowrap',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            {tab.label}
-            {tab.badge}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 function SearchBar({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
@@ -387,6 +333,105 @@ function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
   )
 }
 
+function Spinner() {
+  return (
+    <>
+      <style>{`@keyframes catalogSpinnerRotate { to { transform: rotate(360deg) } }`}</style>
+      <span
+        style={{
+          display:        'inline-block',
+          width:          12,
+          height:         12,
+          borderRadius:   '50%',
+          border:         '1.5px solid var(--neutral-200)',
+          borderTopColor: 'var(--neutral-500)',
+          animation:      'catalogSpinnerRotate 0.6s linear infinite',
+          flexShrink:     0,
+        }}
+      />
+    </>
+  )
+}
+
+function SkeletonBlock({
+  width = '100%',
+  height,
+  radius = 8,
+}: {
+  width?: number | string
+  height: number
+  radius?: number
+}) {
+  return (
+    <div
+      style={{
+        width,
+        height,
+        borderRadius:    radius,
+        flexShrink:      0,
+        background:      'linear-gradient(90deg, var(--neutral-100) 25%, var(--neutral-50) 50%, var(--neutral-100) 75%)',
+        backgroundSize:  '200% 100%',
+        animation:       'connSkeletonShimmer 1.4s ease-in-out infinite',
+      }}
+    />
+  )
+}
+
+function ConnectorsSkeleton() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+      <style>{`@keyframes connSkeletonShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
+      {/* Page header */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <SkeletonBlock width={140} height={28} radius={8} />
+          <SkeletonBlock width={340} height={14} radius={5} />
+        </div>
+        <div style={{ display: 'inline-flex', alignSelf: 'flex-start', gap: 4, padding: 4, borderRadius: 10, backgroundColor: 'rgba(247,242,237,0.5)', boxShadow: 'inset 0px -1px 0px rgba(255,255,255,0.9), inset 0px 1px 0px var(--neutral-100)' }}>
+          <SkeletonBlock width={68}  height={34} radius={8} />
+          <SkeletonBlock width={96}  height={34} radius={8} />
+          <SkeletonBlock width={140} height={34} radius={8} />
+        </div>
+      </div>
+      {/* Catalog card */}
+      <PageCard>
+        <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SkeletonBlock width={156} height={18} radius={6} />
+            <SkeletonBlock width={260} height={13} radius={5} />
+          </div>
+          <SkeletonBlock width={200} height={36} radius={10} />
+        </div>
+        {[3, 2, 4, 3].map((teamCount, i) => (
+          <div key={i}>
+            {i > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
+            <div style={{ padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: 'white' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ flex: '1 0 0', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <SkeletonBlock width={32} height={32} radius={8} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <SkeletonBlock width={110} height={14} radius={5} />
+                    <SkeletonBlock width={72}  height={11} radius={4} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <SkeletonBlock width={38} height={22} radius={11} />
+                  <SkeletonBlock width={52} height={14} radius={5} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                {Array.from({ length: teamCount }).map((_, j) => (
+                  <SkeletonBlock key={j} height={50} radius={12} />
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
+      </PageCard>
+    </div>
+  )
+}
+
 function statusBadge(status: ConnectorRequestStatus) {
   if (status === 'approved') return <Badge label="Approved" color="Green" />
   if (status === 'denied') return <Badge label="Denied" color="Red" />
@@ -462,6 +507,21 @@ function CatalogTab({
         : enabledSlugs.filter(slug => slug !== connector.slug)
       const next = await updateOrgCatalog(orgId, nextSlugs)
       onCatalogUpdated(next)
+      if (checked && teams.length > 0) {
+        await Promise.all(
+          teams.map(async team => {
+            try {
+              if (!teamRequests[team.id]?.[connector.slug]) {
+                await requestTeamConnector(orgId, team.id, connector.slug)
+              }
+              await setTeamConnectorStatus(orgId, team.id, connector.slug, 'approved')
+            } catch {
+              // skip per-team errors so the org toggle still completes
+            }
+          }),
+        )
+        await refreshTeamRequests()
+      }
       toast.success(`${connector.display_name} ${checked ? 'enabled' : 'disabled'} for the organization`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update catalog')
@@ -474,17 +534,20 @@ function CatalogTab({
     const key = `${team.id}:${connector.slug}`
     setBusyTeamKey(key)
     try {
-      if (checked && connector.org_enabled !== true) {
-        const next = await updateOrgCatalog(orgId, Array.from(new Set([...enabledSlugs, connector.slug])))
-        onCatalogUpdated(next)
-      }
       if (checked) {
-        await requestTeamConnector(orgId, team.id, connector.slug)
+        if (!teamRequests[team.id]?.[connector.slug]) {
+          await requestTeamConnector(orgId, team.id, connector.slug)
+        }
+        await setTeamConnectorStatus(orgId, team.id, connector.slug, 'approved')
         toast.success(`${connector.display_name} enabled for ${team.name}`)
       } else {
         const existing = teamRequests[team.id]?.[connector.slug]
         if (existing) {
           await setTeamConnectorStatus(orgId, team.id, connector.slug, 'denied')
+        }
+        if (connector.org_enabled === true) {
+          const next = await updateOrgCatalog(orgId, enabledSlugs.filter(slug => slug !== connector.slug))
+          onCatalogUpdated(next)
         }
         toast.success(`${connector.display_name} disabled for ${team.name}`)
       }
@@ -525,8 +588,9 @@ function CatalogTab({
                       disabled={busyOrgSlug === connector.slug}
                       onCheckedChange={checked => void handleOrgToggle(connector, checked)}
                     />
-                    <BodyText size={12} color="var(--neutral-700)" style={{ width: 72 }}>
-                      {orgEnabled ? 'Org on' : 'Org off'}
+                    {busyOrgSlug === connector.slug && <Spinner />}
+                    <BodyText size={12} color="var(--neutral-700)" style={{ width: 56 }}>
+                      {orgEnabled ? 'Org ON' : 'Org OFF'}
                     </BodyText>
                   </div>
                 </div>
@@ -539,6 +603,7 @@ function CatalogTab({
                       const request = teamRequests[team.id]?.[connector.slug]
                       const checked = request?.status === 'approved'
                       const busy = busyTeamKey === `${team.id}:${connector.slug}`
+                      const isOrgBusy = busyOrgSlug === connector.slug
                       return (
                         <div
                           key={team.id}
@@ -562,11 +627,15 @@ function CatalogTab({
                               {request ? statusBadge(request.status) : <Badge label="Not set" color="Neutral" />}
                             </div>
                           </div>
-                          <Switch
-                            checked={checked}
-                            disabled={busy}
-                            onCheckedChange={next => void handleTeamToggle(connector, team, next)}
-                          />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                            {(busy || isOrgBusy) && <Spinner />}
+                            <BodyText size={11} color="var(--neutral-600)">{checked ? 'ON' : 'OFF'}</BodyText>
+                            <Switch
+                              checked={checked}
+                              disabled={busy || isOrgBusy}
+                              onCheckedChange={next => void handleTeamToggle(connector, team, next)}
+                            />
+                          </div>
                         </div>
                       )
                     })
@@ -1567,15 +1636,16 @@ function ConnectorDetailView({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-          <TabGroup
-            tabs={[
-              { id: 'all', label: 'All', badge: <Badge label={`${accounts.length}`} color="Blue" /> },
-              { id: 'active', label: 'Active' },
-              { id: 'needs-attention', label: 'Needs attention' },
-            ]}
-            value={filter}
-            onChange={setFilter}
-          />
+          <Tabs value={filter} onValueChange={v => setFilter(v as AccountStatusFilter)}>
+            <Tabs.List>
+              <Tabs.Trigger value="all">
+                All
+                <Badge label={`${accounts.length}`} color="Blue" />
+              </Tabs.Trigger>
+              <Tabs.Trigger value="active">Active</Tabs.Trigger>
+              <Tabs.Trigger value="needs-attention">Needs attention</Tabs.Trigger>
+            </Tabs.List>
+          </Tabs>
           <Button variant="default" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={() => setAddOpen(true)}>
             Add shared account
           </Button>
@@ -1928,36 +1998,23 @@ function MemberBrowseView({
   )
 }
 
-function Header({ tab, setTab, pendingCount }: { tab: MainTab; setTab: (tab: MainTab) => void; pendingCount: number }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div>
-        <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: '0 0 2px' }}>
-          Connectors
-        </h1>
-        <BodyText style={{ padding: '5px 6px' }}>
-          Manage organization connector availability, access approvals, and shared accounts for teams.
-        </BodyText>
-      </div>
-      <TabGroup
-        tabs={ADMIN_TABS.map(item => (
-          item.id === 'permissions' && pendingCount > 0
-            ? { ...item, badge: <Badge label={`${pendingCount}`} color="Red" /> }
-            : item
-        ))}
-        value={tab}
-        onChange={setTab}
-      />
-    </div>
-  )
-}
 
 function OrgConnectorsPageContent() {
   const { org, orgReady, currentUserRole, teams, teamsLoading } = useOrg()
+  const router = useRouter()
   const params = useSearchParams()
   const initialSearch = params.get('q') ?? ''
   const isAdminView = currentUserRole === 'admin'
-  const [tab, setTab] = useState<MainTab>('catalog')
+  const VALID_TABS: MainTab[] = ['catalog', 'permissions', 'manage']
+  const tabParam = params.get('tab') as MainTab | null
+  const [tab, setTab] = useState<MainTab>(tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'catalog')
+
+  function handleTabChange(next: MainTab) {
+    setTab(next)
+    const sp = new URLSearchParams(params.toString())
+    sp.set('tab', next)
+    router.replace(`?${sp.toString()}`)
+  }
   const [connectors, setConnectors] = useState<ConnectorCatalogEntry[]>([])
   const [personalRequests, setPersonalRequests] = useState<PersonalConnectorRequest[]>([])
   const [teamRequests, setTeamRequests] = useState<TeamRequestIndex>({})
@@ -1997,7 +2054,7 @@ function OrgConnectorsPageContent() {
   if (!orgReady || teamsLoading || loading) {
     return (
       <PageShell>
-        <EmptyState title="Loading connectors..." />
+        <ConnectorsSkeleton />
       </PageShell>
     )
   }
@@ -2048,35 +2105,60 @@ function OrgConnectorsPageContent() {
 
   return (
     <PageShell>
-      <Header tab={tab} setTab={setTab} pendingCount={pendingCount} />
-      {tab === 'catalog' && (
-        <CatalogTab
-          orgId={org.id}
-          connectors={connectors}
-          teams={teams}
-          teamRequests={teamRequests}
-          initialSearch={initialSearch}
-          onCatalogUpdated={setConnectors}
-          onTeamRequestsUpdated={setTeamRequests}
-        />
-      )}
-      {tab === 'permissions' && (
-        <PermissionsTab
-          orgId={org.id}
-          connectors={connectors}
-          teams={teams}
-          personalRequests={personalRequests}
-          teamRequests={teamRequests}
-          onReload={loadPageData}
-        />
-      )}
-      {tab === 'manage' && (
-        <ManageConnectorsTab
-          connectors={connectors}
-          initialSearch={initialSearch}
-          onManage={setDetailConnector}
-        />
-      )}
+      <Tabs
+        value={tab}
+        onValueChange={v => handleTabChange(v as MainTab)}
+        style={{ display: 'flex', flexDirection: 'column', gap: 28 }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: '0 0 2px' }}>
+              Connectors
+            </h1>
+            <BodyText style={{ padding: '5px 6px' }}>
+              Manage organization connector availability, access approvals, and shared accounts for teams.
+            </BodyText>
+          </div>
+          <Tabs.List>
+            {ADMIN_TABS.map(item => (
+              <Tabs.Trigger key={item.id} value={item.id}>
+                {item.label}
+                {item.id === 'permissions' && pendingCount > 0 && (
+                  <Badge label={`${pendingCount}`} color="Red" />
+                )}
+              </Tabs.Trigger>
+            ))}
+          </Tabs.List>
+        </div>
+        <Tabs.Content value="catalog">
+          <CatalogTab
+            orgId={org.id}
+            connectors={connectors}
+            teams={teams}
+            teamRequests={teamRequests}
+            initialSearch={initialSearch}
+            onCatalogUpdated={setConnectors}
+            onTeamRequestsUpdated={setTeamRequests}
+          />
+        </Tabs.Content>
+        <Tabs.Content value="permissions">
+          <PermissionsTab
+            orgId={org.id}
+            connectors={connectors}
+            teams={teams}
+            personalRequests={personalRequests}
+            teamRequests={teamRequests}
+            onReload={loadPageData}
+          />
+        </Tabs.Content>
+        <Tabs.Content value="manage">
+          <ManageConnectorsTab
+            connectors={connectors}
+            initialSearch={initialSearch}
+            onManage={setDetailConnector}
+          />
+        </Tabs.Content>
+      </Tabs>
     </PageShell>
   )
 }

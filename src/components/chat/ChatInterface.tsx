@@ -30,6 +30,7 @@ import { useOrg } from "@/context/org-context";
 import { useRouter } from "next/navigation";
 import { InlineCreditNotice, type CreditNoticeStatus } from "@/components/InlineCreditNotice";
 import { CreditStatusBanner } from "@/components/CreditStatusBanner";
+import { UsageLimitStrip, resolveUsageLevel, USAGE_LEVEL_TOKENS } from "@/components/chat/UsageLimitStrip";
 import { useCreditStatus, CREDITS_EXHAUSTED_EVENT } from "@/hooks/use-credit-status";
 import { toast } from "sonner";
 import type { PinFolder } from "@/lib/api/pins";
@@ -297,9 +298,18 @@ export function ChatInterface({
   const { refreshUser } = useAuth();
 
   // Org context — pool status drives InlineCreditNotice above input
-  const { plan, currentUserRole: orgRole } = useOrg();
+  const { plan, org, orgId, currentUserRole: orgRole } = useOrg();
   // Individual credit/topup status — drives the warning banner + hard send-gate.
   const creditStatus = useCreditStatus();
+
+  // Usage strip: show org pool for org users, personal credits for individuals.
+  const isOrgUser = Boolean(orgId) && !creditStatus.applies
+  const stripPctUsed   = isOrgUser ? (org?.creditPool?.percentUsed ?? 0) : creditStatus.pctUsed
+  const stripRemaining = isOrgUser ? (org?.creditPool?.remaining   ?? null) : creditStatus.remaining
+  const stripTotal     = isOrgUser ? (org?.creditPool?.total       ?? null) : creditStatus.total
+  const showStrip      = (creditStatus.applies || isOrgUser) && stripPctUsed >= 0.9
+  const stripLevel     = resolveUsageLevel(stripPctUsed)
+  const stripTokens    = USAGE_LEVEL_TOKENS[stripLevel]
   const router = useRouter();
   const [dismissedCreditStatus, setDismissedCreditStatus] = useState<CreditNoticeStatus | null>(null);
 
@@ -1060,11 +1070,31 @@ export function ChatInterface({
         {/* Individual credit/topup notice — 90% warning + exhaustion */}
         <CreditStatusBanner />
 
-        {/* position:relative wrapper lets PinMentionDropdown use absolute positioning */}
+        {/* Encasing container — adds a level-coloured border when a credit pool is active,
+            wrapping both the usage strip header and the chat input as one visual unit. */}
         <div
-          ref={inputWrapperRef}
-          style={{ width: "100%", maxWidth: "754px", position: "relative" }}
+          style={{
+            width:        '100%',
+            maxWidth:     '754px',
+            ...(showStrip && {
+              borderRadius:    '24px',
+              backgroundColor: stripTokens.bg,
+            }),
+          }}
         >
+          {showStrip && (
+            <UsageLimitStrip
+              pctUsed={stripPctUsed}
+              remaining={stripRemaining}
+              total={stripTotal}
+            />
+          )}
+
+          {/* position:relative wrapper lets PinMentionDropdown use absolute positioning */}
+          <div
+            ref={inputWrapperRef}
+            style={{ width: "100%", position: "relative", zIndex: 1 }}
+          >
           {!hidePinActions && (
             <PinMentionDropdown
               isOpen={showPinDropdown}
@@ -1129,6 +1159,7 @@ export function ChatInterface({
             isPinDropdownOpen={hidePinActions ? false : showPinDropdown}
             onPinNavigate={hidePinActions ? undefined : handlePinNavigate}
           />
+          </div>
         </div>
 
         {/* Hidden file input for drag-drop fallback via onAdd */}

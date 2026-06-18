@@ -126,6 +126,68 @@ function TextPill({ children }: { children: React.ReactNode }) {
   )
 }
 
+function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: string | number; height: number; radius?: number }) {
+  return (
+    <div style={{
+      width, height, borderRadius: radius,
+      background: 'linear-gradient(90deg, var(--neutral-100) 25%, var(--neutral-50) 50%, var(--neutral-100) 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'teamsSkeletonShimmer 1.4s ease-in-out infinite',
+      flexShrink: 0,
+    }} />
+  )
+}
+
+function TeamsPageSkeleton() {
+  return (
+    <>
+      <style>{`@keyframes teamsSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 1114 }}>
+
+        {/* Page header */}
+        <div style={{ paddingLeft: 4, marginBottom: 4, display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+          <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SkeletonBlock width={80} height={24} radius={6} />
+            <SkeletonBlock width={300} height={14} radius={4} />
+          </div>
+          <SkeletonBlock width={130} height={32} radius={8} />
+        </div>
+
+        {/* Table card */}
+        <section style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12)', background: 'var(--neutral-50)', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 0' }}>
+          {/* Toolbar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+            <SkeletonBlock width={110} height={16} radius={4} />
+            <div style={{ flex: '1 0 0' }} />
+            <SkeletonBlock width={60} height={13} radius={4} />
+          </div>
+
+          {/* Column header row */}
+          <div style={{ display: 'grid', gridTemplateColumns: TEAM_COLUMNS, columnGap: TEAM_COLUMN_GAP, alignItems: 'center', padding: '6px 24px 16px', borderBottom: '1px solid var(--neutral-100)', minHeight: 44 }}>
+            <SkeletonBlock width={40} height={13} radius={4} />
+            <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
+            <div /><div /><div /><div />
+          </div>
+
+          {/* Skeleton rows */}
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: TEAM_COLUMNS, columnGap: TEAM_COLUMN_GAP, alignItems: 'center', minHeight: 72, padding: '0 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <SkeletonBlock width={120} height={14} radius={4} />
+                <SkeletonBlock width={80} height={11} radius={4} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
+              <div /><div /><div />
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={110} height={32} radius={8} /></div>
+            </div>
+          ))}
+        </section>
+
+      </div>
+    </>
+  )
+}
+
 export default function OrgTeamsPage() {
   const router = useRouter()
   const { orgId, teams, teamsLoading, refreshTeams, currentUserRole } = useOrg()
@@ -135,6 +197,14 @@ export default function OrgTeamsPage() {
   const [saving, setSaving] = useState(false)
 
   const activeTeams = teams.filter(t => !t.archived)
+
+  if (teamsLoading) {
+    return (
+      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
+        <TeamsPageSkeleton />
+      </div>
+    )
+  }
 
   const handleCreateTeam = async (name: string, desc: string) => {
     if (!orgId) return

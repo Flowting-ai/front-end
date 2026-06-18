@@ -731,6 +731,161 @@ function RankedList({
   )
 }
 
+function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: string | number; height: number; radius?: number }) {
+  return (
+    <div style={{
+      width, height, borderRadius: radius,
+      background: 'linear-gradient(90deg, var(--neutral-100) 25%, var(--neutral-50) 50%, var(--neutral-100) 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'analyticsSkeletonShimmer 1.4s ease-in-out infinite',
+      flexShrink: 0,
+    }} />
+  )
+}
+
+function AnalyticsPageSkeleton() {
+  const CARD_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12)'
+  const INNER_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+  return (
+    <>
+      <style>{`@keyframes analyticsSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+      <div style={{ flex: '1 0 0', minWidth: 0, maxWidth: 1114, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+        {/* Page header */}
+        <div style={{ paddingLeft: 4, display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <SkeletonBlock width={180} height={24} radius={6} />
+          <SkeletonBlock width={300} height={14} radius={4} />
+        </div>
+
+        {/* Date range tab strip */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 12px' }}>
+          <SkeletonBlock width={280} height={32} radius={8} />
+        </div>
+
+        {/* Stats row */}
+        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: CARD_SHADOW, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: 12 }}>
+          <div style={{ display: 'flex', gap: 9 }}>
+            {/* Wide credit pool card */}
+            <div style={{ flex: '0 0 399px', height: 141, backgroundColor: 'var(--neutral-white)', borderRadius: 8, boxShadow: INNER_SHADOW, padding: '12px 0', display: 'flex', flexDirection: 'column', gap: 0 }}>
+              <div style={{ padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 23 }}>
+                <SkeletonBlock width={100} height={14} radius={4} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+                    <SkeletonBlock width={160} height={16} radius={4} />
+                    <SkeletonBlock width={120} height={14} radius={4} />
+                  </div>
+                  <SkeletonBlock width="100%" height={4} radius={2} />
+                </div>
+              </div>
+            </div>
+            {/* Narrow stat cards */}
+            {[0, 1].map(i => (
+              <div key={i} style={{ flex: '1 0 0', height: 141, backgroundColor: 'var(--neutral-white)', borderRadius: 8, boxShadow: INNER_SHADOW, padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <SkeletonBlock width={80} height={14} radius={4} />
+                <SkeletonBlock width={60} height={28} radius={6} />
+                <SkeletonBlock width={110} height={13} radius={4} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Feature chart card */}
+        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: CARD_SHADOW, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: '12px 0' }}>
+          {/* Card title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+            <SkeletonBlock width={180} height={16} radius={4} />
+            <div style={{ flex: '1 0 0' }} />
+            <div style={{ display: 'flex', gap: 6 }}>
+              <SkeletonBlock width={70} height={22} radius={6} />
+              <SkeletonBlock width={90} height={22} radius={6} />
+              <SkeletonBlock width={55} height={22} radius={6} />
+            </div>
+          </div>
+          {/* Chart area */}
+          <div style={{ padding: '24px 24px 28px' }}>
+            <div style={{ height: 184, position: 'relative', overflow: 'hidden', borderRadius: 8 }}>
+              <SkeletonBlock width="100%" height={184} radius={8} />
+            </div>
+            {/* X-axis labels */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+              {[0, 1, 2, 3, 4, 5, 6].map(i => <SkeletonBlock key={i} width={36} height={11} radius={4} />)}
+            </div>
+            {/* Legend */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 12 }}>
+              {[80, 100, 55].map((w, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <SkeletonBlock width={16} height={3} radius={999} />
+                  <SkeletonBlock width={w} height={11} radius={4} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Member caps table */}
+        <section style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: CARD_SHADOW, background: 'var(--neutral-50)', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 0' }}>
+          {/* Toolbar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+            <SkeletonBlock width={180} height={16} radius={4} />
+            <div style={{ flex: '1 0 0' }} />
+            <SkeletonBlock width={32} height={32} radius={8} />
+            <SkeletonBlock width={32} height={32} radius={8} />
+          </div>
+          {/* Column headers */}
+          <div style={{ display: 'grid', gridTemplateColumns: MEMBER_CAP_COLUMNS, columnGap: MEMBER_CAP_COLUMN_GAP, alignItems: 'center', padding: '0 24px 8px', borderBottom: '1px solid var(--neutral-100)' }}>
+            <SkeletonBlock width={60} height={13} radius={4} />
+            <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={13} radius={4} /></div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={70} height={13} radius={4} /></div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={50} height={13} radius={4} /></div>
+          </div>
+          {/* Member rows */}
+          {[0, 1, 2, 3].map((i, idx) => (
+            <React.Fragment key={i}>
+              {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', margin: '0 24px' }} />}
+              <div style={{ display: 'grid', gridTemplateColumns: MEMBER_CAP_COLUMNS, columnGap: MEMBER_CAP_COLUMN_GAP, alignItems: 'center', minHeight: 72, padding: '0 24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <SkeletonBlock width={36} height={36} radius={999} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <SkeletonBlock width={120} height={14} radius={4} />
+                    <SkeletonBlock width={160} height={11} radius={4} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={14} radius={4} /></div>
+                <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={90} height={14} radius={4} /></div>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: 100 }}>
+                    <SkeletonBlock width={100} height={8} radius={4} />
+                    <SkeletonBlock width={36} height={20} radius={6} />
+                  </div>
+                </div>
+              </div>
+            </React.Fragment>
+          ))}
+        </section>
+
+        {/* Ranked lists */}
+        {[0, 1].map(card => (
+          <section key={card} style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: CARD_SHADOW, background: 'var(--neutral-50)', overflow: 'hidden', padding: '12px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+              <SkeletonBlock width={200} height={16} radius={4} />
+            </div>
+            {[0, 1, 2, 3].map((row, idx) => (
+              <div key={row} style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 56, padding: '0 24px', borderBottom: idx < 3 ? '1px solid var(--neutral-100)' : undefined }}>
+                <SkeletonBlock width={22} height={13} radius={4} />
+                <SkeletonBlock width={`${60 - idx * 8}%`} height={13} radius={4} />
+                <div style={{ flex: '1 0 0' }} />
+                <SkeletonBlock width={90} height={13} radius={4} />
+                <SkeletonBlock width={36} height={20} radius={6} />
+              </div>
+            ))}
+          </section>
+        ))}
+
+      </div>
+    </>
+  )
+}
+
 export default function OrgUsageAnalyticsPage() {
   const { orgId, members, membersLoading, plan, currentUserRole } = useOrg()
   const [dateRange,  setDateRange]  = useState<DateRange>('7d')
@@ -742,6 +897,14 @@ export default function OrgUsageAnalyticsPage() {
       .then(u => setTeamUsage(u.byTeam))
       .catch(console.error)
   }, [orgId])
+
+  if (membersLoading) {
+    return (
+      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
+        <AnalyticsPageSkeleton />
+      </div>
+    )
+  }
 
   const totalCredits = plan?.totalCredits ?? 0
   const totalUsed    = plan?.used        ?? 0

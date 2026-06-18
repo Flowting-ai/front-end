@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Checkbox } from '@/components/Checkbox'
+import { PreferencesSkeleton } from '../SettingsSkeleton'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -110,7 +111,10 @@ const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
 ]
 
 export default function PreferencesPage() {
+  const [mounted, setMounted] = useState(false)
   const [themeMode,           setThemeMode]           = useState<ThemeMode>('system')
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return <PreferencesSkeleton />
   const [tonePreset,          setTonePreset]          = useState<TonePreset>('Balanced')
   const [customInstructions,  setCustomInstructions]  = useState('')
 

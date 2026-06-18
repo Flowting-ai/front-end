@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { MoreVerticalIcon } from '@strange-huge/icons'
 import { useAuth } from '@/context/auth-context'
+import { SecuritySkeleton } from '../SettingsSkeleton'
 
 // ── Inline SVGs ───────────────────────────────────────────────────────────────
 
@@ -311,7 +312,10 @@ const SESSIONS = [
 
 export default function SecurityPage() {
   const { logout } = useAuth()
+  const [mounted, setMounted] = useState(false)
   const [sessions, setSessions] = useState(SESSIONS)
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return <SecuritySkeleton />
 
   const removeSession = (index: number) => {
     setSessions(prev => prev.filter((_, i) => i !== index))

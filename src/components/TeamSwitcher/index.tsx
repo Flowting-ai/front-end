@@ -6,6 +6,7 @@ import { ArrowDownOneIcon } from '@strange-huge/icons'
 import { Popover } from '@/components/Popover'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { Divider } from '@/components/Divider'
+import { Badge } from '@/components/Badge'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
 
@@ -37,9 +38,10 @@ function getTeamGradient(teamId: string): string {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface TeamSwitcherTeam {
-  id:           string
-  name:         string
+  id:            string
+  name:          string
   projectCount?: number
+  role?:         'admin' | 'editor' | 'member'
 }
 
 export interface TeamSwitcherProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -247,6 +249,12 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
                     subLabel={team.projectCount != null ? `${team.projectCount} project${team.projectCount !== 1 ? 's' : ''}` : undefined}
                     selected={team.id === activeTeamId}
                     icon={<TeamAvatar teamId={team.id} name={team.name} size={20} />}
+                    badge={team.role && (
+                      <Badge
+                        label={team.role.charAt(0).toUpperCase() + team.role.slice(1)}
+                        color={team.role === 'admin' ? 'Yellow' : team.role === 'editor' ? 'Blue' : 'Neutral'}
+                      />
+                    )}
                     onClick={() => { onTeamSelect?.(team.id); setOpen(false) }}
                   />
                 ))}

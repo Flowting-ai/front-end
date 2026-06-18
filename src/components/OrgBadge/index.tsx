@@ -1,10 +1,10 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
 import { LogoIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
 import type { ChipColor } from '@/components/Chip'
+import { Button } from '@/components/Button'
 
 // ── Org identity colour ───────────────────────────────────────────────────────
 // Deterministic assignment from a stable key (org id) into the KDS tag palette —
@@ -45,6 +45,13 @@ export interface OrgBadgeProps extends Omit<React.HTMLAttributes<HTMLElement>, '
    * @default 160
    */
   maxNameWidth?: number
+  /**
+   * Secondary label shown below the org name — interactive mode only.
+   * Typically the user's role, e.g. "Admin", "Owner".
+   */
+  sublabel?: string
+  /** Stretch the interactive button to fill its container — interactive only. */
+  fluid?: boolean
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -65,19 +72,23 @@ export function OrgBadge(
     active = false,
     onClick,
     maxNameWidth = 160,
+    sublabel,
+    fluid = false,
     className,
     ...rest
   }: OrgBadgeProps & { ref?: React.Ref<HTMLElement> },
 ) {
-  const resolved   = color ?? pickOrgColor(orgId ?? orgName)
+  const resolved    = color ?? pickOrgColor(orgId ?? orgName)
   // Green uses the lighter `bg-soft` tint for chips/badges (matches Chip).
-  const bgToken    = resolved === 'Green' ? `var(--color-tag-Green-bg-soft)` : `var(--color-tag-${resolved}-bg)`
-  const textToken  = `var(--color-tag-${resolved}-text)`
+  const bgToken     = resolved === 'Green' ? `var(--color-tag-Green-bg-soft)` : `var(--color-tag-${resolved}-bg)`
+  const textToken   = `var(--color-tag-${resolved}-text)`
   const shadowTok   = `var(--color-tag-${resolved}-shadow)`
   const innerShadow = `var(--color-tag-${resolved}-inner-shadow)`
 
   const monogram = orgName.trim().charAt(0).toUpperCase()
-  const avatar = orgLogoSrc ? (
+
+  // ── Static chip avatar (16 × 16) — used in the non-interactive variant ──────
+  const chipAvatar = orgLogoSrc ? (
     <img
       src={orgLogoSrc}
       alt=""
@@ -89,8 +100,6 @@ export function OrgBadge(
       style={{
         width: 16, height: 16, borderRadius: 4, flexShrink: 0,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        // Square uses the colour's dark text tone; white letter — the tag pair is
-        // designed as text-on-bg so contrast holds across all colours.
         backgroundColor: textToken,
         color: 'var(--neutral-white)',
         fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
@@ -101,78 +110,60 @@ export function OrgBadge(
     </span>
   )
 
-  const inner = (
-    <>
-      {avatar}
-      {/* Org name — truncates via CSS ellipsis; full name in title tooltip */}
-      <span
-        title={fullName ?? orgName}
-        style={{
-          flex:         '1 1 0',
-          minWidth:     0,
-          padding:      '0 2px',
-          fontFamily:   'var(--font-body)',
-          fontWeight:   'var(--font-weight-medium)',
-          fontSize:     'var(--font-size-caption)',
-          lineHeight:   'var(--line-height-caption)',
-          color:        textToken,
-          whiteSpace:   'nowrap',
-          overflow:     'hidden',
-          textOverflow: 'ellipsis',
-        }}
-      >
-        {orgName}
-      </span>
-      {/* Inner depth/highlight — above content */}
-      <span aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: innerShadow }} />
-    </>
-  )
-
-  const baseStyle: React.CSSProperties = {
-    position:        'relative',
-    display:         'inline-flex',
-    alignItems:      'center',
-    flexShrink:      0,
-    minWidth:        0,
-    maxWidth:        `${maxNameWidth}px`,
-    overflow:        'hidden',
-    padding:         '2px',
-    border:          'none',
-    borderRadius:    '6px',
-    backgroundColor: bgToken,
-    boxShadow:       shadowTok,
-  }
-
+  // ── Static (non-interactive) — identity chip, no button semantics ────────────
   if (!interactive) {
+    const chipInner = (
+      <>
+        {chipAvatar}
+        <span
+          title={fullName ?? orgName}
+          style={{
+            flex: '1 1 0', minWidth: 0, padding: '0 2px',
+            fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
+            fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)',
+            color: textToken, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}
+        >
+          {orgName}
+        </span>
+        <span aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: innerShadow }} />
+      </>
+    )
     return (
       <span
         ref={ref as React.Ref<HTMLSpanElement>}
         role="img"
         aria-label={`Organisation: ${orgName}`}
         className={cn(className)}
-        style={baseStyle}
+        style={{
+          position: 'relative', display: 'inline-flex', alignItems: 'center',
+          flexShrink: 0, minWidth: 0, maxWidth: `${maxNameWidth}px`,
+          overflow: 'hidden', padding: '2px', border: 'none',
+          borderRadius: '6px', backgroundColor: bgToken, boxShadow: shadowTok,
+        }}
         {...rest}
       >
-        {inner}
+        {chipInner}
       </span>
     )
   }
 
+  // ── Interactive — secondary small Button with LogoIcon + role chip ──────────
   return (
-    <motion.button
+    <Button
       ref={ref as React.Ref<HTMLButtonElement>}
-      type="button"
-      aria-label={`Open ${orgName} organisation`}
+      variant="secondary"
+      size="sm"
+      fluid={fluid}
+      leftIcon={<LogoIcon size={16} animated />}
+      aria-label={`Open ${fullName ?? orgName} organisation settings`}
       aria-pressed={active}
       className={cn('kds-org-badge', className)}
       onClick={onClick}
-      whileTap={{ scale: 0.96 }}
-      transition={{ duration: 0.1, ease: 'easeOut' }}
-      style={{ ...baseStyle, cursor: 'pointer' }}
-      {...(rest as React.ComponentPropsWithoutRef<typeof motion.button>)}
+      {...(rest as React.ComponentPropsWithoutRef<typeof Button>)}
     >
-      {inner}
-    </motion.button>
+      Manage Organization
+    </Button>
   )
 }
 

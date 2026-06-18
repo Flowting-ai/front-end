@@ -50,6 +50,100 @@ function PageCard({ children }: { children: React.ReactNode }) {
   )
 }
 
+function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: string | number; height: number; radius?: number }) {
+  return (
+    <div style={{
+      width, height, borderRadius: radius,
+      background: 'linear-gradient(90deg, var(--neutral-100) 25%, var(--neutral-50) 50%, var(--neutral-100) 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'securitySkeletonShimmer 1.4s ease-in-out infinite',
+      flexShrink: 0,
+    }} />
+  )
+}
+
+function SecurityPageSkeleton() {
+  return (
+    <PageShell>
+      <style>{`@keyframes securitySkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+
+      {/* Page header */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <SkeletonBlock width={110} height={28} radius={6} />
+        <SkeletonBlock width={340} height={14} radius={4} />
+      </div>
+
+      {/* Workspace defaults card */}
+      <PageCard>
+        <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <SkeletonBlock width={160} height={15} radius={4} />
+          <SkeletonBlock width={280} height={12} radius={4} />
+        </div>
+        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SkeletonBlock width={160} height={13} radius={4} />
+            <SkeletonBlock width={260} height={12} radius={4} />
+            <SkeletonBlock width="100%" height={88} radius={10} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SkeletonBlock width={180} height={13} radius={4} />
+            <SkeletonBlock width={300} height={12} radius={4} />
+            <SkeletonBlock width="100%" height={36} radius={10} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <SkeletonBlock width={100} height={32} radius={8} />
+          </div>
+        </div>
+      </PageCard>
+
+      {/* Authentication card */}
+      <PageCard>
+        <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <SkeletonBlock width={130} height={15} radius={4} />
+        </div>
+        {[
+          { labelW: 160, descW: 260 },
+          { labelW: 190, descW: 230 },
+          { labelW: 145, descW: 300 },
+          { labelW: 140, descW: 280 },
+          { labelW: 130, descW: 260 },
+        ].map((row, i, arr) => (
+          <div key={i} style={{ padding: '16px 24px', borderBottom: i < arr.length - 1 ? '1px solid var(--neutral-100)' : undefined, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <SkeletonBlock width={row.labelW} height={14} radius={4} />
+              <SkeletonBlock width={row.descW} height={12} radius={4} />
+            </div>
+            <SkeletonBlock width={34} height={20} radius={20} />
+          </div>
+        ))}
+      </PageCard>
+
+      {/* HITL Approval Threshold card */}
+      <PageCard>
+        <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <SkeletonBlock width={175} height={15} radius={4} />
+          <SkeletonBlock width={340} height={12} radius={4} />
+        </div>
+        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {[
+            { labelW: 200, descW: 260 },
+            { labelW: 240, descW: 290 },
+            { labelW: 155, descW: 245 },
+          ].map((opt, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <SkeletonBlock width={16} height={16} radius={999} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <SkeletonBlock width={opt.labelW} height={14} radius={4} />
+                <SkeletonBlock width={opt.descW} height={12} radius={4} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </PageCard>
+    </PageShell>
+  )
+}
+
 export default function OrgSecurityPage() {
   const { orgId, org, currentUserRole } = useOrg()
   const isAdmin = currentUserRole === 'admin'
@@ -64,11 +158,11 @@ export default function OrgSecurityPage() {
 
   const [instructions,    setInstructions]    = useState('')
   const [emailDomains,    setEmailDomains]    = useState('')
-  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [settingsLoading, setSettingsLoading] = useState(true)
   const [savingSettings,  setSavingSettings]  = useState(false)
 
   useEffect(() => {
-    if (!orgId) return
+    if (!orgId) { setSettingsLoading(false); return }
     setSettingsLoading(true)
     getOrgSettings(orgId)
       .then(s => {
@@ -99,6 +193,8 @@ export default function OrgSecurityPage() {
     setDomainStatus('verifying')
     setTimeout(() => setDomainStatus('verified'), 2000)
   }
+
+  if (settingsLoading) return <SecurityPageSkeleton />
 
   return (
     <PageShell>

@@ -14,6 +14,7 @@ import {
 import { Dropdown, type DropdownPlacement } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
+import { Badge } from '@/components/Badge'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -103,7 +104,7 @@ const CreditsBadge = ({ credits }: { credits: number }) => (
         whiteSpace: 'nowrap',
       }}
     >
-      {credits} credits left
+      {Math.round(credits).toLocaleString()} credits left
     </span>
   </div>
 )
@@ -207,27 +208,7 @@ const IdentityRow = ({ name, plan, planWarning, credits, avatarSrc }: {
         </p>
         {plan && (
           planWarning ? (
-            <span style={{
-              display:         'inline-flex',
-              alignItems:      'center',
-              gap:             4,
-              padding:         '1px 6px',
-              borderRadius:    20,
-              backgroundColor: 'var(--color-tag-Yellow-bg,#fef9c3)',
-              color:           'var(--color-tag-Yellow-text,#854d0e)',
-              fontFamily:      'var(--font-body)',
-              fontWeight:      'var(--font-weight-medium)',
-              fontSize:        'var(--font-size-caption)',
-              lineHeight:      'var(--line-height-caption)',
-              whiteSpace:      'nowrap',
-              flexShrink:      0,
-            }}>
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-                <path d="M5 1.5L9 8.5H1L5 1.5Z" fill="var(--color-tag-Yellow-text,#854d0e)" />
-                <path d="M5 4.5v1.5M5 7.2v.3" stroke="#fef9c3" strokeWidth="1" strokeLinecap="round" />
-              </svg>
-              {plan}
-            </span>
+            <Badge color="Yellow" label={plan} style={{ alignSelf: 'flex-start' }} />
           ) : (
             <p
               style={{
