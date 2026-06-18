@@ -83,9 +83,9 @@ type UsageWithExtras = UserUsage & {
  * Derive the personal credit balance from the `/users/me` `usage` object.
  * This is the global source (auth-context → sidebar, gating, etc.).
  *
- * Top-ups: `usage.credits` already folds in remaining top-up balance, so the
- * subscriber/free path needs no extra add. Trial keeps its pool separate, so
- * top-ups are stacked onto the trial balance explicitly.
+ * Non-trial: credits = (plan_credits + topup_credits - used) * 1000. Falls back
+ * to usage.credits for older API shapes that lack plan_credits.
+ * Trial keeps its pool separate, so top-ups are stacked explicitly.
  */
 export function creditsFromUsage(usage: UserUsage | null | undefined): CreditBalance {
   if (!usage) return EMPTY_CREDIT_BALANCE;
@@ -99,8 +99,15 @@ export function creditsFromUsage(usage: UserUsage | null | undefined): CreditBal
       u.trial.amount != null ? u.trial.amount + topup : null,
     );
   }
-  // Subscriber / free: usage.credits is the all-in REMAINING (plan + top-up).
-  return build(usage.credits, usage.spent_this_period, false);
+  // Subscriber / free: (plan_credits + topup_credits - used) * 1000 is the actual
+  // credits when the API sends explicit plan_credits. Fall back to usage.credits
+  // (the all-in REMAINING already folding in top-ups) for older API shapes.
+  if (typeof usage.plan_credits === 'number') {
+    const usedDollars = usage.used ?? u.spent_this_period ?? 0;
+    const remainingDollars = usage.plan_credits + topup - usedDollars;
+    return build(remainingDollars, usedDollars, false, usage.plan_credits + topup);
+  }
+  return build(usage.credits, u.spent_this_period, false);
 }
 
 /**

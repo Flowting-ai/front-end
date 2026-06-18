@@ -16,7 +16,7 @@ import {
   TEAM_INVITE_PREVIEW_ENDPOINT,
   TEAM_INVITE_ACCEPT_ENDPOINT,
 } from '@/lib/config'
-import type { Team, TeamEditor, TeamInvite } from '@/types/teams'
+import type { Team, TeamEditor, TeamInvite, WorkspaceRole } from '@/types/teams'
 import type { ConnectorTool, ConnectorAccount } from './connectors'
 
 // ── Backend shapes (snake_case) ───────────────────────────────────────────────
@@ -180,10 +180,13 @@ export async function removeProjectMember(orgId: string, teamId: string, project
   await apiFetch(ORG_TEAM_PROJECT_MEMBER_ENDPOINT(orgId, teamId, projectId, memberId), { method: 'DELETE' })
 }
 
-export async function inviteTeamMembers(orgId: string, teamId: string, emails: string[]): Promise<TeamInvite> {
+export async function inviteTeamMembers(orgId: string, teamId: string, emails: string[], role?: WorkspaceRole): Promise<TeamInvite> {
+  // 'editor' is a team-level privilege not an OrganizationRole — omit from body;
+  // the caller must grant editor status via addTeamEditor after the invite lands.
+  const orgRole = role === 'editor' || role === undefined ? undefined : role
   const data = await apiFetchJson<InviteResponse>(ORG_TEAM_INVITES_ENDPOINT(orgId, teamId), {
     method: 'POST',
-    body: JSON.stringify({ emails }),
+    body: JSON.stringify({ emails, ...(orgRole ? { role: orgRole } : {}) }),
   })
   return normalizeInvite(data)
 }

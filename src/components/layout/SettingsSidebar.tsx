@@ -49,8 +49,10 @@ export function SettingsSidebar() {
 
   const planWarning = !orgId && !user?.planType && !user?.isTrial
 
+  // org.creditPool.remaining is in dollars (API value); multiply by 1000 to get credits.
+  // user.creditsRemaining is already in credits (converted by lib/credits.ts toCredits()).
   const accountCredits = orgId
-    ? (typeof org?.creditPool?.remaining === 'number' ? org.creditPool.remaining : undefined)
+    ? (typeof org?.creditPool?.remaining === 'number' ? Math.round(org.creditPool.remaining * 1000) : undefined)
     : (user?.creditsRemaining ?? undefined)
 
   return (
@@ -166,23 +168,33 @@ export function SettingsSidebar() {
         paddingBottom:   12,
         boxShadow:       '0px -34px 33.5px 0px var(--neutral-50)',
       }}>
-        <AccountMenu
-          name={displayName || 'Account'}
-          plan={planLabel}
-          planWarning={planWarning}
-          credits={accountCredits}
-          avatarSrc={user?.profilePicture ?? undefined}
-          collapsed={false}
-          panelWidth={274}
-          placement="top-start"
-          onProfile={() => push('/settings/account')}
-          onUpgradePlan={() => push('/settings/billing')}
-          onSettings={() => push('/settings')}
-          onOrganization={orgId ? () => push('/org/general') : undefined}
-          onWhatsNew={() => toast.info("What's new — coming soon!")}
-          onHelp={() => push('/settings/help')}
-          onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
-        />
+        {!user ? (
+          <div style={{ padding: '8px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="kaya-skeleton" style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0 }} />
+            <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <div className="kaya-skeleton" style={{ height: 14, width: '60%', borderRadius: 4 }} />
+              <div className="kaya-skeleton" style={{ height: 11, width: '42%', borderRadius: 4 }} />
+            </div>
+          </div>
+        ) : (
+          <AccountMenu
+            name={displayName || 'Account'}
+            plan={planLabel}
+            planWarning={planWarning}
+            credits={accountCredits}
+            avatarSrc={user?.profilePicture ?? undefined}
+            collapsed={false}
+            panelWidth={274}
+            placement="top-start"
+            onProfile={() => push('/settings/account')}
+            onUpgradePlan={() => push('/settings/billing')}
+            onSettings={() => push('/settings')}
+            onOrganization={orgId ? () => push('/org/general') : undefined}
+            onWhatsNew={() => toast.info("What's new — coming soon!")}
+            onHelp={() => push('/settings/help')}
+            onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
+          />
+        )}
       </div>
     </div>
   )

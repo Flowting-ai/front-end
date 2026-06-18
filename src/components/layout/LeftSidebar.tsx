@@ -1172,8 +1172,10 @@ function LeftSidebarImpl({
   //   • Organization → the SHARED org pool remaining (org-context / getOrgPlan)
   //   • Individual / trial → the personal balance (auth-context → lib/credits.ts)
   // Org and personal balances never mix; we pick the source by environment.
+  // org.creditPool.remaining is in dollars (API value); multiply by 1000 to get credits.
+  // user.creditsRemaining is already in credits (converted by lib/credits.ts toCredits()).
   const accountCredits = orgId
-    ? (typeof org?.creditPool?.remaining === "number" ? org.creditPool.remaining : undefined)
+    ? (typeof org?.creditPool?.remaining === "number" ? Math.round(org.creditPool.remaining * 1000) : undefined)
     : (user?.creditsRemaining ?? undefined);
 
   const sectionProps: SectionProps = {
@@ -1216,25 +1218,42 @@ function LeftSidebarImpl({
       orgId={orgId ?? undefined}
       showAdmin={Boolean(orgId) && currentUserRole === 'admin'}
       orgBadgeSublabel={orgBadgeSublabel}
-      accountMenu={(collapsed) => (
-        <AccountMenu
-          name={displayName || "Account"}
-          plan={planLabel}
-          planWarning={planWarning}
-          credits={accountCredits}
-          avatarSrc={user?.profilePicture ?? undefined}
-          collapsed={collapsed}
-          panelWidth={274}
-          placement="top-start"
-          onProfile={() => push("/settings/account")}
-          onUpgradePlan={() => push("/settings/billing")}
-          onSettings={() => push("/settings")}
-          onOrganization={orgId ? () => push("/org/general") : undefined}
-          onWhatsNew={() => toast.info("What's new — coming soon!")}
-          onHelp={() => push("/settings/help")}
-          onLogOut={() => { if (isAuthenticated) { void logout() } else { push("/auth/login") } }}
-        />
-      )}
+      accountMenu={(collapsed) => {
+        if (!user) {
+          return collapsed ? (
+            <div style={{ padding: '12px 8px', display: 'flex', justifyContent: 'center' }}>
+              <div className="kaya-skeleton" style={{ width: 32, height: 32, borderRadius: 8 }} />
+            </div>
+          ) : (
+            <div style={{ padding: '8px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="kaya-skeleton" style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0 }} />
+              <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <div className="kaya-skeleton" style={{ height: 14, width: '60%', borderRadius: 4 }} />
+                <div className="kaya-skeleton" style={{ height: 11, width: '42%', borderRadius: 4 }} />
+              </div>
+            </div>
+          )
+        }
+        return (
+          <AccountMenu
+            name={displayName || "Account"}
+            plan={planLabel}
+            planWarning={planWarning}
+            credits={accountCredits}
+            avatarSrc={user?.profilePicture ?? undefined}
+            collapsed={collapsed}
+            panelWidth={274}
+            placement="top-start"
+            onProfile={() => push("/settings/account")}
+            onUpgradePlan={() => push("/settings/billing")}
+            onSettings={() => push("/settings")}
+            onOrganization={orgId ? () => push("/org/general") : undefined}
+            onWhatsNew={() => toast.info("What's new — coming soon!")}
+            onHelp={() => push("/settings/help")}
+            onLogOut={() => { if (isAuthenticated) { void logout() } else { push("/auth/login") } }}
+          />
+        )
+      }}
       onSchedulesClick={() => { toast.info("Opening Schedules", { id: 'nav' }); push("/brain/schedules") }}
       projectItems={orgId ? (
         <TeamsSidebarContent
@@ -1250,7 +1269,13 @@ function LeftSidebarImpl({
       )}
       scheduledTasksItems={isBrainPage ? <BrainScheduledTasksSection tasks={brainTasks} loading={brainTasksLoading} /> : undefined}
       recentItems={
-        isPersonaPage ? (
+        !user ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 0' }}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <SidebarMenuSkeleton key={i} fluid />
+            ))}
+          </div>
+        ) : isPersonaPage ? (
           <PersonasSectionAll />
         ) : isProjectPage ? null : (
           // Both sections share sectionProps; StarredSection self-hides when empty.

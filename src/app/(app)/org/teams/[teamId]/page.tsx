@@ -826,9 +826,151 @@ export default function TeamSettingsPage() {
     (!!user?.email && editors.some(e => e.email?.toLowerCase() === user.email!.toLowerCase()))
 
   if (loading) {
+    const Bone = ({ w, h = 14, r = 6, style }: { w?: number | string; h?: number; r?: number; style?: React.CSSProperties }) => (
+      <div aria-hidden className="kaya-skeleton" style={{ width: w, height: h, borderRadius: r, flexShrink: 0, ...style }} />
+    )
+    const SkeletonCard = ({ children }: { children: React.ReactNode }) => (
+      <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12)', overflow: 'hidden' }}>
+        {children}
+      </div>
+    )
     return (
-      <div style={{ flex: '1 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--neutral-500)' }}>Loading…</p>
+      <div
+        className="kaya-scrollbar"
+        style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}
+        aria-busy="true"
+      >
+        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 1114 }}>
+
+          {/* Page header */}
+          <div style={{ paddingLeft: 4, marginBottom: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Bone w={80} h={11} r={4} />
+            <Bone w={220} h={28} r={8} />
+            <Bone w="55%" h={14} />
+          </div>
+
+          {/* Team identity card */}
+          <SkeletonCard>
+            <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+              <Bone w={120} h={16} />
+            </div>
+            <div style={{ padding: '12px 24px 20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                {[0, 1].map(i => (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <Bone w={80} h={12} />
+                    <Bone w="100%" h={36} r={8} />
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Bone w={110} h={34} r={8} />
+              </div>
+            </div>
+          </SkeletonCard>
+
+          {/* Team members table */}
+          <SkeletonCard>
+            {/* Toolbar */}
+            <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <Bone w={140} h={16} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Bone w={32} h={32} r={8} />
+                <Bone w={32} h={32} r={8} />
+                <Bone w={110} h={32} r={8} />
+                <Bone w={130} h={32} r={8} />
+              </div>
+            </div>
+            {/* Header row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 160px', padding: '8px 16px', borderBottom: '1px solid var(--neutral-100)' }}>
+              <Bone w={60} h={12} />
+              <Bone w={50} h={12} />
+              <Bone w={50} h={12} style={{ marginLeft: 'auto', marginRight: 'auto' }} />
+            </div>
+            {/* Rows */}
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 160px', alignItems: 'center', padding: '12px 16px', borderBottom: i < 2 ? '1px solid var(--neutral-100)' : undefined }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Bone w={36} h={36} r={18} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <Bone w={100} h={13} />
+                    <Bone w={140} h={11} />
+                  </div>
+                </div>
+                <Bone w={160} h={13} />
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <Bone w={70} h={28} r={8} />
+                </div>
+              </div>
+            ))}
+          </SkeletonCard>
+
+          {/* Team connectors card */}
+          <SkeletonCard>
+            <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <Bone w={150} h={16} />
+                <Bone w="60%" h={12} />
+              </div>
+              <Bone w={150} h={34} r={8} />
+            </div>
+            <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {[0, 1].map(i => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: i < 1 ? '1px solid var(--neutral-100)' : undefined }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Bone w={32} h={32} r={6} />
+                    <Bone w={120} h={14} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <Bone w={60} h={22} r={6} />
+                    <Bone w={80} h={28} r={8} />
+                    <Bone w={70} h={28} r={8} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SkeletonCard>
+
+          {/* Team connections card */}
+          <SkeletonCard>
+            <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+              <Bone w={160} h={16} />
+              <Bone w="50%" h={12} style={{ marginTop: 6 }} />
+            </div>
+            <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {[0, 1].map(i => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: i < 1 ? '1px solid var(--neutral-100)' : undefined }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <Bone w={130} h={14} />
+                    <Bone w={180} h={12} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <Bone w={90} h={22} r={6} />
+                    <Bone w={110} h={28} r={8} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SkeletonCard>
+
+          {/* Danger zone card */}
+          <SkeletonCard>
+            <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+              <Bone w={110} h={16} />
+              <Bone w="45%" h={12} style={{ marginTop: 6 }} />
+            </div>
+            {[0, 1].map(i => (
+              <div key={i} style={{ padding: '16px 24px', borderBottom: i < 1 ? '1px solid var(--neutral-100)' : undefined, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <Bone w={100} h={14} />
+                  <Bone w={280} h={12} />
+                </div>
+                <Bone w={90} h={32} r={8} />
+              </div>
+            ))}
+          </SkeletonCard>
+
+        </div>
       </div>
     )
   }

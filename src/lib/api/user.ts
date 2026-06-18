@@ -73,9 +73,13 @@ export interface UserUpcomingInvoice {
 export interface UserUsage {
   /** Period credit allowance (API field `credits`). */
   credits: number;
+  /** Plan allowance in dollars (API field `plan_credits`). Present on current API shape. */
+  plan_credits?: number;
   /** Purchased top-up balance in dollars (API field `topup_credits`), additive
    *  on top of the plan allowance. Preserved verbatim by normalizeUserProfile. */
   topup_credits?: number;
+  /** Credits used in dollars (API field `used`). Present on current API shape. */
+  used?: number;
   /** Credits consumed in the current period (API field `spent_this_period`). */
   spent_this_period: number;
   by_category?: {

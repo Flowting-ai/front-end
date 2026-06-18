@@ -3152,22 +3152,39 @@ function BrainPageInner() {
           const coming: Record<string, string> = { folders: 'Folders', websites: 'Websites', triggers: 'Triggers' }
           toast.info(`${coming[id] ?? id} — coming soon`, { id: 'nav' })
         },
-        accountMenu: (collapsed) => (
-          <AccountMenu
-            name={displayName || 'Account'}
-            plan={planLabel}
-            credits={user?.creditsRemaining ?? undefined}
-            avatarSrc={user?.profilePicture ?? undefined}
-            collapsed={collapsed}
-            panelWidth={274}
-            placement="top-start"
-            onProfile={() => push('/settings/account')}
-            onUpgradePlan={() => push('/settings/billing')}
-            onSettings={() => push('/settings')}
-            onHelp={() => push('/settings/help')}
-            onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
-          />
-        ),
+        accountMenu: (collapsed) => {
+          if (!user) {
+            return collapsed ? (
+              <div style={{ padding: '12px 8px', display: 'flex', justifyContent: 'center' }}>
+                <div className="kaya-skeleton" style={{ width: 32, height: 32, borderRadius: 8 }} />
+              </div>
+            ) : (
+              <div style={{ padding: '8px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="kaya-skeleton" style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0 }} />
+                <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <div className="kaya-skeleton" style={{ height: 14, width: '60%', borderRadius: 4 }} />
+                  <div className="kaya-skeleton" style={{ height: 11, width: '42%', borderRadius: 4 }} />
+                </div>
+              </div>
+            )
+          }
+          return (
+            <AccountMenu
+              name={displayName || 'Account'}
+              plan={planLabel}
+              credits={user?.creditsRemaining ?? undefined}
+              avatarSrc={user?.profilePicture ?? undefined}
+              collapsed={collapsed}
+              panelWidth={274}
+              placement="top-start"
+              onProfile={() => push('/settings/account')}
+              onUpgradePlan={() => push('/settings/billing')}
+              onSettings={() => push('/settings')}
+              onHelp={() => push('/settings/help')}
+              onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
+            />
+          )
+        },
       }}
     >
       {chatIdFromUrl || hasContent ? (

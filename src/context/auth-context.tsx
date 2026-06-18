@@ -129,7 +129,9 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
     name:
       [firstName, lastName].filter(Boolean).join(" ") ||
       (!profileNameIsEmail ? rawProfileName : null) ||
-      profile.email ||
+      // Auth0 sets profile.name to the email for new signups; don't expose the
+      // full address as a display name — use only the local part before '@'.
+      (profile.email ? profile.email.split("@")[0] : null) ||
       null,
     phoneNumber: profile.phone_number ?? null,
     profilePicture: profile.profile_picture ?? null,

@@ -17,9 +17,9 @@ import { toast }           from 'sonner'
 import { useOrg }           from '@/context/org-context'
 import { useAuth }          from '@/context/auth-context'
 import { setMemberRole, removeMember, getOrgSettings, listMembers, setMemberCap } from '@/lib/api/organization'
-import { inviteTeamMembers } from '@/lib/api/teams'
+import { inviteTeamMembers, addTeamEditor, removeTeamEditor } from '@/lib/api/teams'
 import { updateUser } from '@/lib/api/user'
-import type { OrgMember, WorkspaceRole, OrgRole } from '@/types/teams'
+import type { OrgMember, WorkspaceRole } from '@/types/teams'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 const SHADOW_CARD      = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)'
@@ -769,11 +769,21 @@ export default function OrgMembersPage() {
 
   const handleChangeRole = async (id: string, role: WorkspaceRole) => {
     const prev = members
+    const prevMember = prev.find(m => m.id === id)
     setMembers(ms => ms.map(m => m.id === id ? { ...m, role } : m))
     if (!orgId) return
-    const apiRole: OrgRole = role === 'admin' ? 'admin' : 'member'
     try {
-      await setMemberRole(orgId, id, apiRole)
+      if (role === 'admin') {
+        await setMemberRole(orgId, id, 'admin')
+      } else {
+        await setMemberRole(orgId, id, 'member')
+        const teamIds = prevMember?.teamMemberships.map(tm => tm.teamId) ?? []
+        if (role === 'editor') {
+          await Promise.all(teamIds.map(tid => addTeamEditor(orgId, tid, id)))
+        } else if (prevMember?.role === 'editor') {
+          await Promise.all(teamIds.map(tid => removeTeamEditor(orgId, tid, id)))
+        }
+      }
     } catch (err) {
       setMembers(prev)
       toast.error(err instanceof Error ? err.message : 'Failed to update role')
@@ -829,22 +839,26 @@ export default function OrgMembersPage() {
     }
     setInviteLoading(true)
     try {
-      await inviteTeamMembers(orgId, teamId, [email])
+      await inviteTeamMembers(orgId, teamId, [email], role)
 
-      // If a cap was set, fetch the fresh member list to get the real user_id
-      // (pending invitees are present in the list immediately with invite_status='pending')
+      // Post-invite: fetch fresh member list to apply cap and/or editor status.
+      // Pending invitees appear immediately with invite_status='pending'.
       let resolvedCap: number | undefined
-      if (creditCap && creditCap > 0) {
+      if ((creditCap && creditCap > 0) || role === 'editor') {
         try {
           const fresh = await listMembers(orgId)
           const match = fresh.find(m => m.email.toLowerCase() === email.trim().toLowerCase())
           if (match) {
-            const capDollars = creditCap / 1000
-            await setMemberCap(orgId, match.id, capDollars)
-            resolvedCap = creditCap
+            if (creditCap && creditCap > 0) {
+              await setMemberCap(orgId, match.id, creditCap / 1000)
+              resolvedCap = creditCap
+            }
+            if (role === 'editor') {
+              await addTeamEditor(orgId, teamId, match.id)
+            }
           }
         } catch {
-          // cap set failed silently — member can be capped later from analytics page
+          // non-blocking — cap/editor can be adjusted later from the member row
         }
       }
 
