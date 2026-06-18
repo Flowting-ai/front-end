@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { ArrowDownOneIcon, CancelOneIcon, CheckmarkCircleTwoIcon, PlusSignIcon } from '@strange-huge/icons'
 import { useOrg } from '@/context/org-context'
 import { SlackConnectModal } from '@/components/SlackConnectModal'
-import { getSlackStatus, listSlackChannels, setSlackChannelMapping } from '@/lib/api/slack'
+import { getSlackStatus, listSlackChannels, setSlackChannelMapping, removeOrgSlackInstallation } from '@/lib/api/slack'
 import type { SlackChannel, SlackStatus } from '@/lib/api/slack'
 import { fetchProjects } from '@/lib/api/projects'
 import type { ApiProjectSummary } from '@/lib/api/projects'
@@ -115,6 +115,7 @@ export default function SouvenirSlackPage() {
   const [channelsLoading, setChannelsLoading] = useState(false)
   const [projects,      setProjects]      = useState<ApiProjectSummary[]>([])
   const [savingId,      setSavingId]      = useState<string | null>(null)
+  const [removing,      setRemoving]      = useState(false)
 
   // UI-only state (no backend field): team selection + private/public per channel.
   const [teamByChannel,    setTeamByChannel]    = useState<Record<string, string>>({})
@@ -165,6 +166,22 @@ export default function SouvenirSlackPage() {
     }
   }
 
+  const handleRemoveSlack = async () => {
+    if (!orgId || removing) return
+    if (!window.confirm('Remove the Slack bot from this organization? It will be uninstalled from the workspace and all channel mappings stop working.')) return
+    setRemoving(true)
+    try {
+      await removeOrgSlackInstallation(orgId)
+      setChannels([])
+      setStatus({ connected: false, workspaces: [] })
+      toast.success('Slack removed from this organization')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove Slack')
+    } finally {
+      setRemoving(false)
+    }
+  }
+
   const projectOptions = projects.map(p => ({ value: p.id, label: p.title }))
   const teamOptions    = teams.map(t => ({ value: t.id, label: t.name }))
 
@@ -211,18 +228,20 @@ export default function SouvenirSlackPage() {
           {connected && (
             <button
               type="button"
-              onClick={() => toast.info("Disconnecting Slack isn't available yet — contact support.")}
+              onClick={handleRemoveSlack}
+              disabled={removing}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                backgroundColor: 'white', flexShrink: 0,
+                padding: '6px 12px', borderRadius: 8, border: 'none',
+                cursor: removing ? 'not-allowed' : 'pointer',
+                backgroundColor: 'white', flexShrink: 0, opacity: removing ? 0.6 : 1,
                 boxShadow: '0px 1px 1.5px 0px rgba(24,2,2,0.05), 0px 1px 2px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-200, #fecaca)',
                 fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
                 color: 'var(--red-600, #dc2626)',
               }}
             >
               <CancelOneIcon size={14} />
-              Disconnect Slack
+              {removing ? 'Removing…' : 'Disconnect Slack'}
             </button>
           )}
         </div>

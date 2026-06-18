@@ -1,12 +1,13 @@
 'use client'
 
-import { apiFetchJson } from './client'
+import { apiFetch, apiFetchJson } from './client'
 import {
   SLACK_INSTALL_ENDPOINT,
   SLACK_STATUS_ENDPOINT,
   SLACK_LINK_ENDPOINT,
   ORG_SLACK_CHANNELS_ENDPOINT,
   ORG_SLACK_CHANNEL_MAPPING_ENDPOINT,
+  ORG_SLACK_INSTALLATION_ENDPOINT,
 } from '@/lib/config'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -144,4 +145,10 @@ export async function disconnectSlackIdentity(): Promise<{ removed: number }> {
     method: 'DELETE',
   })
   return { removed: data.removed }
+}
+
+/** DELETE /organizations/{id}/slack/installation — remove the bot from the
+ * organization (revokes on Slack + drops the install). Admin only. */
+export async function removeOrgSlackInstallation(orgId: string): Promise<void> {
+  await apiFetch(ORG_SLACK_INSTALLATION_ENDPOINT(orgId), { method: 'DELETE' })
 }

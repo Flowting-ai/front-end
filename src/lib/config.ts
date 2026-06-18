@@ -304,6 +304,9 @@ export const ORG_SLACK_CHANNELS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/slack/channels`)
 export const ORG_SLACK_CHANNEL_MAPPING_ENDPOINT = (orgId: string, channelId: string) =>
   withBase(`/organizations/${orgId}/slack/channels/${encodeURIComponent(channelId)}/mapping`)
+/** DELETE — remove the Slack bot from the organization (revokes + drops install). */
+export const ORG_SLACK_INSTALLATION_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/slack/installation`)
 
 // ── Persona visibility ─────────────────────────────────────────────────────────
 export const PERSONA_VISIBILITY_ENDPOINT = (repoId: string) =>
