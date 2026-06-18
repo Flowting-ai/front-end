@@ -2,6 +2,8 @@
 
 import { apiFetchJson } from './client'
 import {
+  SLACK_INSTALL_ENDPOINT,
+  SLACK_STATUS_ENDPOINT,
   ORG_SLACK_CHANNELS_ENDPOINT,
   ORG_SLACK_CHANNEL_MAPPING_ENDPOINT,
 } from '@/lib/config'
@@ -43,7 +45,52 @@ function normalizeChannel(c: SlackChannelItemResponse): SlackChannel {
   }
 }
 
+// ── Install / status types ──────────────────────────────────────────────────────
+
+interface SlackInstallURLResponseRaw {
+  url: string
+}
+
+interface SlackWorkspaceStatusRaw {
+  team_id:      string
+  team_name:    string
+  installed_at: string
+}
+
+interface SlackStatusResponseRaw {
+  workspaces: SlackWorkspaceStatusRaw[]
+}
+
+export interface SlackWorkspaceStatus {
+  teamId:      string
+  teamName:    string
+  installedAt: string
+}
+
+export interface SlackStatus {
+  /** True when the bot is installed in at least one workspace for this user. */
+  connected:  boolean
+  workspaces: SlackWorkspaceStatus[]
+}
+
 // ── API functions ─────────────────────────────────────────────────────────────
+
+/** GET /slack/install — the "Add to Slack" URL (FE opens it; Slack redirects to the callback). */
+export async function getSlackInstallUrl(): Promise<string> {
+  const data = await apiFetchJson<SlackInstallURLResponseRaw>(SLACK_INSTALL_ENDPOINT)
+  return data.url
+}
+
+/** GET /slack/status — workspaces where the bot is installed for this user. */
+export async function getSlackStatus(): Promise<SlackStatus> {
+  const data = await apiFetchJson<SlackStatusResponseRaw>(SLACK_STATUS_ENDPOINT)
+  const workspaces = (data.workspaces ?? []).map(w => ({
+    teamId:      w.team_id,
+    teamName:    w.team_name,
+    installedAt: w.installed_at,
+  }))
+  return { connected: workspaces.length > 0, workspaces }
+}
 
 /** GET /organizations/{id}/slack/channels */
 export async function listSlackChannels(orgId: string): Promise<SlackChannelsResponse> {

@@ -4,16 +4,20 @@ import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'reac
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
+  ArrowDownOneIcon,
   ArrowRightOneIcon,
   CancelOneIcon,
   InformationCircleIcon,
   PlusSignIcon,
   SearchOneIcon,
+  TickTwoIcon,
   UserIcon,
   WorkflowSquareTenIcon,
 } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
+import { Dropdown, DropdownFloat } from '@/components/Dropdown'
+import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
 import { Switch } from '@/components/Switch'
@@ -66,6 +70,86 @@ const POLICY_LABELS: Record<ConnectorTool['policy'], string> = {
 }
 
 const POLICY_VALUES: ConnectorTool['policy'][] = ['allow', 'ask', 'block', 'allow_once']
+
+const POLICY_HELP: Record<ConnectorTool['policy'], string> = {
+  allow:      'Runs without asking',
+  ask:        'Asks before each run',
+  block:      'Never runs',
+  allow_once: 'Runs once, then asks again',
+}
+
+// Turn a raw tool slug (e.g. "GOOGLECALENDAR_CREATE_EVENT") into a readable
+// action name, dropping the redundant connector prefix when present.
+function humanizeAction(toolSlug: string, connectorSlug: string): string {
+  let s = toolSlug
+  const prefix = `${connectorSlug.replace(/[\s-]/g, '_').toUpperCase()}_`
+  if (s.toUpperCase().startsWith(prefix)) s = s.slice(prefix.length)
+  s = s.replace(/_/g, ' ').trim().toLowerCase()
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : toolSlug
+}
+
+// KDS policy selector — mirrors the Dropdown.Float pattern used across settings.
+function PolicySelect({
+  value,
+  disabled,
+  onChange,
+}: {
+  value:     ConnectorTool['policy']
+  disabled?: boolean
+  onChange:  (value: ConnectorTool['policy']) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <DropdownFloat
+      open={open}
+      onOpenChange={next => { if (!disabled) setOpen(next) }}
+      placement="bottom-end"
+      offset={4}
+      trigger={
+        <button
+          type="button"
+          disabled={disabled}
+          style={{
+            display:         'flex',
+            alignItems:      'center',
+            justifyContent:  'space-between',
+            gap:             8,
+            width:           150,
+            height:          34,
+            padding:         '0 10px',
+            borderRadius:    10,
+            border:          'none',
+            backgroundColor: 'white',
+            boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
+            cursor:          disabled ? 'not-allowed' : 'pointer',
+            opacity:         disabled ? 0.6 : 1,
+            outline:         'none',
+            flexShrink:      0,
+          }}
+        >
+          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)' }}>
+            {POLICY_LABELS[value]}
+          </span>
+          <ArrowDownOneIcon size={12} color="var(--neutral-400)" />
+        </button>
+      }
+    >
+      <Dropdown style={{ width: 220 }}>
+        {POLICY_VALUES.map(policy => (
+          <DropdownMenuItem
+            key={policy}
+            fluid
+            label={POLICY_LABELS[policy]}
+            subLabel={POLICY_HELP[policy]}
+            selected={policy === value}
+            icon={policy === value ? <TickTwoIcon size={14} /> : undefined}
+            onClick={() => { onChange(policy); setOpen(false) }}
+          />
+        ))}
+      </Dropdown>
+    </DropdownFloat>
+  )
+}
 
 const ADMIN_TABS: Array<{ id: MainTab; label: string }> = [
   { id: 'catalog', label: 'Catalog' },
@@ -1325,48 +1409,46 @@ function AccountDetailModal({
                     {tools.length === 0 ? (
                       <BodyText size={12}>This connector has no configurable tools yet.</BodyText>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {tools.map(tool => {
                           const saveKey = `${team.id}:${tool.slug}`
                           return (
                             <div
                               key={tool.slug}
                               style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'minmax(0, 1fr) 150px',
-                                alignItems: 'center',
-                                gap: 12,
+                                display:         'flex',
+                                alignItems:      'center',
+                                justifyContent:  'space-between',
+                                gap:             12,
+                                padding:         '8px 12px',
+                                borderRadius:    10,
+                                backgroundColor: 'white',
+                                boxShadow:       '0px 0px 0px 1px var(--neutral-100)',
                               }}
                             >
-                              <BodyText
-                                size={12}
-                                color="var(--neutral-700)"
-                                family="var(--font-mono, monospace)"
-                                style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                              >
-                                {tool.slug}
-                              </BodyText>
-                              <select
+                              <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <BodyText
+                                  size={14}
+                                  weight={500}
+                                  color="var(--neutral-900)"
+                                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                >
+                                  {humanizeAction(tool.slug, connector.slug)}
+                                </BodyText>
+                                <BodyText
+                                  size={11}
+                                  color="var(--neutral-400)"
+                                  family="var(--font-mono, monospace)"
+                                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                >
+                                  {tool.slug}
+                                </BodyText>
+                              </div>
+                              <PolicySelect
                                 value={tool.policy}
                                 disabled={!connection || savingPermission === saveKey}
-                                onChange={event => void updateTeamPermission(team, tool, event.target.value as ConnectorTool['policy'])}
-                                style={{
-                                  width: 150,
-                                  height: 32,
-                                  border: '1px solid var(--neutral-200)',
-                                  borderRadius: 8,
-                                  backgroundColor: 'white',
-                                  color: 'var(--neutral-900)',
-                                  fontFamily: 'var(--font-body)',
-                                  fontSize: 12,
-                                  padding: '0 8px',
-                                  cursor: connection ? 'pointer' : 'not-allowed',
-                                }}
-                              >
-                                {POLICY_VALUES.map(value => (
-                                  <option key={value} value={value}>{POLICY_LABELS[value]}</option>
-                                ))}
-                              </select>
+                                onChange={policy => void updateTeamPermission(team, tool, policy)}
+                              />
                             </div>
                           )
                         })}

@@ -2,8 +2,10 @@
 
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
+import { SlackConnectModal } from "@/components/SlackConnectModal";
 import { toast } from "sonner";
 
 // ── Icons (monochrome line icons, inherit currentColor) ──────────────────────────
@@ -230,6 +232,7 @@ function TeamWelcomeContent() {
   const router = useRouter();
   const { user } = useAuth();
   const params = useSearchParams();
+  const [slackModalOpen, setSlackModalOpen] = useState(false);
 
   // Prefer the name captured during onboarding (passed via URL), falling back to
   // the authenticated profile so the greeting is always populated.
@@ -306,7 +309,15 @@ function TeamWelcomeContent() {
           {/* Action grid — 3 columns × 2 rows */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, width: "100%" }}>
             {ACTION_CARDS.map((card) => (
-              <ActionCardView key={card.key} card={card} onClick={() => { toast.info(card.toastMessage); router.push(card.route) }} />
+              <ActionCardView
+                key={card.key}
+                card={card}
+                onClick={() => {
+                  if (card.key === "slack") { setSlackModalOpen(true); return }
+                  toast.info(card.toastMessage);
+                  router.push(card.route);
+                }}
+              />
             ))}
             <InvoiceCardView />
           </div>
@@ -320,6 +331,12 @@ function TeamWelcomeContent() {
           </div>
         </div>
       </div>
+
+      <SlackConnectModal
+        isOpen={slackModalOpen}
+        onClose={() => setSlackModalOpen(false)}
+        onConnected={() => { router.push("/org/souvenir-slack") }}
+      />
     </>
   );
 }

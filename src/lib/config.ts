@@ -296,6 +296,8 @@ export const CHAT_SHARE_ENDPOINT = (shareId: string) => withBase(`/chat-shares/$
 export const CHAT_SHARE_FORK_ENDPOINT = (shareId: string) => withBase(`/chat-shares/${shareId}/fork`)
 
 // ── Slack mapping ──────────────────────────────────────────────────────────────
+export const SLACK_INSTALL_ENDPOINT = withBase('/slack/install')
+export const SLACK_STATUS_ENDPOINT  = withBase('/slack/status')
 export const ORG_SLACK_CHANNELS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/slack/channels`)
 export const ORG_SLACK_CHANNEL_MAPPING_ENDPOINT = (orgId: string, channelId: string) =>
