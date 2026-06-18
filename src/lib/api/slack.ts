@@ -1,6 +1,6 @@
 'use client'
 
-import { apiFetch, apiFetchJson } from './client'
+import { ApiError, apiFetch, apiFetchJson, friendlyApiError } from './client'
 import {
   SLACK_INSTALL_ENDPOINT,
   SLACK_STATUS_ENDPOINT,
@@ -82,6 +82,15 @@ export interface SlackStatus {
   workspaces: SlackWorkspaceStatus[]
 }
 
+function normalizeStatus(data: SlackStatusResponseRaw): SlackStatus {
+  const workspaces = (data.workspaces ?? []).map(w => ({
+    teamId:      w.team_id,
+    teamName:    w.team_name,
+    installedAt: w.installed_at,
+  }))
+  return { connected: workspaces.length > 0, workspaces }
+}
+
 // ── API functions ─────────────────────────────────────────────────────────────
 
 /** GET /slack/install — the "Add to Slack" URL (FE opens it; Slack redirects to the callback). */
@@ -93,12 +102,15 @@ export async function getSlackInstallUrl(): Promise<string> {
 /** GET /slack/status — workspaces where the bot is installed for this user. */
 export async function getSlackStatus(): Promise<SlackStatus> {
   const data = await apiFetchJson<SlackStatusResponseRaw>(SLACK_STATUS_ENDPOINT)
-  const workspaces = (data.workspaces ?? []).map(w => ({
-    teamId:      w.team_id,
-    teamName:    w.team_name,
-    installedAt: w.installed_at,
-  }))
-  return { connected: workspaces.length > 0, workspaces }
+  return normalizeStatus(data)
+}
+
+/** GET /organizations/{id}/slack/installation */
+export async function getOrgSlackStatus(orgId: string): Promise<SlackStatus> {
+  const data = await apiFetchJson<SlackStatusResponseRaw>(
+    ORG_SLACK_INSTALLATION_ENDPOINT(orgId),
+  )
+  return normalizeStatus(data)
 }
 
 /** GET /organizations/{id}/slack/channels */
@@ -157,7 +169,22 @@ export async function disconnectSlackIdentity(): Promise<{ removed: number }> {
 /** DELETE /organizations/{id}/slack/installation — remove the bot from the
  * organization (revokes on Slack + drops the install). Admin only. */
 export async function removeOrgSlackInstallation(orgId: string): Promise<void> {
-  await apiFetch(ORG_SLACK_INSTALLATION_ENDPOINT(orgId), { method: 'DELETE' })
+  const response = await apiFetch(ORG_SLACK_INSTALLATION_ENDPOINT(orgId), { method: 'DELETE' })
+  if (response.ok) return
+
+  let rawMessage = `Request failed with status ${response.status}`
+  try {
+    const body = await response.json() as { detail?: string; message?: string; error?: string }
+    rawMessage = body.detail ?? body.message ?? body.error ?? rawMessage
+  } catch {
+    // Keep the status-derived fallback for non-JSON responses.
+  }
+  throw new ApiError(
+    response.status,
+    'slack_uninstall_failed',
+    friendlyApiError(rawMessage, response.status),
+    rawMessage,
+  )
 }
 
 /** GET /organizations/{id}/slack/projects/{projectId}/channel */

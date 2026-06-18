@@ -130,7 +130,7 @@ function summaryToProject(s: ApiProjectSummary): Project {
     name:         s.title,
     description:  s.description,
     instructions: '',
-    teamId:       null,
+    teamId:       s.teamId,
     tags:         loadStoredTags(s.id),
     files:        [],
     chatCount:    s.chatCount,

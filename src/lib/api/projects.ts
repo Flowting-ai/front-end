@@ -24,6 +24,7 @@ export interface ProjectDocumentResponse {
 
 export interface ProjectSummary {
   id:             string
+  team_id?:       string | null
   title:          string
   description:    string
   updated_at:     string
@@ -62,6 +63,7 @@ export interface ApiProjectDocument {
 
 export interface ApiProjectSummary {
   id:            string
+  teamId:        string | null
   title:         string
   description:   string
   updatedAt:     string
@@ -97,6 +99,7 @@ function normalizeDocument(d: ProjectDocumentResponse): ApiProjectDocument {
 function normalizeProjectSummary(p: ProjectSummary): ApiProjectSummary {
   return {
     id:            p.id,
+    teamId:        p.team_id ?? null,
     title:         p.title,
     description:   p.description,
     updatedAt:     p.updated_at,

@@ -7,12 +7,12 @@ import { useOrg } from '@/context/org-context'
 import { SlackConnectModal } from '@/components/SlackConnectModal'
 import {
   createProjectSlackChannel,
+  getOrgSlackStatus,
   getProjectSlackChannel,
-  getSlackStatus,
   removeOrgSlackInstallation,
 } from '@/lib/api/slack'
 import type { SlackChannel, SlackStatus } from '@/lib/api/slack'
-import { fetchProject, fetchProjects } from '@/lib/api/projects'
+import { fetchProjects } from '@/lib/api/projects'
 import type { ApiProjectSummary } from '@/lib/api/projects'
 
 type SlackProject = ApiProjectSummary & { teamId: string }
@@ -207,8 +207,9 @@ export default function SouvenirSlackPage() {
   const teamName  = status?.workspaces[0]?.teamName ?? null
 
   const loadStatus = () => {
+    if (!orgId) return
     setStatusLoading(true)
-    getSlackStatus()
+    getOrgSlackStatus(orgId)
       .then(s => {
         setStatus(s)
         setModalOpen(isAdmin && !s.connected)
@@ -221,9 +222,9 @@ export default function SouvenirSlackPage() {
   }
 
   useEffect(() => {
-    if (!orgReady) return
+    if (!orgReady || !orgId) return
     let cancelled = false
-    getSlackStatus()
+    getOrgSlackStatus(orgId)
       .then(s => {
         if (cancelled) return
         setStatus(s)
@@ -238,7 +239,7 @@ export default function SouvenirSlackPage() {
         if (!cancelled) setStatusLoading(false)
       })
     return () => { cancelled = true }
-  }, [orgReady, isAdmin])
+  }, [orgId, orgReady, isAdmin])
 
   useEffect(() => {
     if (!orgId || !connected || !isAdmin) return
@@ -249,12 +250,8 @@ export default function SouvenirSlackPage() {
       setProjectsLoading(true)
       try {
         const summaries = await fetchProjects()
-        const details = await Promise.all(
-          summaries.map(summary => fetchProject(summary.id).catch(() => null)),
-        )
-        const rows = summaries.flatMap((summary, index) => {
-          const teamId = details[index]?.teamId
-          return teamId ? [{ ...summary, teamId }] : []
+        const rows = summaries.flatMap(summary => {
+          return summary.teamId ? [{ ...summary, teamId: summary.teamId }] : []
         })
         if (cancelled) return
         setProjects(rows)
@@ -265,7 +262,7 @@ export default function SouvenirSlackPage() {
         })
         const entries = await Promise.all(
           rows.map(async project => {
-            const channel = await getProjectSlackChannel(currentOrgId, project.id).catch(() => null)
+            const channel = await getProjectSlackChannel(currentOrgId, project.id)
             return [project.id, channel] as const
           }),
         )
@@ -311,9 +308,13 @@ export default function SouvenirSlackPage() {
     setRemoving(true)
     try {
       await removeOrgSlackInstallation(orgId)
+      const nextStatus = await getOrgSlackStatus(orgId)
+      if (nextStatus.connected) {
+        throw new Error('Slack is still connected. Please try disconnecting again.')
+      }
       setChannelsByProject({})
-      setStatus({ connected: false, workspaces: [] })
-      setModalOpen(true)
+      setStatus(nextStatus)
+      setModalOpen(false)
       toast.success('Slack removed from this organization')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove Slack')
@@ -423,7 +424,9 @@ export default function SouvenirSlackPage() {
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', padding: '20px' }}>Loading projects...</p>
             ) : projects.length === 0 ? (
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', padding: '20px' }}>
-                No projects yet. Create a team project before adding Slack channels.
+                {teams.length > 0
+                  ? 'Your teams are available, but no projects are published to a team yet.'
+                  : 'No teams are available yet. Create a team before adding Slack project channels.'}
               </p>
             ) : projects.map(project => (
               <ProjectSlackRow
@@ -446,6 +449,7 @@ export default function SouvenirSlackPage() {
       <SlackConnectModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
+        orgId={orgId}
         onConnected={loadStatus}
       />
     </div>

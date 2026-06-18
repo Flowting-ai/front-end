@@ -6,7 +6,7 @@ import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 import { toast } from 'sonner'
 import { ViewIcon, RadarThreeIcon, CalendarThreeIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
-import { getSlackInstallUrl, getSlackStatus } from '@/lib/api/slack'
+import { getOrgSlackStatus, getSlackInstallUrl, getSlackStatus } from '@/lib/api/slack'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 const SHADOW_MODAL = '0px 12px 16px -4px rgba(130,122,116,0.12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
@@ -93,11 +93,12 @@ function ArrowRight() {
 interface SlackConnectModalProps {
   isOpen:       boolean
   onClose:      () => void
+  orgId?:       string | null
   /** Fired once the bot reports installed (status poll succeeds). */
   onConnected?: () => void
 }
 
-export function SlackConnectModal({ isOpen, onClose, onConnected }: SlackConnectModalProps) {
+export function SlackConnectModal({ isOpen, onClose, orgId, onConnected }: SlackConnectModalProps) {
   const [connecting, setConnecting] = useState(false)
   const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -109,8 +110,13 @@ export function SlackConnectModal({ isOpen, onClose, onConnected }: SlackConnect
 
   // Stop polling whenever the modal closes or the component unmounts.
   useEffect(() => {
-    if (!isOpen) { stopPolling(); setConnecting(false) }
-    return stopPolling
+    if (isOpen) return stopPolling
+    stopPolling()
+    const reset = window.setTimeout(() => setConnecting(false), 0)
+    return () => {
+      window.clearTimeout(reset)
+      stopPolling()
+    }
   }, [isOpen])
 
   const handleConnect = async () => {
@@ -125,7 +131,7 @@ export function SlackConnectModal({ isOpen, onClose, onConnected }: SlackConnect
       stopPolling()
       pollRef.current = setInterval(async () => {
         try {
-          const status = await getSlackStatus()
+          const status = orgId ? await getOrgSlackStatus(orgId) : await getSlackStatus()
           if (status.connected) {
             stopPolling()
             setConnecting(false)
