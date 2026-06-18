@@ -896,6 +896,7 @@ function ConnectorCard({
       </BodyText>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <Badge label={connector.org_enabled === true ? 'Org on' : 'Org off'} color={connector.org_enabled === true ? 'Green' : 'Neutral'} />
           <Badge label={`${accounts.length} account${accounts.length === 1 ? '' : 's'}`} color="Purple" />
           <Badge label={`${activeAccounts.length} active`} color={activeAccounts.length ? 'Green' : 'Neutral'} />
         </div>
@@ -916,21 +917,20 @@ function ManageConnectorsTab({
   initialSearch: string
   onManage: (connector: ConnectorCatalogEntry) => void
 }) {
-  const enabled = connectors.filter(connector => connector.org_enabled === true)
-  const { search, setSearch, filtered } = useConnectorSearch(enabled, initialSearch)
+  const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
 
   return (
     <PageCard>
       <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div>
           <BodyText size={16} weight={500} color="var(--neutral-900)">Manage shared connector accounts</BodyText>
-          <BodyText size={12}>Create org-owned accounts and share them with teams.</BodyText>
+          <BodyText size={12}>Create org-owned accounts and share them with teams, even when org-wide access is off.</BodyText>
         </div>
         <SearchBar value={search} onChange={setSearch} />
       </div>
       <div style={{ padding: 24 }}>
         {filtered.length === 0 ? (
-          <EmptyState title="No enabled connectors" subtitle="Enable connectors in the Catalog tab first." />
+          <EmptyState title="No connectors found" subtitle="Try a different search." />
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
             {filtered.map(connector => (

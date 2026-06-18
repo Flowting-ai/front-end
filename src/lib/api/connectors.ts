@@ -75,6 +75,21 @@ export interface ConnectorAccount {
   updatedAt:        string
 }
 
+export interface ConnectorAccountOption {
+  account_ref:        string
+  connector_slug:    string
+  scope:             'personal' | 'shared_team'
+  account_label:     string
+  account_identifier: string | null
+  connected:         boolean
+  status:            'active' | 'disabled' | 'expired'
+  team_ids:          string[]
+  team_names:        string[]
+  shared_account_id: string | null
+  linked_by_user_id: string | null
+  can_manage:        boolean
+}
+
 export interface ConnectorCatalogEntry {
   slug:                   string
   display_name:           string
@@ -96,6 +111,8 @@ export interface ConnectorCatalogEntry {
   account_identifier:     string | null
   /** Org shared accounts for this connector. Populated for admins/editors. */
   accounts?:              ConnectorAccount[]
+  /** Selectable account options for this connector. */
+  account_options?:       ConnectorAccountOption[]
   /** Whether the slug is enabled in the org catalog. null outside org context. */
   org_enabled:            boolean | null
   /** Current user's personal access request status, or null. */
@@ -246,10 +263,8 @@ export async function pollConnectorUntilActive(
   const deadline = Date.now() + timeoutMs
   let intervalMs  = initialIntervalMs
   while (Date.now() < deadline) {
-    // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- polling loop; each check is gated on the previous result
     const entry = await getConnector(slug)
     if (entry.linked) return entry
-    // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- intentional delay between polls
     await new Promise<void>((resolve) => setTimeout(resolve, intervalMs))
     // Double the interval each round, but never exceed the cap.
     intervalMs = Math.min(intervalMs * 2, maxIntervalMs)

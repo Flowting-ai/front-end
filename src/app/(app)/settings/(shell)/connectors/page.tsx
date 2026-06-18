@@ -138,7 +138,15 @@ const API_TO_UI: Record<ConnectorTool['policy'], UIPolicy> = {
 const POLICY_OPTIONS: UIPolicy[] = ['Always allow', 'Ask', 'Never', 'Allow once']
 
 function connectedWorkspaceAccounts(entry: ConnectorCatalogEntry) {
-  return (entry.accounts ?? []).filter(account => account.connected && account.status === 'active')
+  const options = (entry.account_options ?? [])
+    .filter(account => account.scope === 'shared_team' && account.connected && account.status === 'active')
+  if (options.length > 0) return options
+  return (entry.accounts ?? [])
+    .filter(account => account.connected && account.status === 'active')
+    .map(account => ({
+      account_label: account.accountLabel,
+      account_identifier: account.accountIdentifier,
+    }))
 }
 
 function hasConnectedWorkspaceAccount(entry: ConnectorCatalogEntry): boolean {
@@ -930,7 +938,7 @@ function ConnectorCard({
                 textOverflow: 'ellipsis',
                 whiteSpace:   'nowrap',
               }}>
-                {sharedAccounts.slice(0, 2).map(a => a.accountLabel).join(', ')}
+                {sharedAccounts.slice(0, 2).map(a => a.account_label).join(', ')}
                 {accountCount > 2 ? ` +${accountCount - 2} more` : ''}
               </p>
             )}

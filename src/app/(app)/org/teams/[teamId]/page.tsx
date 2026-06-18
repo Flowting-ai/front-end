@@ -103,6 +103,20 @@ function MemberAvatar() {
   )
 }
 
+function Bone({ w, h = 14, r = 6, style }: { w?: number | string; h?: number; r?: number; style?: React.CSSProperties }) {
+  return (
+    <div aria-hidden className="kaya-skeleton" style={{ width: w, height: h, borderRadius: r, flexShrink: 0, ...style }} />
+  )
+}
+
+function SkeletonCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12)', overflow: 'hidden' }}>
+      {children}
+    </div>
+  )
+}
+
 function EditorCell({ editor }: { editor: TeamEditor }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
@@ -340,19 +354,31 @@ function TeamConnectorsCard({ orgId, teamId, isAdmin }: { orgId: string; teamId:
   const [submitting,   setSubmitting]   = useState(false)
 
   useEffect(() => {
-    setLoading(true)
-    Promise.all([
-      listTeamConnectors(orgId, teamId),
-      // Admins use the org catalog so they see all connectors with org_enabled status.
-      // Non-admins use the personal catalog which is already pre-filtered to org-enabled slugs.
-      isAdmin ? listOrgCatalog(orgId) : listConnectors(),
-    ])
-      .then(([conns, cat]) => {
+    let cancelled = false
+
+    async function load() {
+      setLoading(true)
+      try {
+        const [conns, cat] = await Promise.all([
+          listTeamConnectors(orgId, teamId),
+          // Admins use the org catalog so they see all connectors with org_enabled status.
+          // Non-admins use the personal catalog, which is already pre-filtered.
+          isAdmin ? listOrgCatalog(orgId) : listConnectors(),
+        ])
+        if (cancelled) return
         setConnectors(conns)
         setCatalog(cat)
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false))
+      } catch (err) {
+        if (!cancelled) console.error(err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
   }, [orgId, teamId, isAdmin])
 
   // Resolve display name from catalog; falls back to slug if catalog not yet loaded.
@@ -360,10 +386,8 @@ function TeamConnectorsCard({ orgId, teamId, isAdmin }: { orgId: string; teamId:
     catalog.find(c => c.slug === slug)?.display_name ?? slug
 
   // Connectors available to request:
-  // - When admin, only org-enabled slugs can be team-requested without a 403.
   // - Exclude connectors already pending/approved (denied rows can be re-requested).
   const requestableCatalog = catalog
-    .filter(c => !isAdmin || c.org_enabled === true)
     .filter(c => !connectors.some(tc => tc.connectorSlug === c.slug && tc.status !== 'denied'))
 
   const handleOpenRequest = () => {
@@ -526,15 +550,26 @@ function TeamConnectionsCard({ orgId, teamId, canEdit }: { orgId: string; teamId
   const [pendingPerms,  setPendingPerms]  = useState<Record<string, ConnectorTool[]>>({})
   const [savingPerms,   setSavingPerms]   = useState<string | null>(null)
 
-  const loadConnections = () => {
-    setLoading(true)
-    listTeamConnections(orgId, teamId)
-      .then(setConnections)
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }
+  useEffect(() => {
+    let cancelled = false
 
-  useEffect(loadConnections, [orgId, teamId]) // eslint-disable-line react-hooks/exhaustive-deps
+    async function loadConnections() {
+      setLoading(true)
+      try {
+        const rows = await listTeamConnections(orgId, teamId)
+        if (!cancelled) setConnections(rows)
+      } catch (err) {
+        if (!cancelled) console.error(err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void loadConnections()
+    return () => {
+      cancelled = true
+    }
+  }, [orgId, teamId])
 
   const handleOpenAttach = (slug: string) => {
     setAttachingSlug(prev => prev === slug ? null : slug)
@@ -794,25 +829,56 @@ export default function TeamSettingsPage() {
   const [deleteInput, setDeleteInput] = useState('')
 
   useEffect(() => {
-    if (!orgId || !params.teamId) return
-    setLoading(true)
-    getTeam(orgId, params.teamId)
-      .then(t => {
+    const routeTeamId = params.teamId
+    if (!orgId || !routeTeamId) return
+    const currentOrgId: string = orgId
+    const teamId: string = routeTeamId
+    let cancelled = false
+
+    async function loadTeam() {
+      setLoading(true)
+      try {
+        const t = await getTeam(currentOrgId, teamId)
+        if (cancelled) return
         setTeam(t)
         setTeamName(t.name)
         setTeamDesc(t.description)
-      })
-      .catch(() => setTeam(null))
-      .finally(() => setLoading(false))
+      } catch {
+        if (!cancelled) setTeam(null)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void loadTeam()
+    return () => {
+      cancelled = true
+    }
   }, [orgId, params.teamId])
 
   useEffect(() => {
-    if (!orgId || !params.teamId) return
-    setEditorsLoading(true)
-    listTeamEditors(orgId, params.teamId)
-      .then(setEditors)
-      .catch(console.error)
-      .finally(() => setEditorsLoading(false))
+    const routeTeamId = params.teamId
+    if (!orgId || !routeTeamId) return
+    const currentOrgId: string = orgId
+    const teamId: string = routeTeamId
+    let cancelled = false
+
+    async function loadEditors() {
+      setEditorsLoading(true)
+      try {
+        const rows = await listTeamEditors(currentOrgId, teamId)
+        if (!cancelled) setEditors(rows)
+      } catch (err) {
+        if (!cancelled) console.error(err)
+      } finally {
+        if (!cancelled) setEditorsLoading(false)
+      }
+    }
+
+    void loadEditors()
+    return () => {
+      cancelled = true
+    }
   }, [orgId, params.teamId])
 
   const handleSave = async () => {
@@ -880,14 +946,6 @@ export default function TeamSettingsPage() {
     (!!user?.email && editors.some(e => e.email?.toLowerCase() === user.email!.toLowerCase()))
 
   if (loading) {
-    const Bone = ({ w, h = 14, r = 6, style }: { w?: number | string; h?: number; r?: number; style?: React.CSSProperties }) => (
-      <div aria-hidden className="kaya-skeleton" style={{ width: w, height: h, borderRadius: r, flexShrink: 0, ...style }} />
-    )
-    const SkeletonCard = ({ children }: { children: React.ReactNode }) => (
-      <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12)', overflow: 'hidden' }}>
-        {children}
-      </div>
-    )
     return (
       <div
         className="kaya-scrollbar"
