@@ -1,6 +1,8 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
 import {
   FilterMailIcon,
@@ -9,8 +11,10 @@ import {
   UserIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
+import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
+import { Popover } from '@/components/Popover'
 import {
   SettingsTable,
   SettingsTableCell,
@@ -191,22 +195,48 @@ function AddEditorPanel({ orgId, existingEditorIds, onAdd, onClose }: {
   onClose: () => void
 }) {
   const [members, setMembers] = useState<OrgMember[]>([])
-  const [selected, setSelected] = useState('')
+  const [selected, setSelected] = useState<OrgMember | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [dropOpen, setDropOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
 
   useEffect(() => {
     listMembers(orgId)
-      .then(all => setMembers(all.filter(m => !existingEditorIds.has(m.id))))
+      .then(all => setMembers(
+        all.filter(m => m.inviteStatus !== 'invite_sent' && !existingEditorIds.has(m.id))
+      ))
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [orgId, existingEditorIds])
+
+  useEffect(() => {
+    if (dropOpen && triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: r.left, width: r.width })
+    }
+  }, [dropOpen])
+
+  useEffect(() => {
+    if (!dropOpen) return
+    const handler = (e: MouseEvent) => {
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        panelRef.current?.contains(e.target as Node)
+      ) return
+      setDropOpen(false)
+    }
+    document.addEventListener('mousedown', handler, true)
+    return () => document.removeEventListener('mousedown', handler, true)
+  }, [dropOpen])
 
   const handleAdd = async () => {
     if (!selected) return
     setSaving(true)
     try {
-      await onAdd(selected)
+      await onAdd(selected.id)
       onClose()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add editor')
@@ -225,22 +255,46 @@ function AddEditorPanel({ orgId, existingEditorIds, onAdd, onClose }: {
       ) : members.length === 0 ? (
         <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>All org members are already editors of this team.</p>
       ) : (
-        <select
-          value={selected}
-          onChange={e => setSelected(e.target.value)}
-          style={{
-            fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)',
-            border: '1px solid var(--neutral-200)', borderRadius: 8,
-            padding: '8px 12px', backgroundColor: 'white', cursor: 'pointer', width: '100%',
-          }}
-        >
-          <option value="">Select a member…</option>
-          {members.map(m => (
-            <option key={m.id} value={m.id}>
-              {m.name || m.email} {m.email && m.name ? `(${m.email})` : ''}
-            </option>
-          ))}
-        </select>
+        <>
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={() => setDropOpen(o => !o)}
+            style={{
+              fontFamily: 'var(--font-body)', fontSize: 14,
+              color: selected ? 'var(--neutral-900)' : 'var(--neutral-400)',
+              border: '1px solid var(--neutral-200)', borderRadius: 8,
+              padding: '8px 12px', backgroundColor: 'white', cursor: 'pointer',
+              width: '100%', textAlign: 'left',
+            }}
+          >
+            {selected ? (selected.name || selected.email) : 'Select a member…'}
+          </button>
+          {dropOpen && pos && createPortal(
+            <AnimatePresence>
+              <motion.div
+                ref={panelRef}
+                style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 300 }}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0, transition: { duration: 0.12 } }}
+              >
+                <Popover variant="dropdown" style={{ width: '100%' }}>
+                  {members.map(m => (
+                    <DropdownMenuItem
+                      key={m.id}
+                      fluid
+                      label={m.name || m.email}
+                      subLabel={m.name ? m.email : undefined}
+                      selected={selected?.id === m.id}
+                      onClick={() => { setSelected(m); setDropOpen(false) }}
+                    />
+                  ))}
+                </Popover>
+              </motion.div>
+            </AnimatePresence>,
+            document.body
+          )}
+        </>
       )}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>

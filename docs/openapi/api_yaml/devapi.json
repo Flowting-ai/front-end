@@ -10026,6 +10026,78 @@
         ]
       }
     },
+    "/slack/link": {
+      "post": {
+        "tags": [
+          "slack"
+        ],
+        "summary": "Slack Link",
+        "description": "Land here from a /connect deep link after logging in. Binds the Slack\nidentity carried in the signed state to the authenticated account.",
+        "operationId": "slack_link_slack_link_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlackLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlackLinkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "slack"
+        ],
+        "summary": "Slack Unlink",
+        "description": "Disconnect the user's Slack identity from every workspace — the web\ncounterpart to /disconnect.",
+        "operationId": "slack_unlink_slack_link_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlackDisconnectResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/memory/user": {
       "post": {
         "tags": [
@@ -11215,19 +11287,30 @@
         }
       }
     },
-    "/organizations/{organization_id}/slack/channels": {
+    "/organizations/{organization_id}/slack/projects/{project_id}/channel": {
       "get": {
         "tags": [
           "organizations"
         ],
-        "summary": "List Slack Channels",
-        "operationId": "list_slack_channels_organizations__organization_id__slack_channels_get",
+        "summary": "Get Project Slack Channel",
+        "description": "The Slack channel bound to this project, or null if it has none.",
+        "operationId": "get_project_slack_channel_organizations__organization_id__slack_projects__project_id__channel_get",
         "security": [
           {
             "HTTPBearer": []
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "organization_id",
             "in": "path",
@@ -11245,7 +11328,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SlackChannelsResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SlackChannelItem"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Project Slack Channel Organizations  Organization Id  Slack Projects  Project Id  Channel Get"
                 }
               }
             }
@@ -11261,15 +11352,14 @@
             }
           }
         }
-      }
-    },
-    "/organizations/{organization_id}/slack/channels/{channel_id}/mapping": {
-      "put": {
+      },
+      "post": {
         "tags": [
           "organizations"
         ],
-        "summary": "Set Slack Channel Mapping",
-        "operationId": "set_slack_channel_mapping_organizations__organization_id__slack_channels__channel_id__mapping_put",
+        "summary": "Create Project Slack Channel",
+        "description": "Create a new Slack channel (public or private) bound 1:1 to this project.",
+        "operationId": "create_project_slack_channel_organizations__organization_id__slack_projects__project_id__channel_post",
         "security": [
           {
             "HTTPBearer": []
@@ -11277,12 +11367,13 @@
         ],
         "parameters": [
           {
-            "name": "channel_id",
+            "name": "project_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Channel Id"
+              "format": "uuid",
+              "title": "Project Id"
             }
           },
           {
@@ -11301,13 +11392,13 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetChannelMappingRequest"
+                "$ref": "#/components/schemas/CreateProjectChannelRequest"
               }
             }
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -11316,6 +11407,48 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organization_id}/slack/installation": {
+      "delete": {
+        "tags": [
+          "organizations"
+        ],
+        "summary": "Remove Org Slack Installation",
+        "description": "Remove the Slack bot from this organization — revokes it on Slack and\ndrops the installation record.",
+        "operationId": "remove_org_slack_installation_organizations__organization_id__slack_installation_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -15497,6 +15630,27 @@
         ],
         "title": "CreateOrganizationRequest"
       },
+      "CreateProjectChannelRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "is_private": {
+            "type": "boolean",
+            "title": "Is Private",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CreateProjectChannelRequest",
+        "description": "Create a new Slack channel and bind it to a project. Slack normalizes\nthe name (lowercased, dashes, \u003C=80 chars); name_taken/invalid_name surface\nas a 400."
+      },
       "CreateTeamRequest": {
         "properties": {
           "name": {
@@ -16563,6 +16717,31 @@
               }
             ],
             "title": "Init Data"
+          },
+          "accountLabel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accountlabel"
+          },
+          "accountIdentifier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accountidentifier"
           }
         },
         "type": "object",
@@ -16659,6 +16838,46 @@
           },
           "invite_status": {
             "$ref": "#/components/schemas/InviteStatus"
+          },
+          "invite_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invite Id"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          },
+          "team_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Name"
+          },
+          "is_pending_invite": {
+            "type": "boolean",
+            "title": "Is Pending Invite",
+            "default": false
           }
         },
         "type": "object",
@@ -19526,25 +19745,6 @@
         "type": "object",
         "title": "SetCapRequest"
       },
-      "SetChannelMappingRequest": {
-        "properties": {
-          "projectId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Projectid"
-          }
-        },
-        "type": "object",
-        "title": "SetChannelMappingRequest",
-        "description": "Bind a channel to a project, or pass null to clear the mapping."
-      },
       "SetConnectorHints": {
         "properties": {
           "slugs": {
@@ -19960,9 +20160,9 @@
             "type": "string",
             "title": "Channel Name"
           },
-          "is_member": {
+          "is_private": {
             "type": "boolean",
-            "title": "Is Member",
+            "title": "Is Private",
             "default": false
           },
           "project_id": {
@@ -19995,33 +20195,25 @@
           "channel_name"
         ],
         "title": "SlackChannelItem",
-        "description": "One workspace channel + its current project binding (if any)."
+        "description": "A bot-created Slack channel bound 1:1 to a project."
       },
-      "SlackChannelsResponse": {
+      "SlackDisconnectResponse": {
         "properties": {
-          "team_id": {
-            "type": "string",
-            "title": "Team Id"
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
           },
-          "team_name": {
-            "type": "string",
-            "title": "Team Name"
-          },
-          "channels": {
-            "items": {
-              "$ref": "#/components/schemas/SlackChannelItem"
-            },
-            "type": "array",
-            "title": "Channels"
+          "removed": {
+            "type": "integer",
+            "title": "Removed"
           }
         },
         "type": "object",
         "required": [
-          "team_id",
-          "team_name",
-          "channels"
+          "removed"
         ],
-        "title": "SlackChannelsResponse"
+        "title": "SlackDisconnectResponse"
       },
       "SlackInstallURLResponse": {
         "properties": {
@@ -20035,6 +20227,38 @@
           "url"
         ],
         "title": "SlackInstallURLResponse"
+      },
+      "SlackLinkRequest": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "title": "State"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "title": "SlackLinkRequest",
+        "description": "Body of POST /slack/link — the signed state from a /connect deep link."
+      },
+      "SlackLinkResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id"
+        ],
+        "title": "SlackLinkResponse"
       },
       "SlackStatusResponse": {
         "properties": {
