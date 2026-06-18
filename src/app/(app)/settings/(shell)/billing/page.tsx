@@ -297,9 +297,9 @@ export default function BillingPage() {
     user?.roleFit === 'small_team' ||
     user?.roleFit === 'large_team',
   )
-  const orgCreditsTotal     = liveIsTeamAccount && orgPlan ? Math.round(orgPlan.totalCredits * 1000) : null
-  const orgCreditsRemaining = liveIsTeamAccount && orgPlan ? Math.round(orgPlan.remaining    * 1000) : null
-  const orgCreditsUsed      = liveIsTeamAccount && orgPlan ? Math.round(orgPlan.used         * 1000) : null
+  const orgCreditsTotal     = liveIsTeamAccount && orgPlan ? orgPlan.totalCredits : null
+  const orgCreditsRemaining = liveIsTeamAccount && orgPlan ? orgPlan.remaining : null
+  const orgCreditsUsed      = liveIsTeamAccount && orgPlan ? orgPlan.used : null
 
   const liveSnap: BillingSnapshot | null = liveReady
     ? {

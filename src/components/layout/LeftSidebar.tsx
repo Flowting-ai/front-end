@@ -1172,10 +1172,9 @@ function LeftSidebarImpl({
   //   • Organization → the SHARED org pool remaining (org-context / getOrgPlan)
   //   • Individual / trial → the personal balance (auth-context → lib/credits.ts)
   // Org and personal balances never mix; we pick the source by environment.
-  // org.creditPool.remaining is in dollars (API value); multiply by 1000 to get credits.
-  // user.creditsRemaining is already in credits (converted by lib/credits.ts toCredits()).
+  // Org and personal balances are already normalized to display credits.
   const accountCredits = orgId
-    ? (typeof org?.creditPool?.remaining === "number" ? Math.round(org.creditPool.remaining * 1000) : undefined)
+    ? (typeof org?.creditPool?.remaining === "number" ? org.creditPool.remaining : undefined)
     : (user?.creditsRemaining ?? undefined);
 
   const sectionProps: SectionProps = {

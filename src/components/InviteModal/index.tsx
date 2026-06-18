@@ -28,13 +28,18 @@ export interface InviteModalProps extends React.HTMLAttributes<HTMLDivElement> {
   asChild?: boolean
 }
 
-// Cannot invite directly as Admin
-const ROLE_OPTIONS: WorkspaceRole[] = ['member', 'editor']
+const ROLE_OPTIONS: WorkspaceRole[] = ['editor', 'admin']
 
 const ROLE_DESCRIPTIONS: Record<WorkspaceRole, string> = {
-  member: 'Can chat, use personas, access team projects',
-  editor: 'Member + can publish personas to Team scope',
-  admin:  'Full access including billing and settings',
+  member: 'Can use assigned projects',
+  editor: 'Can edit content in the invited team',
+  admin:  'Can manage workspace settings, members, teams, and connectors',
+}
+
+const ROLE_LABELS: Record<WorkspaceRole, string> = {
+  admin:  'Admin',
+  editor: 'Team editor',
+  member: 'Member',
 }
 
 // ── Role selector dropdown ────────────────────────────────────────────────────
@@ -86,7 +91,7 @@ function RoleSelector({ value, onChange }: { value: WorkspaceRole; onChange: (r:
           color:      'var(--neutral-700)',
           whiteSpace: 'nowrap',
         }}>
-          {value.charAt(0).toUpperCase() + value.slice(1)}
+          {ROLE_LABELS[value]}
         </span>
         <ArrowDownOneIcon size={11} color="var(--neutral-400)" />
       </button>
@@ -112,7 +117,7 @@ function RoleSelector({ value, onChange }: { value: WorkspaceRole; onChange: (r:
                 <DropdownMenuItem
                   key={role}
                   fluid
-                  label={role.charAt(0).toUpperCase() + role.slice(1)}
+                  label={ROLE_LABELS[role]}
                   subLabel={ROLE_DESCRIPTIONS[role]}
                   selected={value === role}
                   onClick={() => { onChange(role); setOpen(false) }}
@@ -173,7 +178,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
 
     const inputRef = useRef<HTMLInputElement>(null)
     const [email,     setEmail]     = useState('')
-    const [role,      setRole]      = useState<WorkspaceRole>('member')
+    const [role,      setRole]      = useState<WorkspaceRole>('editor')
     const [capDraft,  setCapDraft]  = useState('')
 
     useEffect(() => { inputRef.current?.focus() }, [])

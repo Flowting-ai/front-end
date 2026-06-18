@@ -371,11 +371,9 @@ export default function OrgBillingPage() {
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false)
   const [spendCapOpen,   setSpendCapOpen]   = useState(false)
 
-  // The API returns credits in fractional units (60 = 60,000 credits), matching
-  // the same ×1000 normalisation used in settings/billing/page.tsx.
-  const totalCredits   = plan ? Math.round(plan.totalCredits * 1000) : 0
-  const usedCredits    = plan ? Math.round(plan.used         * 1000) : 0
-  const remainingCreds = plan ? Math.round(plan.remaining    * 1000) : 0
+  const totalCredits   = plan?.totalCredits ?? 0
+  const usedCredits    = plan?.used ?? 0
+  const remainingCreds = plan?.remaining ?? 0
   const membersCount   = orgMembers.length
 
   const currentTierIdx = useMemo(() => {

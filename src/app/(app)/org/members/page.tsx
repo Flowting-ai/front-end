@@ -17,7 +17,7 @@ import { toast }           from 'sonner'
 import { useOrg }           from '@/context/org-context'
 import { useAuth }          from '@/context/auth-context'
 import { setMemberRole, removeMember, getOrgSettings, listMembers, setMemberCap } from '@/lib/api/organization'
-import { inviteTeamMembers, addTeamEditor, removeTeamEditor } from '@/lib/api/teams'
+import { inviteTeamMembers, listTeamEditors, addTeamEditor, removeTeamEditor } from '@/lib/api/teams'
 import { updateUser } from '@/lib/api/user'
 import type { OrgMember, WorkspaceRole } from '@/types/teams'
 
@@ -44,11 +44,16 @@ function RoleDropdown({
   const panelRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
 
-  const ROLES: WorkspaceRole[] = ['editor', 'member']
+  const ROLES: WorkspaceRole[] = ['admin', 'editor', 'member']
+  const LABELS: Record<WorkspaceRole, string> = {
+    admin:  'Admin',
+    editor: 'Team editor',
+    member: 'Member',
+  }
   const DESCS: Record<WorkspaceRole, string> = {
-    admin:  'Full workspace access',
-    editor: 'Can publish to Team scope',
-    member: 'Use-only access',
+    admin:  'Manage workspace settings, members, teams, and connectors',
+    editor: 'Edit content in assigned teams',
+    member: 'Use assigned projects',
   }
 
   React.useEffect(() => {
@@ -81,7 +86,7 @@ function RoleDropdown({
           <DropdownMenuItem
             key={r}
             fluid
-            label={r.charAt(0).toUpperCase() + r.slice(1)}
+            label={LABELS[r]}
             subLabel={DESCS[r]}
             selected={r === currentRole}
             onClick={() => { onSelect(r); onClose() }}
@@ -435,6 +440,12 @@ function MembersTable({
         </div>
       ) : members.map((member, index) => {
         const isOwner = member.id === ownerMemberId
+        const canEditMember = isAdmin && !isOwner && member.inviteStatus !== 'invite_sent'
+        const roleLabel = member.orgRole === 'owner' || member.orgRole === 'admin'
+          ? member.orgRole.charAt(0).toUpperCase() + member.orgRole.slice(1)
+          : member.role === 'editor'
+            ? 'Team editor'
+            : 'Member'
         return (
           <React.Fragment key={member.id}>
             {index > 0 && <Divider decorative style={{ backgroundColor: 'var(--neutral-100)', margin: 0 }} />}
@@ -467,14 +478,14 @@ function MembersTable({
               <div style={{ width: 110, display: 'flex', justifyContent: 'flex-start', flexShrink: 0, position: 'relative' }}>
                 <RoleButton
                   role={member.role}
-                  label={member.orgRole.charAt(0).toUpperCase() + member.orgRole.slice(1)}
+                  label={roleLabel}
                   isOwner={isOwner}
-                  isAdmin={isAdmin}
+                  isAdmin={canEditMember}
                   btnRef={el => { triggerRefs.current[member.id] = el }}
                   onClick={() => setOpenDropdown(prev => prev === member.id ? null : member.id)}
                 />
                 <AnimatePresence>
-                  {openDropdown === member.id && (
+                  {openDropdown === member.id && canEditMember && (
                     <RoleDropdown
                       currentRole={member.role}
                       onSelect={role => { onChangeRole(member.id, role); setOpenDropdown(null) }}
@@ -503,7 +514,7 @@ function MembersTable({
 
               {/* Actions */}
               <div style={{ minWidth: 180, display: 'flex', justifyContent: 'flex-end' }}>
-                {isAdmin && !isOwner && (
+                {canEditMember && (
                   <RemoveButton memberName={member.name} onConfirm={() => onRemove(member.id)} />
                 )}
               </div>
@@ -544,9 +555,9 @@ function MembersTable({
 // ── Roles & Permissions section (collapsible) ────────────────────────────────
 
 const ROLES_INFO = [
-  { role: 'admin'  as const, description: 'Full access including billing, workspace deletion, and ownership transfer. One per workspace.' },
-  { role: 'editor' as const, description: 'Can manage members, approve personas and workflows, and change workspace settings. Cannot delete the workspace.' },
-  { role: 'member' as const, description: 'Can use all workspace features within admin-set permissions. Cannot change settings or manage members.' },
+  { role: 'admin'  as const, description: 'Org-wide management: workspace settings, members, teams, connectors, and credit allocation. Ownership transfer stays owner-only.' },
+  { role: 'editor' as const, description: 'Team-scoped editing: can work in assigned teams and manage their content, without org settings or member administration.' },
+  { role: 'member' as const, description: 'Baseline access through assigned projects. Cannot change org settings, manage members, or edit teams.' },
 ]
 
 function RolesPermissionsSection() {
@@ -700,6 +711,11 @@ function MembersPageSkeleton() {
   )
 }
 
+function displayRoleFor(member: OrgMember): WorkspaceRole {
+  if (member.orgRole === 'owner' || member.orgRole === 'admin') return 'admin'
+  return member.teamMemberships.length > 0 ? 'editor' : 'member'
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrgMembersPage() {
@@ -713,8 +729,43 @@ export default function OrgMembersPage() {
   // useState only uses its initial value once, so without this effect the table
   // stays empty until the component is remounted.
   useEffect(() => {
-    setMembers(orgMembers)
-  }, [orgMembers])
+    let cancelled = false
+
+    async function syncMembers() {
+      let next = orgMembers.map(member => ({ ...member, role: displayRoleFor(member) }))
+
+      if (orgId && teams.length > 0) {
+        const editorRows = await Promise.all(
+          teams.map(async team => ({
+            team,
+            editors: await listTeamEditors(orgId, team.id).catch(() => []),
+          })),
+        )
+        const membershipsByUser = new Map<string, OrgMember['teamMemberships']>()
+        for (const { team, editors } of editorRows) {
+          for (const editor of editors) {
+            const current = membershipsByUser.get(editor.userId) ?? []
+            current.push({ teamId: team.id, teamName: team.name, isTeamOwner: false })
+            membershipsByUser.set(editor.userId, current)
+          }
+        }
+        next = next.map(member => {
+          const activeMemberships = membershipsByUser.get(member.id) ?? []
+          const teamMemberships = member.orgRole === 'owner' || member.orgRole === 'admin'
+            ? []
+            : member.inviteStatus === 'invite_sent'
+            ? member.teamMemberships
+            : activeMemberships
+          return { ...member, teamMemberships, role: displayRoleFor({ ...member, teamMemberships }) }
+        })
+      }
+
+      if (!cancelled) setMembers(next)
+    }
+
+    void syncMembers()
+    return () => { cancelled = true }
+  }, [orgId, orgMembers, teams])
   const [inviteOpen,     setInviteOpen]     = useState(false)
   const [inviteLoading,  setInviteLoading]  = useState(false)
   const [allowedDomains, setAllowedDomains] = useState<string[]>([])
@@ -764,24 +815,42 @@ export default function OrgMembersPage() {
     ''
 
   const totalMembers   = members.length
-  const adminCount     = members.filter(m => m.role === 'admin').length
+  const adminCount     = members.filter(m => m.orgRole === 'owner' || m.orgRole === 'admin').length
   const pendingInvites = members.filter(m => m.inviteStatus === 'invite_sent').length
 
   const handleChangeRole = async (id: string, role: WorkspaceRole) => {
     const prev = members
     const prevMember = prev.find(m => m.id === id)
-    setMembers(ms => ms.map(m => m.id === id ? { ...m, role } : m))
+    if (!prevMember) return
     if (!orgId) return
+
+    const previousTeamIds = prevMember.teamMemberships.map(tm => tm.teamId)
+    const targetMemberships = previousTeamIds.length > 0
+      ? prevMember.teamMemberships
+      : teams.map(team => ({ teamId: team.id, teamName: team.name, isTeamOwner: false }))
+
+    if (role === 'editor' && targetMemberships.length === 0) {
+      toast.error('Create a team before assigning a team editor')
+      return
+    }
+
+    setMembers(ms => ms.map(m => {
+      if (m.id !== id) return m
+      if (role === 'admin') return { ...m, role: 'admin', orgRole: 'admin', teamMemberships: [] }
+      if (role === 'editor') return { ...m, role: 'editor', orgRole: 'member', teamMemberships: targetMemberships }
+      return { ...m, role: 'member', orgRole: 'member', teamMemberships: [] }
+    }))
+
     try {
       if (role === 'admin') {
         await setMemberRole(orgId, id, 'admin')
+        await Promise.all(previousTeamIds.map(tid => removeTeamEditor(orgId, tid, id)))
       } else {
         await setMemberRole(orgId, id, 'member')
-        const teamIds = prevMember?.teamMemberships.map(tm => tm.teamId) ?? []
         if (role === 'editor') {
-          await Promise.all(teamIds.map(tid => addTeamEditor(orgId, tid, id)))
-        } else if (prevMember?.role === 'editor') {
-          await Promise.all(teamIds.map(tid => removeTeamEditor(orgId, tid, id)))
+          await Promise.all(targetMemberships.map(tm => addTeamEditor(orgId, tm.teamId, id)))
+        } else if (previousTeamIds.length > 0) {
+          await Promise.all(previousTeamIds.map(tid => removeTeamEditor(orgId, tid, id)))
         }
       }
     } catch (err) {
@@ -794,11 +863,15 @@ export default function OrgMembersPage() {
     const member = members.find(m => m.id === memberId)
     if (!member || !orgId) return
     try {
-      await inviteTeamMembers(orgId, teamId, [member.email])
+      await addTeamEditor(orgId, teamId, memberId)
       const team = teams.find(t => t.id === teamId)
       setMembers(prev => prev.map(m =>
         m.id === memberId
-          ? { ...m, teamMemberships: [...m.teamMemberships, { teamId, teamName: team?.name ?? '', isTeamOwner: false }] }
+          ? {
+              ...m,
+              role: m.orgRole === 'owner' || m.orgRole === 'admin' ? 'admin' : 'editor',
+              teamMemberships: [...m.teamMemberships, { teamId, teamName: team?.name ?? '', isTeamOwner: false }],
+            }
           : m,
       ))
       toast.success(`Assigned to ${team?.name ?? 'team'}`)
@@ -869,7 +942,9 @@ export default function OrgMembersPage() {
         role,
         orgRole:         role === 'admin' ? 'admin' : 'member',
         inviteStatus:    'invite_sent',
-        teamMemberships: [],
+        teamMemberships: role === 'admin'
+          ? []
+          : [{ teamId, teamName: teams.find(t => t.id === teamId)?.name ?? 'Team', isTeamOwner: false }],
         creditUsed:      0,
         ...(resolvedCap != null ? { creditCap: resolvedCap } : {}),
       }])

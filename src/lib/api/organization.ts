@@ -46,6 +46,10 @@ interface MemberResponse {
   credit_extra?: number
   credit_used: number
   invite_status: 'active' | 'pending'
+  invite_id?: string | null
+  team_id?: string | null
+  team_name?: string | null
+  is_pending_invite?: boolean
 }
 
 interface PlanResponse {
@@ -93,8 +97,15 @@ function normalizeSettings(s: OrganizationSettingsResponse): OrgSettings {
   }
 }
 
+const toDisplayCredits = (value: number | null | undefined): number =>
+  Math.round((value ?? 0) * 1000)
+
 function normalizeMember(m: MemberResponse): OrgMember {
-  const role = (m.role === 'owner' || m.role === 'admin') ? 'admin' : 'member'
+  const role = (m.role === 'owner' || m.role === 'admin')
+    ? 'admin'
+    : m.invite_status === 'pending' && m.team_id
+      ? 'editor'
+      : 'member'
   const inviteStatus = m.invite_status === 'pending' ? 'invite_sent' : 'signed_up'
   return {
     id:              m.user_id,
@@ -103,20 +114,24 @@ function normalizeMember(m: MemberResponse): OrgMember {
     role,
     orgRole:         m.role,
     inviteStatus,
-    teamMemberships: [],
-    creditUsed:      inviteStatus === 'invite_sent' ? 0 : Math.round(m.credit_used * 1000),
-    creditCap:       m.credit_cap != null ? Math.round(m.credit_cap * 1000) : undefined,
+    teamMemberships: m.team_id ? [{
+      teamId:      m.team_id,
+      teamName:    m.team_name ?? 'Team',
+      isTeamOwner: false,
+    }] : [],
+    creditUsed:      inviteStatus === 'invite_sent' ? 0 : toDisplayCredits(m.credit_used),
+    creditCap:       m.credit_cap != null ? toDisplayCredits(m.credit_cap) : undefined,
   }
 }
 
 function normalizePlan(p: PlanResponse): OrgPlan {
   return {
     organizationId: p.organization_id,
-    planCredits:    p.plan_credits,
-    topupCredits:   p.topup_credits,
-    totalCredits:   p.total_credits,
-    used:           p.used,
-    remaining:      p.remaining,
+    planCredits:    toDisplayCredits(p.plan_credits),
+    topupCredits:   toDisplayCredits(p.topup_credits),
+    totalCredits:   toDisplayCredits(p.total_credits),
+    used:           toDisplayCredits(p.used),
+    remaining:      toDisplayCredits(p.remaining),
     percentUsed:    p.percent_used,
     poolStatus:     p.pool_status,
     members:        (p.members ?? []).map(normalizeMember),
@@ -129,7 +144,7 @@ function normalizePlanUsage(u: PlanUsageResponse): OrgPlanUsage {
     byTeam: u.by_team.map(t => ({
       teamId:      t.team_id,
       teamName:    t.team_name,
-      creditsUsed: t.credits_used,
+      creditsUsed: toDisplayCredits(t.credits_used),
     })),
   }
 }
