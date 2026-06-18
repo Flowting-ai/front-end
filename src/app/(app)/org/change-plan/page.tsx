@@ -72,7 +72,7 @@ function Hairline() {
 export default function OrgChangePlanPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const { org } = useOrg()
+  const { org, orgId, orgRole, orgReady } = useOrg()
   const [individualIdx, setIndividualIdx] = useState(1)
   const [teamIdx,       setTeamIdx]       = useState(1)
   const [changingTo,    setChangingTo]    = useState<CheckoutPlan | null>(null)
@@ -82,7 +82,7 @@ export default function OrgChangePlanPage() {
   const selectedIndividual = INDIVIDUAL_PLANS[individualIdx]!
   const selectedTeam       = TEAM_PLANS[teamIdx]!
 
-  const isOnTeamPlan       = Boolean(user?.orgId)
+  const isOnTeamPlan       = Boolean(user?.orgId || orgId)
   const currentTeamPrice   = isOnTeamPlan ? (org.monthlyPrice ?? 0) : 0
   const currentTeamTierIdx = TEAM_PLANS.findIndex(p => p.price === currentTeamPrice)
 
@@ -100,6 +100,12 @@ export default function OrgChangePlanPage() {
       setTeamIdx(currentTeamTierIdx)
     }
   }, [isOnTeamPlan, currentTeamTierIdx])
+
+  useEffect(() => {
+    if (orgReady && orgRole !== 'owner') {
+      router.replace('/org/plans')
+    }
+  }, [orgReady, orgRole, router])
 
   const handleSelectIndividual = async () => {
     if (changingTo) return
@@ -146,6 +152,8 @@ export default function OrgChangePlanPage() {
   const teamPriceLabel = selectedTeam.price >= 1000
     ? `$${selectedTeam.price / 1000}k`
     : `$${selectedTeam.price}`
+
+  if (!orgReady || orgRole !== 'owner') return null
 
   return (
     <>

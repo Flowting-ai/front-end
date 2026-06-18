@@ -192,7 +192,7 @@ function UsageRow({ label, used, total, value }: { label: string; used: number; 
 export default function BillingPage() {
   const router = useRouter()
   const { user, refreshUser, isHydrated, jwtToken } = useAuth()
-  const { plan: orgPlan, orgId } = useOrg()
+  const { plan: orgPlan, orgId, orgRole, orgReady } = useOrg()
 
   const portalMounted = useMounted()
   // Lazy-init from the cached snapshot (runs once; SSR-safe — readCache returns
@@ -350,6 +350,7 @@ export default function BillingPage() {
   // Team flag: live signal OR the cached snapshot — the cached value is what
   // kills the trial→teams flicker on refresh (first paint already knows).
   const isTeamAccount    = liveIsTeamAccount || (display?.isTeamAccount ?? false)
+  const canManageBilling = orgReady && (!orgId || orgRole === 'owner')
   // The known individual paid tiers (drive price + feature list). 'teams' and
   // any unknown value resolve to null here.
   const individualPlan   = planType && planType in PLAN_PRICES ? planType : null
@@ -384,6 +385,10 @@ export default function BillingPage() {
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleOpenPortal = async () => {
+    if (!canManageBilling) {
+      toast.error('Only the organization owner can manage billing.')
+      return
+    }
     if (openingPortal) return
     setOpeningPortal(true)
     try {
@@ -398,6 +403,7 @@ export default function BillingPage() {
   }
 
   const handleCancelSubscription = async () => {
+    if (!canManageBilling) return
     setIsCanceling(true)
     try {
       await cancelSubscription()
@@ -412,6 +418,7 @@ export default function BillingPage() {
   }
 
   const handleResumeSubscription = async () => {
+    if (!canManageBilling) return
     setIsResuming(true)
     try {
       await resumeSubscription()
@@ -468,7 +475,7 @@ export default function BillingPage() {
     <>
       {cancelDialog}
       <BuyCreditsModal
-        open={showBuyCreditsModal}
+        open={canManageBilling && showBuyCreditsModal}
         onClose={() => setShowBuyCreditsModal(false)}
         billing={billing}
         onSuccess={() => { void reload() }}
@@ -568,9 +575,13 @@ export default function BillingPage() {
                 )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 12 }}>
-                  <Button variant="default" size="md" onClick={() => router.push('/settings/billing/change-plan')}>
-                    Change Plan
-                  </Button>
+                  {canManageBilling ? (
+                    <Button variant="default" size="md" onClick={() => router.push('/settings/billing/change-plan')}>
+                      Change Plan
+                    </Button>
+                  ) : (
+                    <span style={{ ...regMuted, color: C.ink }}>Plan changes are managed by the organization owner.</span>
+                  )}
                   {hasActiveSub && !cancelAtPeriodEnd && (
                     <button
                       onClick={() => setShowCancelDialog(true)}
@@ -626,9 +637,13 @@ export default function BillingPage() {
                     <p style={regMuted}>Top-up packs. Unused credits roll 1 billing cycle.</p>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button variant="secondary" size="md" onClick={() => setShowBuyCreditsModal(true)}>
-                      Buy more Credits
-                    </Button>
+                    {canManageBilling ? (
+                      <Button variant="secondary" size="md" onClick={() => setShowBuyCreditsModal(true)}>
+                        Buy more Credits
+                      </Button>
+                    ) : (
+                      <span style={regMuted}>Owner only</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -655,7 +670,7 @@ export default function BillingPage() {
             {/* Only shown when a payment method is on file. While billing is still
                 loading we render the skeleton; once loaded with no card, the whole
                 section is hidden. */}
-            {(billingPending || hasPaymentMethod) && (
+            {canManageBilling && (billingPending || hasPaymentMethod) && (
             <SectionCard>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 24px 24px', borderBottom: `1px solid ${C.hair}` }}>
                 <p style={medLabel(16)}>Payment</p>
@@ -686,6 +701,7 @@ export default function BillingPage() {
             )}
 
             {/* ── Invoice history ── */}
+            {canManageBilling && (
             <SectionCard>
               <div style={{ display: 'flex', alignItems: 'center', padding: '12px 24px 24px', borderBottom: `1px solid ${C.hair}` }}>
                 <p style={{ ...medLabel(16), flex: '1 0 0', minWidth: 0 }}>Invoice history</p>
@@ -770,6 +786,7 @@ export default function BillingPage() {
                 </div>
               </div>
             </SectionCard>
+            )}
           </>
           )}
 

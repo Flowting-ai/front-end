@@ -555,9 +555,10 @@ function MembersTable({
 // ── Roles & Permissions section (collapsible) ────────────────────────────────
 
 const ROLES_INFO = [
-  { role: 'admin'  as const, description: 'Org-wide management: workspace settings, members, teams, connectors, and credit allocation. Ownership transfer stays owner-only.' },
-  { role: 'editor' as const, description: 'Team-scoped editing: can work in assigned teams and manage their content, without org settings or member administration.' },
-  { role: 'member' as const, description: 'Baseline access through assigned projects. Cannot change org settings, manage members, or edit teams.' },
+  { role: 'owner'  as const, description: 'Full organization control, including billing, payment methods, invoices, subscriptions, credit purchases, and ownership transfer.' },
+  { role: 'admin'  as const, description: 'Inherits Editor access and manages workspace settings, members, teams, connectors, and credit allocation. Cannot manage billing or payments.' },
+  { role: 'editor' as const, description: 'Inherits Member access and can edit content in assigned teams, without organization settings or member administration.' },
+  { role: 'member' as const, description: 'Baseline access through assigned projects. Cannot change organization settings, manage members, or edit teams.' },
 ]
 
 function RolesPermissionsSection() {
@@ -601,7 +602,11 @@ function RolesPermissionsSection() {
         <React.Fragment key={item.role}>
           {index > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', margin: '0 24px' }} />}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 24px' }}>
-            <RoleBadge role={item.role} size="sm" style={{ flexShrink: 0 }} />
+            {item.role === 'owner' ? (
+              <Badge label="Owner" color="Yellow" style={{ flexShrink: 0 }} />
+            ) : (
+              <RoleBadge role={item.role} size="sm" style={{ flexShrink: 0 }} />
+            )}
             <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)', lineHeight: 'var(--line-height-body)' }}>
               {item.description}
             </span>

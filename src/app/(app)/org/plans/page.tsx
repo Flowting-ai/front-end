@@ -363,7 +363,6 @@ export default function OrgBillingPage() {
   const { org, orgId, orgRole, plan, members: orgMembers } = useOrg()
 
   const isOwner      = orgRole === 'owner'
-  const isAdminish   = orgRole === 'owner' || orgRole === 'admin'
   const isEnterprise = org.plan === 'enterprise'
 
   const [billing,        setBilling]        = useState<BillingInfo | null>(null)
@@ -393,11 +392,6 @@ export default function OrgBillingPage() {
   const tier        = TIERS[tierIdx] ?? TIERS[0]
   const tierMonthly = annual ? Math.round(tier.price * 0.75) : tier.price
 
-  // Admin-permission toggles (owner-controlled).
-  const [permAddCredits, setPermAddCredits] = useState(true)
-  const [permManagePm,   setPermManagePm]   = useState(false)
-  const [permViewInv,    setPermViewInv]    = useState(true)
-
   // Enterprise config.
   const BLENDED_RATE_PER_1K = 2
   const [spendCap,         setSpendCap]         = useState(2_500)   // dollars
@@ -408,18 +402,21 @@ export default function OrgBillingPage() {
   const capPct         = spendCap > 0 ? Math.min(100, Math.round((currentCharges / spendCap) * 100)) : 0
 
   useEffect(() => {
-    if (!orgId || !isAdminish) { setBillingLoading(false); return }
-    setBillingLoading(true)
+    if (!orgId || !isOwner) return
     fetchBilling()
       .then(setBilling)
       .catch(console.error)
       .finally(() => setBillingLoading(false))
-  }, [orgId, isAdminish])
+  }, [orgId, isOwner])
 
   const pm = billing?.payment_method
   const cardBrand = (pm?.brand ?? 'visa') as CardBrand
 
   const handleStripePortal = async () => {
+    if (!isOwner) {
+      toast.error('Only the organization owner can manage billing.')
+      return
+    }
     const url = await openBillingPortal()
     if (url) window.open(url, '_blank')
     else toast.error('Could not open billing portal.')
@@ -434,7 +431,7 @@ export default function OrgBillingPage() {
     ? fmtDate(billing?.current_period_end)
     : fmtShort(cycleEnd)
 
-  if (billingLoading) {
+  if (isOwner && billingLoading) {
     return (
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
         <PlansPageSkeleton />
@@ -450,6 +447,7 @@ export default function OrgBillingPage() {
       currentCharges={currentCharges}
       cycleLabel={`${fmtShort(cycleStart)} – ${fmtShort(cycleEnd)}`}
       spendCap={spendCap}
+      canManageBilling={isOwner}
       onAddCredits={() => setBuyCreditsOpen(true)}
     />
   ) : (
@@ -509,8 +507,9 @@ export default function OrgBillingPage() {
                 amountSub={`${fmtUsd(currentCharges)} used · ${capPct}% of cap`}
                 switchLabel="Enforced by owner"
                 switchOn
-                actionLabel={isOwner ? 'Change cap' : 'Request change'}
-                onAction={() => isOwner ? setSpendCapOpen(true) : toast.success('Spend-cap change requested from the owner.')}
+                actionLabel={isOwner ? 'Change cap' : 'Owner only'}
+                actionDisabled={!isOwner}
+                onAction={() => setSpendCapOpen(true)}
               />
               <ConfigTile
                 title="Auto-recharge"
@@ -520,8 +519,9 @@ export default function OrgBillingPage() {
                 switchLabel={autoRechargeOn ? 'On' : 'Off'}
                 switchOn={autoRechargeOn}
                 onSwitch={isOwner ? () => setAutoRechargeOn(v => !v) : undefined}
-                actionLabel="Edit threshold"
-                onAction={() => isOwner ? setBuyCreditsOpen(true) : toast.success('Auto-recharge change requested from the owner.')}
+                actionLabel={isOwner ? 'Edit threshold' : 'Owner only'}
+                actionDisabled={!isOwner}
+                onAction={() => setBuyCreditsOpen(true)}
               />
             </div>
           </>
@@ -549,7 +549,11 @@ export default function OrgBillingPage() {
                 Top-up packs. Unused credits roll 1 billing cycle.
               </p>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Button variant="secondary" onClick={() => setBuyCreditsOpen(true)}>Buy more Credits</Button>
+                {isOwner ? (
+                  <Button variant="secondary" onClick={() => setBuyCreditsOpen(true)}>Buy more Credits</Button>
+                ) : (
+                  <Badge label="Owner only" tone="yellow" />
+                )}
               </div>
             </div>
           </div>
@@ -575,37 +579,8 @@ export default function OrgBillingPage() {
           </SectionCard>
         )}
 
-        {/* Admin permissions — owner only */}
+        {/* Invoice history — owner only */}
         {isOwner && (
-          <SectionCard title="Admin permissions" subtitle="Applies to everyone with the Admin role." bodyGap={0} bodyPadding="0">
-            <PermissionRow
-              label="Add credits / top up"
-              desc="Buy credits, within the spend cap."
-              on={permAddCredits}
-              onToggle={() => setPermAddCredits(v => !v)}
-            />
-            <PermissionRow
-              label="Manage payment method"
-              desc="View and update the card on file."
-              on={permManagePm}
-              onToggle={() => setPermManagePm(v => !v)}
-            />
-            <PermissionRow
-              label="View invoices"
-              desc="See and download billing history."
-              on={permViewInv}
-              onToggle={() => setPermViewInv(v => !v)}
-            />
-            <PermissionRow
-              label="Change plan"
-              desc="Switch tiers or cancel the subscription."
-              badge={<Badge label="Owner only" tone="yellow" />}
-            />
-          </SectionCard>
-        )}
-
-        {/* Invoice history — adminish */}
-        {isAdminish && (
           <SectionCard
             title="Invoice history"
             action={<Button variant="secondary" onClick={() => toast.success('Exporting all invoices…')}>Export all</Button>}
@@ -617,10 +592,10 @@ export default function OrgBillingPage() {
       </div>
 
       {/* Modals */}
-      {buyCreditsOpen && (
+      {isOwner && buyCreditsOpen && (
         <BuyMoreCreditsModal onClose={() => setBuyCreditsOpen(false)} billing={billing} cardBrand={cardBrand} />
       )}
-      {spendCapOpen && (
+      {isOwner && spendCapOpen && (
         <MonthlySpendCapModal
           onClose={() => setSpendCapOpen(false)}
           currentCap={spendCap}
@@ -733,7 +708,7 @@ function TeamsHero({
         </>
       ) : (
         <div style={{ display: 'flex' }}>
-          <Button variant="secondary" onClick={onContactSales}>Request plan change</Button>
+          <Badge label="Plan changes are owner-only" tone="yellow" />
         </div>
       )}
     </HeroShell>
@@ -774,6 +749,7 @@ function EnterpriseHero({
   currentCharges,
   cycleLabel,
   spendCap,
+  canManageBilling,
   onAddCredits,
 }: {
   nextBilling:    string
@@ -781,6 +757,7 @@ function EnterpriseHero({
   currentCharges: number
   cycleLabel:     string
   spendCap:       number
+  canManageBilling: boolean
   onAddCredits:   () => void
 }) {
   const pct = spendCap > 0 ? Math.min(100, (currentCharges / spendCap) * 100) : 0
@@ -822,7 +799,11 @@ function EnterpriseHero({
       </div>
 
       <div style={{ display: 'flex' }}>
-        <Button variant="secondary" onClick={onAddCredits}>Add credits</Button>
+        {canManageBilling ? (
+          <Button variant="secondary" onClick={onAddCredits}>Add credits</Button>
+        ) : (
+          <Badge label="Billing is owner-only" tone="yellow" />
+        )}
       </div>
     </HeroShell>
   )
@@ -918,6 +899,7 @@ function ConfigTile({
   switchOn,
   onSwitch,
   actionLabel,
+  actionDisabled,
   onAction,
 }: {
   title:       string
@@ -928,6 +910,7 @@ function ConfigTile({
   switchOn:    boolean
   onSwitch?:   () => void
   actionLabel: string
+  actionDisabled?: boolean
   onAction:    () => void
 }) {
   return (
@@ -953,50 +936,7 @@ function ConfigTile({
           <Switch on={switchOn} onToggle={onSwitch} />
           <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-black, #000)' }}>{switchLabel}</span>
         </div>
-        <Button variant="secondary" onClick={onAction}>{actionLabel}</Button>
-      </div>
-    </div>
-  )
-}
-
-// ── Admin permission row ────────────────────────────────────────────────────────
-
-function PermissionRow({
-  label,
-  desc,
-  on,
-  onToggle,
-  badge,
-}: {
-  label:     string
-  desc:      string
-  on?:       boolean
-  onToggle?: () => void
-  badge?:    React.ReactNode
-}) {
-  return (
-    <div style={{ padding: '12px 24px' }}>
-      <div style={{
-        background:   'var(--neutral-white, #fff)',
-        borderRadius: 16,
-        padding:      12,
-        boxShadow:    SHADOW_TILE,
-        display:      'flex',
-        alignItems:   'center',
-        gap:          8,
-      }}>
-        <div style={{ flex: '1 0 0', minWidth: 0 }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>{label}</p>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>{desc}</p>
-        </div>
-        {badge ?? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Switch on={!!on} onToggle={onToggle} />
-            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-black, #000)' }}>
-              {on ? 'On' : 'Off'}
-            </span>
-          </div>
-        )}
+        <Button variant="secondary" disabled={actionDisabled} onClick={onAction}>{actionLabel}</Button>
       </div>
     </div>
   )
