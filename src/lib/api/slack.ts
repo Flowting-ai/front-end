@@ -8,6 +8,7 @@ import {
   ORG_SLACK_CHANNELS_ENDPOINT,
   ORG_SLACK_CHANNEL_MAPPING_ENDPOINT,
   ORG_SLACK_INSTALLATION_ENDPOINT,
+  ORG_SLACK_PROJECT_CHANNEL_ENDPOINT,
 } from '@/lib/config'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -16,14 +17,18 @@ export interface SlackChannel {
   channelId:   string
   channelName: string
   isMember:    boolean
+  isPrivate:   boolean
   projectId:   string | null
+  projectTitle: string | null
 }
 
 interface SlackChannelItemResponse {
   channel_id:   string
   channel_name: string
   is_member?:   boolean
+  is_private?:  boolean
   project_id?:  string | null
+  project_title?: string | null
 }
 
 interface SlackChannelsResponseRaw {
@@ -43,7 +48,9 @@ function normalizeChannel(c: SlackChannelItemResponse): SlackChannel {
     channelId:   c.channel_id,
     channelName: c.channel_name,
     isMember:    c.is_member ?? false,
+    isPrivate:   c.is_private ?? false,
     projectId:   c.project_id ?? null,
+    projectTitle: c.project_title ?? null,
   }
 }
 
@@ -151,4 +158,31 @@ export async function disconnectSlackIdentity(): Promise<{ removed: number }> {
  * organization (revokes on Slack + drops the install). Admin only. */
 export async function removeOrgSlackInstallation(orgId: string): Promise<void> {
   await apiFetch(ORG_SLACK_INSTALLATION_ENDPOINT(orgId), { method: 'DELETE' })
+}
+
+/** GET /organizations/{id}/slack/projects/{projectId}/channel */
+export async function getProjectSlackChannel(
+  orgId: string,
+  projectId: string,
+): Promise<SlackChannel | null> {
+  const data = await apiFetchJson<SlackChannelItemResponse | null>(
+    ORG_SLACK_PROJECT_CHANNEL_ENDPOINT(orgId, projectId),
+  )
+  return data ? normalizeChannel(data) : null
+}
+
+/** POST /organizations/{id}/slack/projects/{projectId}/channel */
+export async function createProjectSlackChannel(
+  orgId: string,
+  projectId: string,
+  params: { name: string; isPrivate?: boolean },
+): Promise<SlackChannel> {
+  const data = await apiFetchJson<SlackChannelItemResponse>(
+    ORG_SLACK_PROJECT_CHANNEL_ENDPOINT(orgId, projectId),
+    {
+      method: 'POST',
+      body: JSON.stringify({ name: params.name, is_private: params.isPrivate ?? false }),
+    },
+  )
+  return normalizeChannel(data)
 }
