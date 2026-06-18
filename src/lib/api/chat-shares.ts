@@ -18,6 +18,9 @@ export interface ChatShare {
   mode:          ChatShareMode
   sharedByUserId: string
   sharedByName:  string | null
+  targetUserId:  string | null
+  targetUserName: string | null
+  targetUserEmail: string | null
   targetTeamId:  string | null
   targetProjectId: string | null
   createdAt:     string
@@ -44,6 +47,9 @@ interface ChatShareResponse {
   mode:               ChatShareMode
   shared_by_user_id:  string
   shared_by_name:     string | null
+  target_user_id:     string | null
+  target_user_name:   string | null
+  target_user_email:  string | null
   target_team_id:     string | null
   target_project_id:  string | null
   created_at:         string
@@ -70,6 +76,9 @@ function normalizeShare(r: ChatShareResponse): ChatShare {
     mode:            r.mode,
     sharedByUserId:  r.shared_by_user_id,
     sharedByName:    r.shared_by_name ?? null,
+    targetUserId:    r.target_user_id ?? null,
+    targetUserName:  r.target_user_name ?? null,
+    targetUserEmail: r.target_user_email ?? null,
     targetTeamId:    r.target_team_id ?? null,
     targetProjectId: r.target_project_id ?? null,
     createdAt:       r.created_at,
@@ -98,10 +107,14 @@ export async function createChatShare(params: {
   chatId: string
   mode?: ChatShareMode
   userId?: string
+  teamId?: string
+  projectId?: string
 }): Promise<ChatShare> {
   const body: Record<string, unknown> = { chatId: params.chatId }
   if (params.mode)   body.mode   = params.mode
   if (params.userId) body.userId = params.userId
+  if (params.teamId) body.teamId = params.teamId
+  if (params.projectId) body.projectId = params.projectId
   const data = await apiFetchJson<ChatShareResponse>(CHAT_SHARES_ENDPOINT, {
     method: 'POST',
     body:   JSON.stringify(body),
@@ -120,12 +133,6 @@ export async function listChatShares(chatId: string): Promise<ChatShare[]> {
 export async function listSharedWithMe(): Promise<SharedChatItem[]> {
   const list = await apiFetchJson<SharedChatItemResponse[]>(CHAT_SHARES_SHARED_WITH_ME_ENDPOINT)
   return list.map(normalizeSharedItem)
-}
-
-/** GET /chat-shares/{shareId} */
-export async function getChatShare(shareId: string): Promise<ChatShare> {
-  const data = await apiFetchJson<ChatShareResponse>(CHAT_SHARE_ENDPOINT(shareId))
-  return normalizeShare(data)
 }
 
 /** POST /chat-shares/{shareId}/fork */

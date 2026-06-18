@@ -38,6 +38,8 @@ export interface ProjectFile {
 
 export interface ProjectChat {
   id:        string
+  ownerUserId: string
+  canEdit:   boolean
   projectId: string
   title:     string
   pinCount:  number
@@ -59,10 +61,14 @@ export interface ProjectPin {
 
 export interface Project {
   id:           string
+  ownerUserId:  string
   name:         string
   description:  string
   instructions: string
   teamId:       string | null
+  visibility:   'private' | 'team'
+  canEdit:      boolean
+  canManageVisibility: boolean
   tags:         ProjectTag[]
   files:        ProjectFile[]
   chatCount:    number
@@ -127,10 +133,14 @@ function docToProjectFile(
 function summaryToProject(s: ApiProjectSummary): Project {
   return {
     id:           s.id,
+    ownerUserId:  s.ownerUserId,
     name:         s.title,
     description:  s.description,
     instructions: '',
     teamId:       s.teamId,
+    visibility:   s.visibility,
+    canEdit:      s.canEdit,
+    canManageVisibility: s.canManageVisibility,
     tags:         loadStoredTags(s.id),
     files:        [],
     chatCount:    s.chatCount,
@@ -162,10 +172,14 @@ function apiToProject(
   })
   return {
     id:           api.id,
+    ownerUserId:  api.ownerUserId,
     name:         api.title,
     description:  api.description,
     instructions: api.systemInstruction,
     teamId:       api.teamId ?? existing?.teamId ?? null,
+    visibility:   api.visibility,
+    canEdit:      api.canEdit,
+    canManageVisibility: api.canManageVisibility,
     tags:         existing?.tags ?? loadStoredTags(api.id),
     files,
     chatCount:    existing?.chatCount ?? 0,
@@ -177,6 +191,8 @@ function apiToProject(
 function apiChatToProjectChat(c: ApiProjectChat, projectId: string): ProjectChat {
   return {
     id:        c.id,
+    ownerUserId: c.ownerUserId,
+    canEdit:   c.canEdit,
     projectId,
     title:     c.chatTitle,
     pinCount:  0,
@@ -192,7 +208,7 @@ interface ProjectsContextValue {
   chats:            ProjectChat[]
   loading:          boolean
   error:            string | null
-  createProject:    (name: string, description: string) => Promise<Project>
+  createProject:    (name: string, description: string, teamId?: string) => Promise<Project>
   updateProject:    (id: string, patch: Partial<Pick<Project, 'name' | 'description' | 'instructions' | 'tags'>>) => Promise<void>
   deleteProject:    (id: string) => Promise<void>
   loadProject:      (id: string) => Promise<void>
@@ -233,6 +249,11 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
                 ...existing,
                 name:        s.title,
                 description: s.description,
+                ownerUserId: s.ownerUserId,
+                teamId:      s.teamId,
+                visibility:  s.visibility,
+                canEdit:     s.canEdit,
+                canManageVisibility: s.canManageVisibility,
                 chatCount:   s.chatCount,
                 updatedAt:   s.updatedAt,
               }
@@ -247,8 +268,8 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   // â”€â”€ CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  const createProject = useCallback(async (name: string, description: string): Promise<Project> => {
-    const api = await createProjectApi({ title: name, description })
+  const createProject = useCallback(async (name: string, description: string, teamId?: string): Promise<Project> => {
+    const api = await createProjectApi({ title: name, description, teamId })
     const project = apiToProject(api)
     setProjects(prev => [project, ...prev])
     return project
@@ -412,7 +433,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   // Optimistic: called after a chat has been created via the chats API and linked to this project.
   const addChat = useCallback((projectId: string, chatId: string, title: string) => {
     const now  = new Date().toISOString()
-    const chat: ProjectChat = { id: chatId, projectId, title, pinCount: 0, createdAt: now, updatedAt: now }
+    const chat: ProjectChat = { id: chatId, ownerUserId: '', canEdit: true, projectId, title, pinCount: 0, createdAt: now, updatedAt: now }
     setChats(prev => [chat, ...prev.filter(c => !(c.projectId === projectId && c.id === chatId))])
     setProjects(prev => prev.map(p =>
       p.id === projectId ? { ...p, chatCount: p.chatCount + 1, updatedAt: now } : p,

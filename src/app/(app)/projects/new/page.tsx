@@ -7,19 +7,23 @@ import { useProjects } from '@/context/projects-context'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
+import { useOrg } from '@/context/org-context'
 
 export default function NewProjectPage() {
   const { push, back }                    = useRouter()
   const { projects, createProject }       = useProjects()
+  const { orgId, teams, currentUserRole } = useOrg()
   const [name,         setName]           = useState('')
   const [description,  setDescription]   = useState('')
   const [loading,      setLoading]        = useState(false)
+  const [teamId,       setTeamId]         = useState('')
+  const canCreateTeamProject = Boolean(orgId && currentUserRole !== 'member')
 
   async function handleCreate() {
     if (!name.trim()) return
     setLoading(true)
     try {
-      const project = await createProject(name.trim(), description.trim())
+      const project = await createProject(name.trim(), description.trim(), teamId || undefined)
       push(`/project/${project.id}`)
     } catch (err) {
       toast.error('Failed to create project', { description: err instanceof Error ? err.message : undefined })
@@ -94,6 +98,25 @@ export default function NewProjectPage() {
               autoFocus
             />
           </div>
+
+          {canCreateTeamProject && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label htmlFor="new-project-team" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47' }}>
+                Access
+              </label>
+              <select
+                id="new-project-team"
+                value={teamId}
+                onChange={(event) => setTeamId(event.target.value)}
+                style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)', border: '1px solid var(--neutral-300)', borderRadius: 10, padding: '9px 12px', backgroundColor: 'white', width: '100%' }}
+              >
+                <option value="">Private project</option>
+                {teams.filter(team => team.canEdit).map(team => (
+                  <option key={team.id} value={team.id}>Team: {team.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label

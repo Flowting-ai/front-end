@@ -28,6 +28,7 @@ interface TeamResponse {
   description: string
   tags: string[]
   archived: boolean
+  can_edit: boolean
   created_at: string
   updated_at: string
 }
@@ -56,6 +57,7 @@ function normalizeTeam(t: TeamResponse): Team {
     description: t.description,
     tags: t.tags ?? [],
     archived: t.archived,
+    canEdit: t.can_edit ?? false,
     createdAt: t.created_at,
     updatedAt: t.updated_at,
   }

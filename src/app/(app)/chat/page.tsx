@@ -29,11 +29,11 @@ import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from "@/comp
 import { fetchPersonas, getVersion } from "@/lib/api/personas";
 import { ModelMenu } from "@/components/chat/ModelMenu";
 import { toast } from "sonner";
-import { setChatVisibility } from "@/lib/api/chat";
-import { listChatShares, deleteChatShare, type ChatShare } from "@/lib/api/chat-shares";
-import { fetchTeams } from "@/lib/api/teams";
+import { copyChat, setChatVisibility } from "@/lib/api/chat";
+import { createChatShare, listChatShares, deleteChatShare, type ChatShare, type ChatShareMode } from "@/lib/api/chat-shares";
 import { useOrg } from "@/context/org-context";
-import type { Team } from "@/types/teams";
+import { useAuth } from "@/context/auth-context";
+import { useProjects } from "@/context/projects-context";
 import {
   GlobalSearchIcon,
   QuillWriteTwoIcon,
@@ -239,7 +239,9 @@ export default function ChatPage() {
 function ChatPageInner() {
   const searchParams = useSearchParams();
   const { replace } = useRouter();
-  const { orgId } = useOrg();
+  const { orgId, teams: orgTeams, members: orgMembers } = useOrg();
+  const { user } = useAuth();
+  const { projects } = useProjects();
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
 
@@ -265,12 +267,16 @@ function ChatPageInner() {
   const [chatShareOpen,       setChatShareOpen]       = useState(false);
   const [chatShareVisibility, setChatShareVisibility] = useState<"private" | "team">("private");
   const [chatShareTeamId,     setChatShareTeamId]     = useState("");
-  const [chatShareTeams,      setChatShareTeams]      = useState<Team[]>([]);
   const [chatShareSaving,     setChatShareSaving]     = useState(false);
   const [shareTeamDropOpen,   setShareTeamDropOpen]   = useState(false);
   const [existingShares,      setExistingShares]      = useState<ChatShare[]>([]);
   const [sharesLoading,       setSharesLoading]       = useState(false);
   const [revokingShareId,     setRevokingShareId]     = useState<string | null>(null);
+  const [shareTargetType,     setShareTargetType]     = useState<"user" | "team" | "project">("team");
+  const [shareTargetId,       setShareTargetId]       = useState("");
+  const [shareMode,           setShareMode]           = useState<ChatShareMode>("read_only");
+  const [creatingShare,       setCreatingShare]       = useState(false);
+  const [copyingChat,         setCopyingChat]         = useState(false);
 
   // Tracks which chatIds were created in this session as persona chats.
   // This prevents routing an existing regular chatId through the persona endpoint.
@@ -682,7 +688,34 @@ function ChatPageInner() {
       : "Souvenir AI Muse (Basic)"
     : selectedModel?.modelName;
 
-  const { renameLocal, addOptimistic, moveToTop, refreshChatTitle } = useChatHistoryContext();
+  const { chats: chatHistory, renameLocal, addOptimistic, moveToTop, refreshChatTitle, refresh: refreshChats } = useChatHistoryContext();
+  const activeChatRecord = activeChatId
+    ? chatHistory.find(chat => chat.id === activeChatId)
+    : undefined;
+  const activeChatCanManage = activeChatRecord?.can_edit === true;
+  const activeChatReadOnly = activeChatRecord?.can_edit === false;
+  const editableTeams = orgTeams.filter(team => team.canEdit);
+
+  async function handleCopyReadableChat() {
+    if (!activeChatId || copyingChat) return;
+    setCopyingChat(true);
+    try {
+      const copy = await copyChat(activeChatId);
+      addOptimistic({
+        id: copy.chatId,
+        title: copy.chatTitle,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        starred: false,
+        can_edit: true,
+      });
+      replace(`/chat?id=${copy.chatId}`, { scroll: false });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to copy chat");
+    } finally {
+      setCopyingChat(false);
+    }
+  }
   const { loadForChat: loadHighlightsForChat } = useHighlight();
 
   // Tracks a newly-created chat so handleChatMoveToTop can schedule a title refresh.
@@ -745,6 +778,7 @@ function ChatPageInner() {
     replace(`/chat?id=${chatId}`, { scroll: false });
     addOptimistic({
       id: chatId,
+      can_edit: true,
       title: "New chat",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -805,19 +839,39 @@ function ChatPageInner() {
   };
 
   function handleOpenChatShare() {
-    setChatShareVisibility("private");
-    setChatShareTeamId("");
+    setChatShareVisibility(activeChatRecord?.visibility ?? "private");
+    setChatShareTeamId(activeChatRecord?.team_id ?? "");
     setExistingShares([]);
+    setShareTargetId("");
+    setShareTargetType(orgId ? "team" : "project");
     setChatShareOpen(true);
-    if (orgId && chatShareTeams.length === 0) {
-      fetchTeams(orgId).then(setChatShareTeams).catch(console.error);
-    }
     if (activeChatId) {
       setSharesLoading(true);
       listChatShares(activeChatId)
         .then(setExistingShares)
         .catch(console.error)
         .finally(() => setSharesLoading(false));
+    }
+  }
+
+  async function handleCreateShare() {
+    if (!activeChatId || !shareTargetId) return;
+    setCreatingShare(true);
+    try {
+      const share = await createChatShare({
+        chatId: activeChatId,
+        mode: shareMode,
+        userId: shareTargetType === "user" ? shareTargetId : undefined,
+        teamId: shareTargetType === "team" ? shareTargetId : undefined,
+        projectId: shareTargetType === "project" ? shareTargetId : undefined,
+      });
+      setExistingShares(prev => [...prev, share]);
+      setShareTargetId("");
+      toast.success("Chat shared");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to share chat");
+    } finally {
+      setCreatingShare(false);
     }
   }
 
@@ -839,6 +893,7 @@ function ChatPageInner() {
     setChatShareSaving(true);
     try {
       await setChatVisibility(activeChatId, chatShareVisibility, chatShareVisibility === "team" ? chatShareTeamId : undefined);
+      refreshChats();
       toast.success("Chat visibility updated");
       setChatShareOpen(false);
     } catch (err) {
@@ -1110,6 +1165,7 @@ function ChatPageInner() {
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
               scrollToMessageId={msgFromUrl}
+              readOnly={activeChatReadOnly}
             />
           </m.div>
         )}
@@ -1125,7 +1181,7 @@ function ChatPageInner() {
       />
 
       {/* Chat share / visibility button — only shown when a chat is active */}
-      {activeChatId && !chatShareOpen && (
+      {activeChatId && activeChatCanManage && !chatShareOpen && (
         <div style={{ position: "absolute", top: 8, right: 12, zIndex: 10 }}>
           <Tooltip content="Share" side="bottom">
             <IconButton
@@ -1135,6 +1191,13 @@ function ChatPageInner() {
               onClick={handleOpenChatShare}
             />
           </Tooltip>
+        </div>
+      )}
+      {activeChatId && activeChatReadOnly && (
+        <div style={{ position: "absolute", top: 8, right: 12, zIndex: 10 }}>
+          <Button variant="secondary" size="sm" loading={copyingChat} onClick={() => void handleCopyReadableChat()}>
+            Create a copy
+          </Button>
         </div>
       )}
 
@@ -1192,7 +1255,7 @@ function ChatPageInner() {
               <div style={{ height: "1px", background: "var(--neutral-100)", flexShrink: 0 }} />
 
               {/* Body */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "20px", flexShrink: 0 }}>
+              <div className="kaya-scrollbar" style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "20px", maxHeight: "min(620px, calc(100vh - 180px))", overflowY: "auto" }}>
 
                 {/* Visibility option cards */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -1238,7 +1301,7 @@ function ChatPageInner() {
                           {v === "private" ? "Private" : "Team"}
                         </p>
                         <p style={{ fontFamily: "var(--font-body)", fontSize: "12px", lineHeight: "18px", color: "var(--neutral-500)", margin: 0 }}>
-                          {v === "private" ? "Only you can see this chat." : "All members of a team can access it."}
+                          {v === "private" ? "Only you can see this chat." : "Editors and admins in this team can access it."}
                         </p>
                       </div>
                     </button>
@@ -1272,7 +1335,7 @@ function ChatPageInner() {
                       >
                         <span style={{ fontFamily: "var(--font-body)", fontSize: "14px", lineHeight: "22px", color: chatShareTeamId ? "var(--neutral-900)" : "var(--neutral-400)" }}>
                           {chatShareTeamId
-                            ? (chatShareTeams.find(t => t.id === chatShareTeamId)?.name ?? "Select team…")
+                            ? (orgTeams.find(t => t.id === chatShareTeamId)?.name ?? "Select team…")
                             : "Select team…"}
                         </span>
                         <ArrowDownOneIcon size={16} color="var(--neutral-400)" />
@@ -1280,9 +1343,9 @@ function ChatPageInner() {
                     }
                   >
                     <Dropdown style={{ width: "420px" }}>
-                      {chatShareTeams.length === 0
+                      {editableTeams.length === 0
                         ? <Dropdown.Item fluid label="No teams available" />
-                        : chatShareTeams.map(t => (
+                        : editableTeams.map(t => (
                             <Dropdown.Item
                               key={t.id}
                               fluid
@@ -1296,6 +1359,61 @@ function ChatPageInner() {
                   </DropdownFloat>
                 )}
 
+                <div style={{ height: "1px", background: "var(--neutral-100)" }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <p style={{ fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, color: "var(--neutral-700)", margin: 0 }}>
+                    Share live chat
+                  </p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <select
+                      aria-label="Share target type"
+                      value={shareTargetType}
+                      onChange={(event) => {
+                        setShareTargetType(event.target.value as "user" | "team" | "project");
+                        setShareTargetId("");
+                      }}
+                      style={{ fontFamily: "var(--font-body)", fontSize: 13, border: "1px solid var(--neutral-200)", borderRadius: 8, padding: "8px 10px", background: "white" }}
+                    >
+                      {orgId && <option value="user">Person</option>}
+                      {orgId && <option value="team">Team</option>}
+                      <option value="project">Project</option>
+                    </select>
+                    <select
+                      aria-label="Share access mode"
+                      value={shareMode}
+                      onChange={(event) => setShareMode(event.target.value as ChatShareMode)}
+                      style={{ fontFamily: "var(--font-body)", fontSize: 13, border: "1px solid var(--neutral-200)", borderRadius: 8, padding: "8px 10px", background: "white" }}
+                    >
+                      <option value="read_only">Read only</option>
+                      <option value="editable">Can create a copy</option>
+                    </select>
+                  </div>
+                  <select
+                    aria-label="Share target"
+                    value={shareTargetId}
+                    onChange={(event) => setShareTargetId(event.target.value)}
+                    style={{ fontFamily: "var(--font-body)", fontSize: 13, border: "1px solid var(--neutral-200)", borderRadius: 8, padding: "8px 10px", background: "white", width: "100%" }}
+                  >
+                    <option value="">Select {shareTargetType}…</option>
+                    {shareTargetType === "user" && orgMembers.filter(member =>
+                      member.email.toLowerCase() !== user?.email?.toLowerCase()
+                    ).map(member => (
+                      <option key={member.id} value={member.id}>{member.name || member.email}</option>
+                    ))}
+                    {shareTargetType === "team" && orgTeams.map(team => (
+                      <option key={team.id} value={team.id}>{team.name}</option>
+                    ))}
+                    {shareTargetType === "project" && projects.map(project => (
+                      <option key={project.id} value={project.id}>{project.name}</option>
+                    ))}
+                  </select>
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <Button variant="secondary" size="sm" loading={creatingShare} disabled={!shareTargetId || creatingShare} onClick={() => void handleCreateShare()}>
+                      Share
+                    </Button>
+                  </div>
+                </div>
+
                 {/* Active shares */}
                 {(sharesLoading || existingShares.length > 0) && (
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px", paddingTop: "4px" }}>
@@ -1308,8 +1426,10 @@ function ChatPageInner() {
                     ) : (
                       existingShares.map(share => {
                         const label = share.targetTeamId
-                          ? (chatShareTeams.find(t => t.id === share.targetTeamId)?.name ?? "Team")
-                          : share.targetProjectId ? "Project" : "User"
+                          ? (orgTeams.find(t => t.id === share.targetTeamId)?.name ?? "Team")
+                          : share.targetProjectId
+                            ? (projects.find(project => project.id === share.targetProjectId)?.name ?? "Project")
+                            : (share.targetUserName || share.targetUserEmail || "Person")
                         const isRevoking = revokingShareId === share.id
                         return (
                           <div

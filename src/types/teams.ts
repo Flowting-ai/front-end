@@ -58,6 +58,7 @@ export interface Team {
   description: string
   tags: string[]
   archived: boolean
+  canEdit: boolean
   createdAt: string
   updatedAt: string
 }

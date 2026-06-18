@@ -24,7 +24,11 @@ export interface ProjectDocumentResponse {
 
 export interface ProjectSummary {
   id:             string
+  owner_user_id:  string
   team_id?:       string | null
+  visibility:     'private' | 'team'
+  can_edit:       boolean
+  can_manage_visibility: boolean
   title:          string
   description:    string
   updated_at:     string
@@ -34,10 +38,14 @@ export interface ProjectSummary {
 
 export interface ProjectResponse {
   id:                 string
+  owner_user_id:      string
   title:              string
   description:        string
   system_instruction: string
   team_id?:           string | null
+  visibility:         'private' | 'team'
+  can_edit:           boolean
+  can_manage_visibility: boolean
   created_at:         string
   updated_at:         string
   documents:          ProjectDocumentResponse[]
@@ -45,6 +53,8 @@ export interface ProjectResponse {
 
 export interface ProjectChatSummary {
   id:            string
+  owner_user_id: string
+  can_edit:      boolean
   chat_title:    string
   starred:       boolean
   updated_at:    string
@@ -63,7 +73,11 @@ export interface ApiProjectDocument {
 
 export interface ApiProjectSummary {
   id:            string
+  ownerUserId:   string
   teamId:        string | null
+  visibility:    'private' | 'team'
+  canEdit:       boolean
+  canManageVisibility: boolean
   title:         string
   description:   string
   updatedAt:     string
@@ -73,10 +87,14 @@ export interface ApiProjectSummary {
 
 export interface ApiProject {
   id:                string
+  ownerUserId:       string
   title:             string
   description:       string
   systemInstruction: string
   teamId:            string | null
+  visibility:        'private' | 'team'
+  canEdit:           boolean
+  canManageVisibility: boolean
   createdAt:         string
   updatedAt:         string
   documents:         ApiProjectDocument[]
@@ -84,6 +102,8 @@ export interface ApiProject {
 
 export interface ApiProjectChat {
   id:           string
+  ownerUserId:  string
+  canEdit:      boolean
   chatTitle:    string
   starred:      boolean
   updatedAt:    string
@@ -99,7 +119,11 @@ function normalizeDocument(d: ProjectDocumentResponse): ApiProjectDocument {
 function normalizeProjectSummary(p: ProjectSummary): ApiProjectSummary {
   return {
     id:            p.id,
+    ownerUserId:   p.owner_user_id,
     teamId:        p.team_id ?? null,
+    visibility:    p.visibility,
+    canEdit:       p.can_edit,
+    canManageVisibility: p.can_manage_visibility,
     title:         p.title,
     description:   p.description,
     updatedAt:     p.updated_at,
@@ -111,10 +135,14 @@ function normalizeProjectSummary(p: ProjectSummary): ApiProjectSummary {
 function normalizeProject(p: ProjectResponse): ApiProject {
   return {
     id:                p.id,
+    ownerUserId:       p.owner_user_id,
     title:             p.title,
     description:       p.description,
     systemInstruction: p.system_instruction,
     teamId:            p.team_id ?? null,
+    visibility:        p.visibility,
+    canEdit:           p.can_edit,
+    canManageVisibility: p.can_manage_visibility,
     createdAt:         p.created_at,
     updatedAt:         p.updated_at,
     documents:         (p.documents ?? []).map(normalizeDocument),
@@ -124,6 +152,8 @@ function normalizeProject(p: ProjectResponse): ApiProject {
 function normalizeProjectChat(c: ProjectChatSummary): ApiProjectChat {
   return {
     id:           c.id,
+    ownerUserId:  c.owner_user_id,
+    canEdit:      c.can_edit,
     chatTitle:    c.chat_title,
     starred:      c.starred,
     updatedAt:    c.updated_at,
@@ -150,6 +180,7 @@ export interface CreateProjectParams {
   description?:       string
   systemInstruction?: string
   files?:             File[]
+  teamId?:            string
 }
 
 /** POST /projects (multipart/form-data) */
@@ -158,6 +189,7 @@ export async function createProjectApi(params: CreateProjectParams): Promise<Api
   form.append('title', params.title)
   if (params.description)       form.append('description', params.description)
   if (params.systemInstruction) form.append('system_instruction', params.systemInstruction)
+  if (params.teamId)           form.append('team_id', params.teamId)
   params.files?.forEach(f => form.append('files', f))
 
   // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.

@@ -32,6 +32,7 @@ function ProjectCardInner(
     const [hovered,  setHovered]  = useState(false)
     const [focused,  setFocused]  = useState(false)
     const [menuOpen, setMenuOpen] = useState(false)
+    const hasActions = Boolean(onEdit || onArchive || onDelete)
 
     const showMenu = hovered || focused || menuOpen || !!active
 
@@ -97,7 +98,7 @@ function ProjectCardInner(
 
           {/* ⋮ menu - fades in on hover/focus */}
           {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
-          <div
+          {hasActions && <div
             style={{
               opacity:    showMenu ? 1 : 0,
               transition: 'opacity 120ms ease',
@@ -129,7 +130,7 @@ function ProjectCardInner(
                 </Dropdown.Section>
               </Dropdown>
             </Dropdown.Float>
-          </div>
+          </div>}
         </div>
 
         {/* Static body — use pre-rendered server component when provided, otherwise render inline */}

@@ -133,6 +133,7 @@ export default function ProjectPage() {
     setSharingSaving(true)
     try {
       await setProjectVisibility(projectId, shareVisibility, shareVisibility === 'team' ? shareTeamId : undefined)
+      await loadProject(projectId)
       toast.success('Project visibility updated')
       setShareOpen(false)
     } catch (err) {
@@ -218,7 +219,7 @@ export default function ProjectPage() {
               </h1>
 
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
-                <Dropdown.Float
+                {project.canEdit && <Dropdown.Float
                   open={menuOpen}
                   onOpenChange={setMenuOpen}
                   placement="bottom-end"
@@ -253,16 +254,16 @@ export default function ProjectPage() {
                       />
                     </Dropdown.Section>
                   </Dropdown>
-                </Dropdown.Float>
+                </Dropdown.Float>}
 
-                <Button
+                {project.canManageVisibility && <Button
                   variant="outline"
                   size="md"
                   rightIcon={<ShareOneIcon size={16} />}
                   onClick={handleOpenShare}
                 >
                   Share
-                </Button>
+                </Button>}
               </div>
             </div>
 
@@ -437,11 +438,11 @@ export default function ProjectPage() {
                   pinCount={pins.filter(p => p.chatId === chat.id).length}
                   onChatClick={() => push(`/project/${projectId}/chat/${chat.id}`)}
                   onPinsClick={() => togglePinboard()}
-                  onRename={(newTitle) => {
+                  onRename={chat.canEdit ? (newTitle) => {
                     renameChat(projectId, chat.id, newTitle)
                     void chatHistory.rename(chat.id, newTitle)
-                  }}
-                  onDelete={() => removeChat(projectId, chat.id)}
+                  } : undefined}
+                  onDelete={chat.canEdit ? () => removeChat(projectId, chat.id) : undefined}
                 />
               ))
             )}
@@ -504,15 +505,15 @@ export default function ProjectPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <ProjectInstructionsPanel
                   value={project.instructions}
-                  onSave={(text) => updateProject(projectId, { instructions: text })}
-                  onOpenEditor={() => setInstructionsOpen(true)}
+                  onSave={project.canEdit ? (text) => updateProject(projectId, { instructions: text }) : undefined}
+                  onOpenEditor={project.canEdit ? () => setInstructionsOpen(true) : undefined}
                 />
                 <ProjectFilesPanel
                   files={project.files}
                   pendingFiles={pendingFiles}
                   usedBytes={project.files.reduce((s, f) => s + f.sizeBytes, 0)}
                   totalBytes={100 * 1024 * 1024}
-                  onUpload={async (fileList) => {
+                  onUpload={project.canEdit ? async (fileList) => {
                     const files = Array.from(fileList)
                     setPendingFiles(files)
                     try {
@@ -523,10 +524,10 @@ export default function ProjectPage() {
                     } finally {
                       setPendingFiles([])
                     }
-                  }}
-                  onRemove={(fileId) => removeFile(projectId, fileId)}
+                  } : undefined}
+                  onRemove={project.canEdit ? (fileId) => removeFile(projectId, fileId) : undefined}
                 />
-                {project.teamId && (
+                {project.teamId && project.canEdit && (
                   <ProjectMembersPanel
                     teamId={project.teamId}
                     projectId={projectId}
@@ -539,22 +540,22 @@ export default function ProjectPage() {
       </AnimatePresence>
 
       {/* ── Modals ───────────────────────────────────────────────────── */}
-      <EditProjectModal
+      {project.canEdit && <EditProjectModal
         open={editOpen}
         name={project.name}
         description={project.description}
         tags={project.tags}
         onSave={(name, description, tags) => updateProject(projectId, { name, description, tags })}
         onClose={() => setEditOpen(false)}
-      />
+      />}
 
-      <SystemInstructionsModal
+      {project.canEdit && <SystemInstructionsModal
         open={instructionsOpen}
         projectName={project.name}
         value={project.instructions}
         onSave={(text) => updateProject(projectId, { instructions: text })}
         onClose={() => setInstructionsOpen(false)}
-      />
+      />}
 
       {/* ── Project share / visibility modal ─────────────────────────── */}
       {shareOpen && (
@@ -625,7 +626,7 @@ export default function ProjectPage() {
                       {v === 'private' ? 'Private' : 'Team'}
                     </p>
                     <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)', margin: 0 }}>
-                      {v === 'private' ? 'Only you can see this project.' : 'All members of a team can access it.'}
+                      {v === 'private' ? 'Only you can see this project.' : 'Team editors and assigned project members can access it.'}
                     </p>
                   </div>
                 </button>

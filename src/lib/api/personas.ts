@@ -84,6 +84,8 @@ export interface PersonaRepoResponse {
   published_version?: PersonaVersionResponse | null;
   published_at: string | null;
   is_published?: boolean;
+  visibility: 'private' | 'team';
+  team_ids: string[];
   version_count: number;
   created_at: string;
   updated_at: string;

@@ -11,7 +11,7 @@ import { Button } from '@/components/Button'
 export interface ProjectInstructionsPanelProps {
   value:         string
   /** May return a Promise – the panel tracks loading state if so. */
-  onSave:        (text: string) => void | Promise<void>
+  onSave?:       (text: string) => void | Promise<void>
   maxLength?:    number
   onOpenEditor?: () => void
 }
@@ -26,6 +26,7 @@ export function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOp
     const isEmpty = !value.trim()
 
     function handleEdit() {
+      if (!onSave) return
       if (onOpenEditor) {
         onOpenEditor()
         return
@@ -37,7 +38,7 @@ export function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOp
     async function handleSave() {
       setSaving(true)
       try {
-        await onSave(draft.trim())
+        await onSave?.(draft.trim())
         setEditing(false)
         toast.success('Instructions saved')
       } catch {
@@ -82,7 +83,7 @@ export function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOp
           >
             Instructions
           </p>
-          {!editing && (
+          {!editing && onSave && (
             <IconButton
               variant="ghost"
               size="xs"

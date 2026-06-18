@@ -183,6 +183,8 @@ interface ChatInterfaceProps {
    * Persona chats don't use pins.
    */
   hidePinActions?: boolean;
+  /** Readable shared chat whose original is owned by somebody else. */
+  readOnly?: boolean;
 }
 
 export function ChatInterface({
@@ -217,6 +219,7 @@ export function ChatInterface({
   emptyState,
   loadMessages,
   hidePinActions = false,
+  readOnly = false,
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
@@ -1147,9 +1150,11 @@ export function ChatInterface({
               )
             }
             isStreaming={isStreaming}
-            disabled={isStreaming || plan?.poolStatus === 'locked' || creditStatus.blocked}
+            disabled={readOnly || isStreaming || plan?.poolStatus === 'locked' || creditStatus.blocked}
             placeholder={
-              plan?.poolStatus === 'locked'
+              readOnly
+                ? 'Create your own copy to continue this chat.'
+                : plan?.poolStatus === 'locked'
                 ? 'Workspace locked. Contact your admin.'
                 : creditStatus.blocked
                   ? 'Credits exhausted. Buy a top-up to continue.'

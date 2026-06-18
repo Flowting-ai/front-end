@@ -131,14 +131,14 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
               </span>
             )}
           </div>
-          <IconButton
+          {onUpload && <IconButton
             variant="ghost"
             size="xs"
             icon={<PlusSignIcon />}
             aria-label="Upload file"
             onClick={() => inputRef.current?.click()}
             disabled={isUploading}
-          />
+          />}
         </div>
 
         <input
@@ -220,7 +220,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
         )}
 
         {/* Empty drop zone */}
-        {isEmpty && (
+        {isEmpty && onUpload && (
           <button
             onClick={() => inputRef.current?.click()}
             style={{
@@ -267,6 +267,11 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
               </span>
             </div>
           </button>
+        )}
+        {isEmpty && !onUpload && (
+          <div style={{ display: 'flex', flex: '1 1 0', alignItems: 'center', justifyContent: 'center', color: 'var(--neutral-500)', fontFamily: 'var(--font-body)', fontSize: 12 }}>
+            No files yet.
+          </div>
         )}
       </div>
     )

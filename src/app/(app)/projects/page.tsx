@@ -307,9 +307,9 @@ export default function ProjectsPage() {
                 updatedAt={formatUpdated(project.updatedAt)}
                 chatCount={project.chatCount}
                 onClick={() => push(`/project/${project.id}`)}
-                onEdit={() => setEditTarget(project)}
-                onArchive={() => {/* archive flow - backlog */}}
-                onDelete={() => handleDelete(project)}
+                onEdit={project.canEdit ? () => setEditTarget(project) : undefined}
+                onArchive={project.canEdit ? () => {/* archive flow - backlog */} : undefined}
+                onDelete={project.canEdit ? () => handleDelete(project) : undefined}
               />
             ))}
           </div>

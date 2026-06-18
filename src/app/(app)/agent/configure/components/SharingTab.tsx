@@ -11,7 +11,7 @@ import {
   revokeShare,
   type PersonaShare,
 } from '@/lib/api/persona-shares'
-import { setPersonaVisibility } from '@/lib/api/personas'
+import { getPersonaRepo, setPersonaVisibility } from '@/lib/api/personas'
 import { ApiError } from '@/lib/api/client'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
@@ -215,14 +215,15 @@ function UsageBar({ percent }: { percent: number }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function SharingTab({ repoId, versionId, hasTeamsPlan = false, onChanged }: SharingTabProps) {
+export default function SharingTab({ repoId, versionId, onChanged }: SharingTabProps) {
   const { user } = useAuth()
   const { orgId, teams } = useOrg()
+  const editableTeams = teams.filter(team => team.canEdit)
   const maxTokenLimit = getShareTokenLimit(user?.planType)
-  const { setHasShareLink } = usePersonaConfigure()
+  const { setHasShareLink, publishedVersionId } = usePersonaConfigure()
 
   const [visibility,        setVisibility]        = useState<Visibility>('private')
-  const [selectedTeamId,    setSelectedTeamId]    = useState('')
+  const [selectedTeamIds,   setSelectedTeamIds]   = useState<string[]>([])
   const [visibilitySaving,  setVisibilitySaving]  = useState(false)
 
   // ── Link share state ───────────────────────────────────────────────────────
@@ -273,11 +274,29 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false, on
     return () => { cancelled = true }
   }, [versionId])
 
+  useEffect(() => {
+    if (!repoId) return
+    let cancelled = false
+    getPersonaRepo(repoId)
+      .then(repo => {
+        if (cancelled) return
+        setVisibility(repo.visibility)
+        setSelectedTeamIds(repo.team_ids ?? [])
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [repoId])
+
   // ── Link share handlers ────────────────────────────────────────────────────
 
   async function handleGenerateLink() {
     if (!repoId || !versionId) {
       toast.error('Save the agent first before generating a share link.')
+      return
+    }
+    if (publishedVersionId !== versionId) {
+      toast.error('Publish this agent version before generating a share link.')
+      setSuperLinkEnabled(false)
       return
     }
     setIsGenerating(true)
@@ -333,6 +352,10 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false, on
     if (!email) return
     if (!repoId || !versionId) {
       toast.error('Save the agent first before sending invites.')
+      return
+    }
+    if (publishedVersionId !== versionId) {
+      toast.error('Publish this agent version before sending invites.')
       return
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -430,9 +453,9 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false, on
           />
           <VisibilityRow
             label="Team"
-            description="Everyone in your workspace can use it."
+            description="Editors and admins in selected teams can use it."
             selected={visibility === 'team'}
-            locked={!orgId}
+            locked={!orgId || editableTeams.length === 0}
             badge={!orgId ? <TeamPlanBadge /> : undefined}
             onClick={() => setVisibility('team')}
           />
@@ -447,23 +470,22 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false, on
 
         {/* Team selector — shown when Team is selected and user is in an org */}
         {visibility === 'team' && orgId && (
-          <select
-            value={selectedTeamId}
-            onChange={e => setSelectedTeamId(e.target.value)}
-            style={{
-              fontFamily:      'var(--font-body)',
-              fontSize:        14,
-              color:           'var(--neutral-900)',
-              border:          '1px solid var(--neutral-200)',
-              borderRadius:    8,
-              padding:         '8px 12px',
-              backgroundColor: 'white',
-              width:           '100%',
-            }}
-          >
-            <option value="">Select team…</option>
-            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 10, border: '1px solid var(--neutral-200)', borderRadius: 8, background: 'white' }}>
+            {editableTeams.map(team => (
+              <label key={team.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-800)' }}>
+                <input
+                  type="checkbox"
+                  checked={selectedTeamIds.includes(team.id)}
+                  onChange={(event) => setSelectedTeamIds(current =>
+                    event.target.checked
+                      ? [...current, team.id]
+                      : current.filter(id => id !== team.id)
+                  )}
+                />
+                {team.name}
+              </label>
+            ))}
+          </div>
         )}
 
         {/* Save visibility button */}
@@ -474,17 +496,17 @@ export default function SharingTab({ repoId, versionId, hasTeamsPlan = false, on
             disabled={
               visibilitySaving ||
               !repoId ||
-              (visibility === 'team' && (!orgId || !selectedTeamId))
+              (visibility === 'team' && (!orgId || selectedTeamIds.length === 0))
             }
             onClick={async () => {
               if (!repoId) { toast.error('Save the agent first.'); return }
-              if (visibility === 'team' && !selectedTeamId) { toast.error('Select a team.'); return }
+              if (visibility === 'team' && selectedTeamIds.length === 0) { toast.error('Select at least one team.'); return }
               setVisibilitySaving(true)
               try {
                 await setPersonaVisibility(
                   repoId,
                   visibility === 'private' ? 'private' : 'team',
-                  visibility === 'team' ? [selectedTeamId] : undefined,
+                  visibility === 'team' ? selectedTeamIds : undefined,
                 )
                 onChanged?.()
                 toast.success('Visibility updated')

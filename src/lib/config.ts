@@ -83,6 +83,8 @@ export const CHAT_DELETE_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}`)
 export const CHAT_VISIBILITY_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/visibility`);
+export const CHAT_COPY_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}/copy`);
 export const CHAT_STAR_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/star`);
 export const DELETE_MESSAGE_ENDPOINT = (messageId: string) =>

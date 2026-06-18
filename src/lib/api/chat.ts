@@ -11,6 +11,7 @@ import {
   CHAT_SAVE_TO_DRIVE_ENDPOINT,
   CHAT_PROMPT_RESPOND_ENDPOINT,
   CHAT_VISIBILITY_ENDPOINT,
+  CHAT_COPY_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
 import type {
@@ -25,6 +26,10 @@ import type {
 /** Raw shape the backend may return for a single chat. */
 interface BackendChat {
   id: string;
+  owner_user_id?: string;
+  can_edit?: boolean;
+  visibility?: "private" | "team";
+  team_id?: string | null;
   starred?: boolean;
   is_starred?: boolean;
   isStarred?: boolean;
@@ -45,6 +50,10 @@ interface BackendChat {
 function normalizeChat(raw: BackendChat): Chat {
   return {
     id: raw.id,
+    owner_user_id: raw.owner_user_id,
+    can_edit: raw.can_edit ?? false,
+    visibility: raw.visibility ?? "private",
+    team_id: raw.team_id ?? null,
     title: raw.chat_title ?? raw.title ?? raw.name ?? "Untitled",
     created_at: raw.created_at ?? new Date().toISOString(),
     updated_at: raw.updated_at ?? raw.created_at ?? new Date().toISOString(),
@@ -115,6 +124,7 @@ export async function createChat(model?: string): Promise<Chat> {
   // Instead we return an optimistic chat and let streaming handle creation.
   return {
     id: `temp-${Date.now()}`,
+    can_edit: true,
     title: "New chat",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -147,6 +157,14 @@ export async function starChat(chatId: string): Promise<void> {
   await apiFetchJson(CHAT_STAR_ENDPOINT(chatId), {
     method: "PATCH",
   });
+}
+
+export async function copyChat(chatId: string): Promise<{ chatId: string; chatTitle: string }> {
+  const data = await apiFetchJson<{ chat_id: string; chat_title: string }>(
+    CHAT_COPY_ENDPOINT(chatId),
+    { method: "POST" },
+  );
+  return { chatId: data.chat_id, chatTitle: data.chat_title };
 }
 
 // ── Messages ─────────────────────────────────────────────────────────────────
