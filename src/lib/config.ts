@@ -298,6 +298,8 @@ export const CHAT_SHARE_FORK_ENDPOINT = (shareId: string) => withBase(`/chat-sha
 // ── Slack mapping ──────────────────────────────────────────────────────────────
 export const SLACK_INSTALL_ENDPOINT = withBase('/slack/install')
 export const SLACK_STATUS_ENDPOINT  = withBase('/slack/status')
+/** POST to complete a /connect deep link, DELETE to unlink the user's Slack identity. */
+export const SLACK_LINK_ENDPOINT    = withBase('/slack/link')
 export const ORG_SLACK_CHANNELS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/slack/channels`)
 export const ORG_SLACK_CHANNEL_MAPPING_ENDPOINT = (orgId: string, channelId: string) =>

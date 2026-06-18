@@ -4,6 +4,7 @@ import { apiFetchJson } from './client'
 import {
   SLACK_INSTALL_ENDPOINT,
   SLACK_STATUS_ENDPOINT,
+  SLACK_LINK_ENDPOINT,
   ORG_SLACK_CHANNELS_ENDPOINT,
   ORG_SLACK_CHANNEL_MAPPING_ENDPOINT,
 } from '@/lib/config'
@@ -113,4 +114,34 @@ export async function setSlackChannelMapping(
     { method: 'PUT', body: JSON.stringify({ projectId }) },
   )
   return normalizeChannel(data)
+}
+
+// ── Identity link / unlink (the /connect + /disconnect flow) ──────────────────
+
+interface SlackLinkResponseRaw {
+  ok:      boolean
+  team_id: string
+}
+
+interface SlackDisconnectResponseRaw {
+  ok:      boolean
+  removed: number
+}
+
+/** POST /slack/link — complete a `/connect` deep link, binding the Slack
+ * identity carried in `state` to the logged-in account. */
+export async function linkSlackIdentity(state: string): Promise<{ teamId: string }> {
+  const data = await apiFetchJson<SlackLinkResponseRaw>(SLACK_LINK_ENDPOINT, {
+    method: 'POST',
+    body:   JSON.stringify({ state }),
+  })
+  return { teamId: data.team_id }
+}
+
+/** DELETE /slack/link — unlink the user's Slack identity from every workspace. */
+export async function disconnectSlackIdentity(): Promise<{ removed: number }> {
+  const data = await apiFetchJson<SlackDisconnectResponseRaw>(SLACK_LINK_ENDPOINT, {
+    method: 'DELETE',
+  })
+  return { removed: data.removed }
 }
