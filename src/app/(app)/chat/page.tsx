@@ -272,9 +272,10 @@ function ChatPageInner() {
   const [existingShares,      setExistingShares]      = useState<ChatShare[]>([]);
   const [sharesLoading,       setSharesLoading]       = useState(false);
   const [revokingShareId,     setRevokingShareId]     = useState<string | null>(null);
-  const [shareTargetType,     setShareTargetType]     = useState<"user" | "team" | "project">("team");
+  const [shareTargetType,     setShareTargetType]     = useState<"user" | "project">("user");
   const [shareTargetId,       setShareTargetId]       = useState("");
   const [shareMode,           setShareMode]           = useState<ChatShareMode>("read_only");
+  const [specificShareOpen,   setSpecificShareOpen]   = useState(false);
   const [creatingShare,       setCreatingShare]       = useState(false);
   const [copyingChat,         setCopyingChat]         = useState(false);
 
@@ -695,7 +696,6 @@ function ChatPageInner() {
   const activeChatCanManage = activeChatRecord?.can_edit === true;
   const activeChatReadOnly = activeChatRecord?.can_edit === false;
   const editableTeams = orgTeams.filter(team => team.canEdit);
-  const shareableTeams = editableTeams;
   const shareableProjects = projects.filter(project => project.canEdit);
 
   async function handleCopyReadableChat() {
@@ -845,7 +845,8 @@ function ChatPageInner() {
     setChatShareTeamId(activeChatRecord?.team_id ?? "");
     setExistingShares([]);
     setShareTargetId("");
-    setShareTargetType(orgId && shareableTeams.length > 0 ? "team" : "project");
+    setShareTargetType(orgId ? "user" : "project");
+    setSpecificShareOpen(false);
     setChatShareOpen(true);
     if (activeChatId) {
       setSharesLoading(true);
@@ -864,7 +865,6 @@ function ChatPageInner() {
         chatId: activeChatId,
         mode: shareMode,
         userId: shareTargetType === "user" ? shareTargetId : undefined,
-        teamId: shareTargetType === "team" ? shareTargetId : undefined,
         projectId: shareTargetType === "project" ? shareTargetId : undefined,
       });
       setExistingShares(prev => [...prev, share]);
@@ -1363,65 +1363,73 @@ function ChatPageInner() {
 
                 <div style={{ height: "1px", background: "var(--neutral-100)" }} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <p style={{ fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, color: "var(--neutral-700)", margin: 0 }}>
-                    Share live chat
-                  </p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <select
-                      aria-label="Share target type"
-                      value={shareTargetType}
-                      onChange={(event) => {
-                        setShareTargetType(event.target.value as "user" | "team" | "project");
-                        setShareTargetId("");
-                      }}
-                      style={{ fontFamily: "var(--font-body)", fontSize: 13, border: "1px solid var(--neutral-200)", borderRadius: 8, padding: "8px 10px", background: "white" }}
-                    >
-                      {orgId && <option value="user">Person</option>}
-                      {orgId && shareableTeams.length > 0 && <option value="team">Team</option>}
-                      <option value="project">Project</option>
-                    </select>
-                    <select
-                      aria-label="Share access mode"
-                      value={shareMode}
-                      onChange={(event) => setShareMode(event.target.value as ChatShareMode)}
-                      style={{ fontFamily: "var(--font-body)", fontSize: 13, border: "1px solid var(--neutral-200)", borderRadius: 8, padding: "8px 10px", background: "white" }}
-                    >
-                      <option value="read_only">Read only</option>
-                      <option value="editable">Can create a copy</option>
-                    </select>
-                  </div>
-                  <select
-                    aria-label="Share target"
-                    value={shareTargetId}
-                    onChange={(event) => setShareTargetId(event.target.value)}
-                    style={{ fontFamily: "var(--font-body)", fontSize: 13, border: "1px solid var(--neutral-200)", borderRadius: 8, padding: "8px 10px", background: "white", width: "100%" }}
-                  >
-                    <option value="">Select {shareTargetType}…</option>
-                    {shareTargetType === "user" && orgMembers.filter(member =>
-                      member.email.toLowerCase() !== user?.email?.toLowerCase()
-                    ).map(member => (
-                      <option key={member.id} value={member.id}>{member.name || member.email}</option>
-                    ))}
-                    {shareTargetType === "team" && (
-                      shareableTeams.length === 0
-                        ? <option value="" disabled>No teams available</option>
-                        : shareableTeams.map(team => (
-                      <option key={team.id} value={team.id}>{team.name}</option>
-                        ))
-                    )}
-                    {shareTargetType === "project" && (
-                      shareableProjects.length === 0
-                        ? <option value="" disabled>No editable projects</option>
-                        : shareableProjects.map(project => (
-                      <option key={project.id} value={project.id}>{project.name}</option>
-                        ))
-                    )}
-                  </select>
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <Button variant="secondary" size="sm" loading={creatingShare} disabled={!shareTargetId || creatingShare} onClick={() => void handleCreateShare()}>
-                      Share
+                  {!specificShareOpen ? (
+                    <Button variant="ghost" size="sm" onClick={() => setSpecificShareOpen(true)} style={{ alignSelf: "flex-start" }}>
+                      Add person/project share
                     </Button>
-                  </div>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <p style={{ fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, color: "var(--neutral-700)", margin: 0 }}>
+                          Specific share
+                        </p>
+                        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, lineHeight: "18px", color: "var(--neutral-500)", margin: 0 }}>
+                          Add a person or publish this chat to an editable project.
+                        </p>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <select
+                          aria-label="Share target type"
+                          value={shareTargetType}
+                          onChange={(event) => {
+                            setShareTargetType(event.target.value as "user" | "project");
+                            setShareTargetId("");
+                          }}
+                          style={{ fontFamily: "var(--font-body)", fontSize: 13, border: "1px solid var(--neutral-200)", borderRadius: 8, padding: "8px 10px", background: "white" }}
+                        >
+                          {orgId && <option value="user">Person</option>}
+                          <option value="project">Project</option>
+                        </select>
+                        <select
+                          aria-label="Share access mode"
+                          value={shareMode}
+                          onChange={(event) => setShareMode(event.target.value as ChatShareMode)}
+                          style={{ fontFamily: "var(--font-body)", fontSize: 13, border: "1px solid var(--neutral-200)", borderRadius: 8, padding: "8px 10px", background: "white" }}
+                        >
+                          <option value="read_only">Read only</option>
+                          <option value="editable">Can create a copy</option>
+                        </select>
+                      </div>
+                      <select
+                        aria-label="Share target"
+                        value={shareTargetId}
+                        onChange={(event) => setShareTargetId(event.target.value)}
+                        style={{ fontFamily: "var(--font-body)", fontSize: 13, border: "1px solid var(--neutral-200)", borderRadius: 8, padding: "8px 10px", background: "white", width: "100%" }}
+                      >
+                        <option value="">Select {shareTargetType}…</option>
+                        {shareTargetType === "user" && orgMembers.filter(member =>
+                          member.email.toLowerCase() !== user?.email?.toLowerCase()
+                        ).map(member => (
+                          <option key={member.id} value={member.id}>{member.name || member.email}</option>
+                        ))}
+                        {shareTargetType === "project" && (
+                          shareableProjects.length === 0
+                            ? <option value="" disabled>No editable projects</option>
+                            : shareableProjects.map(project => (
+                          <option key={project.id} value={project.id}>{project.name}</option>
+                            ))
+                        )}
+                      </select>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <Button variant="ghost" size="sm" onClick={() => { setSpecificShareOpen(false); setShareTargetId(""); }}>
+                          Hide
+                        </Button>
+                        <Button variant="secondary" size="sm" loading={creatingShare} disabled={!shareTargetId || creatingShare} onClick={() => void handleCreateShare()}>
+                          Share
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Active shares */}
