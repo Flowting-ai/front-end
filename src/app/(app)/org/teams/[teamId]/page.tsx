@@ -220,7 +220,12 @@ function AddEditorPanel({ orgId, existingEditorIds, onAdd, onClose }: {
   useEffect(() => {
     listMembers(orgId)
       .then(all => setMembers(
-        all.filter(m => m.inviteStatus !== 'invite_sent' && !existingEditorIds.has(m.id))
+        all.filter(m =>
+          m.inviteStatus !== 'invite_sent' &&
+          m.orgRole !== 'owner' &&
+          m.orgRole !== 'admin' &&
+          !existingEditorIds.has(m.id)
+        )
       ))
       .catch(console.error)
       .finally(() => setLoading(false))
@@ -267,7 +272,7 @@ function AddEditorPanel({ orgId, existingEditorIds, onAdd, onClose }: {
       {loading ? (
         <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>Loading members…</p>
       ) : members.length === 0 ? (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>All org members are already editors of this team.</p>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>Everyone eligible is already an editor of this team.</p>
       ) : (
         <>
           <button

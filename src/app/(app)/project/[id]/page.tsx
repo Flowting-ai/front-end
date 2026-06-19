@@ -531,6 +531,7 @@ export default function ProjectPage() {
                   <ProjectMembersPanel
                     teamId={project.teamId}
                     projectId={projectId}
+                    ownerUserId={project.ownerUserId}
                   />
                 )}
               </div>

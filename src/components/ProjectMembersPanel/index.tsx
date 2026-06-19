@@ -5,19 +5,20 @@ import { UserIcon, PlusSignIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
 import { listMembers } from '@/lib/api/organization'
-import { listProjectMembers, addProjectMember, removeProjectMember, type ProjectMember } from '@/lib/api/teams'
+import { listProjectMembers, addProjectMember, removeProjectMember, listTeamEditors, type ProjectMember } from '@/lib/api/teams'
 import type { OrgMember } from '@/types/teams'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface ProjectMembersPanelProps {
-  teamId:    string
-  projectId: string
+  teamId:      string
+  projectId:   string
+  ownerUserId: string
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export function ProjectMembersPanel({ teamId, projectId }: ProjectMembersPanelProps) {
+export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectMembersPanelProps) {
   const { orgId } = useOrg()
   const [members,    setMembers]    = useState<ProjectMember[]>([])
   const [loading,    setLoading]    = useState(true)
@@ -39,8 +40,18 @@ export function ProjectMembersPanel({ teamId, projectId }: ProjectMembersPanelPr
     if (!orgId) return
     setAddOpen(true)
     const memberIds = new Set(members.map(m => m.userId))
-    listMembers(orgId)
-      .then(all => setOrgMembers(all.filter(m => !memberIds.has(m.id))))
+    Promise.all([listMembers(orgId), listTeamEditors(orgId, teamId)])
+      .then(([all, editors]) => {
+        const editorIds = new Set(editors.map(editor => editor.userId))
+        setOrgMembers(all.filter(m =>
+          m.inviteStatus !== 'invite_sent' &&
+          m.orgRole !== 'owner' &&
+          m.orgRole !== 'admin' &&
+          m.id !== ownerUserId &&
+          !memberIds.has(m.id) &&
+          !editorIds.has(m.id)
+        ))
+      })
       .catch(console.error)
   }
 
@@ -108,7 +119,7 @@ export function ProjectMembersPanel({ teamId, projectId }: ProjectMembersPanelPr
         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {orgMembers.length === 0 ? (
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0 }}>
-              All org members are already in this project.
+              Everyone eligible is already in this project.
             </p>
           ) : (
             <select
