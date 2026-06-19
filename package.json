@@ -11,7 +11,6 @@
     "prestart": "npm run load-secrets",
     "start": "next start",
     "lint": "eslint",
-    "doctor": "react-doctor",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -68,7 +67,6 @@
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
-    "react-doctor": "^0.2.6",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.6"

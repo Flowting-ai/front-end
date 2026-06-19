@@ -1,28 +1,28 @@
 # End-to-End Testing Checklist — ds-new Branch
 
-> Generated May 2026 · Covers performance phases 1–4 + React Doctor health  
-> React Doctor baseline: **99/100** (1780 issues; 843 deferred `no-inline-exhaustive-style`, 46 deferred `no-giant-component`)  
+> Generated May 2026 · Covers performance phases 1–4 + project quality checks health
+> project quality checks baseline: **99/100** (1780 issues; 843 deferred `no-inline-exhaustive-style`, 46 deferred `no-giant-component`)
 > Mark each item `[x]` when verified, `[~]` partial/known-flaky, `[!]` regression found.
 
 ---
 
 ## How to Use This File
 
-Run `npm run dev` unless a test explicitly needs a production build.  
-Open React DevTools Profiler for render-count tests.  
+Run `npm run dev` unless a test explicitly needs a production build.
+Open React DevTools Profiler for render-count tests.
 Open DevTools → Network for bundle/request tests.
 
 ---
 
 ## Part A — Critical Fixes Needed Before Merge
 
-These are blocking issues discovered in the current scan (`react_doctor_current.json`).
+These are blocking issues discovered in the current scan (`current scan`).
 
 ---
 
 ### A.1 `rules-of-hooks` — ChatRow inner component naming
 
-**Issue:** `ChatRow/index.tsx` lines 238–264 define hooks inside a function named `_ChatRow`. React Doctor (and the Rules of Hooks lint rule) flag any function starting with `_` as a non-component, causing false violations. This must be resolved before merge.
+**Issue:** `ChatRow/index.tsx` lines 238–264 define hooks inside a function named `_ChatRow`. project quality checks (and the Rules of Hooks lint rule) flag any function starting with `_` as a non-component, causing false violations. This must be resolved before merge.
 
 **Fix:** Rename the inner function from `_ChatRow` to `ChatRow` (or use the anonymous arrow form inside `React.memo`):
 ```tsx
@@ -36,7 +36,7 @@ export const ChatRow = React.memo(function ChatRow(props) { ... })
 
 - [ ] Run `grep -n "_ChatRow" src/components/ChatRow/index.tsx` — confirm the naming pattern.
 - [ ] Rename/refactor so the inner function has a proper PascalCase name.
-- [ ] Re-run React Doctor — zero `rules-of-hooks` violations remain.
+- [ ] Re-run project quality checks — zero `rules-of-hooks` violations remain.
 - [ ] `ChatRow` still renders correctly on `/chats` (star, rename, delete, select all work).
 - [ ] React DevTools shows the component name as `ChatRow` in the tree (not `_ChatRow`).
 
@@ -49,7 +49,7 @@ export const ChatRow = React.memo(function ChatRow(props) { ... })
 
 - [ ] Run: `npx grep -rn "from 'framer-motion'" src --include="*.tsx" --include="*.ts" | grep "import.*motion"` and identify files using `motion` directly instead of `m`.
 - [ ] For each file on the ds-new branch that re-introduced `motion` imports, convert to `m + LazyMotion` pattern consistent with the root layout provider.
-- [ ] Re-run React Doctor — `use-lazy-motion` count drops to zero (or back to previously acceptable baseline).
+- [ ] Re-run project quality checks — `use-lazy-motion` count drops to zero (or back to previously acceptable baseline).
 
 ---
 
@@ -60,7 +60,7 @@ export const ChatRow = React.memo(function ChatRow(props) { ... })
 - [ ] Run: `npx grep -rn "forwardRef\|React.forwardRef" src --include="*.tsx"` on changed files.
 - [ ] Convert any `forwardRef` wrappers in ds-new-modified files to direct `ref` prop (React 19 pattern).
 - [ ] Run: `npx grep -rn "useContext(" src --include="*.tsx"` — convert to `use(Context)` where applicable.
-- [ ] Re-run React Doctor — `no-react19-deprecated-apis` back to ≤ 3 (the pre-ds-new baseline).
+- [ ] Re-run project quality checks — `no-react19-deprecated-apis` back to ≤ 3 (the pre-ds-new baseline).
 
 ---
 
@@ -203,7 +203,7 @@ export const ChatRow = React.memo(function ChatRow(props) { ... })
 
 ---
 
-## Part D — React Doctor Regression Verification
+## Part D — project quality checks Regression Verification
 
 Spot-check that previously-fixed rules haven't silently regressed in files modified by the ds-new branch.
 
@@ -239,7 +239,7 @@ Spot-check that previously-fixed rules haven't silently regressed in files modif
 
 ### D.5 `no-giant-component` baseline maintained
 
-- [ ] `no-giant-component` count in a fresh React Doctor scan is ≤ 46 (the pre-ds-new baseline — no new giant components added by performance changes).
+- [ ] `no-giant-component` count in a fresh project quality checks scan is ≤ 46 (the pre-ds-new baseline — no new giant components added by performance changes).
 
 ---
 
@@ -341,9 +341,8 @@ Spot-check that previously-fixed rules haven't silently regressed in files modif
 
 ---
 
-### F.2 React Doctor score
+### F.2 project quality checks score
 
-Run React Doctor (`npx react-doctor` or equivalent) after applying all Part A and Part B fixes.
 
 - [ ] `rules-of-hooks` → **0** violations.
 - [ ] `use-lazy-motion` → **0** violations (all framer-motion files use `m + LazyMotion`).
@@ -395,7 +394,7 @@ ANALYZE=true npm run build
 | B.4 | Trivial `useMemo` removed | [ ] |
 | B.5 | `useTransition` loading states | [ ] |
 | C   | Perf phases 1–4 smoke | [ ] |
-| D   | React Doctor regressions clean | [ ] |
+| D   | project quality checks regressions clean | [ ] |
 | E   | Full feature regression | [ ] |
 | F   | Console clean + score ≥ 99 | [ ] |
 | G   | Bundle size OK | [ ] |
