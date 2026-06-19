@@ -31,6 +31,8 @@ import {
 } from '@/components/SettingsTable'
 import { Switch } from '@/components/Switch'
 import Tabs from '@/components/Tabs'
+import { useConnectorBrowse, CategoryFilter, Pagination } from '@/components/ConnectorBrowse'
+import { connectorCategory } from '@/lib/connectorCategories'
 import { useOrg } from '@/context/org-context'
 import {
   DEFAULT_API_KEY_FIELD,
@@ -655,6 +657,8 @@ function accountBadge(account: OrgConnectorAccount) {
   return <Badge label="Expired" color="Red" />
 }
 
+const connectorEntrySlug = (entry: ConnectorCatalogEntry): string => entry.slug
+
 function useConnectorSearch(connectors: ConnectorCatalogEntry[], initialSearch = '') {
   const [search, setSearch] = useState(initialSearch)
   const filtered = useMemo(() => {
@@ -678,7 +682,7 @@ async function loadTeamRequestIndex(orgId: string, teams: Team[]): Promise<TeamR
   return Object.fromEntries(entries)
 }
 
-const CONNECTOR_COLUMNS = 'minmax(280px, 1.5fr) 160px 170px'
+const CONNECTOR_COLUMNS = 'minmax(240px, 1.4fr) 150px 140px 150px'
 
 function CatalogTab({
   orgId,
@@ -692,6 +696,7 @@ function CatalogTab({
   onCatalogUpdated: (connectors: ConnectorCatalogEntry[]) => void
 }) {
   const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
+  const browse = useConnectorBrowse(filtered, connectorEntrySlug, { resetKey: search })
   const [busyOrgSlug, setBusyOrgSlug] = useState<string | null>(null)
 
   const enabledSlugs = useMemo(
@@ -733,27 +738,35 @@ function CatalogTab({
         </div>
       </SettingsTableToolbar>
 
+      <div style={{ padding: '0 24px 12px' }}>
+        <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
+      </div>
+
       <div style={{ overflowX: 'auto' }}>
-        <div role="table" aria-label="Connector catalog" style={{ minWidth: 680 }}>
+        <div role="table" aria-label="Connector catalog" style={{ minWidth: 720 }}>
           <SettingsTableHeader>
             <SettingsTableHeaderCell>Connector</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell>Category</SettingsTableHeaderCell>
             <SettingsTableHeaderCell>Shared accounts</SettingsTableHeaderCell>
             <SettingsTableHeaderCell align="end">Organization</SettingsTableHeaderCell>
           </SettingsTableHeader>
 
-          {filtered.length === 0 ? (
+          {browse.pageItems.length === 0 ? (
             <div style={{ padding: '32px 24px', textAlign: 'center' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                {connectors.length === 0 ? 'No connectors available' : 'No connectors match your search'}
+                {connectors.length === 0 ? 'No connectors available' : 'No connectors match your filters'}
               </p>
             </div>
-          ) : filtered.map(connector => {
+          ) : browse.pageItems.map(connector => {
             const orgEnabled = connector.org_enabled === true
             const accountCount = connector.accounts?.length ?? 0
             return (
               <SettingsTableRow key={connector.slug} minHeight={72}>
                 <SettingsTableCell>
                   <ConnectorTitle connector={connector} />
+                </SettingsTableCell>
+                <SettingsTableCell>
+                  <BodyText size={14} color="var(--neutral-500)">{connectorCategory(connector.slug)}</BodyText>
                 </SettingsTableCell>
                 <SettingsTableCell>
                   {accountCount > 0 ? (
@@ -779,10 +792,11 @@ function CatalogTab({
             )
           })}
 
-          <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)' }}>
+          <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <BodyText size={12} color="var(--neutral-500)">
-              {filtered.length} of {connectors.length} connector{connectors.length === 1 ? '' : 's'}
+              {browse.total} connector{browse.total === 1 ? '' : 's'}
             </BodyText>
+            <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
           </SettingsTableFooter>
         </div>
       </div>
@@ -1069,6 +1083,7 @@ function ManageConnectorsTab({
 }) {
   const orgEnabled = useMemo(() => connectors.filter(connector => connector.org_enabled === true), [connectors])
   const { search, setSearch, filtered } = useConnectorSearch(orgEnabled, initialSearch)
+  const browse = useConnectorBrowse(filtered, connectorEntrySlug, { resetKey: search })
 
   return (
     <PageCard>
@@ -1079,17 +1094,25 @@ function ManageConnectorsTab({
         </div>
         <SearchBar value={search} onChange={setSearch} />
       </div>
-      <div style={{ padding: 24 }}>
+      {orgEnabled.length > 0 && (
+        <div style={{ padding: '14px 24px 0' }}>
+          <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
+        </div>
+      )}
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
         {orgEnabled.length === 0 ? (
           <EmptyState title="No connectors enabled yet" subtitle="Turn on connectors in the Catalog tab to manage shared accounts for them." />
-        ) : filtered.length === 0 ? (
-          <EmptyState title="No connectors found" subtitle="Try a different search." />
+        ) : browse.pageItems.length === 0 ? (
+          <EmptyState title="No connectors found" subtitle="Try a different search or category." />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-            {filtered.map(connector => (
-              <ConnectorCard key={connector.slug} connector={connector} onManage={onManage} />
-            ))}
-          </div>
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+              {browse.pageItems.map(connector => (
+                <ConnectorCard key={connector.slug} connector={connector} onManage={onManage} />
+              ))}
+            </div>
+            <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
+          </>
         )}
       </div>
     </PageCard>
@@ -1999,6 +2022,7 @@ function MemberBrowseView({
   onRequested: () => void
 }) {
   const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
+  const browse = useConnectorBrowse(filtered, connectorEntrySlug, { resetKey: search })
   const [selectedTeamId, setSelectedTeamId] = useState('')
   const [busySlug, setBusySlug] = useState<string | null>(null)
   const [teamConnections, setTeamConnections] = useState<TeamConnectionEntry[]>([])
@@ -2094,8 +2118,16 @@ function MemberBrowseView({
         </div>
       )}
 
+      <div style={{ padding: '14px 24px 0' }}>
+        <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
+      </div>
+
       <div style={{ padding: 24, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-        {filtered.map(connector => {
+        {browse.pageItems.length === 0 ? (
+          <div style={{ gridColumn: '1 / -1' }}>
+            <EmptyState title="No connectors found" subtitle="Try a different search or category." />
+          </div>
+        ) : browse.pageItems.map(connector => {
           const teamConnection = connectionBySlug.get(connector.slug)
           const approvedForTeam = Boolean(teamConnection)
           const connectedForTeam = Boolean(teamConnection?.workspaceLinked)
@@ -2131,6 +2163,10 @@ function MemberBrowseView({
             </div>
           )
         })}
+      </div>
+
+      <div style={{ padding: '0 24px 20px' }}>
+        <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
       </div>
 
       {connectModal && (

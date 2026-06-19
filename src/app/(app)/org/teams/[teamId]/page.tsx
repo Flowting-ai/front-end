@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
@@ -25,6 +25,8 @@ import {
   SettingsTableRow,
   SettingsTableToolbar,
 } from '@/components/SettingsTable'
+import { useConnectorBrowse, CategoryFilter, Pagination } from '@/components/ConnectorBrowse'
+import { connectorCategory } from '@/lib/connectorCategories'
 import { useOrg } from '@/context/org-context'
 import {
   getTeam,
@@ -347,7 +349,7 @@ function TeamConnectorRow({
       <div style={{ flex: '1 0 0', minWidth: 0 }}>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.display_name}</p>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
-          {entry.auth_mode === 'oauth2' ? 'OAuth connector' : 'API key connector'}{entry.org_enabled ? ' · Org-wide' : ''}
+          {connectorCategory(entry.slug)}{entry.org_enabled ? ' · Org-wide' : ''}
         </p>
       </div>
       <Switch checked={approved} disabled={busy} onCheckedChange={onToggle} />
@@ -355,11 +357,21 @@ function TeamConnectorRow({
   )
 }
 
+const teamEntrySlug = (entry: ConnectorCatalogEntry): string => entry.slug
+
 function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }) {
   const [entries, setEntries] = useState<ConnectorCatalogEntry[]>([])
   const [statusBySlug, setStatusBySlug] = useState<Record<string, ConnectorRequestStatus>>({})
   const [loading, setLoading] = useState(true)
   const [busySlug, setBusySlug] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+
+  const searched = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return entries
+    return entries.filter(e => e.display_name.toLowerCase().includes(q) || e.slug.toLowerCase().includes(q))
+  }, [entries, search])
+  const browse = useConnectorBrowse(searched, teamEntrySlug, { resetKey: search })
 
   const loadStatuses = useCallback(async () => {
     const rows = await listTeamConnectors(orgId, teamId)
@@ -421,16 +433,43 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>No connectors available.</p>
         </div>
       ) : (
-        entries.map((entry, index) => (
-          <TeamConnectorRow
-            key={entry.slug}
-            entry={entry}
-            approved={statusBySlug[entry.slug] === 'approved'}
-            busy={busySlug === entry.slug}
-            divider={index < entries.length - 1}
-            onToggle={checked => void handleToggle(entry, checked)}
-          />
-        ))
+        <>
+          <div style={{ padding: '6px 24px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ width: 240, maxWidth: '100%' }}>
+              <InputField
+                label="Search connectors"
+                showLabel={false}
+                showSubtitle={false}
+                size="small"
+                fluid
+                leftIcon={<SearchOneIcon size={16} />}
+                placeholder="Search connectors"
+                value={search}
+                onChange={setSearch}
+              />
+            </div>
+            <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
+          </div>
+
+          {browse.pageItems.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>No connectors match your filters.</p>
+            </div>
+          ) : browse.pageItems.map((entry, index) => (
+            <TeamConnectorRow
+              key={entry.slug}
+              entry={entry}
+              approved={statusBySlug[entry.slug] === 'approved'}
+              busy={busySlug === entry.slug}
+              divider={index < browse.pageItems.length - 1}
+              onToggle={checked => void handleToggle(entry, checked)}
+            />
+          ))}
+
+          <div style={{ padding: '14px 24px 6px' }}>
+            <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
+          </div>
+        </>
       )}
     </Card>
   )

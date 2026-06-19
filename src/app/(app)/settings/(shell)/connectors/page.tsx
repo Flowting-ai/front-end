@@ -16,6 +16,7 @@ import {
 import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
+import { useConnectorBrowse, CategoryFilter, Pagination } from '@/components/ConnectorBrowse'
 import { CONNECTOR_LOGO_MAP } from '@/lib/connectorLogos'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
@@ -1108,8 +1109,17 @@ export default function ConnectorsPage() {
   const activeFiltered = activeMainTab === 'workspace'
     ? filtered.filter(hasConnectedWorkspaceAccount)
     : filtered
-  const connected  = activeFiltered.filter(c => activeMainTab === 'workspace' ? hasConnectedWorkspaceAccount(c) : c.linked)
-  const available  = activeFiltered.filter(c => activeMainTab === 'workspace' ? !hasConnectedWorkspaceAccount(c) : !c.linked)
+  const browse = useConnectorBrowse(
+    activeFiltered,
+    (c: ConnectorCatalogEntry) => c.slug,
+    { resetKey: `${searchQuery}|${activeMainTab}` },
+  )
+  const isConnected = (c: ConnectorCatalogEntry) => activeMainTab === 'workspace'
+    ? hasConnectedWorkspaceAccount(c)
+    : c.linked
+  const connectedTotal = browse.filteredItems.filter(isConnected).length
+  const connected = browse.pageItems.filter(isConnected)
+  const available = browse.pageItems.filter(c => !isConnected(c))
   const emptyMessage = searchQuery
     ? `No connectors found for "${searchQuery}"`
     : activeMainTab === 'workspace'
@@ -1301,8 +1311,24 @@ export default function ConnectorsPage() {
                 }}>
                   {emptyMessage}
                 </p>
+              ) : browse.pageItems.length === 0 ? (
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 400,
+                  fontSize:   14,
+                  color:      'var(--neutral-400)',
+                  margin:     0,
+                  padding:    '24px 8px',
+                  textAlign:  'center',
+                }}>
+                  No connectors match your filters.
+                </p>
               ) : (
                 <>
+                  <div style={{ marginBottom: 16 }}>
+                    <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
+                  </div>
+
                   {/* Connected section */}
                   {connected.length > 0 && (
                     <div style={{ marginBottom: 24 }}>
@@ -1330,7 +1356,7 @@ export default function ConnectorsPage() {
                           lineHeight:      '16px',
                           color:           'var(--green-800)',
                         }}>
-                          {connected.length} {activeMainTab === 'workspace' ? 'shared' : 'active'}
+                          {connectedTotal} {activeMainTab === 'workspace' ? 'shared' : 'active'}
                         </span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
@@ -1359,8 +1385,8 @@ export default function ConnectorsPage() {
                         margin:     '0 0 12px',
                       }}>
                         {activeMainTab === 'workspace'
-                          ? connected.length > 0 ? 'Other connected workspace accounts' : 'Connected workspace accounts'
-                          : connected.length > 0 ? 'Available to connect' : 'All Connectors'}
+                          ? connectedTotal > 0 ? 'Other connected workspace accounts' : 'Connected workspace accounts'
+                          : connectedTotal > 0 ? 'Available to connect' : 'All Connectors'}
                       </p>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                         {available.map(c => (
@@ -1375,6 +1401,10 @@ export default function ConnectorsPage() {
                       </div>
                     </div>
                   )}
+
+                  <div style={{ marginTop: 16 }}>
+                    <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
+                  </div>
                 </>
               )}
             </div>
