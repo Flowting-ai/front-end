@@ -3,17 +3,23 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { SearchOneIcon, FilterMailIcon } from '@strange-huge/icons'
+import { PlusSignIcon, SearchOneIcon } from '@strange-huge/icons'
 import { Badge }            from '@/components/Badge'
 import { RoleBadge }        from '@/components/RoleBadge'
-import { CreditCapRow }     from '@/components/CreditCapRow'
+import { CREDIT_CAP_COLUMNS, CreditCapRow } from '@/components/CreditCapRow'
 import { Button }           from '@/components/Button'
-import { IconButton }       from '@/components/IconButton'
 import { Avatar }           from '@/components/Avatar'
+import { InputField }       from '@/components/InputField'
 import { Popover }          from '@/components/Popover'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { Divider }          from '@/components/Divider'
 import { AppInviteModal }   from '@/components/InviteModal'
+import {
+  SettingsTable,
+  SettingsTableHeader,
+  SettingsTableHeaderCell,
+  SettingsTableToolbar,
+} from '@/components/SettingsTable'
 import { toast }           from 'sonner'
 import { useOrg }           from '@/context/org-context'
 import { useAuth }          from '@/context/auth-context'
@@ -247,7 +253,14 @@ function RemoveButton({ memberName, onConfirm }: { memberName: string; onConfirm
 
 // ── Teams badges column ───────────────────────────────────────────────────────
 
-function TeamsBadges({ teams }: { teams: OrgMember['teamMemberships'] }) {
+function TeamsBadges({
+  teams,
+  hasGlobalAccess = false,
+}: {
+  teams: OrgMember['teamMemberships']
+  hasGlobalAccess?: boolean
+}) {
+  if (hasGlobalAccess) return <Badge color="Neutral" label="All teams" />
   if (teams.length === 0) return <span style={{ color: 'var(--neutral-300)' }}>—</span>
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -321,7 +334,8 @@ function AssignTeamButton({
           transition:      'border-color 120ms, color 120ms',
         }}
       >
-        {assigning ? 'Assigning…' : '+ Assign team'}
+        {!assigning && <PlusSignIcon size={14} />}
+        {assigning ? 'Assigning…' : 'Assign team'}
       </button>
 
       {open && pos && createPortal(
@@ -381,6 +395,17 @@ function MembersTable({
   const [dropdownAnchor, setDropdownAnchor] = useState<HTMLButtonElement | null>(null)
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null)
   const [assigningId,   setAssigningId]   = useState<string | null>(null)
+  const [searchQuery,   setSearchQuery]   = useState('')
+  const normalizedQuery = searchQuery.trim().toLowerCase()
+  const filteredMembers = normalizedQuery
+    ? members.filter(member => (
+        member.name.toLowerCase().includes(normalizedQuery)
+        || member.email.toLowerCase().includes(normalizedQuery)
+        || member.role.toLowerCase().includes(normalizedQuery)
+        || member.orgRole.toLowerCase().includes(normalizedQuery)
+        || member.teamMemberships.some(team => team.teamName.toLowerCase().includes(normalizedQuery))
+      ))
+    : members
 
   return (
     <div style={{
@@ -395,50 +420,73 @@ function MembersTable({
       <div style={{
         display:      'flex',
         alignItems:   'center',
+        flexWrap:     'wrap',
         gap:          12,
         padding:      '12px 24px 24px',
         borderBottom: '1px solid var(--neutral-100)',
       }}>
         <span style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, color: 'var(--neutral-900)' }}>
-          Team Members
+          Workspace Members
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <IconButton size="sm" variant="ghost" aria-label="Search" icon={<SearchOneIcon size={20} />} />
-          <IconButton size="sm" variant="ghost" aria-label="Filter" icon={<FilterMailIcon size={20} />} />
+        <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
+          <InputField
+            label="Search members"
+            showLabel={false}
+            showSubtitle={false}
+            size="small"
+            fluid
+            leftIcon={<SearchOneIcon size={16} />}
+            placeholder="Search members"
+            value={searchQuery}
+            onChange={setSearchQuery}
+          />
         </div>
         {isAdmin && (
-          <Button variant="secondary" size="sm" onClick={onInviteClick}>+ Invite members</Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<PlusSignIcon size={16} />}
+            onClick={onInviteClick}
+          >
+            Invite members
+          </Button>
         )}
       </div>
 
-      {/* Column headers */}
-      <div style={{
-        display:    'flex',
-        alignItems: 'center',
-        padding:    '2px 24px 8px',
-      }}>
-        <span style={{ flex: '1 0 0', minWidth: 200, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)' }}>Member</span>
-        <span style={{ width: 110, textAlign: 'left', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)' }}>Role</span>
-        <span style={{ width: 200, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)' }}>Teams</span>
-        <span style={{ minWidth: 180, textAlign: 'right', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)' }}>Actions</span>
-      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <div role="table" aria-label="Workspace members" style={{ minWidth: 780 }}>
+          {/* Column headers */}
+          <div role="row" style={{
+            display:    'flex',
+            alignItems: 'center',
+            padding:    '2px 24px 8px',
+          }}>
+            <span role="columnheader" style={{ flex: '1 0 0', minWidth: 200, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)' }}>Member</span>
+            <span role="columnheader" style={{ width: 110, textAlign: 'left', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)' }}>Role</span>
+            <span role="columnheader" style={{ width: 240, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)' }}>Teams</span>
+            <span role="columnheader" style={{ minWidth: 160, textAlign: 'right', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)' }}>Actions</span>
+          </div>
 
-      {/* Rows */}
-      {loading ? (
-        <div style={{ padding: '32px 24px', textAlign: 'center' }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-            Loading members…
-          </p>
-        </div>
-      ) : members.length === 0 ? (
-        <div style={{ padding: '32px 24px', textAlign: 'center' }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-            No members yet
-          </p>
-        </div>
-      ) : members.map((member, index) => {
+          {/* Rows */}
+          {loading ? (
+            <div style={{ padding: '32px 24px', textAlign: 'center' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+                Loading members…
+              </p>
+            </div>
+          ) : filteredMembers.length === 0 ? (
+            <div style={{ padding: '32px 24px', textAlign: 'center' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+                {members.length === 0 ? 'No members yet' : 'No members match your search'}
+              </p>
+            </div>
+          ) : filteredMembers.map((member, index) => {
         const isOwner = member.id === ownerMemberId
         const canEditMember = isAdmin && !isOwner && member.inviteStatus !== 'invite_sent'
+        const hasGlobalAccess = member.orgRole === 'owner' || member.orgRole === 'admin'
+        const unassignedTeams = availableTeams.filter(team => (
+          !member.teamMemberships.some(membership => membership.teamId === team.id)
+        ))
         const roleLabel = member.orgRole === 'owner' || member.orgRole === 'admin'
           ? member.orgRole.charAt(0).toUpperCase() + member.orgRole.slice(1)
           : member.role === 'editor'
@@ -447,7 +495,7 @@ function MembersTable({
         return (
           <React.Fragment key={member.id}>
             {index > 0 && <Divider decorative style={{ backgroundColor: 'var(--neutral-100)', margin: 0 }} />}
-            <div style={{
+            <div role="row" style={{
               display:    'flex',
               alignItems: 'center',
               gap:        0,
@@ -455,12 +503,12 @@ function MembersTable({
               position:   'relative',
             }}>
               {/* Member info */}
-              <div style={{ flex: '1 0 0', minWidth: 200, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Avatar name={member.name} size="sm" />
+              <div role="cell" style={{ flex: '1 0 0', minWidth: 200, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Avatar name={member.name || member.email} size="sm" />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)', whiteSpace: 'nowrap' }}>
-                      {member.name}
+                      {member.name || member.email}
                     </span>
                     {member.inviteStatus === 'invite_sent' && (
                       <Badge color="Neutral" label="Invite sent" />
@@ -473,7 +521,7 @@ function MembersTable({
               </div>
 
               {/* Role */}
-              <div style={{ width: 110, display: 'flex', justifyContent: 'flex-start', flexShrink: 0, position: 'relative' }}>
+              <div role="cell" style={{ width: 110, display: 'flex', justifyContent: 'flex-start', flexShrink: 0, position: 'relative' }}>
                 <RoleButton
                   role={member.role}
                   label={roleLabel}
@@ -500,11 +548,11 @@ function MembersTable({
               </div>
 
               {/* Teams */}
-              <div style={{ width: 200, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <TeamsBadges teams={member.teamMemberships} />
-                {isAdmin && member.teamMemberships.length === 0 && member.inviteStatus !== 'invite_sent' && (
+              <div role="cell" style={{ width: 240, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <TeamsBadges teams={member.teamMemberships} hasGlobalAccess={hasGlobalAccess} />
+                {isAdmin && !hasGlobalAccess && member.inviteStatus !== 'invite_sent' && unassignedTeams.length > 0 && (
                   <AssignTeamButton
-                    teams={availableTeams}
+                    teams={unassignedTeams}
                     assigning={assigningId === member.id}
                     onSelect={async teamId => {
                       setAssigningId(member.id)
@@ -516,39 +564,30 @@ function MembersTable({
               </div>
 
               {/* Actions */}
-              <div style={{ minWidth: 180, display: 'flex', justifyContent: 'flex-end' }}>
+              <div role="cell" style={{ minWidth: 160, display: 'flex', justifyContent: 'flex-end' }}>
                 {canEditMember && (
-                  <RemoveButton memberName={member.name} onConfirm={() => onRemove(member.id)} />
+                  <RemoveButton memberName={member.name || member.email} onConfirm={() => onRemove(member.id)} />
                 )}
               </div>
             </div>
           </React.Fragment>
         )
-      })}
+          })}
 
-      {/* Footer */}
-      <div style={{
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'space-between',
-        padding:        '12px 24px',
-        borderTop:      '1px solid var(--neutral-100)',
-      }}>
-        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-600)' }}>
-          Showing 1–{members.length} of {members.length} members
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button type="button" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, borderRadius: 8, border: '0.727px solid rgba(59,54,50,0.3)', background: 'none', cursor: 'pointer', overflow: 'hidden' }}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-              <path d="M12 6l-4 4 4 4" stroke="var(--neutral-500)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <button type="button" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5px 8px', borderRadius: 8, border: 'none', cursor: 'default', background: 'rgba(255,255,255,0)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)' }}>1</button>
-          <button type="button" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, borderRadius: 8, border: '0.727px solid rgba(59,54,50,0.3)', background: 'none', cursor: 'pointer', overflow: 'hidden' }}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-              <path d="M8 6l4 4-4 4" stroke="var(--neutral-500)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+          {/* Footer */}
+          <div style={{
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'space-between',
+            padding:        '12px 24px',
+            borderTop:      '1px solid var(--neutral-100)',
+          }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-600)' }}>
+              {normalizedQuery
+                ? `${filteredMembers.length} of ${members.length} members`
+                : `${members.length} member${members.length === 1 ? '' : 's'}`}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -732,45 +771,39 @@ function displayRoleFor(member: OrgMember): WorkspaceRole {
 function CreditCapsSection({ members, isAdmin, onAssignCredits }: {
   members:     OrgMember[]
   isAdmin:     boolean
-  onAssignCredits: (memberId: string, amount: number) => void
+  onAssignCredits: (memberId: string, amount: number) => void | Promise<void>
 }) {
   const active = members.filter(m => m.inviteStatus === 'signed_up')
   if (active.length === 0) return null
+
   return (
-    <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, backgroundColor: 'var(--neutral-50)', overflow: 'hidden' }}>
-      <div style={{ padding: '14px 16px' }}>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 15, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>Credit caps</p>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: '2px 0 0' }}>
-          Per-member monthly allocation from the workspace pool. Assigned credits can be increased, but not reduced, during the current billing period.
-        </p>
-      </div>
+    <SettingsTable>
+      <SettingsTableToolbar title="Per-member credit caps" />
       <div style={{ overflowX: 'auto' }}>
-        <div style={{ minWidth: 720 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 16px', borderTop: '1px solid var(--neutral-100)' }}>
-            <span style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, color: 'var(--neutral-400)' }}>Member</span>
-            {['Used', 'Current cap', 'Remaining', 'Assign'].map(label => (
-              <span key={label} style={{ width: 104, flexShrink: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, color: 'var(--neutral-400)', textAlign: 'center' }}>
-                {label}
-              </span>
-            ))}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {active.map(m => (
-              <CreditCapRow
-                key={m.id}
-                memberName={m.name || m.email}
-                email={m.email}
-                creditUsed={m.creditUsed}
-                creditCap={m.creditCap}
-                isAdmin={isAdmin}
-                canAssign={m.orgRole === 'member'}
-                onAssignCredits={(amount) => onAssignCredits(m.id, amount)}
-              />
-            ))}
-          </div>
+        <div role="table" aria-label="Per-member credit caps" style={{ minWidth: 810 }}>
+          <SettingsTableHeader columns={CREDIT_CAP_COLUMNS} columnGap={0}>
+            <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="center">Allocation used</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="center">Current cap</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="center">Remaining</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="center">Assign credits</SettingsTableHeaderCell>
+          </SettingsTableHeader>
+          {active.map(m => (
+            <CreditCapRow
+              key={m.id}
+              memberName={m.name || m.email}
+              email={m.email}
+              creditUsed={m.creditUsed}
+              allocationUsed={m.allocationUsed}
+              creditCap={m.creditCap}
+              isAdmin={isAdmin}
+              canAssign={m.orgRole === 'member'}
+              onAssignCredits={(amount) => onAssignCredits(m.id, amount)}
+            />
+          ))}
         </div>
       </div>
-    </div>
+    </SettingsTable>
   )
 }
 
@@ -1015,6 +1048,7 @@ export default function OrgMembersPage() {
           ? [{ teamId, teamName: teams.find(t => t.id === teamId)?.name ?? 'Team', isTeamOwner: false }]
           : [],
         creditUsed:      0,
+        allocationUsed:  0,
       }])
       setInviteOpen(false)
       toast.success('Invite sent')

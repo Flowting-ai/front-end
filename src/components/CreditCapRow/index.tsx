@@ -1,11 +1,11 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Slot } from '@radix-ui/react-slot'
-import { PlusSignIcon } from '@strange-huge/icons'
+import { CancelOneIcon, PlusSignIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
-import { cn } from '@/lib/utils'
+import { IconButton } from '@/components/IconButton'
+import { SettingsTableCell, SettingsTableRow } from '@/components/SettingsTable'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
@@ -14,11 +14,13 @@ const SHADOW_INPUT_FOCUS = '0px 0px 0px 1.5px var(--neutral-500)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface CreditCapRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
+export interface CreditCapRowProps {
   memberName:  string
   email:       string
   /** Credits consumed this billing period */
   creditUsed:  number
+  /** Credits consumed specifically from the assigned workspace allocation. */
+  allocationUsed: number
   /** Current cap — undefined means no cap set */
   creditCap?:  number
   /** When true, renders the editable admin input for the cap */
@@ -26,207 +28,216 @@ export interface CreditCapRowProps extends Omit<React.HTMLAttributes<HTMLDivElem
   /** Owners and admins use the workspace pool directly and cannot receive an allocation. */
   canAssign?:  boolean
   /** Fires with the additional credits to assign. */
-  onAssignCredits?: (amount: number) => void
-  asChild?: boolean
+  onAssignCredits?: (amount: number) => void | Promise<void>
 }
 
-function formatK(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k` : String(n)
+const CREDIT_FORMATTER = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+
+function formatCredits(value: number | null | undefined): string {
+  return CREDIT_FORMATTER.format(Number.isFinite(value) ? value ?? 0 : 0)
 }
 
-// ── CapInput — Admin only ─────────────────────────────────────────────────────
+export const CREDIT_CAP_COLUMNS = 'minmax(240px, 1fr) 130px 120px 120px 140px'
 
 function CapInput({
   onAssign,
   onDone,
 }: {
-  onAssign: (amount: number) => void
+  onAssign: (amount: number) => void | Promise<void>
   onDone: () => void
 }) {
   const [focused, setFocused] = useState(false)
   const [draft,   setDraft]   = useState('')
+  const [saving,  setSaving]  = useState(false)
 
-  function commit() {
+  async function commit() {
     const n = parseInt(draft, 10)
-    if (draft.trim() && !isNaN(n) && n > 0) onAssign(n)
-    onDone()
+    if (!draft.trim() || isNaN(n) || n <= 0) return
+    setSaving(true)
+    try {
+      await onAssign(n)
+      onDone()
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
-    <div style={{
-      display:         'flex',
-      alignItems:      'center',
-      height:          28,
-      width:           90,
-      borderRadius:    8,
-      backgroundColor: 'var(--neutral-white)',
-      boxShadow:       focused ? SHADOW_INPUT_FOCUS : SHADOW_INPUT,
-      transition:      'box-shadow 120ms',
-      flexShrink:      0,
-    }}>
-      <input
-        type="number"
-        min={1}
-        value={draft}
-        placeholder="Add credits"
-        autoFocus
-        aria-label="Credits to assign"
-        onChange={e => setDraft(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => { setFocused(false); commit() }}
-        onKeyDown={e => {
-          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-          if (e.key === 'Escape') onDone()
-        }}
-        style={{
-          flex:       '1 0 0',
-          minWidth:   0,
-          padding:    '0 8px',
-          border:     'none',
-          outline:    'none',
-          background: 'transparent',
-          fontFamily: 'var(--font-body)',
-          fontWeight: 400,
-          fontSize:   'var(--font-size-caption)',
-          color:      'var(--neutral-700)',
-          // Hide browser spinners
-          MozAppearance: 'textfield' as React.CSSProperties['MozAppearance'],
-        }}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div style={{
+        display:         'flex',
+        alignItems:      'center',
+        height:          32,
+        width:           96,
+        borderRadius:    8,
+        backgroundColor: 'var(--neutral-white)',
+        boxShadow:       focused ? SHADOW_INPUT_FOCUS : SHADOW_INPUT,
+        opacity:         saving ? 0.6 : 1,
+        transition:      'box-shadow 120ms, opacity 120ms',
+        flexShrink:      0,
+      }}>
+        <input
+          type="number"
+          min={1}
+          value={draft}
+          placeholder="Credits"
+          autoFocus
+          disabled={saving}
+          aria-label="Credits to assign"
+          onChange={e => setDraft(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') void commit()
+            if (e.key === 'Escape') onDone()
+          }}
+          style={{
+            width:      '100%',
+            minWidth:   0,
+            padding:    '0 10px',
+            border:     'none',
+            outline:    'none',
+            background: 'transparent',
+            fontFamily: 'var(--font-body)',
+            fontWeight: 400,
+            fontSize:   14,
+            color:      'var(--neutral-700)',
+            MozAppearance: 'textfield' as React.CSSProperties['MozAppearance'],
+          }}
+        />
+      </div>
+      <IconButton
+        variant="ghost"
+        size="sm"
+        aria-label="Assign credits"
+        loading={saving}
+        icon={<TickTwoIcon size={16} color="var(--green-600)" />}
+        onClick={() => { void commit() }}
+      />
+      <IconButton
+        variant="ghost"
+        size="sm"
+        aria-label="Cancel"
+        disabled={saving}
+        icon={<CancelOneIcon size={16} color="var(--neutral-400)" />}
+        onClick={onDone}
       />
     </div>
   )
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+const valueStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-body)',
+  fontWeight: 400,
+  fontSize:   14,
+  lineHeight: '22px',
+  color:      'var(--neutral-900)',
+  margin:     0,
+}
 
-export const CreditCapRow = React.forwardRef<HTMLDivElement, CreditCapRowProps>(
-  function CreditCapRow(
-    {
-      memberName,
-      email,
-      creditUsed,
-      creditCap,
-      isAdmin = false,
-      canAssign = true,
-      onAssignCredits,
-      asChild = false,
-      className,
-      style,
-      ...props
-    },
-    ref,
-  ) {
-    const Comp    = (asChild ? Slot : 'div') as React.ElementType
-    const [editing, setEditing] = useState(false)
-    const exceeded = creditCap != null && creditUsed > creditCap
-    const usedColor = exceeded ? 'var(--color-tag-Red-text)' : 'var(--neutral-600)'
-    const remaining = canAssign && creditCap != null ? Math.max(creditCap - creditUsed, 0) : null
-    const valueCellStyle: React.CSSProperties = {
-      width:      104,
-      flexShrink: 0,
-      textAlign:  'center',
-      fontFamily: 'var(--font-body)',
-      fontWeight: 500,
-      fontSize:   'var(--font-size-caption)',
-      color:      'var(--neutral-600)',
-    }
+export function CreditCapRow({
+  memberName,
+  email,
+  creditUsed,
+  allocationUsed,
+  creditCap,
+  isAdmin = false,
+  canAssign = true,
+  onAssignCredits,
+}: CreditCapRowProps) {
+  const [editing, setEditing] = useState(false)
+  const exceeded = canAssign && creditCap != null && allocationUsed > creditCap
+  const remaining = canAssign && creditCap != null ? Math.max(creditCap - allocationUsed, 0) : null
 
-    return (
-      <Comp
-        ref={ref}
-        className={cn(className)}
-        style={{
-          display:        'flex',
-          alignItems:     'center',
-          gap:            12,
-          padding:        '10px 16px',
-          backgroundColor: exceeded ? 'var(--color-tag-Red-bg)' : 'transparent',
-          transition:     'background-color 150ms',
-          ...style,
-        }}
-        {...props}
-      >
-        {/* Avatar */}
-        <Avatar
-          name={memberName}
-          size="sm"
-          style={{ flexShrink: 0 }}
-        />
-
-        {/* Name + email */}
-        <div style={{ flex: '1 0 0', minWidth: 0 }}>
-          <p style={{
-            fontFamily:   'var(--font-body)',
-            fontWeight:   500,
-            fontSize:     'var(--font-size-body)',
-            lineHeight:   'var(--line-height-body)',
-            color:        'var(--neutral-900)',
-            margin:       0,
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}>
-            {memberName}
-          </p>
-          <p style={{
-            fontFamily:   'var(--font-body)',
-            fontWeight:   400,
-            fontSize:     'var(--font-size-caption)',
-            lineHeight:   'var(--line-height-caption)',
-            color:        'var(--neutral-400)',
-            margin:       0,
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}>
-            {email}
-          </p>
+  return (
+    <SettingsTableRow
+      columns={CREDIT_CAP_COLUMNS}
+      columnGap={0}
+      minHeight={72}
+      style={{ backgroundColor: exceeded ? 'var(--color-tag-Red-bg)' : undefined }}
+    >
+      <SettingsTableCell>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <Avatar name={memberName} size="md" />
+          <div style={{ minWidth: 0 }}>
+            <p style={{
+              ...valueStyle,
+              fontWeight: 500,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {memberName}
+            </p>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 400,
+              fontSize:   11,
+              lineHeight: '16px',
+              color:      'var(--neutral-500)',
+              margin:     0,
+              overflow:   'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {email}
+            </p>
+          </div>
         </div>
+      </SettingsTableCell>
 
-        <span style={{ ...valueCellStyle, color: usedColor }}>
-          {formatK(creditUsed)}
-        </span>
-
-        <span style={{
-          ...valueCellStyle,
-          color: canAssign && creditCap != null ? 'var(--neutral-600)' : 'var(--neutral-300)',
+      <SettingsTableCell align="center">
+        <p style={{
+          ...valueStyle,
+          color: valueStyle.color,
         }}>
-          {canAssign ? (creditCap != null ? formatK(creditCap) : 'No limit') : '-'}
-        </span>
+          {formatCredits(creditUsed)}
+        </p>
+      </SettingsTableCell>
 
-        <span style={{
-          ...valueCellStyle,
-          color: exceeded ? 'var(--color-tag-Red-text)' : remaining != null ? 'var(--neutral-600)' : 'var(--neutral-300)',
+      <SettingsTableCell align="center">
+        <p style={{ ...valueStyle, color: canAssign && creditCap != null ? valueStyle.color : 'var(--neutral-300)' }}>
+          {canAssign ? (creditCap != null ? formatCredits(creditCap) : 'No limit') : '-'}
+        </p>
+      </SettingsTableCell>
+
+      <SettingsTableCell align="center">
+        <p style={{
+          ...valueStyle,
+          color: exceeded
+            ? 'var(--color-tag-Red-text)'
+            : remaining != null
+              ? valueStyle.color
+              : 'var(--neutral-300)',
         }}>
-          {remaining != null ? formatK(remaining) : 'No limit'}
-        </span>
+          {remaining != null ? formatCredits(remaining) : canAssign ? 'No limit' : '-'}
+        </p>
+      </SettingsTableCell>
 
-        <div style={{ width: 104, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
-          {isAdmin && canAssign ? (
-            editing ? (
-              <CapInput
-                onAssign={onAssignCredits ?? (() => {})}
-                onDone={() => setEditing(false)}
-              />
-            ) : (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                leftIcon={<PlusSignIcon size={16} />}
-                onClick={() => setEditing(true)}
-              >
-                Assign
-              </Button>
-            )
+      <SettingsTableCell align="center">
+        {isAdmin && canAssign ? (
+          editing ? (
+            <CapInput
+              onAssign={onAssignCredits ?? (() => {})}
+              onDone={() => setEditing(false)}
+            />
           ) : (
-            <span style={{ color: 'var(--neutral-300)' }}>-</span>
-          )}
-        </div>
-      </Comp>
-    )
-  },
-)
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              leftIcon={<PlusSignIcon size={16} />}
+              onClick={() => setEditing(true)}
+            >
+              Assign
+            </Button>
+          )
+        ) : (
+          <span style={{ ...valueStyle, color: 'var(--neutral-300)' }}>-</span>
+        )}
+      </SettingsTableCell>
+    </SettingsTableRow>
+  )
+}
 
-CreditCapRow.displayName = 'CreditCapRow'
 export default CreditCapRow

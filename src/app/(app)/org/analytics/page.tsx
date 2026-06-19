@@ -630,7 +630,7 @@ function MemberCapsTable({
 
       {members.map(member => {
         const usagePct = member.creditCap && member.creditCap > 0
-          ? Math.min(100, Math.round((member.creditUsed / member.creditCap) * 100))
+          ? Math.min(100, Math.round((member.allocationUsed / member.creditCap) * 100))
           : 0
         return (
           <SettingsTableRow

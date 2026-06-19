@@ -39,7 +39,10 @@ export interface OrgMember {
   orgRole: OrgRole
   inviteStatus: InviteStatus
   teamMemberships: TeamMembership[]
+  /** Total product usage for this member during the current org billing period. */
   creditUsed: number
+  /** Portion of usage consumed from this member's assigned workspace allocation. */
+  allocationUsed: number
   creditCap?: number
   joinedAt?: string
 }

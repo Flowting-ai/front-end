@@ -45,6 +45,7 @@ interface MemberResponse {
   credit_cap: number | null
   credit_extra?: number
   credit_used: number
+  usage_total?: number
   invite_status: 'active' | 'pending'
   invite_id?: string | null
   team_id?: string | null
@@ -119,7 +120,10 @@ function normalizeMember(m: MemberResponse): OrgMember {
       teamName:    m.team_name ?? 'Team',
       isTeamOwner: false,
     }] : [],
-    creditUsed:      inviteStatus === 'invite_sent' ? 0 : toDisplayCredits(m.credit_used),
+    creditUsed:      inviteStatus === 'invite_sent'
+      ? 0
+      : toDisplayCredits(m.usage_total ?? m.credit_used),
+    allocationUsed:  inviteStatus === 'invite_sent' ? 0 : toDisplayCredits(m.credit_used),
     creditCap:       m.credit_cap != null ? toDisplayCredits(m.credit_cap) : undefined,
   }
 }
