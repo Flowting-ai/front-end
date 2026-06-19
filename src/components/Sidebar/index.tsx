@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils'
 import {
   SearchOneIcon,
   FolderAddIcon,
-  FolderOneIcon,
   SidebarLeftIcon,
   MoreHorizontalIcon,
   BubbleChatIcon,
@@ -18,13 +17,9 @@ import {
   UserAddOneIcon,
   TokenCircleIcon,
   SettingsOneIcon,
-  ShapesOneIcon,
   AuditTwoIcon,
   LinkSixIcon,
   PlayListIcon,
-  ExchangeOneIcon,
-  GlobalSearchIcon,
-  RadarThreeIcon,
   BrainTwoIcon,
   ViewIcon,
   DashboardSquareOneIcon,
@@ -128,17 +123,6 @@ const DEFAULT_ADMIN_GROUPS: SidebarAdminGroup[] = [
     ],
   },
   {
-    id: 'company-data',
-    label: 'Company Data',
-    items: [
-      { id: 'connected-data', label: 'Connected Data' },
-      { id: 'folders',        label: 'Folders' },
-      { id: 'websites',       label: 'Websites' },
-      { id: 'tools',          label: 'Tools', children: [] },
-      { id: 'triggers',       label: 'Triggers' },
-    ],
-  },
-  {
     id: 'models',
     label: 'Models',
     items: [
@@ -157,11 +141,6 @@ const ADMIN_ITEM_ICONS: Record<string, React.ReactElement<{ triggered?: boolean 
   'security':        <ViewIcon size={20} />,
   'souvenir-slack':  <BubbleChatIcon size={20} />,
   'activity-log':    <PlayListIcon size={20} />,
-  'connected-data':  <ExchangeOneIcon size={20} />,
-  'folders':         <FolderOneIcon size={20} />,
-  'websites':        <GlobalSearchIcon size={20} />,
-  'tools':           <ShapesOneIcon size={20} />,
-  'triggers':        <RadarThreeIcon size={20} />,
   'model-providers': <BrainTwoIcon size={20} />,
 }
 

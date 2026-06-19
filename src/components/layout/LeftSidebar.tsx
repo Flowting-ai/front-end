@@ -35,7 +35,7 @@ function readCollapsed(): boolean {
 
 // ── Organization admin nav ────────────────────────────────────────────────────
 // The sidebar's in-place "admin" body section (entered via the org badge) renders
-// the Sidebar component's default groups — Organization / Company Data / Models
+// the Sidebar component's default groups — Organization / Models
 // (DEFAULT_ADMIN_GROUPS), matching the design-system "Org section" story. We don't
 // redefine that content here; we only wire each item's behaviour via
 // onAdminSectionClick. The `id`s below are those default item ids.
@@ -53,19 +53,12 @@ const ADMIN_SECTION_ROUTES: Record<string, string> = {
   security:          "/org/security",
   "souvenir-slack":  "/org/souvenir-slack",
   "activity-log":    "/org/activity",
-  // Company Data → closest existing surface (org connectors)
-  "connected-data":  "/org/connectors",
-  tools:             "/org/connectors",
   // Models → AI & Models
   "model-providers": "/settings/ai",
 };
 
 // Items with no page yet — surfaced as "coming soon" (id → toast label).
-const ADMIN_SECTION_COMING_SOON: Record<string, string> = {
-  folders:  "Folders",
-  websites: "Websites",
-  triggers: "Triggers",
-};
+const ADMIN_SECTION_COMING_SOON: Record<string, string> = {};
 
 // ── Section show/hide animation - matches Sidebar design system ───────────────
 
@@ -1238,7 +1231,7 @@ function LeftSidebarImpl({
       // to General — always landing on General regardless of prior admin page.
       onOrganisationClick={() => push('/org/general')}
       // adminGroups is intentionally NOT overridden — the Sidebar's default
-      // groups (Organization / Company Data / Models) are the canonical content.
+      // groups (Organization / Models) are the canonical content.
       // We only wire behaviour: navigate where a page exists, else "coming soon".
       onAdminSectionClick={(id) => {
         const href = ADMIN_SECTION_ROUTES[id]
