@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
@@ -16,6 +16,7 @@ import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
 import { Popover } from '@/components/Popover'
 import { SettingsPageShell } from '@/components/SettingsPageShell'
+import { Switch } from '@/components/Switch'
 import {
   SettingsTable,
   SettingsTableCell,
@@ -34,7 +35,14 @@ import {
   addTeamEditor,
   removeTeamEditor,
   inviteTeamMembers,
+  listTeamConnectorCatalog,
+  listTeamConnectors,
+  requestTeamConnector,
+  setTeamConnectorStatus,
 } from '@/lib/api/teams'
+import type { ConnectorRequestStatus } from '@/lib/api/teams'
+import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
+import { connectorLogoSrc } from '@/lib/connectorLogos'
 import { listMembers } from '@/lib/api/organization'
 import type { Team, TeamEditor, OrgMember } from '@/types/teams'
 import { toast } from 'sonner'
@@ -310,6 +318,119 @@ function AddEditorPanel({ orgId, existingEditorIds, onAdd, onClose }: {
         </Button>
       </div>
     </div>
+  )
+}
+
+function TeamConnectorRow({
+  entry,
+  approved,
+  busy,
+  divider,
+  onToggle,
+}: {
+  entry: ConnectorCatalogEntry
+  approved: boolean
+  busy: boolean
+  divider: boolean
+  onToggle: (checked: boolean) => void
+}) {
+  const src = connectorLogoSrc(entry.slug)
+  const initials = entry.display_name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px', borderBottom: divider ? '1px solid var(--neutral-100)' : undefined }}>
+      <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'white', boxShadow: '0px 0px 0px 1px var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, color: 'var(--neutral-700)', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 11 }}>
+        {src ? (
+          // eslint-disable-next-line @next/next/no-img-element -- bundled brand asset with runtime slug path
+          <img src={src} alt="" width={23} height={23} style={{ objectFit: 'contain' }} />
+        ) : (initials || '?')}
+      </div>
+      <div style={{ flex: '1 0 0', minWidth: 0 }}>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.display_name}</p>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>{entry.auth_mode === 'oauth2' ? 'OAuth connector' : 'API key connector'}</p>
+      </div>
+      <Switch checked={approved} disabled={busy} onCheckedChange={onToggle} />
+    </div>
+  )
+}
+
+function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }) {
+  const [entries, setEntries] = useState<ConnectorCatalogEntry[]>([])
+  const [statusBySlug, setStatusBySlug] = useState<Record<string, ConnectorRequestStatus>>({})
+  const [loading, setLoading] = useState(true)
+  const [busySlug, setBusySlug] = useState<string | null>(null)
+
+  const loadStatuses = useCallback(async () => {
+    const rows = await listTeamConnectors(orgId, teamId)
+    setStatusBySlug(Object.fromEntries(rows.map(row => [row.connectorSlug, row.status])))
+  }, [orgId, teamId])
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      try {
+        const [catalog, rows] = await Promise.all([
+          listTeamConnectorCatalog(orgId, teamId),
+          listTeamConnectors(orgId, teamId),
+        ])
+        if (cancelled) return
+        setEntries(catalog.filter(entry => entry.org_enabled === true))
+        setStatusBySlug(Object.fromEntries(rows.map(row => [row.connectorSlug, row.status])))
+      } catch (err) {
+        if (!cancelled) console.error(err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [orgId, teamId])
+
+  async function handleToggle(entry: ConnectorCatalogEntry, checked: boolean) {
+    setBusySlug(entry.slug)
+    try {
+      if (checked) {
+        if (!statusBySlug[entry.slug]) {
+          await requestTeamConnector(orgId, teamId, entry.slug)
+        }
+        await setTeamConnectorStatus(orgId, teamId, entry.slug, 'approved')
+        toast.success(`${entry.display_name} enabled for this team`)
+      } else {
+        await setTeamConnectorStatus(orgId, teamId, entry.slug, 'denied')
+        toast.success(`${entry.display_name} disabled for this team`)
+      }
+      await loadStatuses()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update connector access')
+    } finally {
+      setBusySlug(null)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader title="Connectors" subtitle="Connectors enabled for your organization. Turn on the ones this team can use." />
+      {loading ? (
+        <div style={{ padding: '24px', textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>Loading connectors…</p>
+        </div>
+      ) : entries.length === 0 ? (
+        <div style={{ padding: '24px', textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>No connectors are enabled for your organization yet.</p>
+        </div>
+      ) : (
+        entries.map((entry, index) => (
+          <TeamConnectorRow
+            key={entry.slug}
+            entry={entry}
+            approved={statusBySlug[entry.slug] === 'approved'}
+            busy={busySlug === entry.slug}
+            divider={index < entries.length - 1}
+            onToggle={checked => void handleToggle(entry, checked)}
+          />
+        ))
+      )}
+    </Card>
   )
 }
 
@@ -637,6 +758,7 @@ export default function TeamSettingsPage() {
           )}
         </SettingsTable>
 
+        {orgId && <TeamConnectorsCard orgId={orgId} teamId={team.id} />}
 
         <Card danger>
           <CardHeader title="Danger Zone" subtitle="Actions here are permanent and cannot be undone." danger compact />

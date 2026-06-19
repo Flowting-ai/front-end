@@ -20,6 +20,15 @@ import { Dropdown, DropdownFloat } from '@/components/Dropdown'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
+import {
+  SettingsTable,
+  SettingsTableToolbar,
+  SettingsTableHeader,
+  SettingsTableHeaderCell,
+  SettingsTableRow,
+  SettingsTableCell,
+  SettingsTableFooter,
+} from '@/components/SettingsTable'
 import { Switch } from '@/components/Switch'
 import Tabs from '@/components/Tabs'
 import { useOrg } from '@/context/org-context'
@@ -468,36 +477,26 @@ async function loadTeamRequestIndex(orgId: string, teams: Team[]): Promise<TeamR
   return Object.fromEntries(entries)
 }
 
+const CONNECTOR_COLUMNS = 'minmax(280px, 1.5fr) 160px 170px'
+
 function CatalogTab({
   orgId,
   connectors,
-  teams,
-  teamRequests,
   initialSearch,
   onCatalogUpdated,
-  onTeamRequestsUpdated,
 }: {
   orgId: string
   connectors: ConnectorCatalogEntry[]
-  teams: Team[]
-  teamRequests: TeamRequestIndex
   initialSearch: string
   onCatalogUpdated: (connectors: ConnectorCatalogEntry[]) => void
-  onTeamRequestsUpdated: (requests: TeamRequestIndex) => void
 }) {
   const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
   const [busyOrgSlug, setBusyOrgSlug] = useState<string | null>(null)
-  const [busyTeamKey, setBusyTeamKey] = useState<string | null>(null)
 
   const enabledSlugs = useMemo(
     () => connectors.filter(connector => connector.org_enabled === true).map(connector => connector.slug),
     [connectors],
   )
-
-  async function refreshTeamRequests() {
-    const next = await loadTeamRequestIndex(orgId, teams)
-    onTeamRequestsUpdated(next)
-  }
 
   async function handleOrgToggle(connector: ConnectorCatalogEntry, checked: boolean) {
     setBusyOrgSlug(connector.slug)
@@ -507,21 +506,6 @@ function CatalogTab({
         : enabledSlugs.filter(slug => slug !== connector.slug)
       const next = await updateOrgCatalog(orgId, nextSlugs)
       onCatalogUpdated(next)
-      if (checked && teams.length > 0) {
-        await Promise.all(
-          teams.map(async team => {
-            try {
-              if (!teamRequests[team.id]?.[connector.slug]) {
-                await requestTeamConnector(orgId, team.id, connector.slug)
-              }
-              await setTeamConnectorStatus(orgId, team.id, connector.slug, 'approved')
-            } catch {
-              // skip per-team errors so the org toggle still completes
-            }
-          }),
-        )
-        await refreshTeamRequests()
-      }
       toast.success(`${connector.display_name} ${checked ? 'enabled' : 'disabled'} for the organization`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update catalog')
@@ -530,123 +514,78 @@ function CatalogTab({
     }
   }
 
-  async function handleTeamToggle(connector: ConnectorCatalogEntry, team: Team, checked: boolean) {
-    const key = `${team.id}:${connector.slug}`
-    setBusyTeamKey(key)
-    try {
-      if (checked) {
-        if (!teamRequests[team.id]?.[connector.slug]) {
-          await requestTeamConnector(orgId, team.id, connector.slug)
-        }
-        await setTeamConnectorStatus(orgId, team.id, connector.slug, 'approved')
-        toast.success(`${connector.display_name} enabled for ${team.name}`)
-      } else {
-        const existing = teamRequests[team.id]?.[connector.slug]
-        if (existing) {
-          await setTeamConnectorStatus(orgId, team.id, connector.slug, 'denied')
-        }
-        if (connector.org_enabled === true) {
-          const next = await updateOrgCatalog(orgId, enabledSlugs.filter(slug => slug !== connector.slug))
-          onCatalogUpdated(next)
-        }
-        toast.success(`${connector.display_name} disabled for ${team.name}`)
-      }
-      await refreshTeamRequests()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update team access')
-    } finally {
-      setBusyTeamKey(null)
-    }
-  }
-
   return (
-    <PageCard>
-      <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-        <div>
-          <BodyText size={16} weight={500} color="var(--neutral-900)">Connector catalog</BodyText>
-          <BodyText size={12}>Turn connectors on for everyone, or approve them for specific teams.</BodyText>
+    <SettingsTable columns={CONNECTOR_COLUMNS} columnGap={0}>
+      <SettingsTableToolbar title="Connector catalog" style={{ flexWrap: 'wrap' }}>
+        <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
+          <InputField
+            label="Search connectors"
+            showLabel={false}
+            showSubtitle={false}
+            size="small"
+            fluid
+            leftIcon={<SearchOneIcon size={16} />}
+            placeholder="Search connectors"
+            value={search}
+            onChange={setSearch}
+          />
         </div>
-        <SearchBar value={search} onChange={setSearch} />
-      </div>
+      </SettingsTableToolbar>
 
-      {filtered.length === 0 ? (
-        <EmptyState title="No connectors found" subtitle="Try a different search." />
-      ) : (
-        filtered.map((connector, index) => {
-          const orgEnabled = connector.org_enabled === true
-          return (
-            <div key={connector.slug}>
-              {index > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
-              <div style={{ padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: 'white' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                    <ConnectorTitle connector={connector} />
-                  </div>
+      <div style={{ overflowX: 'auto' }}>
+        <div role="table" aria-label="Connector catalog" style={{ minWidth: 680 }}>
+          <SettingsTableHeader>
+            <SettingsTableHeaderCell>Connector</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell>Shared accounts</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="end">Organization</SettingsTableHeaderCell>
+          </SettingsTableHeader>
+
+          {filtered.length === 0 ? (
+            <div style={{ padding: '32px 24px', textAlign: 'center' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+                {connectors.length === 0 ? 'No connectors available' : 'No connectors match your search'}
+              </p>
+            </div>
+          ) : filtered.map(connector => {
+            const orgEnabled = connector.org_enabled === true
+            const accountCount = connector.accounts?.length ?? 0
+            return (
+              <SettingsTableRow key={connector.slug} minHeight={72}>
+                <SettingsTableCell>
+                  <ConnectorTitle connector={connector} />
+                </SettingsTableCell>
+                <SettingsTableCell>
+                  {accountCount > 0 ? (
+                    <BodyText size={14} color="var(--neutral-500)">{accountCount} shared</BodyText>
+                  ) : (
+                    <BodyText size={14} color="var(--neutral-400)">—</BodyText>
+                  )}
+                </SettingsTableCell>
+                <SettingsTableCell align="end">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {busyOrgSlug === connector.slug && <Spinner />}
+                    <BodyText size={12} color="var(--neutral-700)" style={{ width: 52, textAlign: 'right' }}>
+                      {orgEnabled ? 'Org ON' : 'Org OFF'}
+                    </BodyText>
                     <Switch
                       checked={orgEnabled}
                       disabled={busyOrgSlug === connector.slug}
                       onCheckedChange={checked => void handleOrgToggle(connector, checked)}
                     />
-                    {busyOrgSlug === connector.slug && <Spinner />}
-                    <BodyText size={12} color="var(--neutral-700)" style={{ width: 56 }}>
-                      {orgEnabled ? 'Org ON' : 'Org OFF'}
-                    </BodyText>
                   </div>
-                </div>
+                </SettingsTableCell>
+              </SettingsTableRow>
+            )
+          })}
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
-                  {teams.length === 0 ? (
-                    <BodyText size={12} color="var(--neutral-400)">Create teams before assigning connector access.</BodyText>
-                  ) : (
-                    teams.map(team => {
-                      const request = teamRequests[team.id]?.[connector.slug]
-                      const checked = request?.status === 'approved'
-                      const busy = busyTeamKey === `${team.id}:${connector.slug}`
-                      const isOrgBusy = busyOrgSlug === connector.slug
-                      return (
-                        <div
-                          key={team.id}
-                          style={{
-                            minHeight: 50,
-                            borderRadius: 12,
-                            padding: '9px 12px',
-                            backgroundColor: 'var(--neutral-50)',
-                            boxShadow: '0px 0px 0px 1px var(--neutral-100)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 12,
-                          }}
-                        >
-                          <div style={{ minWidth: 0 }}>
-                            <BodyText weight={500} color="var(--neutral-900)" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {team.name}
-                            </BodyText>
-                            <div style={{ marginTop: 2 }}>
-                              {request ? statusBadge(request.status) : <Badge label="Not set" color="Neutral" />}
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                            {(busy || isOrgBusy) && <Spinner />}
-                            <BodyText size={11} color="var(--neutral-600)">{checked ? 'ON' : 'OFF'}</BodyText>
-                            <Switch
-                              checked={checked}
-                              disabled={busy || isOrgBusy}
-                              onCheckedChange={next => void handleTeamToggle(connector, team, next)}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-              </div>
-            </div>
-          )
-        })
-      )}
-    </PageCard>
+          <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)' }}>
+            <BodyText size={12} color="var(--neutral-500)">
+              {filtered.length} of {connectors.length} connector{connectors.length === 1 ? '' : 's'}
+            </BodyText>
+          </SettingsTableFooter>
+        </div>
+      </div>
+    </SettingsTable>
   )
 }
 
@@ -747,6 +686,7 @@ function PermissionsTab({
   teams,
   personalRequests,
   teamRequests,
+  loading,
   onReload,
 }: {
   orgId: string
@@ -754,6 +694,7 @@ function PermissionsTab({
   teams: Team[]
   personalRequests: PersonalConnectorRequest[]
   teamRequests: TeamRequestIndex
+  loading: boolean
   onReload: () => Promise<void>
 }) {
   const connectorBySlug = useMemo(
@@ -769,6 +710,14 @@ function PermissionsTab({
     [teamRequests],
   )
   const pendingPersonal = personalRequests.filter(request => request.status === 'pending')
+
+  if (loading) {
+    return (
+      <PageCard>
+        <EmptyState title="Loading requests…" />
+      </PageCard>
+    )
+  }
 
   async function approveTeam(request: TeamConnectorRequest) {
     await setTeamConnectorStatus(orgId, request.teamId, request.connectorSlug, 'approved')
@@ -917,19 +866,22 @@ function ManageConnectorsTab({
   initialSearch: string
   onManage: (connector: ConnectorCatalogEntry) => void
 }) {
-  const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
+  const orgEnabled = useMemo(() => connectors.filter(connector => connector.org_enabled === true), [connectors])
+  const { search, setSearch, filtered } = useConnectorSearch(orgEnabled, initialSearch)
 
   return (
     <PageCard>
       <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div>
           <BodyText size={16} weight={500} color="var(--neutral-900)">Manage shared connector accounts</BodyText>
-          <BodyText size={12}>Create org-owned accounts and share them with teams, even when org-wide access is off.</BodyText>
+          <BodyText size={12}>Create org-owned accounts and share them with teams.</BodyText>
         </div>
         <SearchBar value={search} onChange={setSearch} />
       </div>
       <div style={{ padding: 24 }}>
-        {filtered.length === 0 ? (
+        {orgEnabled.length === 0 ? (
+          <EmptyState title="No connectors enabled yet" subtitle="Turn on connectors in the Catalog tab to manage shared accounts for them." />
+        ) : filtered.length === 0 ? (
           <EmptyState title="No connectors found" subtitle="Try a different search." />
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
@@ -2019,6 +1971,8 @@ function OrgConnectorsPageContent() {
   const [personalRequests, setPersonalRequests] = useState<PersonalConnectorRequest[]>([])
   const [teamRequests, setTeamRequests] = useState<TeamRequestIndex>({})
   const [loading, setLoading] = useState(true)
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false)
+  const [permissionsLoading, setPermissionsLoading] = useState(false)
   const [detailConnector, setDetailConnector] = useState<ConnectorCatalogEntry | null>(null)
 
   const pendingCount = useMemo(() => {
@@ -2027,21 +1981,37 @@ function OrgConnectorsPageContent() {
     return pendingTeam + pendingPersonal
   }, [teamRequests, personalRequests])
 
+  // Mount load: only the catalog, which is all the Catalog/Manage tabs need.
+  // The Permissions tab's data (per-team + personal requests) is loaded lazily
+  // when that tab is first opened — the per-team fan-out is the slow part.
   const loadPageData = useCallback(async () => {
     if (!org.id) return
     setLoading(true)
     try {
-      const catalogPromise = isAdminView ? listOrgCatalog(org.id) : listConnectors()
-      const personalPromise = isAdminView ? listPersonalRequests(org.id) : Promise.resolve<PersonalConnectorRequest[]>([])
-      const teamPromise = teams.length > 0 ? loadTeamRequestIndex(org.id, teams) : Promise.resolve<TeamRequestIndex>({})
-      const [catalog, personal, teamIndex] = await Promise.all([catalogPromise, personalPromise, teamPromise])
+      const catalog = isAdminView ? await listOrgCatalog(org.id) : await listConnectors()
       setConnectors(catalog)
-      setPersonalRequests(personal)
-      setTeamRequests(teamIndex)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to load connector page')
     } finally {
       setLoading(false)
+    }
+  }, [org.id, isAdminView])
+
+  const loadPermissionsData = useCallback(async () => {
+    if (!org.id || !isAdminView) return
+    setPermissionsLoading(true)
+    try {
+      const [personal, teamIndex] = await Promise.all([
+        listPersonalRequests(org.id),
+        teams.length > 0 ? loadTeamRequestIndex(org.id, teams) : Promise.resolve<TeamRequestIndex>({}),
+      ])
+      setPersonalRequests(personal)
+      setTeamRequests(teamIndex)
+      setPermissionsLoaded(true)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to load permissions')
+    } finally {
+      setPermissionsLoading(false)
     }
   }, [org.id, isAdminView, teams])
 
@@ -2050,6 +2020,13 @@ function OrgConnectorsPageContent() {
     const timer = window.setTimeout(() => { void loadPageData() }, 0)
     return () => window.clearTimeout(timer)
   }, [orgReady, teamsLoading, org.id, loadPageData])
+
+  useEffect(() => {
+    if (!orgReady || teamsLoading || !org.id || !isAdminView) return
+    if (tab !== 'permissions' || permissionsLoaded || permissionsLoading) return
+    const timer = window.setTimeout(() => { void loadPermissionsData() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [tab, permissionsLoaded, permissionsLoading, orgReady, teamsLoading, org.id, isAdminView, loadPermissionsData])
 
   if (!orgReady || teamsLoading || loading) {
     return (
@@ -2134,11 +2111,8 @@ function OrgConnectorsPageContent() {
           <CatalogTab
             orgId={org.id}
             connectors={connectors}
-            teams={teams}
-            teamRequests={teamRequests}
             initialSearch={initialSearch}
             onCatalogUpdated={setConnectors}
-            onTeamRequestsUpdated={setTeamRequests}
           />
         </Tabs.Content>
         <Tabs.Content value="permissions">
@@ -2148,7 +2122,8 @@ function OrgConnectorsPageContent() {
             teams={teams}
             personalRequests={personalRequests}
             teamRequests={teamRequests}
-            onReload={loadPageData}
+            loading={permissionsLoading && !permissionsLoaded}
+            onReload={loadPermissionsData}
           />
         </Tabs.Content>
         <Tabs.Content value="manage">
