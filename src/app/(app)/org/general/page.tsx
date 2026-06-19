@@ -544,19 +544,18 @@ export default function OrgGeneralPage() {
     if (!orgId || !file.type.startsWith('image/')) return
     setAvatarUploading(true)
     try {
-      let dataUrl: string
+      // Downscale to 512x512 client-side, then upload the raw bytes. The backend
+      // stores them in S3 and returns the logo URL.
+      let upload: File = file
       try {
-        dataUrl = await compressImage(file, 512, 512, 0.85)
+        const dataUrl = await compressImage(file, 512, 512, 0.85)
+        const blob = await (await fetch(dataUrl)).blob()
+        upload = new File([blob], 'logo.jpg', { type: blob.type || 'image/jpeg' })
       } catch {
-        dataUrl = await new Promise<string>((res, rej) => {
-          const r = new FileReader()
-          r.onloadend = () => res(r.result as string)
-          r.onerror = rej
-          r.readAsDataURL(file)
-        })
+        // compression unsupported in this browser — fall back to the original file
       }
-      await updateOrg(orgId, { logoUrl: dataUrl })
-      setLogoUrl(dataUrl)
+      const { logoUrl } = await updateOrg(orgId, { logoFile: upload })
+      setLogoUrl(logoUrl)
       toast.success('Logo updated')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update logo')

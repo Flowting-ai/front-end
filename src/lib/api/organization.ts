@@ -218,18 +218,20 @@ export async function getOrg(orgId: string): Promise<{ id: string; name: string;
 
 export async function updateOrg(
   orgId: string,
-  params: { name?: string | null; slug?: string | null; description?: string | null; logoUrl?: string | null },
-): Promise<{ id: string; name: string; slug: string }> {
-  const body: Record<string, unknown> = {}
-  if (params.name !== undefined)        body.name        = params.name
-  if (params.slug !== undefined)        body.slug        = params.slug
-  if (params.description !== undefined) body.description = params.description
-  if (params.logoUrl !== undefined)     body.logoUrl     = params.logoUrl
+  params: { name?: string | null; slug?: string | null; description?: string | null; logoFile?: File | null },
+): Promise<{ id: string; name: string; slug: string; logoUrl: string | null }> {
+  // Multipart: the logo is sent as raw image bytes (`logo` file part), not a URL.
+  // apiFetch omits Content-Type for FormData so the browser sets the boundary.
+  const form = new FormData()
+  if (params.name != null)        form.append('name', params.name)
+  if (params.slug != null)        form.append('slug', params.slug)
+  if (params.description != null) form.append('description', params.description)
+  if (params.logoFile)            form.append('logo', params.logoFile)
   const data = await apiFetchJson<OrganizationResponse>(ORG_ENDPOINT(orgId), {
     method: 'PATCH',
-    body:   JSON.stringify(body),
+    body:   form,
   })
-  return { id: data.id, name: data.name, slug: data.slug }
+  return { id: data.id, name: data.name, slug: data.slug, logoUrl: data.logo_url }
 }
 
 export async function deleteOrg(orgId: string, confirmName: string): Promise<void> {
