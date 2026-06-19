@@ -346,7 +346,9 @@ function TeamConnectorRow({
       </div>
       <div style={{ flex: '1 0 0', minWidth: 0 }}>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.display_name}</p>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>{entry.auth_mode === 'oauth2' ? 'OAuth connector' : 'API key connector'}</p>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
+          {entry.auth_mode === 'oauth2' ? 'OAuth connector' : 'API key connector'}{entry.org_enabled ? ' · Org-wide' : ''}
+        </p>
       </div>
       <Switch checked={approved} disabled={busy} onCheckedChange={onToggle} />
     </div>
@@ -374,7 +376,7 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
           listTeamConnectors(orgId, teamId),
         ])
         if (cancelled) return
-        setEntries(catalog.filter(entry => entry.org_enabled === true))
+        setEntries(catalog)
         setStatusBySlug(Object.fromEntries(rows.map(row => [row.connectorSlug, row.status])))
       } catch (err) {
         if (!cancelled) console.error(err)
@@ -409,14 +411,14 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
 
   return (
     <Card>
-      <CardHeader title="Connectors" subtitle="Connectors enabled for your organization. Turn on the ones this team can use." />
+      <CardHeader title="Connectors" subtitle="Choose which connectors this team can use. Org-wide connectors are available to every team by default." />
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center' }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>Loading connectors…</p>
         </div>
       ) : entries.length === 0 ? (
         <div style={{ padding: '24px', textAlign: 'center' }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>No connectors are enabled for your organization yet.</p>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>No connectors available.</p>
         </div>
       ) : (
         entries.map((entry, index) => (
