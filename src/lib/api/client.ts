@@ -97,6 +97,46 @@ export function friendlyApiError(raw: string, statusCode?: number): string {
 // Internal fetch
 // ---------------------------------------------------------------------------
 
+// Best-effort location/time context for the backend's extract_geo, derived
+// entirely from the browser — no permission prompt, no network call.
+//   - timezone: the IANA zone (drives the "current time" line)
+//   - locale:   navigator.language
+//   - city:     the timezone's representative city (America/Chicago → Chicago)
+//   - country:  the locale's region, expanded to a country name when possible
+// Coarse on purpose (city follows the timezone, not GPS) — it's prompt context
+// only, never trusted for billing/access. Names must match extract_geo (X-User-*).
+function clientGeoHeaders(): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (typeof window === "undefined") return out;
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz) {
+      out["X-User-Timezone"] = tz;
+      const parts = tz.split("/");
+      if (parts.length > 1) {
+        const city = parts[parts.length - 1].replace(/_/g, " ").trim();
+        if (city) out["X-User-City"] = city;
+      }
+    }
+  } catch { /* timezone unavailable — skip */ }
+  try {
+    const locale = navigator.language;
+    if (locale) {
+      out["X-User-Locale"] = locale;
+      const loc = new Intl.Locale(locale);
+      const region = loc.region ?? loc.maximize().region;
+      if (region) {
+        let country = region;
+        try {
+          country = new Intl.DisplayNames([locale], { type: "region" }).of(region) ?? region;
+        } catch { /* DisplayNames unavailable — fall back to the region code */ }
+        out["X-User-Country"] = country;
+      }
+    }
+  } catch { /* locale unavailable — skip */ }
+  return out;
+}
+
 async function doFetch(path: string, options: ApiFetchOptions): Promise<Response> {
   // Resolve URL:
   //   - Absolute URLs pass through unchanged.
@@ -126,14 +166,10 @@ async function doFetch(path: string, options: ApiFetchOptions): Promise<Response
     headers.set(key, value);
   }
 
-  // Send the user's timezone + locale so the backend renders dates in their
-  // zone instead of UTC. Names must match the backend's extract_geo (X-User-*);
-  // the old X-Timezone / X-Locale were silently ignored.
-  if (typeof window !== "undefined") {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (tz) headers.set("X-User-Timezone", tz);
-    const locale = navigator.language;
-    if (locale) headers.set("X-User-Locale", locale);
+  // Send timezone + derived location so the backend renders dates in the user's
+  // zone and can answer location-aware questions (e.g. weather). See clientGeoHeaders.
+  for (const [key, value] of Object.entries(clientGeoHeaders())) {
+    headers.set(key, value);
   }
 
   return fetch(url, { credentials: "include", ...options, headers });
