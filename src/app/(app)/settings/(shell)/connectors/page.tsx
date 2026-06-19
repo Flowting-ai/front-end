@@ -248,6 +248,14 @@ function PolicyDropdown({
 
 // ── Tool permissions modal ────────────────────────────────────────────────────
 
+function humanizeAction(toolSlug: string, connectorSlug: string): string {
+  let s = toolSlug
+  const prefix = `${connectorSlug.replace(/[\s-]/g, '_').toUpperCase()}_`
+  if (s.toUpperCase().startsWith(prefix)) s = s.slice(prefix.length)
+  s = s.replace(/_/g, ' ').trim().toLowerCase()
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : toolSlug
+}
+
 function ToolPermissionsModal({
   entry,
   onClose,
@@ -502,7 +510,7 @@ function ToolPermissionsModal({
                       textOverflow:'ellipsis',
                       whiteSpace:  'nowrap',
                     }}>
-                      {tool.slug}
+                      {humanizeAction(tool.slug, entry.slug)}
                     </span>
                     <PolicyDropdown
                       value={API_TO_UI[tool.policy]}

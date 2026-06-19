@@ -28,13 +28,6 @@ function relativeTime(ts: string): string {
   return `${Math.floor(days / 365)}y ago`
 }
 
-// Friendly fallback when an actor/target id isn't in the member/team lists:
-// drop the "auth0|" prefix and truncate so the column isn't a wall of hash.
-function shortenId(id: string): string {
-  const bare = id.replace(/^auth0\|/, '')
-  return bare.length > 12 ? `${bare.slice(0, 6)}…${bare.slice(-4)}` : bare
-}
-
 // "invite_sent" → "Invite sent"
 function humanizeAction(action: string): string {
   const spaced = action.replace(/_/g, ' ')
@@ -137,11 +130,11 @@ export default function OrgActivityPage() {
   const [loading,      setLoading]      = useState(true)
   const [filterAction, setFilterAction] = useState('all')
 
-  // user_id → display name (fall back to email, then a shortened id).
+  // user_id → display name (fall back to email, then a generic label — never a raw id).
   const memberNameById = useMemo(() => {
     const map = new Map<string, string>()
     for (const m of members) {
-      if (m.id) map.set(m.id, m.name?.trim() || m.email?.trim() || shortenId(m.id))
+      if (m.id) map.set(m.id, m.name?.trim() || m.email?.trim() || 'A member')
     }
     return map
   }, [members])
@@ -153,12 +146,13 @@ export default function OrgActivityPage() {
     return map
   }, [teams])
 
-  const actorLabel = (id: string): string => memberNameById.get(id) ?? shortenId(id)
+  const actorLabel = (id: string): string => memberNameById.get(id) ?? 'A member'
 
-  // Resolve a target id to a human label when we can (currently teams).
+  // Resolve a target id to a human label when we can (currently teams). When we
+  // can't, return '' so we show just the target type — never a raw id.
   const targetLabel = (type: string | null, id: string): string => {
-    if (type === 'team') return teamNameById.get(id) ?? shortenId(id)
-    return shortenId(id)
+    if (type === 'team') return teamNameById.get(id) ?? ''
+    return ''
   }
 
   useEffect(() => {
@@ -295,7 +289,7 @@ export default function OrgActivityPage() {
                   {relativeTime(entry.createdAt)}
                 </span>
                 <span
-                  title={entry.actorUserId}
+                  title={actorLabel(entry.actorUserId)}
                   style={{ width: 180, flexShrink: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'default' }}
                 >
                   {actorLabel(entry.actorUserId)}
@@ -303,7 +297,7 @@ export default function OrgActivityPage() {
                 <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <span style={{ fontWeight: 500 }}>{humanizeAction(entry.action)}</span>
                   {entry.targetType && (
-                    <span style={{ color: 'var(--neutral-500)' }}> · {entry.targetType}{entry.targetId ? ` ${targetLabel(entry.targetType, entry.targetId)}` : ''}</span>
+                    <span style={{ color: 'var(--neutral-500)' }}> · {entry.targetType}{entry.targetId && targetLabel(entry.targetType, entry.targetId) ? ` ${targetLabel(entry.targetType, entry.targetId)}` : ''}</span>
                   )}
                 </p>
               </div>

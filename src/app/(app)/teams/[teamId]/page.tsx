@@ -36,7 +36,7 @@ import {
 } from '@/lib/api/teams'
 import { fetchProjects, createProjectApi, type ApiProjectSummary } from '@/lib/api/projects'
 import { listAudit } from '@/lib/api/organization'
-import { connectorLogoSrc } from '@/lib/connectorLogos'
+import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
 import type { Team, AuditLogEntry } from '@/types/teams'
 
 type TeamTab = 'projects' | 'connectors' | 'requests' | 'activity'
@@ -397,8 +397,8 @@ function RequestsTab({ orgId, teamId }: { orgId: string; teamId: string }) {
           <SettingsTableRow key={r.connectorSlug} divider={index < requests.length - 1}>
             <SettingsTableCell>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                <ConnectorIcon slug={r.connectorSlug} name={r.connectorSlug} />
-                <p style={cellTitle}>{r.connectorSlug}</p>
+                <ConnectorIcon slug={r.connectorSlug} name={connectorDisplayName(r.connectorSlug)} />
+                <p style={cellTitle}>{connectorDisplayName(r.connectorSlug)}</p>
               </div>
             </SettingsTableCell>
             <SettingsTableCell>

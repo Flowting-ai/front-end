@@ -759,7 +759,7 @@ function PermissionsTab({
                   key={`${request.teamId}:${request.connectorSlug}`}
                   connector={connector}
                   title={connector?.display_name ?? request.connectorSlug}
-                  subtitle={`${team?.name ?? 'Unknown team'} requested by ${request.requestedByName ?? request.requestedByEmail ?? request.requestedByUserId}`}
+                  subtitle={`${team?.name ?? 'Unknown team'} requested by ${request.requestedByName ?? request.requestedByEmail ?? 'a member'}`}
                   note={request.note}
                   status={request.status}
                   onApprove={() => approveTeam(request)}
@@ -790,7 +790,7 @@ function PermissionsTab({
                   key={request.id}
                   connector={connector}
                   title={connector?.display_name ?? request.connectorSlug}
-                  subtitle={`Requested by ${request.userName ?? request.userEmail ?? request.userId}`}
+                  subtitle={`Requested by ${request.userName ?? request.userEmail ?? 'a member'}`}
                   note={request.note}
                   status={request.status}
                   onApprove={() => reviewPersonal(request, 'approved')}
@@ -1159,19 +1159,21 @@ function AddSharedAccountModal({
   )
 }
 
-function AccountDetailModal({
+const PERMISSION_COLUMNS = 'minmax(220px, 1fr) 170px'
+
+function AccountDetailView({
   account,
   connector,
   orgId,
   teams,
-  onClose,
+  onBack,
   onChanged,
 }: {
   account: OrgConnectorAccount
   connector: ConnectorCatalogEntry
   orgId: string
   teams: Team[]
-  onClose: () => void
+  onBack: () => void
   onChanged: () => Promise<void>
 }) {
   const [label, setLabel] = useState(account.accountLabel)
@@ -1320,7 +1322,7 @@ function AccountDetailModal({
       await deleteOrgConnectorAccount(orgId, account.id)
       toast.success('Shared account deleted')
       await onChanged()
-      onClose()
+      onBack()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete account')
     } finally {
@@ -1331,12 +1333,24 @@ function AccountDetailModal({
   const canShare = account.connected && status === 'active'
 
   return (
-    <ModalShell
-      title={account.accountLabel}
-      subtitle={`${connector.display_name}${account.accountIdentifier ? ` - ${account.accountIdentifier}` : ''}`}
-      onClose={onClose}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <PageShell>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', color: 'var(--neutral-500)', fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '18px' }}
+          >
+            Back to {connector.display_name} accounts
+          </button>
+          <div style={{ marginTop: 8 }}>
+            <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0 }}>
+              {account.accountLabel}
+            </h1>
+            <BodyText>{`${connector.display_name}${account.accountIdentifier ? ` · ${account.accountIdentifier}` : ''}`}</BodyText>
+          </div>
+        </div>
+
         <PageCard style={{ padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18 }}>
             <div>
@@ -1393,8 +1407,8 @@ function AccountDetailModal({
           )}
         </PageCard>
 
-        <PageCard>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <WorkflowSquareTenIcon size={18} style={{ marginTop: 2 }} />
             <div>
               <BodyText weight={500} color="var(--neutral-900)">Team permissions</BodyText>
@@ -1405,82 +1419,57 @@ function AccountDetailModal({
           </div>
 
           {attachedTeams.length === 0 ? (
-            <EmptyState title="Attach to a team first" subtitle="Permissions appear after this account is shared with a team." />
+            <PageCard><EmptyState title="Attach to a team first" subtitle="Permissions appear after this account is shared with a team." /></PageCard>
           ) : permissionsLoading ? (
-            <EmptyState title="Loading permissions..." />
+            <PageCard><EmptyState title="Loading permissions..." /></PageCard>
           ) : (
-            attachedTeams.map((team, index) => {
+            attachedTeams.map(team => {
               const connection = teamConnections[team.id]
               const tools = connection?.tools.length ? connection.tools : (connector.tools ?? [])
 
               return (
-                <div key={team.id}>
-                  {index > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)' }} />}
-                  <div style={{ padding: '15px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                      <div style={{ minWidth: 0 }}>
-                        <BodyText weight={500} color="var(--neutral-900)">{team.name}</BodyText>
-                        <BodyText size={11}>
-                          {connection ? 'Permissions for this team connection' : 'Waiting for team connection details'}
-                        </BodyText>
-                      </div>
-                      {connection ? statusBadge(connection.status) : <Badge label="Unavailable" color="Neutral" />}
-                    </div>
-
-                    {tools.length === 0 ? (
-                      <BodyText size={12}>This connector has no configurable tools yet.</BodyText>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {tools.map(tool => {
-                          const saveKey = `${team.id}:${tool.slug}`
-                          return (
-                            <div
-                              key={tool.slug}
-                              style={{
-                                display:         'flex',
-                                alignItems:      'center',
-                                justifyContent:  'space-between',
-                                gap:             12,
-                                padding:         '8px 12px',
-                                borderRadius:    10,
-                                backgroundColor: 'white',
-                                boxShadow:       '0px 0px 0px 1px var(--neutral-100)',
-                              }}
-                            >
-                              <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                <BodyText
-                                  size={14}
-                                  weight={500}
-                                  color="var(--neutral-900)"
-                                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                >
-                                  {humanizeAction(tool.slug, connector.slug)}
-                                </BodyText>
-                                <BodyText
-                                  size={11}
-                                  color="var(--neutral-400)"
-                                  family="var(--font-mono, monospace)"
-                                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                >
-                                  {tool.slug}
-                                </BodyText>
-                              </div>
+                <SettingsTable key={team.id} columns={PERMISSION_COLUMNS} columnGap={0}>
+                  <SettingsTableToolbar title={team.name}>
+                    {connection ? statusBadge(connection.status) : <Badge label="Unavailable" color="Neutral" />}
+                  </SettingsTableToolbar>
+                  <div style={{ overflowX: 'auto' }}>
+                    <div role="table" aria-label={`${team.name} permissions`} style={{ minWidth: 420 }}>
+                      <SettingsTableHeader>
+                        <SettingsTableHeaderCell>Action</SettingsTableHeaderCell>
+                        <SettingsTableHeaderCell align="end">Permission</SettingsTableHeaderCell>
+                      </SettingsTableHeader>
+                      {tools.length === 0 ? (
+                        <div style={{ padding: '24px', textAlign: 'center' }}>
+                          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+                            This connector has no configurable tools yet.
+                          </p>
+                        </div>
+                      ) : tools.map(tool => {
+                        const saveKey = `${team.id}:${tool.slug}`
+                        return (
+                          <SettingsTableRow key={tool.slug} minHeight={56}>
+                            <SettingsTableCell>
+                              <BodyText size={14} weight={500} color="var(--neutral-900)" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {humanizeAction(tool.slug, connector.slug)}
+                              </BodyText>
+                            </SettingsTableCell>
+                            <SettingsTableCell align="end">
                               <PolicySelect
                                 value={tool.policy}
                                 disabled={!connection || savingPermission === saveKey}
                                 onChange={policy => void updateTeamPermission(team, tool, policy)}
                               />
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
+                            </SettingsTableCell>
+                          </SettingsTableRow>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
+                </SettingsTable>
               )
             })
           )}
-        </PageCard>
+        </div>
 
         <PageCard style={{ padding: 16, borderColor: 'var(--red-300, #fca5a5)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
@@ -1505,7 +1494,7 @@ function AccountDetailModal({
           </div>
         </PageCard>
       </div>
-    </ModalShell>
+    </PageShell>
   )
 }
 
@@ -1555,6 +1544,23 @@ function ConnectorDetailView({
     if (filter === 'needs-attention') return !account.connected || account.status !== 'active'
     return true
   })
+
+  if (activeAccount) {
+    return (
+      <AccountDetailView
+        account={activeAccount}
+        connector={connector}
+        orgId={orgId}
+        teams={teams}
+        onBack={() => setActiveAccount(null)}
+        onChanged={async () => {
+          await refreshAll()
+          const latest = (await listOrgConnectorAccounts(orgId, connector.slug)).find(account => account.id === activeAccount.id)
+          if (latest) setActiveAccount(latest)
+        }}
+      />
+    )
+  }
 
   return (
     <PageShell>
@@ -1620,7 +1626,7 @@ function ConnectorDetailView({
                       <Badge label={`${account.teamIds.length} team${account.teamIds.length === 1 ? '' : 's'}`} color="Purple" />
                     </div>
                     <BodyText size={11}>
-                      {account.accountIdentifier || 'No provider identity yet'} - added by {account.linkedByUserId}
+                      {account.accountIdentifier || 'No provider identity yet'}
                     </BodyText>
                   </div>
                   <Button variant="outline" size="sm" rightIcon={<ArrowRightOneIcon size={16} />} onClick={() => setActiveAccount(account)}>
@@ -1640,20 +1646,6 @@ function ConnectorDetailView({
           teams={teams}
           onClose={() => setAddOpen(false)}
           onCreated={refreshAll}
-        />
-      )}
-      {activeAccount && (
-        <AccountDetailModal
-          account={activeAccount}
-          connector={connector}
-          orgId={orgId}
-          teams={teams}
-          onClose={() => setActiveAccount(null)}
-          onChanged={async () => {
-            await refreshAll()
-            const latest = (await listOrgConnectorAccounts(orgId, connector.slug)).find(account => account.id === activeAccount.id)
-            if (latest) setActiveAccount(latest)
-          }}
         />
       )}
     </PageShell>
