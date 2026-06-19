@@ -62,6 +62,8 @@ export interface Team {
   tags: string[]
   archived: boolean
   canEdit: boolean
+  /** The caller's role in this team: owner/admin (org-wide) or editor/member (per-team). */
+  myRole: 'owner' | 'admin' | 'editor' | 'member'
   createdAt: string
   updatedAt: string
 }
@@ -71,6 +73,8 @@ export interface TeamEditor {
   userId: string
   name: string | null
   email: string | null
+  /** Admin-grantable: editor may link/share connector accounts to the team. */
+  canLinkAccounts: boolean
 }
 
 /** Returned after creating a team invite. */

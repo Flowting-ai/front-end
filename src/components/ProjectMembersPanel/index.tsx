@@ -1,7 +1,9 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { UserIcon, PlusSignIcon } from '@strange-huge/icons'
+import { PlusSignIcon } from '@strange-huge/icons'
+import { Avatar } from '@/components/Avatar'
+import { Button } from '@/components/Button'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
 import { listMembers } from '@/lib/api/organization'
@@ -29,12 +31,32 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
 
   useEffect(() => {
     if (!orgId) return
-    setLoading(true)
-    listProjectMembers(orgId, teamId, projectId)
-      .then(setMembers)
+    let cancelled = false
+    Promise.all([
+      listProjectMembers(orgId, teamId, projectId),
+      listMembers(orgId),
+      listTeamEditors(orgId, teamId),
+    ])
+      .then(([assigned, all, editors]) => {
+        if (cancelled) return
+        const editorIds = new Set(editors.map(editor => editor.userId))
+        const eligibleIds = new Set(
+          all
+            .filter(member => (
+              member.inviteStatus !== 'invite_sent'
+              && member.orgRole !== 'owner'
+              && member.orgRole !== 'admin'
+              && member.id !== ownerUserId
+              && !editorIds.has(member.id)
+            ))
+            .map(member => member.id),
+        )
+        setMembers(assigned.filter(member => eligibleIds.has(member.userId)))
+      })
       .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [orgId, teamId, projectId])
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [orgId, teamId, projectId, ownerUserId])
 
   const handleOpenAdd = () => {
     if (!orgId) return
@@ -82,43 +104,30 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
   }
 
   return (
-    <div style={{
-      border:        '1px solid var(--neutral-200)',
-      borderRadius:  14,
-      overflow:      'hidden',
-      backgroundColor: 'white',
-    }}>
-      {/* Header */}
+    <div style={{ backgroundColor: 'var(--neutral-50)' }}>
       <div style={{
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'space-between',
-        padding:        '10px 14px',
-        borderBottom:   '1px solid var(--neutral-100)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 24px 16px',
       }}>
-        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-800)' }}>
-          Project members
-        </span>
-        <button
-          type="button"
-          onClick={handleOpenAdd}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            padding: '3px 8px', borderRadius: 6, border: '1px solid var(--neutral-200)',
-            background: 'white', cursor: 'pointer',
-            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: 'var(--neutral-700)',
-          }}
-        >
-          <PlusSignIcon size={12} />
-          Add
-        </button>
+        <div style={{ flex: '1 0 0', minWidth: 0 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+            Project members
+          </p>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
+            Members assigned directly to this project.
+          </p>
+        </div>
+        <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={14} />} onClick={handleOpenAdd}>
+          Add member
+        </Button>
       </div>
 
-      {/* Add member form */}
       {addOpen && (
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--neutral-100)', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {orgMembers.length === 0 ? (
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '22px', color: 'var(--neutral-400)', margin: 0 }}>
               Everyone eligible is already in this project.
             </p>
           ) : (
@@ -126,12 +135,18 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
               value={selected}
               onChange={e => setSelected(e.target.value)}
               style={{
-                fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-900)',
-                border: '1px solid var(--neutral-200)', borderRadius: 6,
-                padding: '6px 10px', backgroundColor: 'white', width: '100%',
+                width: '100%',
+                padding: '8px 10px',
+                border: '1px solid var(--neutral-300)',
+                borderRadius: 8,
+                backgroundColor: 'var(--neutral-white)',
+                fontFamily: 'var(--font-body)',
+                fontSize: 14,
+                lineHeight: '22px',
+                color: 'var(--neutral-900)',
               }}
             >
-              <option value="">Select member…</option>
+              <option value="">Select member...</option>
               {orgMembers.map(m => (
                 <option key={m.id} value={m.id}>
                   {m.name || m.email}{m.name && m.email ? ` (${m.email})` : ''}
@@ -139,57 +154,69 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
               ))}
             </select>
           )}
-          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-            <button type="button" onClick={() => setAddOpen(false)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--neutral-200)', background: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-700)' }}>
-              Cancel
-            </button>
-            <button type="button" disabled={!selected || saving} onClick={handleAdd} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: !selected || saving ? 'var(--neutral-300)' : 'var(--neutral-900)', cursor: !selected || saving ? 'default' : 'pointer', fontFamily: 'var(--font-body)', fontSize: 12, color: 'white', fontWeight: 500 }}>
-              {saving ? 'Adding…' : 'Add'}
-            </button>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <Button variant="outline" size="sm" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button size="sm" disabled={!selected || saving} onClick={handleAdd}>
+              {saving ? 'Adding...' : 'Add member'}
+            </Button>
           </div>
         </div>
       )}
 
-      {/* Member list */}
-      <div style={{ padding: '6px 0' }}>
-        {loading && (
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0, padding: '8px 14px' }}>
-            Loading…
-          </p>
-        )}
-        {!loading && members.length === 0 && (
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0, padding: '8px 14px' }}>
-            No members yet.
-          </p>
-        )}
-        {members.map(m => (
-          <div key={m.userId} style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '6px 14px',
-          }}>
-            <div style={{ width: 26, height: 26, borderRadius: '50%', backgroundColor: 'var(--blue-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <UserIcon size={14} color="var(--blue-600)" />
-            </div>
-            <div style={{ flex: '1 0 0', minWidth: 0 }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(240px, 1fr) 140px',
+        alignItems: 'center',
+        padding: '4px 24px 8px',
+        borderTop: '1px solid var(--neutral-100)',
+      }}>
+        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)' }}>
+          Member
+        </span>
+        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', textAlign: 'right' }}>
+          Actions
+        </span>
+      </div>
+
+      {loading && (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-400)', margin: 0, padding: '12px 24px 16px' }}>
+          Loading members...
+        </p>
+      )}
+      {!loading && members.length === 0 && (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-400)', margin: 0, padding: '12px 24px 16px' }}>
+          No project members yet.
+        </p>
+      )}
+      {members.map(m => (
+        <div key={m.userId} style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(240px, 1fr) 140px',
+          alignItems: 'center',
+          minHeight: 58,
+          padding: '0 24px',
+          borderTop: '1px solid var(--neutral-100)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <Avatar name={m.name || m.email || m.userId} size="sm" />
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {m.name ?? m.userId}
               </p>
               {m.email && (
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, color: 'var(--neutral-500)', margin: 0 }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {m.email}
                 </p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => handleRemove(m.userId)}
-              style={{ padding: '2px 7px', borderRadius: 5, border: '1px solid var(--red-200)', background: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--red-700)', flexShrink: 0 }}
-            >
-              Remove
-            </button>
           </div>
-        ))}
-      </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button variant="danger" size="sm" onClick={() => handleRemove(m.userId)}>
+              Remove
+            </Button>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

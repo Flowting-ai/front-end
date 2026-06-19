@@ -7,11 +7,7 @@ import { Popover } from '@/components/Popover'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { Divider } from '@/components/Divider'
 import { Badge } from '@/components/Badge'
-import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
-
-// ── Shadows ───────────────────────────────────────────────────────────────────
-const SHADOW_HEADER_HOVER = 'var(--shadow-sidebar-item-hover)'
 
 // ── Deterministic gradient palette ───────────────────────────────────────────
 // Each team gets a unique gradient from its name. Stable — same name = same color.
@@ -41,7 +37,7 @@ export interface TeamSwitcherTeam {
   id:            string
   name:          string
   projectCount?: number
-  role?:         'admin' | 'editor' | 'member'
+  role?:         'owner' | 'admin' | 'editor' | 'member'
 }
 
 export interface TeamSwitcherProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -50,8 +46,6 @@ export interface TeamSwitcherProps extends React.HTMLAttributes<HTMLDivElement> 
   isAdmin?:      boolean
   /** Fires when user selects a team from dropdown */
   onTeamSelect?: (teamId: string | null) => void
-  /** Fires when "Manage teams →" is clicked (Admin only) */
-  onManageTeams?: () => void
 }
 
 // ── Team avatar — rounded square with the team's initial, gradient by id ──────
@@ -111,7 +105,6 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
       activeTeamId,
       isAdmin = false,
       onTeamSelect,
-      onManageTeams,
       className,
       style,
       ...props
@@ -255,7 +248,7 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
                     badge={team.role && (
                       <Badge
                         label={team.role.charAt(0).toUpperCase() + team.role.slice(1)}
-                        color={team.role === 'admin' ? 'Yellow' : team.role === 'editor' ? 'Blue' : 'Neutral'}
+                        color={team.role === 'owner' || team.role === 'admin' ? 'Yellow' : team.role === 'editor' ? 'Blue' : 'Neutral'}
                       />
                     )}
                     onClick={() => { onTeamSelect?.(team.id); setOpen(false) }}
@@ -271,12 +264,6 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
                       label="All workspace"
                       selected={activeTeamId === null}
                       onClick={() => { onTeamSelect?.(null); setOpen(false) }}
-                    />
-                    <Divider decorative style={{ margin: '4px 0', backgroundColor: 'rgba(59,54,50,0.1)' }} />
-                    <DropdownMenuItem
-                      fluid
-                      label="Manage teams →"
-                      onClick={() => { onManageTeams?.(); setOpen(false) }}
                     />
                   </>
                 )}

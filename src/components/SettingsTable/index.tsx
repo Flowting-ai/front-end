@@ -17,6 +17,12 @@ interface SettingsTableGridProps {
   style?: React.CSSProperties
 }
 
+interface SettingsTableViewportProps {
+  children: React.ReactNode
+  minWidth?: number
+  ariaLabel?: string
+}
+
 const SettingsTableLayoutContext = React.createContext<{
   columns?: string
   columnGap?: string | number
@@ -79,6 +85,20 @@ export function SettingsTableToolbar({
         {title}
       </h2>
       {children}
+    </div>
+  )
+}
+
+export function SettingsTableViewport({
+  children,
+  minWidth = 0,
+  ariaLabel,
+}: SettingsTableViewportProps) {
+  return (
+    <div className="kaya-scrollbar" style={{ overflowX: 'auto', width: '100%' }}>
+      <div role="table" aria-label={ariaLabel} style={{ minWidth }}>
+        {children}
+      </div>
     </div>
   )
 }

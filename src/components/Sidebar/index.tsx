@@ -21,9 +21,9 @@ import {
   LinkSixIcon,
   PlayListIcon,
   BrainTwoIcon,
-  ViewIcon,
   DashboardSquareOneIcon,
 } from '@strange-huge/icons'
+import { ViewIcon } from '@/components/ViewIcon'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarProjectsSection } from '@/components/SidebarProjectsSection'
@@ -138,10 +138,15 @@ const ADMIN_ITEM_ICONS: Record<string, React.ReactElement<{ triggered?: boolean 
   'plans-usage':     <TokenCircleIcon size={20} />,
   'analytics':       <AuditTwoIcon size={20} />,
   'connectors':      <LinkSixIcon size={20} />,
-  'security':        <ViewIcon size={20} />,
+  'security':        <ViewIcon size={20} variant="visible" />,
   'souvenir-slack':  <BubbleChatIcon size={20} />,
   'activity-log':    <PlayListIcon size={20} />,
   'model-providers': <BrainTwoIcon size={20} />,
+  'team-projects':   <DashboardSquareOneIcon size={20} />,
+  'team-members':    <UserAddOneIcon size={20} />,
+  'team-connectors': <LinkSixIcon size={20} />,
+  'team-requests':   <AlertTwoIcon size={20} />,
+  'team-activity':   <PlayListIcon size={20} />,
 }
 
 const DEFAULT_AGENTS: SidebarAgent[] = [
@@ -381,7 +386,6 @@ interface DefaultProjectItemsProps {
   onShowAllProjects?: () => void
 }
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function DefaultProjectItems({ projects, activeFolder, expandedFolders, selectedItem, activeChatId, onSelect, onChatClick, onFolderOpen, onFolderExpand, onShowAllProjects }: DefaultProjectItemsProps) {
   const [shown, setShown] = useState(true)
   const [overflow, setOverflow] = useState<'visible' | 'hidden'>('visible')
@@ -415,7 +419,7 @@ function DefaultProjectItems({ projects, activeFolder, expandedFolders, selected
       >
         <m.div
           animate={shown ? 'open' : 'closed'}
-          initial={shouldAnimate ? 'closed' : false}
+          initial={shouldAnimate ? 'closed' : 'open'}
           variants={sectionStaggerVariants}
           style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
         >
@@ -530,7 +534,7 @@ function DefaultAgentItems({ agents, activeFolder, expandedFolders, selectedItem
       >
         <m.div
           animate={shown ? 'open' : 'closed'}
-          initial={shouldAnimate ? 'closed' : false}
+          initial={shouldAnimate ? 'closed' : 'open'}
           variants={sectionStaggerVariants}
           style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
         >
@@ -627,7 +631,7 @@ function DefaultBrainScheduleItems({ schedules, selectedItem, onSelect, onSchedu
       >
         <m.div
           animate={shown ? 'open' : 'closed'}
-          initial={shouldAnimate ? 'closed' : false}
+          initial={shouldAnimate ? 'closed' : 'open'}
           variants={sectionStaggerVariants}
           style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
         >
@@ -708,7 +712,7 @@ function AdminGroup({ group, isFirst, selectedItem, onItemClick, expandedItems, 
       >
         <m.div
           animate={shown ? 'open' : 'closed'}
-          initial={false}
+          initial={shown ? 'open' : 'closed'}
           variants={sectionStaggerVariants}
           style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
         >
@@ -847,7 +851,7 @@ function DefaultRecentItems({ selectedItem, activeChatId, onSelect: _onSelect, o
           <m.div
             key={sectionKey}
             animate={shown ? 'open' : 'closed'}
-            initial={hasAnimatedRef.current ? 'closed' : false}
+            initial={hasAnimatedRef.current ? 'closed' : 'open'}
             variants={sectionStaggerVariants}
             style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
           >
@@ -939,9 +943,7 @@ export function Sidebar({
       onAgentClick,
       className,
       ...props
-    // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
     }: SidebarProps & { ref?: React.Ref<HTMLDivElement> }) {
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [isCollapsed,      setIsCollapsed]      = useState(defaultCollapsed)
     const [collapseHovered,  setCollapseHovered]  = useState(false)
     const [atScrollTop,      setAtScrollTop]      = useState(true)
@@ -1077,7 +1079,6 @@ export function Sidebar({
           flexShrink:      0,
           zIndex:          0,
           isolation:       'isolate',
-          // eslint-disable-next-line react-doctor/no-layout-transition-inline -- sidebar width is dynamic state
           transition:      'width 320ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}
         {...props}

@@ -35,6 +35,7 @@ interface TeamResponse {
   tags: string[]
   archived: boolean
   can_edit: boolean
+  my_role?: 'owner' | 'admin' | 'editor' | 'member'
   created_at: string
   updated_at: string
 }
@@ -43,6 +44,7 @@ interface PersonResponse {
   user_id: string
   name?: string | null
   email?: string | null
+  can_link_accounts?: boolean
 }
 
 interface InviteResponse {
@@ -64,6 +66,7 @@ function normalizeTeam(t: TeamResponse): Team {
     tags: t.tags ?? [],
     archived: t.archived,
     canEdit: t.can_edit ?? false,
+    myRole: t.my_role ?? 'member',
     createdAt: t.created_at,
     updatedAt: t.updated_at,
   }
@@ -74,6 +77,7 @@ function normalizeEditor(p: PersonResponse): TeamEditor {
     userId: p.user_id,
     name: p.name ?? null,
     email: p.email ?? null,
+    canLinkAccounts: p.can_link_accounts ?? false,
   }
 }
 
@@ -151,10 +155,22 @@ export async function listTeamEditors(orgId: string, teamId: string): Promise<Te
   return list.map(normalizeEditor)
 }
 
-export async function addTeamEditor(orgId: string, teamId: string, userId: string): Promise<TeamEditor> {
+export async function addTeamEditor(
+  orgId: string, teamId: string, userId: string, canLinkAccounts = false,
+): Promise<TeamEditor> {
   const data = await apiFetchJson<PersonResponse>(ORG_TEAM_EDITORS_ENDPOINT(orgId, teamId), {
     method: 'POST',
-    body: JSON.stringify({ userId }),
+    body: JSON.stringify({ userId, canLinkAccounts }),
+  })
+  return normalizeEditor(data)
+}
+
+export async function setTeamEditorLink(
+  orgId: string, teamId: string, memberId: string, canLinkAccounts: boolean,
+): Promise<TeamEditor> {
+  const data = await apiFetchJson<PersonResponse>(ORG_TEAM_EDITOR_ENDPOINT(orgId, teamId, memberId), {
+    method: 'PATCH',
+    body: JSON.stringify({ canLinkAccounts }),
   })
   return normalizeEditor(data)
 }

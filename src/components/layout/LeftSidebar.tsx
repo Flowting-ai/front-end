@@ -4,7 +4,7 @@ import React, { useCallback, useRef, useMemo, useState, useEffect, Suspense } fr
 import { m } from "framer-motion";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { FolderAddIcon, MoreHorizontalIcon, PlusSignIcon } from "@strange-huge/icons";
+import { FolderAddIcon, MoreHorizontalIcon, PlusSignIcon, SettingsOneIcon } from "@strange-huge/icons";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
 import { AccountMenu } from "@/components/AccountMenu";
 import { useAuth } from "@/context/auth-context";
@@ -25,15 +25,16 @@ import { TeamSwitcher } from "@/components/TeamSwitcher";
 import type { Team } from "@/types/teams";
 import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
+import type { SidebarAdminGroup } from "@/components/Sidebar";
 
-// ── Collapse state persistence ────────────────────────────────────────────────
+// -- Collapse state persistence ------------------------------------------------
 
 function readCollapsed(): boolean {
   if (typeof window === "undefined") return false;
   return localStorage.getItem("sidebar_collapsed") === "true";
 }
 
-// ── Organization admin nav ────────────────────────────────────────────────────
+// -- Organization admin nav ----------------------------------------------------
 // The sidebar's in-place "admin" body section (entered via the org badge) renders
 // the Sidebar component's default groups — Organization / Models
 // (DEFAULT_ADMIN_GROUPS), matching the design-system "Org section" story. We don't
@@ -43,7 +44,7 @@ function readCollapsed(): boolean {
 // Items with a real destination navigate there; the rest surface a "coming soon"
 // toast so nothing is ever a dead click.
 const ADMIN_SECTION_ROUTES: Record<string, string> = {
-  // Organization → /org/*
+  // Organization ? /org/*
   general:           "/org/general",
   members:           "/org/members",
   teams:             "/org/teams",
@@ -53,14 +54,21 @@ const ADMIN_SECTION_ROUTES: Record<string, string> = {
   security:          "/org/security",
   "souvenir-slack":  "/org/souvenir-slack",
   "activity-log":    "/org/activity",
-  // Models → AI & Models
+  // Models ? AI & Models
   "model-providers": "/settings/ai",
 };
 
-// Items with no page yet — surfaced as "coming soon" (id → toast label).
+// Items with no page yet — surfaced as "coming soon" (id ? toast label).
 const ADMIN_SECTION_COMING_SOON: Record<string, string> = {};
 
-// ── Section show/hide animation - matches Sidebar design system ───────────────
+const TEAM_SETTINGS_SECTIONS = new Set([
+  'team-projects',
+  'team-connectors',
+  'team-requests',
+  'team-activity',
+])
+
+// -- Section show/hide animation - matches Sidebar design system ---------------
 
 const sectionHeightVariants = {
   open: {
@@ -73,7 +81,7 @@ const sectionHeightVariants = {
   },
 };
 
-// ── Shared section props ──────────────────────────────────────────────────────
+// -- Shared section props ------------------------------------------------------
 
 interface SectionProps {
   activeChatId?: string;
@@ -81,7 +89,7 @@ interface SectionProps {
   chatHistory: UseChatHistoryResult;
 }
 
-// ── Starred section ───────────────────────────────────────────────────────────
+// -- Starred section -----------------------------------------------------------
 
 function StarredSection({ activeChatId, onSelectChat, chatHistory }: SectionProps) {
   const [shown, setShown] = useState(true);
@@ -90,7 +98,7 @@ function StarredSection({ activeChatId, onSelectChat, chatHistory }: SectionProp
   const starredChats = chatHistory.chats.filter((c) => c.starred);
 
   // Don't render the section at all when no chats are starred.
-  // Component remounts next time a chat is starred → shown resets to true.
+  // Component remounts next time a chat is starred ? shown resets to true.
   if (starredChats.length === 0) return null;
 
   return (
@@ -135,7 +143,7 @@ function StarredSection({ activeChatId, onSelectChat, chatHistory }: SectionProp
   );
 }
 
-// ── Recents list ──────────────────────────────────────────────────────────────
+// -- Recents list --------------------------------------------------------------
 
 function RecentsList({ activeChatId, onSelectChat, chatHistory }: SectionProps) {
   const { chats, isLoading, hasMore, loadMore, rename, remove, star } = chatHistory;
@@ -204,7 +212,7 @@ function RecentsList({ activeChatId, onSelectChat, chatHistory }: SectionProps) 
   );
 }
 
-// ── Recents section - header with show/hide + animated collapse ───────────────
+// -- Recents section - header with show/hide + animated collapse ---------------
 
 function RecentsSection(props: SectionProps) {
   const [shown, setShown] = useState(true);
@@ -235,7 +243,7 @@ function RecentsSection(props: SectionProps) {
   );
 }
 
-// ── Shared dropdown item styles ────────────────────────────────────────────────
+// -- Shared dropdown item styles ------------------------------------------------
 
 const menuItemStyle: React.CSSProperties = {
   display: "flex",
@@ -258,7 +266,7 @@ const menuItemDestructiveStyle: React.CSSProperties = {
   color: "var(--red-500)",
 }
 
-// ── ProjectChatItem - sidebar project chat row with rename/delete menu ─────────
+// -- ProjectChatItem - sidebar project chat row with rename/delete menu ---------
 
 interface ProjectChatItemProps {
   chat:     ProjectChat
@@ -370,7 +378,7 @@ function ProjectChatItem({ chat, isActive, onSelect, onRename, onDelete }: Proje
   )
 }
 
-// ── Projects section - reads from ProjectsContext ──────────────────────────────
+// -- Projects section - reads from ProjectsContext ------------------------------
 
 const PROJECT_LIMIT = 2
 const CHAT_LIMIT    = 10
@@ -534,7 +542,7 @@ function ProjectsSection({
   )
 }
 
-// ── Teams sidebar components ──────────────────────────────────────────────────
+// -- Teams sidebar components --------------------------------------------------
 
 function SidebarDivider() {
   return (
@@ -547,30 +555,45 @@ function SidebarDivider() {
 interface TeamsSidebarContentProps {
   role: 'admin' | 'editor' | 'member'
   teams: Team[]
-  teamRoles?: Map<string, 'admin' | 'editor' | 'member'>
   activeTeamId: string | null
   setActiveTeamId: (id: string | null) => void
-  onManageTeams: () => void
 }
 
-function TeamsSidebarContent({ role, teams, teamRoles, activeTeamId, setActiveTeamId, onManageTeams }: TeamsSidebarContentProps) {
+function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId }: TeamsSidebarContentProps) {
   const { projects } = useProjects()
-  const canCreateProject = role !== 'member'
+  const { push } = useRouter()
   const isAdmin = role === 'admin'
-  const activeTeam = teams.find(team => team.id === activeTeamId) ?? null
+  const activeTeam = activeTeamId === null && isAdmin
+    ? null
+    : (teams.find(team => team.id === activeTeamId) ?? teams[0] ?? null)
+  const effectiveActiveTeamId = activeTeam?.id ?? null
+  const canCreatePersonalProject = isAdmin || teams.some(team => team.canEdit)
+  const canCreateTeamProject = Boolean(activeTeam && (isAdmin || activeTeam.canEdit))
   const teamProjectsLabel = activeTeam ? `${activeTeam.name} projects` : 'Workspace projects'
-  const teamNewProjectHref = activeTeamId ? `/projects/new?teamId=${activeTeamId}` : '/projects/new'
+  const teamNewProjectHref = effectiveActiveTeamId ? `/projects/new?teamId=${effectiveActiveTeamId}` : '/projects/new'
   const personalProjectFilter = useCallback((project: Project) => project.teamId === null, [])
   const teamProjectFilter = useCallback(
-    (project: Project) => project.teamId !== null && (activeTeamId ? project.teamId === activeTeamId : true),
-    [activeTeamId],
+    (project: Project) => project.teamId !== null && (effectiveActiveTeamId ? project.teamId === effectiveActiveTeamId : true),
+    [effectiveActiveTeamId],
   )
+  const manageTarget = activeTeam
+    ? activeTeam.canEdit
+      // Admins get the full admin team-settings page; editors get the
+      // editor-scoped team page (projects / shared accounts / requests).
+      ? {
+          label: `Manage ${activeTeam.name}`,
+          href: isAdmin ? `/org/teams/${activeTeam.id}` : `/teams/${activeTeam.id}`,
+        }
+      : null
+    : isAdmin
+      ? { label: 'Manage teams', href: '/org/teams' }
+      : null
 
   return (
     <>
       <ProjectsSection
         label="Personal projects"
-        showNewProject={canCreateProject}
+        showNewProject={canCreatePersonalProject}
         projectsFilter={personalProjectFilter}
         emptyLabel="No personal projects yet"
       />
@@ -581,17 +604,25 @@ function TeamsSidebarContent({ role, teams, teamRoles, activeTeamId, setActiveTe
             id:   t.id,
             name: t.name,
             projectCount: projects.filter(project => project.teamId === t.id).length,
-            role: role === 'admin' ? 'admin' : (teamRoles?.get(t.id) ?? role),
+            role: t.myRole,
           }))}
-          activeTeamId={activeTeamId}
+          activeTeamId={effectiveActiveTeamId}
           isAdmin={isAdmin}
           onTeamSelect={setActiveTeamId}
-          onManageTeams={onManageTeams}
           style={{ width: '100%' }}
         />
+        {manageTarget && (
+          <SidebarMenuItem
+            fluid
+            variant="default"
+            icon={<SettingsOneIcon size={20} />}
+            label={manageTarget.label}
+            onClick={() => push(manageTarget.href)}
+          />
+        )}
         <ProjectsSection
           label={teamProjectsLabel}
-          showNewProject={canCreateProject}
+          showNewProject={canCreateTeamProject}
           projectsFilter={teamProjectFilter}
           newProjectHref={teamNewProjectHref}
           emptyLabel={activeTeam ? `No projects in ${activeTeam.name} yet` : 'No team projects yet'}
@@ -601,7 +632,7 @@ function TeamsSidebarContent({ role, teams, teamRoles, activeTeamId, setActiveTe
   )
 }
 
-// ── PersonaChatItem — rename / delete dropdown for individual persona chats ───
+// -- PersonaChatItem — rename / delete dropdown for individual persona chats ---
 
 const personaChatMenuItemStyle: React.CSSProperties = {
   display:     "flex",
@@ -752,7 +783,7 @@ function PersonaChatItem({
   )
 }
 
-// ── Personas section - all personas, each collapsible with their chats ───────
+// -- Personas section - all personas, each collapsible with their chats -------
 
 function PersonasSectionAll() {
   const { push }            = useRouter()
@@ -764,7 +795,6 @@ function PersonasSectionAll() {
   const activeChatId    = personaSearchParams.get("chatId")
 
   const [personas,        setPersonas]        = useState<Persona[]>([])
-  // eslint-disable-next-line react-doctor/rendering-usetransition-loading -- guards async fetch, not a state transition
   const [isLoading,       setIsLoading]       = useState(true)
   const [expandedIds,     setExpandedIds]     = useState<Set<string>>(new Set())
   const [personaChatsMap, setPersonaChatsMap] = useState<
@@ -988,7 +1018,7 @@ function PersonasSectionAll() {
   )
 }
 
-// ── Brain Scheduled Tasks section ────────────────────────────────────────────
+// -- Brain Scheduled Tasks section --------------------------------------------
 // Receives pre-loaded tasks from LeftSidebarImpl so the list survives tab
 // switches without re-fetching on each brain-tab mount/unmount cycle.
 
@@ -1042,7 +1072,7 @@ function BrainScheduledTasksSection({ tasks, loading }: BrainScheduledTasksSecti
   );
 }
 
-// ── LeftSidebar ───────────────────────────────────────────────────────────────
+// -- LeftSidebar ---------------------------------------------------------------
 
 interface LeftSidebarProps {
   activeChatId?: string;
@@ -1061,28 +1091,38 @@ function LeftSidebarImpl({
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
   const { chats: projectChats } = useProjects();
-  const { orgId, org, orgRole, currentUserRole, teams, members, activeTeamId, setActiveTeamId } = useOrg();
+  const { orgId, org, orgRole, currentUserRole, teams, activeTeamId, setActiveTeamId } = useOrg();
 
-  const selfMember = members.find(m => m.email === user?.email)
-  const teamRoleMap = new Map<string, 'admin' | 'editor' | 'member'>(
-    (selfMember?.teamMemberships ?? []).map(tm => [
-      tm.teamId,
-      tm.isTeamOwner ? 'admin' : currentUserRole,
-    ])
-  )
-
-  // ── Global search ─────────────────────────────────────────────────────────
+  // -- Global search ---------------------------------------------------------
   const { searchOpen, openSearch } = useSearch();
 
   const isPersonaPage = pathname?.startsWith("/agents") || pathname?.startsWith("/agent");
   const isProjectPage = pathname?.startsWith("/project") ?? false;
   const isBrainPage   = pathname?.startsWith("/brain") ?? false;
   const isAdminPage   = pathname?.startsWith("/org") ?? false;
+  const isTeamSettingsPage = pathname?.startsWith("/teams/") ?? false;
   const isNewChatPage = pathname === '/chat' && !chatSearchParams.get('id');
+  const routeTeamId = isTeamSettingsPage ? pathname?.split('/')[2] : undefined
+  const routeTeam = teams.find(team => team.id === routeTeamId)
+  const requestedTeamSection = `team-${chatSearchParams.get('section') ?? 'projects'}`
+  const teamSectionId = TEAM_SETTINGS_SECTIONS.has(requestedTeamSection)
+    ? requestedTeamSection
+    : 'team-projects'
+  const teamSettingsGroups: SidebarAdminGroup[] = [{
+    id: 'team-settings',
+    label: routeTeam?.name ?? 'Team settings',
+    items: [
+      { id: 'team-projects', label: 'Projects' },
+      { id: 'team-connectors', label: 'Connectors' },
+      { id: 'team-requests', label: 'Requests' },
+      { id: 'team-activity', label: 'Activity' },
+    ],
+  }]
 
   // Map the current /org/* path to its admin-section item id so the sidebar
   // can highlight the correct row on initial mount / page refresh.
-  const adminItemId = !isAdminPage ? undefined
+  const adminItemId = isTeamSettingsPage ? teamSectionId
+    : !isAdminPage ? undefined
     : pathname?.startsWith('/org/members')    ? 'members'
     : pathname?.startsWith('/org/teams')      ? 'teams'
     : pathname?.startsWith('/org/plans')      ? 'plans-usage'
@@ -1099,6 +1139,7 @@ function LeftSidebarImpl({
   const sidebarSectionKey = isPersonaPage ? 'persona'
     : isProjectPage ? 'projects'
     : isBrainPage   ? 'brain'
+    : isTeamSettingsPage ? `team-settings-${teamSectionId}`
     : isAdminPage   ? `admin-${adminItemId}`
     : isNewChatPage ? 'new-chat'
     : 'chat-board';
@@ -1107,14 +1148,14 @@ function LeftSidebarImpl({
     isPersonaPage ? 'agents'
     : isProjectPage ? 'projects'
     : isBrainPage   ? 'brain'
-    : isAdminPage   ? 'admin'
+    : isAdminPage || isTeamSettingsPage ? 'admin'
     : isNewChatPage ? 'new-chat'
     : 'chats'
   ) as 'chats' | 'agents' | 'brain' | 'admin' | 'new-chat' | 'projects';
 
   const collapsedRef = useRef<boolean>(readCollapsed());
 
-  // ── Brain scheduled tasks — fetched once when first visiting a brain page ──
+  // -- Brain scheduled tasks — fetched once when first visiting a brain page --
   // Lifted here so the list survives brain-tab switches without re-fetching.
   const [brainTasks, setBrainTasks] = useState<ScheduledTaskListItem[]>([]);
   const [brainTasksLoading, setBrainTasksLoading] = useState(false);
@@ -1179,11 +1220,18 @@ function LeftSidebarImpl({
     ? user.firstName?.trim() || user.name?.split(" ")[0]?.trim() || ""
     : "";
 
-  const orgBadgeSublabel = orgId && orgRole
-    ? orgRole.charAt(0).toUpperCase() + orgRole.slice(1)
+  // Reflect the same team the sidebar switcher displays. For non-admins the
+  // switcher defaults to the first visible team when activeTeamId is still
+  // unset; use that same fallback so the top badge doesn't show the org role.
+  const activeBadgeTeam = activeTeamId === null && currentUserRole === 'admin'
+    ? null
+    : (teams.find(t => t.id === activeTeamId) ?? teams[0] ?? null)
+  const activeBadgeRole = activeBadgeTeam?.myRole ?? orgRole
+  const orgBadgeSublabel = orgId && activeBadgeRole
+    ? activeBadgeRole.charAt(0).toUpperCase() + activeBadgeRole.slice(1)
     : undefined
 
-  // Teams → "Teams | Admin/Editor/Member" | paid → "Pro"/"Starter"/"Power" | trial → "Free Trial" | none → "No Plan Selected"
+  // Teams ? "Teams | Admin/Editor/Member" | paid ? "Pro"/"Starter"/"Power" | trial ? "Free Trial" | none ? "No Plan Selected"
   const planLabel = orgId
     ? `Teams | ${org?.name ?? 'Teams'}`
     : user?.planType
@@ -1195,8 +1243,8 @@ function LeftSidebarImpl({
   const planWarning = !orgId && !user?.planType && !user?.isTrial
 
   // Credits shown in the account menu, by environment (kept isolated):
-  //   • Organization → the SHARED org pool remaining (org-context / getOrgPlan)
-  //   • Individual / trial → the personal balance (auth-context → lib/credits.ts)
+  //   • Organization ? the SHARED org pool remaining (org-context / getOrgPlan)
+  //   • Individual / trial ? the personal balance (auth-context ? lib/credits.ts)
   // Org and personal balances never mix; we pick the source by environment.
   // Org and personal balances are already normalized to display credits.
   const accountCredits = orgId
@@ -1233,7 +1281,12 @@ function LeftSidebarImpl({
       // adminGroups is intentionally NOT overridden — the Sidebar's default
       // groups (Organization / Models) are the canonical content.
       // We only wire behaviour: navigate where a page exists, else "coming soon".
+      adminGroups={isTeamSettingsPage ? teamSettingsGroups : undefined}
       onAdminSectionClick={(id) => {
+        if (isTeamSettingsPage && TEAM_SETTINGS_SECTIONS.has(id)) {
+          push(`${pathname}?section=${id.replace('team-', '')}`)
+          return
+        }
         const href = ADMIN_SECTION_ROUTES[id]
         if (href) { push(href); return }
         const label = ADMIN_SECTION_COMING_SOON[id] ?? id
@@ -1284,10 +1337,8 @@ function LeftSidebarImpl({
         <TeamsSidebarContent
           role={currentUserRole}
           teams={teams}
-          teamRoles={teamRoleMap}
           activeTeamId={activeTeamId}
           setActiveTeamId={setActiveTeamId}
-          onManageTeams={() => push("/org/teams")}
         />
       ) : (
         <ProjectsSection />

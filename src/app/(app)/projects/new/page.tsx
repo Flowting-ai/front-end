@@ -13,13 +13,13 @@ function NewProjectPageInner() {
   const { push, back }                    = useRouter()
   const searchParams                      = useSearchParams()
   const { projects, createProject }       = useProjects()
-  const { orgId, teams, currentUserRole } = useOrg()
+  const { orgId, teams } = useOrg()
   const [name,         setName]           = useState('')
   const [description,  setDescription]   = useState('')
   const [loading,      setLoading]        = useState(false)
   const [teamId,       setTeamId]         = useState('')
-  const canCreateTeamProject = Boolean(orgId && currentUserRole !== 'member')
   const editableTeams = useMemo(() => teams.filter(team => team.canEdit), [teams])
+  const canCreateTeamProject = Boolean(orgId && editableTeams.length > 0)
   const requestedTeamId = searchParams.get('teamId') ?? ''
 
   useEffect(() => {
@@ -111,7 +111,6 @@ function NewProjectPageInner() {
               value={name}
               onChange={setName}
               fluid
-              // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into name field on page open
               autoFocus
             />
           </div>
