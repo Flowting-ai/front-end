@@ -18,7 +18,7 @@ import type { PersonaChatEventDetail } from "@/hooks/use-sidebar-events";
 import { ChatHistoryItem } from "./ChatHistoryItem";
 import { openDeleteChatDialog } from "./AppDialogs";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
-import type { ProjectChat } from "@/context/projects-context";
+import type { Project, ProjectChat } from "@/context/projects-context";
 import { useSearch } from "@/context/search-context";
 import { useOrg } from "@/context/org-context";
 import { TeamSwitcher } from "@/components/TeamSwitcher";
@@ -385,19 +385,40 @@ const CHAT_LIMIT    = 10
 interface ProjectsSectionProps {
   label?: string
   showNewProject?: boolean
+  projectsFilter?: (project: Project) => boolean
+  newProjectHref?: string
+  emptyLabel?: string
 }
 
-function ProjectsSection({ label = "Projects", showNewProject = true }: ProjectsSectionProps) {
+function ProjectsSection({
+  label = "Projects",
+  showNewProject = true,
+  projectsFilter,
+  newProjectHref = "/projects/new",
+  emptyLabel = "No projects yet",
+}: ProjectsSectionProps) {
   const { push }    = useRouter()
   const pathname    = usePathname()
   const chatHistory = useChatHistoryContext()
-  const { projects, getChats, removeChat, renameChat } = useProjects()
+  const { projects: allProjects, getChats, removeChat, renameChat, loadProjectChats } = useProjects()
 
   const [shown,        setShown]        = useState(true)
   const [overflow,     setOverflow]     = useState<"visible" | "hidden">("visible")
+  const projects = useMemo(
+    () => projectsFilter ? allProjects.filter(projectsFilter) : allProjects,
+    [allProjects, projectsFilter],
+  )
   const [expandedIds,  setExpandedIds]  = useState<Set<string>>(() => new Set(projects.map(p => p.id)))
 
-  const visibleProjects = projects.slice(0, PROJECT_LIMIT)
+  const visibleProjects = useMemo(() => projects.slice(0, PROJECT_LIMIT), [projects])
+
+  React.useEffect(() => {
+    visibleProjects.forEach(project => {
+      if (project.chatCount > 0 && getChats(project.id).length === 0) {
+        void loadProjectChats(project.id)
+      }
+    })
+  }, [visibleProjects, getChats, loadProjectChats])
 
   // Auto-expand the project whose route is active (only expands, never collapses).
   React.useEffect(() => {
@@ -444,7 +465,7 @@ function ProjectsSection({ label = "Projects", showNewProject = true }: Projects
               variant="default"
               label="New project"
               icon={<FolderAddIcon size={20} />}
-              onClick={() => push("/projects/new")}
+              onClick={() => push(newProjectHref)}
             />
           )}
 
@@ -455,7 +476,7 @@ function ProjectsSection({ label = "Projects", showNewProject = true }: Projects
               fontSize:   "var(--font-size-caption)",
               color:      "var(--neutral-400)",
             }}>
-              No projects yet
+              {emptyLabel}
             </div>
           )}
 
@@ -540,19 +561,33 @@ interface TeamsSidebarContentProps {
 }
 
 function TeamsSidebarContent({ role, teams, teamRoles, activeTeamId, setActiveTeamId, onManageTeams }: TeamsSidebarContentProps) {
-  const { push } = useRouter()
+  const { projects } = useProjects()
   const canCreateProject = role !== 'member'
   const isAdmin = role === 'admin'
+  const activeTeam = teams.find(team => team.id === activeTeamId) ?? null
+  const teamProjectsLabel = activeTeam ? `${activeTeam.name} projects` : 'Workspace projects'
+  const teamNewProjectHref = activeTeamId ? `/projects/new?teamId=${activeTeamId}` : '/projects/new'
+  const personalProjectFilter = useCallback((project: Project) => project.teamId === null, [])
+  const teamProjectFilter = useCallback(
+    (project: Project) => project.teamId !== null && (activeTeamId ? project.teamId === activeTeamId : true),
+    [activeTeamId],
+  )
 
   return (
     <>
-      <ProjectsSection label="Personal projects" showNewProject={canCreateProject} />
+      <ProjectsSection
+        label="Personal projects"
+        showNewProject={canCreateProject}
+        projectsFilter={personalProjectFilter}
+        emptyLabel="No personal projects yet"
+      />
       <SidebarDivider />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4 }}>
         <TeamSwitcher
           teams={teams.map(t => ({
             id:   t.id,
             name: t.name,
+            projectCount: projects.filter(project => project.teamId === t.id).length,
             role: role === 'admin' ? 'admin' : (teamRoles?.get(t.id) ?? role),
           }))}
           activeTeamId={activeTeamId}
@@ -561,15 +596,13 @@ function TeamsSidebarContent({ role, teams, teamRoles, activeTeamId, setActiveTe
           onManageTeams={onManageTeams}
           style={{ width: '100%' }}
         />
-        {canCreateProject && (
-          <SidebarMenuItem
-            fluid
-            variant="default"
-            label="New project"
-            icon={<FolderAddIcon size={20} />}
-            onClick={() => push("/projects/new")}
-          />
-        )}
+        <ProjectsSection
+          label={teamProjectsLabel}
+          showNewProject={canCreateProject}
+          projectsFilter={teamProjectFilter}
+          newProjectHref={teamNewProjectHref}
+          emptyLabel={activeTeam ? `No projects in ${activeTeam.name} yet` : 'No team projects yet'}
+        />
       </div>
     </>
   )

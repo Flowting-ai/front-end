@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
 import { InputField } from '@/components/InputField'
@@ -11,6 +11,7 @@ import { useOrg } from '@/context/org-context'
 
 export default function NewProjectPage() {
   const { push, back }                    = useRouter()
+  const searchParams                      = useSearchParams()
   const { projects, createProject }       = useProjects()
   const { orgId, teams, currentUserRole } = useOrg()
   const [name,         setName]           = useState('')
@@ -18,6 +19,22 @@ export default function NewProjectPage() {
   const [loading,      setLoading]        = useState(false)
   const [teamId,       setTeamId]         = useState('')
   const canCreateTeamProject = Boolean(orgId && currentUserRole !== 'member')
+  const editableTeams = useMemo(() => teams.filter(team => team.canEdit), [teams])
+  const requestedTeamId = searchParams.get('teamId') ?? ''
+
+  useEffect(() => {
+    if (!canCreateTeamProject) {
+      setTeamId('')
+      return
+    }
+    if (requestedTeamId && editableTeams.some(team => team.id === requestedTeamId)) {
+      setTeamId(requestedTeamId)
+      return
+    }
+    if (requestedTeamId && !editableTeams.some(team => team.id === requestedTeamId)) {
+      setTeamId('')
+    }
+  }, [canCreateTeamProject, editableTeams, requestedTeamId])
 
   async function handleCreate() {
     if (!name.trim()) return
@@ -111,7 +128,7 @@ export default function NewProjectPage() {
                 style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)', border: '1px solid var(--neutral-300)', borderRadius: 10, padding: '9px 12px', backgroundColor: 'white', width: '100%' }}
               >
                 <option value="">Private project</option>
-                {teams.filter(team => team.canEdit).map(team => (
+                {editableTeams.map(team => (
                   <option key={team.id} value={team.id}>Team: {team.name}</option>
                 ))}
               </select>

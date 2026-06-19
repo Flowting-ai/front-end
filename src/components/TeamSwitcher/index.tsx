@@ -123,7 +123,10 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
     const triggerRef            = useRef<HTMLButtonElement>(null)
     const panelRef              = useRef<HTMLDivElement>(null)
 
-    const activeTeam = teams.find(t => t.id === activeTeamId) ?? teams[0]
+    const activeTeam = activeTeamId === null && isAdmin
+      ? null
+      : (teams.find(t => t.id === activeTeamId) ?? teams[0])
+    const activeLabel = activeTeam?.name ?? 'All workspace'
 
     // Close on outside click
     useEffect(() => {
@@ -163,7 +166,7 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
           onClick={() => setOpen(o => !o)}
           aria-haspopup="menu"
           aria-expanded={open}
-          aria-label={`Switch team — currently ${activeTeam?.name ?? 'no team selected'}`}
+          aria-label={`Switch team — currently ${activeLabel}`}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           style={{
@@ -195,7 +198,7 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
                 whiteSpace:   'nowrap',
               }}
             >
-              {activeTeam?.name ?? 'Teams'}
+              {activeLabel}
             </span>
           </span>
 
