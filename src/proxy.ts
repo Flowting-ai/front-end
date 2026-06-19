@@ -97,6 +97,13 @@ async function fetchOnboardingState(): Promise<OnboardingStateResult> {
 export default async function proxy(request: NextRequest) {
   const { pathname } = new URL(request.url);
 
+  // The organization security page was removed. Redirect before Auth0/session
+  // handling so stale client links and logged-out bookmarks cannot preserve
+  // /org/security as a post-login return path.
+  if (pathname === "/org/security" || pathname.startsWith("/org/security/")) {
+    return NextResponse.redirect(new URL("/org/general", request.url));
+  }
+
   // Auth0 handles its own routes - never block /auth/*
   if (pathname.startsWith("/auth/")) {
     // /auth/access-token has an explicit route handler override
