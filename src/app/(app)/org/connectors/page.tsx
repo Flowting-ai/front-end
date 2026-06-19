@@ -161,6 +161,207 @@ function PolicySelect({
   )
 }
 
+// Filter the actions table by current permission (plus an "All" option).
+function PolicyFilterSelect({
+  value,
+  onChange,
+}: {
+  value:    'all' | ConnectorTool['policy']
+  onChange: (value: 'all' | ConnectorTool['policy']) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const label = value === 'all' ? 'All permissions' : POLICY_LABELS[value]
+  return (
+    <DropdownFloat
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottom-end"
+      offset={4}
+      trigger={
+        <button
+          type="button"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+            height: 34, padding: '0 10px', borderRadius: 10, border: 'none', backgroundColor: 'white',
+            boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
+            cursor: 'pointer', outline: 'none', flexShrink: 0,
+          }}
+        >
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)' }}>{label}</span>
+          <ArrowDownOneIcon size={12} color="var(--neutral-400)" />
+        </button>
+      }
+    >
+      <Dropdown style={{ width: 200 }}>
+        <DropdownMenuItem
+          fluid
+          label="All permissions"
+          selected={value === 'all'}
+          icon={value === 'all' ? <TickTwoIcon size={14} /> : undefined}
+          onClick={() => { onChange('all'); setOpen(false) }}
+        />
+        {POLICY_VALUES.map(policy => (
+          <DropdownMenuItem
+            key={policy}
+            fluid
+            label={POLICY_LABELS[policy]}
+            selected={policy === value}
+            icon={policy === value ? <TickTwoIcon size={14} /> : undefined}
+            onClick={() => { onChange(policy); setOpen(false) }}
+          />
+        ))}
+      </Dropdown>
+    </DropdownFloat>
+  )
+}
+
+// Bulk-apply one permission to every action currently shown (the "common
+// permission for everything" control); per-action overrides still work after.
+function BulkPolicyButton({
+  count,
+  disabled,
+  onPick,
+}: {
+  count:     number
+  disabled?: boolean
+  onPick:    (policy: ConnectorTool['policy']) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <DropdownFloat
+      open={open}
+      onOpenChange={next => { if (!disabled) setOpen(next) }}
+      placement="bottom-end"
+      offset={4}
+      trigger={
+        <Button variant="secondary" size="sm" rightIcon={<ArrowDownOneIcon size={14} />} disabled={disabled}>
+          {`Set ${count} to…`}
+        </Button>
+      }
+    >
+      <Dropdown style={{ width: 220 }}>
+        {POLICY_VALUES.map(policy => (
+          <DropdownMenuItem
+            key={policy}
+            fluid
+            label={POLICY_LABELS[policy]}
+            subLabel={POLICY_HELP[policy]}
+            onClick={() => { onPick(policy); setOpen(false) }}
+          />
+        ))}
+      </Dropdown>
+    </DropdownFloat>
+  )
+}
+
+// One team's permissions as a filterable table: search by action, filter by
+// current permission, bulk-set the shown rows, or override a single action.
+function TeamPermissionsTable({
+  team,
+  connection,
+  tools,
+  connectorSlug,
+  savingPermission,
+  savingBulk,
+  onUpdateTool,
+  onBulkSet,
+}: {
+  team:             Team
+  connection:       TeamConnectionEntry | undefined
+  tools:            ConnectorTool[]
+  connectorSlug:    string
+  savingPermission: string | null
+  savingBulk:       boolean
+  onUpdateTool:     (tool: ConnectorTool, policy: ConnectorTool['policy']) => void
+  onBulkSet:        (slugs: string[], policy: ConnectorTool['policy']) => void
+}) {
+  const [search, setSearch] = useState('')
+  const [policyFilter, setPolicyFilter] = useState<'all' | ConnectorTool['policy']>('all')
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return tools.filter(tool => {
+      if (policyFilter !== 'all' && tool.policy !== policyFilter) return false
+      if (q && !humanizeAction(tool.slug, connectorSlug).toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [tools, search, policyFilter, connectorSlug])
+
+  return (
+    <SettingsTable columns={PERMISSION_COLUMNS} columnGap={0}>
+      <SettingsTableToolbar title={team.name} style={{ flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', flex: '1 0 0', minWidth: 0 }}>
+          {connection ? statusBadge(connection.status) : <Badge label="Unavailable" color="Neutral" />}
+          <div style={{ width: 180, maxWidth: '100%' }}>
+            <InputField
+              label="Search actions"
+              showLabel={false}
+              showSubtitle={false}
+              size="small"
+              fluid
+              leftIcon={<SearchOneIcon size={16} />}
+              placeholder="Search actions"
+              value={search}
+              onChange={setSearch}
+            />
+          </div>
+          <PolicyFilterSelect value={policyFilter} onChange={setPolicyFilter} />
+          <BulkPolicyButton
+            count={filtered.length}
+            disabled={!connection || savingBulk || filtered.length === 0}
+            onPick={policy => onBulkSet(filtered.map(tool => tool.slug), policy)}
+          />
+        </div>
+      </SettingsTableToolbar>
+
+      <div style={{ overflowX: 'auto' }}>
+        <div role="table" aria-label={`${team.name} permissions`} style={{ minWidth: 420 }}>
+          <SettingsTableHeader>
+            <SettingsTableHeaderCell>Action</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="end">Permission</SettingsTableHeaderCell>
+          </SettingsTableHeader>
+          {tools.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+                This connector has no configurable tools yet.
+              </p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+                No actions match your filters.
+              </p>
+            </div>
+          ) : filtered.map(tool => {
+            const saveKey = `${team.id}:${tool.slug}`
+            return (
+              <SettingsTableRow key={tool.slug} minHeight={56}>
+                <SettingsTableCell>
+                  <BodyText size={14} weight={500} color="var(--neutral-900)" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {humanizeAction(tool.slug, connectorSlug)}
+                  </BodyText>
+                </SettingsTableCell>
+                <SettingsTableCell align="end">
+                  <PolicySelect
+                    value={tool.policy}
+                    disabled={!connection || savingPermission === saveKey || savingBulk}
+                    onChange={policy => onUpdateTool(tool, policy)}
+                  />
+                </SettingsTableCell>
+              </SettingsTableRow>
+            )
+          })}
+          <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)' }}>
+            <BodyText size={12} color="var(--neutral-500)">
+              {filtered.length} of {tools.length} action{tools.length === 1 ? '' : 's'}
+            </BodyText>
+          </SettingsTableFooter>
+        </div>
+      </div>
+    </SettingsTable>
+  )
+}
+
 const ADMIN_TABS: Array<{ id: MainTab; label: string }> = [
   { id: 'catalog', label: 'Catalog' },
   { id: 'permissions', label: 'Permissions' },
@@ -1185,11 +1386,17 @@ function AccountDetailView({
   const [teamConnections, setTeamConnections] = useState<Record<string, TeamConnectionEntry>>({})
   const [permissionsLoading, setPermissionsLoading] = useState(false)
   const [savingPermission, setSavingPermission] = useState<string | null>(null)
+  const [savingBulk, setSavingBulk] = useState(false)
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
 
   const attachedTeams = useMemo(
     () => teams.filter(team => teamIds.includes(team.id)),
     [teams, teamIds],
   )
+
+  const selectedTeam = attachedTeams.find(team => team.id === selectedTeamId) ?? attachedTeams[0] ?? null
+  const selectedConnection = selectedTeam ? teamConnections[selectedTeam.id] : undefined
+  const selectedTools = selectedConnection?.tools.length ? selectedConnection.tools : (connector.tools ?? [])
 
   const loadTeamPermissions = useCallback(async () => {
     if (teamIds.length === 0) {
@@ -1315,6 +1522,29 @@ function AccountDetailView({
     }
   }
 
+  async function bulkSetPermissions(team: Team, slugs: string[], policy: ConnectorTool['policy']) {
+    const connection = teamConnections[team.id]
+    if (!connection) {
+      toast.error('Attach this shared account to the team before editing permissions')
+      return
+    }
+    const target = new Set(slugs)
+    const sourceTools = connection.tools.length > 0 ? connection.tools : (connector.tools ?? [])
+    const nextTools = sourceTools.map(item => target.has(item.slug) ? { ...item, policy } : item)
+    setSavingBulk(true)
+    setTeamConnections(prev => ({ ...prev, [team.id]: { ...connection, tools: nextTools } }))
+    try {
+      const updated = await updateTeamConnectionPermissions(orgId, team.id, connector.slug, nextTools)
+      setTeamConnections(prev => ({ ...prev, [team.id]: updated }))
+      toast.success(`Set ${slugs.length} action${slugs.length === 1 ? '' : 's'} to ${POLICY_LABELS[policy]} for ${team.name}`)
+    } catch (error) {
+      await loadTeamPermissions()
+      toast.error(error instanceof Error ? error.message : 'Failed to update permissions')
+    } finally {
+      setSavingBulk(false)
+    }
+  }
+
   async function handleDelete() {
     if (confirmText !== account.accountLabel) return
     setSaving('delete')
@@ -1422,53 +1652,30 @@ function AccountDetailView({
             <PageCard><EmptyState title="Attach to a team first" subtitle="Permissions appear after this account is shared with a team." /></PageCard>
           ) : permissionsLoading ? (
             <PageCard><EmptyState title="Loading permissions..." /></PageCard>
-          ) : (
-            attachedTeams.map(team => {
-              const connection = teamConnections[team.id]
-              const tools = connection?.tools.length ? connection.tools : (connector.tools ?? [])
-
-              return (
-                <SettingsTable key={team.id} columns={PERMISSION_COLUMNS} columnGap={0}>
-                  <SettingsTableToolbar title={team.name}>
-                    {connection ? statusBadge(connection.status) : <Badge label="Unavailable" color="Neutral" />}
-                  </SettingsTableToolbar>
-                  <div style={{ overflowX: 'auto' }}>
-                    <div role="table" aria-label={`${team.name} permissions`} style={{ minWidth: 420 }}>
-                      <SettingsTableHeader>
-                        <SettingsTableHeaderCell>Action</SettingsTableHeaderCell>
-                        <SettingsTableHeaderCell align="end">Permission</SettingsTableHeaderCell>
-                      </SettingsTableHeader>
-                      {tools.length === 0 ? (
-                        <div style={{ padding: '24px', textAlign: 'center' }}>
-                          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                            This connector has no configurable tools yet.
-                          </p>
-                        </div>
-                      ) : tools.map(tool => {
-                        const saveKey = `${team.id}:${tool.slug}`
-                        return (
-                          <SettingsTableRow key={tool.slug} minHeight={56}>
-                            <SettingsTableCell>
-                              <BodyText size={14} weight={500} color="var(--neutral-900)" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {humanizeAction(tool.slug, connector.slug)}
-                              </BodyText>
-                            </SettingsTableCell>
-                            <SettingsTableCell align="end">
-                              <PolicySelect
-                                value={tool.policy}
-                                disabled={!connection || savingPermission === saveKey}
-                                onChange={policy => void updateTeamPermission(team, tool, policy)}
-                              />
-                            </SettingsTableCell>
-                          </SettingsTableRow>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </SettingsTable>
-              )
-            })
-          )}
+          ) : selectedTeam ? (
+            <>
+              {attachedTeams.length > 1 && (
+                <Tabs value={selectedTeam.id} onValueChange={setSelectedTeamId}>
+                  <Tabs.List>
+                    {attachedTeams.map(team => (
+                      <Tabs.Trigger key={team.id} value={team.id}>{team.name}</Tabs.Trigger>
+                    ))}
+                  </Tabs.List>
+                </Tabs>
+              )}
+              <TeamPermissionsTable
+                key={selectedTeam.id}
+                team={selectedTeam}
+                connection={selectedConnection}
+                tools={selectedTools}
+                connectorSlug={connector.slug}
+                savingPermission={savingPermission}
+                savingBulk={savingBulk}
+                onUpdateTool={(tool, policy) => void updateTeamPermission(selectedTeam, tool, policy)}
+                onBulkSet={(slugs, policy) => void bulkSetPermissions(selectedTeam, slugs, policy)}
+              />
+            </>
+          ) : null}
         </div>
 
         <PageCard style={{ padding: 16, borderColor: 'var(--red-300, #fca5a5)' }}>
