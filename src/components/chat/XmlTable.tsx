@@ -21,24 +21,42 @@ interface ParsedTable {
   rows: string[][]
 }
 
-function parseTableXml(xml: string): ParsedTable | null {
-  try {
-    const doc = new DOMParser().parseFromString(xml, "application/xml")
-    if (doc.querySelector("parsererror")) return null
-    const tableEl = doc.querySelector("table")
-    if (!tableEl) return null
-    const headers: string[] = []
-    tableEl.querySelectorAll("thead th").forEach((th) => headers.push(th.textContent ?? ""))
-    const rows: string[][] = []
-    tableEl.querySelectorAll("tbody tr").forEach((tr) => {
+function tableFromDoc(doc: Document): ParsedTable | null {
+  const tableEl = doc.querySelector("table")
+  if (!tableEl) return null
+  const headers: string[] = []
+  tableEl.querySelectorAll("thead th").forEach((th) => headers.push(th.textContent ?? ""))
+  const rows: string[][] = []
+  tableEl.querySelectorAll("tbody tr").forEach((tr) => {
+    const cells: string[] = []
+    tr.querySelectorAll("td").forEach((td) => cells.push(td.textContent ?? ""))
+    if (cells.length > 0) rows.push(cells)
+  })
+  if (headers.length === 0) {
+    tableEl.querySelectorAll("tr:first-child th").forEach((th) => headers.push(th.textContent ?? ""))
+  }
+  if (rows.length === 0) {
+    tableEl.querySelectorAll("tr").forEach((tr, ri) => {
+      if (ri === 0 && headers.length > 0) return
       const cells: string[] = []
       tr.querySelectorAll("td").forEach((td) => cells.push(td.textContent ?? ""))
       if (cells.length > 0) rows.push(cells)
     })
-    if (headers.length === 0) {
-      tableEl.querySelectorAll("tr:first-child th").forEach((th) => headers.push(th.textContent ?? ""))
-    }
-    return { headers, rows }
+  }
+  return { headers, rows }
+}
+
+function parseTableXml(xml: string): ParsedTable | null {
+  try {
+    const doc = new DOMParser().parseFromString(xml, "application/xml")
+    if (!doc.querySelector("parsererror")) return tableFromDoc(doc)
+  } catch {
+    // Fall through to HTML parsing below.
+  }
+
+  try {
+    const doc = new DOMParser().parseFromString(xml, "text/html")
+    return tableFromDoc(doc)
   } catch {
     return null
   }
