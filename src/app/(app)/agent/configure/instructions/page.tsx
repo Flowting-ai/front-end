@@ -497,7 +497,6 @@ function dataUrlToFile(dataUrl: string, filename: string): File {
 
 // ── Main page content ─────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function PersonaConfigureInstructionsContent() {
   const { push, back, replace } = useRouter()
   const searchParams = useSearchParams()

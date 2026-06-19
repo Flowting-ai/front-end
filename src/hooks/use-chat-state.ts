@@ -303,7 +303,6 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
   const hasPreviousChatRef = useRef(false)
 
   // Load messages whenever chatId changes
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!chatId) {
       if (hasPreviousChatRef.current) {

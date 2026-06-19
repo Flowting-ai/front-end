@@ -221,7 +221,6 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
               strokeDasharray={`${arc.dashLen} ${arc.gapLen}`}
               strokeDashoffset={i < revealedCount ? 0 : arc.dashLen}
               transform={`rotate(${arc.startDeg} ${CX} ${CY})`}
-              // eslint-disable-next-line react-doctor/no-layout-transition-inline -- SVG stroke-width animation requires inline style
               style={{ transition: "stroke-dashoffset 0.52s cubic-bezier(0.16,1,0.3,1), stroke-width 120ms", strokeLinecap: "butt", cursor: "pointer" }}
               onMouseEnter={() => setHoveredIdx(i)}
               onMouseLeave={() => setHoveredIdx(null)}
@@ -585,7 +584,6 @@ export function XmlChart({ xml }: XmlChartProps) {
   const state = useMemo(() => parseChartXml(xml) ?? "error", [xml])
   const [mounted, setMounted] = useState(false)
 
-  // eslint-disable-next-line react-doctor/rendering-hydration-no-flicker -- intentional SSR skeleton; chart animations need client-only render
   useLayoutEffect(() => {
     setMounted(true)
   }, [])

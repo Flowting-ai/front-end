@@ -132,7 +132,6 @@ export default function OnboardingHelloPage() {
   }, [user]);
 
   // Auth state is client-side, so redirect unauthenticated users from the client.
-  // eslint-disable-next-line react-doctor/nextjs-no-client-side-redirect
   useEffect(() => {
     if (!isHydrated) return;
     if (!isAuthenticated) { window.location.href = "/auth/login"; return; }

@@ -137,11 +137,11 @@ export async function pollOrgConnectorAccountUntilConnected(
   const deadline = Date.now() + timeoutMs
   let intervalMs  = initialIntervalMs
   while (Date.now() < deadline) {
-    // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- polling loop
+    // eslint-disable-next-line no-await-in-loop -- polling loop
     const accounts = await listOrgConnectorAccounts(orgId, slug)
     const target = accounts.find(a => a.id === targetId)
     if (target?.connected) return target
-    // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- intentional delay
+    // eslint-disable-next-line no-await-in-loop -- intentional delay
     await new Promise<void>((resolve) => setTimeout(resolve, intervalMs))
     intervalMs = Math.min(intervalMs * 2, maxIntervalMs)
   }

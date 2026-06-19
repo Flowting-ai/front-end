@@ -203,7 +203,7 @@ export function CodeBlock({ language, value, elementKey, highlights }: CodeBlock
         {highlightedHtml != null ? (
           <code
             className={language ? `language-${language} hljs` : "hljs"}
-            // eslint-disable-next-line react/no-danger, react-doctor/no-danger -- hljs + mark output is library/app-generated, not user content
+            // eslint-disable-next-line react/no-danger -- hljs + mark output is library/app-generated, not user content
             dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             style={{ background: "transparent", padding: 0 }}
           />

@@ -143,7 +143,6 @@ export default function RepublishModal({
   const versionLabel = React.useMemo(buildVersionLabel, [])
 
   return (
-    // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop closes modal on click; keyboard via Escape in useEffect
     <div
       role="dialog"
       aria-modal="true"
@@ -314,7 +313,6 @@ export default function RepublishModal({
           <Button variant="outline" size="sm" onClick={onClose}>
             View in workspace
           </Button>
-          {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Done" confirms republish completion; context is clear from modal heading */}
           <Button variant="default" size="sm" onClick={onDone}>
             Done
           </Button>

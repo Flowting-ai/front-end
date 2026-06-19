@@ -116,7 +116,6 @@ export function LoopHistoryCard({
   defaultOpen = false,
 }: LoopHistoryCardProps) {
   const items = groupConsecutive(steps)
-  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [open,          setOpen]          = useState(defaultOpen)
   const [headerHovered, setHeaderHovered] = useState(false)
 

@@ -720,7 +720,6 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               color: "#6a625d",
               backgroundColor: "transparent",
               border: "none",
-              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline: "none",
               padding: "0 2px",
             }}

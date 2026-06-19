@@ -235,7 +235,6 @@ export default function ChatPage() {
   );
 }
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function ChatPageInner() {
   const searchParams = useSearchParams();
   const { replace } = useRouter();
@@ -335,7 +334,6 @@ function ChatPageInner() {
   }, [pins, newChatPinQuery]);
 
   // Reset highlighted index on filtered list change
-  // eslint-disable-next-line react-doctor/no-derived-state-effect -- index reset on filter change; not a component-level key-prop candidate
   useEffect(() => {
     setNewChatHighlightedPinIndex(0);
   }, [newChatFilteredPins]);
@@ -505,7 +503,7 @@ function ChatPageInner() {
         trigger={
           <Chip
             label={folder.name}
-            icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
+            icon={<FolderOneIcon size={20} color="var(--chip-text)" variant="static" />}
             onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
             onExpand={() => setOpenFolderChipId(isOpen ? null : folder.id)}
           />
@@ -673,7 +671,6 @@ function ChatPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
 
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!personaChipOpen) return
     setLoadingChipPersonas(true)
@@ -732,7 +729,6 @@ function ChatPageInner() {
   // Sync URL param into local state (e.g. sidebar navigation).
   // useLayoutEffect so the state update commits before the browser paints —
   // prevents a stale render of the old ChatInterface when navigating to new chat.
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useLayoutEffect(() => {
     // Read directly from the live URL to avoid stale/transient undefined values
     // that useSearchParams() can return during Suspense transitions or hydration.
@@ -1212,7 +1208,6 @@ function ChatPageInner() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- modal backdrop
             onClick={() => setChatShareOpen(false)}
             style={{
               position:        "fixed",

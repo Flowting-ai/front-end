@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react'
-// eslint-disable-next-line react-doctor/prefer-dynamic-import -- chart primitives require synchronous import; component is already client-only
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'

@@ -142,7 +142,7 @@ export function PinboardHeader({ fluid = false, onClose, onSearch, style, ref, .
                   value={searchValue}
                   onChange={handleSearchChange}
                   fluid
-                  // eslint-disable-next-line jsx-a11y/no-autofocus, react-doctor/no-autofocus -- focus moves into search on user-triggered open
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- focus moves into search on user-triggered open
                   autoFocus
                   aria-label="Search pins"
                 />

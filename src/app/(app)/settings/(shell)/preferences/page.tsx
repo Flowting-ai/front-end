@@ -39,7 +39,7 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
           flexShrink:      0,
         }}>
           {[true, false, false, false].map((isActive, i) => (
-            // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- static fixed-length skeleton array, index is stable
+            // eslint-disable-next-line react/no-array-index-as-key -- static fixed-length skeleton array, index is stable
             <div key={i} style={{
               height:          5,
               width:           24,

@@ -368,10 +368,8 @@ export function Pin({
       onMouseEnter: externalEnter,
       onMouseLeave: externalLeave,
       ...props
-    // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
     }: PinProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [isHovered,  setIsHovered]  = useState(false)
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [isExpanded, setIsExpanded] = useState(defaultExpanded)
     const [isDragging, setIsDragging] = useState(false)
     // When the expanded content exceeds MAX_CONTENT_HEIGHT, a Show-more
@@ -383,7 +381,6 @@ export function Pin({
     // Selectable checkbox - controlled / uncontrolled. Internal state only
     // applies in selectable mode; outside it the checkbox is unmounted.
     const isSelectedControlled = selected !== undefined
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalSelected, setInternalSelected] = useState(defaultSelected)
     const isSelected = isSelectedControlled ? !!selected : internalSelected
     const handleSelectedChange = (next: boolean) => {
@@ -1139,7 +1136,6 @@ export function Pin({
                   >
                     <ChipInput
                       ref={tagInputRef}
-                      // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into tag input on user-triggered open
                       autoFocus
                       aria-label="Add tag"
                       placeholder="Add tag…"

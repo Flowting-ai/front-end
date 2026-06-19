@@ -324,7 +324,6 @@ function TeamWelcomeContent() {
 
           {/* Primary action */}
           <div style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
-            {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Open my workspace" is the explicit owner CTA into /chat */}
             <Button size="sm" onClick={() => { toast.success("Welcome to your workspace!"); router.push("/chat") }}>
               Open my workspace
             </Button>

@@ -158,7 +158,6 @@ export function OnboardingFooter({
       )}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         {leftSlot}
-        {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- onboarding wizard: "Continue" advances the flow; step context makes the action clear */}
         <Button
           size="sm"
           onClick={onContinue}

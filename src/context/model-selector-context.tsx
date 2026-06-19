@@ -87,7 +87,6 @@ export function ModelSelectorProvider({
   children,
 }: {
   children: React.ReactNode;
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }) {
   const { user } = useAuth();
   const {

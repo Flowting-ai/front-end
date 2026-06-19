@@ -176,7 +176,7 @@ export function PinSkeleton({
               }}
             >
               {Array.from({ length: bodyLines }).map((_, i) => (
-                // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- skeleton placeholder widths are positionally stable
+                // eslint-disable-next-line react/no-array-index-as-key -- skeleton placeholder widths are positionally stable
                 <div key={i}
                   className="kaya-skeleton"
                   style={{
@@ -212,7 +212,7 @@ export function PinSkeleton({
                 }}
               />
               {labelWidths.map((w, i) => (
-                // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- skeleton placeholder widths are positionally stable
+                // eslint-disable-next-line react/no-array-index-as-key -- skeleton placeholder widths are positionally stable
                 <div key={i}
                   className="kaya-skeleton"
                   style={{

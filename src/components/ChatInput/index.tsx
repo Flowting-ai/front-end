@@ -459,7 +459,6 @@ function AudioWaveDisplay({ analyser, color = 'currentColor', size = 20 }: {
         const next = heightsRef.current.map((h, i) => h + (BAR_DEFAULT[i] - h) * LERP)
         heightsRef.current = next
         updatePaths(next)
-        // eslint-disable-next-line react-doctor/js-length-check-first -- length check is the leading condition via ||
         if (next.length !== BAR_DEFAULT.length || !next.every((h, i) => Math.abs(h - BAR_DEFAULT[i]) < 0.1))
           rafRef.current = requestAnimationFrame(decay)
       }
@@ -690,7 +689,6 @@ export function ChatInput({
       onMouseEnter: externalMouseEnter,
       onMouseLeave: externalMouseLeave,
       ...props
-    // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
     }: ChatInputProps & { ref?: React.Ref<HTMLDivElement> }) {
     const isControlled = controlledValue !== undefined
     const [internalValue, setInternalValue] = useState('')
@@ -704,11 +702,8 @@ export function ChatInput({
     const isWebSearchControlled       = webSearchProp         !== undefined
     const isSelectedStyleControlled   = selectedStyleIdProp   !== undefined
     const isSelectedPersonaControlled = selectedPersonaIdProp !== undefined
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalWebSearch,       setInternalWebSearch]       = useState(defaultWebSearch)
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalSelectedStyle,   setInternalSelectedStyle]   = useState<string | null>(defaultSelectedStyleId)
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalSelectedPersona, setInternalSelectedPersona] = useState<string | null>(defaultSelectedPersonaId)
     const webSearch         = isWebSearchControlled       ? !!webSearchProp         : internalWebSearch
     const selectedStyleId   = isSelectedStyleControlled   ? selectedStyleIdProp   ?? null : internalSelectedStyle
@@ -852,7 +847,6 @@ export function ChatInput({
       const el = textareaRef.current
       if (!el) return
       el.style.height = 'auto'
-      // eslint-disable-next-line react-doctor/js-batch-dom-css -- forced reflow: must read scrollHeight after resetting to auto
       el.style.height = `${el.scrollHeight}px`
     }, [value])
 
@@ -1075,7 +1069,6 @@ export function ChatInput({
               maxHeight:           '396px', // 18 lines × 22px line-height
               background:          'transparent',
               border:              'none',
-              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline:             'none',
               resize:              'none',
               overflowY:           'auto',
@@ -1126,7 +1119,6 @@ export function ChatInput({
                   />
                 }
               >
-                {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- click-only wrapper; keyboard users select items directly */}
                 <div onClick={() => setAddMenuOpen(false)}>{addMenu}</div>
               </Dropdown.Float>
             ) : (

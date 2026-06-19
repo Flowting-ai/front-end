@@ -67,7 +67,6 @@ export function PresetModelSelector(
     ref,
     ...props
   }: PresetModelSelectorProps & { ref?: React.Ref<HTMLDivElement> },
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 ) {
     const [search,    setSearch]    = useState('')
     const [tier,      setTier]      = useState('all')

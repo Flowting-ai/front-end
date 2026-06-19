@@ -79,14 +79,12 @@ export interface MessageBubbleProps extends React.HTMLAttributes<HTMLDivElement>
 export function MessageBubble({
     ref,
     role, content, timestamp, onRetry, onEditSave, onCopy, maxWidth, hideActions, className, ...props
-  // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
   }: MessageBubbleProps & { ref?: React.Ref<HTMLDivElement> }) {
     const shouldReduceMotion = useReducedMotion() ?? false
 
     const [hovered,     setHovered]     = useState(false)
     const [copied,      setCopied]      = useState(false)
     const [editing,     setEditing]     = useState(false)
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [editDraft,   setEditDraft]   = useState(content)
     // Drives the CSS width during animated transitions. Normally 'fit-content';
     // briefly set to a measured px value so CSS can interpolate.
@@ -294,7 +292,6 @@ export function MessageBubble({
                   gridArea:   '1/1',
                   padding:    0,
                   border:     'none',
-                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                   outline:    'none',
                   resize:     'none',
                   overflow:   'hidden',

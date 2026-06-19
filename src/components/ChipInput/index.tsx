@@ -194,7 +194,6 @@ export function ChipInput(
             width:      '100%',
             minWidth:   0,
             border:     'none',
-            // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
             outline:    'none',
             background: 'transparent',
             padding:    0,

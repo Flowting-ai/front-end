@@ -41,7 +41,6 @@ export function BrainResultHeader({
   children,
   defaultCollapsed = true,
 }: BrainResultHeaderProps) {
-  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const hasChildren = children != null
 

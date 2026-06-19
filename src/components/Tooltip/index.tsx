@@ -56,7 +56,6 @@ export function Tooltip({
 
   const effectiveOpen = disabled ? false : open
 
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (effectiveOpen) {
       setMounted(true)
@@ -93,7 +92,6 @@ export function Tooltip({
               sideOffset={sideOffset}
               forceMount
               className="z-[9999]"
-              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               style={{ outline: 'none', pointerEvents: 'none' }}
             >
               <div

@@ -215,7 +215,6 @@ export function PinboardExpanded(
     ref,
     ...props
   }: PinboardExpandedProps & { ref?: React.Ref<HTMLDivElement> },
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 ) {
     const scrollRef = useRef<HTMLDivElement>(null)
     const [atTop, setAtTop]       = useState(true)
@@ -812,7 +811,7 @@ export function PinboardExpanded(
                                 setExpandedSearch(v)
                                 onSearch?.(v)
                               }}
-                              // eslint-disable-next-line jsx-a11y/no-autofocus, react-doctor/no-autofocus -- focus moves into search on user-triggered open
+                              // eslint-disable-next-line jsx-a11y/no-autofocus -- focus moves into search on user-triggered open
                               autoFocus
                               aria-label="Search pins"
                             />
@@ -1027,7 +1026,6 @@ export function PinboardExpanded(
                           Delete
                         </Button>
                       </div>
-                      {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Done" exits organize mode; context from organize toolbar makes action clear */}
                       <Button
                         variant="default"
                         size="sm"
@@ -1108,7 +1106,6 @@ export function PinboardExpanded(
                       // edge - no gutter is reserved, so layout dimensions
                       // stay exactly as specified in Figma.
                       padding:             '2px 2px 2px 2px',
-                      // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                       outline:             'none',
                     }}
                   >

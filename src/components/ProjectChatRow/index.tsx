@@ -84,7 +84,6 @@ export function ProjectChatRow(
     }
     const isPublished  = publishState === 'published'
     const isConfirming = publishState === 'confirming' || publishState === 'unpublishing'
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [editValue, setEditValue] = useState(title)
     const inputRef = useRef<HTMLInputElement>(null)
     const prevTitleRef = useRef(title)
@@ -179,7 +178,6 @@ export function ProjectChatRow(
                 lineHeight:      '22px',
                 color:           '#1a1714',
                 border:          'none',
-                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline:         'none',
                 background:      'transparent',
                 width:           '100%',
@@ -246,7 +244,6 @@ export function ProjectChatRow(
 
         {/* Publish confirmation — replaces ⋮/pins while confirming */}
         {!isEditing && isConfirming && (
-          // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- stopPropagation wrapper; buttons handle keyboard
           <div
             style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}
             onClick={(e) => e.stopPropagation()}
@@ -295,7 +292,6 @@ export function ProjectChatRow(
 
         {/* ⋮ menu - hover-revealed */}
         {!isEditing && !isConfirming && hasMenu && (
-          // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- stopPropagation wrapper; menu items handle keyboard
           <div
             style={{
               display:    'flex',
@@ -347,7 +343,6 @@ export function ProjectChatRow(
 
         {/* + Publish — editor+ only, hidden once published or while confirming */}
         {!isEditing && !isConfirming && canPublish && !isPublished && (
-          // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- stopPropagation wrapper; button handles keyboard
           <div
             style={{ display: 'flex', alignItems: 'center', opacity: showMoreMenu ? 1 : 0, transition: 'opacity 120ms ease', flexShrink: 0 }}
             onClick={(e) => e.stopPropagation()}

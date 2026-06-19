@@ -147,7 +147,6 @@ export function ChatInput(
     ref,
     ...props
   }: ChatInputProps & { ref?: React.Ref<HTMLDivElement> },
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 ) {
     const isControlled = controlledValue !== undefined;
     const [internalValue, setInternalValue] = useState("");
@@ -266,7 +265,6 @@ export function ChatInput(
       const el = textareaRef.current;
       if (!el) return;
       el.style.height = "auto";
-      // eslint-disable-next-line react-doctor/js-batch-dom-css -- forced reflow: must read scrollHeight after resetting to auto
       el.style.height = `${el.scrollHeight}px`;
     }, [value]);
 
@@ -584,7 +582,6 @@ export function ChatInput(
               maxHeight: "396px",
               background: "transparent",
               border: "none",
-              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline: "none",
               resize: "none",
               overflowY: "auto",
@@ -638,7 +635,6 @@ export function ChatInput(
                     }
                   >
                     {/* Wrap in a click handler so any menu action closes the dropdown immediately */}
-                    {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- click-only wrapper; keyboard users select items directly */}
                     <div onClick={() => setAddMenuOpen(false)}>
                       {addMenu}
                     </div>
@@ -685,7 +681,6 @@ export function ChatInput(
                         userSelect: "none",
                       }}
                     >
-                      {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- scroll indicator; keyboard users scroll the chip row directly */}
                       <div
                         style={{
                           height: 2,
@@ -696,7 +691,6 @@ export function ChatInput(
                         }}
                         onMouseDown={handleTrackMouseDown}
                       >
-                        {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- draggable thumb */}
                         <div
                           style={{
                             position: "absolute",

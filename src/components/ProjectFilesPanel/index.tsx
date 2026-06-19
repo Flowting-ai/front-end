@@ -238,7 +238,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
               padding:        '24px 12px',
             }}
           >
-            <FolderOneIcon style={{ width: 16, height: 16, color: 'var(--neutral-700)', flexShrink: 0 }} />
+            <FolderOneIcon variant="static" style={{ width: 16, height: 16, color: 'var(--neutral-700)', flexShrink: 0 }} />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
               <span
                 style={{

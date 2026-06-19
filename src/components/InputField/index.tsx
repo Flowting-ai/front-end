@@ -255,7 +255,6 @@ export function InputField({
                     minWidth:   0,
                     background: 'transparent',
                     border:     'none',
-                    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                     outline:    'none',
                     padding:    0,
                     fontFamily: 'var(--font-body)',

@@ -359,7 +359,6 @@ function PersonaPublishedContent() {
                 width: 716,
                 height: 586,
                 borderRadius: 28,
-                // eslint-disable-next-line react-doctor/no-large-animated-blur -- static decorative background gradient, not animated
                 filter: 'blur(108px)',
                 mixBlendMode: 'hard-light',
                 background:
@@ -519,7 +518,6 @@ function PersonaPublishedContent() {
                         style={{
                           width: 72,
                           border: 'none',
-                          // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                           outline: 'none',
                           backgroundColor: 'transparent',
                           fontFamily: 'var(--font-body)',

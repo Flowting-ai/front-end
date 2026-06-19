@@ -97,7 +97,6 @@ function NamePageContent() {
                   width: '100%',
                   fontFamily: 'var(--font-body)', fontWeight: 400,
                   fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)',
-                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                   background: 'transparent', border: 'none', outline: 'none',
                 }}
               />
@@ -135,7 +134,6 @@ function NamePageContent() {
             >
               Back
             </Button>
-            {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- wizard step: "Continue" advances to next step; position in flow makes action clear */}
             <Button
               variant="default"
               size="sm"

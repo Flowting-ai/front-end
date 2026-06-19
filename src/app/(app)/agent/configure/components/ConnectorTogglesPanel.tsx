@@ -148,7 +148,7 @@ function ConnectorChip({
       }}
     >
       {logo ? (
-        // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset
+        // eslint-disable-next-line @next/next/no-img-element -- local brand asset
         <img src={logo} alt="" width={14} height={14} style={{ objectFit: 'contain', flexShrink: 0 }} />
       ) : (
         <span style={{

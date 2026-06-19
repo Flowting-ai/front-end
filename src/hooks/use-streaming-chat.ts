@@ -611,7 +611,6 @@ export function useStreamingChat({
                       // Try filename match first; fall back to positional match
                       // for backends that don't return file_name (e.g. persona chat).
                       const updated = existing.map((att, idx) => {
-                          // eslint-disable-next-line react-doctor/js-index-maps -- uploadedAtts is tiny (1-5 files); Map overhead not justified
                         const match = uploadedAtts.find((u) => u.filename === att.file_name)
                         if (match) return { ...att, url: match.url, uploading: false }
                         // Positional fallback: if no name match and this slot has no URL yet
@@ -777,7 +776,6 @@ export function useStreamingChat({
               setMessages((prev) =>
                 prev.map((msg) => {
                   if (msg.id !== msgId) return msg
-                  // eslint-disable-next-line react-doctor/js-index-maps -- early return on msg.id !== msgId means find runs at most once across all messages
                   const existing = (msg.activities ?? []).find((a) => a.id === activityId)
                   if (existing) {
                     // Update existing activity
@@ -1058,7 +1056,6 @@ export function useStreamingChat({
               setMessages((prev) =>
                 prev.map((msg) => {
                   if (msg.id !== msgId) return msg
-                  // eslint-disable-next-line react-doctor/js-index-maps -- early return on msg.id !== msgId means find runs at most once across all messages
                   const existing = (msg.activities ?? []).find((a) => a.id === activityId)
                   const status: import("@/hooks/use-chat-state").ActivityStatus =
                     step === "done" ? "done" : step === "error" ? "error" : "executing"
@@ -1176,7 +1173,6 @@ export function useStreamingChat({
                     if (msg.id !== doneUserMsgId) return msg
                     const existing = msg.attachments ?? []
                     const updated = existing.map((att, idx) => {
-                        // eslint-disable-next-line react-doctor/js-index-maps -- uploadedFromDone is tiny (1-5 files); Map overhead not justified
                         const match = uploadedFromDone.find((u) => u.filename === att.file_name)
                       if (match) return { ...att, url: match.url, uploading: false }
                       // Positional fallback for backends without file_name
@@ -1228,11 +1224,8 @@ export function useStreamingChat({
 
             flushPending()
 
-            // eslint-disable-next-line react-doctor/js-set-map-lookups -- substring search; Set.has() checks exact values, not substrings
             if (lower.includes("token expired") ||
-              // eslint-disable-next-line react-doctor/js-set-map-lookups
               lower.includes("not authenticated") ||
-              // eslint-disable-next-line react-doctor/js-set-map-lookups
               lower.includes("unauthorized")
             ) {
               queueUpdate(

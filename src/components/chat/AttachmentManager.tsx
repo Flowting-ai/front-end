@@ -49,7 +49,7 @@ function getFileIcon(file: File): React.ReactNode {
     return <HugeiconsIcon icon={PdfIcon} size={14} color="var(--neutral-500)" />;
   }
   // Fallback: Word, Excel, PPT, EPUB, etc.
-  return <FolderOneIcon size={14} color="var(--neutral-500)" />;
+  return <FolderOneIcon size={14} color="var(--neutral-500)" variant="static" />;
 }
 
 // ── Type-label → Badge color ──────────────────────────────────────────────────
@@ -547,4 +547,3 @@ export function AttachmentManager({
     </>
   );
 }
-

@@ -98,7 +98,7 @@ function ErrorIcon() {
 function FaviconImg({ domain, size = 14 }: { domain?: string; size?: number }) {
   if (!domain || domain === "pin") return null;
   return (
-    // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- external favicon URL, next/image doesn't support arbitrary external domains without config
+    // eslint-disable-next-line @next/next/no-img-element -- external favicon URL, next/image doesn't support arbitrary external domains without config
     <img
       src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
       width={size}

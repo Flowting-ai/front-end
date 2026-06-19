@@ -218,7 +218,6 @@ function EmptyState({ title, description, action }: {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
   const { pins, removePin, clonePin, updatePinTags, updatePinFolder, addFolder, removeFolder, renameFolder, folders: contextFolders, isLoading: contextLoading } = usePinboard()
   const { chats } = useChatHistoryContext()
@@ -565,7 +564,6 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <>
-    {/* eslint-disable-next-line react-doctor/click-events-have-key-events -- backdrop closes modal on click; Escape key handled via useEffect */}
     <div
       role="dialog"
       aria-modal="true"
@@ -715,7 +713,6 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                           }}
                           fluid
                           size="small"
-                          // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into rename input on user-triggered rename
                           autoFocus
                           aria-label="Rename folder"
                         />
@@ -752,7 +749,6 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                             }}
                             fluid
                             size="small"
-                            // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into rename input on user-triggered rename
                             autoFocus
                             aria-label="Rename folder"
                           />
@@ -862,7 +858,6 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                   {/* Actions */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                     {isOrganizing ? (
-                      // eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Done" exits organize mode; context from surrounding UI makes action clear
                       <Button
                         variant="default"
                         size="sm"
@@ -993,7 +988,6 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                               placeholder="Search for your pin..."
                               value={rawSearch}
                               onChange={setRawSearch}
-                              // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into search on user-triggered open
                               autoFocus
                               aria-label="Search pins"
                             />
@@ -1097,7 +1091,6 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                         overflowX:           'hidden',
                         overscrollBehaviorY: 'contain',
                         padding:             '2px 7px 2px 2px',
-                        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                         outline:             'none',
                       }}
                     >
@@ -1105,7 +1098,7 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                         // Empty folder — folder exists but has no pins yet.
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, width: '100%', padding: '48px 24px', textAlign: 'center' }}>
                           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 12, backgroundColor: 'var(--neutral-100)' }}>
-                            <FolderOneIcon size={20} color="var(--neutral-400)" />
+                            <FolderOneIcon size={20} color="var(--neutral-400)" variant="static" />
                           </span>
                           <span style={{ display: 'inline-flex', alignItems: 'baseline', maxWidth: '100%', fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)', color: 'var(--neutral-700)' }}>
                             {(() => {
@@ -1287,7 +1280,7 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                     <Button
                       variant="secondary"
                       size="sm"
-                      leftIcon={<FolderOneIcon size={16} />}
+                      leftIcon={<FolderOneIcon size={16} variant="static" />}
                       disabled={selectedPinIds.size === 0 || folders.length === 0}
                       onClick={() => setShowFolderPicker(v => !v)}
                     >
@@ -1342,7 +1335,7 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--neutral-100)' }}
                               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                             >
-                              <FolderOneIcon size={16} />
+                              <FolderOneIcon size={16} variant="static" />
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {folder.name}
                               </span>
@@ -1379,7 +1372,7 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--neutral-100)' }}
                                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                                 >
-                                  <FolderOneIcon size={16} />
+                                  <FolderOneIcon size={16} variant="static" />
                                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {folder.name}
                                   </span>
@@ -1409,7 +1402,6 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                     Delete
                   </Button>
                   <div style={{ width: 1, height: 20, background: 'var(--neutral-200)', flexShrink: 0 }} />
-                  {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Done" exits organize mode; context from toolbar makes action clear */}
                   <Button variant="secondary" size="sm" onClick={handleExitOrganize}>
                     Done
                   </Button>
@@ -1484,7 +1476,6 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
                   value={modalFolderName}
                   onChange={setModalFolderName}
                   fluid
-                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into folder name input on modal open
                   autoFocus
                   onKeyDown={(e: React.KeyboardEvent) => {
                     if (e.key === 'Enter')  handleCreateFolder()
@@ -1647,7 +1638,7 @@ function SidebarFolderItem({
         }}
       >
         <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
-          <FolderOneIcon size={20} />
+          <FolderOneIcon size={20} variant="static" />
         </div>
         <span
           style={{

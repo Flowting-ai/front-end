@@ -222,7 +222,6 @@ export default function ProfileTab({
               fontSize: 14,
               color: "#6a625d",
               backgroundColor: "transparent",
-              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline: "none",
               border: "none",
             }}
@@ -295,7 +294,6 @@ export default function ProfileTab({
               fontSize: 14,
               color: "#6a625d",
               backgroundColor: "transparent",
-              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline: "none",
               resize: "none",
               lineHeight: 1.57,
@@ -382,7 +380,6 @@ export default function ProfileTab({
                 fontSize: 12,
                 border: "1px solid rgba(59,54,50,0.3)",
                 borderRadius: 6,
-                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline: "none",
                 backgroundColor: "white",
                 width: 96,

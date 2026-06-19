@@ -238,7 +238,6 @@ const renderLatexInlineContent = (text: string, keyPrefix: string) => {
     try {
       const html = katex.renderToString(latexContent, { throwOnError: false, displayMode: isBlock });
       nodes.push(
-        // eslint-disable-next-line react-doctor/no-danger -- KaTeX output is library-generated and sanitized
         <span key={`${keyPrefix}-latex-${latexCount++}`}
           className={isBlock ? "block my-2" : "inline-block mx-0.5"}
           dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }}
@@ -1435,7 +1434,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {pastedImages.map((url, i) => (
                     <div key={url} style={{ position: "relative", width: 56, height: 56, borderRadius: 8, overflow: "hidden", flexShrink: 0, boxShadow: "0 0 0 1px rgba(59,54,50,0.12)" }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- object URL, not a remote URL */}
+                      {/* eslint-disable-next-line @next/next/no-img-element -- object URL, not a remote URL */}
                       <img src={url} alt={`Pasted image ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       <button
                         type="button"
@@ -1598,7 +1597,6 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             ) : (
               <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", alignItems: "center" }}>
                 <input
-                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into search on user-triggered open
                   autoFocus
                   type="text"
                   value={searchQuery}

@@ -93,7 +93,6 @@ function fmtAmount(value: number, currency = 'usd'): string {
   const key = currency.toUpperCase()
   let fmt = _fmtAmountCache.get(key)
   if (!fmt) {
-    // eslint-disable-next-line react-doctor/js-hoist-intl -- lazy-cached by currency key in module-level Map
     fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: key })
     _fmtAmountCache.set(key, fmt)
   }

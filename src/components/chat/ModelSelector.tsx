@@ -153,7 +153,6 @@ export function ModelSelector({
                   style={{
                     flex: 1,
                     border: "none",
-                    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                     outline: "none",
                     backgroundColor: "transparent",
                     fontFamily: "var(--font-body)",

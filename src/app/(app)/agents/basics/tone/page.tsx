@@ -396,7 +396,6 @@ function TonePageContent() {
             >
               Back
             </Button>
-            {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- wizard step: "Continue" creates the agent repo; flow context makes action clear */}
             <Button
               variant="default"
               size="sm"

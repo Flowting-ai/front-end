@@ -141,7 +141,6 @@ const PinboardActionsContext = createContext<PinboardActionsContextValue | null>
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export function PinboardProvider({ children }: { children: React.ReactNode }) {
   // Always start with server-safe defaults so SSR and client initial render
   // produce identical HTML (no hydration mismatch). Cache is applied client-

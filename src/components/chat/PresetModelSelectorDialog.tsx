@@ -112,7 +112,6 @@ function PresetModelSelectorContent({
   museAdvanced,
   onMuseSelect,
   onAdvancedSelect,
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: PresetModelSelectorContentProps) {
   const [search, setSearch] = useState("");
   const [tier, setTier] = useState("all");

@@ -161,7 +161,6 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                         lineHeight: '22px',
                         color: '#3b3632',
                         backgroundColor: 'transparent',
-                        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                         outline: 'none',
                         border: 'none',
                       }}
@@ -209,7 +208,6 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                         lineHeight: '22px',
                         color: '#3b3632',
                         backgroundColor: 'transparent',
-                        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                         outline: 'none',
                         border: 'none',
                         resize: 'none',

@@ -61,6 +61,9 @@ export function AppLayout({
   const isPersonaChatPage = /^\/agents\/[^\/]+\/chat/.test(pathname)
   const isSettingsPage = pathname.startsWith('/settings')
   const isAdminPage    = pathname.startsWith('/org')
+  // The editor team page (/teams/[teamId]) is a settings-style page, not a chat
+  // surface — strip the TopBar/model-selector and floating chat tools like /org.
+  const isTeamPage     = pathname.startsWith('/teams')
   // Brain pages use BrainShell which supplies its own full-screen layout (sidebar + center + context rail).
   const isBrainPage = pathname.startsWith('/brain')
 
@@ -168,7 +171,7 @@ export function AppLayout({
             }}
           >
             {/* ── TopBar - absolute, overlaps the 1px border on three sides ── */}
-            {!isAdminPage && (
+            {!isAdminPage && !isTeamPage && (
               <TopBar
                 showCitationsToggle={showCitationsToggle}
                 citationsOpen={citationsOpen}
@@ -194,7 +197,7 @@ export function AppLayout({
             </main>
 
             {/* ── Floating action panel - mid-right of rounded container ── */}
-            {!isAdminPage && !isProjectPage && !isPersonaChatPage && (
+            {!isAdminPage && !isTeamPage && !isProjectPage && !isPersonaChatPage && (
               <Suspense fallback={null}>
                 <FloatingPanel />
               </Suspense>

@@ -107,7 +107,7 @@ function PersonaAvatar({
           flexShrink:   0,
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- dynamic avatar URL, onError fallback requires HTMLImageElement access */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic avatar URL, onError fallback requires HTMLImageElement access */}
         <img
           src={avatarUrl}
           alt={name}

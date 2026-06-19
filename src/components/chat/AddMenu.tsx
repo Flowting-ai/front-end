@@ -86,7 +86,6 @@ export function ChatAddMenu({
   const [personas,           setPersonas]           = useState<Persona[]>([])
   const [loadingPersonas,    setLoadingPersonas]    = useState(false)
 
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!personaMenuOpen) return
     // fetchPersonas() has an internal 30s cache + in-flight dedup.
@@ -178,7 +177,7 @@ export function ChatAddMenu({
           onOpenChange={(open) => setOpenSubmenu(open ? 'pinFolders' : null)}
           placement="right-start"
           trigger={
-            <Dropdown.Item label="Pin folders" icon={<FolderOneIcon />} fluid rightIcon={<ArrowRightOneIcon />} />
+            <Dropdown.Item label="Pin folders" icon={<FolderOneIcon variant="static" />} fluid rightIcon={<ArrowRightOneIcon />} />
           }
         >
           <Dropdown size="md" style={{ minWidth: 180 }} maxHeight="min(280px, calc(100dvh - 120px))">

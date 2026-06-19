@@ -188,14 +188,12 @@ export function BrainShell({
   threadRef,
   initialInputValue,
 }: BrainShellProps) {
-  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [phase,      setPhase]      = useState<Phase>(defaultPhase)
   const [inputValue, setInputValue] = useState('')
   const [userClosed, setUserClosed] = useState(false)
 
   // When the parent passes a pre-composed prompt (e.g. from schedule creation),
   // populate the textarea so the user can review and send it.
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- intentional one-time seed; guarded by non-empty check
   useEffect(() => {
     if (initialInputValue) setInputValue(initialInputValue)
   }, [initialInputValue])

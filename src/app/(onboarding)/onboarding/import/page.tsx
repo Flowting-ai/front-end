@@ -34,7 +34,6 @@ export default function OnboardingImportPage() {
     user?.roleFit === "small_team" ||
     user?.roleFit === "large_team";
 
-  // eslint-disable-next-line react-doctor/nextjs-no-client-side-redirect
   useEffect(() => {
     if (isTeamUser) push("/onboarding/plans");
   }, [isTeamUser, push]);
@@ -352,7 +351,6 @@ export default function OnboardingImportPage() {
             style={{
               width: "100%",
               border: "none",
-              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline: "none",
               resize: "vertical",
               fontFamily: "var(--font-body)",

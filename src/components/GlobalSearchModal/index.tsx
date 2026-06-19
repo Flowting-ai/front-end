@@ -355,7 +355,6 @@ export function GlobalSearchModal({
   loading      = false,
   className,
 }: GlobalSearchModalProps) {
-  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [query,        setQuery]        = useState(defaultQuery)
   const [activeFilter, setActiveFilter] = useState<FilterValue>('all')
   const [focusedId,    setFocusedId]    = useState<string | null>(null)
@@ -363,7 +362,6 @@ export function GlobalSearchModal({
   const modalRef = useRef<HTMLDivElement>(null)
 
   // Reset state on close; focus input on open
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!open) {
       setQuery('')

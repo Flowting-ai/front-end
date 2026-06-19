@@ -151,7 +151,6 @@ function MenuItem({ label, destructive, onSelect }: MenuItemProps) {
         fontSize:        'var(--font-size-body)',
         fontWeight:      500,
         lineHeight:      'var(--line-height-body)',
-        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
         outline:         'none',
         userSelect:      'none',
         transition:      'background-color 100ms',
@@ -233,7 +232,6 @@ function ChatRowInner(
     ref,
     ...props
   }: ChatRowProps & { ref?: React.Ref<HTMLDivElement> },
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 ) {
     const Comp = (asChild ? Slot : 'div') as React.ElementType
 
@@ -403,7 +401,6 @@ function ChatRowInner(
               {isRenaming ? (
                 <input
                   ref={renameInputRef}
-                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into rename input on user-triggered rename
                   autoFocus
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
@@ -423,7 +420,6 @@ function ChatRowInner(
                     color:           '#1a1714',
                     border:          'none',
                     borderBottom:    '1.5px solid var(--blue-400)',
-                    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                     outline:         'none',
                     backgroundColor: 'transparent',
                     padding:         0,

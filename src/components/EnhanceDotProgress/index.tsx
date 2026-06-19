@@ -44,7 +44,7 @@ export function EnhanceDotProgress({ ref, total, current, audit = false, classNa
           const isPast     = i < current
           const isUpcoming = i > current
           return (
-            // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- fixed-count dot indicator; index is stable
+            // eslint-disable-next-line react/no-array-index-as-key -- fixed-count dot indicator; index is stable
             <m.span key={i}
               aria-hidden
               layout

@@ -177,7 +177,6 @@ export default function PersonaTemplatesPage() {
             Library
           </Button>
           {hasWizardDraft && (
-            // eslint-disable-next-line react-doctor/design-no-vague-button-label -- wizard step: "Continue" advances to persona details; flow context makes action clear
             <Button
               variant="default"
               size="sm"

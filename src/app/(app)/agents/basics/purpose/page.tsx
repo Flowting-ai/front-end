@@ -145,7 +145,6 @@ function PurposePageContent() {
             >
               Back
             </Button>
-            {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- wizard step: "Continue" advances to tone step; flow context makes action clear */}
             <Button
               variant="default"
               size="sm"

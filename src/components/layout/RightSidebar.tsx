@@ -97,7 +97,6 @@ function useDebounce<T>(value: T, delay: number): T {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function RightSidebarImpl() {
   // Always render PinboardSkeleton on first paint so server HTML (isLoading=true)
   // and client initial render match, preventing a hydration mismatch when the
@@ -244,7 +243,6 @@ function RightSidebarImpl() {
 
   // ── Folder rename modal ───────────────────────────────────────────────────
   const [showRenameModal,      setShowRenameModal]      = useState(false)
-  // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- renameFolderTarget is read in the rename confirm handler and conditional logic
   const [renameFolderTarget,   setRenameFolderTarget]   = useState<{ id: string; label: string } | null>(null)
   const [renameModalName,      setRenameModalName]      = useState("")
 
@@ -608,7 +606,6 @@ function RightSidebarImpl() {
                   value={renameModalName}
                   onChange={setRenameModalName}
                   fluid
-                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into rename input on modal open
                   autoFocus
                   onKeyDown={(e: React.KeyboardEvent) => {
                     if (e.key === "Enter")  handleConfirmRename()
@@ -692,7 +689,6 @@ function RightSidebarImpl() {
                   value={folderModalName}
                   onChange={setFolderModalName}
                   fluid
-                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into folder name input on modal open
                   autoFocus
                   onKeyDown={(e: React.KeyboardEvent) => {
                     if (e.key === "Enter")  handleCreateFolder()

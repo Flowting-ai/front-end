@@ -48,14 +48,14 @@ function ConnectorAvatar({ entry, size = 26 }: { entry: ConnectorCatalogEntry; s
 
   if (localLogo) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset
+      // eslint-disable-next-line @next/next/no-img-element -- local brand asset
       <img src={localLogo} alt={entry.display_name} width={size} height={size} style={{ objectFit: 'contain', flexShrink: 0 }} />
     )
   }
 
   if (entry.icon_url) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- dynamic connector icon URL
+      // eslint-disable-next-line @next/next/no-img-element -- dynamic connector icon URL
       <img src={entry.icon_url} alt={entry.display_name} width={size} height={size} style={{ objectFit: 'contain', flexShrink: 0 }} />
     )
   }
@@ -370,7 +370,6 @@ export default function ConnectorsTab({
         const displayName = entry?.display_name ?? confirmSlug
         return (
           <>
-            {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop */}
             <div
               onClick={() => setConfirmSlug(null)}
               style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(38,33,30,0.32)', zIndex: 50 }}
@@ -413,7 +412,6 @@ export default function ConnectorsTab({
       {/* ── Manage-in-settings navigation modal ────────────────────────── */}
       {showNavModal && (
         <>
-          {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop */}
           <div
             onClick={() => { if (!isSavingNav) setShowNavModal(false) }}
             style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(38,33,30,0.32)', zIndex: 50 }}
@@ -497,7 +495,6 @@ export default function ConnectorsTab({
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder="Search connectors…"
-          // eslint-disable-next-line react-doctor/no-outline-none -- focus-visible handled globally
           style={{ flex: 1, minWidth: 0, padding: '0 2px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#6a625d', backgroundColor: 'transparent', border: 'none', outline: 'none' }}
         />
         {searchQuery && (

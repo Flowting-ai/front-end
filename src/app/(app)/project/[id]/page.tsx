@@ -44,7 +44,6 @@ import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 // Team-project chat tabs (private projects render a flat list instead).
 type TeamTab = 'your-chats' | 'publish' | 'shared' | 'view-only'
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
   const { push }  = useRouter()
@@ -96,7 +95,6 @@ export default function ProjectPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!personaChipOpen) return
     setLoadingChipPersonas(true)
@@ -549,7 +547,7 @@ export default function ProjectPage() {
                     <Chip
                       key={folder.id}
                       label={folder.name}
-                      icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
+                      icon={<FolderOneIcon size={20} color="var(--chip-text)" variant="static" />}
                       onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
                     />
                   ))}
@@ -824,7 +822,6 @@ export default function ProjectPage() {
       {/* ── Project share / visibility modal ─────────────────────────── */}
       {shareOpen && (
         <>
-          {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- modal backdrop */}
           <div
             onClick={() => setShareOpen(false)}
             style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(18,12,8,0.4)', backdropFilter: 'blur(2px)', zIndex: 50 }}

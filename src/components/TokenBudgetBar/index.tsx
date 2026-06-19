@@ -65,7 +65,6 @@ export function TokenBudgetBar({ ref, used, limit, size = 'sm', showLabel = fals
               height:          '100%',
               backgroundColor: col.fill,
               borderRadius:    999,
-              // eslint-disable-next-line react-doctor/no-layout-transition-inline -- bar width is dynamic state
               transition:      'width 240ms ease, background-color 200ms ease',
             }}
           />

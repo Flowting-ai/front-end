@@ -34,7 +34,6 @@ const THINKING_WORDS = ["Thinking…", "Analysing…", "Processing…", "Conside
 
 function CyclingLabel({ words, textStyle }: { words: string[]; textStyle?: React.CSSProperties }) {
   const [idx, setIdx] = useState(0);
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     setIdx(0);
     if (words.length <= 1) return;
@@ -43,7 +42,7 @@ function CyclingLabel({ words, textStyle }: { words: string[]; textStyle?: React
   }, [words.join("|")]); // eslint-disable-line
   return (
     <AnimatePresence mode="popLayout" initial={false}>
-      {/* eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- cycling label segments; positionally stable */}
+      {/* eslint-disable-next-line react/no-array-index-as-key -- cycling label segments; positionally stable */}
       <m.span key={idx}
         initial={{ scale: 0.82, opacity: 0, filter: "blur(5px)" }}
         animate={{ scale: 1, opacity: 1, filter: "none" }}
@@ -249,18 +248,17 @@ function getReasoningIcon(heading: string): any {
 
 /** Render inline markdown bold + text for step summaries */
 function renderStepBody(text: string) {
-  // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- regex-split text segments have no stable IDs; positions are stable
+  // eslint-disable-next-line react/no-array-index-as-key -- regex-split text segments have no stable IDs; positions are stable
   return text.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**"))
-      // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- regex-split text segments have no stable IDs
+      // eslint-disable-next-line react/no-array-index-as-key -- regex-split text segments have no stable IDs
       return <strong key={i} style={{ fontWeight: 600, color: "var(--neutral-800, #3B3632)" }}>{part.slice(2, -2)}</strong>;
-    // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- regex-split text segments have no stable IDs
+    // eslint-disable-next-line react/no-array-index-as-key -- regex-split text segments have no stable IDs
     return <span key={i}>{part}</span>;
   });
 }
 
 function StepBody({ text }: { text: string }) {
-  // eslint-disable-next-line react-doctor/no-render-in-render -- renderStepBody is a stable module-level helper, not an inline component
   return <>{renderStepBody(text)}</>
 }
 
@@ -536,7 +534,6 @@ export function ReasoningBlock({
 
   // Trigger glow burst when model name first arrives
   const currentModel = modelMeta?.modelName || modelName;
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (currentModel && currentModel !== prevModelRef.current) {
       prevModelRef.current = currentModel;
@@ -647,7 +644,6 @@ export function ReasoningBlock({
           {/* Inner header: "Thinking [chevron]" - shown only after streaming */}
           <AnimatePresence initial={false}>
             {!isThinkingInProgress && (
-              // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- interactive div; keyboard events handled by inner span
               <m.div
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}

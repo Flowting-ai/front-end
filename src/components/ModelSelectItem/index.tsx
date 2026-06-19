@@ -126,7 +126,6 @@ export function ModelSelectItem({
 
     // Bookmark - controlled vs uncontrolled state. Render the solid icon when on.
     const isBookmarkControlled = bookmarked !== undefined
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalBookmarked, setInternalBookmarked] = useState(defaultBookmarked)
     const isBookmarked = isBookmarkControlled ? !!bookmarked : internalBookmarked
 

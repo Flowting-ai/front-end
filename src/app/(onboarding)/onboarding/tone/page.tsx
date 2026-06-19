@@ -235,7 +235,6 @@ export default function OnboardingTonePage() {
         <Button variant="secondary" size="sm" onClick={() => push("/onboarding/account-type")}>
           Back
         </Button>
-        {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- onboarding wizard: "Continue" completes onboarding; flow context makes action clear */}
         <Button
           size="sm"
           disabled={data.tone === null || isSubmitting}

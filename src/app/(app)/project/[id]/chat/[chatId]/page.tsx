@@ -166,7 +166,6 @@ function CentredMessage({ children }: { children: React.ReactNode }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function ProjectChatPageInner() {
   const params       = useParams<{ id: string; chatId: string }>()
   const searchParams  = useSearchParams()
@@ -269,7 +268,6 @@ function ProjectChatPageInner() {
     )
   }, [pins, pinQuery])
 
-  // eslint-disable-next-line react-doctor/no-derived-state-effect -- index reset on filter change; not a component-level key-prop candidate
   useEffect(() => { setHighlightedPinIndex(0) }, [filteredPins])
 
   useEffect(() => {
@@ -367,7 +365,6 @@ function ProjectChatPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
 
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!personaChipOpen) return
     setLoadingChipPersonas(true)
@@ -421,7 +418,7 @@ function ProjectChatPageInner() {
         <Chip
           key={folder.id}
           label={folder.name}
-          icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
+          icon={<FolderOneIcon size={20} color="var(--chip-text)" variant="static" />}
           onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
         />
       ))}

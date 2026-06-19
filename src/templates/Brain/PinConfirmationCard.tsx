@@ -72,7 +72,6 @@ export function PinConfirmationCard({
 }: PinConfirmationCardProps) {
   const defaultIds        = defaultSelected ?? pins.map(p => p.id)
   const [selected,   setSelected]   = useState<Set<string>>(new Set(defaultIds))
-  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [locked,     setLocked]     = useState<boolean>(defaultLocked)
   const [confirmedCount, setConfirmedCount] = useState<number>(
     lockedCount ?? defaultIds.length,

@@ -447,11 +447,11 @@ export async function inheritKnowledge(
   // Sequential on purpose — re-uploading carried files one at a time avoids
   // overwhelming the upload endpoint when a version has many documents.
   for (const doc of documentsToCarry) {
-    // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- intentional sequential upload
+    // eslint-disable-next-line no-await-in-loop -- intentional sequential upload
     const file = await documentToFile(doc as PersonaDocumentResponse);
     if (!file) { result.documentsFailed += 1; continue; }
     try {
-      // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- intentional sequential upload
+      // eslint-disable-next-line no-await-in-loop -- intentional sequential upload
       await uploadDocument(repoId, targetVersionId, file);
       result.documentsCarried += 1;
     } catch {
@@ -463,7 +463,7 @@ export async function inheritKnowledge(
     const url = link.source_url ?? link.document_filename;
     if (!url) continue;
     try {
-      // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- intentional sequential add
+      // eslint-disable-next-line no-await-in-loop -- intentional sequential add
       await addKnowledgeUrl(repoId, targetVersionId, url);
       result.linksCarried += 1;
     } catch {
@@ -950,7 +950,7 @@ async function readPersonaSSEStream(
   };
   try {
     while (true) {
-      // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- sequential SSE stream reader; chunks must be processed in order
+      // eslint-disable-next-line no-await-in-loop -- sequential SSE stream reader; chunks must be processed in order
       const { done, value } = await reader.read();
       if (value) {
         buffer += decoder.decode(value, { stream: true });

@@ -158,7 +158,7 @@ function PersonaAvatar({ imageUrl, name, size = 65 }: { imageUrl: string | null;
           position: 'relative',
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- dynamic avatar URL, onError fallback requires HTMLImageElement access */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic avatar URL, onError fallback requires HTMLImageElement access */}
         <img
           src={imageUrl}
           alt={name}
@@ -510,7 +510,6 @@ function toDrawerLink(
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export default function PersonasPage() {
   const { push } = useRouter()
   const pathname = usePathname()
@@ -992,7 +991,6 @@ export default function PersonasPage() {
                       style={{
                         flex: '1 0 0',
                         border: 'none',
-                        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                         outline: 'none',
                         background: 'transparent',
                         fontFamily: 'var(--font-body)',

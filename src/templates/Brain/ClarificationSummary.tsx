@@ -49,7 +49,6 @@ function AnswerDisplay({ answer }: { answer: ClarificationAnswerDisplay | string
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {display.values.map((v, i) => (
-          // eslint-disable-next-line react-doctor/no-array-index-as-key -- answer values are static, index is stable
           <Badge key={i} color="Neutral" label={v} />
         ))}
       </div>
@@ -60,7 +59,6 @@ function AnswerDisplay({ answer }: { answer: ClarificationAnswerDisplay | string
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {display.items.map((v, i) => (
-          // eslint-disable-next-line react-doctor/no-array-index-as-key -- ranked items are static, index is stable
           <Badge key={i} color="Neutral" label={`${i + 1} ${v}`} />
         ))}
       </div>

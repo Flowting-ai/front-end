@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
       resetKeepAlive(controller)
       try {
         while (true) {
-          // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- sequential stream reader; chunks must arrive in order
+          // eslint-disable-next-line no-await-in-loop -- sequential stream reader; chunks must arrive in order
           const { value, done } = await backendReader.read()
           if (done) {
             try { controller.close() } catch { /* already closed */ }

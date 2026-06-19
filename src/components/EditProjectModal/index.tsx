@@ -59,11 +59,8 @@ export interface EditProjectModalProps {
 export function EditProjectModal({
   open, name, description, tags = EMPTY_PROJECT_TAGS, onSave, onClose,
 }: EditProjectModalProps) {
-  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [draftName, setDraftName]   = useState(name)
-  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [draftDesc, setDraftDesc]   = useState(description)
-  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [draftTags, setDraftTags]   = useState<ProjectTag[]>(tags)
   const [tagInput,  setTagInput]    = useState('')
   const mounted = useMounted()
@@ -208,7 +205,6 @@ export function EditProjectModal({
                   style={INPUT_BASE}
                   onFocus={focusInput}
                   onBlur={blurInput}
-                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into name field on modal open
                   autoFocus
                 />
               </div>

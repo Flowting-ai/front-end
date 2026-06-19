@@ -387,7 +387,6 @@ export function SuperLink(
                   lineHeight:      'normal',
                   color:           'var(--neutral-800)',
                   backgroundColor: 'var(--neutral-white)',
-                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                   outline:         'none',
                   boxSizing:       'border-box' as const,
                   textAlign:       'right' as const,

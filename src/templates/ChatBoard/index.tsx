@@ -22,7 +22,8 @@ import { Tooltip } from '@/components/Tooltip'
 import { Popover } from '@/components/Popover'
 import { ModelSelector } from '@/components/ModelSelector'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
-import { NeuralNetworkIcon, ViewIcon } from '@strange-huge/icons'
+import { NeuralNetworkIcon } from '@strange-huge/icons'
+import { ViewIcon } from '@/components/ViewIcon'
 
 // ── Top-bar preset model selector ─────────────────────────────────────────────
 // The "Souvenir AI · Muse" CTA opens this panel — same `ModelSelector`
@@ -513,7 +514,6 @@ export function ChatBoard({
           flexShrink:      0,
           width:           pinboardOpen ? 0 : 10,
           backgroundColor: 'var(--neutral-50)',
-          // eslint-disable-next-line react-doctor/no-layout-transition-inline -- separator width is dynamic state
           transition:      'width 350ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       />

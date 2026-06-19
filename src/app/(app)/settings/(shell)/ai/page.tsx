@@ -376,7 +376,6 @@ function ProviderSection({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export default function AiModelsPage() {
   const { user }   = useAuth()
   const planName   = user?.planName ?? 'Starter'
@@ -388,7 +387,6 @@ export default function AiModelsPage() {
   const [tab,        setTab]        = useState('all')
 
   // Fetch on mount
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     let alive = true
     setIsLoading(true)
@@ -534,7 +532,6 @@ export default function AiModelsPage() {
                 flex:            '1 0 0',
                 minWidth:        0,
                 border:          'none',
-                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline:         'none',
                 backgroundColor: 'transparent',
                 fontFamily:      'var(--font-body)',

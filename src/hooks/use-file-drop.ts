@@ -11,7 +11,6 @@ export function useFileDrop({ onFiles, disabled }: UseFileDropOptions) {
   const [isDragging, setIsDragging] = useState(false);
   const dragCountRef = useRef(0);
 
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (disabled) return;
 

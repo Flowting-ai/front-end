@@ -136,7 +136,6 @@ const renderInline = (text: string, keyPrefix: string): Array<string | JSX.Eleme
 }
 
 function InlineContent({ text, keyPrefix }: { text: string; keyPrefix: string }) {
-  // eslint-disable-next-line react-doctor/no-render-in-render -- renderInline is a stable module-level helper, not an inline component
   return <>{renderInline(text, keyPrefix)}</>
 }
 
@@ -166,7 +165,6 @@ export function renderBrainContent(value: string, keyPrefix: string): JSX.Elemen
     nodes.push(
       <ul key={k} style={{ paddingLeft: 20, margin: '4px 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
         {listBuffer.map((item, idx) => (
-          // eslint-disable-next-line react-doctor/no-array-index-as-key -- streamed list items have no IDs; composite key with position is stable
           <li key={`${k}-${idx}`} style={{
             fontFamily:   'var(--font-body)',
             fontSize:     'var(--font-size-body)',

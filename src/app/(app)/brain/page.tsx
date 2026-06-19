@@ -602,7 +602,6 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     border:          '1px solid var(--neutral-300)',
     fontFamily:      'var(--font-body)',
     fontSize:        'var(--font-size-caption)',
-    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed
     outline:         'none',
     width:           '100%',
     boxSizing:       'border-box',
@@ -615,7 +614,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     <div style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {logoSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset, variable path prevents next/image static analysis
+          // eslint-disable-next-line @next/next/no-img-element -- local brand asset, variable path prevents next/image static analysis
           <img
             src={logoSrc}
             alt=""
@@ -745,7 +744,7 @@ function PermissionPromptCard({ prompt, disabled = false, onDecide }: Permission
       {/* Header: connector logo + title + tool slug */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         {logoSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset, variable path prevents next/image static analysis
+          // eslint-disable-next-line @next/next/no-img-element -- local brand asset, variable path prevents next/image static analysis
           <img
             src={logoSrc}
             alt=""
@@ -1032,7 +1031,6 @@ function MessageImages({ images }: { images: { url: string }[] }) {
 
 // ── Inner page ────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function BrainPageInner() {
   const searchParams = useSearchParams()
   const { push, replace } = useRouter()
@@ -1344,7 +1342,6 @@ function BrainPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (activePermissionPrompt) scrollToBottom(true) }, [activePermissionPrompt?.promptId])
 
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!selectedPersona) return
     if (selectedPersona.systemPrompt !== null) {
@@ -1380,7 +1377,6 @@ function BrainPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
 
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!personaChipOpen || chipPersonasFetchedRef.current) return
     chipPersonasFetchedRef.current = true
@@ -1397,7 +1393,6 @@ function BrainPageInner() {
   }, [])
 
   // ── Sync chatId + full state reset when navigating between brain threads ──────
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18 batches; intentional full reset
   useEffect(() => {
     if (skipNextResetRef.current) {
       skipNextResetRef.current = false
@@ -2899,7 +2894,7 @@ function BrainPageInner() {
     <Chip
       key={folder.id}
       label={folder.name}
-      icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
+      icon={<FolderOneIcon size={20} color="var(--chip-text)" variant="static" />}
       onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
     />
   ))

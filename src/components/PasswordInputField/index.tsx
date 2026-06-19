@@ -3,7 +3,7 @@
 import React, { useCallback, useRef, useState } from 'react'
 import { Field } from '@base-ui/react/field'
 import { AnimatePresence, animate, m } from 'framer-motion'
-import { ViewIcon } from '@strange-huge/icons'
+import { ViewIcon } from '@/components/ViewIcon'
 import { IconButton } from '@/components/IconButton'
 import { cn } from '@/lib/utils'
 
@@ -225,7 +225,6 @@ export function PasswordInputField({
                     minWidth:     0,
                     background:   'transparent',
                     border:       'none',
-                    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                     outline:      'none',
                     padding:      0,
                     fontFamily:   'var(--font-body)',

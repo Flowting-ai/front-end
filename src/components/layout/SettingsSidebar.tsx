@@ -27,7 +27,7 @@ const MY_SETTINGS_ITEMS = [
   // { id: 'preferences',   label: 'Preference',       href: '/settings/preferences',   icon: <FolderOneIcon     size={20} />, disabled: true  },
   // { id: 'security',      label: 'Security',         href: '/settings/security',      icon: <FolderOneIcon     size={20} />, disabled: true  },
   { id: 'connectors',    label: 'Connectors',       href: '/settings/connectors',    icon: <LinkSixIcon       size={20} />, disabled: false },
-  { id: 'help',          label: 'Help & Legal',     href: '/settings/help',          icon: <FolderOneIcon     size={20} />, disabled: false },
+  { id: 'help',          label: 'Help & Legal',     href: '/settings/help',          icon: <FolderOneIcon     size={20} variant="static" />, disabled: false },
 ]
 
 

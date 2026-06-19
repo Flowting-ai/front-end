@@ -80,7 +80,6 @@ function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: 
   const rowsLenRef = useRef(rows.length)
   rowsLenRef.current = rows.length
 
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!animate) return
     // Hoist iv outside setTimeout so the cleanup function can always cancel it,
@@ -215,7 +214,6 @@ export function XmlTable({ xml, animate = true }: XmlTableProps) {
   const data = useMemo(() => parseTableXml(xml) ?? "error", [xml])
   const [mounted, setMounted] = useState(false)
 
-  // eslint-disable-next-line react-doctor/rendering-hydration-no-flicker -- intentional SSR skeleton; chart animations need client-only render
   useLayoutEffect(() => {
     setMounted(true)
   }, [])

@@ -111,7 +111,6 @@ export function ModelSelector({
     className,
     style,
     ...props
-  // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
   }: ModelSelectorProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [search,    setSearch]    = useState('')
     const [tier,      setTier]      = useState('free')

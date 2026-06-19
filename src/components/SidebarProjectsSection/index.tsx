@@ -59,6 +59,11 @@ const itemVariants = {
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+type TriggerableIconProps = {
+  animated?: boolean
+  triggered?: boolean
+}
+
 export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Folder label */
   label?: string
@@ -75,11 +80,11 @@ export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDi
   /** Called when the icon is clicked with the next expanded value */
   onExpandedChange?: (expanded: boolean) => void
   /**
-   * Custom icon for the header row. Must accept a `triggered` prop.
+   * Custom icon for the header row.
    * Defaults to `<FolderOneIcon size={20} />` with open/closed variant driven by state.
    * Pass `null` to render no icon at all.
    */
-  icon?: React.ReactElement<{ triggered?: boolean }> | null
+  icon?: React.ReactElement<TriggerableIconProps> | null
   /**
    * Optional badge rendered between the label and the expand arrow.
    * Use for status indicators (e.g. a "Shared" pill).
@@ -96,17 +101,23 @@ export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDi
   onCancel?: () => void
 }
 
+function renderMaybeTriggeredIcon(icon: React.ReactElement<TriggerableIconProps>, triggered: boolean) {
+  if (icon.props.animated === true || icon.props.triggered !== undefined) {
+    return React.cloneElement(icon, { triggered })
+  }
+
+  return icon
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function SidebarProjectsSection({
     ref,
     label = 'Folder name', defaultOpen = false, active = false, expanded: expandedProp, onExpandedChange, fluid = false, icon, badge, children, className, onClick, onCommit, onCancel, ...props
-  // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
   }: SidebarProjectsSectionProps & { ref?: React.Ref<HTMLDivElement> }) {
     // isExpanded - icon-driven; can be controlled via `expanded` prop
     // active     - row-driven; controlled by parent
     const isControlled = expandedProp !== undefined
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalExpanded, setInternalExpanded] = useState(defaultOpen)
     const isExpanded = isControlled ? expandedProp! : internalExpanded
     const [isHovered, setIsHovered] = useState(false)
@@ -115,7 +126,6 @@ export function SidebarProjectsSection({
 
     // ── Inline rename state ────────────────────────────────────────────────────
     const [isEditing, setIsEditing] = useState(false)
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [editValue, setEditValue] = useState(label)
     const inputRef     = useRef<HTMLInputElement>(null)
     const cancelledRef = useRef(false)
@@ -148,7 +158,6 @@ export function SidebarProjectsSection({
       return () => cancelAnimationFrame(id)
     }, [isHovered, label, isEditing])
 
-    // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
     useEffect(() => {
       if (!isHovered) {
         setIsMarqueeing(false)
@@ -240,7 +249,7 @@ export function SidebarProjectsSection({
             {icon !== null && (
               <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
                 {icon
-                  ? React.cloneElement(icon, { triggered: isHovered })
+                  ? renderMaybeTriggeredIcon(icon, isHovered)
                   : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
               </div>
             )}
@@ -278,7 +287,6 @@ export function SidebarProjectsSection({
                   minWidth:    0,
                   background:  'transparent',
                   border:      'none',
-                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                   outline:     'none',
                   fontFamily:  'var(--font-body)',
                   fontWeight:  'var(--font-weight-medium)',
@@ -383,7 +391,7 @@ export function SidebarProjectsSection({
                 style={{ paddingLeft: icon === null ? '6px' : '28px', display: 'flex', flexDirection: 'column', gap: '4px' }}
               >
                 {React.Children.map(children, (child, i) => (
-                  // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- React.Children.map order is stable; no IDs on children
+                  // eslint-disable-next-line react/no-array-index-as-key -- React.Children.map order is stable; no IDs on children
                   <m.div key={i} variants={itemVariants}>
                     {child}
                   </m.div>

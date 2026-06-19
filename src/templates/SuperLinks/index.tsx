@@ -75,7 +75,6 @@ export function SuperLinks(
     ...props
   }: SuperLinksTemplateProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [links, setLinks]           = React.useState<SuperLinkDrawerLink[]>(linksProp)
     const [selectedId, setSelectedId] = React.useState<string | null>(null)
     const [range, setRange]           = React.useState<'7d' | '30d' | '90d'>('30d')

@@ -65,7 +65,7 @@ function PersonaAvatar({ imageUrl, name, size = 32 }: { imageUrl: string | null;
 
   if (imageUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element
+      // eslint-disable-next-line @next/next/no-img-element
       <img src={imageUrl} alt={name} style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0, display: "block" }} />
     );
   }

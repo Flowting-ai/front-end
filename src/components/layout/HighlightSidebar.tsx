@@ -62,7 +62,6 @@ function HighlightSidebarImpl() {
   //             loading (API call in flight). Keep retrying until the
   //             data-highlight-id element appears, then do the precise scroll.
   //             After 20 combined attempts fall back to the message container.
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     const pending = pendingJumpRef.current
     if (!pending) return

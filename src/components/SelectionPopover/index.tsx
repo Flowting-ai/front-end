@@ -198,7 +198,6 @@ export function SelectionPopover({
 
   const floatingRef = useRef<HTMLDivElement>(null)
 
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useLayoutEffect(() => {
     if (!mounted || !open || !anchorRect || !floatingRef.current) return
 

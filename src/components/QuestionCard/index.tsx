@@ -336,7 +336,6 @@ export function QuestionCard(
     ...props
   }: QuestionCardProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [rankedOptions, setRankedOptions] = useState<QuestionCardOption[]>(options)
     const prevOptionsRef = useRef(options)
     if (prevOptionsRef.current !== options) {
@@ -350,17 +349,14 @@ export function QuestionCard(
     const optionRefs    = useRef<(HTMLDivElement | null)[]>([])
 
     // Auto-grow textarea - fires on open (initial size) and on every keystroke
-    // eslint-disable-next-line react-doctor/no-effect-chain -- openEndedOpen set by question-reset effect; separate auto-grow effect needed for openEndedText dependency
     useEffect(() => {
       const el = openEndedRef.current
       if (!el) return
       el.style.height = 'auto'
-      // eslint-disable-next-line react-doctor/js-batch-dom-css -- forced reflow: must read scrollHeight after resetting to auto
       el.style.height = `${el.scrollHeight}px`
     }, [openEndedText, openEndedOpen])
 
     // Focus textarea immediately on open
-    // eslint-disable-next-line react-doctor/no-effect-chain -- openEndedOpen set by question-reset effect; focus effect is intentionally separate
     useEffect(() => {
       if (openEndedOpen) openEndedRef.current?.focus()
     }, [openEndedOpen])
@@ -636,7 +632,6 @@ export function QuestionCard(
                     resize:     'none',
                     overflow:   'hidden',
                     border:     'none',
-                    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                     outline:    'none',
                     background: 'transparent',
                     padding:    0,

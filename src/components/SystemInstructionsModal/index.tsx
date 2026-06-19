@@ -29,7 +29,6 @@ export function SystemInstructionsModal({
   onClose,
   maxLength = 2000,
 }: SystemInstructionsModalProps) {
-  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [draft,   setDraft]   = useState(value)
   const mounted = useMounted()
   const prevOpenRef = useRef(false)
@@ -198,7 +197,6 @@ export function SystemInstructionsModal({
                   onChange={(e) => setDraft(e.target.value.slice(0, maxLength))}
                   maxLength={maxLength}
                   placeholder="e.g. Always respond in British English. Format all code in TypeScript. Be concise and avoid filler phrases..."
-                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into instructions field on modal open
                   autoFocus
                   style={{
                     fontFamily:   'var(--font-body)',

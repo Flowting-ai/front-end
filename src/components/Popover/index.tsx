@@ -126,7 +126,6 @@ function EdgeFade({ edge, visible }: EdgeFadeProps) {
   return (
     <>
       {VERTICAL_FADE_LAYERS.map(({ depth, blur }, i) => (
-        // eslint-disable-next-line react-doctor/no-array-index-as-key -- static VERTICAL_FADE_LAYERS array never reorders; composite key is stable
         <div key={`${edge}-blur-${i}`}
           aria-hidden
           style={{

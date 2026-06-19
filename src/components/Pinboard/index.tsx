@@ -420,7 +420,6 @@ function FilterBar({
   onClearCategories,
   onClearContentTypes,
   onClearAll,
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: FilterBarProps) {
   const [tagOpen,   setTagOpen]   = useState(false)
   const [catOpen,   setCatOpen]   = useState(false)
@@ -958,9 +957,7 @@ export function Pinboard(
     style,
     ...props
   }: PinboardProps & { ref?: React.Ref<HTMLDivElement> },
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 ) {
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [uncontrolledExpanded, setUncontrolledExpanded] = useState(defaultExpanded)
     const isControlled = controlledExpanded !== undefined
     const isExpanded   = isControlled ? !!controlledExpanded : uncontrolledExpanded
@@ -1155,7 +1152,6 @@ export function Pinboard(
     // ── Sort dropdown (Figma 3442:23366) ───────────────────────────────────
     const [sortMenuOpen, setSortMenuOpen] = useState(false)
     const isSortControlled = selectedSortIdProp !== undefined
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalSortId, setInternalSortId] = useState<string | null>(defaultSelectedSortId)
     const selectedSortId = isSortControlled ? (selectedSortIdProp ?? null) : internalSortId
     const handleSortSelect = (id: string) => {
@@ -1549,7 +1545,6 @@ export function Pinboard(
             paddingBottom:        bottomH + 4,
             paddingLeft:          8,
             paddingRight:         8,
-            // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
             outline:              'none',
           }}
         >
@@ -1602,7 +1597,7 @@ export function Pinboard(
                   borderRadius:    12,
                   backgroundColor: 'var(--neutral-100)',
                 }}>
-                  <FolderOneIcon size={20} color="var(--neutral-400)" />
+                  <FolderOneIcon size={20} color="var(--neutral-400)" variant="static" />
                 </span>
                 <span style={{
                   fontFamily:     'var(--font-body)',

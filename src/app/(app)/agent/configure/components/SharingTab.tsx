@@ -190,7 +190,6 @@ function UsageBar({ percent }: { percent: number }) {
           width: `${clamped}%`,
           backgroundColor: '#0d6eb2',
           borderRadius: 2,
-          // eslint-disable-next-line react-doctor/no-layout-transition-inline -- progress bar width is dynamic state
           transition: 'width 300ms ease',
         }}
       />
@@ -685,7 +684,6 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                     style={{
                       width: 96,
                       border: 'none',
-                      // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                       outline: 'none',
                       backgroundColor: 'transparent',
                       fontFamily: 'var(--font-body)',
@@ -785,7 +783,6 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                 style={{
                   flex: 1,
                   border: 'none',
-                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                   outline: 'none',
                   backgroundColor: 'transparent',
                   fontFamily: 'var(--font-body)',
@@ -820,7 +817,6 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
               style={{
                 width: 80,
                 border: 'none',
-                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline: 'none',
                 backgroundColor: 'transparent',
                 fontFamily: 'var(--font-body)',

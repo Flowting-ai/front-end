@@ -10,7 +10,6 @@ export default function SettingsPage() {
   const { replace } = useRouter();
   const { isHydrated, isAuthenticated } = useAuth();
 
-  // eslint-disable-next-line react-doctor/nextjs-no-client-side-redirect -- destination depends on client-only auth state
   useEffect(() => {
     if (!isHydrated) return;
     if (!isAuthenticated) {

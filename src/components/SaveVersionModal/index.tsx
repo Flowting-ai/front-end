@@ -103,7 +103,6 @@ export function SaveVersionModal({
   }
 
   return (
-    // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop click to cancel; keyboard via Escape handler above
     <div
       role="dialog"
       aria-modal="true"
@@ -122,7 +121,6 @@ export function SaveVersionModal({
       }}
     >
       {/* Card */}
-      {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- stop propagation so backdrop doesn't fire */}
       <div
         onClick={e => e.stopPropagation()}
         style={{
@@ -200,7 +198,6 @@ export function SaveVersionModal({
           >
             Skip
           </Button>
-          {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- contextually clear: saves a version */}
           <Button
             variant="default"
             size="sm"

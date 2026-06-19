@@ -170,7 +170,6 @@ export default function OnboardingInvitePage() {
             style={{
               width: "100%",
               border: "none",
-              // eslint-disable-next-line react-doctor/no-outline-none -- global :focus-visible handles outline
               outline: "none",
               resize: "vertical",
               fontFamily: "var(--font-body)",

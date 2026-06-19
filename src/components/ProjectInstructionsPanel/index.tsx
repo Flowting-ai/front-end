@@ -20,7 +20,6 @@ export interface ProjectInstructionsPanelProps {
 
 export function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOpenEditor, ref }: ProjectInstructionsPanelProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [editing, setEditing] = useState(false)
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [draft,   setDraft]   = useState(value)
     const [saving,  setSaving]  = useState(false)
     const isEmpty = !value.trim()
@@ -111,7 +110,6 @@ export function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOp
                 color:      '#1a1714',
                 background: 'transparent',
                 border:     'none',
-                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline:    'none',
                 resize:     'none',
                 width:      '100%',
@@ -121,7 +119,6 @@ export function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOp
                 opacity:    saving ? 0.5 : 1,
                 transition: 'opacity 150ms',
               }}
-              // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into instructions field on panel open
               autoFocus
             />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

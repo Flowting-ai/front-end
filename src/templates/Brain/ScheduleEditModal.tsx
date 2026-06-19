@@ -111,7 +111,6 @@ export function ScheduleEditModal({
   schedule,
   onSave,
   onClose,
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: ScheduleEditModalProps) {
   const isCreate = !schedule
 
@@ -123,7 +122,6 @@ export function ScheduleEditModal({
   const [day,          setDay]          = useState<DayOfWeek>('Monday')
 
   // Reset form when modal opens/schedule changes
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (isOpen) {
       setName(schedule?.name ?? '')

@@ -33,7 +33,6 @@ export interface UseChatHistoryResult {
 
 export function useChatHistory(): UseChatHistoryResult {
   const [chats, setChats] = useState<Chat[]>([]);
-  // eslint-disable-next-line react-doctor/rendering-usetransition-loading -- guards async fetch, not a state transition
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const cursorRef = useRef<string | undefined>(undefined);

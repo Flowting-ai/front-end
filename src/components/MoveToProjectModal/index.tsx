@@ -81,7 +81,7 @@ function ProjectRow({ project, selected, onSelect }: ProjectRowProps) {
         flexShrink:      0,
         transition:      'background-color 120ms',
       }}>
-        <FolderOneIcon size={16} color={selected ? 'var(--blue-400)' : 'var(--neutral-500)'} />
+        <FolderOneIcon size={16} color={selected ? 'var(--blue-400)' : 'var(--neutral-500)'} variant="static" />
       </div>
 
       {/* Text */}

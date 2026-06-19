@@ -159,7 +159,6 @@ function PersonaConfigureKnowledgeContent() {
 
   // ── Load existing documents from API on mount ──────────────────────────────
 
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!repoId || !versionId) return
     setIsLoading(true)

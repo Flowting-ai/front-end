@@ -4,7 +4,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 import { toast } from 'sonner'
-import { ViewIcon, RadarThreeIcon, CalendarThreeIcon } from '@strange-huge/icons'
+import { RadarThreeIcon, CalendarThreeIcon } from '@strange-huge/icons'
+import { ViewIcon } from '@/components/ViewIcon'
 import { Button } from '@/components/Button'
 import { getOrgSlackStatus, getSlackInstallUrl, getSlackStatus } from '@/lib/api/slack'
 
@@ -26,7 +27,7 @@ interface Feature {
 
 const FEATURES: Feature[] = [
   {
-    icon:     <ViewIcon size={20} color="var(--neutral-700)" />,
+    icon:     <ViewIcon size={20} color="var(--neutral-700)" variant="visible" />,
     title:    'Reads only mapped channels',
     subtitle: 'Nothing else is touched until you map it.',
   },

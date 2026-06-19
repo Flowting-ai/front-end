@@ -112,7 +112,6 @@ interface ConnectPromptCardProps {
   onConnected?:  () => void
 }
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProps) {
   const [state,        setState]        = useState<'idle' | 'connecting' | 'polling' | 'connected' | 'error'>('idle')
   const [errorMsg,     setErrorMsg]     = useState('')
@@ -282,7 +281,6 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
                       border:          '1px solid var(--neutral-300)',
                       fontFamily:      'var(--font-body)',
                       fontSize:        13,
-                      // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                       outline:         'none',
                       width:           '100%',
                       boxSizing:       'border-box',

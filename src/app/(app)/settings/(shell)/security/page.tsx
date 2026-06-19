@@ -515,7 +515,7 @@ export default function SecurityPage() {
             right={<GhostButton onClick={() => { void logout() }}>Log out all devices</GhostButton>}
           />
           {sessions.map((session, i) => (
-            // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- sessions are ordered by recency, index is stable
+            // eslint-disable-next-line react/no-array-index-as-key -- sessions are ordered by recency, index is stable
             <SessionRow key={i}
               browser={session.browser}
               location={session.location}

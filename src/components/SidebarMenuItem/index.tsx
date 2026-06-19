@@ -23,6 +23,11 @@ const SHADOW_AVATAR         = 'var(--shadow-sidebar-item-avatar)'
 
 export type SidebarMenuItemVariant = 'default' | 'new-chat' | 'header' | 'chat-item' | 'chat-item-edit' | 'account-item'
 
+type TriggerableIconProps = {
+  animated?: boolean
+  triggered?: boolean
+}
+
 export interface SidebarMenuItemProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: SidebarMenuItemVariant
   /** Primary label text */
@@ -34,7 +39,7 @@ export interface SidebarMenuItemProps extends React.HTMLAttributes<HTMLDivElemen
    * For `default`: defaults to `<LogoIcon size={20} />`.
    * For `new-chat`: defaults to `<BubbleChatAddIcon size={20} />`.
    */
-  icon?: React.ReactElement<{ triggered?: boolean }>
+  icon?: React.ReactElement<TriggerableIconProps>
   /** Avatar image URL - account-item only */
   avatarSrc?: string
   /** Shortcut badge text - default variant only, e.g. '⌘ K' */
@@ -95,6 +100,14 @@ const captionTextStyle: React.CSSProperties = {
 
 const DEFAULT_ICON = <LogoIcon size={20} />
 
+function renderMaybeTriggeredIcon(icon: React.ReactElement<TriggerableIconProps>, triggered: boolean) {
+  if (icon.props.animated === true || icon.props.triggered !== undefined) {
+    return React.cloneElement(icon, { triggered })
+  }
+
+  return icon
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function SidebarMenuItem({
@@ -123,7 +136,6 @@ export function SidebarMenuItem({
       onBlur:       externalBlur,
       onClick,
       ...props
-    // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
     }: SidebarMenuItemProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [isHovered, setIsHovered] = useState(false)
     const [isFocused, setIsFocused] = useState(false)
@@ -140,7 +152,6 @@ export function SidebarMenuItem({
     const isAccountItem = variant === 'account-item'
 
     // ── chat-item-edit state ───────────────────────────────────────────────────
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [editValue, setEditValue] = useState(label)
     const inputRef    = useRef<HTMLInputElement>(null)
     const cancelledRef = useRef(false)
@@ -177,7 +188,6 @@ export function SidebarMenuItem({
       return () => cancelAnimationFrame(id)
     }, [isHovered, label, isChatItem])
 
-    // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
     useEffect(() => {
       if (!isHovered) {
         setIsMarqueeing(false)
@@ -247,7 +257,6 @@ export function SidebarMenuItem({
       transition:      isEditVariant ? undefined : 'background-color 150ms, box-shadow 150ms',
     }
     return (
-      // eslint-disable-next-line react-doctor/no-static-element-interactions -- div has role=button and tabIndex; keyboard events handled by contained elements
       <div
         ref={ref}
         role={isHeader || isEditVariant ? undefined : 'button'}
@@ -311,7 +320,7 @@ export function SidebarMenuItem({
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
-                {React.cloneElement(icon, { triggered: isHovered })}
+                {renderMaybeTriggeredIcon(icon, isHovered)}
               </div>
               <AnimatePresence mode="popLayout" initial={false}>
                 {!collapsed && (
@@ -486,7 +495,6 @@ export function SidebarMenuItem({
             <input
               ref={inputRef}
               type="text"
-              // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into rename input on user-triggered rename
               autoFocus
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
@@ -509,7 +517,6 @@ export function SidebarMenuItem({
                 width:       '100%',
                 background:  'transparent',
                 border:      'none',
-                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline:     'none',
                 fontFamily:  'var(--font-body)',
                 fontWeight:  'var(--font-weight-medium)',

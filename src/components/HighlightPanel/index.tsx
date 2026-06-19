@@ -54,7 +54,6 @@ export function HighlightPanel({
   filterMode = 'this-chat',
   onFilterChange,
   className,
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: HighlightPanelProps) {
   const [searchOpen,  setSearchOpen]  = useState(false)
   const [searchValue, setSearchValue] = useState('')

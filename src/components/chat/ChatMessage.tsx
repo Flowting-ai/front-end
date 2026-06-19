@@ -366,7 +366,6 @@ export function ChatMessage({
   }, [currentModelKey, isNewMessage])
 
   // ── Text selection → SelectionPopover (assistant messages only) ──────────
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!isAssistant || disableHighlight) return
 
@@ -869,7 +868,6 @@ export function ChatMessage({
               const downloadHref = `/api/download?url=${encodeURIComponent(file.url)}&filename=${encodeURIComponent(file.filename)}`
 
               return (
-                // eslint-disable-next-line react-doctor/no-array-index-as-key -- composite key with file.url; attachments are ordered and stable within a message
                 <m.div key={`${file.url}-${i}`}
                   initial={{ opacity: 0, y: 8, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}

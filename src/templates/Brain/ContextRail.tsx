@@ -90,7 +90,7 @@ function ConnectorLogo({ name, slug, status }: { name: string; slug?: string; st
   return (
     <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0, lineHeight: 0 }}>
       {logoSrc ? (
-        // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset, variable path prevents next/image static analysis
+        // eslint-disable-next-line @next/next/no-img-element -- local brand asset, variable path prevents next/image static analysis
         <img
           src={logoSrc}
           alt={name}

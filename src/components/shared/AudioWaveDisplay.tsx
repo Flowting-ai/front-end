@@ -44,7 +44,6 @@ export function AudioWaveDisplay({
         const next = heightsRef.current.map((h, i) => h + (BAR_DEFAULT[i] - h) * LERP);
         heightsRef.current = next;
         updatePaths(next);
-        // eslint-disable-next-line react-doctor/js-length-check-first -- length check is the leading condition via ||
         if (next.length !== BAR_DEFAULT.length || !next.every((h, i) => Math.abs(h - BAR_DEFAULT[i]) < 0.1))
           rafRef.current = requestAnimationFrame(decay);
       };

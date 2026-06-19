@@ -219,7 +219,6 @@ export default function ProjectsPage() {
             style={{
               flex:        '1 0 0',
               border:      'none',
-              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline:     'none',
               background:  'transparent',
               fontFamily:  'var(--font-body)',

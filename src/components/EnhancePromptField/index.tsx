@@ -86,7 +86,6 @@ export function EnhancePromptField(
     ref,
     ...props
   }: EnhancePromptFieldProps & { ref?: React.Ref<HTMLDivElement> },
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 ) {
     const [state, setState]         = useState<EnhanceState>('idle')
     const [mode, setMode]           = useState<EnhanceMode>('BUILD')
@@ -268,7 +267,6 @@ export function EnhancePromptField(
             borderStyle:     'solid',
             overflow:        'hidden',
             ...(isOpen ? { height: 534 } : { minHeight: 120 }),
-            // eslint-disable-next-line react-doctor/no-layout-transition-inline -- dynamic border-width animation requires inline style
             transition:      'background-color 200ms ease, border-color 200ms ease, border-width 200ms ease',
             ...containerStateStyle,
           }}
@@ -300,7 +298,6 @@ export function EnhancePromptField(
                 background: 'transparent',
                 resize:     'none',
                 overflow:   'hidden',
-                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline:    'none',
                 fontFamily: 'Inter, var(--font-body)',
                 fontWeight: 400,
@@ -441,7 +438,7 @@ export function EnhancePromptField(
                     }}
                   >
                     {diffSegments.map((seg, i) => (
-                      // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- diff segments are positionally stable; no stable IDs available
+                      // eslint-disable-next-line react/no-array-index-as-key -- diff segments are positionally stable; no stable IDs available
                       <DiffLine key={i} variant={seg.type}>{seg.text}</DiffLine>
                     ))}
                   </div>

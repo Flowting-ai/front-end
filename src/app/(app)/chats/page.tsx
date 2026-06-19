@@ -36,7 +36,6 @@ function formatTimestamp(iso: string | undefined | null): string {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export default function ChatsPage() {
   const { push }                       = useRouter()
   const { chats, isLoading, rename, remove, removeLocal, star } = useChatHistoryContext()
@@ -383,7 +382,7 @@ export default function ChatsPage() {
         {isLoading && chats.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {[...Array(5)].map((_, i) => (
-              // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- fixed-count skeleton placeholders, index is stable
+              // eslint-disable-next-line react/no-array-index-as-key -- fixed-count skeleton placeholders, index is stable
               <div key={i} style={{
                   height:          62,
                   borderRadius:    12,

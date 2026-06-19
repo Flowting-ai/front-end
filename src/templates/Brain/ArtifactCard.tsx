@@ -139,7 +139,6 @@ export function ArtifactCard({ icon, title, meta, onClick, draftVersion, onViewH
         padding:      0,
         cursor:       'pointer',
         borderRadius: 12,
-        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
         outline:      'none',
       }}
     >

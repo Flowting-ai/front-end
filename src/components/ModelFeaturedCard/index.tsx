@@ -62,7 +62,6 @@ export function ModelFeaturedCard({
     ...props
   }: ModelFeaturedCardProps & { ref?: React.Ref<HTMLDivElement> }) {
     const isControlled = selected !== undefined
-    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalSelected, setInternalSelected] = useState(defaultSelected)
     const isSelected = isControlled ? !!selected : internalSelected
 
@@ -142,7 +141,6 @@ export function ModelFeaturedCard({
     const descColor  = isSelected ? 'var(--neutral-200)' : 'var(--neutral-600)'
 
     return (
-      // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- card has onClick; keyboard handled via parent focus/selection pattern
       <div
         ref={ref}
         className={cn('kds-model-featured-card', className)}

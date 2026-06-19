@@ -31,7 +31,6 @@ export function BrainPhaseGroup({
   defaultCollapsed = true,
   children,
 }: BrainPhaseGroupProps) {
-  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const contentId = React.useId()
 
@@ -59,7 +58,6 @@ export function BrainPhaseGroup({
           cursor:     'pointer',
           textAlign:  'left',
           width:      '100%',
-          // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
           outline:    'none',
         }}
       >

@@ -78,7 +78,6 @@ export function StreamingIndicator({ phase }: StreamingIndicatorProps) {
   const [msgIndex, setMsgIndex]     = useState(0)
 
   // Cycle through messages every 2.5 s; reset to 0 when phase changes.
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     setMsgIndex(0)
     const id = setInterval(() => {

@@ -81,7 +81,6 @@ export function PauseCard({
         >
           Change direction
         </Button>
-        {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Continue" resumes paused workflow; PauseCard context makes action clear */}
         <Button
           variant="default"
           size="sm"

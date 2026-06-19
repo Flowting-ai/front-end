@@ -219,7 +219,7 @@ export async function batchRequests<T>(
 
   for (let i = 0; i < requests.length; i += batchSize) {
     const batch = requests.slice(i, i + batchSize);
-    // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- intentional batching: each batch awaits before starting the next
+    // eslint-disable-next-line no-await-in-loop -- intentional batching: each batch awaits before starting the next
     const batchResults = await Promise.all(batch.map((fn) => fn()));
     results.push(...batchResults);
   }
@@ -266,7 +266,7 @@ export async function handleStream(
       let buffer = "";
 
       while (true) {
-        // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- sequential SSE stream reader; chunks must be processed in order
+        // eslint-disable-next-line no-await-in-loop -- sequential SSE stream reader; chunks must be processed in order
         const { done, value } = await reader.read();
         if (done) break;
 

@@ -70,7 +70,7 @@ export function EnhanceScanningState({ ref, rotateMs = 900, messages, className,
           }}
         >
           <AnimatePresence mode="popLayout" initial={false}>
-            {/* eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- cycling text segments; positionally stable */}
+            {/* eslint-disable-next-line react/no-array-index-as-key -- cycling text segments; positionally stable */}
             <m.span key={idx}
               initial={{ scale: 0.85, opacity: 0, filter: 'blur(4px)' }}
               animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}

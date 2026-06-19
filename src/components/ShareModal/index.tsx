@@ -7,11 +7,11 @@ import {
   CancelOneIcon,
   SearchOneIcon,
   UserIcon,
-  ViewIcon,
   CopyOneIcon,
   TickTwoIcon,
   ArrowDownOneIcon,
 } from '@strange-huge/icons'
+import { ViewIcon } from '@/components/ViewIcon'
 import { Button }          from '@/components/Button'
 import { Badge }           from '@/components/Badge'
 import { Popover }         from '@/components/Popover'
@@ -40,7 +40,7 @@ export type SharePermission = 'can-use' | 'can-view' | 'can-copy'
 
 const PERMISSION_OPTIONS: { value: SharePermission; label: string; icon: React.ReactElement }[] = [
   { value: 'can-use',  label: 'Can use',  icon: <UserIcon    /> },
-  { value: 'can-view', label: 'Can view', icon: <ViewIcon    /> },
+  { value: 'can-view', label: 'Can view', icon: <ViewIcon variant="visible" /> },
   { value: 'can-copy', label: 'Can copy', icon: <CopyOneIcon /> },
 ]
 
@@ -572,7 +572,6 @@ export function ShareModal({
             style={{
               flex:       1,
               border:     'none',
-              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline:    'none',
               background: 'transparent',
               fontFamily: 'var(--font-body)',
