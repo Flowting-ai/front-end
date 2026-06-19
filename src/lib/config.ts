@@ -241,6 +241,8 @@ export const ORG_TEAM_PROJECT_MEMBER_ENDPOINT = (orgId: string, teamId: string, 
   withBase(`/organizations/${orgId}/teams/${teamId}/projects/${projectId}/members/${memberId}`)
 export const ORG_TEAM_CONNECTORS_ENDPOINT = (orgId: string, teamId: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/connectors`)
+export const ORG_TEAM_CONNECTOR_CATALOG_ENDPOINT = (orgId: string, teamId: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}/connectors/catalog`)
 export const ORG_TEAM_CONNECTOR_ENDPOINT = (orgId: string, teamId: string, slug: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/connectors/${encodeURIComponent(slug)}`)
 export const ORG_TEAM_CONNECTIONS_ENDPOINT = (orgId: string, teamId: string) =>

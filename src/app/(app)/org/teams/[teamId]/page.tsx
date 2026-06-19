@@ -24,7 +24,6 @@ import {
   SettingsTableToolbar,
 } from '@/components/SettingsTable'
 import { useOrg } from '@/context/org-context'
-import { useAuth } from '@/context/auth-context'
 import {
   getTeam,
   updateTeam,
@@ -35,10 +34,12 @@ import {
   removeTeamEditor,
   inviteTeamMembers,
   listTeamConnectors,
+  listTeamConnectorCatalog,
   requestTeamConnector,
   setTeamConnectorStatus,
   deleteTeamConnector,
   listTeamConnections,
+  createTeamConnectionAccount,
   attachSharedAccount,
   updateTeamConnectionPermissions,
   unlinkTeamConnection,
@@ -46,8 +47,14 @@ import {
   type TeamConnectionEntry,
 } from '@/lib/api/teams'
 import { listMembers } from '@/lib/api/organization'
-import { listConnectors, listOrgCatalog } from '@/lib/api/connectors'
-import type { ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
+import {
+  DEFAULT_API_KEY_FIELD,
+  fieldLabel,
+  fieldPlaceholder,
+  isSecretField,
+} from '@/lib/api/connectors'
+import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
+import { pollOrgConnectorAccountUntilConnected } from '@/lib/api/org-connectors'
 import type { Team, TeamEditor, OrgMember } from '@/types/teams'
 import { toast } from 'sonner'
 
@@ -336,7 +343,7 @@ const STATUS_COLORS: Record<TeamConnectorRequest['status'], string> = {
 function ConnectorStatusBadge({ status }: { status: TeamConnectorRequest['status'] }) {
   return (
     <span style={{
-      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11,
+      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12,
       color: STATUS_COLORS[status],
       padding: '2px 7px', borderRadius: 6,
       border: `1px solid ${STATUS_COLORS[status]}40`,
@@ -366,9 +373,7 @@ function TeamConnectorsCard({ orgId, teamId, isAdmin }: { orgId: string; teamId:
       try {
         const [conns, cat] = await Promise.all([
           listTeamConnectors(orgId, teamId),
-          // Admins use the org catalog so they see all connectors with org_enabled status.
-          // Non-admins use the personal catalog, which is already pre-filtered.
-          isAdmin ? listOrgCatalog(orgId) : listConnectors(),
+          listTeamConnectorCatalog(orgId, teamId),
         ])
         if (cancelled) return
         setConnectors(conns)
@@ -384,16 +389,19 @@ function TeamConnectorsCard({ orgId, teamId, isAdmin }: { orgId: string; teamId:
     return () => {
       cancelled = true
     }
-  }, [orgId, teamId, isAdmin])
+  }, [orgId, teamId])
 
   // Resolve display name from catalog; falls back to slug if catalog not yet loaded.
   const displayName = (slug: string) =>
     catalog.find(c => c.slug === slug)?.display_name ?? slug
 
   // Connectors available to request:
-  // - Exclude connectors already pending/approved (denied rows can be re-requested).
-  const requestableCatalog = catalog
-    .filter(c => !connectors.some(tc => tc.connectorSlug === c.slug && tc.status !== 'denied'))
+  // - Org-enabled connectors are already inherited by every team.
+  // - Existing pending/approved rows cannot be requested twice.
+  const requestableCatalog = catalog.filter(c =>
+    !c.org_enabled
+    && !connectors.some(tc => tc.connectorSlug === c.slug && tc.status !== 'denied'),
+  )
 
   const handleOpenRequest = () => {
     setRequestOpen(true)
@@ -412,7 +420,7 @@ function TeamConnectorsCard({ orgId, teamId, isAdmin }: { orgId: string; teamId:
       setSelectedSlug('')
       setNote('')
       setRequestOpen(false)
-      toast.success(isAdmin ? 'Connector approved for team' : 'Connector request sent')
+      toast.success('Connector request sent')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to request connector')
     } finally {
@@ -443,29 +451,31 @@ function TeamConnectorsCard({ orgId, teamId, isAdmin }: { orgId: string; teamId:
   return (
     <Card>
       <CardHeader
-        title="Team Connectors"
-        subtitle="Connectors approved for this team. Members can request access to connectors for team use."
+        title="Connector requests"
+        subtitle={isAdmin
+          ? 'Review requests for connectors that are not already enabled for the workspace.'
+          : 'Request a connector that is not already enabled for the workspace.'}
       />
       <div style={{ padding: '6px 24px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={handleOpenRequest}>
-            Request connector
-          </Button>
-        </div>
+        {!isAdmin && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={handleOpenRequest}>
+              Request connector
+            </Button>
+          </div>
+        )}
 
         {requestOpen && (
           <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
-              {isAdmin ? 'Add connector (auto-approved)' : 'Request connector for team'}
+              Request connector for team
             </p>
             {requestableCatalog.length === 0 ? (
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0 }}>
                 {loading
                   ? 'Loading…'
-                  : isAdmin
-                    ? 'All org-enabled connectors are already added to this team. Enable more connectors in Org → Connectors.'
-                    : 'No connectors available to request. All org-enabled connectors are already pending or approved for this team.'}
+                  : 'No connectors available to request. They are already workspace-enabled, pending, or approved for this team.'}
               </p>
             ) : (
               <>
@@ -486,7 +496,7 @@ function TeamConnectorsCard({ orgId, teamId, isAdmin }: { orgId: string; teamId:
               <Button variant="outline" size="sm" onClick={() => setRequestOpen(false)}>Cancel</Button>
               {requestableCatalog.length > 0 && (
                 <Button variant="default" size="sm" disabled={!selectedSlug || submitting} onClick={handleRequest}>
-                  {submitting ? 'Sending…' : isAdmin ? 'Add' : 'Request'}
+                  {submitting ? 'Sending…' : 'Request'}
                 </Button>
               )}
             </div>
@@ -495,7 +505,9 @@ function TeamConnectorsCard({ orgId, teamId, isAdmin }: { orgId: string; teamId:
 
         {loading && <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>Loading…</p>}
         {!loading && connectors.length === 0 && (
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>No connectors yet.</p>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+            {isAdmin ? 'No connector requests.' : 'You have not requested any connectors for this team.'}
+          </p>
         )}
         {connectors.map(c => (
           <div key={c.connectorSlug} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--neutral-100)' }}>
@@ -504,9 +516,15 @@ function TeamConnectorsCard({ orgId, teamId, isAdmin }: { orgId: string; teamId:
                 {displayName(c.connectorSlug)}
               </p>
               {c.note && <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)', margin: 0 }}>{c.note}</p>}
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--neutral-400)', margin: 0 }}>
-                Requested by {c.requestedByName ?? c.requestedByUserId}
-              </p>
+              {c.status === 'approved' ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0 }}>
+                  Approved for this team
+                </p>
+              ) : (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0 }}>
+                  Requested by {c.requestedByName ?? c.requestedByUserId}
+                </p>
+              )}
             </div>
             <ConnectorStatusBadge status={c.status} />
             {isAdmin && (
@@ -542,13 +560,224 @@ const POLICY_LABELS: Record<ConnectorTool['policy'], string> = {
   allow_once: 'Allow once',
 }
 
+function connectionCredentialFields(connection: TeamConnectionEntry): ApiKeyField[] {
+  if (connection.apiKeyFields.length > 0) return connection.apiKeyFields
+  return connection.authMode === 'api_key' ? [DEFAULT_API_KEY_FIELD] : []
+}
+
+function TeamAccountPanel({
+  connection,
+  mode,
+  selectedAccount,
+  accountLabel,
+  accountIdentifier,
+  credentialValues,
+  attaching,
+  linking,
+  polling,
+  onModeChange,
+  onSelectedAccountChange,
+  onAccountLabelChange,
+  onAccountIdentifierChange,
+  onCredentialChange,
+  onCancel,
+  onAttach,
+  onCreate,
+}: {
+  connection: TeamConnectionEntry
+  mode: 'existing' | 'new'
+  selectedAccount: string
+  accountLabel: string
+  accountIdentifier: string
+  credentialValues: Record<string, string>
+  attaching: boolean
+  linking: boolean
+  polling: boolean
+  onModeChange: (mode: 'existing' | 'new') => void
+  onSelectedAccountChange: (accountId: string) => void
+  onAccountLabelChange: (label: string) => void
+  onAccountIdentifierChange: (identifier: string) => void
+  onCredentialChange: (name: string, value: string) => void
+  onCancel: () => void
+  onAttach: () => void
+  onCreate: () => void
+}) {
+  const attachableAccounts = connection.accounts.filter(
+    account => account.connected && account.status === 'active',
+  )
+  const credentialFields = connectionCredentialFields(connection)
+  const canCreate = accountLabel.trim().length > 0
+    && credentialFields.every(field => !field.required || credentialValues[field.name]?.trim())
+
+  return (
+    <div style={{ marginTop: 8, border: '1px solid var(--neutral-200)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
+        Manage shared account for <strong>{connection.displayName}</strong>
+      </p>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Button
+          variant={mode === 'existing' ? 'secondary' : 'outline'}
+          size="sm"
+          disabled={attachableAccounts.length === 0}
+          onClick={() => onModeChange('existing')}
+        >
+          Use existing
+        </Button>
+        <Button
+          variant={mode === 'new' ? 'secondary' : 'outline'}
+          size="sm"
+          onClick={() => onModeChange('new')}
+        >
+          Link new account
+        </Button>
+      </div>
+
+      {mode === 'existing' && (
+        <select
+          value={selectedAccount}
+          onChange={event => onSelectedAccountChange(event.target.value)}
+          style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)', border: '1px solid var(--neutral-200)', borderRadius: 8, padding: '8px 12px', backgroundColor: 'white', width: '100%' }}
+        >
+          <option value="">Select shared account…</option>
+          {connection.accounts.map(account => {
+            const unavailable = !account.connected || account.status !== 'active'
+            const label = [account.accountLabel, account.accountIdentifier ? `(${account.accountIdentifier})` : ''].filter(Boolean).join(' ')
+            const suffix = !account.connected ? ' — Not connected' : account.status !== 'active' ? ` — ${account.status}` : ''
+            return (
+              <option key={account.id} value={account.id} disabled={unavailable}>
+                {label}{suffix}
+              </option>
+            )
+          })}
+        </select>
+      )}
+
+      {mode === 'new' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+            <InputField
+              fluid
+              size="small"
+              label="Account label"
+              value={accountLabel}
+              onChange={onAccountLabelChange}
+            />
+            <InputField
+              fluid
+              size="small"
+              label="Account identifier"
+              placeholder="support@example.com"
+              value={accountIdentifier}
+              onChange={onAccountIdentifierChange}
+            />
+          </div>
+          {credentialFields.map(field => (
+            <InputField
+              key={field.name}
+              fluid
+              size="small"
+              type={field.secret || isSecretField(field.name) ? 'password' : 'text'}
+              label={field.label || fieldLabel(field.name)}
+              placeholder={field.help || fieldPlaceholder(field.name)}
+              value={credentialValues[field.name] ?? ''}
+              onChange={value => onCredentialChange(field.name, value)}
+            />
+          ))}
+          {connection.authMode === 'oauth2' && (
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)', margin: 0 }}>
+              A secure provider window will open to finish connecting this account.
+            </p>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
+        {mode === 'existing' ? (
+          <Button
+            variant="default"
+            size="sm"
+            disabled={!selectedAccount || attaching || attachableAccounts.length === 0}
+            onClick={onAttach}
+          >
+            {attaching ? 'Attaching…' : 'Attach'}
+          </Button>
+        ) : (
+          <Button
+            variant="default"
+            size="sm"
+            disabled={!canCreate || linking}
+            onClick={onCreate}
+          >
+            {polling ? 'Waiting for auth…' : linking ? 'Linking…' : connection.authMode === 'oauth2' ? 'Start OAuth' : 'Link account'}
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TeamPermissionsPanel({
+  permissions,
+  hasEdits,
+  saving,
+  onPolicyChange,
+  onCancel,
+  onSave,
+}: {
+  permissions: ConnectorTool[]
+  hasEdits: boolean
+  saving: boolean
+  onPolicyChange: (toolSlug: string, policy: ConnectorTool['policy']) => void
+  onCancel: () => void
+  onSave: () => void
+}) {
+  return (
+    <div style={{ marginTop: 8, border: '1px solid var(--neutral-200)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-700)', margin: 0 }}>
+        Tool permissions
+      </p>
+      {permissions.map(tool => (
+        <div key={tool.slug} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <p style={{ flex: '1 0 0', fontFamily: 'var(--font-mono, monospace)', fontSize: 12, color: 'var(--neutral-700)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {tool.slug}
+          </p>
+          <select
+            value={tool.policy}
+            onChange={event => onPolicyChange(tool.slug, event.target.value as ConnectorTool['policy'])}
+            style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-900)', border: '1px solid var(--neutral-200)', borderRadius: 6, padding: '4px 8px', backgroundColor: 'white', cursor: 'pointer', flexShrink: 0 }}
+          >
+            {(Object.keys(POLICY_LABELS) as ConnectorTool['policy'][]).map(policy => (
+              <option key={policy} value={policy}>{POLICY_LABELS[policy]}</option>
+            ))}
+          </select>
+        </div>
+      ))}
+      {hasEdits && (
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+          <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
+          <Button variant="default" size="sm" disabled={saving} onClick={onSave}>
+            {saving ? 'Saving…' : 'Save permissions'}
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TeamConnectionsCard({ orgId, teamId, canEdit }: { orgId: string; teamId: string; canEdit: boolean }) {
   const [connections,   setConnections]   = useState<TeamConnectionEntry[]>([])
   const [loading,       setLoading]       = useState(true)
   // Which connector's attach form is open
   const [attachingSlug, setAttachingSlug] = useState<string | null>(null)
+  const [attachMode,    setAttachMode]    = useState<'existing' | 'new'>('existing')
   const [selectedAcct,  setSelectedAcct]  = useState('')
   const [attaching,     setAttaching]     = useState(false)
+  const [accountLabel,  setAccountLabel]  = useState('')
+  const [accountId,     setAccountId]     = useState('')
+  const [credentialValues, setCredentialValues] = useState<Record<string, string>>({})
+  const [linking,       setLinking]       = useState(false)
+  const [polling,       setPolling]       = useState(false)
   // Which connector's permissions panel is expanded
   const [expandedPerms, setExpandedPerms] = useState<string | null>(null)
   // Local permission edits keyed by connector slug — only present when user has made changes
@@ -577,8 +806,14 @@ function TeamConnectionsCard({ orgId, teamId, canEdit }: { orgId: string; teamId
   }, [orgId, teamId])
 
   const handleOpenAttach = (slug: string) => {
-    setAttachingSlug(prev => prev === slug ? null : slug)
+    const connection = connections.find(c => c.slug === slug)
+    const isClosing = attachingSlug === slug
+    setAttachingSlug(isClosing ? null : slug)
+    setAttachMode(connection?.accounts.some(a => a.connected && a.status === 'active') ? 'existing' : 'new')
     setSelectedAcct('')
+    setAccountLabel(connection ? `${connection.displayName} team account` : '')
+    setAccountId('')
+    setCredentialValues({})
   }
 
   const handleAttach = async () => {
@@ -593,6 +828,61 @@ function TeamConnectionsCard({ orgId, teamId, canEdit }: { orgId: string; teamId
       toast.error(err instanceof Error ? err.message : 'Failed to attach account')
     } finally {
       setAttaching(false)
+    }
+  }
+
+  const handleCreateAccount = async (connection: TeamConnectionEntry) => {
+    const fields = connectionCredentialFields(connection)
+    const canSubmit = accountLabel.trim().length > 0
+      && fields.every(field => !field.required || credentialValues[field.name]?.trim())
+    if (!canSubmit) return
+
+    setLinking(true)
+    try {
+      const initData = Object.fromEntries(
+        Object.entries(credentialValues).filter(([, value]) => value.trim()),
+      )
+      const result = await createTeamConnectionAccount(orgId, teamId, connection.slug, {
+        accountLabel: accountLabel.trim(),
+        accountIdentifier: accountId.trim() || undefined,
+        initData,
+      })
+
+      if (result.redirectUrl && result.sharedAccountId) {
+        const popup = window.open('', '_blank', 'width=900,height=700')
+        if (popup && !popup.closed) popup.location.href = result.redirectUrl
+        else window.open(result.redirectUrl, '_blank', 'noopener')
+        setPolling(true)
+        try {
+          await pollOrgConnectorAccountUntilConnected(
+            orgId,
+            connection.slug,
+            result.sharedAccountId,
+          )
+          await attachSharedAccount(orgId, teamId, connection.slug, result.sharedAccountId)
+          popup?.close()
+        } catch {
+          popup?.close()
+          toast.warning('OAuth is still waiting to finish. Complete it, then attach the account from this panel.')
+          const rows = await listTeamConnections(orgId, teamId)
+          setConnections(rows)
+          return
+        } finally {
+          setPolling(false)
+        }
+      } else if (result.sharedAccountId) {
+        await attachSharedAccount(orgId, teamId, connection.slug, result.sharedAccountId)
+      }
+
+      const rows = await listTeamConnections(orgId, teamId)
+      setConnections(rows)
+      setAttachingSlug(null)
+      toast.success(`${connection.displayName} account linked`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to link account')
+    } finally {
+      setLinking(false)
+      setPolling(false)
     }
   }
 
@@ -645,14 +935,14 @@ function TeamConnectionsCard({ orgId, teamId, canEdit }: { orgId: string; teamId
   return (
     <Card>
       <CardHeader
-        title="Team Connections"
-        subtitle="Shared accounts assigned to this team and tool permission policies per connector."
+        title="Shared accounts & permissions"
+        subtitle="Workspace-enabled and team-approved connectors available to this team."
       />
       <div style={{ padding: '6px 24px 12px', display: 'flex', flexDirection: 'column', gap: 0 }}>
         {loading && <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>Loading…</p>}
         {!loading && approvedConnections.length === 0 && (
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-            No approved connectors yet. Approve connectors above first.
+            No connectors are enabled for this team yet.
           </p>
         )}
 
@@ -661,7 +951,6 @@ function TeamConnectionsCard({ orgId, teamId, canEdit }: { orgId: string; teamId
           const isPermsOpen   = expandedPerms === c.slug
           const currentPerms  = pendingPerms[c.slug] ?? c.tools
           const hasEdits      = pendingPerms[c.slug] !== undefined
-          const attachableAccts = c.accounts.filter(a => a.connected && a.status === 'active')
 
           const accountLine = c.workspaceLinked
             ? [c.accountLabel, c.accountIdentifier].filter(Boolean).join(' · ') || c.sharedAccountId
@@ -683,7 +972,7 @@ function TeamConnectionsCard({ orgId, teamId, canEdit }: { orgId: string; teamId
 
                 {c.workspaceLinked && (
                   <span style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11,
+                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12,
                     color: 'var(--green-600)', padding: '2px 7px', borderRadius: 6,
                     border: '1px solid var(--green-200)', backgroundColor: 'var(--green-50)',
                     whiteSpace: 'nowrap', flexShrink: 0,
@@ -725,83 +1014,41 @@ function TeamConnectionsCard({ orgId, teamId, canEdit }: { orgId: string; teamId
 
               {/* ── Attach shared account form ── */}
               {isAttachOpen && (
-                <div style={{ marginTop: 8, border: '1px solid var(--neutral-200)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
-                    Attach shared account for <strong>{c.displayName}</strong>
-                  </p>
-                  {c.accounts.length === 0 ? (
-                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>
-                      No shared accounts found for this connector. Create one in Org → Connectors.
-                    </p>
-                  ) : (
-                    <select
-                      value={selectedAcct}
-                      onChange={e => setSelectedAcct(e.target.value)}
-                      style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)', border: '1px solid var(--neutral-200)', borderRadius: 8, padding: '8px 12px', backgroundColor: 'white', width: '100%' }}
-                    >
-                      <option value="">Select shared account…</option>
-                      {c.accounts.map(a => {
-                        const unavailable = !a.connected || a.status !== 'active'
-                        const label = [a.accountLabel, a.accountIdentifier ? `(${a.accountIdentifier})` : ''].filter(Boolean).join(' ')
-                        const suffix = !a.connected ? ' — Not connected' : a.status !== 'active' ? ` — ${a.status}` : ''
-                        return (
-                          <option key={a.id} value={a.id} disabled={unavailable}>
-                            {label}{suffix}
-                          </option>
-                        )
-                      })}
-                    </select>
-                  )}
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                    <Button variant="outline" size="sm" onClick={() => setAttachingSlug(null)}>Cancel</Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      disabled={!selectedAcct || attaching || attachableAccts.length === 0}
-                      onClick={() => void handleAttach()}
-                    >
-                      {attaching ? 'Attaching…' : 'Attach'}
-                    </Button>
-                  </div>
-                </div>
+                <TeamAccountPanel
+                  connection={c}
+                  mode={attachMode}
+                  selectedAccount={selectedAcct}
+                  accountLabel={accountLabel}
+                  accountIdentifier={accountId}
+                  credentialValues={credentialValues}
+                  attaching={attaching}
+                  linking={linking}
+                  polling={polling}
+                  onModeChange={setAttachMode}
+                  onSelectedAccountChange={setSelectedAcct}
+                  onAccountLabelChange={setAccountLabel}
+                  onAccountIdentifierChange={setAccountId}
+                  onCredentialChange={(name, value) => {
+                    setCredentialValues(prev => ({ ...prev, [name]: value }))
+                  }}
+                  onCancel={() => setAttachingSlug(null)}
+                  onAttach={() => void handleAttach()}
+                  onCreate={() => void handleCreateAccount(c)}
+                />
               )}
 
               {/* ── Permissions editor ── */}
               {isPermsOpen && c.tools.length > 0 && (
-                <div style={{ marginTop: 8, border: '1px solid var(--neutral-200)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-700)', margin: 0 }}>
-                    Tool permissions
-                  </p>
-                  {currentPerms.map(t => (
-                    <div key={t.slug} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <p style={{ flex: '1 0 0', fontFamily: 'var(--font-mono, monospace)', fontSize: 12, color: 'var(--neutral-700)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {t.slug}
-                      </p>
-                      <select
-                        value={t.policy}
-                        onChange={e => handlePolicyChange(c.slug, t.slug, e.target.value as ConnectorTool['policy'])}
-                        style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-900)', border: '1px solid var(--neutral-200)', borderRadius: 6, padding: '4px 8px', backgroundColor: 'white', cursor: 'pointer', flexShrink: 0 }}
-                      >
-                        {(Object.keys(POLICY_LABELS) as ConnectorTool['policy'][]).map(p => (
-                          <option key={p} value={p}>{POLICY_LABELS[p]}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ))}
-                  {hasEdits && (
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-                      <Button variant="outline" size="sm" onClick={() => handleCancelPerms(c.slug)}>Cancel</Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        disabled={savingPerms === c.slug}
-                        onClick={() => void handleSavePerms(c.slug)}
-                      >
-                        {savingPerms === c.slug ? 'Saving…' : 'Save permissions'}
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <TeamPermissionsPanel
+                  permissions={currentPerms}
+                  hasEdits={hasEdits}
+                  saving={savingPerms === c.slug}
+                  onPolicyChange={(toolSlug, policy) => {
+                    handlePolicyChange(c.slug, toolSlug, policy)
+                  }}
+                  onCancel={() => handleCancelPerms(c.slug)}
+                  onSave={() => void handleSavePerms(c.slug)}
+                />
               )}
             </div>
           )
@@ -817,7 +1064,6 @@ export default function TeamSettingsPage() {
   const params = useParams<{ teamId: string }>()
   const router = useRouter()
   const { orgId, refreshTeams, orgRole } = useOrg()
-  const { user } = useAuth()
   const isAdmin = orgRole === 'owner' || orgRole === 'admin'
 
   const [team, setTeam] = useState<Team | null>(null)
@@ -875,9 +1121,8 @@ export default function TeamSettingsPage() {
         if (!cancelled) setEditors(rows)
       } catch (err) {
         if (!cancelled) console.error(err)
-      } finally {
-        if (!cancelled) setEditorsLoading(false)
       }
+      if (!cancelled) setEditorsLoading(false)
     }
 
     void loadEditors()
@@ -896,9 +1141,8 @@ export default function TeamSettingsPage() {
       toast.success('Team updated')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update team')
-    } finally {
-      setSaving(false)
     }
+    setSaving(false)
   }
 
   const handleArchive = async () => {
@@ -946,9 +1190,7 @@ export default function TeamSettingsPage() {
     toast.success('Editor added')
   }
 
-  const canManageConnections =
-    isAdmin ||
-    (!!user?.email && editors.some(e => e.email?.toLowerCase() === user.email!.toLowerCase()))
+  const canManageConnections = team?.canEdit ?? false
 
   if (loading) {
     return (

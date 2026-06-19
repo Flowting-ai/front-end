@@ -10,6 +10,7 @@ import {
   ORG_TEAM_PROJECT_MEMBERS_ENDPOINT,
   ORG_TEAM_PROJECT_MEMBER_ENDPOINT,
   ORG_TEAM_CONNECTORS_ENDPOINT,
+  ORG_TEAM_CONNECTOR_CATALOG_ENDPOINT,
   ORG_TEAM_CONNECTOR_ENDPOINT,
   ORG_TEAM_CONNECTIONS_ENDPOINT,
   ORG_TEAM_CONNECTION_ENDPOINT,
@@ -17,7 +18,12 @@ import {
   TEAM_INVITE_ACCEPT_ENDPOINT,
 } from '@/lib/config'
 import type { Team, TeamEditor, TeamInvite, WorkspaceRole } from '@/types/teams'
-import type { ConnectorTool, ConnectorAccount } from './connectors'
+import type {
+  ApiKeyField,
+  ConnectorTool,
+  ConnectorAccount,
+  ConnectorCatalogEntry,
+} from './connectors'
 
 // ── Backend shapes (snake_case) ───────────────────────────────────────────────
 
@@ -291,6 +297,13 @@ export async function listTeamConnectors(orgId: string, teamId: string): Promise
   return list.map(normalizeTeamConnector)
 }
 
+export async function listTeamConnectorCatalog(
+  orgId: string,
+  teamId: string,
+): Promise<ConnectorCatalogEntry[]> {
+  return apiFetchJson<ConnectorCatalogEntry[]>(ORG_TEAM_CONNECTOR_CATALOG_ENDPOINT(orgId, teamId))
+}
+
 export async function requestTeamConnector(orgId: string, teamId: string, slug: string, note?: string): Promise<TeamConnectorRequest> {
   const data = await apiFetchJson<TeamConnectorResponse>(ORG_TEAM_CONNECTORS_ENDPOINT(orgId, teamId), {
     method: 'POST',
@@ -322,6 +335,7 @@ export interface TeamConnectionEntry {
   slug:              string
   displayName:       string
   authMode:          'oauth2' | 'api_key'
+  apiKeyFields:      ApiKeyField[]
   status:            ConnectorRequestStatus
   /** Currently attached org shared account id. */
   sharedAccountId:   string | null
@@ -344,6 +358,7 @@ interface TeamConnectionResponse {
   slug:                  string
   display_name?:         string
   auth_mode?:            'oauth2' | 'api_key'
+  api_key_fields?:       ApiKeyField[]
   status?:               ConnectorRequestStatus
   shared_account_id?:    string | null
   account_label?:        string | null
@@ -372,6 +387,7 @@ function normalizeConnection(r: TeamConnectionResponse): TeamConnectionEntry {
     slug:              r.slug,
     displayName:       r.display_name ?? r.slug,
     authMode:          r.auth_mode ?? 'api_key',
+    apiKeyFields:      r.api_key_fields ?? [],
     status:            r.status ?? 'approved',
     sharedAccountId:   r.shared_account_id ?? null,
     accountLabel:      r.account_label ?? null,
