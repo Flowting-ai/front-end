@@ -15,6 +15,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { useMounted } from '@/hooks/use-mounted'
 import type { Project } from '@/context/projects-context'
+import { useOrg } from '@/context/org-context'
 
 type SortKey = 'recent' | 'alphabetical' | 'active'
 
@@ -44,8 +45,19 @@ function formatUpdated(iso: string) {
 export default function ProjectsPage() {
   const { push }                                                              = useRouter()
   const { projects, loading, updateProject, deleteProject, loadProjectChats } = useProjects()
+  const { orgId, activeTeamId, teams }                                        = useOrg()
   const mounted                                                               = useMounted()
   const syncedRef = useRef(false)
+  const activeTeam = teams.find(team => team.id === activeTeamId) ?? null
+  const newProjectHref = orgId && activeTeamId ? `/projects/new?teamId=${activeTeamId}` : '/projects/new'
+  const scopeLabel = orgId && activeTeam
+    ? activeTeam.name
+    : orgId
+      ? 'All workspace'
+      : 'Projects'
+  const emptyLabel = orgId && activeTeam
+    ? `No projects in ${activeTeam.name} yet.`
+    : 'No projects yet. Create your first one to get started.'
 
   // Sync accurate chat counts once after the project list finishes loading.
   // Runs only on this page — not on every app boot — so the API is only hit
@@ -90,9 +102,14 @@ export default function ProjectsPage() {
     }
   }
 
+  const scopedProjects = useMemo(() => {
+    if (!orgId || !activeTeamId) return projects
+    return projects.filter(project => project.teamId === activeTeamId)
+  }, [orgId, activeTeamId, projects])
+
   // Split into two memos: sort doesn't re-run when query changes, filter doesn't
   // re-run when sort order changes.
-  const sorted = useMemo(() => sortProjects(projects, sort), [projects, sort])
+  const sorted = useMemo(() => sortProjects(scopedProjects, sort), [scopedProjects, sort])
 
   const filtered = useMemo(() => {
     if (!query.trim()) return sorted
@@ -140,7 +157,7 @@ export default function ProjectsPage() {
                 Projects
               </h1>
               <div style={{ alignSelf: 'flex-start' }}>
-                <Badge label={`${projects.length} ${projects.length === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+                <Badge label={`${scopeLabel} · ${scopedProjects.length} ${scopedProjects.length === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
               </div>
             </div>
 
@@ -172,7 +189,7 @@ export default function ProjectsPage() {
               </Dropdown.Float>
 
               {/* New Project */}
-              <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => push('/projects/new')}>
+              <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => push(newProjectHref)}>
                 New Project
               </Button>
             </div>
@@ -282,9 +299,9 @@ export default function ProjectsPage() {
                   margin:      0,
                 }}
               >
-                No projects yet. Create your first one to get started.
+                {emptyLabel}
               </p>
-              <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => push('/projects/new')}>
+              <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => push(newProjectHref)}>
                 New Project
               </Button>
             </div>
