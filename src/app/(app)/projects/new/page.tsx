@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
@@ -9,7 +9,7 @@ import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { useOrg } from '@/context/org-context'
 
-export default function NewProjectPage() {
+function NewProjectPageInner() {
   const { push, back }                    = useRouter()
   const searchParams                      = useSearchParams()
   const { projects, createProject }       = useProjects()
@@ -214,5 +214,13 @@ export default function NewProjectPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function NewProjectPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewProjectPageInner />
+    </Suspense>
   )
 }
