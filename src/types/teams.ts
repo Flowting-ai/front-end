@@ -159,9 +159,12 @@ export interface OrgPlanUsage {
 export interface AuditLogEntry {
   id: string
   actorUserId: string
+  actorName: string | null
+  actorEmail: string | null
   action: string
   targetType: string | null
   targetId: string | null
+  targetName: string | null
   extra: Record<string, unknown> | null
   createdAt: string
 }

@@ -79,9 +79,12 @@ interface PlanUsageResponse {
 interface AuditEntryResponse {
   id: string
   actor_user_id: string
+  actor_name: string | null
+  actor_email: string | null
   action: string
   target_type: string | null
   target_id: string | null
+  target_name: string | null
   extra: Record<string, unknown> | null
   created_at: string
 }
@@ -157,9 +160,12 @@ function normalizeAuditEntry(e: AuditEntryResponse): AuditLogEntry {
   return {
     id:           e.id,
     actorUserId:  e.actor_user_id,
+    actorName:    e.actor_name ?? null,
+    actorEmail:   e.actor_email ?? null,
     action:       e.action,
     targetType:   e.target_type,
     targetId:     e.target_id,
+    targetName:   e.target_name ?? null,
     extra:        e.extra,
     createdAt:    e.created_at,
   }

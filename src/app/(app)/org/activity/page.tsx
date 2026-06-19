@@ -1,17 +1,32 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { Divider } from '@/components/Divider'
+import { SearchOneIcon } from '@strange-huge/icons'
+import { Avatar } from '@/components/Avatar'
+import { Badge } from '@/components/Badge'
+import type { BadgeColor } from '@/components/Badge'
+import { InputField } from '@/components/InputField'
+import {
+  SettingsTable,
+  SettingsTableToolbar,
+  SettingsTableHeader,
+  SettingsTableHeaderCell,
+  SettingsTableRow,
+  SettingsTableCell,
+  SettingsTableFooter,
+} from '@/components/SettingsTable'
 import { useOrg } from '@/context/org-context'
 import { listAudit } from '@/lib/api/organization'
 import { parseServerDate, formatServerDateTime } from '@/lib/utils/format-utils'
 import type { AuditLogEntry } from '@/types/teams'
 
+const ACTIVITY_COLUMNS = '120px minmax(220px, 1.3fr) 200px minmax(200px, 1.2fr)'
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // Backend timestamps are UTC, often without a 'Z' suffix — parseServerDate
 // normalises them so we don't get negative ("future") deltas from the local-time
-// misparse. Always uses Date.now() minus the parsed instant.
+// misparse.
 function relativeTime(ts: string): string {
   const d = parseServerDate(ts)
   if (!d) return ''
@@ -28,24 +43,19 @@ function relativeTime(ts: string): string {
   return `${Math.floor(days / 365)}y ago`
 }
 
-// "invite_sent" → "Invite sent"
+// "invite_sent" / "connector.account.added" → "Invite sent" / "Connector account added"
 function humanizeAction(action: string): string {
-  const spaced = action.replace(/_/g, ' ')
+  const spaced = action.replace(/[._]/g, ' ').trim()
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
-const SELECT_STYLE: React.CSSProperties = {
-  height:          32,
-  borderRadius:    8,
-  border:          'none',
-  boxShadow:       '0px 0px 0px 1px var(--neutral-200)',
-  padding:         '0 8px',
-  fontFamily:      'var(--font-body)',
-  fontSize:        'var(--font-size-caption)',
-  color:           'var(--neutral-700)',
-  outline:         'none',
-  backgroundColor: 'white',
-  cursor:          'pointer',
+// Colour the action badge by family so the log is scannable at a glance.
+function actionColor(action: string): BadgeColor {
+  if (/(removed|deleted|unlinked|denied|revoked)/.test(action)) return 'Red'
+  if (/(created|added|accepted|published|linked|granted|approved)/.test(action)) return 'Green'
+  if (/(requested|sent|pending)/.test(action)) return 'Yellow'
+  if (/(role|cap|ownership|status|catalog|settings|updated|changed)/.test(action)) return 'Blue'
+  return 'Neutral'
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -62,59 +72,32 @@ function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: string 
   )
 }
 
-const SKELETON_ROWS: Array<{ actor: number; action: number }> = [
-  { actor: 130, action: 200 },
-  { actor: 110, action: 160 },
-  { actor: 145, action: 220 },
-  { actor: 100, action: 180 },
-  { actor: 135, action: 195 },
-  { actor: 115, action: 170 },
-  { actor: 150, action: 210 },
-  { actor: 105, action: 155 },
-]
-
 function ActivityPageSkeleton() {
   return (
     <>
       <style>{`@keyframes activitySkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
-      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-        {/* Page header */}
+      <div style={{ width: '100%', maxWidth: 960, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <SkeletonBlock width={140} height={28} radius={6} />
-          <SkeletonBlock width={260} height={14} radius={4} />
+          <SkeletonBlock width={300} height={14} radius={4} />
         </div>
-
-        {/* Filter bar */}
-        <SkeletonBlock width={140} height={32} radius={8} />
-
-        {/* Table card */}
-        <div style={{ borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: '#f9f5f1', boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)', overflow: 'hidden' }}>
-          {/* Column headers */}
-          <div style={{ display: 'flex', alignItems: 'center', padding: '6px 24px 8px', borderBottom: '1px solid var(--neutral-100)' }}>
-            <div style={{ width: 90,  flexShrink: 0 }}><SkeletonBlock width={40} height={12} radius={4} /></div>
-            <div style={{ width: 180, flexShrink: 0 }}><SkeletonBlock width={45} height={12} radius={4} /></div>
-            <div style={{ flex: '1 0 0' }}><SkeletonBlock width={55} height={12} radius={4} /></div>
+        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12)', background: 'var(--neutral-50)', overflow: 'hidden', padding: '12px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+            <SkeletonBlock width={110} height={18} radius={6} />
+            <SkeletonBlock width={220} height={34} radius={10} />
           </div>
-
-          {/* Skeleton rows */}
-          {SKELETON_ROWS.map((row, i) => (
-            <React.Fragment key={i}>
-              {i > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', margin: 0 }} />}
-              <div style={{ display: 'flex', alignItems: 'center', padding: '10px 24px' }}>
-                <div style={{ width: 90,  flexShrink: 0 }}><SkeletonBlock width={60} height={12} radius={4} /></div>
-                <div style={{ width: 180, flexShrink: 0 }}><SkeletonBlock width={row.actor} height={12} radius={4} /></div>
-                <div style={{ flex: '1 0 0' }}><SkeletonBlock width={row.action} height={12} radius={4} /></div>
+          {[0, 1, 2, 3, 4, 5].map(i => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '0 24px', minHeight: 72, borderBottom: '1px solid var(--neutral-100)' }}>
+              <SkeletonBlock width={60} height={12} radius={4} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 0 0' }}>
+                <SkeletonBlock width={32} height={32} radius={16} />
+                <SkeletonBlock width={130} height={12} radius={4} />
               </div>
-            </React.Fragment>
+              <SkeletonBlock width={120} height={22} radius={8} />
+              <SkeletonBlock width={140} height={12} radius={4} />
+            </div>
           ))}
-
-          {/* Footer */}
-          <div style={{ padding: '10px 24px', borderTop: '1px solid var(--neutral-100)' }}>
-            <SkeletonBlock width={280} height={12} radius={4} />
-          </div>
         </div>
-
       </div>
     </>
   )
@@ -123,51 +106,46 @@ function ActivityPageSkeleton() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrgActivityPage() {
-  const { orgId, currentUserRole, members, teams } = useOrg()
+  const { orgId, currentUserRole } = useOrg()
   const isAdmin = currentUserRole === 'admin'
 
   const [entries,      setEntries]      = useState<AuditLogEntry[]>([])
   const [loading,      setLoading]      = useState(true)
   const [filterAction, setFilterAction] = useState('all')
-
-  // user_id → display name (fall back to email, then a generic label — never a raw id).
-  const memberNameById = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const m of members) {
-      if (m.id) map.set(m.id, m.name?.trim() || m.email?.trim() || 'A member')
-    }
-    return map
-  }, [members])
-
-  // team id → team name, to resolve target ids in the Action column.
-  const teamNameById = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const t of teams) map.set(t.id, t.name)
-    return map
-  }, [teams])
-
-  const actorLabel = (id: string): string => memberNameById.get(id) ?? 'A member'
-
-  // Resolve a target id to a human label when we can (currently teams). When we
-  // can't, return '' so we show just the target type — never a raw id.
-  const targetLabel = (type: string | null, id: string): string => {
-    if (type === 'team') return teamNameById.get(id) ?? ''
-    return ''
-  }
+  const [search,       setSearch]       = useState('')
 
   useEffect(() => {
-    if (!orgId) { setLoading(false); return }
-    setLoading(true)
-    listAudit(orgId, { limit: 100 })
-      .then(setEntries)
-      .catch(console.error)
-      .finally(() => setLoading(false))
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      if (!orgId) { setLoading(false); return }
+      setLoading(true)
+      listAudit(orgId, { limit: 100 })
+        .then(rows => { if (!cancelled) setEntries(rows) })
+        .catch(console.error)
+        .finally(() => { if (!cancelled) setLoading(false) })
+    }, 0)
+    return () => { cancelled = true; window.clearTimeout(timer) }
   }, [orgId])
 
-  // Collect unique action types for filter dropdown
-  const actionTypes = ['all', ...Array.from(new Set(entries.map(e => e.action))).sort()]
+  const actionTypes = useMemo(
+    () => ['all', ...Array.from(new Set(entries.map(e => e.action))).sort()],
+    [entries],
+  )
 
-  const filtered = entries.filter(e => filterAction === 'all' || e.action === filterAction)
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return entries.filter(e => {
+      if (filterAction !== 'all' && e.action !== filterAction) return false
+      if (!q) return true
+      return (
+        humanizeAction(e.action).toLowerCase().includes(q)
+        || (e.actorName ?? '').toLowerCase().includes(q)
+        || (e.actorEmail ?? '').toLowerCase().includes(q)
+        || (e.targetName ?? '').toLowerCase().includes(q)
+        || (e.targetType ?? '').toLowerCase().includes(q)
+      )
+    })
+  }, [entries, filterAction, search])
 
   if (loading) {
     return (
@@ -180,20 +158,9 @@ export default function OrgActivityPage() {
   return (
     <div
       className="kaya-scrollbar"
-      style={{
-        flex:           '1 0 0',
-        minHeight:      0,
-        overflowY:      'auto',
-        overflowX:      'hidden',
-        display:        'flex',
-        alignItems:     'flex-start',
-        justifyContent: 'center',
-        padding:        '64px 24px 48px',
-      }}
+      style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}
     >
-      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-        {/* Page header */}
+      <div style={{ width: '100%', maxWidth: 960, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 28, lineHeight: '36px', color: 'var(--neutral-900)', margin: 0 }}>
             Activity Log
@@ -203,115 +170,104 @@ export default function OrgActivityPage() {
           </p>
         </div>
 
-        {/* Filter bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <select
-            value={filterAction}
-            onChange={e => setFilterAction(e.target.value)}
-            style={SELECT_STYLE}
-          >
-            {actionTypes.map(t => (
-              <option key={t} value={t}>{t === 'all' ? 'All actions' : t}</option>
-            ))}
-          </select>
-          {filterAction !== 'all' && (
-            <button
-              type="button"
-              onClick={() => setFilterAction('all')}
-              style={{
-                background:    'none',
-                border:        'none',
-                cursor:        'pointer',
-                fontFamily:    'var(--font-body)',
-                fontSize:      'var(--font-size-caption)',
-                color:         'var(--neutral-400)',
-                textDecoration: 'underline',
-                padding:       0,
-              }}
-            >
-              Clear filter
-            </button>
-          )}
-        </div>
-
-        {/* Table card */}
-        <div
-          style={{
-            borderRadius:    16,
-            border:          '1px solid var(--neutral-200)',
-            backgroundColor: '#f9f5f1',
-            boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
-            overflow:        'hidden',
-          }}
-        >
-          {/* Column headers */}
-          <div
-            style={{
-              display:      'flex',
-              alignItems:   'center',
-              padding:      '6px 24px 8px',
-              borderBottom: '1px solid var(--neutral-100)',
-            }}
-          >
-            <span style={{ width: 90,  flexShrink: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-caption)', color: 'var(--neutral-500)' }}>Time</span>
-            <span style={{ width: 180, flexShrink: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-caption)', color: 'var(--neutral-500)' }}>Actor</span>
-            <span style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-caption)', color: 'var(--neutral-500)' }}>Action</span>
-          </div>
-
-          {/* Rows */}
-          {loading ? (
-            <div style={{ padding: '32px 24px', textAlign: 'center' }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                Loading activity…
-              </p>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: '32px 24px', textAlign: 'center' }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                No activity recorded yet in this workspace
-              </p>
-            </div>
-          ) : filtered.map((entry, i) => (
-            <React.Fragment key={entry.id}>
-              {i > 0 && <Divider decorative style={{ backgroundColor: 'var(--neutral-100)', margin: 0 }} />}
-              <div style={{ display: 'flex', alignItems: 'center', padding: '10px 24px' }}>
-                <span
-                  title={formatServerDateTime(entry.createdAt, entry.createdAt)}
-                  style={{
-                    width:      90,
-                    flexShrink: 0,
-                    fontFamily: 'var(--font-body)',
-                    fontSize:   'var(--font-size-caption)',
-                    color:      'var(--neutral-500)',
-                    cursor:     'default',
-                  }}
-                >
-                  {relativeTime(entry.createdAt)}
-                </span>
-                <span
-                  title={actorLabel(entry.actorUserId)}
-                  style={{ width: 180, flexShrink: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'default' }}
-                >
-                  {actorLabel(entry.actorUserId)}
-                </span>
-                <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  <span style={{ fontWeight: 500 }}>{humanizeAction(entry.action)}</span>
-                  {entry.targetType && (
-                    <span style={{ color: 'var(--neutral-500)' }}> · {entry.targetType}{entry.targetId && targetLabel(entry.targetType, entry.targetId) ? ` ${targetLabel(entry.targetType, entry.targetId)}` : ''}</span>
-                  )}
-                </p>
+        <SettingsTable columns={ACTIVITY_COLUMNS} columnGap={0}>
+          <SettingsTableToolbar title="Activity Log" style={{ flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 12, maxWidth: '100%' }}>
+              <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
+                <InputField
+                  label="Search activity"
+                  showLabel={false}
+                  showSubtitle={false}
+                  size="small"
+                  fluid
+                  leftIcon={<SearchOneIcon size={16} />}
+                  placeholder="Search activity"
+                  value={search}
+                  onChange={setSearch}
+                />
               </div>
-            </React.Fragment>
-          ))}
+              <select
+                value={filterAction}
+                onChange={e => setFilterAction(e.target.value)}
+                style={{ height: 36, borderRadius: 10, border: 'none', boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)', padding: '0 10px', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-700)', outline: 'none', backgroundColor: 'white', cursor: 'pointer' }}
+              >
+                {actionTypes.map(t => (
+                  <option key={t} value={t}>{t === 'all' ? 'All actions' : humanizeAction(t)}</option>
+                ))}
+              </select>
+            </div>
+          </SettingsTableToolbar>
 
-          {/* Footer */}
-          <div style={{ padding: '10px 24px', borderTop: '1px solid var(--neutral-100)' }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 'var(--font-size-caption)', color: 'var(--neutral-400)', margin: 0 }}>
-              Activity log retains 90 days of history · showing {filtered.length} entries
-            </p>
+          <div style={{ overflowX: 'auto' }}>
+            <div role="table" aria-label="Activity log" style={{ minWidth: 760 }}>
+              <SettingsTableHeader>
+                <SettingsTableHeaderCell>When</SettingsTableHeaderCell>
+                <SettingsTableHeaderCell>Actor</SettingsTableHeaderCell>
+                <SettingsTableHeaderCell>Action</SettingsTableHeaderCell>
+                <SettingsTableHeaderCell>Target</SettingsTableHeaderCell>
+              </SettingsTableHeader>
+
+              {filtered.length === 0 ? (
+                <div style={{ padding: '32px 24px', textAlign: 'center' }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+                    {entries.length === 0 ? 'No activity recorded yet in this workspace' : 'No activity matches your filters'}
+                  </p>
+                </div>
+              ) : filtered.map(entry => {
+                const actor = entry.actorName || entry.actorEmail || 'A member'
+                return (
+                  <SettingsTableRow key={entry.id} minHeight={72}>
+                    <SettingsTableCell>
+                      <span title={formatServerDateTime(entry.createdAt, entry.createdAt)} style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', cursor: 'default' }}>
+                        {relativeTime(entry.createdAt)}
+                      </span>
+                    </SettingsTableCell>
+                    <SettingsTableCell>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                        <Avatar name={actor} size="md" />
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {actor}
+                          </p>
+                          {entry.actorEmail && entry.actorName && (
+                            <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {entry.actorEmail}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </SettingsTableCell>
+                    <SettingsTableCell>
+                      <Badge label={humanizeAction(entry.action)} color={actionColor(entry.action)} />
+                    </SettingsTableCell>
+                    <SettingsTableCell>
+                      {entry.targetName || entry.targetType ? (
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {entry.targetName || '—'}
+                          </p>
+                          {entry.targetType && (
+                            <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--neutral-500)', margin: 0, textTransform: 'capitalize' }}>
+                              {entry.targetType}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)' }}>—</span>
+                      )}
+                    </SettingsTableCell>
+                  </SettingsTableRow>
+                )
+              })}
+
+              <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)' }}>
+                  Retains 90 days of history · showing {filtered.length} of {entries.length} entr{entries.length === 1 ? 'y' : 'ies'}
+                </span>
+              </SettingsTableFooter>
+            </div>
           </div>
-        </div>
-
+        </SettingsTable>
       </div>
     </div>
   )
