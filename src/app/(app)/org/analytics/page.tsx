@@ -5,11 +5,12 @@ import {
   FilterMailIcon,
   SearchOneIcon,
   UserIcon,
-  PenOneIcon,
+  PlusSignIcon,
   TickTwoIcon,
   CancelOneIcon,
 } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
+import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import {
   SettingsTable,
@@ -471,41 +472,41 @@ function CapCell({
   // immediately without waiting for useOrg to re-fetch the members list.
   const [committedCap, setCommittedCap] = useState<number | undefined>(initialCap)
   const [editing,      setEditing]      = useState(false)
-  const [draft,        setDraft]        = useState(() => initialCap != null ? String(initialCap) : '')
+  const [draft,        setDraft]        = useState('')
   const [saving,       setSaving]       = useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
 
   function startEdit() {
-    setDraft(committedCap != null ? String(committedCap) : '')
+    setDraft('')
     setEditing(true)
     setTimeout(() => inputRef.current?.focus(), 0)
   }
 
   function cancelEdit() {
-    setDraft(committedCap != null ? String(committedCap) : '')
+    setDraft('')
     setEditing(false)
   }
 
   async function save() {
     if (!orgId) return
-    const trimmed   = draft.trim()
-    const creditVal = trimmed === '' ? null : parseInt(trimmed, 10)
-    if (trimmed !== '' && (isNaN(creditVal!) || creditVal! <= 0)) {
-      setDraft(committedCap != null ? String(committedCap) : '')
+    const amount = parseInt(draft.trim(), 10)
+    if (isNaN(amount) || amount <= 0) {
+      setDraft('')
       setEditing(false)
       return
     }
+    const newCap = (committedCap ?? 0) + amount
     // backend expects dollars; 1000 credits = $1
-    const capDollars = creditVal == null ? null : creditVal / 1000
+    const capDollars = newCap / 1000
     setSaving(true)
     try {
       await setMemberCap(orgId, memberId, capDollars)
-      setCommittedCap(creditVal ?? undefined)
-      toast.success('Credit cap updated')
+      setCommittedCap(newCap)
+      toast.success(`${amount.toLocaleString()} credits assigned`)
       setEditing(false)
     } catch {
-      toast.error('Failed to update cap')
-      setDraft(committedCap != null ? String(committedCap) : '')
+      toast.error('Failed to assign credits')
+      setDraft('')
     } finally {
       setSaving(false)
     }
@@ -531,7 +532,8 @@ function CapCell({
             type="number"
             min={1}
             value={draft}
-            placeholder="No limit"
+            placeholder="Add credits"
+            aria-label="Credits to assign"
             disabled={saving}
             onChange={e => setDraft(e.target.value)}
             onKeyDown={e => {
@@ -585,13 +587,14 @@ function CapCell({
           </p>
         )}
       </div>
-      <IconButton
-        variant="ghost"
+      <Button
+        variant="secondary"
         size="sm"
-        aria-label="Edit cap"
-        icon={<PenOneIcon size={14} />}
+        leftIcon={<PlusSignIcon size={16} />}
         onClick={startEdit}
-      />
+      >
+        Assign
+      </Button>
     </div>
   )
 }
@@ -620,7 +623,7 @@ function MemberCapsTable({
         <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
         <SettingsTableHeaderCell align="center">Credits used</SettingsTableHeaderCell>
         <SettingsTableHeaderCell align="center">
-          {isAdmin ? 'Assign cap' : 'Cap'}
+          {isAdmin ? 'Assign credits' : 'Cap'}
         </SettingsTableHeaderCell>
         <SettingsTableHeaderCell align="center">Usage</SettingsTableHeaderCell>
       </SettingsTableHeader>
@@ -662,8 +665,10 @@ function MemberCapsTable({
             </SettingsTableCell>
 
             <SettingsTableCell align="center">
-              {isAdmin ? (
+              {isAdmin && member.orgRole === 'member' ? (
                 <CapCell memberId={member.id} orgId={orgId} initialCap={member.creditCap} />
+              ) : member.orgRole !== 'member' ? (
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-300)' }}>-</span>
               ) : member.creditCap != null ? (
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                   {member.creditCap.toLocaleString()}
@@ -898,6 +903,15 @@ export default function OrgUsageAnalyticsPage() {
       .catch(console.error)
   }, [orgId])
 
+  const totalCredits = plan?.totalCredits ?? 0
+  const totalUsed    = plan?.used        ?? 0
+
+  // Feature-usage series — derived from real `used` credits + selected range.
+  const featureSeries = React.useMemo(
+    () => buildFeatureSeries(dateRange, totalUsed, new Date()),
+    [dateRange, totalUsed],
+  )
+
   if (membersLoading) {
     return (
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
@@ -906,17 +920,9 @@ export default function OrgUsageAnalyticsPage() {
     )
   }
 
-  const totalCredits = plan?.totalCredits ?? 0
-  const totalUsed    = plan?.used        ?? 0
   const poolPercentUsed = totalCredits > 0
     ? Math.min(100, Math.round((totalUsed / totalCredits) * 100))
     : 0
-
-  // Feature-usage series — derived from real `used` credits + selected range.
-  const featureSeries = React.useMemo(
-    () => buildFeatureSeries(dateRange, totalUsed, new Date()),
-    [dateRange, totalUsed],
-  )
 
   const activeMembers = members.filter(m => m.inviteStatus !== 'invite_sent')
 

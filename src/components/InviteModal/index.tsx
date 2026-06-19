@@ -23,22 +23,41 @@ export interface InviteModalProps extends React.HTMLAttributes<HTMLDivElement> {
   workspaceName?: string
   loading?: boolean
   disabled?: boolean
+  teams?: InviteTeamOption[]
+  projects?: InviteProjectOption[]
   onClose?: () => void
-  onInvite?: (params: { email: string; role: WorkspaceRole; creditCap?: number }) => void
+  onInvite?: (params: {
+    email: string
+    role: WorkspaceRole
+    creditCap?: number
+    teamId?: string
+    projectId?: string
+  }) => void
   asChild?: boolean
 }
 
-const ROLE_OPTIONS: WorkspaceRole[] = ['editor', 'admin']
+export interface InviteTeamOption {
+  id: string
+  name: string
+}
+
+export interface InviteProjectOption {
+  id: string
+  title: string
+  teamId: string
+}
+
+const ROLE_OPTIONS: WorkspaceRole[] = ['member', 'editor', 'admin']
 
 const ROLE_DESCRIPTIONS: Record<WorkspaceRole, string> = {
-  member: 'Can use assigned projects',
-  editor: 'Can edit content in the invited team',
-  admin:  'Can manage workspace settings, members, teams, and connectors',
+  member: 'Can chat, use personas, access team projects',
+  editor: 'Member + can publish personas to Team scope',
+  admin:  'Full access including billing and settings',
 }
 
 const ROLE_LABELS: Record<WorkspaceRole, string> = {
   admin:  'Admin',
-  editor: 'Team editor',
+  editor: 'Editor',
   member: 'Member',
 }
 
@@ -171,17 +190,32 @@ function CloseButton({ onClick }: { onClick?: () => void }) {
 
 export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
   function InviteModal(
-    { workspaceName, loading = false, disabled = false, onClose, onInvite, asChild = false, className, style, ...props },
+    {
+      workspaceName,
+      loading = false,
+      disabled = false,
+      teams = [],
+      projects = [],
+      onClose,
+      onInvite,
+      asChild = false,
+      className,
+      style,
+      ...props
+    },
     ref,
   ) {
     const Comp = (asChild ? Slot : 'div') as React.ElementType
 
     const inputRef = useRef<HTMLInputElement>(null)
     const [email,     setEmail]     = useState('')
-    const [role,      setRole]      = useState<WorkspaceRole>('editor')
+    const [role,      setRole]      = useState<WorkspaceRole>('member')
     const [capDraft,  setCapDraft]  = useState('')
+    const [teamId,    setTeamId]    = useState('')
+    const [projectId, setProjectId] = useState('')
 
     useEffect(() => { inputRef.current?.focus() }, [])
+    const effectiveTeamId = teamId || teams[0]?.id || ''
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === 'Escape') { onClose?.(); return }
@@ -200,11 +234,22 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     const handleSubmit = useCallback(() => {
       const trimmed = email.trim()
       if (!trimmed || loading) return
+      if (role === 'editor' && !effectiveTeamId) return
       const capVal = capDraft.trim() === '' ? undefined : parseInt(capDraft.trim(), 10)
-      onInvite?.({ email: trimmed, role, creditCap: capVal && capVal > 0 ? capVal : undefined })
+      const project = role === 'member'
+        ? projects.find(option => option.id === projectId)
+        : undefined
+      onInvite?.({
+        email: trimmed,
+        role,
+        creditCap: capVal && capVal > 0 ? capVal : undefined,
+        teamId: role === 'editor' ? effectiveTeamId : project?.teamId,
+        projectId: project?.id,
+      })
       setEmail('')
       setCapDraft('')
-    }, [capDraft, email, loading, onInvite, role])
+      setProjectId('')
+    }, [capDraft, effectiveTeamId, email, loading, onInvite, projectId, projects, role])
 
     const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter') { e.preventDefault(); handleSubmit() }
@@ -222,7 +267,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
           display:         'flex',
           flexDirection:   'column',
           gap:             16,
-          width:           480,
+          width:           'min(480px, calc(100vw - 32px))',
           padding:         '16px 14px',
           borderRadius:    18,
           boxSizing:       'border-box' as const,
@@ -285,7 +330,13 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
               }}
             />
           </div>
-          <RoleSelector value={role} onChange={setRole} />
+          <RoleSelector
+            value={role}
+            onChange={nextRole => {
+              setRole(nextRole)
+              setProjectId('')
+            }}
+          />
         </div>
 
         {/* Role description hint */}
@@ -299,6 +350,82 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
         }}>
           {ROLE_DESCRIPTIONS[role]}
         </p>
+
+        {role === 'editor' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: 'var(--font-size-caption)',
+              lineHeight: 'var(--line-height-caption)',
+              color: 'var(--neutral-600)',
+            }}>
+              Team
+            </span>
+            <select
+              aria-label="Team"
+              value={effectiveTeamId}
+              onChange={event => setTeamId(event.target.value)}
+              disabled={teams.length === 0}
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                border: 'none',
+                borderRadius: 10,
+                backgroundColor: 'var(--neutral-white)',
+                boxShadow: SHADOW_INPUT,
+                color: effectiveTeamId ? 'var(--neutral-900)' : 'var(--neutral-400)',
+                fontFamily: 'var(--font-body)',
+                fontSize: 'var(--font-size-body)',
+                outline: 'none',
+              }}
+            >
+              {teams.length === 0 && <option value="">No teams available</option>}
+              {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+            </select>
+          </div>
+        )}
+
+        {role === 'member' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: 'var(--font-size-caption)',
+              lineHeight: 'var(--line-height-caption)',
+              color: 'var(--neutral-600)',
+            }}>
+              Project access (optional)
+            </span>
+            <select
+              aria-label="Project access"
+              value={projectId}
+              onChange={event => setProjectId(event.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                border: 'none',
+                borderRadius: 10,
+                backgroundColor: 'var(--neutral-white)',
+                boxShadow: SHADOW_INPUT,
+                color: projectId ? 'var(--neutral-900)' : 'var(--neutral-500)',
+                fontFamily: 'var(--font-body)',
+                fontSize: 'var(--font-size-body)',
+                outline: 'none',
+              }}
+            >
+              <option value="">No project access</option>
+              {projects.map(project => {
+                const teamName = teams.find(team => team.id === project.teamId)?.name
+                return (
+                  <option key={project.id} value={project.id}>
+                    {teamName ? `${project.title} - ${teamName}` : project.title}
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+        )}
 
         {/* Credit cap */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -354,7 +481,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
             variant="default"
             size="sm"
             loading={loading}
-            disabled={!email.trim()}
+            disabled={!email.trim() || (role === 'editor' && !effectiveTeamId)}
             onClick={handleSubmit}
           >
             Send invite
@@ -373,12 +500,28 @@ InviteModal.displayName = 'InviteModal'
 export interface AppInviteModalProps {
   isOpen:         boolean
   onClose:        () => void
-  onInvite:       (email: string, role: WorkspaceRole, creditCap?: number) => void
+  onInvite:       (
+    email: string,
+    role: WorkspaceRole,
+    creditCap?: number,
+    teamId?: string,
+    projectId?: string,
+  ) => void
   workspaceName?: string
   loading?:       boolean
+  teams?:         InviteTeamOption[]
+  projects?:      InviteProjectOption[]
 }
 
-export function AppInviteModal({ isOpen, onClose, onInvite, workspaceName, loading }: AppInviteModalProps) {
+export function AppInviteModal({
+  isOpen,
+  onClose,
+  onInvite,
+  workspaceName,
+  loading,
+  teams,
+  projects,
+}: AppInviteModalProps) {
   return (
     <Dialog.Root open={isOpen} onOpenChange={open => { if (!open) onClose() }}>
       <Dialog.Portal>
@@ -407,8 +550,12 @@ export function AppInviteModal({ isOpen, onClose, onInvite, workspaceName, loadi
           <InviteModal
             workspaceName={workspaceName}
             loading={loading}
+            teams={teams}
+            projects={projects}
             onClose={onClose}
-            onInvite={({ email, role, creditCap }) => onInvite(email, role, creditCap)}
+            onInvite={({ email, role, creditCap, teamId, projectId }) => (
+              onInvite(email, role, creditCap, teamId, projectId)
+            )}
           />
         </Dialog.Content>
       </Dialog.Portal>

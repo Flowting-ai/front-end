@@ -1157,9 +1157,9 @@ All hooks and API calls in org-scoped pages read `orgId` from this context rathe
 | 5.6 | Build `RoleBadge` (tracker 3c) | FE | `src/components/RoleBadge/` |
 | 5.7 | Build `TeamChip` (tracker 3e) | FE | `src/components/TeamChip/` |
 | 5.8 | Build `WorkspaceBadge` (tracker 3f) | FE | `src/components/WorkspaceBadge/` |
-| 5.9 | Wire `POST /chat-shares` with `teamId` for project chat sharing | FE | Projects UI |
-| 5.10 | Wire `GET /chat-shares/shared-with-me` → "Shared with me" section | FE | Projects UI |
-| 5.11 | Wire `POST /chat-shares/{share_id}/fork` for fork-a-run | FE | Projects UI |
+| 5.9 | ✅ Team-project 4-tab view (Your chats / Publish to team / Shared with you / View only), gated by the `caps` ladder; per-chat publish via `PATCH /chats/{id}/visibility`; chats sourced from global `GET /chats` filtered by project | FE | `project/[id]/page.tsx`, `ProjectChatRow`, `lib/roles.ts`, `org-context` |
+| 5.10 | ✅ "Shared with you" (editable) + "View only" (read-only) tabs → `GET /chat-shares/shared-with-me` filtered by `targetProjectId` + `mode`; read-only disclaimer row | FE | `project/[id]/page.tsx` |
+| 5.11 | ✅ Fork-a-run from an editable share → `POST /chat-shares/{share_id}/fork` (reuses existing fork); view-only opens `/chat-shares/{shareId}` | FE | `project/[id]/page.tsx` |
 
 ---
 

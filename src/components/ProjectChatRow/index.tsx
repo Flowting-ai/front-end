@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { MoreVerticalIcon, PinIcon } from '@strange-huge/icons'
+import { MoreVerticalIcon, PinIcon, PlusSignIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
+import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -12,11 +13,22 @@ export interface ProjectChatRowProps {
   timestamp:        string
   pinCount:         number
   active?:          boolean
+  /** Author attribution, appended to the timestamp line (team shared/view-only rows). */
+  author?:          string
+  /** Team projects only: show the per-chat "Publish to team" affordance (editor+). */
+  canPublish?:      boolean
+  /** Whether this chat is currently published to the team. */
+  published?:       boolean
+  /** Called with the desired next published state once the user confirms. */
+  onPublishToggle?: (next: boolean) => void
   onChatClick?:     () => void
   onPinsClick?:     (e: React.MouseEvent) => void
   onRename?:        (newTitle: string) => void
   onDelete?:        () => void
 }
+
+// Per-chat publish flow — mirrors the design's YourChatRow state machine.
+type PublishState = 'idle' | 'confirming' | 'published' | 'unpublishing'
 
 // ── Empty-state row ────────────────────────────────────────────────────────────
 
@@ -56,11 +68,22 @@ export function ProjectChatEmptyRow() {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function ProjectChatRow(
-  { title, timestamp, pinCount, active, onChatClick, onPinsClick, onRename, onDelete, ref }: ProjectChatRowProps & { ref?: React.Ref<HTMLDivElement> },
+  { title, timestamp, pinCount, active, author, canPublish, published, onPublishToggle, onChatClick, onPinsClick, onRename, onDelete, ref }: ProjectChatRowProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
     const [hovered,   setHovered]   = useState(false)
     const [menuOpen,  setMenuOpen]  = useState(false)
     const [isEditing, setIsEditing] = useState(false)
+
+    // Publish state machine. Seeded from `published`; re-synced when the prop
+    // changes (e.g. after the parent reloads the published set).
+    const [publishState, setPublishState] = useState<PublishState>(published ? 'published' : 'idle')
+    const prevPublishedRef = useRef(published)
+    if (prevPublishedRef.current !== published) {
+      prevPublishedRef.current = published
+      setPublishState(published ? 'published' : 'idle')
+    }
+    const isPublished  = publishState === 'published'
+    const isConfirming = publishState === 'confirming' || publishState === 'unpublishing'
     // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [editValue, setEditValue] = useState(title)
     const inputRef = useRef<HTMLInputElement>(null)
@@ -89,8 +112,10 @@ export function ProjectChatRow(
       setIsEditing(false)
     }
 
-    // ⋮ menu only visible on hover/menu-open
+    // ⋮ menu only visible on hover/menu-open, and only when there's an action
+    // to offer (read-only shared/view-only rows pass no handlers).
     const showMoreMenu = hovered || menuOpen
+    const hasMenu = !!onRename || !!onDelete || (!!canPublish && isPublished)
     // Pin badge uses warm hover style when the row is active or hovered
     const showPinAction = hovered || menuOpen || !!active
 
@@ -163,21 +188,44 @@ export function ProjectChatRow(
               }}
             />
           ) : (
-            <p
-              style={{
-                fontFamily:   'var(--font-body)',
-                fontWeight:   'var(--font-weight-medium)',
-                fontSize:     '15px',
-                lineHeight:   '22px',
-                color:        '#1a1714',
-                overflow:     'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace:   'nowrap',
-                margin:       0,
-              }}
-            >
-              {title}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
+              <p
+                style={{
+                  fontFamily:   'var(--font-body)',
+                  fontWeight:   'var(--font-weight-medium)',
+                  fontSize:     '15px',
+                  lineHeight:   '22px',
+                  color:        '#1a1714',
+                  overflow:     'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace:   'nowrap',
+                  margin:       0,
+                }}
+              >
+                {title}
+              </p>
+              {isPublished && (
+                <span
+                  style={{
+                    display:         'inline-flex',
+                    alignItems:      'center',
+                    padding:         '2px 4px',
+                    borderRadius:    6,
+                    backgroundColor: 'var(--blue-100)',
+                    boxShadow:       '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5)',
+                    fontFamily:      'var(--font-body)',
+                    fontWeight:      500,
+                    fontSize:        11,
+                    lineHeight:      '16px',
+                    color:           'var(--blue-700)',
+                    whiteSpace:      'nowrap',
+                    flexShrink:      0,
+                  }}
+                >
+                  Published
+                </span>
+              )}
+            </div>
           )}
           <p
             style={{
@@ -192,12 +240,61 @@ export function ProjectChatRow(
               margin:       0,
             }}
           >
-            {timestamp}
+            {timestamp}{author ? ` · ${author}` : ''}
           </p>
         </div>
 
+        {/* Publish confirmation — replaces ⋮/pins while confirming */}
+        {!isEditing && isConfirming && (
+          // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- stopPropagation wrapper; buttons handle keyboard
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span
+              style={{
+                display:         'inline-flex',
+                alignItems:      'center',
+                padding:         '2px 4px',
+                borderRadius:    6,
+                backgroundColor: 'var(--blue-100)',
+                boxShadow:       '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5)',
+                fontFamily:      'var(--font-body)',
+                fontWeight:      500,
+                fontSize:        11,
+                lineHeight:      '16px',
+                color:           'var(--blue-700)',
+                whiteSpace:      'nowrap',
+                flexShrink:      0,
+              }}
+            >
+              {publishState === 'unpublishing'
+                ? 'This chat would be unpublished from this team'
+                : 'This chat would be published to this team'}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPublishState(publishState === 'unpublishing' ? 'published' : 'idle')}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const next = publishState !== 'unpublishing'
+                setPublishState(next ? 'published' : 'idle')
+                onPublishToggle?.(next)
+              }}
+            >
+              Confirm
+            </Button>
+          </div>
+        )}
+
         {/* ⋮ menu - hover-revealed */}
-        {!isEditing && (
+        {!isEditing && !isConfirming && hasMenu && (
           // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- stopPropagation wrapper; menu items handle keyboard
           <div
             style={{
@@ -229,6 +326,13 @@ export function ProjectChatRow(
                     onClick={() => { setMenuOpen(false); setIsEditing(true) }}
                     fluid
                   />
+                  {canPublish && isPublished && (
+                    <Dropdown.Item
+                      label="Unpublish from team"
+                      onClick={() => { setMenuOpen(false); setPublishState('unpublishing') }}
+                      fluid
+                    />
+                  )}
                   <Dropdown.Item
                     label="Delete"
                     variant="danger"
@@ -241,8 +345,26 @@ export function ProjectChatRow(
           </div>
         )}
 
+        {/* + Publish — editor+ only, hidden once published or while confirming */}
+        {!isEditing && !isConfirming && canPublish && !isPublished && (
+          // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- stopPropagation wrapper; button handles keyboard
+          <div
+            style={{ display: 'flex', alignItems: 'center', opacity: showMoreMenu ? 1 : 0, transition: 'opacity 120ms ease', flexShrink: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<PlusSignIcon size={16} />}
+              onClick={() => setPublishState('confirming')}
+            >
+              Publish
+            </Button>
+          </div>
+        )}
+
         {/* Pin count badge */}
-        <button
+        {!isConfirming && <button
           onClick={(e) => {
             e.stopPropagation()
             if (pinCount > 0) onPinsClick?.(e)
@@ -331,7 +453,7 @@ export function ProjectChatRow(
               }}
             />
           )}
-        </button>
+        </button>}
       </div>
     )
 }

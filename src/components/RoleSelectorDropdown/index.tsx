@@ -22,7 +22,7 @@ const ROLE_LABEL: Record<WorkspaceRole, string> = {
 }
 
 const ROLE_DESC: Record<WorkspaceRole, string> = {
-  admin:  'Manage workspace, members, teams, and connectors — no billing',
+  admin:  'Full access — billing, members, settings',
   editor: 'Member + can publish personas to Team scope',
   member: 'Can chat, use personas, access team projects',
 }
@@ -82,7 +82,7 @@ function DemoteWarning({
         color:      'var(--neutral-500)',
         margin:     0,
       }}>
-        This will change the role to <strong style={{ color: 'var(--neutral-700)' }}>{ROLE_LABEL[pendingRole]}</strong> and remove workspace administration access.
+        This will change the role to <strong style={{ color: 'var(--neutral-700)' }}>{ROLE_LABEL[pendingRole]}</strong> and remove billing and settings access.
       </p>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
         <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>

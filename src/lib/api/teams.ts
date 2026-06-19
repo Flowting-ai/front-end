@@ -182,13 +182,28 @@ export async function removeProjectMember(orgId: string, teamId: string, project
   await apiFetch(ORG_TEAM_PROJECT_MEMBER_ENDPOINT(orgId, teamId, projectId, memberId), { method: 'DELETE' })
 }
 
-export async function inviteTeamMembers(orgId: string, teamId: string, emails: string[], role?: WorkspaceRole): Promise<TeamInvite> {
-  // 'editor' is a team-level privilege not an OrganizationRole — omit from body;
-  // the caller must grant editor status via addTeamEditor after the invite lands.
-  const orgRole = role === 'editor' || role === undefined ? undefined : role
+export async function inviteTeamMembers(
+  orgId: string,
+  teamId: string,
+  emails: string[],
+  role?: WorkspaceRole,
+  creditCap?: number,
+  projectId?: string,
+): Promise<TeamInvite> {
+  // 'editor' is a team-level grant, not an OrganizationRole: it maps to an org
+  // 'member' whose invite carries grantTeamEditor=true, so the backend grants a
+  // TeamEditor row on accept (and a plain member does NOT auto-become editor).
+  const orgRole = role === 'admin' ? 'admin' : 'member'
+  const grantTeamEditor = role === 'editor'
   const data = await apiFetchJson<InviteResponse>(ORG_TEAM_INVITES_ENDPOINT(orgId, teamId), {
     method: 'POST',
-    body: JSON.stringify({ emails, ...(orgRole ? { role: orgRole } : {}) }),
+    body: JSON.stringify({
+      emails,
+      role: orgRole,
+      grantTeamEditor,
+      ...(creditCap && creditCap > 0 ? { creditCap } : {}),
+      ...(projectId ? { projectId } : {}),
+    }),
   })
   return normalizeInvite(data)
 }

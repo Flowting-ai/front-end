@@ -3,3 +3,7 @@
 
 This version has breaking changes - APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
+
+# Design reference
+
+Before creating or changing UI, review `/home/sahil/may-day` for established design components, layouts, tokens, and interaction patterns. Reuse those patterns where they fit.

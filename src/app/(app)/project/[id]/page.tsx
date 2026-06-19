@@ -16,10 +16,16 @@ import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
 import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
+import { TeamChip } from '@/components/TeamChip'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { setProjectVisibility } from '@/lib/api/projects'
+import { setChatVisibility, listChats } from '@/lib/api/chat'
+import { listSharedWithMe, forkChatShare, type SharedChatItem } from '@/lib/api/chat-shares'
 import { fetchTeams } from '@/lib/api/teams'
 import { useOrg } from '@/context/org-context'
+import { AlertCircleIcon } from '@strange-huge/icons'
 import type { Team } from '@/types/teams'
+import type { Chat } from '@/types/chat'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { SystemInstructionsModal } from '@/components/SystemInstructionsModal'
 import { ChatInput } from '@/components/chat/ChatInput'
@@ -35,6 +41,9 @@ import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
+// Team-project chat tabs (private projects render a flat list instead).
+type TeamTab = 'your-chats' | 'publish' | 'shared' | 'view-only'
+
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
@@ -45,7 +54,7 @@ export default function ProjectPage() {
   const { open: openModelSelector } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
 
-  const { orgId } = useOrg()
+  const { orgId, caps, members } = useOrg()
   const project = getProject(params.id)
   const chats   = getChats(params.id)
 
@@ -78,6 +87,12 @@ export default function ProjectPage() {
   const [shareTeamId,      setShareTeamId]      = useState('')
   const [shareVisibility,  setShareVisibility]  = useState<'private' | 'team'>('private')
   const [sharingSaving,    setSharingSaving]    = useState(false)
+  const [activeTab,        setActiveTab]        = useState<TeamTab>('your-chats')
+  const [teamChats,        setTeamChats]        = useState<Chat[]>([])
+  const [sharedItems,      setSharedItems]      = useState<SharedChatItem[]>([])
+  const [sharedLoading,    setSharedLoading]    = useState(false)
+  const [sharedError,      setSharedError]      = useState<string | null>(null)
+  const [forkingShareId,   setForkingShareId]   = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
@@ -90,6 +105,52 @@ export default function ProjectPage() {
       .catch(() => setChipPersonas([]))
       .finally(() => setLoadingChipPersonas(false))
   }, [personaChipOpen])
+
+  // Team name for the header chip — only team projects need it.
+  useEffect(() => {
+    if (orgId && project?.teamId && teams.length === 0) {
+      fetchTeams(orgId).then(setTeams).catch(() => {})
+    }
+  }, [orgId, project?.teamId, teams.length])
+
+  // Team projects source their chat list from the global /chats endpoint
+  // (which carries visibility/team_id/pins_count), filtered to this project.
+  // "Your chats" = all of these; "Publish to team" = the visibility==='team'
+  // subset. Private projects keep useProjects().getChats() (see render).
+  useEffect(() => {
+    if (!project?.teamId) { setTeamChats([]); return }
+    let cancelled = false
+    ;(async () => {
+      const collected: Chat[] = []
+      let cursor: string | undefined
+      // Page through; cap to avoid an unbounded loop on a misbehaving cursor.
+      for (let page = 0; page < 20; page++) {
+        const { chats: batch, next_cursor, has_more } = await listChats(cursor)
+        collected.push(...batch)
+        if (!has_more || !next_cursor) break
+        cursor = next_cursor
+      }
+      if (!cancelled) setTeamChats(collected.filter(c => c.project_id === params.id))
+    })().catch(() => { if (!cancelled) setTeamChats([]) })
+    return () => { cancelled = true }
+  }, [project?.teamId, params.id])
+
+  // Lazy-load chats shared with me (editable → "Shared with you", read-only →
+  // "View only"), scoped to this project, when either tab first opens.
+  useEffect(() => {
+    if (activeTab !== 'shared' && activeTab !== 'view-only') return
+    let cancelled = false
+    setSharedLoading(true)
+    setSharedError(null)
+    listSharedWithMe()
+      .then(items => {
+        if (cancelled) return
+        setSharedItems(items.filter(i => i.targetProjectId === params.id))
+      })
+      .catch(err => { if (!cancelled) setSharedError(err instanceof Error ? err.message : 'Failed to load shared chats') })
+      .finally(() => { if (!cancelled) setSharedLoading(false) })
+    return () => { cancelled = true }
+  }, [activeTab, params.id])
 
   if (!project) {
     if (projectsLoading || projectLoading) {
@@ -141,6 +202,117 @@ export default function ProjectPage() {
     } finally {
       setSharingSaving(false)
     }
+  }
+
+  // Publish / unpublish a single chat to the project's team. Optimistic — the
+  // row's "Published" badge follows `teamChats`; revert on failure.
+  async function handlePublishToggle(chatId: string, next: boolean) {
+    const teamId = project?.teamId
+    setTeamChats(prev => prev.map(c => c.id === chatId ? { ...c, visibility: next ? 'team' : 'private' } : c))
+    try {
+      await setChatVisibility(chatId, next ? 'team' : 'private', next ? teamId ?? undefined : undefined)
+      toast.success(next ? 'Chat published to team' : 'Chat unpublished from team')
+    } catch (err) {
+      setTeamChats(prev => prev.map(c => c.id === chatId ? { ...c, visibility: next ? 'private' : 'team' } : c))
+      toast.error(err instanceof Error ? err.message : 'Failed to update chat')
+    }
+  }
+
+  // Fork a chat shared with me into my workspace, then open it. If a fork
+  // already exists, jump straight to it instead of creating a duplicate.
+  async function handleOpenShared(item: SharedChatItem) {
+    if (item.forkedChatId) { push(`/chat/${item.forkedChatId}`); return }
+    setForkingShareId(item.shareId)
+    try {
+      const { chatId } = await forkChatShare(item.shareId)
+      toast.success('Chat forked to your workspace')
+      push(`/chat/${chatId}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to fork chat')
+    } finally {
+      setForkingShareId(null)
+    }
+  }
+
+  const projectTeam = project.teamId ? teams.find(t => t.id === project.teamId) : undefined
+  const ownerName   = members.find(m => m.id === project.ownerUserId)?.name
+  // Publish CTA gate — editor+ on this team (owner/admin resolve true). Members
+  // (and editors whose grants aren't loaded yet) get no publish affordance.
+  const canPublishChat = !!project.teamId && caps.canPublishToTeam(project.teamId)
+
+  const publishedChats = teamChats.filter(c => c.visibility === 'team')
+  const sharedEditable = sharedItems.filter(i => i.mode === 'editable')
+  const sharedReadOnly = sharedItems.filter(i => i.mode === 'read_only')
+
+  // A chat row for the team-project tabs (Your chats / Publish to team).
+  function teamChatRow(chat: Chat) {
+    return (
+      <ProjectChatRow
+        key={chat.id}
+        title={chat.title}
+        timestamp="Just now"
+        pinCount={chat.pins_count ?? 0}
+        canPublish={canPublishChat}
+        published={chat.visibility === 'team'}
+        onPublishToggle={(next) => void handlePublishToggle(chat.id, next)}
+        onChatClick={() => push(`/project/${projectId}/chat/${chat.id}`)}
+        onPinsClick={() => togglePinboard()}
+        onRename={chat.can_edit ? (newTitle) => {
+          void chatHistory.rename(chat.id, newTitle)
+          setTeamChats(prev => prev.map(c => c.id === chat.id ? { ...c, title: newTitle } : c))
+        } : undefined}
+        onDelete={chat.can_edit ? () => {
+          removeChat(projectId, chat.id)
+          setTeamChats(prev => prev.filter(c => c.id !== chat.id))
+        } : undefined}
+      />
+    )
+  }
+
+  // Private projects keep the flat list, sourced from useProjects().
+  const privateChatList = chats.length === 0 ? (
+    <ProjectChatEmptyRow />
+  ) : (
+    chats.map((chat) => (
+      <ProjectChatRow
+        key={chat.id}
+        title={chat.title}
+        timestamp="Just now"
+        pinCount={pins.filter(p => p.chatId === chat.id).length}
+        onChatClick={() => push(`/project/${projectId}/chat/${chat.id}`)}
+        onPinsClick={() => togglePinboard()}
+        onRename={chat.canEdit ? (newTitle) => {
+          renameChat(projectId, chat.id, newTitle)
+          void chatHistory.rename(chat.id, newTitle)
+        } : undefined}
+        onDelete={chat.canEdit ? () => removeChat(projectId, chat.id) : undefined}
+      />
+    ))
+  )
+
+  // Loading / error / empty notice shared by the "Shared with you" and
+  // "View only" tabs. Returns null when there's real content to render.
+  function sharedNotice(items: SharedChatItem[], emptyText: string): React.ReactNode | null {
+    if (sharedLoading) {
+      return <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', padding: '12px 4px', margin: 0 }}>Loading shared chats…</p>
+    }
+    if (sharedError) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 4px', color: 'var(--red-600, #b83c3c)' }}>
+          <AlertCircleIcon size={16} />
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 14 }}>{sharedError}</span>
+        </div>
+      )
+    }
+    if (items.length === 0) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 4px', color: 'var(--neutral-500)' }}>
+          <AlertCircleIcon size={16} />
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 14 }}>{emptyText}</span>
+        </div>
+      )
+    }
+    return null
   }
 
   return (
@@ -266,6 +438,20 @@ export default function ProjectPage() {
                 </Button>}
               </div>
             </div>
+
+            {project.teamId && (projectTeam || ownerName) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, marginBottom: project.description ? 6 : 0 }}>
+                {ownerName && (
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
+                    Created by {ownerName}
+                  </span>
+                )}
+                {ownerName && projectTeam && (
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-300)' }}>·</span>
+                )}
+                {projectTeam && <TeamChip teamName={projectTeam.name} size="sm" />}
+              </div>
+            )}
 
             {project.description && (
               <p
@@ -422,31 +608,108 @@ export default function ProjectPage() {
             />
           </div>
 
-          {/* Chat list */}
-          <div
-            className="kaya-scrollbar"
-            style={{ width: '100%', maxWidth: '679px', display: 'flex', flexDirection: 'column', gap: '2px', flex: '1 1 0', minHeight: 0, overflowY: 'auto', padding: 3 }}
-          >
-            {chats.length === 0 ? (
-              <ProjectChatEmptyRow />
-            ) : (
-              chats.map((chat) => (
-                <ProjectChatRow
-                  key={chat.id}
-                  title={chat.title}
-                  timestamp="Just now"
-                  pinCount={pins.filter(p => p.chatId === chat.id).length}
-                  onChatClick={() => push(`/project/${projectId}/chat/${chat.id}`)}
-                  onPinsClick={() => togglePinboard()}
-                  onRename={chat.canEdit ? (newTitle) => {
-                    renameChat(projectId, chat.id, newTitle)
-                    void chatHistory.rename(chat.id, newTitle)
-                  } : undefined}
-                  onDelete={chat.canEdit ? () => removeChat(projectId, chat.id) : undefined}
-                />
-              ))
-            )}
-          </div>
+          {/* Chat list — 4-tab layout on team projects, flat list on private */}
+          {project.teamId ? (
+            <div style={{ width: '100%', maxWidth: '679px', flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              <Tabs
+                value={activeTab}
+                onValueChange={(v: string) => setActiveTab(v as TeamTab)}
+                style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0 }}
+              >
+                <TabsList size="small">
+                  <TabsTrigger value="your-chats">Your chats</TabsTrigger>
+                  <TabsTrigger value="publish">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      Publish to team
+                      {publishedChats.length > 0 && (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          minWidth: 16, height: 16, borderRadius: 8, padding: '0 4px',
+                          backgroundColor: 'var(--blue-100)', fontFamily: 'var(--font-body)',
+                          fontWeight: 600, fontSize: 9, color: 'var(--blue-700)', flexShrink: 0,
+                        }}>
+                          {publishedChats.length}
+                        </span>
+                      )}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger value="shared">Shared with you</TabsTrigger>
+                  <TabsTrigger value="view-only">View only</TabsTrigger>
+                </TabsList>
+
+                {/* Your chats — all my chats in this project */}
+                <TabsContent value="your-chats" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3 }}>
+                    {teamChats.length === 0 ? <ProjectChatEmptyRow /> : teamChats.map(teamChatRow)}
+                  </div>
+                </TabsContent>
+
+                {/* Publish to team — my chats published to the team */}
+                <TabsContent value="publish" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3 }}>
+                    {publishedChats.length === 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 4px', color: 'var(--neutral-500)' }}>
+                        <AlertCircleIcon size={16} />
+                        <span style={{ fontFamily: 'var(--font-body)', fontSize: 14 }}>
+                          {canPublishChat ? 'Hover a chat under “Your chats” to publish it to the team.' : 'No chats have been published to the team yet.'}
+                        </span>
+                      </div>
+                    ) : publishedChats.map(teamChatRow)}
+                  </div>
+                </TabsContent>
+
+                {/* Shared with you — editable shares; click to fork into your workspace */}
+                <TabsContent value="shared" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3 }}>
+                    {sharedNotice(sharedEditable, 'No chats have been shared with you in this project yet.') ?? (
+                      sharedEditable.map(item => (
+                        <ProjectChatRow
+                          key={item.shareId}
+                          title={item.chatTitle}
+                          timestamp={item.forkedChatId ? 'Forked · editable' : 'Editable'}
+                          author={item.sharedByName ?? undefined}
+                          pinCount={0}
+                          onChatClick={() => { if (forkingShareId !== item.shareId) void handleOpenShared(item) }}
+                        />
+                      ))
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* View only — read-only snapshots; open the shared view, no forking */}
+                <TabsContent value="view-only" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3 }}>
+                    {sharedNotice(sharedReadOnly, 'No view-only chats in this project yet.') ?? (
+                      sharedReadOnly.map(item => (
+                        <div key={item.shareId} style={{ display: 'flex', flexDirection: 'column' }}>
+                          <ProjectChatRow
+                            title={item.chatTitle}
+                            timestamp="View only"
+                            author={item.sharedByName ?? undefined}
+                            pinCount={0}
+                            onChatClick={() => push(`/chat-shares/${item.shareId}`)}
+                          />
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, padding: '6px 16px 10px', marginTop: -2 }}>
+                            <AlertCircleIcon size={14} color="var(--neutral-400)" style={{ flexShrink: 0, marginTop: 1 }} />
+                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
+                              This is a copy of the chat between Souvenir and {item.sharedByName ?? 'a teammate'}. Content may include unverified information. Shared snapshot may not contain all attachments.
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+          ) : (
+            <div
+              className="kaya-scrollbar"
+              style={{ width: '100%', maxWidth: '679px', display: 'flex', flexDirection: 'column', gap: '2px', flex: '1 1 0', minHeight: 0, overflowY: 'auto', padding: 3 }}
+            >
+              {privateChatList}
+            </div>
+          )}
         </div>
       </div>
 

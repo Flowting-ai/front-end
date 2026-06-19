@@ -1,9 +1,10 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/context/auth-context'
 import { fetchTeams, bustTeamsCache } from '@/lib/api/teams'
 import { getOrg, getOrgPlan, listMembers, listOrganizations } from '@/lib/api/organization'
+import { resolveRole, type Member } from '@/lib/roles'
 import type {
   WorkspaceOrg,
   OrgMember,
@@ -22,6 +23,15 @@ interface OrgContextValue {
   orgRole: OrgRole
   /** Legacy UI role: 'admin' (covers owner+admin) | 'member'. Use for general access checks. */
   currentUserRole: 'admin' | 'editor' | 'member'
+  /**
+   * Resolved capability ladder for the current user (mirrors the backend's
+   * services/organizations/roles.py). Prefer `caps.canPublishToTeam(teamId)` /
+   * `caps.canEditProject(teamId)` etc. over ad-hoc role string comparisons.
+   * Resolved from `orgRole`; owner/admin gates need no per-team grants. For a
+   * plain member, per-resource backend flags (project.canEdit, chat.canEdit)
+   * remain authoritative for project-scoped checks.
+   */
+  caps: Member
   teams: Team[]
   teamsLoading: boolean
   refreshTeams: () => void
@@ -165,6 +175,14 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     setPlanRefreshToken(t => t + 1)
   }
 
+  // Resolved capability ladder. owner/admin gates are role-only; a plain
+  // member's per-team editor grants aren't loaded here (project-scoped checks
+  // fall back to backend per-resource flags), so grants stay empty.
+  const caps = useMemo<Member>(
+    () => resolveRole(orgRole, { userId: user?.email ?? '' }),
+    [orgRole, user?.email],
+  )
+
   const creditPool = plan
     ? {
         total:      plan.totalCredits,
@@ -190,6 +208,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       plan,
       orgRole,
       currentUserRole,
+      caps,
       teams,
       teamsLoading,
       refreshTeams,

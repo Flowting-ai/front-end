@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react'
 import { Slot } from '@radix-ui/react-slot'
+import { PlusSignIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
+import { Button } from '@/components/Button'
 import { cn } from '@/lib/utils'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
@@ -15,15 +17,16 @@ const SHADOW_INPUT_FOCUS = '0px 0px 0px 1.5px var(--neutral-500)'
 export interface CreditCapRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
   memberName:  string
   email:       string
-  avatarUrl?:  string
   /** Credits consumed this billing period */
   creditUsed:  number
   /** Current cap — undefined means no cap set */
   creditCap?:  number
   /** When true, renders the editable admin input for the cap */
   isAdmin?:    boolean
-  /** Fires when admin changes the cap. null = remove cap (no limit) */
-  onCapChange?: (cap: number | null) => void
+  /** Owners and admins use the workspace pool directly and cannot receive an allocation. */
+  canAssign?:  boolean
+  /** Fires with the additional credits to assign. */
+  onAssignCredits?: (amount: number) => void
   asChild?: boolean
 }
 
@@ -34,24 +37,19 @@ function formatK(n: number): string {
 // ── CapInput — Admin only ─────────────────────────────────────────────────────
 
 function CapInput({
-  value,
-  onChange,
+  onAssign,
+  onDone,
 }: {
-  value: number | undefined
-  onChange: (cap: number | null) => void
+  onAssign: (amount: number) => void
+  onDone: () => void
 }) {
   const [focused, setFocused] = useState(false)
-  const [draft,   setDraft]   = useState(value != null ? String(value) : '')
+  const [draft,   setDraft]   = useState('')
 
   function commit() {
     const n = parseInt(draft, 10)
-    if (!draft.trim() || isNaN(n) || n <= 0) {
-      onChange(null)
-      setDraft('')
-    } else {
-      onChange(n)
-      setDraft(String(n))
-    }
+    if (draft.trim() && !isNaN(n) && n > 0) onAssign(n)
+    onDone()
   }
 
   return (
@@ -70,11 +68,16 @@ function CapInput({
         type="number"
         min={1}
         value={draft}
-        placeholder="No limit"
+        placeholder="Add credits"
+        autoFocus
+        aria-label="Credits to assign"
         onChange={e => setDraft(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => { setFocused(false); commit() }}
-        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+        onKeyDown={e => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'Escape') onDone()
+        }}
         style={{
           flex:       '1 0 0',
           minWidth:   0,
@@ -101,11 +104,11 @@ export const CreditCapRow = React.forwardRef<HTMLDivElement, CreditCapRowProps>(
     {
       memberName,
       email,
-      avatarUrl,
       creditUsed,
       creditCap,
       isAdmin = false,
-      onCapChange,
+      canAssign = true,
+      onAssignCredits,
       asChild = false,
       className,
       style,
@@ -114,8 +117,19 @@ export const CreditCapRow = React.forwardRef<HTMLDivElement, CreditCapRowProps>(
     ref,
   ) {
     const Comp    = (asChild ? Slot : 'div') as React.ElementType
+    const [editing, setEditing] = useState(false)
     const exceeded = creditCap != null && creditUsed > creditCap
     const usedColor = exceeded ? 'var(--color-tag-Red-text)' : 'var(--neutral-600)'
+    const remaining = canAssign && creditCap != null ? Math.max(creditCap - creditUsed, 0) : null
+    const valueCellStyle: React.CSSProperties = {
+      width:      104,
+      flexShrink: 0,
+      textAlign:  'center',
+      fontFamily: 'var(--font-body)',
+      fontWeight: 500,
+      fontSize:   'var(--font-size-caption)',
+      color:      'var(--neutral-600)',
+    }
 
     return (
       <Comp
@@ -169,58 +183,46 @@ export const CreditCapRow = React.forwardRef<HTMLDivElement, CreditCapRowProps>(
           </p>
         </div>
 
-        {/* Usage */}
-        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize:   'var(--font-size-caption)',
-            color:      usedColor,
-          }}>
-            {formatK(creditUsed)}
-          </span>
-          {creditCap != null && (
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 400,
-              fontSize:   'var(--font-size-caption)',
-              color:      'var(--neutral-400)',
-            }}>
-              {' / '}{formatK(creditCap)}
-            </span>
-          )}
-          {exceeded && (
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 400,
-              fontSize:   'var(--font-size-caption)',
-              color:      'var(--color-tag-Red-text)',
-              margin:     '1px 0 0',
-            }}>
-              Cap exceeded
-            </p>
+        <span style={{ ...valueCellStyle, color: usedColor }}>
+          {formatK(creditUsed)}
+        </span>
+
+        <span style={{
+          ...valueCellStyle,
+          color: canAssign && creditCap != null ? 'var(--neutral-600)' : 'var(--neutral-300)',
+        }}>
+          {canAssign ? (creditCap != null ? formatK(creditCap) : 'No limit') : '-'}
+        </span>
+
+        <span style={{
+          ...valueCellStyle,
+          color: exceeded ? 'var(--color-tag-Red-text)' : remaining != null ? 'var(--neutral-600)' : 'var(--neutral-300)',
+        }}>
+          {remaining != null ? formatK(remaining) : 'No limit'}
+        </span>
+
+        <div style={{ width: 104, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+          {isAdmin && canAssign ? (
+            editing ? (
+              <CapInput
+                onAssign={onAssignCredits ?? (() => {})}
+                onDone={() => setEditing(false)}
+              />
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                leftIcon={<PlusSignIcon size={16} />}
+                onClick={() => setEditing(true)}
+              >
+                Assign
+              </Button>
+            )
+          ) : (
+            <span style={{ color: 'var(--neutral-300)' }}>-</span>
           )}
         </div>
-
-        {/* Admin cap input OR member static cap */}
-        {isAdmin ? (
-          <CapInput
-            value={creditCap}
-            onChange={onCapChange ?? (() => {})}
-          />
-        ) : (
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 400,
-            fontSize:   'var(--font-size-caption)',
-            color:      creditCap != null ? 'var(--neutral-500)' : 'var(--neutral-300)',
-            flexShrink: 0,
-            width:      90,
-            textAlign:  'right',
-          }}>
-            {creditCap != null ? `${formatK(creditCap)} cap` : 'No limit'}
-          </span>
-        )}
       </Comp>
     )
   },
