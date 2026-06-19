@@ -4,43 +4,54 @@ import React from 'react'
 
 interface SettingsTableProps {
   children: React.ReactNode
+  columns?: string
+  columnGap?: string | number
 }
 
 interface SettingsTableGridProps {
   children: React.ReactNode
-  columns: string
+  columns?: string
   columnGap?: string | number
   divider?: boolean
   minHeight?: number
   style?: React.CSSProperties
 }
 
-export function SettingsTable({ children }: SettingsTableProps) {
+const SettingsTableLayoutContext = React.createContext<{
+  columns?: string
+  columnGap?: string | number
+}>({})
+
+export function SettingsTable({ children, columns, columnGap }: SettingsTableProps) {
   return (
-    <section
-      style={{
-        border:        '1px solid var(--neutral-200)',
-        borderRadius:  16,
-        boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-        background:    'var(--neutral-50)',
-        overflow:      'hidden',
-        display:       'flex',
-        flexDirection: 'column',
-        gap:           12,
-        padding:       '12px 0',
-      }}
-    >
-      {children}
-    </section>
+    <SettingsTableLayoutContext.Provider value={{ columns, columnGap }}>
+      <section
+        style={{
+          border:        '1px solid var(--neutral-200)',
+          borderRadius:  16,
+          boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
+          background:    'var(--neutral-50)',
+          overflow:      'hidden',
+          display:       'flex',
+          flexDirection: 'column',
+          gap:           12,
+          padding:       '12px 0',
+        }}
+      >
+        {children}
+      </section>
+    </SettingsTableLayoutContext.Provider>
   )
 }
 
 export function SettingsTableToolbar({
   title,
   children,
+  style,
 }: {
   title: string
   children?: React.ReactNode
+  style?: React.CSSProperties
 }) {
   return (
     <div
@@ -50,6 +61,7 @@ export function SettingsTableToolbar({
         gap:          12,
         padding:      '12px 24px 24px',
         borderBottom: '1px solid var(--neutral-100)',
+        ...style,
       }}
     >
       <h2
@@ -74,16 +86,17 @@ export function SettingsTableToolbar({
 export function SettingsTableHeader({
   children,
   columns,
-  columnGap = 64,
+  columnGap,
   style,
 }: SettingsTableGridProps) {
+  const layout = React.useContext(SettingsTableLayoutContext)
   return (
     <div
       role="row"
       style={{
         display:              'grid',
-        gridTemplateColumns:  columns,
-        columnGap,
+        gridTemplateColumns:  columns ?? layout.columns,
+        columnGap:            columnGap ?? layout.columnGap ?? 64,
         alignItems:           'center',
         padding:              '12px 24px',
         borderBottom:         '1px solid var(--neutral-100)',
@@ -124,18 +137,19 @@ export function SettingsTableHeaderCell({
 export function SettingsTableRow({
   children,
   columns,
-  columnGap = 64,
+  columnGap,
   divider = true,
   minHeight = 58,
   style,
 }: SettingsTableGridProps) {
+  const layout = React.useContext(SettingsTableLayoutContext)
   return (
     <div
       role="row"
       style={{
         display:             'grid',
-        gridTemplateColumns: columns,
-        columnGap,
+        gridTemplateColumns: columns ?? layout.columns,
+        columnGap:           columnGap ?? layout.columnGap ?? 64,
         alignItems:          'center',
         minHeight,
         padding:             '0 24px',
@@ -170,11 +184,18 @@ export function SettingsTableCell({
   )
 }
 
-export function SettingsTableFooter({ children }: { children: React.ReactNode }) {
+export function SettingsTableFooter({
+  children,
+  style,
+}: {
+  children: React.ReactNode
+  style?: React.CSSProperties
+}) {
   return (
     <div
       style={{
         padding: '12px 24px',
+        ...style,
       }}
     >
       {children}

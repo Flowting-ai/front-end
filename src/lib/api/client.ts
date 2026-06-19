@@ -44,6 +44,9 @@ export function friendlyApiError(raw: string, statusCode?: number): string {
   if (lower.includes("not authenticated") || lower.includes("unauthorized")) {
     return "You're not signed in. Please log in and try again.";
   }
+  if (lower.includes("sent to a different email address")) {
+    return "This invitation belongs to another email address. Sign in with the account that received it.";
+  }
   if (lower.includes("forbidden") || statusCode === 403) {
     return "You don't have permission to perform this action.";
   }

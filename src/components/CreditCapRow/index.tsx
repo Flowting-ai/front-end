@@ -151,8 +151,6 @@ export function CreditCapRow({
 
   return (
     <SettingsTableRow
-      columns={CREDIT_CAP_COLUMNS}
-      columnGap={0}
       minHeight={72}
       style={{ backgroundColor: exceeded ? 'var(--color-tag-Red-bg)' : undefined }}
     >

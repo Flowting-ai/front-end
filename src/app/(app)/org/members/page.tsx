@@ -12,12 +12,14 @@ import { Avatar }           from '@/components/Avatar'
 import { InputField }       from '@/components/InputField'
 import { Popover }          from '@/components/Popover'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
-import { Divider }          from '@/components/Divider'
 import { AppInviteModal }   from '@/components/InviteModal'
 import {
   SettingsTable,
+  SettingsTableCell,
+  SettingsTableFooter,
   SettingsTableHeader,
   SettingsTableHeaderCell,
+  SettingsTableRow,
   SettingsTableToolbar,
 } from '@/components/SettingsTable'
 import { toast }           from 'sonner'
@@ -370,6 +372,8 @@ function AssignTeamButton({
 
 // ── Members table ─────────────────────────────────────────────────────────────
 
+const WORKSPACE_MEMBER_COLUMNS = 'minmax(260px, 1.25fr) 130px minmax(280px, 1fr) 150px'
+
 function MembersTable({
   members,
   ownerMemberId,
@@ -408,66 +412,44 @@ function MembersTable({
     : members
 
   return (
-    <div style={{
-      borderRadius:    16,
-      border:          '1px solid var(--neutral-200)',
-      backgroundColor: '#f9f5f1',
-      boxShadow:       SHADOW_CARD,
-      overflow:        'hidden',
-      width:           '100%',
-    }}>
-      {/* Header */}
-      <div style={{
-        display:      'flex',
-        alignItems:   'center',
-        flexWrap:     'wrap',
-        gap:          12,
-        padding:      '12px 24px 24px',
-        borderBottom: '1px solid var(--neutral-100)',
-      }}>
-        <span style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, color: 'var(--neutral-900)' }}>
-          Workspace Members
-        </span>
-        <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
-          <InputField
-            label="Search members"
-            showLabel={false}
-            showSubtitle={false}
-            size="small"
-            fluid
-            leftIcon={<SearchOneIcon size={16} />}
-            placeholder="Search members"
-            value={searchQuery}
-            onChange={setSearchQuery}
-          />
+    <SettingsTable columns={WORKSPACE_MEMBER_COLUMNS} columnGap={0}>
+      <SettingsTableToolbar title="Workspace Members" style={{ flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 12, maxWidth: '100%' }}>
+          <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
+            <InputField
+              label="Search members"
+              showLabel={false}
+              showSubtitle={false}
+              size="small"
+              fluid
+              leftIcon={<SearchOneIcon size={16} />}
+              placeholder="Search members"
+              value={searchQuery}
+              onChange={setSearchQuery}
+            />
+          </div>
+          {isAdmin && (
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<PlusSignIcon size={16} />}
+              onClick={onInviteClick}
+            >
+              Invite members
+            </Button>
+          )}
         </div>
-        {isAdmin && (
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<PlusSignIcon size={16} />}
-            onClick={onInviteClick}
-          >
-            Invite members
-          </Button>
-        )}
-      </div>
+      </SettingsTableToolbar>
 
       <div style={{ overflowX: 'auto' }}>
-        <div role="table" aria-label="Workspace members" style={{ minWidth: 780 }}>
-          {/* Column headers */}
-          <div role="row" style={{
-            display:    'flex',
-            alignItems: 'center',
-            padding:    '2px 24px 8px',
-          }}>
-            <span role="columnheader" style={{ flex: '1 0 0', minWidth: 200, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)' }}>Member</span>
-            <span role="columnheader" style={{ width: 110, textAlign: 'left', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)' }}>Role</span>
-            <span role="columnheader" style={{ width: 240, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)' }}>Teams</span>
-            <span role="columnheader" style={{ minWidth: 160, textAlign: 'right', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)' }}>Actions</span>
-          </div>
+        <div role="table" aria-label="Workspace members" style={{ minWidth: 900 }}>
+          <SettingsTableHeader>
+            <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell>Role</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell>Teams</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="end">Actions</SettingsTableHeaderCell>
+          </SettingsTableHeader>
 
-          {/* Rows */}
           {loading ? (
             <div style={{ padding: '32px 24px', textAlign: 'center' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
@@ -480,117 +462,107 @@ function MembersTable({
                 {members.length === 0 ? 'No members yet' : 'No members match your search'}
               </p>
             </div>
-          ) : filteredMembers.map((member, index) => {
-        const isOwner = member.id === ownerMemberId
-        const canEditMember = isAdmin && !isOwner && member.inviteStatus !== 'invite_sent'
-        const hasGlobalAccess = member.orgRole === 'owner' || member.orgRole === 'admin'
-        const unassignedTeams = availableTeams.filter(team => (
-          !member.teamMemberships.some(membership => membership.teamId === team.id)
-        ))
-        const roleLabel = member.orgRole === 'owner' || member.orgRole === 'admin'
-          ? member.orgRole.charAt(0).toUpperCase() + member.orgRole.slice(1)
-          : member.role === 'editor'
-            ? 'Team editor'
-            : 'Member'
-        return (
-          <React.Fragment key={member.id}>
-            {index > 0 && <Divider decorative style={{ backgroundColor: 'var(--neutral-100)', margin: 0 }} />}
-            <div role="row" style={{
-              display:    'flex',
-              alignItems: 'center',
-              gap:        0,
-              padding:    '10px 24px',
-              position:   'relative',
-            }}>
-              {/* Member info */}
-              <div role="cell" style={{ flex: '1 0 0', minWidth: 200, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Avatar name={member.name || member.email} size="sm" />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-900)', whiteSpace: 'nowrap' }}>
-                      {member.name || member.email}
-                    </span>
-                    {member.inviteStatus === 'invite_sent' && (
-                      <Badge color="Neutral" label="Invite sent" />
+          ) : filteredMembers.map(member => {
+            const isOwner = member.id === ownerMemberId
+            const canEditMember = isAdmin && !isOwner && member.inviteStatus !== 'invite_sent'
+            const hasGlobalAccess = member.orgRole === 'owner' || member.orgRole === 'admin'
+            const unassignedTeams = availableTeams.filter(team => (
+              !member.teamMemberships.some(membership => membership.teamId === team.id)
+            ))
+            const roleLabel = member.orgRole === 'owner' || member.orgRole === 'admin'
+              ? member.orgRole.charAt(0).toUpperCase() + member.orgRole.slice(1)
+              : member.role === 'editor'
+                ? 'Team editor'
+                : 'Member'
+
+            return (
+              <SettingsTableRow
+                key={member.id}
+                minHeight={72}
+              >
+                <SettingsTableCell>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                    <Avatar name={member.name || member.email} size="md" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {member.name || member.email}
+                        </span>
+                        {member.inviteStatus === 'invite_sent' && (
+                          <Badge color="Neutral" label="Invite sent" />
+                        )}
+                      </div>
+                      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {member.email}
+                      </span>
+                    </div>
+                  </div>
+                </SettingsTableCell>
+
+                <SettingsTableCell>
+                  <div style={{ position: 'relative' }}>
+                    <RoleButton
+                      role={member.role}
+                      label={roleLabel}
+                      isOwner={isOwner}
+                      isAdmin={canEditMember}
+                      onClick={event => {
+                        const rect = event.currentTarget.getBoundingClientRect()
+                        setDropdownAnchor(event.currentTarget)
+                        setDropdownPosition({ top: rect.bottom + 4, left: rect.left })
+                        setOpenDropdown(prev => prev === member.id ? null : member.id)
+                      }}
+                    />
+                    <AnimatePresence>
+                      {openDropdown === member.id && canEditMember && dropdownAnchor && dropdownPosition && (
+                        <RoleDropdown
+                          currentRole={member.role}
+                          onSelect={role => { onChangeRole(member.id, role); setOpenDropdown(null) }}
+                          onClose={() => setOpenDropdown(null)}
+                          triggerEl={dropdownAnchor}
+                          position={dropdownPosition}
+                        />
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </SettingsTableCell>
+
+                <SettingsTableCell>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, minWidth: 0 }}>
+                    <TeamsBadges teams={member.teamMemberships} hasGlobalAccess={hasGlobalAccess} />
+                    {isAdmin && !hasGlobalAccess && member.inviteStatus !== 'invite_sent' && unassignedTeams.length > 0 && (
+                      <AssignTeamButton
+                        teams={unassignedTeams}
+                        assigning={assigningId === member.id}
+                        onSelect={async teamId => {
+                          setAssigningId(member.id)
+                          try { await onAssignTeam(member.id, teamId) }
+                          finally { setAssigningId(null) }
+                        }}
+                      />
                     )}
                   </div>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 'var(--font-size-caption)', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
-                    {member.email}
-                  </span>
-                </div>
-              </div>
+                </SettingsTableCell>
 
-              {/* Role */}
-              <div role="cell" style={{ width: 110, display: 'flex', justifyContent: 'flex-start', flexShrink: 0, position: 'relative' }}>
-                <RoleButton
-                  role={member.role}
-                  label={roleLabel}
-                  isOwner={isOwner}
-                  isAdmin={canEditMember}
-                  onClick={event => {
-                    const rect = event.currentTarget.getBoundingClientRect()
-                    setDropdownAnchor(event.currentTarget)
-                    setDropdownPosition({ top: rect.bottom + 4, left: rect.left })
-                    setOpenDropdown(prev => prev === member.id ? null : member.id)
-                  }}
-                />
-                <AnimatePresence>
-                  {openDropdown === member.id && canEditMember && dropdownAnchor && dropdownPosition && (
-                    <RoleDropdown
-                      currentRole={member.role}
-                      onSelect={role => { onChangeRole(member.id, role); setOpenDropdown(null) }}
-                      onClose={() => setOpenDropdown(null)}
-                      triggerEl={dropdownAnchor}
-                      position={dropdownPosition}
-                    />
+                <SettingsTableCell align="end">
+                  {canEditMember && (
+                    <RemoveButton memberName={member.name || member.email} onConfirm={() => onRemove(member.id)} />
                   )}
-                </AnimatePresence>
-              </div>
-
-              {/* Teams */}
-              <div role="cell" style={{ width: 240, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <TeamsBadges teams={member.teamMemberships} hasGlobalAccess={hasGlobalAccess} />
-                {isAdmin && !hasGlobalAccess && member.inviteStatus !== 'invite_sent' && unassignedTeams.length > 0 && (
-                  <AssignTeamButton
-                    teams={unassignedTeams}
-                    assigning={assigningId === member.id}
-                    onSelect={async teamId => {
-                      setAssigningId(member.id)
-                      try { await onAssignTeam(member.id, teamId) }
-                      finally { setAssigningId(null) }
-                    }}
-                  />
-                )}
-              </div>
-
-              {/* Actions */}
-              <div role="cell" style={{ minWidth: 160, display: 'flex', justifyContent: 'flex-end' }}>
-                {canEditMember && (
-                  <RemoveButton memberName={member.name || member.email} onConfirm={() => onRemove(member.id)} />
-                )}
-              </div>
-            </div>
-          </React.Fragment>
-        )
+                </SettingsTableCell>
+              </SettingsTableRow>
+            )
           })}
 
-          {/* Footer */}
-          <div style={{
-            display:        'flex',
-            alignItems:     'center',
-            justifyContent: 'space-between',
-            padding:        '12px 24px',
-            borderTop:      '1px solid var(--neutral-100)',
-          }}>
-            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 'var(--font-size-body)', color: 'var(--neutral-600)' }}>
+          <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)' }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)' }}>
               {normalizedQuery
                 ? `${filteredMembers.length} of ${members.length} members`
                 : `${members.length} member${members.length === 1 ? '' : 's'}`}
             </span>
-          </div>
+          </SettingsTableFooter>
         </div>
       </div>
-    </div>
+    </SettingsTable>
   )
 }
 
@@ -777,11 +749,11 @@ function CreditCapsSection({ members, isAdmin, onAssignCredits }: {
   if (active.length === 0) return null
 
   return (
-    <SettingsTable>
+    <SettingsTable columns={CREDIT_CAP_COLUMNS} columnGap={0}>
       <SettingsTableToolbar title="Per-member credit caps" />
       <div style={{ overflowX: 'auto' }}>
         <div role="table" aria-label="Per-member credit caps" style={{ minWidth: 810 }}>
-          <SettingsTableHeader columns={CREDIT_CAP_COLUMNS} columnGap={0}>
+          <SettingsTableHeader>
             <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
             <SettingsTableHeaderCell align="center">Allocation used</SettingsTableHeaderCell>
             <SettingsTableHeaderCell align="center">Current cap</SettingsTableHeaderCell>
