@@ -4,6 +4,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { CancelOneIcon, CheckmarkCircleTwoIcon, PlusSignIcon } from '@strange-huge/icons'
 import { useOrg } from '@/context/org-context'
+import { Badge } from '@/components/Badge'
+import { Button } from '@/components/Button'
+import { SettingsPageShell } from '@/components/SettingsPageShell'
+import {
+  SettingsTable,
+  SettingsTableToolbar,
+  SettingsTableHeader,
+  SettingsTableHeaderCell,
+  SettingsTableRow,
+  SettingsTableCell,
+  SettingsTableFooter,
+} from '@/components/SettingsTable'
 import { SlackConnectModal } from '@/components/SlackConnectModal'
 import {
   createProjectSlackChannel,
@@ -71,6 +83,8 @@ function ChannelTypeToggle({
   )
 }
 
+const SLACK_COLUMNS = 'minmax(200px, 1.4fr) minmax(200px, 1.4fr) minmax(170px, 220px) 130px'
+
 function ProjectSlackRow({
   project,
   teamName,
@@ -78,6 +92,7 @@ function ProjectSlackRow({
   creating,
   nameDraft,
   isPrivate,
+  divider,
   onNameChange,
   onPrivacyChange,
   onCreate,
@@ -88,102 +103,83 @@ function ProjectSlackRow({
   creating: boolean
   nameDraft: string
   isPrivate: boolean
+  divider: boolean
   onNameChange: (value: string) => void
   onPrivacyChange: (value: boolean) => void
   onCreate: () => void
 }) {
   return (
-    <div
-      style={{
-        minWidth: 760,
-        display: 'grid',
-        gridTemplateColumns: 'minmax(180px, 1fr) minmax(180px, 1fr) minmax(190px, 250px) 120px',
-        gap: 16,
-        alignItems: 'center',
-        padding: '14px 20px',
-        borderBottom: '1px solid var(--neutral-100)',
-        opacity: creating ? 0.6 : 1,
-      }}
-    >
-      <div style={{ minWidth: 0 }}>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {project.title}
-        </p>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: '2px 0 0' }}>
-          {teamName} / {project.documentCount} files / {project.chatCount} chats
-        </p>
-      </div>
+    <SettingsTableRow minHeight={72} divider={divider} style={{ opacity: creating ? 0.6 : 1 }}>
+      <SettingsTableCell>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {project.title}
+          </p>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: '2px 0 0' }}>
+            {teamName} / {project.documentCount} files / {project.chatCount} chats
+          </p>
+        </div>
+      </SettingsTableCell>
 
       {channel ? (
         <>
-          <div style={{ minWidth: 0 }}>
+          <SettingsTableCell>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               # {channel.channelName}
             </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: '2px 0 0' }}>
-              {channel.isPrivate ? 'Private channel' : 'Public channel'}
-            </p>
-          </div>
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)' }}>
-            Already connected
-          </span>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <CheckmarkCircleTwoIcon size={18} color="var(--green-600, #16a34a)" />
-          </div>
+          </SettingsTableCell>
+          <SettingsTableCell>
+            <Badge label={channel.isPrivate ? 'Private' : 'Public'} color={channel.isPrivate ? 'Neutral' : 'Blue'} />
+          </SettingsTableCell>
+          <SettingsTableCell align="end">
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--green-600, #16a34a)' }}>
+              <CheckmarkCircleTwoIcon size={18} color="var(--green-600, #16a34a)" />
+              Connected
+            </span>
+          </SettingsTableCell>
         </>
       ) : (
         <>
-          <input
-            type="text"
-            value={nameDraft}
-            disabled={creating}
-            onChange={event => onNameChange(event.target.value)}
-            placeholder="channel-name"
-            style={{
-              width: '100%',
-              height: 36,
-              border: 'none',
-              borderRadius: 10,
-              padding: '0 10px',
-              backgroundColor: 'white',
-              boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
-              outline: 'none',
-              fontFamily: 'var(--font-body)',
-              fontSize: 14,
-              color: 'var(--neutral-900)',
-            }}
-          />
-          <ChannelTypeToggle isPrivate={isPrivate} disabled={creating} onChange={onPrivacyChange} />
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              disabled={creating || !nameDraft.trim()}
-              onClick={onCreate}
+          <SettingsTableCell>
+            <input
+              type="text"
+              value={nameDraft}
+              disabled={creating}
+              onChange={event => onNameChange(event.target.value)}
+              placeholder="channel-name"
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
+                width: '100%',
                 height: 36,
-                padding: '0 12px',
-                borderRadius: 10,
                 border: 'none',
-                cursor: creating || !nameDraft.trim() ? 'not-allowed' : 'pointer',
-                backgroundColor: 'var(--neutral-900)',
-                color: 'white',
-                opacity: creating || !nameDraft.trim() ? 0.55 : 1,
+                borderRadius: 10,
+                padding: '0 10px',
+                backgroundColor: 'white',
+                boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
+                outline: 'none',
                 fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: 13,
-                whiteSpace: 'nowrap',
+                fontSize: 14,
+                color: 'var(--neutral-900)',
               }}
+            />
+          </SettingsTableCell>
+          <SettingsTableCell>
+            <ChannelTypeToggle isPrivate={isPrivate} disabled={creating} onChange={onPrivacyChange} />
+          </SettingsTableCell>
+          <SettingsTableCell align="end">
+            <Button
+              variant="default"
+              size="sm"
+              leftIcon={<PlusSignIcon size={16} />}
+              disabled={creating || !nameDraft.trim()}
+              loading={creating}
+              onClick={onCreate}
             >
-              <PlusSignIcon size={14} />
-              {creating ? 'Creating...' : 'Create'}
-            </button>
-          </div>
+              Create
+            </Button>
+          </SettingsTableCell>
         </>
       )}
-    </div>
+    </SettingsTableRow>
   )
 }
 
@@ -324,127 +320,97 @@ export default function SouvenirSlackPage() {
   }
 
   return (
-    <div
-      className="kaya-scrollbar"
-      style={{
-        flex: '1 0 0',
-        minHeight: 0,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        display: 'flex',
-        justifyContent: 'center',
-        padding: '48px 24px',
-      }}
+    <SettingsPageShell
+      title="Slack project channels"
+      description="Create one Slack channel per project so Brain can use that project context automatically."
     >
-      <div style={{ width: '100%', maxWidth: 1100, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-          <div style={{ flex: '1 0 0', minWidth: 0 }}>
-            <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 28, lineHeight: '36px', color: 'var(--neutral-900)', margin: '0 0 4px' }}>
-              Slack project channels
-            </h1>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-              Create one Slack channel per project so Brain can use that project context automatically.
-            </p>
-          </div>
-
-          {connected && isAdmin && (
-            <button
-              type="button"
-              onClick={handleRemoveSlack}
-              disabled={removing}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '6px 12px',
-                borderRadius: 8,
-                border: 'none',
-                cursor: removing ? 'not-allowed' : 'pointer',
-                backgroundColor: 'white',
-                flexShrink: 0,
-                opacity: removing ? 0.6 : 1,
-                boxShadow: '0px 1px 1.5px rgba(24,2,2,0.05), 0px 1px 2px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-200, #fecaca)',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: 14,
-                lineHeight: '22px',
-                color: 'var(--red-600, #dc2626)',
-              }}
-            >
-              <CancelOneIcon size={14} />
-              {removing ? 'Removing...' : 'Disconnect Slack'}
-            </button>
-          )}
-        </div>
-
-        {connected && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '4px 10px', borderRadius: 8, backgroundColor: 'var(--blue-100, #dbeafe)', boxShadow: '0px 0px 0px 1px var(--blue-200, #bfdbfe)' }}>
+      {connected && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, backgroundColor: 'var(--blue-100, #dbeafe)', boxShadow: '0px 0px 0px 1px var(--blue-200, #bfdbfe)' }}>
             <CheckmarkCircleTwoIcon size={14} color="var(--blue-600, #2563eb)" />
             <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--blue-700, #1d4ed8)' }}>
               {teamName ? `Slack connected - ${teamName}` : 'Slack connected'} / {mappedCount} project channels
             </span>
           </div>
-        )}
+          {isAdmin && (
+            <Button variant="danger" size="sm" leftIcon={<CancelOneIcon size={14} />} disabled={removing} loading={removing} onClick={handleRemoveSlack}>
+              Disconnect Slack
+            </Button>
+          )}
+        </div>
+      )}
 
-        {!orgReady || statusLoading ? (
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)' }}>Loading...</p>
-        ) : !isAdmin ? (
-          <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: '48px 24px', textAlign: 'center' }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 500, color: 'var(--neutral-700)', margin: 0 }}>
-              Only workspace owners and admins can manage Slack.
-            </p>
-          </div>
-        ) : !connected ? (
-          <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 500, color: 'var(--neutral-700)', margin: 0 }}>
-              Slack is not connected yet
-            </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
-              Connect your workspace before creating project channels.
-            </p>
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              style={{ marginTop: 4, padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer', backgroundColor: 'var(--neutral-900)', color: 'white', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14 }}
-            >
-              Connect Slack workspace
-            </button>
-          </div>
-        ) : (
-          <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, overflowX: 'auto', overflowY: 'hidden' }}>
-            <div style={{ minWidth: 760, display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) minmax(180px, 1fr) minmax(190px, 250px) 120px', gap: 16, padding: '14px 20px', borderBottom: '1px solid var(--neutral-100)', backgroundColor: 'var(--neutral-50)' }}>
-              {['Project', 'Slack channel', 'Visibility', 'Action'].map((header, index) => (
-                <span key={header} style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-500)', textAlign: index === 3 ? 'right' : 'left' }}>
-                  {header}
-                </span>
+      {!orgReady || statusLoading ? (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)' }}>Loading...</p>
+      ) : !isAdmin ? (
+        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: '48px 24px', textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 500, color: 'var(--neutral-700)', margin: 0 }}>
+            Only workspace owners and admins can manage Slack.
+          </p>
+        </div>
+      ) : !connected ? (
+        <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 500, color: 'var(--neutral-700)', margin: 0 }}>
+            Slack is not connected yet
+          </p>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
+            Connect your workspace before creating project channels.
+          </p>
+          <Button variant="default" size="sm" style={{ marginTop: 4 }} onClick={() => setModalOpen(true)}>
+            Connect Slack workspace
+          </Button>
+        </div>
+      ) : (
+        <SettingsTable columns={SLACK_COLUMNS} columnGap={0}>
+          <SettingsTableToolbar title="Project channels" />
+          <div style={{ overflowX: 'auto' }}>
+            <div role="table" aria-label="Slack project channels" style={{ minWidth: 760 }}>
+              <SettingsTableHeader>
+                <SettingsTableHeaderCell>Project</SettingsTableHeaderCell>
+                <SettingsTableHeaderCell>Slack channel</SettingsTableHeaderCell>
+                <SettingsTableHeaderCell>Visibility</SettingsTableHeaderCell>
+                <SettingsTableHeaderCell align="end">Action</SettingsTableHeaderCell>
+              </SettingsTableHeader>
+
+              {projectsLoading ? (
+                <div style={{ padding: '24px', textAlign: 'center' }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>Loading projects...</p>
+                </div>
+              ) : projects.length === 0 ? (
+                <div style={{ padding: '24px', textAlign: 'center' }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+                    {teams.length > 0
+                      ? 'Your teams are available, but no projects are published to a team yet.'
+                      : 'No teams are available yet. Create a team before adding Slack project channels.'}
+                  </p>
+                </div>
+              ) : projects.map((project, index) => (
+                <ProjectSlackRow
+                  key={project.id}
+                  project={project}
+                  teamName={teams.find(team => team.id === project.teamId)?.name ?? 'Team project'}
+                  channel={channelsByProject[project.id]}
+                  creating={creatingId === project.id}
+                  nameDraft={nameDrafts[project.id] ?? defaultChannelName(project.title)}
+                  isPrivate={privateDrafts[project.id] ?? false}
+                  divider={index < projects.length - 1}
+                  onNameChange={value => setNameDrafts(prev => ({ ...prev, [project.id]: value }))}
+                  onPrivacyChange={value => setPrivateDrafts(prev => ({ ...prev, [project.id]: value }))}
+                  onCreate={() => void handleCreateChannel(project)}
+                />
               ))}
-            </div>
 
-            {projectsLoading ? (
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', padding: '20px' }}>Loading projects...</p>
-            ) : projects.length === 0 ? (
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', padding: '20px' }}>
-                {teams.length > 0
-                  ? 'Your teams are available, but no projects are published to a team yet.'
-                  : 'No teams are available yet. Create a team before adding Slack project channels.'}
-              </p>
-            ) : projects.map(project => (
-              <ProjectSlackRow
-                key={project.id}
-                project={project}
-                teamName={teams.find(team => team.id === project.teamId)?.name ?? 'Team project'}
-                channel={channelsByProject[project.id]}
-                creating={creatingId === project.id}
-                nameDraft={nameDrafts[project.id] ?? defaultChannelName(project.title)}
-                isPrivate={privateDrafts[project.id] ?? false}
-                onNameChange={value => setNameDrafts(prev => ({ ...prev, [project.id]: value }))}
-                onPrivacyChange={value => setPrivateDrafts(prev => ({ ...prev, [project.id]: value }))}
-                onCreate={() => void handleCreateChannel(project)}
-              />
-            ))}
+              {!projectsLoading && projects.length > 0 && (
+                <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)' }}>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)' }}>
+                    {mappedCount} of {projects.length} project{projects.length === 1 ? '' : 's'} connected
+                  </span>
+                </SettingsTableFooter>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+        </SettingsTable>
+      )}
 
       <SlackConnectModal
         isOpen={modalOpen}
@@ -452,6 +418,6 @@ export default function SouvenirSlackPage() {
         orgId={orgId}
         onConnected={loadStatus}
       />
-    </div>
+    </SettingsPageShell>
   )
 }
