@@ -51,7 +51,6 @@ const ADMIN_SECTION_ROUTES: Record<string, string> = {
   "plans-usage":     "/org/plans",
   analytics:         "/org/analytics",
   connectors:        "/org/connectors",
-  security:          "/org/security",
   "souvenir-slack":  "/org/souvenir-slack",
   "activity-log":    "/org/activity",
   // Models ? AI & Models
@@ -1129,7 +1128,6 @@ function LeftSidebarImpl({
     : pathname?.startsWith('/org/analytics')  ? 'analytics'
     : pathname?.startsWith('/org/connectors') ? 'connectors'
     : pathname?.startsWith('/org/souvenir-slack') ? 'souvenir-slack'
-    : pathname?.startsWith('/org/security')   ? 'security'
     : pathname?.startsWith('/org/activity')   ? 'activity-log'
     : 'general'
 

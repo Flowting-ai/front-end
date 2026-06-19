@@ -23,7 +23,6 @@ import {
   BrainTwoIcon,
   DashboardSquareOneIcon,
 } from '@strange-huge/icons'
-import { ViewIcon } from '@/components/ViewIcon'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarProjectsSection } from '@/components/SidebarProjectsSection'
@@ -117,7 +116,6 @@ const DEFAULT_ADMIN_GROUPS: SidebarAdminGroup[] = [
       { id: 'plans-usage',  label: 'Plans & Billing' },
       { id: 'analytics',    label: 'Usage & Analytics' },
       { id: 'connectors',   label: 'Connectors' },
-      { id: 'security',     label: 'Security' },
       { id: 'souvenir-slack', label: 'Souvenir in Slack' },
       { id: 'activity-log', label: 'Activity Log' },
     ],
@@ -138,7 +136,6 @@ const ADMIN_ITEM_ICONS: Record<string, React.ReactElement<{ triggered?: boolean 
   'plans-usage':     <TokenCircleIcon size={20} />,
   'analytics':       <AuditTwoIcon size={20} />,
   'connectors':      <LinkSixIcon size={20} />,
-  'security':        <ViewIcon size={20} variant="visible" />,
   'souvenir-slack':  <BubbleChatIcon size={20} />,
   'activity-log':    <PlayListIcon size={20} />,
   'model-providers': <BrainTwoIcon size={20} />,

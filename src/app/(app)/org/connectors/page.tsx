@@ -529,7 +529,7 @@ function ConnectorTitle({ connector, subtitle }: { connector: ConnectorCatalogEn
           {connector.display_name}
         </BodyText>
         <BodyText size={11} color="var(--neutral-500)" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {subtitle ?? (connector.auth_mode === 'oauth2' ? 'OAuth connector' : 'API key connector')}
+          {subtitle ?? connectorCategory(connector.slug)}
         </BodyText>
       </div>
     </div>

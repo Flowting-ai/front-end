@@ -42,17 +42,6 @@ function FolderIcon() {
   );
 }
 
-function WorkflowIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect x="4" y="3.5" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
-      <rect x="14" y="14.5" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
-      <circle cx="7" cy="17.5" r="3" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M10 6.5h4a3 3 0 013 3v2M7 12.5v2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function SlackLogo() {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- static brand logo asset
@@ -113,16 +102,6 @@ const ACTION_CARDS: ActionCard[] = [
     titleWeight: 600,
     route: "/org/connectors?q=slack",
     toastMessage: "Opening connectors — link your Slack channels to give Brain context.",
-  },
-  {
-    key: "approval",
-    title: "Set approval threshold",
-    description: "Set approval threshold",
-    icon: <WorkflowIcon />,
-    bg: "var(--neutral-white, #fff)",
-    titleWeight: 500,
-    route: "/org/security",
-    toastMessage: "Opening security settings — configure your team's approval gates.",
   },
 ];
 

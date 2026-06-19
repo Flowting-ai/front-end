@@ -85,35 +85,40 @@ export function CategoryFilter({
   if (categories.length === 0) return null
   const chips: CategorySelection[] = ['all', ...categories]
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {chips.map(chip => {
-        const active = chip === value
-        return (
-          <button
-            key={chip}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(chip)}
-            style={{
-              height: 30,
-              padding: '0 12px',
-              borderRadius: 999,
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 13,
-              lineHeight: '20px',
-              whiteSpace: 'nowrap',
-              backgroundColor: active ? 'var(--neutral-900)' : 'white',
-              color: active ? 'white' : 'var(--neutral-600)',
-              boxShadow: active ? 'none' : '0px 0px 0px 1px var(--neutral-200)',
-            }}
-          >
-            {chip === 'all' ? 'All' : chip}
-          </button>
-        )
-      })}
+    <div aria-label="Connector categories" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: 'var(--neutral-500)' }}>
+        Categories
+      </span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {chips.map(chip => {
+          const active = chip === value
+          return (
+            <button
+              key={chip}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onChange(chip)}
+              style={{
+                height: 30,
+                padding: '0 12px',
+                borderRadius: 999,
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                fontSize: 13,
+                lineHeight: '20px',
+                whiteSpace: 'nowrap',
+                backgroundColor: active ? 'var(--neutral-900)' : 'white',
+                color: active ? 'white' : 'var(--neutral-600)',
+                boxShadow: active ? 'none' : '0px 0px 0px 1px var(--neutral-200)',
+              }}
+            >
+              {chip === 'all' ? 'All connectors' : chip}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

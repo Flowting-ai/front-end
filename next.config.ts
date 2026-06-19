@@ -64,6 +64,16 @@ const nextConfig: NextConfig = {
   // which broke SSE for Brain. The route handler streams both directions
   // and works identically in dev and production.
 
+  async redirects() {
+    return [
+      {
+        source: "/org/security",
+        destination: "/org/general",
+        permanent: false,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
