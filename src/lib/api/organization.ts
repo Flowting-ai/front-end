@@ -27,6 +27,7 @@ interface OrganizationResponse {
   logo_url: string | null
   archived: boolean
   my_role: OrgRole | null
+  plan_type: 'teams' | 'enterprise' | null
 }
 
 interface OrganizationSettingsResponse {
@@ -55,6 +56,8 @@ interface MemberResponse {
 
 interface PlanResponse {
   organization_id: string
+  plan_type: 'teams' | 'enterprise'
+  billing_model: 'prepaid' | 'postpaid'
   plan_credits: number
   topup_credits: number
   total_credits: number
@@ -63,6 +66,18 @@ interface PlanResponse {
   percent_used: number
   pool_status: string
   members: MemberResponse[]
+  included_usage_usd?: number
+  provider_usage_usd?: number
+  included_usage_remaining_usd?: number
+  overage_usd?: number
+  projected_invoice_usd?: number
+  input_tokens?: number
+  output_tokens?: number
+  reasoning_tokens?: number
+  cached_tokens?: number
+  total_tokens?: number
+  usage_event_count?: number
+  metered_event_count?: number
 }
 
 interface TeamBurnResponse {
@@ -134,6 +149,8 @@ function normalizeMember(m: MemberResponse): OrgMember {
 function normalizePlan(p: PlanResponse): OrgPlan {
   return {
     organizationId: p.organization_id,
+    planType:       p.plan_type ?? 'teams',
+    billingModel:   p.billing_model ?? 'prepaid',
     planCredits:    toDisplayCredits(p.plan_credits),
     topupCredits:   toDisplayCredits(p.topup_credits),
     totalCredits:   toDisplayCredits(p.total_credits),
@@ -142,6 +159,18 @@ function normalizePlan(p: PlanResponse): OrgPlan {
     percentUsed:    p.percent_used,
     poolStatus:     p.pool_status,
     members:        (p.members ?? []).map(normalizeMember),
+    includedUsageUsd: p.included_usage_usd ?? 0,
+    providerUsageUsd: p.provider_usage_usd ?? 0,
+    includedUsageRemainingUsd: p.included_usage_remaining_usd ?? 0,
+    overageUsd: p.overage_usd ?? 0,
+    projectedInvoiceUsd: p.projected_invoice_usd ?? 0,
+    inputTokens: p.input_tokens ?? 0,
+    outputTokens: p.output_tokens ?? 0,
+    reasoningTokens: p.reasoning_tokens ?? 0,
+    cachedTokens: p.cached_tokens ?? 0,
+    totalTokens: p.total_tokens ?? 0,
+    usageEventCount: p.usage_event_count ?? 0,
+    meteredEventCount: p.metered_event_count ?? 0,
   }
 }
 
@@ -210,7 +239,7 @@ export async function listOrganizations(): Promise<Array<{ id: string; name: str
   }))
 }
 
-export async function getOrg(orgId: string): Promise<{ id: string; name: string; slug: string; description: string; logoUrl: string | null; role: OrgRole }> {
+export async function getOrg(orgId: string): Promise<{ id: string; name: string; slug: string; description: string; logoUrl: string | null; role: OrgRole; planType: 'teams' | 'enterprise' }> {
   const data = await apiFetchJson<OrganizationResponse>(ORG_ENDPOINT(orgId))
   return {
     id:          data.id,
@@ -219,6 +248,7 @@ export async function getOrg(orgId: string): Promise<{ id: string; name: string;
     description: data.description,
     logoUrl:     data.logo_url,
     role:        data.my_role ?? 'member',
+    planType:    data.plan_type === 'enterprise' ? 'enterprise' : 'teams',
   }
 }
 

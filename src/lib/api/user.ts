@@ -24,7 +24,8 @@ export type UserPlanType = "starter" | "pro" | "power";
  */
 export type CheckoutPlan =
   | "starter" | "pro" | "power"
-  | "team_125" | "team_250" | "team_500" | "team_1000" | "team_1500" | "team_2000";
+  | "team_125" | "team_250" | "team_500" | "team_1000" | "team_1500" | "team_2000"
+  | "enterprise";
 export type BillingPlan = "monthly" | "annual";
 
 export interface UserPaymentMethod {

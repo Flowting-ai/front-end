@@ -136,6 +136,19 @@ export default function ChangePlanPage() {
     }
   }
 
+  const handleSelectEnterprise = async () => {
+    if (changingTo) return
+    setChangingTo('enterprise')
+    try {
+      const checkout = await createCheckout({ plan: 'enterprise', billing: 'monthly' })
+      document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
+      window.location.href = checkout.checkout_url
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to start Enterprise checkout')
+      setChangingTo(null)
+    }
+  }
+
   const isCurrent          = selectedIndividual.id === currentPlan
   const teamIsCurrent      = isOnTeamPlan && teamIdx === currentTeamTierIdx
   const teamIsDowngrade    = isOnTeamPlan && teamIdx < currentTeamTierIdx
@@ -610,10 +623,10 @@ export default function ChangePlanPage() {
                 {/* Header */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'black', margin: 0 }}>
-                    Custom
+                    Enterprise
                   </p>
                   <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#827a74', margin: 0 }}>
-                    For organizations running Souvenir at scale.
+                    $250/month with $125 of provider usage included.
                   </p>
                 </div>
 
@@ -621,7 +634,7 @@ export default function ChangePlanPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '4px 0', flex: 1 }}>
                   <FeatureGroup
                     title="Everything in Team, plus"
-                    items={['Custom credit volume', 'Volume discounts']}
+                    items={['Unlimited usage', 'Overage billed at exact provider cost']}
                   />
                   <Hairline />
                   <FeatureGroup
@@ -641,21 +654,23 @@ export default function ChangePlanPage() {
 
                   <div style={{ flex: 1 }} />
 
-                  <a
-                    href="mailto:contact@getsouvenir.com"
+                  <button
+                    type="button"
+                    onClick={handleSelectEnterprise}
+                    disabled={!!changingTo || org.plan === 'enterprise'}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                       width: '100%', padding: '6px 2px 8px', borderRadius: 10, textDecoration: 'none',
-                      backgroundColor: 'white',
+                      backgroundColor: 'white', border: 'none', cursor: changingTo ? 'wait' : 'pointer',
                       boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px #ede1d7, inset 0px -2.182px 0.364px 0px #ede1d7',
                       fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47',
                     }}
                   >
-                    Talk to sales
+                    {org.plan === 'enterprise' ? 'Current plan' : changingTo === 'enterprise' ? 'Redirecting…' : 'Start Enterprise'}
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                       <path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" stroke="#524b47" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>

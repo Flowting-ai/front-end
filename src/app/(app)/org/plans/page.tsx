@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { CancelOneIcon, PenOneIcon, InformationCircleIcon } from '@strange-huge/icons'
+import { CancelOneIcon, PenOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { CardBrandLogo, type CardBrand } from '@/components/CardBrandLogo'
 import { useOrg } from '@/context/org-context'
@@ -31,8 +31,6 @@ const SHADOW_CARD    = '0px 2px 2.8px 0px rgba(82,75,71,0.12)'                  
 const SHADOW_TILE     = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)' // white inner tile
 const SHADOW_HERO    = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 1px 0px 1px var(--neutral-100)'  // gradient hero panel
 const SHADOW_MODAL   = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)'
-const SHADOW_SWITCH_ON  = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.7)'
-const SHADOW_SWITCH_OFF = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
 const SHADOW_INPUT   = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
 
 // Hero gradient — extracted verbatim from Figma (mauve + gold radial blend, image fill).
@@ -69,55 +67,6 @@ function fmtDate(iso: string | null | undefined): string {
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-/** Read-only / toggleable switch — Figma 34×20, blue-400 on / neutral-100 off. */
-function Switch({
-  on,
-  onToggle,
-  disabled,
-}: {
-  on: boolean
-  onToggle?: () => void
-  disabled?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      disabled={disabled || !onToggle}
-      onClick={onToggle}
-      style={{
-        width:        34,
-        height:       20,
-        borderRadius: 20,
-        border:       'none',
-        padding:      0,
-        position:     'relative',
-        flexShrink:   0,
-        cursor:       disabled || !onToggle ? 'default' : 'pointer',
-        background:   on ? 'var(--blue-400)' : 'var(--neutral-100)',
-        boxShadow:    on ? SHADOW_SWITCH_ON : SHADOW_SWITCH_OFF,
-        transition:   'background 0.18s',
-      }}
-    >
-      <span style={{
-        display:      'block',
-        position:     'absolute',
-        top:          2,
-        left:         on ? 16 : 2,
-        width:        16,
-        height:       16,
-        borderRadius: 9.5,
-        background:   'var(--neutral-white, #fff)',
-        boxShadow:    on
-          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.4)'
-          : SHADOW_SWITCH_OFF,
-        transition:   'left 0.18s',
-      }} />
-    </button>
-  )
 }
 
 /** Pill badge — blue (info), yellow (note), neutral, green / red (status). */
@@ -368,7 +317,6 @@ export default function OrgBillingPage() {
   const [billing,        setBilling]        = useState<BillingInfo | null>(null)
   const [billingLoading, setBillingLoading] = useState(true)
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false)
-  const [spendCapOpen,   setSpendCapOpen]   = useState(false)
 
   const totalCredits   = plan?.totalCredits ?? 0
   const usedCredits    = plan?.used ?? 0
@@ -392,14 +340,12 @@ export default function OrgBillingPage() {
   const tier        = TIERS[tierIdx] ?? TIERS[0]
   const tierMonthly = annual ? Math.round(tier.price * 0.75) : tier.price
 
-  // Enterprise config.
-  const BLENDED_RATE_PER_1K = 2
-  const [spendCap,         setSpendCap]         = useState(2_500)   // dollars
-  const [autoRechargeOn,   setAutoRechargeOn]   = useState(true)
-  const [autoRechargeAmt]                       = useState(500)     // dollars added
-  const [autoRechargeBelow]                     = useState(100)     // dollars threshold
-  const currentCharges = (usedCredits / 1000) * BLENDED_RATE_PER_1K
-  const capPct         = spendCap > 0 ? Math.min(100, Math.round((currentCharges / spendCap) * 100)) : 0
+  const providerUsage = billing?.provider_usage_usd ?? plan?.providerUsageUsd ?? 0
+  const includedUsage = billing?.included_usage_usd ?? plan?.includedUsageUsd ?? 125
+  const includedRemaining = billing?.included_usage_remaining_usd ?? plan?.includedUsageRemainingUsd ?? 0
+  const overage = billing?.overage_usd ?? plan?.overageUsd ?? 0
+  const projectedInvoice = billing?.projected_invoice_usd ?? plan?.projectedInvoiceUsd ?? 250
+  const totalTokens = billing?.total_tokens ?? plan?.totalTokens ?? 0
 
   useEffect(() => {
     if (!orgId || !isOwner) return
@@ -444,11 +390,11 @@ export default function OrgBillingPage() {
     <EnterpriseHero
       nextBilling={nextBilling}
       usageAsOf={fmtDate(now.toISOString())}
-      currentCharges={currentCharges}
+      providerUsage={providerUsage}
+      includedUsage={includedUsage}
+      overage={overage}
+      projectedInvoice={projectedInvoice}
       cycleLabel={`${fmtShort(cycleStart)} – ${fmtShort(cycleEnd)}`}
-      spendCap={spendCap}
-      canManageBilling={isOwner}
-      onAddCredits={() => setBuyCreditsOpen(true)}
     />
   ) : (
     <TeamsHero
@@ -486,7 +432,9 @@ export default function OrgBillingPage() {
             Billing
           </h1>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-            Pay only for what you use. No fixed monthly fee.
+            {isEnterprise
+              ? '$250 monthly platform fee with $125 of provider usage included.'
+              : 'Shared prepaid usage for your organization.'}
           </p>
         </div>
 
@@ -495,34 +443,10 @@ export default function OrgBillingPage() {
         {isEnterprise ? (
           <>
             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-              <StatTile flex label="Credits used this cycle" value={usedCredits.toLocaleString()} sub={`Projected month-end: ~${projectMonthEnd(usedCredits, now)}`} />
-              <StatTile flex label="Seats active" value={String(membersCount)} sub="Unlimited · billed by usage" />
-              <StatTile flex label="Blended rate" value={`$${BLENDED_RATE_PER_1K.toFixed(2)} / 1k`} />
-            </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <ConfigTile
-                title="Monthly spend cap"
-                desc="Hard ceiling on charges — no surprise bills."
-                amount={`$${spendCap.toLocaleString()}`}
-                amountSub={`${fmtUsd(currentCharges)} used · ${capPct}% of cap`}
-                switchLabel="Enforced by owner"
-                switchOn
-                actionLabel={isOwner ? 'Change cap' : 'Owner only'}
-                actionDisabled={!isOwner}
-                onAction={() => setSpendCapOpen(true)}
-              />
-              <ConfigTile
-                title="Auto-recharge"
-                desc="Top up automatically so usage never pauses."
-                amount={`$${autoRechargeAmt}`}
-                amountSub={`added when balance falls below $${autoRechargeBelow}`}
-                switchLabel={autoRechargeOn ? 'On' : 'Off'}
-                switchOn={autoRechargeOn}
-                onSwitch={isOwner ? () => setAutoRechargeOn(v => !v) : undefined}
-                actionLabel={isOwner ? 'Edit threshold' : 'Owner only'}
-                actionDisabled={!isOwner}
-                onAction={() => setBuyCreditsOpen(true)}
-              />
+              <StatTile flex label="Provider usage" value={fmtUsd(providerUsage)} sub={`${fmtUsd(includedRemaining)} included usage remaining`} />
+              <StatTile flex label="Current overage" value={fmtUsd(overage)} sub="Billed at exact provider cost" />
+              <StatTile flex label="Projected invoice" value={fmtUsd(projectedInvoice)} sub="$250 base fee plus overage" />
+              <StatTile flex label="Tokens processed" value={totalTokens.toLocaleString()} sub={`${membersCount} active member${membersCount === 1 ? '' : 's'}`} />
             </div>
           </>
         ) : (
@@ -592,27 +516,11 @@ export default function OrgBillingPage() {
       </div>
 
       {/* Modals */}
-      {isOwner && buyCreditsOpen && (
+      {isOwner && !isEnterprise && buyCreditsOpen && (
         <BuyMoreCreditsModal onClose={() => setBuyCreditsOpen(false)} billing={billing} cardBrand={cardBrand} />
-      )}
-      {isOwner && spendCapOpen && (
-        <MonthlySpendCapModal
-          onClose={() => setSpendCapOpen(false)}
-          currentCap={spendCap}
-          usedThisCycle={currentCharges}
-          cycleLabel={`${fmtShort(cycleStart)} – ${fmtShort(cycleEnd)}`}
-          onSaved={cap => setSpendCap(cap)}
-        />
       )}
     </div>
   )
-}
-
-function projectMonthEnd(used: number, now: Date): string {
-  const day  = now.getDate()
-  const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-  const proj = day > 0 ? Math.round((used / day) * days) : used
-  return proj >= 1_000_000 ? `${(proj / 1_000_000).toFixed(2)}M` : proj.toLocaleString()
 }
 
 // ── Teams hero ──────────────────────────────────────────────────────────────────
@@ -746,21 +654,21 @@ function CycleTab({ active, onClick, children }: { active: boolean; onClick: () 
 function EnterpriseHero({
   nextBilling,
   usageAsOf,
-  currentCharges,
+  providerUsage,
+  includedUsage,
+  overage,
+  projectedInvoice,
   cycleLabel,
-  spendCap,
-  canManageBilling,
-  onAddCredits,
 }: {
   nextBilling:    string
   usageAsOf:      string
-  currentCharges: number
+  providerUsage: number
+  includedUsage: number
+  overage: number
+  projectedInvoice: number
   cycleLabel:     string
-  spendCap:       number
-  canManageBilling: boolean
-  onAddCredits:   () => void
 }) {
-  const pct = spendCap > 0 ? Math.min(100, (currentCharges / spendCap) * 100) : 0
+  const pct = includedUsage > 0 ? Math.min(100, (providerUsage / includedUsage) * 100) : 0
   return (
     <HeroShell>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -774,16 +682,16 @@ function EnterpriseHero({
           <Badge label="Volume pricing" tone="blue" />
         </div>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-          Billed monthly in arrears · Net 30 · Usage as of {usageAsOf}
+          $250 charged monthly · $125 provider usage included · Unlimited usage · Usage as of {usageAsOf}
         </p>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
         <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-          {fmtUsd(currentCharges)}
+          {fmtUsd(projectedInvoice)}
         </p>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-          current charges this cycle
+          projected invoice
         </p>
       </div>
 
@@ -794,16 +702,12 @@ function EnterpriseHero({
           Cycle: {cycleLabel}
         </span>
         <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-white, #fff)' }}>
-          Spend cap ${spendCap.toLocaleString()}
+          {overage > 0 ? `${fmtUsd(overage)} overage accrued` : `${fmtUsd(includedUsage - providerUsage)} included usage left`}
         </span>
       </div>
 
       <div style={{ display: 'flex' }}>
-        {canManageBilling ? (
-          <Button variant="secondary" onClick={onAddCredits}>Add credits</Button>
-        ) : (
-          <Badge label="Billing is owner-only" tone="yellow" />
-        )}
+        <Badge label="Postpaid · exact provider cost after allowance" tone="yellow" />
       </div>
     </HeroShell>
   )
@@ -883,60 +787,6 @@ function TierSlider({ tierIdx, onChange }: { tierIdx: number; onChange: (i: numb
             </span>
           </button>
         ))}
-      </div>
-    </div>
-  )
-}
-
-// ── Enterprise config tile (spend cap / auto-recharge) ─────────────────────────
-
-function ConfigTile({
-  title,
-  desc,
-  amount,
-  amountSub,
-  switchLabel,
-  switchOn,
-  onSwitch,
-  actionLabel,
-  actionDisabled,
-  onAction,
-}: {
-  title:       string
-  desc:        string
-  amount:      string
-  amountSub:   string
-  switchLabel: string
-  switchOn:    boolean
-  onSwitch?:   () => void
-  actionLabel: string
-  actionDisabled?: boolean
-  onAction:    () => void
-}) {
-  return (
-    <div style={{
-      background:    'var(--neutral-white, #fff)',
-      borderRadius:  8,
-      padding:       12,
-      boxShadow:     SHADOW_TILE,
-      display:       'flex',
-      flexDirection: 'column',
-      gap:           9,
-      flex:          '1 1 340px',
-      minWidth:      300,
-    }}>
-      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>{title}</p>
-      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>{desc}</p>
-      <p style={{ margin: 0 }}>
-        <span style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)' }}>{amount}</span>
-        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, color: 'var(--neutral-500)' }}>{'  '}{amountSub}</span>
-      </p>
-      <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Switch on={switchOn} onToggle={onSwitch} />
-          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-black, #000)' }}>{switchLabel}</span>
-        </div>
-        <Button variant="secondary" disabled={actionDisabled} onClick={onAction}>{actionLabel}</Button>
       </div>
     </div>
   )
@@ -1207,74 +1057,5 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
       <span style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)' }}>{label}</span>
       <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)' }}>{value}</span>
     </div>
-  )
-}
-
-// ── Monthly spend cap modal ──────────────────────────────────────────────────
-
-function MonthlySpendCapModal({
-  onClose,
-  currentCap,
-  usedThisCycle,
-  cycleLabel,
-  onSaved,
-}: {
-  onClose:       () => void
-  currentCap:    number
-  usedThisCycle: number
-  cycleLabel:    string
-  onSaved:       (cap: number) => void
-}) {
-  const [cap,    setCap]    = useState(String(currentCap))
-  const [saving, setSaving] = useState(false)
-  const capNum = parseInt(cap.replace(/[^0-9]/g, ''), 10) || 0
-
-  const handleSave = async () => {
-    if (capNum < 1) { toast.error('Enter a valid cap amount'); return }
-    setSaving(true)
-    try {
-      await new Promise<void>(r => setTimeout(r, 400))
-      onSaved(capNum)
-      toast.success('Spend cap saved')
-      onClose()
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <ModalShell
-      title="Monthly spend cap"
-      subtitle="A hard ceiling on usage charges. No surprise bills."
-      maxWidth={460}
-      onClose={onClose}
-      footer={
-        <Button variant="default" fluid onClick={handleSave} loading={saving}>Save spend cap</Button>
-      }
-      footerNote="Takes effect immediately for the current billing cycle."
-    >
-      <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12 }}>
-        <InputField label="Cap amount" value={cap} onChange={setCap} prefix="$" placeholder="Amount" />
-      </div>
-
-      <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: 12 }}>
-          <SummaryRow label={`Used this cycle (${cycleLabel})`} value={fmtUsd(usedThisCycle)} />
-          <SummaryRow label="Selected cap" value={fmtUsd(capNum)} />
-        </div>
-      </div>
-
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
-        padding: '2px 4px', borderRadius: 6,
-        background: 'var(--blue-100)', color: 'var(--blue-700)',
-        boxShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5)',
-      }}>
-        <InformationCircleIcon size={10} />
-        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px' }}>
-          When you reach the cap, usage pauses until you raise it or the cycle resets. Admins and members are notified.
-        </span>
-      </div>
-    </ModalShell>
   )
 }

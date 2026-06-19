@@ -212,6 +212,18 @@ export default function OnboardingPlansPage() {
     }
   }
 
+  const handleEnterprisePlan = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const { checkout_url } = await createCheckout({ plan: 'enterprise', billing: 'monthly' })
+      window.location.href = checkout_url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      setLoading(false)
+    }
+  }
+
   return (
     <>
       <style>{`
@@ -605,7 +617,7 @@ export default function OnboardingPlansPage() {
                 color: 'var(--neutral-500,#827a74)',
                 margin: 0,
               }}>
-                For organizations running Souvenir at scale.
+                Unlimited postpaid usage with a predictable monthly platform fee.
               </p>
             </div>
 
@@ -615,10 +627,11 @@ export default function OnboardingPlansPage() {
               <div style={{ display: 'flex', gap: 92, alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <SectionLabel>Team collaboration</SectionLabel>
-                  <FeatureItem label="Custom credit volume" />
+                  <FeatureItem label="$250 monthly platform fee" />
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 24 }}>
-                  <FeatureItem label="Volume discounts" />
+                  <FeatureItem label="$125 provider usage included" />
+                  <FeatureItem label="Additional usage billed at exact provider cost" />
                 </div>
               </div>
 
@@ -657,8 +670,10 @@ export default function OnboardingPlansPage() {
             </div>
 
             {/* CTA */}
-            <a
-              href="mailto:sales@souvenir.ai"
+            <button
+              type="button"
+              onClick={handleEnterprisePlan}
+              disabled={loading}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -675,15 +690,16 @@ export default function OnboardingPlansPage() {
                 fontSize: 14,
                 lineHeight: '22px',
                 textDecoration: 'none',
+                cursor: loading ? 'wait' : 'pointer',
                 boxSizing: 'border-box',
                 boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#ede1d7), inset 0px -2.182px 0.364px var(--neutral-100,#ede1d7)',
               }}
             >
-              Talk to sales
+              {loading ? 'Setting up…' : 'Start Enterprise'}
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                 <path d="M2.5 8h11M9.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-            </a>
+            </button>
           </div>
 
         </div>

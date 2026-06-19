@@ -19,7 +19,8 @@ export type PlanType = "starter" | "pro" | "power" | "trial";
 /** All plan keys accepted by POST /stripe/checkout (individual + team tiers). */
 export type CheckoutPlan =
   | "starter" | "pro" | "power"
-  | "team_125" | "team_250" | "team_500" | "team_1000" | "team_1500" | "team_2000";
+  | "team_125" | "team_250" | "team_500" | "team_1000" | "team_1500" | "team_2000"
+  | "enterprise";
 
 export interface CreateCheckoutSessionRequest {
   /** Plan key — the backend maps it to the right Stripe price. */
@@ -125,6 +126,21 @@ export interface BillingInfo {
   invoices:             InvoiceInfo[]
   upcoming_invoice:     UpcomingInvoiceInfo | null
   credits:              CreditSummary
+  billing_model?: string | null
+  base_fee_usd?: number
+  included_usage_usd?: number
+  provider_usage_usd?: number
+  included_usage_remaining_usd?: number
+  overage_usd?: number
+  projected_invoice_usd?: number
+  input_tokens?: number
+  output_tokens?: number
+  reasoning_tokens?: number
+  cached_tokens?: number
+  total_tokens?: number
+  usage_event_count?: number
+  metered_event_count?: number
+  meter_sync_status?: string | null
 }
 
 // ── API functions ─────────────────────────────────────────────────────────────

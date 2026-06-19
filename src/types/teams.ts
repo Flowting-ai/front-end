@@ -141,6 +141,8 @@ export interface TeamBurn {
 
 export interface OrgPlan {
   organizationId: string
+  planType: 'teams' | 'enterprise'
+  billingModel: 'prepaid' | 'postpaid'
   planCredits: number
   topupCredits: number
   totalCredits: number
@@ -149,6 +151,18 @@ export interface OrgPlan {
   percentUsed: number
   poolStatus: string
   members: OrgMember[]
+  includedUsageUsd: number
+  providerUsageUsd: number
+  includedUsageRemainingUsd: number
+  overageUsd: number
+  projectedInvoiceUsd: number
+  inputTokens: number
+  outputTokens: number
+  reasoningTokens: number
+  cachedTokens: number
+  totalTokens: number
+  usageEventCount: number
+  meteredEventCount: number
 }
 
 export interface OrgPlanUsage {

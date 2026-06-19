@@ -99,6 +99,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   const orgId = resolvedOrgId
 
   const [orgName,          setOrgName]          = useState('')
+  const [orgPlanType,      setOrgPlanType]      = useState<'teams' | 'enterprise'>('teams')
   const [orgRole,          setOrgRole]          = useState<OrgRole>('member')
   const [currentUserRole,  setCurrentUserRole]  = useState<'admin' | 'editor' | 'member'>('member')
   const [plan,             setPlan]             = useState<OrgPlan | null>(null)
@@ -128,6 +129,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     getOrg(orgId)
       .then(data => {
         setOrgName(data.name)
+        setOrgPlanType(data.planType)
         setOrgRole(data.role)
         setCurrentUserRole(
           data.role === 'owner' || data.role === 'admin' || isTeamPlan ? 'admin' : 'member',
@@ -145,7 +147,10 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!orgId) return
     setMembersLoading(true)
-    const planP = getOrgPlan(orgId).then(p => setPlan(p)).catch(console.error)
+    const planP = getOrgPlan(orgId).then(p => {
+      setPlan(p)
+      setOrgPlanType(p.planType)
+    }).catch(console.error)
     const membersP = listMembers(orgId)
       .then(setMembers)
       .catch(async () => {
@@ -196,6 +201,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     ...DEFAULT_ORG,
     id:         orgId ?? '',
     name:       orgName,
+    plan:       orgPlanType,
     creditPool,
   }
 
