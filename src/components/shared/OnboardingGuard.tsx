@@ -18,6 +18,9 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
     }
     // Never redirect away from the billing confirmation page (post-checkout return)
     if (pathname.startsWith("/settings/billing/confirmation")) return;
+    // Let an un-onboarded invitee reach their invite link (mirrors proxy.ts) so
+    // the invitation popup renders instead of bouncing them into onboarding.
+    if (pathname.startsWith("/team-invite")) return;
     // Wait until the profile has loaded — redirecting on a null user races the
     // initial /users/me fetch and can bounce the user mid-hydration.
     if (!user) return;

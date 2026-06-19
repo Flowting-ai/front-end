@@ -156,7 +156,13 @@ export default async function proxy(request: NextRequest) {
   // Never block access to the billing confirmation page (post-checkout return from Stripe)
   const isBillingConfirmation = pathname.startsWith("/settings/billing/confirmation");
 
-  if (session && hasKnownOnboardingState && !hasOnboarded && !justCompletedCheckout && !isBillingConfirmation) {
+  // An invited user may still be un-onboarded when they land on their invite
+  // link (e.g. a brand-new signup arriving via ?returnTo=/team-invite/<id>).
+  // Let them reach the accept page instead of bouncing them into onboarding —
+  // otherwise the invitation popup never renders.
+  const isTeamInvite = pathname.startsWith("/team-invite");
+
+  if (session && hasKnownOnboardingState && !hasOnboarded && !justCompletedCheckout && !isBillingConfirmation && !isTeamInvite) {
     return Response.redirect(new URL(onboarding!.nextPath, request.url));
   }
 
