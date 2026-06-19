@@ -695,6 +695,8 @@ function ChatPageInner() {
   const activeChatCanManage = activeChatRecord?.can_edit === true;
   const activeChatReadOnly = activeChatRecord?.can_edit === false;
   const editableTeams = orgTeams.filter(team => team.canEdit);
+  const shareableTeams = editableTeams;
+  const shareableProjects = projects.filter(project => project.canEdit);
 
   async function handleCopyReadableChat() {
     if (!activeChatId || copyingChat) return;
@@ -843,7 +845,7 @@ function ChatPageInner() {
     setChatShareTeamId(activeChatRecord?.team_id ?? "");
     setExistingShares([]);
     setShareTargetId("");
-    setShareTargetType(orgId ? "team" : "project");
+    setShareTargetType(orgId && shareableTeams.length > 0 ? "team" : "project");
     setChatShareOpen(true);
     if (activeChatId) {
       setSharesLoading(true);
@@ -1375,7 +1377,7 @@ function ChatPageInner() {
                       style={{ fontFamily: "var(--font-body)", fontSize: 13, border: "1px solid var(--neutral-200)", borderRadius: 8, padding: "8px 10px", background: "white" }}
                     >
                       {orgId && <option value="user">Person</option>}
-                      {orgId && <option value="team">Team</option>}
+                      {orgId && shareableTeams.length > 0 && <option value="team">Team</option>}
                       <option value="project">Project</option>
                     </select>
                     <select
@@ -1400,12 +1402,20 @@ function ChatPageInner() {
                     ).map(member => (
                       <option key={member.id} value={member.id}>{member.name || member.email}</option>
                     ))}
-                    {shareTargetType === "team" && orgTeams.map(team => (
+                    {shareTargetType === "team" && (
+                      shareableTeams.length === 0
+                        ? <option value="" disabled>No teams available</option>
+                        : shareableTeams.map(team => (
                       <option key={team.id} value={team.id}>{team.name}</option>
-                    ))}
-                    {shareTargetType === "project" && projects.map(project => (
+                        ))
+                    )}
+                    {shareTargetType === "project" && (
+                      shareableProjects.length === 0
+                        ? <option value="" disabled>No editable projects</option>
+                        : shareableProjects.map(project => (
                       <option key={project.id} value={project.id}>{project.name}</option>
-                    ))}
+                        ))
+                    )}
                   </select>
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <Button variant="secondary" size="sm" loading={creatingShare} disabled={!shareTargetId || creatingShare} onClick={() => void handleCreateShare()}>

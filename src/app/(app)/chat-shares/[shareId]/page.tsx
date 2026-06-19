@@ -35,7 +35,7 @@ function SharedChatContent() {
     setForking(true)
     try {
       const { chatId } = await forkChatShare(shareId)
-      router.push(`/chat?chatId=${chatId}`)
+      router.push(`/chat?id=${chatId}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to copy chat')
     } finally {

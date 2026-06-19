@@ -185,6 +185,14 @@ export default function ChatsPage() {
     }
   }, [push])
 
+  const handleOpenShared = useCallback(async (item: SharedChatItem) => {
+    if (item.mode === 'read_only') {
+      push(`/chat-shares/${item.shareId}`)
+      return
+    }
+    await handleFork(item.shareId)
+  }, [handleFork, push])
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -336,9 +344,9 @@ export default function ChatsPage() {
                   variant="outline"
                   size="sm"
                   disabled={forkingId === item.shareId}
-                  onClick={() => handleFork(item.shareId)}
+                  onClick={() => void handleOpenShared(item)}
                 >
-                  {forkingId === item.shareId ? 'Copying…' : 'Open copy'}
+                  {forkingId === item.shareId ? 'Copying…' : item.mode === 'editable' ? 'Open copy' : 'Open'}
                 </Button>
               </div>
             ))}
