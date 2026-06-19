@@ -84,6 +84,8 @@ const RECOMMENDED: Persona[] = [
     workingVersionId: null,
     publishedAt: null,
     versionCount: 1,
+    visibility: 'private',
+    teamIds: [],
     hasSystemInstructions: true,
     sourceShareId: null,
     createdAt: '',
@@ -105,6 +107,8 @@ const RECOMMENDED: Persona[] = [
     workingVersionId: null,
     publishedAt: null,
     versionCount: 1,
+    visibility: 'private',
+    teamIds: [],
     hasSystemInstructions: true,
     sourceShareId: null,
     createdAt: '',
@@ -126,6 +130,8 @@ const RECOMMENDED: Persona[] = [
     workingVersionId: null,
     publishedAt: null,
     versionCount: 1,
+    visibility: 'private',
+    teamIds: [],
     hasSystemInstructions: true,
     sourceShareId: null,
     createdAt: '',
@@ -680,22 +686,15 @@ export default function PersonasPage() {
     return s
   }, [allSharesForFilter, versionToPersona])
 
-  // Derive visibility per persona from shares data:
-  // community = has active super link, team = has active email share, private = neither.
+  // Visibility comes from the persona repo itself. Super Links are a separate
+  // sharing surface and are handled by the Super Link filter below.
   const visibilityForPersona = useMemo(() => {
     const map: Record<string, 'private' | 'team' | 'community'> = {}
     for (const p of personas) {
-      const personaShares = allSharesForFilter.filter(s => {
-        if (!s.is_active) return false
-        const info = versionToPersona[s.persona_id]
-        return info?.repoId === p.id || s.persona_id === p.id
-      })
-      if (personaShares.some(s => s.share_type === 'link'))        map[p.id] = 'community'
-      else if (personaShares.some(s => s.share_type === 'email'))  map[p.id] = 'team'
-      else                                                          map[p.id] = 'private'
+      map[p.id] = p.visibility
     }
     return map
-  }, [allSharesForFilter, personas, versionToPersona])
+  }, [personas])
 
   // Map from stable model ID → human-readable model name (from the API models list).
   const modelIdToName = useMemo(() => {

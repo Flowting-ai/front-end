@@ -1,0 +1,63 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const { apiFetchJson } = vi.hoisted(() => ({ apiFetchJson: vi.fn() }))
+
+vi.mock('./client', async importOriginal => {
+  const actual = await importOriginal<typeof import('./client')>()
+  return { ...actual, apiFetchJson }
+})
+
+import { bustPersonasCache, fetchPersonas } from './personas'
+
+describe('fetchPersonas', () => {
+  beforeEach(() => {
+    apiFetchJson.mockReset()
+    bustPersonasCache()
+  })
+
+  it('preserves repo visibility and deployed team ids', async () => {
+    apiFetchJson.mockResolvedValue([{
+      id: 'repo-1',
+      name: 'Sales Agent',
+      is_active: true,
+      active_version_id: 'version-1',
+      active_version: {
+        id: 'version-1',
+        persona_repo_id: 'repo-1',
+        name: 'Sales Agent',
+        handler: 'sales_agent',
+        prompt: 'Help with sales',
+        description: 'Sales helper',
+        is_active: true,
+        model_id: null,
+        image_url: null,
+        image_s3_key: null,
+        temperature: null,
+        documents: [],
+        links: [],
+        total_usage: 0,
+        blocked_connectors: [],
+        source_share_id: null,
+        version_tags: [],
+        persona_tags: ['sales'],
+        created_at: '2026-06-18T00:00:00Z',
+        updated_at: '2026-06-18T00:00:00Z',
+      },
+      published_version_id: 'version-1',
+      published_version: null,
+      published_at: '2026-06-18T00:00:00Z',
+      is_published: true,
+      visibility: 'team',
+      team_ids: ['team-1', 'team-2'],
+      version_count: 1,
+      created_at: '2026-06-18T00:00:00Z',
+      updated_at: '2026-06-18T00:00:00Z',
+    }])
+
+    await expect(fetchPersonas()).resolves.toMatchObject([{
+      id: 'repo-1',
+      visibility: 'team',
+      teamIds: ['team-1', 'team-2'],
+    }])
+  })
+})

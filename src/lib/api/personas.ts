@@ -147,6 +147,8 @@ export interface Persona {
   workingVersionId: string | null;
   publishedAt: string | null;
   versionCount: number;
+  visibility: 'private' | 'team';
+  teamIds: string[];
   /** True when the active version has a non-empty system prompt. */
   hasSystemInstructions: boolean;
   /** Non-null when this persona was accepted from a Super Link shared by another user. */
@@ -181,6 +183,8 @@ function normalizeRepo(repo: PersonaRepoResponse): Persona {
     workingVersionId: repo.active_version_id,
     publishedAt: repo.published_at ?? null,
     versionCount: repo.version_count,
+    visibility: repo.visibility,
+    teamIds: repo.team_ids ?? [],
     // If the list endpoint doesn't embed active_version (v is null) but
     // active_version_id exists, we can't inspect the prompt — assume it has
     // instructions. Only mark false when we have the version object and the
