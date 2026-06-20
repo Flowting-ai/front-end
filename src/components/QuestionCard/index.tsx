@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, m, Reorder } from 'framer-motion'
 import { ArrowLeftOneIcon, ArrowRightOneIcon, CancelOneIcon, ArrowUpTwoIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
@@ -59,14 +59,6 @@ export interface QuestionCardProps extends Omit<React.HTMLAttributes<HTMLDivElem
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const CARD_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(59,54,50,0.1)'
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function parseInfoStep(label: string): { current: number; total: number } | null {
-  const [c, t] = label.split('/').map(Number)
-  if (!c || !t || isNaN(c) || isNaN(t)) return null
-  return { current: c - 1, total: t }
-}
 
 // ── SkipButton ────────────────────────────────────────────────────────────────
 
@@ -342,19 +334,29 @@ export function QuestionCard(
     ...props
   }: QuestionCardProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
-    const [rankedOptions, setRankedOptions] = useState<QuestionCardOption[]>(options)
-    const prevOptionsRef = useRef(options)
-    if (prevOptionsRef.current !== options) {
-      prevOptionsRef.current = options
-      setRankedOptions(options)
-    }
+    const [rankState, setRankState] = useState<{ question: string; ids: string[] }>({ question, ids: [] })
+    const motionProps = props as unknown as Omit<React.ComponentProps<typeof m.div>, 'ref'>
+    const rankedOptions = useMemo(() => {
+      const rankedIds = rankState.question === question ? rankState.ids : []
+      if (type !== 'rank' || rankedIds.length === 0) return options
 
-    // A question with no options is inherently free-text — open the input
-    // immediately so the user can type and send without first having to click
-    // the "Something else…" label (otherwise the typed answer is never captured).
-    const [openEndedOpen, setOpenEndedOpen] = useState(
-      options.length === 0 && type !== 'rank' && type !== 'info',
-    )
+      const optionById = new Map(options.map(option => [option.id, option]))
+      const ranked = rankedIds
+        .map(id => optionById.get(id))
+        .filter((option): option is QuestionCardOption => option != null)
+      const seenIds = new Set(ranked.map(option => option.id))
+
+      return [
+        ...ranked,
+        ...options.filter(option => !seenIds.has(option.id)),
+      ]
+    }, [options, question, rankState.ids, rankState.question, type])
+
+    // A question with no options is inherently free-text, so open the input
+    // immediately even when the same card instance receives a new question shape.
+    const shouldOpenEndedByDefault = options.length === 0 && type !== 'rank' && type !== 'info'
+    const [openEndedOpen, setOpenEndedOpen] = useState(false)
+    const isOpenEndedOpen = shouldOpenEndedByDefault || openEndedOpen
     const [openEndedText, setOpenEndedText] = useState('')
     const openEndedRef  = useRef<HTMLTextAreaElement>(null)
     const optionRefs    = useRef<(HTMLDivElement | null)[]>([])
@@ -365,12 +367,12 @@ export function QuestionCard(
       if (!el) return
       el.style.height = 'auto'
       el.style.height = `${el.scrollHeight}px`
-    }, [openEndedText, openEndedOpen])
+    }, [openEndedText, isOpenEndedOpen])
 
     // Focus textarea immediately on open
     useEffect(() => {
-      if (openEndedOpen) openEndedRef.current?.focus()
-    }, [openEndedOpen])
+      if (isOpenEndedOpen) openEndedRef.current?.focus()
+    }, [isOpenEndedOpen])
 
 
     const selectedIds: string[] = Array.isArray(selected)
@@ -395,7 +397,7 @@ export function QuestionCard(
     const optionsKey = `q:${question}:${type}`
 
     // Badge exits on click (one step) - not deferred to when typing starts
-    const showEditBadge = !openEndedOpen
+    const showEditBadge = !isOpenEndedOpen
 
 
 
@@ -418,7 +420,7 @@ export function QuestionCard(
           boxShadow:       CARD_SHADOW,
           ...style,
         }}
-        {...(props as any)}
+        {...motionProps}
       >
 
         {/* ── Top slot (info mode only — e.g. Main / Panels tab switcher) ────── */}
@@ -565,7 +567,7 @@ export function QuestionCard(
               axis="y"
               values={rankedOptions}
               onReorder={(newOrder) => {
-                setRankedOptions(newOrder)
+                setRankState({ question, ids: newOrder.map((o) => o.id) })
                 onRankChange?.(newOrder.map((o) => o.id))
               }}
               style={{ display: 'flex', flexDirection: 'column', gap: 8, listStyle: 'none', padding: 0, margin: 0 }}
@@ -629,7 +631,7 @@ export function QuestionCard(
 
             {/* Text slot - same position, same font - click to open, becomes textarea */}
             <div style={{ flex: '1 0 0', minWidth: 1 }}>
-              {openEndedOpen ? (
+              {isOpenEndedOpen ? (
                 <textarea
                   ref={openEndedRef}
                   value={openEndedText}
@@ -681,7 +683,7 @@ export function QuestionCard(
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <SkipButton onClick={onSkip} />
               <SendButton
-                onClick={openEndedOpen
+                onClick={isOpenEndedOpen
                   ? () => { onOpenEndedSubmit?.(openEndedText); onSend?.() }
                   : onSend
                 }

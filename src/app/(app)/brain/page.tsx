@@ -2282,7 +2282,12 @@ function BrainPageInner() {
 
   useEffect(() => {
     if (!activePlanId) return
-    if (phase !== 'executing' && phase !== 'streaming' && phase !== 'paused') return
+    if (
+      phase !== 'executing' &&
+      phase !== 'streaming' &&
+      phase !== 'paused' &&
+      phase !== 'node-failed'
+    ) return
     if (activeRunAbortRef.current) return
 
     const controller = new AbortController()
@@ -3762,7 +3767,7 @@ function BrainPageInner() {
     />
   )
 
-  const brainIsStreaming = !['idle', 'complete', 'cancelled', 'failed', 'paused'].includes(phase)
+  const brainIsStreaming = !['idle', 'complete', 'cancelled', 'failed', 'paused', 'node-failed'].includes(phase)
 
   // ── ContextRail data ─────────────────────────────────────────────────────────
   // The right rail surfaces what's active for this conversation:
