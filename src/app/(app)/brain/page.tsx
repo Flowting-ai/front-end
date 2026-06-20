@@ -1,12 +1,15 @@
 ﻿'use client'
 
 import { Suspense, useMemo, useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
+import { m, AnimatePresence } from 'framer-motion'
+import { springs } from '@/lib/springs'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useSearch } from '@/context/search-context'
 import Image from 'next/image'
 import {
   BrainShell,
   StreamingIndicator,
+  BrainNarration,
   PlanCard,
   ActivityBlock,
   PauseCard,
@@ -53,8 +56,13 @@ import {
   continueBrainChat,
   consumeBrainStream,
   getBrainMessages,
+  subscribeBrainRun,
+  approveBrainPlan,
+  counterBrainPlan,
+  cancelBrainPlan,
   respondToPrompt,
   stopBrainChat,
+  stopBrainRun,
   type BackendPlanStep,
   type BackendPlanNode,
   type BrainContextEvent,
@@ -112,6 +120,7 @@ function mapBackendStepStatus(status?: string): StepStatus {
     case 'running':   return 'executing'
     case 'completed': return 'complete'
     case 'failed':    return 'failed'
+    case 'skipped':   return 'skipped'
     default:          return 'pending'
   }
 }
@@ -430,6 +439,37 @@ interface CounterInputProps {
   onSend:   () => void
   onCancel: () => void
   disabled?: boolean
+}
+
+// ── Motion: standard KDS mount preset ─────────────────────────────────────────
+// The may-day Brain design rises every card/row in with the same gesture:
+// fade + 8px lift + 4px deblur, on a springs.moderate spring. `page.tsx` is the
+// integration layer that owns this "consumer-driven" motion (the template
+// components animate their own internals; the thread cadence lives here).
+// Uses LazyMotion's `m` — the root MotionProvider loads `domMax` features.
+const MOUNT_INITIAL = { opacity: 0, y: 8, filter: 'blur(4px)' } as const
+const MOUNT_ANIMATE = { opacity: 1, y: 0, filter: 'blur(0px)' } as const
+
+/** Wraps a thread element so it rises into place when it mounts. */
+function Rise({
+  children,
+  delay = 0,
+  style,
+}: {
+  children: React.ReactNode
+  delay?: number
+  style?: CSSProperties
+}) {
+  return (
+    <m.div
+      initial={MOUNT_INITIAL}
+      animate={MOUNT_ANIMATE}
+      transition={delay ? { ...springs.moderate, delay } : springs.moderate}
+      style={style}
+    >
+      {children}
+    </m.div>
+  )
 }
 
 function CounterInput({ value, onChange, onSend, onCancel, disabled = false }: CounterInputProps) {
@@ -852,7 +892,6 @@ type TimelineItem =
   | { kind: 'progress';   id: string }
   | { kind: 'permission'; id: string; promptId: string }
   | { kind: 'connect';    id: string; slug: string }
-  | { kind: 'plan';       id: string; steps: PlanStep[]; summary: string }
 
 function ActivityFeed({ items }: { items: ActivityFeedItem[] }) {
   if (items.length === 0) return null
@@ -1056,14 +1095,17 @@ function BrainPageInner() {
 
   // ── Sidebar collapse state — shared via localStorage with all other pages ─────
 
-  const sidebarCollapsedRef = useRef(
-    typeof window !== 'undefined' ? localStorage.getItem('sidebar_collapsed') === 'true' : false
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    typeof window !== 'undefined' ? localStorage.getItem('sidebar_collapsed') === 'true' : false,
   )
   const handleSidebarCollapse = useCallback(() => {
-    sidebarCollapsedRef.current = !sidebarCollapsedRef.current
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sidebar_collapsed', String(sidebarCollapsedRef.current))
-    }
+    setSidebarCollapsed((collapsed) => {
+      const next = !collapsed
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sidebar_collapsed', String(next))
+      }
+      return next
+    })
   }, [])
 
   // ── Chat identity ────────────────────────────────────────────────────────────
@@ -1080,8 +1122,15 @@ function BrainPageInner() {
   const [activePlanSteps, setActivePlanSteps]     = useState<PlanStep[]>([])
   const [activePlanSummary, setActivePlanSummary] = useState('')
   const [promptId, setPromptId]                   = useState('')
+  const [activePlanId, setActivePlanId]           = useState<string | null>(null)
+  const [pendingRemapId, setPendingRemapId]       = useState<string | null>(null)
   const [stepStatuses, setStepStatuses]           = useState<Record<string, StepStatus>>({})
   const [streamedContent, setStreamedContent]     = useState('')
+  // Extended-thinking / reasoning prose, accumulated per turn and surfaced via
+  // BrainNarration. Headings open a section; bodies append. `reasoningActive`
+  // drives the live cursor and is cleared once visible content starts.
+  const [reasoningText, setReasoningText]         = useState('')
+  const [reasoningActive, setReasoningActive]     = useState(false)
   const [streamingComplete, setStreamingComplete] = useState(false)
   const [completedAt, setCompletedAt]             = useState<Date | null>(null)
   const [streamError, setStreamError]             = useState<string | null>(null)
@@ -1164,6 +1213,8 @@ function BrainPageInner() {
   // ── Refs ─────────────────────────────────────────────────────────────────────
 
   const abortRef         = useRef<AbortController | null>(null)
+  const activeRunAbortRef = useRef<AbortController | null>(null)
+  const activeRunSeqRef   = useRef(0)
   const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const turnCounterRef   = useRef(0)
   // Set to true when we navigate to a newly-created chat — prevents the thread-change
@@ -1175,7 +1226,7 @@ function BrainPageInner() {
 
   // ── Add-menu feature state ────────────────────────────────────────────────
 
-  const { models, selectedModel, selectModel, open: openModelSelector } = useModelSelectorContext()
+  const { models, selectModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
@@ -1217,7 +1268,7 @@ function BrainPageInner() {
     } catch {
       return {}
     }
-  }, [chatId, historyLoaded])
+  }, [chatId])
 
   // Note: the ContextRail is now driven entirely by the per-turn `context` SSE
   // event (see liveContext), so the old page-load connectors/bootstrap fetches
@@ -1261,7 +1312,9 @@ function BrainPageInner() {
 
   const fileInputRef    = useRef<HTMLInputElement>(null)
   const selectModelRef  = useRef(selectModel)
-  selectModelRef.current = selectModel
+  useEffect(() => {
+    selectModelRef.current = selectModel
+  }, [selectModel])
 
   // ── Auto-scroll ───────────────────────────────────────────────────────────────
   // threadRef is forwarded to BrainShell's scrollable thread container.
@@ -1374,7 +1427,6 @@ function BrainPageInner() {
       })
       .catch(() => {})
     return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
 
   useEffect(() => {
@@ -1390,6 +1442,7 @@ function BrainPageInner() {
   useEffect(() => () => {
     if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
     abortRef.current?.abort()
+    activeRunAbortRef.current?.abort()
   }, [])
 
   // ── Sync chatId + full state reset when navigating between brain threads ──────
@@ -1399,6 +1452,10 @@ function BrainPageInner() {
       return
     }
     abortRef.current?.abort()
+    activeRunAbortRef.current?.abort()
+    activeRunAbortRef.current = null
+    activeRunSeqRef.current = 0
+    setActivePlanId(null)
     setChatId(chatIdFromUrl)
     setPhase('idle')
     setUserMessage('')
@@ -1417,6 +1474,8 @@ function BrainPageInner() {
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
     setStreamedContent('')
+    setReasoningText('')
+    setReasoningActive(false)
     setStreamingComplete(false)
     setCompletedAt(null)
     setStreamError(null)
@@ -1431,7 +1490,9 @@ function BrainPageInner() {
     seenToolIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
-    pendingRemapRef.current = null
+    activeRunSeqRef.current = 0
+    setActivePlanId(null)
+    setPendingRemapId(null)
     setLiveContext(null)
     setHistoryMessages([])
     setLocalTurns([])
@@ -1450,8 +1511,29 @@ function BrainPageInner() {
 
     void getBrainMessages(chatIdFromUrl)
       .then(async (messages) => {
-        setHistoryMessages(messages)
+        const latestWithPlan = [...messages].reverse().find((m) => m.plan)
+        const latestPlan = latestWithPlan?.plan ?? null
+        const restorableStatuses = new Set(['proposed', 'queued', 'running', 'summarizing'])
+        const shouldReattach = Boolean(latestPlan && restorableStatuses.has(latestPlan.status))
+        setHistoryMessages(shouldReattach && latestWithPlan ? messages.filter((m) => m.id !== latestWithPlan.id) : messages)
         setHistoryLoaded(true)
+        if (shouldReattach && latestWithPlan && latestPlan) {
+          const steps = mapHistoryPlanSteps(latestPlan)
+          setUserMessage(latestWithPlan.input ?? '')
+          setActivePlanId(latestPlan.id)
+          activeRunSeqRef.current = 0
+          setActivePlanSteps(steps)
+          setActivePlanSummary(latestPlan.plan_json?.summary ?? '')
+          setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, s.status ?? 'pending' as StepStatus])))
+          setStreamedContent(latestWithPlan.output ?? '')
+          setPhase(
+            latestPlan.status === 'proposed'
+              ? 'planning'
+              : latestPlan.status === 'summarizing'
+                ? 'streaming'
+                : 'executing',
+          )
+        }
         // Reconstruct the ContextRail snapshot from what's in the fetched
         // messages (the backend doesn't persist a context payload). Only fetch
         // personas if a turn referenced one; skip the network call otherwise.
@@ -1485,6 +1567,11 @@ function BrainPageInner() {
 
   const handleNamedEvent = useCallback((name: string, data: unknown) => {
     const d = data as Record<string, unknown>
+    const seq = typeof d.seq === 'number' ? d.seq : Number(d.seq ?? 0)
+    if (Number.isFinite(seq) && seq > 0) {
+      if (seq <= activeRunSeqRef.current) return
+      activeRunSeqRef.current = seq
+    }
 
     switch (name) {
       case 'plan_proposed': {
@@ -1496,14 +1583,12 @@ function BrainPageInner() {
         const planId   = typeof d.plan_id === 'string' ? d.plan_id : null
         const summary  = (d.summary as string) ?? ''
         pendingPlanIdRef.current = planId
+        setActivePlanId(planId)
         setActivePlanSteps(steps)
         setActivePlanSummary(summary)
         setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, 'pending' as StepStatus])))
         setShowCounterInput(false)
         setCounterText('')
-        // Push a read-only snapshot into the timeline so the plan appears
-        // inline at the point it was proposed (the reasoning section).
-        setTimeline((prev) => [...prev, { kind: 'plan', id: `plan-${++timelineSeqRef.current}`, steps, summary }])
         setPhase('planning')
         break
       }
@@ -1690,7 +1775,50 @@ function BrainPageInner() {
 
       case 'plan_approved': {
         pendingPlanIdRef.current = null
+        const planId = typeof d.plan_id === 'string' ? d.plan_id : null
+        if (planId) setActivePlanId(planId)
         setPhase('executing')
+        break
+      }
+
+      case 'run_queued': {
+        const planId = typeof d.plan_id === 'string' ? d.plan_id : null
+        if (planId) setActivePlanId(planId)
+        setPhase('executing')
+        break
+      }
+
+      case 'run_started': {
+        setPhase('executing')
+        break
+      }
+
+      case 'run_summarizing': {
+        setPhase('streaming')
+        break
+      }
+
+      case 'run_completed': {
+        break
+      }
+
+      case 'run_failed': {
+        if (completeTimerRef.current) {
+          clearTimeout(completeTimerRef.current)
+          completeTimerRef.current = null
+        }
+        const error = typeof d.error === 'string' ? d.error : 'Brain run failed.'
+        setStreamError(error)
+        setPhase('failed')
+        break
+      }
+
+      case 'run_cancelled': {
+        if (completeTimerRef.current) {
+          clearTimeout(completeTimerRef.current)
+          completeTimerRef.current = null
+        }
+        setPhase('cancelled')
         break
       }
 
@@ -1726,7 +1854,19 @@ function BrainPageInner() {
         break
       }
 
+      case 'step_skipped': {
+        // A non-critical node was skipped (it failed and was skipped, or an
+        // upstream failed). Render the dashed "skipped" treatment and let the
+        // run continue with downstream steps.
+        const stepId = d.step_id as string
+        setStepStatuses((prev) => ({ ...prev, [stepId]: 'skipped' }))
+        break
+      }
+
       case 'message_saved': {
+        if (activeRunAbortRef.current) {
+          activeRunAbortRef.current = null
+        }
         if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
         completeTimerRef.current = setTimeout(() => {
           setStreamingComplete(true)
@@ -1851,6 +1991,11 @@ function BrainPageInner() {
 
   const handleInlineEvent = useCallback((data: unknown) => {
     const d = data as Record<string, unknown>
+    const seq = typeof d.seq === 'number' ? d.seq : Number(d.seq ?? 0)
+    if (Number.isFinite(seq) && seq > 0) {
+      if (seq <= activeRunSeqRef.current) return
+      activeRunSeqRef.current = seq
+    }
     const t = d.type
 
     // Guard against late tokens leaking into a finished turn — only flip
@@ -1860,6 +2005,8 @@ function BrainPageInner() {
     if (t === 'content') {
       const token = (d.content as string) ?? ''
       setStreamedContent((prev) => prev + token)
+      // First visible content closes the live reasoning section (cursor off).
+      if (token) setReasoningActive(false)
       // Append to the timeline: extend the trailing text segment, or open a new
       // one if the previous item was a tool/search/etc. (so text lands below it).
       if (token) {
@@ -1891,6 +2038,19 @@ function BrainPageInner() {
       // Only move off 'thinking'; leave 'planning' alone so the plan card stays
       // visible while extended-thinking tokens stream in after plan_proposed.
       setPhase((prev) => prev === 'thinking' ? 'streaming' : prev)
+      // Accumulate the reasoning prose so BrainNarration can surface it. A
+      // heading opens a new section (rendered on its own line); bodies/legacy
+      // deltas append in place.
+      const chunk = typeof d.content === 'string' ? d.content : ''
+      if (chunk) {
+        setReasoningActive(true)
+        setReasoningText((prev) => {
+          if (t === 'reasoning_heading') {
+            return prev ? `${prev}\n\n${chunk}` : chunk
+          }
+          return prev + chunk
+        })
+      }
       return
     }
 
@@ -1972,6 +2132,8 @@ function BrainPageInner() {
     setUserMessage('')
     setUserAttachments([])
     setStreamedContent('')
+    setReasoningText('')
+    setReasoningActive(false)
     setStreamingComplete(false)
     setCompletedAt(null)
     setStreamError(null)
@@ -1992,7 +2154,48 @@ function BrainPageInner() {
     seenToolIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
+    activeRunSeqRef.current = 0
+    setActivePlanId(null)
   }, [])
+
+  useEffect(() => {
+    if (!activePlanId) return
+    if (phase !== 'executing' && phase !== 'streaming' && phase !== 'paused') return
+    if (activeRunAbortRef.current) return
+
+    const controller = new AbortController()
+    activeRunAbortRef.current = controller
+    let closed = false
+
+    void subscribeBrainRun(activePlanId, activeRunSeqRef.current, controller.signal)
+      .then((response) => consumeBrainStream(response, {
+        onNamed:  handleNamedEvent,
+        onInline: handleInlineEvent,
+        onClose:  () => {
+          closed = true
+          if (activeRunAbortRef.current === controller) activeRunAbortRef.current = null
+        },
+        onError:  (e) => {
+          if (e.name === 'AbortError') return
+          console.error('[Brain] run stream error:', e)
+          setStreamError(e.message || 'Brain run connection lost. Reopen this chat to reconnect.')
+          setPhase('failed')
+        },
+      }))
+      .catch((e) => {
+        if ((e as Error)?.name === 'AbortError') return
+        console.error('[Brain] run subscribe failed:', e)
+        setStreamError((e as Error)?.message || 'Failed to subscribe to Brain run.')
+        setPhase('failed')
+      })
+
+    return () => {
+      if (!closed && activeRunAbortRef.current === controller) {
+        controller.abort()
+        activeRunAbortRef.current = null
+      }
+    }
+  }, [activePlanId, phase, handleNamedEvent, handleInlineEvent])
 
   // ── Stream runner ─────────────────────────────────────────────────────────────
 
@@ -2013,11 +2216,17 @@ function BrainPageInner() {
     // this, a previously-running consumer can keep pushing events into the
     // new turn's state (e.g., late `content` tokens after the user retries).
     abortRef.current?.abort()
+    activeRunAbortRef.current?.abort()
+    activeRunAbortRef.current = null
+    activeRunSeqRef.current = 0
+    setActivePlanId(null)
 
     setUserMessage(displayInput ?? input)
     setUserAttachments((allDisplayFiles ?? files)?.map(f => ({ file_name: f.name, file_type: f.type, file_size: f.size })) ?? [])
     setPhase('thinking')
     setStreamedContent('')
+    setReasoningText('')
+    setReasoningActive(false)
     setStreamingComplete(false)
     setCompletedAt(null)
     setStreamError(null)
@@ -2066,7 +2275,7 @@ function BrainPageInner() {
             // If the id looks like a local temp id (not a UUID), flag it for
             // remapping once the stream completes and Brain has persisted the task.
             if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fromScheduleId)) {
-              pendingRemapRef.current = fromScheduleId
+              setPendingRemapId(fromScheduleId)
             }
           }
           replace(`/brain?id=${resolvedChatId}`, { scroll: false })
@@ -2109,9 +2318,8 @@ function BrainPageInner() {
   // task created in the last 5 minutes and remap the localStorage chat link so
   // future edits navigate back to this thread instead of opening a new one.
   useEffect(() => {
-    const localId = pendingRemapRef.current
-    if (phase !== 'complete' || !localId) return
-    pendingRemapRef.current = null
+    if (phase !== 'complete' || !pendingRemapId) return
+    const localId = pendingRemapId
     listTasks()
       .then(tasks => {
         const now = Date.now()
@@ -2121,8 +2329,8 @@ function BrainPageInner() {
         if (recent[0]) remapScheduleLink(localId, recent[0].id)
       })
       .catch(() => {})
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- listTasks/remapScheduleLink are stable imports; phase is the only signal
-  }, [phase])
+      .finally(() => setPendingRemapId(null))
+  }, [phase, pendingRemapId])
 
   // ── Pre-populate input from schedule create ───────────────────────────────────
   // The Schedules page hands off newly-created schedules via ?fromSchedule=<id>
@@ -2134,7 +2342,6 @@ function BrainPageInner() {
   const handledScheduleIdRef     = useRef<string | null>(null)
   // Holds a local temp schedule ID that needs remapping to a backend UUID once
   // the stream completes (Brain's AI will have created the task by then).
-  const pendingRemapRef          = useRef<string | null>(null)
   useEffect(() => {
     const sid = searchParams.get('fromSchedule')
     if (!sid || handledScheduleIdRef.current === sid) return
@@ -2142,7 +2349,7 @@ function BrainPageInner() {
     const prompt = consumePendingPrompt(sid)
     if (!prompt) return
     pendingFromScheduleIdRef.current = sid
-    setScheduleInitialInput(prompt)
+    queueMicrotask(() => setScheduleInitialInput(prompt))
   }, [searchParams])
 
   // ── Send handler ──────────────────────────────────────────────────────────────
@@ -2234,57 +2441,90 @@ function BrainPageInner() {
   }
 
   const handleApprove = useCallback(() => {
-    if (!promptId || actionInFlight) return
+    if ((!activePlanId && !promptId) || actionInFlight) return
     setActionInFlight(true)
-    void respondToPrompt(promptId, { response: { decision: 'approve' } })
+    const action = activePlanId
+      ? approveBrainPlan(activePlanId)
+      : respondToPrompt(promptId, { response: { decision: 'approve' } })
+    void action
+      .then(() => {
+        pendingPlanIdRef.current = null
+        activeRunSeqRef.current = 0
+        setPhase('executing')
+      })
       .catch((e: unknown) => {
         console.error('[Brain] approve failed:', e)
         setStreamError(explainPromptError(e, 'approve'))
         setPhase('failed')
       })
       .finally(() => setActionInFlight(false))
-  }, [promptId, actionInFlight])
+  }, [activePlanId, promptId, actionInFlight])
 
   const handleCounter = useCallback(() => {
-    if (!promptId || actionInFlight) return
+    if ((!activePlanId && !promptId) || actionInFlight) return
     setShowCounterInput(true)
-  }, [promptId, actionInFlight])
+  }, [activePlanId, promptId, actionInFlight])
 
   const handleCounterSend = useCallback(() => {
-    if (!promptId || actionInFlight || !counterText.trim()) return
+    const revision = counterText.trim()
+    if ((!activePlanId && !promptId) || actionInFlight || !revision) return
     setActionInFlight(true)
+    setShowCounterInput(false)
+    setCounterText('')
+    setPhase('thinking')
+
+    if (activePlanId) {
+      const controller = new AbortController()
+      abortRef.current = controller
+      void counterBrainPlan(activePlanId, revision, controller.signal)
+        .then((response) => consumeBrainStream(response, {
+          onNamed: handleNamedEvent,
+          onInline: handleInlineEvent,
+          onClose: () => {},
+          onError: (e) => {
+            if (e.name === 'AbortError') return
+            throw e
+          },
+        }))
+        .catch((e: unknown) => {
+          if ((e as Error)?.name === 'AbortError') return
+          console.error('[Brain] counter failed:', e)
+          setStreamError(explainPromptError(e, 'counter'))
+          setPhase('failed')
+        })
+        .finally(() => setActionInFlight(false))
+      return
+    }
+
     void respondToPrompt(promptId, {
-      response: { decision: 'counter', counter_text: counterText.trim() },
+      response: { decision: 'counter', counter_text: revision },
     })
       .catch((e: unknown) => {
-        console.error('[Brain] counter failed:', e)
+        console.error('[Brain] legacy counter failed:', e)
         setStreamError(explainPromptError(e, 'counter'))
         setPhase('failed')
       })
       .finally(() => setActionInFlight(false))
-    setShowCounterInput(false)
-    setCounterText('')
-  }, [promptId, actionInFlight, counterText])
+  }, [
+    activePlanId, promptId, actionInFlight, counterText,
+    handleNamedEvent, handleInlineEvent,
+  ])
 
   const handlePlanCancel = useCallback(() => {
-    if (actionInFlight) return
-    // Cancel is "fire and forget": flip the UI immediately so the user sees
-    // their intent acknowledged, regardless of whether the backend is still
-    // listening. If the prompt is gone, the stream will end on its own; if
-    // it's alive, the backend will emit plan_cancelled and wrap up.
-    if (promptId) {
-      setActionInFlight(true)
-      void respondToPrompt(promptId, { response: { decision: 'cancel' } })
-        .catch((e: unknown) => {
-          // 404 here is expected if the stream already died — don't surface.
-          if (!(e instanceof ApiError && e.status === 404)) {
-            console.warn('[Brain] cancel respond failed:', e)
-          }
-        })
-        .finally(() => setActionInFlight(false))
-    }
-    setPhase('cancelled')
-  }, [promptId, actionInFlight])
+    if ((!activePlanId && !promptId) || actionInFlight) return
+    setActionInFlight(true)
+    const action = activePlanId
+      ? cancelBrainPlan(activePlanId)
+      : respondToPrompt(promptId, { response: { decision: 'cancel' } })
+    void action
+      .then(() => setPhase('cancelled'))
+      .catch((e: unknown) => {
+        console.error('[Brain] cancel failed:', e)
+        setStreamError(explainPromptError(e, 'cancel'))
+        setPhase('failed')
+      })
+      .finally(() => setActionInFlight(false))
+  }, [activePlanId, promptId, actionInFlight])
 
   // ── Clarification prompt handlers ───────────────────────────────────────────
   // user_prompt events that aren't plan-approval (kinds 'choice' / 'input' /
@@ -2466,14 +2706,18 @@ function BrainPageInner() {
   // ── Stop ──────────────────────────────────────────────────────────────────────
 
   const handleStop = useCallback(() => {
-    abortRef.current?.abort()
-    if (chatId) {
-      void stopBrainChat(chatId).catch(() => {})
+    if (activePlanId && (phase === 'executing' || phase === 'streaming' || phase === 'paused')) {
+      void stopBrainRun(activePlanId).catch(() => {})
+    } else {
+      abortRef.current?.abort()
+      if (chatId) {
+        void stopBrainChat(chatId).catch(() => {})
+      }
     }
     const completedSteps = planSteps.filter((s) => s.status === 'complete')
     setPausedAfterLabel(completedSteps[completedSteps.length - 1]?.label)
     setPhase('paused')
-  }, [chatId, planSteps])
+  }, [activePlanId, phase, chatId, planSteps])
 
   // ── Pause card ────────────────────────────────────────────────────────────────
 
@@ -2536,6 +2780,8 @@ function BrainPageInner() {
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
     setStreamedContent('')
+    setReasoningText('')
+    setReasoningActive(false)
     setStreamingComplete(false)
     setCompletedAt(null)
     setStreamError(null)
@@ -2608,7 +2854,7 @@ function BrainPageInner() {
       .filter((x): x is ActivityFeedItem => x !== null)
 
     return (
-      <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
+      <m.div key={msg.id} initial={MOUNT_INITIAL} animate={MOUNT_ANIMATE} transition={springs.moderate} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           {msgAttachments && <AttachmentChips attachments={msgAttachments} />}
           <MessageBubble role="user" content={cleanInput} maxWidth="75%" />
@@ -2637,14 +2883,14 @@ function BrainPageInner() {
             ))}
           </div>
         )}
-      </div>
+      </m.div>
     )
   })
 
   // ── Thread: locally completed turns (same session) ───────────────────────────
 
   const localTurnElements = localTurns.map((turn) => (
-    <div key={turn.key} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
+    <m.div key={turn.key} initial={MOUNT_INITIAL} animate={MOUNT_ANIMATE} transition={springs.moderate} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
         {turn.attachments && <AttachmentChips attachments={turn.attachments} />}
         <MessageBubble role="user" content={turn.userInput} maxWidth="75%" />
@@ -2679,7 +2925,7 @@ function BrainPageInner() {
           onStartNew={handleRestart}
         />
       )}
-    </div>
+    </m.div>
   ))
 
   // ── Thread: active turn ───────────────────────────────────────────────────────
@@ -2697,7 +2943,12 @@ function BrainPageInner() {
   // the plan is already running, so don't re-surface the approval UI.
   const showPlanCard      = (phase === 'planning' || (phase === 'clarifying-goal' && !planExecutionStarted)) && activePlanSteps.length > 0
   // Keep the step tracker visible when Brain asks a mid-execution question.
-  const showActivityBlock = phase === 'executing' || phase === 'paused' || (phase === 'clarifying-goal' && planExecutionStarted)
+  const showActivityBlock = planSteps.length > 0 && (
+    phase === 'executing' ||
+    phase === 'streaming' ||
+    phase === 'paused' ||
+    (phase === 'clarifying-goal' && planExecutionStarted)
+  )
 
   // Render one timeline item in arrival order. Mutating kinds read their live
   // state by reference (tool status from liveToolCalls, the latest progress
@@ -2750,15 +3001,6 @@ function BrainPageInner() {
             />
           )
           : null
-      case 'plan':
-        return (
-          <PlanCard
-            key={item.id}
-            steps={item.steps}
-            interpretation={item.summary}
-            hideActions
-          />
-        )
     }
   }
 
@@ -2774,7 +3016,14 @@ function BrainPageInner() {
       {/* Answered clarification Q&As — read-only stacked card, placed right
           after the user message exactly like the Full-thread story. */}
       {answeredClarifications.length > 0 && (
-        <ClarificationSummary items={answeredClarifications} />
+        <Rise><ClarificationSummary items={answeredClarifications} /></Rise>
+      )}
+
+      {/* Brain's extended-thinking prose (reasoning_heading/body deltas),
+          surfaced as inter-phase narration. Streams live while reasoning is
+          active, then stays as a record of how Brain approached the task. */}
+      {reasoningText && (
+        <Rise><BrainNarration text={reasoningText} isStreaming={reasoningActive} /></Rise>
       )}
 
       {/* ActivityBlock — plan-step tracker; persists through executing and paused */}
@@ -2784,37 +3033,58 @@ function BrainPageInner() {
 
       {/* Complete header sits above the transcript */}
       {phase === 'complete' && (
-        <BrainResultHeader summary={activePlanSummary || 'Analysis complete'} />
+        <Rise><BrainResultHeader summary={activePlanSummary || 'Analysis complete'} /></Rise>
       )}
 
       {/* ── Ordered transcript ──────────────────────────────────────────────
           Text segments, tool calls, web searches, files, images, the connector
           permission/link cards — all rendered in the order they streamed in,
-          so chat and tools interleave instead of bucketing. */}
-      {timeline.map((item, i) => renderTimelineItem(item, i === timeline.length - 1))}
+          so chat and tools interleave instead of bucketing. Each row rises into
+          place as it streams in (consumer-driven KDS mount gesture). */}
+      {timeline.map((item, i) => {
+        const node = renderTimelineItem(item, i === timeline.length - 1)
+        if (!node) return null
+        return (
+          <m.div key={item.id} initial={MOUNT_INITIAL} animate={MOUNT_ANIMATE} transition={springs.moderate}>
+            {node}
+          </m.div>
+        )
+      })}
 
       {/* Plan card + optional counter input — rendered AFTER the timeline so
           approval UI is always at the bottom regardless of how much content
           has already streamed above it (e.g. a second plan after countering). */}
       {showPlanCard && (
         <>
-          <PlanCard
-            steps={planSteps}
-            interpretation={activePlanSummary}
-            onApprove={handleApprove}
-            onCounter={handleCounter}
-            onCancel={handlePlanCancel}
-            actionsDisabled={!promptId || actionInFlight}
-          />
-          {showCounterInput && (
-            <CounterInput
-              value={counterText}
-              onChange={setCounterText}
-              onSend={handleCounterSend}
-              onCancel={() => { setShowCounterInput(false); setCounterText('') }}
-              disabled={!promptId || actionInFlight}
+          <Rise>
+            <PlanCard
+              steps={planSteps}
+              interpretation={activePlanSummary}
+              onApprove={handleApprove}
+              onCounter={handleCounter}
+              onCancel={handlePlanCancel}
+              actionsDisabled={(!activePlanId && !promptId) || actionInFlight}
             />
-          )}
+          </Rise>
+          <AnimatePresence initial={false}>
+            {showCounterInput && (
+              <m.div
+                key="counter-input"
+                initial={MOUNT_INITIAL}
+                animate={MOUNT_ANIMATE}
+                exit={MOUNT_INITIAL}
+                transition={springs.fast}
+              >
+                <CounterInput
+                  value={counterText}
+                  onChange={setCounterText}
+                  onSend={handleCounterSend}
+                  onCancel={() => { setShowCounterInput(false); setCounterText('') }}
+                  disabled={(!activePlanId && !promptId) || actionInFlight}
+                />
+              </m.div>
+            )}
+          </AnimatePresence>
         </>
       )}
 
@@ -2825,31 +3095,35 @@ function BrainPageInner() {
 
       {/* PauseCard */}
       {phase === 'paused' && (
-        <PauseCard
-          pausedAfterStep={pausedAfterLabel}
-          onContinue={handleContinue}
-          onChangeDirection={handleChangeDirection}
-          onCancel={() => setPhase('cancelled')}
-        />
+        <Rise>
+          <PauseCard
+            pausedAfterStep={pausedAfterLabel}
+            onContinue={handleContinue}
+            onChangeDirection={handleChangeDirection}
+            onCancel={() => setPhase('cancelled')}
+          />
+        </Rise>
       )}
 
       {/* Completed plan recap, below the transcript */}
       {phase === 'complete' && planSteps.length > 0 && (
-        <LoopHistoryCard steps={planSteps} completedAt={completedAt ?? undefined} />
+        <Rise><LoopHistoryCard steps={planSteps} completedAt={completedAt ?? undefined} /></Rise>
       )}
 
       {/* Cancelled */}
       {phase === 'cancelled' && (
-        <LoopCancelledCard
-          completedSteps={planSteps.filter((s) => s.status === 'complete').length}
-          totalSteps={planSteps.length}
-          onStartNew={handleRestart}
-        />
+        <Rise>
+          <LoopCancelledCard
+            completedSteps={planSteps.filter((s) => s.status === 'complete').length}
+            totalSteps={planSteps.length}
+            onStartNew={handleRestart}
+          />
+        </Rise>
       )}
 
       {/* Failed */}
       {phase === 'failed' && (
-        <LoopFailedCard errorDetail={streamError ?? undefined} onTryAgain={handleRestart} onRephrase={handleRestart} />
+        <Rise><LoopFailedCard errorDetail={streamError ?? undefined} onTryAgain={handleRestart} onRephrase={handleRestart} /></Rise>
       )}
 
     </div>
@@ -3109,7 +3383,7 @@ function BrainPageInner() {
       sidebarProps={{
         defaultBodySection: 'brain',
         hideProjects:       true,
-        defaultCollapsed:   sidebarCollapsedRef.current,
+        defaultCollapsed:   sidebarCollapsed,
         onCollapse:         handleSidebarCollapse,
         recentItems: (
           <BrainSidebarSections

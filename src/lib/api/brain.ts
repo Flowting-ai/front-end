@@ -14,6 +14,17 @@ const BRAIN_RENAME    = withBase('/brain/rename')
 const BRAIN_STREAM    = (chatId: string) => withBase(`/brain/${chatId}/stream`)
 const BRAIN_MESSAGES  = (chatId: string) => withBase(`/brain/${chatId}/messages`)
 const BRAIN_PLANS     = (chatId: string) => withBase(`/brain/${chatId}/plans`)
+const BRAIN_RUN       = (planId: string) => withBase(`/brain/runs/${planId}`)
+const BRAIN_RUN_EVENTS = (planId: string, afterSeq?: number) => {
+  const path = withBase(`/brain/runs/${planId}/events`)
+  return afterSeq != null && afterSeq > 0
+    ? `${path}?after=${encodeURIComponent(String(afterSeq))}`
+    : path
+}
+const BRAIN_RUN_STOP  = (planId: string) => withBase(`/brain/runs/${planId}/stop`)
+const BRAIN_PLAN_APPROVE = (planId: string) => withBase(`/brain/plans/${planId}/approve`)
+const BRAIN_PLAN_COUNTER = (planId: string) => withBase(`/brain/plans/${planId}/counter`)
+const BRAIN_PLAN_CANCEL  = (planId: string) => withBase(`/brain/plans/${planId}/cancel`)
 const BRAIN_STOP      = (chatId: string) => withBase(`/brain/${chatId}/stop`)
 const BRAIN_STAR      = (chatId: string) => withBase(`/brain/${chatId}/star`)
 const PROMPT_RESPOND  = (promptId: string) => withBase(`/chats/prompts/${promptId}`)
@@ -71,11 +82,31 @@ export interface BrainChatListItem {
 
 export interface BrainPlanResponse {
   id:             string
-  status:         'proposed' | 'approved' | 'countered' | 'cancelled' | 'executing' | 'completed' | 'failed' | string
+  status:         'proposed' | 'countered' | 'cancelled' | 'queued' | 'running' | 'summarizing' | 'completed' | 'failed' | string
   supersedes_id?: string | null
   counter_text?:  string | null
   plan_json:      BackendPlanJson
   final_error?:   string | null
+  started_at?:    string | null
+  completed_at?:  string | null
+  cancel_requested_at?: string | null
+  created_at?:    string | null
+}
+
+export interface BrainPlanActionResponse {
+  plan_id: string
+  status:  string
+}
+
+export interface BrainRunResponse {
+  id:             string
+  status:         BrainPlanResponse['status']
+  plan_json:      BackendPlanJson
+  final_error?:   string | null
+  latest_seq:     number
+  started_at?:    string | null
+  completed_at?:  string | null
+  cancel_requested_at?: string | null
   created_at?:    string | null
 }
 
@@ -288,9 +319,16 @@ export interface PlanProposedEvent {
 export interface PlanApprovedEvent  { plan_id: string }
 export interface PlanCounteredEvent { plan_id: string; counter_text: string }
 export interface PlanCancelledEvent { plan_id: string }
-export interface StepStartedEvent   { plan_id: string; step_id: string }
+export interface RunQueuedEvent     { plan_id: string; seq?: number }
+export interface RunStartedEvent    { plan_id: string; seq?: number }
+export interface RunSummarizingEvent { plan_id: string; seq?: number }
+export interface RunCompletedEvent  { plan_id: string; seq?: number }
+export interface RunFailedEvent     { plan_id: string; error?: string | null; seq?: number }
+export interface RunCancelledEvent  { plan_id: string; seq?: number }
+export interface StepStartedEvent   { plan_id: string; step_id: string; seq?: number }
 export interface StepCompletedEvent { plan_id: string; step_id: string }
 export interface StepFailedEvent    { plan_id: string; step_id: string; error: string }
+export interface StepSkippedEvent   { plan_id: string; step_id: string; reason?: string | null; seq?: number }
 
 // Map of named event name → payload shape. Add new events here; the
 // dispatcher in page.tsx is type-checked against this map.
@@ -307,9 +345,16 @@ export interface BrainNamedEvents {
   plan_approved:       PlanApprovedEvent
   plan_countered:      PlanCounteredEvent
   plan_cancelled:      PlanCancelledEvent
+  run_queued:          RunQueuedEvent
+  run_started:         RunStartedEvent
+  run_summarizing:     RunSummarizingEvent
+  run_completed:       RunCompletedEvent
+  run_failed:          RunFailedEvent
+  run_cancelled:       RunCancelledEvent
   step_started:        StepStartedEvent
   step_completed:      StepCompletedEvent
   step_failed:         StepFailedEvent
+  step_skipped:        StepSkippedEvent
 }
 
 // ── SSE event payloads (inline) ───────────────────────────────────────────────
@@ -634,6 +679,48 @@ export async function getBrainPlans(chatId: string): Promise<BrainPlanResponse[]
   return apiFetchJson<BrainPlanResponse[]>(BRAIN_PLANS(chatId))
 }
 
+export async function getBrainRun(planId: string): Promise<BrainRunResponse> {
+  return apiFetchJson<BrainRunResponse>(BRAIN_RUN(planId))
+}
+
+export async function approveBrainPlan(planId: string): Promise<BrainPlanActionResponse> {
+  return apiFetchJson<BrainPlanActionResponse>(BRAIN_PLAN_APPROVE(planId), { method: 'POST' })
+}
+
+export async function counterBrainPlan(
+  planId: string,
+  counterText: string,
+  signal?: AbortSignal,
+): Promise<Response> {
+  const response = await apiFetch(BRAIN_PLAN_COUNTER(planId), {
+    method: 'POST',
+    body: JSON.stringify({ counter_text: counterText }),
+    signal,
+  })
+  if (!response.ok) {
+    throw new ApiError(response.status, 'brain_plan_counter_failed', 'Failed to revise Brain plan')
+  }
+  return response
+}
+
+export async function cancelBrainPlan(planId: string): Promise<BrainPlanActionResponse> {
+  return apiFetchJson<BrainPlanActionResponse>(BRAIN_PLAN_CANCEL(planId), { method: 'POST' })
+}
+
+export async function subscribeBrainRun(
+  planId: string,
+  afterSeq?: number,
+  signal?: AbortSignal,
+): Promise<Response> {
+  const response = await apiFetch(BRAIN_RUN_EVENTS(planId, afterSeq), { method: 'GET', signal })
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    console.error('[Brain] run stream failed', response.status, detail)
+    throw new ApiError(response.status, 'brain_run_stream_failed', 'Failed to stream Brain run')
+  }
+  return response
+}
+
 export async function listBrainChats(): Promise<BrainChatListItem[]> {
   return apiFetchJson<BrainChatListItem[]>(BRAIN_BASE)
 }
@@ -666,6 +753,10 @@ export async function respondToPrompt(
 
 export async function stopBrainChat(chatId: string): Promise<void> {
   await apiFetch(BRAIN_STOP(chatId), { method: 'POST' })
+}
+
+export async function stopBrainRun(planId: string): Promise<void> {
+  await apiFetch(BRAIN_RUN_STOP(planId), { method: 'POST' })
 }
 
 export async function starBrainChat(chatId: string): Promise<void> {

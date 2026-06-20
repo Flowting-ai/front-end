@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React from 'react'
 import { m } from 'framer-motion'
+import { useStreamingTypewriter } from './StreamingMessageBubble'
 
 // ── StreamCursor ────────────────────────────────────────────────────────────────
 // Inline blinking cursor — same as StreamingMessageBubble's cursor.
@@ -25,43 +26,14 @@ function StreamCursor() {
   )
 }
 
-// ── useStreamingTypewriter ──────────────────────────────────────────────────────
-// RAF ease-out lerp: reveals ~6% of remaining chars per 16ms frame.
-// Same hook as StreamingMessageBubble — duplicated here to keep narration standalone.
-
-function useStreamingTypewriter(fullText: string, enabled: boolean) {
-  const [displayLen, setDisplayLen] = useState(() => enabled ? 0 : fullText.length)
-  const rafRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    if (!enabled) { setDisplayLen(fullText.length); return }
-    setDisplayLen(0)
-    const tick = () => {
-      setDisplayLen(prev => {
-        const remaining = fullText.length - prev
-        if (remaining <= 0) return prev
-        const advance = Math.max(1, Math.ceil(remaining * 0.06))
-        return Math.min(prev + advance, fullText.length)
-      })
-      rafRef.current = requestAnimationFrame(tick)
-    }
-    rafRef.current = requestAnimationFrame(tick)
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [fullText, enabled])
-
-  return fullText.slice(0, displayLen)
-}
-
 // ── Inline code + citation renderer ────────────────────────────────────────────
 // Splits on backtick code spans AND [N] citation refs.
 
 function renderNarrationText(text: string): React.ReactNode[] {
   const parts = text.split(/(`[^`]+`|\[\d+\])/g)
-  // eslint-disable-next-line react/no-array-index-as-key -- regex-split text segments have no IDs; positions are stable
   return parts.map((part, i) => {
     if (part.startsWith('`') && part.endsWith('`')) {
       return (
-        // eslint-disable-next-line react/no-array-index-as-key -- regex-split text segments have no IDs; positions are stable
         <code key={i} style={{
           fontFamily:      'var(--font-mono, monospace)',
           fontSize:        '0.9em',
@@ -78,7 +50,6 @@ function renderNarrationText(text: string): React.ReactNode[] {
     if (/^\[\d+\]$/.test(part)) {
       const num = part.slice(1, -1)
       return (
-        // eslint-disable-next-line react/no-array-index-as-key -- regex-split text segments have no IDs; positions are stable
         <sup key={i} aria-label={`citation ${num}`} style={{
           fontFamily:      'var(--font-body)',
           fontSize:        '10px',
@@ -167,6 +138,7 @@ export function BrainNarration({
         fontWeight:  'var(--font-weight-regular)',
         lineHeight:  'var(--line-height-body)',
         color:       'var(--neutral-800)',
+        whiteSpace:  'pre-wrap',
       }}>
         {confidence && <ConfidenceDot level={confidence} />}
         <NarrationText text={displayed} />

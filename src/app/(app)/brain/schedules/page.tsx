@@ -42,7 +42,58 @@ export default function BrainSchedulesPage() {
 
 // ── Mapping helpers ───────────────────────────────────────────────────────────
 
+// Day-code → display name. Backend `days` are lowercase 3-letter (mon…sun),
+// canonicalised by services/brain/schedule_calc.py (`d.lower()[:3]`).
+const DAY_NAMES: Record<string, string> = {
+  mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday',
+  fri: 'Friday', sat: 'Saturday', sun: 'Sunday',
+}
+const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
+// Format the *real* backend schedule_json:
+//   { time_of_day: "09:00", days: ["mon",…], timezone, starts_on?, ends_on?, max_runs? }
+// (see services/brain/schedule_calc.py). Output stays compatible with the
+// downstream parsers (parseFrequency / ScheduleEditModal): "Daily · HH:MM" and
+// "Weekly · <Day> · HH:MM" round-trip exactly; the weekday/weekend/explicit-list
+// variants pass through as readable chip labels. Legacy payloads (hour/cron/type)
+// fall back to formatLegacyScheduleJson so older rows still render.
 function formatScheduleJson(json: Record<string, unknown>): string {
+  if (!json || typeof json !== 'object') return 'Scheduled'
+
+  const timeOfDay = typeof json.time_of_day === 'string' ? json.time_of_day : null
+  let time: string | null = null
+  if (timeOfDay && /^\d{1,2}:\d{2}/.test(timeOfDay)) {
+    const [hh, mm] = timeOfDay.split(':')
+    time = `${String(parseInt(hh, 10)).padStart(2, '0')}:${mm.slice(0, 2)}`
+  }
+
+  // No `time_of_day` → this isn't the current backend shape; try legacy keys.
+  if (!time) return formatLegacyScheduleJson(json)
+
+  const rawDays = Array.isArray(json.days) ? json.days : []
+  const days = rawDays
+    .map((d) => (typeof d === 'string' ? d.toLowerCase().slice(0, 3) : ''))
+    .filter((d) => d in DAY_NAMES)
+    .sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b))
+
+  // Empty or all-seven → every day.
+  if (days.length === 0 || days.length === 7) return `Daily · ${time}`
+  // Single day round-trips through parseFrequency's weekly path.
+  if (days.length === 1) return `Weekly · ${DAY_NAMES[days[0]]} · ${time}`
+  // Common groupings.
+  if (days.length === 5 && ['mon', 'tue', 'wed', 'thu', 'fri'].every((d) => days.includes(d))) {
+    return `Weekdays · ${time}`
+  }
+  if (days.length === 2 && days.includes('sat') && days.includes('sun')) {
+    return `Weekends · ${time}`
+  }
+  // Explicit list, e.g. "Mon, Wed, Fri · 09:00".
+  return `${days.map((d) => DAY_NAMES[d].slice(0, 3)).join(', ')} · ${time}`
+}
+
+// Older / alternate schedule_json shapes (hour/minute/cron/type). Retained so
+// pre-existing rows keep rendering; new rows use the time_of_day/days shape above.
+function formatLegacyScheduleJson(json: Record<string, unknown>): string {
   const type      = typeof json.type === 'string' ? json.type.toLowerCase() : 'daily'
   const rawHour   = json.hour ?? json.hour_utc ?? json.at_hour
   const rawMinute = json.minute ?? json.minute_utc ?? json.at_minute
@@ -153,14 +204,17 @@ function BrainSchedulesPageInner() {
     ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
     : undefined
 
-  const sidebarCollapsedRef = useRef(
-    typeof window !== 'undefined' ? localStorage.getItem('sidebar_collapsed') === 'true' : false
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    typeof window !== 'undefined' ? localStorage.getItem('sidebar_collapsed') === 'true' : false,
   )
   const handleSidebarCollapse = useCallback(() => {
-    sidebarCollapsedRef.current = !sidebarCollapsedRef.current
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sidebar_collapsed', String(sidebarCollapsedRef.current))
-    }
+    setSidebarCollapsed((collapsed) => {
+      const next = !collapsed
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sidebar_collapsed', String(next))
+      }
+      return next
+    })
   }, [])
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -358,7 +412,7 @@ function BrainSchedulesPageInner() {
       {/* ── Left sidebar ── */}
       <Sidebar
         defaultBodySection="brain"
-        defaultCollapsed={sidebarCollapsedRef.current}
+        defaultCollapsed={sidebarCollapsed}
         onCollapse={handleSidebarCollapse}
         recentItems={
           <BrainSidebarSections
