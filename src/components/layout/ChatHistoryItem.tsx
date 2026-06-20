@@ -84,6 +84,7 @@ export function ChatHistoryItem({
           variant={isEditing ? "chat-item-edit" : "chat-item"}
           label={chat.title}
           selected={isActive}
+          href={isEditing ? undefined : `/chat?id=${chat.id}`}
           onClick={() => {
             if (!isEditing) onSelect(chat.id);
           }}

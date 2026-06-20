@@ -835,7 +835,8 @@ export default function OrgGeneralPage() {
             gap:          16,
             opacity:      identityLoading ? 0.6 : 1,
           }}>
-            <div style={{ flex: '1 0 0', minWidth: 0 }}>
+            {/* commenting out worksspace slug to make it dynamic with url in the future. */}
+            {/* <div style={{ flex: '1 0 0', minWidth: 0 }}>
               <FieldRow
                 label="Workspace URL slug"
                 helper={slugValue ? `souvenir.ai/workspace/${slugValue}` : undefined}
@@ -845,7 +846,7 @@ export default function OrgGeneralPage() {
                   onChange={setSlugValue}
                 />
               </FieldRow>
-            </div>
+            </div> */}
             <div style={{ flex: '1 0 0', minWidth: 0 }}>
               <FieldRow label="Workspace ID" helper="Read-only identifier">
                 <div style={{ position: 'relative' }}>
@@ -1068,7 +1069,8 @@ export default function OrgGeneralPage() {
           </div>
         </Card>
 
-        {/* ── Workspace defaults card ── */}
+        {/* ── Workspace defaults card (temporarily disabled) ── */}
+        {false && (
         <Card>
           <CardHeader
             title="Workspace defaults"
@@ -1161,6 +1163,7 @@ export default function OrgGeneralPage() {
             </Button>
           </div>
         </Card>
+        )}
 
         {/* ── Slack channel mapping card ── */}
         {(slackLoading || slackChannels.length > 0) && (

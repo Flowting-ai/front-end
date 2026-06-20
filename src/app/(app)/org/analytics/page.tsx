@@ -35,7 +35,7 @@ const DATE_RANGES: Array<{ id: DateRange; label: string }> = [
   { id: 'qtd', label: 'QTD' },
 ]
 
-const MEMBER_CAP_COLUMNS = 'minmax(280px, 1fr) 170px 170px 180px'
+const MEMBER_CAP_COLUMNS = 'minmax(260px, 1fr) 150px 240px 160px'
 const MEMBER_CAP_COLUMN_GAP = 0
 
 type ChartMetric = 'chat' | 'assistants' | 'brain'
@@ -514,7 +514,7 @@ function CapCell({
 
   if (editing) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
         <div
           style={{
             display:         'flex',
@@ -575,14 +575,14 @@ function CapCell({
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <div style={{ textAlign: 'right' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+      <div style={{ width: 104, textAlign: 'right', flexShrink: 0 }}>
         {committedCap != null ? (
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '18px', color: 'var(--neutral-800)', margin: 0 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '18px', color: 'var(--neutral-800)', margin: 0, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
             {committedCap.toLocaleString()} credits
           </p>
         ) : (
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, color: 'var(--neutral-300)', margin: 0 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, color: 'var(--neutral-300)', margin: 0, whiteSpace: 'nowrap' }}>
             No cap
           </p>
         )}
@@ -665,7 +665,9 @@ function MemberCapsTable({
             </SettingsTableCell>
 
             <SettingsTableCell align="center">
-              {isAdmin && member.orgRole === 'member' ? (
+              {isAdmin ? (
+                // Admins can assign a cap to any member in the table, including
+                // those who were never given a cap at invite time.
                 <CapCell memberId={member.id} orgId={orgId} initialCap={member.creditCap} />
               ) : member.orgRole !== 'member' ? (
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-300)' }}>-</span>

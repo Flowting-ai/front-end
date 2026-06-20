@@ -51,8 +51,8 @@ const ROLE_OPTIONS: WorkspaceRole[] = ['member', 'editor', 'admin']
 
 const ROLE_DESCRIPTIONS: Record<WorkspaceRole, string> = {
   member: 'Can chat, use personas, access team projects',
-  editor: 'Member + can publish personas to Team scope',
-  admin:  'Full access including billing and settings',
+  editor: 'Member members + can publish to Team scope',
+  admin:  'Full access excluding billing',
 }
 
 const ROLE_LABELS: Record<WorkspaceRole, string> = {

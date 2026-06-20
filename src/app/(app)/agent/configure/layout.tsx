@@ -13,6 +13,8 @@ import {
   CancelOneIcon,
   ExpandIcon,
   ArrowShrinkTwoIcon,
+  ArrowLeftOneIcon,
+  ArrowRightOneIcon,
 } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
@@ -949,6 +951,84 @@ function AiSuggestExpandedOverlay() {
   )
 }
 
+// ── Step Back / Continue nav ──────────────────────────────────────────────────
+// Bottom-centre bar that walks the configure steps in order. Preserves the
+// current query string (repoId / name / versionId) across steps. Responsive:
+// the label hides on narrow widths and the bar stays within the viewport.
+
+function ConfigureStepNav() {
+  const pathname = usePathname()
+  const { push } = useRouter()
+
+  const tabKey = pathname.split('/configure/')[1]?.split('?')[0] ?? ''
+  const idx = ALL_CONFIGURE_TABS.indexOf(tabKey as typeof ALL_CONFIGURE_TABS[number])
+  if (idx === -1) return null
+
+  const prevTab = idx > 0 ? ALL_CONFIGURE_TABS[idx - 1] : null
+  const nextTab = idx < ALL_CONFIGURE_TABS.length - 1 ? ALL_CONFIGURE_TABS[idx + 1] : null
+
+  // Read the live query string at click time so it always reflects the current
+  // agent (repoId/name/versionId) regardless of how the user reached this step.
+  const goToStep = (tab: string) => {
+    const search = typeof window !== 'undefined' ? window.location.search : ''
+    push(`/agent/configure/${tab}${search}`)
+  }
+
+  const handleBack = () => (prevTab ? goToStep(prevTab) : push('/agents'))
+  const handleContinue = () => (nextTab ? goToStep(nextTab) : push('/agents'))
+
+  return (
+    <div
+      style={{
+        position:        'absolute',
+        bottom:          20,
+        left:            '50%',
+        transform:       'translateX(-50%)',
+        zIndex:          15,
+        display:         'flex',
+        alignItems:      'center',
+        gap:             8,
+        padding:         6,
+        borderRadius:    12,
+        maxWidth:        'calc(100% - 32px)',
+        backgroundColor: 'var(--neutral-white)',
+        boxShadow:       '0px 2px 8px rgba(0,0,0,0.10), 0px 0px 0px 1px var(--neutral-200)',
+      }}
+    >
+      <Button
+        variant="outline"
+        size="sm"
+        leftIcon={<ArrowLeftOneIcon size={16} />}
+        onClick={handleBack}
+      >
+        Back
+      </Button>
+
+      <span
+        style={{
+          fontFamily: 'var(--font-body)',
+          fontSize:   12,
+          fontWeight: 500,
+          color:      'var(--neutral-500)',
+          whiteSpace: 'nowrap',
+          padding:    '0 2px',
+        }}
+      >
+        {idx + 1} / {ALL_CONFIGURE_TABS.length}
+      </span>
+
+      <Button
+        variant="default"
+        size="sm"
+        rightIcon={nextTab ? <ArrowRightOneIcon size={16} /> : undefined}
+        onClick={handleContinue}
+      >
+        {nextTab ? 'Continue' : 'Finish'}
+      </Button>
+    </div>
+  )
+}
+
 // ── Shell (renders panels + FloatingMenu overlay) ─────────────────────────────
 
 function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
@@ -976,6 +1056,8 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
         </div>
         {/* Help trigger + main tab info card — bottom-left */}
         <PersonaHelpButton />
+        {/* Step Back / Continue — bottom-centre */}
+        <ConfigureStepNav />
       </div>
 
       {/* ── Test chat panel (collapsed) ────────────────────────────────────── */}

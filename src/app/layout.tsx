@@ -3,6 +3,7 @@ import { Besley, Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/context/auth-context";
 import { Toaster } from "@/components/Toast";
 import { MotionProvider } from "@/components/MotionProvider";
+import { MetaPixel } from "@/components/MetaPixel";
 import "./globals.css";
 
 // ── Fonts ─────────────────────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ export default function RootLayout({
       className={`h-full ${besley.variable} ${geist.variable} ${geistMono.variable}`}
     >
       <body className="h-full antialiased" suppressHydrationWarning>
+        <MetaPixel />
         <MotionProvider>
           <AuthProvider>{children}</AuthProvider>
           <Toaster />

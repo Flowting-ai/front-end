@@ -721,7 +721,7 @@ function CatalogTab({
   }
 
   return (
-    <SettingsTable columns={CONNECTOR_COLUMNS} columnGap={0}>
+    <SettingsTable columns={CONNECTOR_COLUMNS} columnGap={24}>
       <SettingsTableToolbar title="Connector catalog" style={{ flexWrap: 'wrap' }}>
         <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
           <InputField
@@ -743,7 +743,7 @@ function CatalogTab({
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <div role="table" aria-label="Connector catalog" style={{ minWidth: 720 }}>
+        <div role="table" aria-label="Connector catalog" style={{ minWidth: 760 }}>
           <SettingsTableHeader>
             <SettingsTableHeaderCell>Connector</SettingsTableHeaderCell>
             <SettingsTableHeaderCell>Category</SettingsTableHeaderCell>
@@ -2334,9 +2334,13 @@ function OrgConnectorsPageContent() {
           <Tabs.List>
             {ADMIN_TABS.map(item => (
               <Tabs.Trigger key={item.id} value={item.id}>
-                {item.label}
-                {item.id === 'permissions' && pendingCount > 0 && (
-                  <Badge label={`${pendingCount}`} color="Red" />
+                {item.id === 'permissions' && pendingCount > 0 ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {item.label}
+                    <Badge label={`${pendingCount}`} color="Red" />
+                  </span>
+                ) : (
+                  item.label
                 )}
               </Tabs.Trigger>
             ))}
