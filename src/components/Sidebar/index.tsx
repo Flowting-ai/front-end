@@ -1217,8 +1217,10 @@ export function Sidebar({
                   onClick={() => {
                     setSelectedItem('new-chat')
                     setActiveFolder(null)
-                    if (bodySection === 'agents') onNewAgentChat?.()
-                    else if (bodySection === 'brain') onNewBrainThread?.()
+                    // Fall back to onNewChat when a section-specific handler
+                    // isn't supplied, so the New button never becomes a no-op.
+                    if (bodySection === 'agents') (onNewAgentChat ?? onNewChat)?.()
+                    else if (bodySection === 'brain') (onNewBrainThread ?? onNewChat)?.()
                     else onNewChat?.()
                   }}
                 />

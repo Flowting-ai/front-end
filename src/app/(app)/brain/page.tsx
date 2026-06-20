@@ -3533,6 +3533,10 @@ function BrainPageInner() {
         ),
         newChatLabel:    'New brain thread',
         onNewChat:       handleNewChat,
+        // The sidebar is in the 'brain' section, so its New button fires
+        // onNewBrainThread — wire it to the same handler that starts a fresh
+        // brain thread (without this, the button is a no-op).
+        onNewBrainThread: handleNewChat,
         onChatTabClick:         () => push('/chat'),
         onChatsClick:           () => { toast.info("Opening Chat Board", { id: 'nav' }); push('/chats') },
         onAllBrainThreadsClick: () => push('/brain/threads'),
