@@ -332,6 +332,7 @@ function SharedAgentCard({
       <PersonaCard
         style={{ width: '100%' }}
         variant="default"
+        avatarSeed={share.persona_id}
         name={share.name}
         handle={persona?.handle.replace(/^@/, '') ?? ''}
         description={share.description ?? undefined}
@@ -1289,6 +1290,7 @@ export default function PersonasPage() {
                           // instead of clipping the description.
                           style={{ width: '100%', height: '100%' }}
                           variant={persona.status === 'draft' || !persona.hasSystemInstructions || unpublishedMap[persona.id] ? 'draft' : 'default'}
+                          avatarSeed={persona.activeVersionId ?? persona.workingVersionId ?? persona.id}
                           name={persona.name}
                           handle={persona.handle.replace(/^@/, '')}
                           description={

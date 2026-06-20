@@ -18,6 +18,7 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 import { cn } from '@/lib/utils'
+import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
@@ -43,54 +44,28 @@ function formatCount(n: number): string {
   return String(n)
 }
 
-// ── Persona fallback avatars ──────────────────────────────────────────────────
-// Deterministically assigns one of 18 marble avatars when no avatarUrl is set.
-
-const FALLBACK_AVATARS = [
-  '/persona-avatars/0656f3b794e38cb70243c01880ae7e8c.jpg',
-  '/persona-avatars/0d76e6ce216e9a37aabb374a0b5ff373.jpg',
-  '/persona-avatars/1a28810d426619782dd1d5a595389cc1.jpg',
-  '/persona-avatars/2d566c8909b00dd3a384be6fff13dde6.jpg',
-  '/persona-avatars/3df055256e83c4e96b7d12375b0350c7.jpg',
-  '/persona-avatars/545edd8b11f485a6af182827235fe77b.jpg',
-  '/persona-avatars/610d02a62c92aabef208323fb3eb963b.jpg',
-  '/persona-avatars/61a217559aa4835edef3077e097d8bff.jpg',
-  '/persona-avatars/654341558b7022e87d7c11ad97c043f2.jpg',
-  '/persona-avatars/67426067d03211790d002ab8dfd355b1.jpg',
-  '/persona-avatars/7f4fa28c942a9c408d96c4b5f3adcfbe.jpg',
-  '/persona-avatars/81fd248d2aea38920976f7d6420f90ca.jpg',
-  '/persona-avatars/88dfe7bf97d198e8e9abb38db9d3f6a9.jpg',
-  '/persona-avatars/b651f98459d8d64940c19220dc05e83c.jpg',
-  '/persona-avatars/b75eeab04cced8e1a3d2edb69f2e134d.jpg',
-  '/persona-avatars/c70a7e37d62d3983cc8561af76e98f40.jpg',
-  '/persona-avatars/eed3b5053d44561ee17a1411b3c399dd.jpg',
-  '/persona-avatars/eeef0281aa011612dac0bfc085d7798c.jpg',
-] as const
-
-function getFallbackAvatar(seed: string): string {
-  let hash = 0
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
-  return FALLBACK_AVATARS[hash % FALLBACK_AVATARS.length]
-}
-
 // ── PersonaAvatar ─────────────────────────────────────────────────────────────
 // 65 × 65 rounded avatar — shows saved image URL, falls back to initials.
 
 function PersonaAvatar({
   avatarUrl,
   name,
+  avatarSeed,
   size   = 65,
   radius = 8,
 }: {
   avatarUrl?: string
   name:       string
+  avatarSeed?: string
   size?:      number
   radius?:    number
 }) {
   // Match may-day: when no avatar (or the provided URL fails to load) fall back
   // to a deterministic marble image rather than initials.
   const [imgError, setImgError] = useState(false)
-  const src = (avatarUrl && !imgError) ? avatarUrl : getFallbackAvatar(name)
+  const src = (avatarUrl && !imgError)
+    ? avatarUrl
+    : getPersonaFallbackAvatar(avatarSeed || name)
 
   return (
     <div
@@ -235,6 +210,8 @@ export interface PersonaCardProps extends React.HTMLAttributes<HTMLDivElement> {
   description?: string
   /** Avatar image URL. Falls back to initials derived from `name`. */
   avatarUrl?: string
+  /** Stable persona id used to select the deterministic fallback avatar. */
+  avatarSeed?: string
 
   /**
    * Controlled hover override. When true, the action bar is forced visible
@@ -415,7 +392,7 @@ function ActionBar({
                 }}
               >
                 <Image
-                  src={authorAvatarUrl ?? getFallbackAvatar(authorHandle)}
+                  src={authorAvatarUrl ?? getPersonaFallbackAvatar(authorHandle)}
                   alt=""
                   fill
                   sizes="18px"
@@ -456,6 +433,7 @@ function PersonaCardInner({
       handle,
       description,
       avatarUrl,
+      avatarSeed,
       hovered:       hoveredProp,
       paused         = false,
       superlink      = false,
@@ -620,7 +598,7 @@ function PersonaCardInner({
                 transition: 'opacity 0.2s ease',
               }}
             >
-              <PersonaAvatar avatarUrl={avatarUrl} name={name} />
+              <PersonaAvatar avatarUrl={avatarUrl} name={name} avatarSeed={avatarSeed} />
             </div>
 
             {/* Meta column */}

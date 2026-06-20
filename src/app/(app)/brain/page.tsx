@@ -4092,6 +4092,7 @@ function BrainPageInner() {
     // returned no persona field).
     const chipPersona: ContextRailData['persona'] | undefined = selectedPersona
       ? {
+          id:       selectedPersona.activeVersionId ?? selectedPersona.id,
           name:     selectedPersona.name,
           handle:   selectedPersona.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
           avatarUrl: selectedPersona.imageUrl ?? undefined,
@@ -4116,6 +4117,7 @@ function BrainPageInner() {
       // chip selection so the persona is never missing from the rail.
       persona: liveContext.persona
         ? {
+            id:        liveContext.persona.persona_id,
             name:      liveContext.persona.name || liveContext.persona.handler || 'Persona',
             handle:    liveContext.persona.handler || '',
             avatarUrl: liveContext.persona.avatar_url,

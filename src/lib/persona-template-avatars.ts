@@ -23,6 +23,15 @@ const TEMPLATE_AVATARS = [
   '/persona-avatars/eeef0281aa011612dac0bfc085d7798c.jpg',
 ] as const
 
+/** Deterministically assigns the same fallback avatar to the same persona seed. */
+export function getPersonaFallbackAvatar(seed: string): string {
+  let hash = 0
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
+  }
+  return TEMPLATE_AVATARS[hash % TEMPLATE_AVATARS.length]
+}
+
 /** Returns a random avatar path from the pool. Call once per persona creation. */
 export function pickTemplateAvatar(): string {
   return TEMPLATE_AVATARS[Math.floor(Math.random() * TEMPLATE_AVATARS.length)]

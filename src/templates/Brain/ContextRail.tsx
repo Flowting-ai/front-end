@@ -1,18 +1,36 @@
 'use client'
 
 import React from 'react'
-import Image from 'next/image'
 import { PinIcon, CancelOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
 import { connectorLogoSrc } from '@/lib/connectorLogos'
+import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ContextRailPersona {
+  id?:        string
   name:       string
   handle:     string
   avatarUrl?: string
+}
+
+function PersonaAvatar({ persona }: { persona: ContextRailPersona }) {
+  const [imageFailed, setImageFailed] = React.useState(false)
+  const src = persona.avatarUrl && !imageFailed
+    ? persona.avatarUrl
+    : getPersonaFallbackAvatar(persona.id || persona.name)
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- remote URL needs an onError fallback
+    <img
+      src={src}
+      alt=""
+      onError={() => setImageFailed(true)}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+    />
+  )
 }
 
 export interface ContextRailPin {
@@ -233,27 +251,7 @@ export function ContextRail({ data, onClose }: ContextRailProps) {
               alignItems:      'center',
               justifyContent:  'center',
             }}>
-              {persona.avatarUrl ? (
-                <Image
-                  src={persona.avatarUrl}
-                  alt=""
-                  fill
-                  sizes="40px"
-                  style={{ objectFit: 'cover', display: 'block' }}
-                  unoptimized
-                />
-              ) : (
-                <span style={{
-                  fontFamily:    'var(--font-body)',
-                  fontSize:      18,
-                  fontWeight:    600,
-                  color:         'var(--neutral-500)',
-                  textTransform: 'uppercase',
-                  userSelect:    'none',
-                }}>
-                  {persona.name.charAt(0)}
-                </span>
-              )}
+              <PersonaAvatar key={`${persona.id ?? persona.name}:${persona.avatarUrl ?? ''}`} persona={persona} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
               <span style={{

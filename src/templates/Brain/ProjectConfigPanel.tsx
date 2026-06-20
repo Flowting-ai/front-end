@@ -14,6 +14,7 @@ import { ConnectorIcon } from './lib/ConnectorIcon'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { springs } from '@/lib/springs'
+import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,18 +32,6 @@ export interface ProjectConfigPanelProps extends ProjectConfig {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const FALLBACK_AVATARS = [
-  '/persona-avatars/0656f3b794e38cb70243c01880ae7e8c.jpg',
-  '/persona-avatars/610d02a62c92aabef208323fb3eb963b.jpg',
-  '/persona-avatars/81fd248d2aea38920976f7d6420f90ca.jpg',
-]
-
-function getFallbackAvatar(seed: string): string {
-  let hash = 0
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
-  return FALLBACK_AVATARS[hash % FALLBACK_AVATARS.length]
-}
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -256,7 +245,7 @@ export function ProjectConfigPanel({
               flexShrink:   0,
             }}>
               <img
-                src={defaultPersona.avatarUrl ?? getFallbackAvatar(defaultPersona.name)}
+                src={defaultPersona.avatarUrl ?? getPersonaFallbackAvatar(defaultPersona.id)}
                 alt=""
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
