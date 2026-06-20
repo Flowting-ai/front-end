@@ -10,6 +10,9 @@ import {
   BrainShell,
   StreamingIndicator,
   BrainNarration,
+  PersonaSelectionCard,
+  PersonaActiveBar,
+  PinConfirmationCard,
   PlanCard,
   ActivityBlock,
   PauseCard,
@@ -37,10 +40,11 @@ import { AttachmentManager, type PendingAttachment } from '@/components/chat/Att
 import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
 import { Chip } from '@/components/Chip'
-import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon, ImageDownloadTwoIcon } from '@strange-huge/icons'
+import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon, ImageDownloadTwoIcon, PinIcon } from '@strange-huge/icons'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { fetchPersonas, getVersion } from '@/lib/api/personas'
 import type { PinFolder } from '@/lib/api/pins'
+import { usePinboard } from '@/context/pinboard-context'
 import {
   initiateLink,
   pollConnectorUntilActive,
@@ -75,6 +79,7 @@ import {
   type ToolConnectPromptEvent,
   type ToolProgressEvent,
   type WebSearchEvent,
+  type BrainStreamOpts,
 } from '@/lib/api/brain'
 import { ApiError } from '@/lib/api/client'
 import { isExtractable, extractText, stripDocumentBlocks } from '@/lib/brain-file-extract'
@@ -1215,6 +1220,7 @@ function BrainPageInner() {
   const abortRef         = useRef<AbortController | null>(null)
   const activeRunAbortRef = useRef<AbortController | null>(null)
   const activeRunSeqRef   = useRef(0)
+  const phaseRef          = useRef<Phase>(phase)
   const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const turnCounterRef   = useRef(0)
   // Set to true when we navigate to a newly-created chat — prevents the thread-change
@@ -1224,16 +1230,23 @@ function BrainPageInner() {
   // user input in local state, so re-fetching messages would render it twice.
   const skipNextHistoryLoadRef = useRef(false)
 
+  useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
+
   // ── Add-menu feature state ────────────────────────────────────────────────
 
   const { models, selectModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
   const { processFiles, FILE_ACCEPT } = useFileUpload()
+  const { pins: pinboardPins, isLoading: pinboardLoading } = usePinboard()
 
   const [webSearchEnabled,     setWebSearchEnabled]     = useState(false)
   const [selectedStyleId,      setSelectedStyleId]      = useState<string | null>(null)
   const [styleChipOpen,        setStyleChipOpen]        = useState(false)
   const [selectedFolders,      setSelectedFolders]      = useState<PinFolder[]>([])
+  const [confirmedPins,        setConfirmedPins]        = useState<{ folderKey: string; ids: string[] } | null>(null)
+  const [pinCardOpen,          setPinCardOpen]          = useState(false)
   const [selectedPersona,      setSelectedPersona]      = useState<SelectedPersonaInfo | null>(null)
   const [personaChipOpen,      setPersonaChipOpen]      = useState(false)
   const [chipPersonas,         setChipPersonas]         = useState<SelectedPersonaInfo[]>([])
@@ -1438,6 +1451,19 @@ function BrainPageInner() {
       .catch(() => setChipPersonas([]))
       .finally(() => setLoadingChipPersonas(false))
   }, [personaChipOpen])
+
+  const selectedFolderPins = useMemo(() => {
+    const folderIds = new Set(selectedFolders.map((folder) => folder.id))
+    return pinboardPins.filter((pin) => pin.folderId && folderIds.has(pin.folderId))
+  }, [pinboardPins, selectedFolders])
+
+  const selectedFolderKey = selectedFolders.map((folder) => folder.id).sort().join(',')
+  const effectivePinIds = useMemo(() => {
+    const available = new Set(selectedFolderPins.map((pin) => pin.id))
+    return confirmedPins?.folderKey !== selectedFolderKey
+      ? [...available]
+      : confirmedPins.ids.filter((id) => available.has(id))
+  }, [confirmedPins, selectedFolderKey, selectedFolderPins])
 
   useEffect(() => () => {
     if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
@@ -2166,14 +2192,29 @@ function BrainPageInner() {
     const controller = new AbortController()
     activeRunAbortRef.current = controller
     let closed = false
+    let terminalEventReceived = false
 
     void subscribeBrainRun(activePlanId, activeRunSeqRef.current, controller.signal)
       .then((response) => consumeBrainStream(response, {
-        onNamed:  handleNamedEvent,
+        onNamed:  (name, data) => {
+          if (
+            name === 'message_saved' ||
+            name === 'run_completed' ||
+            name === 'run_failed' ||
+            name === 'run_cancelled'
+          ) {
+            terminalEventReceived = true
+          }
+          handleNamedEvent(name, data)
+        },
         onInline: handleInlineEvent,
         onClose:  () => {
           closed = true
           if (activeRunAbortRef.current === controller) activeRunAbortRef.current = null
+          if (!terminalEventReceived && !controller.signal.aborted) {
+            setStreamError('Brain disconnected before the run finished. Please try again.')
+            setPhase('failed')
+          }
         },
         onError:  (e) => {
           if (e.name === 'AbortError') return
@@ -2206,6 +2247,7 @@ function BrainPageInner() {
     files?:           File[],
     displayInput?:    string,  // what shows in the user bubble (defaults to input)
     allDisplayFiles?: File[],  // all files to show as chips (includes text-extracted ones)
+    contextOpts:      Pick<BrainStreamOpts, 'persona_id' | 'pin_ids'> = {},
   ) => {
     if (completeTimerRef.current) {
       clearTimeout(completeTimerRef.current)
@@ -2261,9 +2303,12 @@ function BrainPageInner() {
       let response: Response
       let resolvedChatId = existingChatId
 
-      const fileOpts = files?.length ? { files } : {}
+      const streamOpts: BrainStreamOpts = {
+        ...contextOpts,
+        ...(files?.length ? { files } : {}),
+      }
       if (!resolvedChatId) {
-        const result = await startBrainChat(input, fileOpts, controller.signal)
+        const result = await startBrainChat(input, streamOpts, controller.signal)
         resolvedChatId = result.chatId
         response = result.stream
         if (resolvedChatId) {
@@ -2287,13 +2332,29 @@ function BrainPageInner() {
           toast.warning('Chat started but cannot be saved to the URL. Refreshing will lose it.')
         }
       } else {
-        response = await continueBrainChat(resolvedChatId, input, fileOpts, controller.signal)
+        response = await continueBrainChat(resolvedChatId, input, streamOpts, controller.signal)
       }
 
+      let durablePlanProposed = false
+      let terminalEventReceived = false
       await consumeBrainStream(response, {
-        onNamed:  handleNamedEvent,
+        onNamed:  (name, data) => {
+          if (name === 'plan_proposed') durablePlanProposed = true
+          if (name === 'message_saved' || name === 'run_failed' || name === 'run_cancelled') {
+            terminalEventReceived = true
+          }
+          handleNamedEvent(name, data)
+        },
         onInline: handleInlineEvent,
-        onClose:  () => {},
+        onClose:  () => {
+          abortRef.current = null
+          if (terminalEventReceived) return
+          const current = phaseRef.current
+          const safelyWaitingForUser = current === 'paused' || current === 'cancelled' || current === 'failed'
+          if (durablePlanProposed || safelyWaitingForUser) return
+          setStreamError('Brain stopped responding before the run finished. Please try again.')
+          setPhase('failed')
+        },
         onError:  (e) => {
           // User-initiated stop arrives as AbortError — the Stop handler
           // already transitioned phase to 'paused', so don't override.
@@ -2364,6 +2425,11 @@ function BrainPageInner() {
       return
     }
 
+    if (selectedFolders.length > 0 && pinboardLoading) {
+      toast.info('Your pin context is still loading. Try sending again in a moment.')
+      return
+    }
+
     const terminalPhases: Phase[] = ['complete', 'cancelled', 'failed']
     if (terminalPhases.includes(phase)) {
       snapshotAndReset(
@@ -2418,6 +2484,10 @@ function BrainPageInner() {
         binaryFiles.length > 0 ? binaryFiles : undefined,
         value,   // shown in user bubble (original text, no injected content)
         allFiles.length > 0 ? allFiles : undefined,  // all files shown as chips (incl. text-extracted)
+        {
+          persona_id: selectedPersona?.id,
+          pin_ids: effectivePinIds.length > 0 ? effectivePinIds : undefined,
+        },
       )
     }
 
@@ -2425,7 +2495,8 @@ function BrainPageInner() {
   }, [
     phase, chatId, planSteps, userMessage, streamedContent,
     activePlanSummary, completedAt, streamImages, streamFiles, snapshotAndReset, runBrainStream,
-    brainAttachments, userAttachments, creditStatus.blocked,
+    brainAttachments, userAttachments, creditStatus.blocked, selectedPersona, effectivePinIds,
+    selectedFolders.length, pinboardLoading,
   ])
 
   // ── Plan decisions ────────────────────────────────────────────────────────────
@@ -3013,6 +3084,16 @@ function BrainPageInner() {
         <MessageBubble role="user" content={userMessage} maxWidth="75%" />
       </div>
 
+      {(selectedPersona || liveContext?.persona) && (
+        <Rise>
+          <PersonaActiveBar
+            personaName={selectedPersona?.name || liveContext?.persona?.name || liveContext?.persona?.handler || 'Persona'}
+            onChangePersona={() => setPersonaChipOpen(true)}
+            onRemovePersona={() => setSelectedPersona(null)}
+          />
+        </Rise>
+      )}
+
       {/* Answered clarification Q&As — read-only stacked card, placed right
           after the user message exactly like the Full-thread story. */}
       {answeredClarifications.length > 0 && (
@@ -3173,6 +3254,41 @@ function BrainPageInner() {
     />
   ))
 
+  const pinReviewChip = selectedFolderPins.length > 0 ? (
+    <Dropdown.Float
+      open={pinCardOpen}
+      onOpenChange={setPinCardOpen}
+      placement="top-start"
+      trigger={
+        <Chip
+          label={`${effectivePinIds.length} of ${selectedFolderPins.length} pins`}
+          icon={<PinIcon size={20} color="var(--chip-text)" />}
+          onExpand={() => setPinCardOpen((open) => !open)}
+        />
+      }
+    >
+      <div style={{ width: 'min(520px, calc(100vw - 32px))', background: 'var(--neutral-white)', borderRadius: 12 }}>
+        <PinConfirmationCard
+          key={`${selectedFolderKey}:${confirmedPins?.folderKey === selectedFolderKey ? confirmedPins.ids.join(',') : 'all'}`}
+          pins={selectedFolderPins.map((pin) => ({
+            id: pin.id,
+            title: pin.title,
+            source: pin.folderName || pin.category,
+          }))}
+          defaultSelected={effectivePinIds}
+          onProceed={(ids) => {
+            setConfirmedPins({ folderKey: selectedFolderKey, ids })
+            setPinCardOpen(false)
+          }}
+          onSkip={() => {
+            setConfirmedPins({ folderKey: selectedFolderKey, ids: [] })
+            setPinCardOpen(false)
+          }}
+        />
+      </div>
+    </Dropdown.Float>
+  ) : null
+
   const webSearchChip = webSearchEnabled ? (
     <Chip
       key="web-search"
@@ -3199,29 +3315,37 @@ function BrainPageInner() {
         />
       }
     >
-      <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
-        <Dropdown.Section fluid>
-          {loadingChipPersonas
-            ? <Dropdown.Item label="Loading…" fluid disabled />
-            : chipPersonas.length > 0
-              ? chipPersonas.map(p => (
-                  <Dropdown.Item
-                    key={p.id}
-                    label={p.name}
-                    fluid
-                    selected={selectedPersona.id === p.id}
-                    onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
-                  />
-                ))
-              : <Dropdown.Item label="No agents yet" fluid disabled />
-          }
-        </Dropdown.Section>
-      </Dropdown>
+      <div style={{ width: 'min(520px, calc(100vw - 32px))', background: 'var(--neutral-white)', borderRadius: 12 }}>
+        {loadingChipPersonas ? (
+          <div style={{ padding: 20, color: 'var(--neutral-400)' }}>Loading personas…</div>
+        ) : chipPersonas.length > 0 ? (
+          <PersonaSelectionCard
+            key={selectedPersona.id}
+            personas={chipPersonas.map((persona) => ({
+              id: persona.id,
+              name: persona.name,
+              handle: persona.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+              avatarUrl: persona.imageUrl ?? undefined,
+            }))}
+            recommendedId={selectedPersona.id}
+            onProceed={(id) => {
+              setSelectedPersona(chipPersonas.find((persona) => persona.id === id) ?? null)
+              setPersonaChipOpen(false)
+            }}
+            onSkip={() => {
+              setSelectedPersona(null)
+              setPersonaChipOpen(false)
+            }}
+          />
+        ) : (
+          <div style={{ padding: 20, color: 'var(--neutral-400)' }}>No personas yet.</div>
+        )}
+      </div>
     </Dropdown.Float>
   ) : null
 
-  const chips = (styleChip || folderChips.length > 0 || webSearchChip || personaChip) ? (
-    <>{styleChip}{folderChips}{webSearchChip}{personaChip}</>
+  const chips = (styleChip || folderChips.length > 0 || pinReviewChip || webSearchChip || personaChip) ? (
+    <>{styleChip}{folderChips}{pinReviewChip}{webSearchChip}{personaChip}</>
   ) : undefined
 
   const addMenu = (
@@ -3238,7 +3362,6 @@ function BrainPageInner() {
       selectedPersonaId={selectedPersona?.id ?? null}
       onPersonaChange={setSelectedPersona}
       hideStyle
-      hidePersona
     />
   )
 
