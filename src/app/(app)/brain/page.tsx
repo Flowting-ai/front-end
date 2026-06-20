@@ -24,6 +24,7 @@ import {
   ClarificationSummary,
   ArtifactCard,
   type ClarificationSummaryItem,
+  type PersonaSelectionItem,
 } from '@/templates/Brain'
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
@@ -235,6 +236,32 @@ interface SynthPersonaSource { id: string; name: string; imageUrl?: string | nul
 function cleanPersonaLabel(label: string): string {
   const head = label.split(/\s*[—–]\s*/)[0] ?? label
   return head.replace(/\s*\([^)]*\)\s*/g, '').trim() || label.trim()
+}
+
+function personaHandleFromName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'persona'
+}
+
+function isDefaultPersonaOption(option: QuestionCardOption): boolean {
+  const text = `${option.id} ${option.label}`.toLowerCase()
+  return /\b(default|without persona|no persona|none|skip)\b/.test(text)
+}
+
+function personaOptionDescription(label: string): string | undefined {
+  const tail = label.split(/\s*[—–]\s*/).slice(1).join(' — ').replace(/^\((.*)\)$/, '$1').trim()
+  return tail || undefined
+}
+
+function isPersonaSelectionClarification(clarification: {
+  question: string
+  description: string
+  options: QuestionCardOption[]
+}): boolean {
+  if (clarification.options.length === 0) return false
+  const promptText = `${clarification.question} ${clarification.description}`.toLowerCase()
+  const mentionsPersona = promptText.includes('persona') || promptText.includes('agent')
+  if (!mentionsPersona) return false
+  return clarification.options.some((option) => !isDefaultPersonaOption(option))
 }
 
 function synthesizeContextFromMessages(
@@ -1190,6 +1217,9 @@ function BrainPageInner() {
     collected?:  Record<string, unknown>   // answers gathered so far, keyed by question id
   }
   const [activeClarification, setActiveClarification] = useState<ActiveClarification | null>(null)
+  const activeClarificationIsPersonaSelection = activeClarification
+    ? isPersonaSelectionClarification(activeClarification)
+    : false
   // Connector-tool permission ask (event: permission_prompt) — the connector is
   // linked but the tool's policy is `ask`. Rendered inline in the active turn.
   interface ActivePermissionPrompt {
@@ -1413,6 +1443,10 @@ function BrainPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (activePermissionPrompt) scrollToBottom(true) }, [activePermissionPrompt?.promptId])
 
+  // Persona prompt-gate card appeared — always scroll into view.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (activeClarificationIsPersonaSelection) scrollToBottom(true) }, [activeClarification?.promptId, activeClarificationIsPersonaSelection])
+
   useEffect(() => {
     if (!selectedPersona) return
     if (selectedPersona.systemPrompt !== null) {
@@ -1448,14 +1482,14 @@ function BrainPageInner() {
   }, [selectedPersona, models])
 
   useEffect(() => {
-    if (!personaChipOpen || chipPersonasFetchedRef.current) return
+    if (!(personaChipOpen || activeClarificationIsPersonaSelection) || chipPersonasFetchedRef.current) return
     chipPersonasFetchedRef.current = true
     setLoadingChipPersonas(true)
     fetchPersonas()
       .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
       .catch(() => setChipPersonas([]))
       .finally(() => setLoadingChipPersonas(false))
-  }, [personaChipOpen])
+  }, [personaChipOpen, activeClarificationIsPersonaSelection])
 
   const selectedFolderPins = useMemo(() => {
     const folderIds = new Set(selectedFolders.map((folder) => folder.id))
@@ -2769,6 +2803,105 @@ function BrainPageInner() {
       })
   }, [activeClarification])
 
+  const handlePersonaPromptProceed = useCallback((optionId: string) => {
+    if (!activeClarification || clarificationInFlight) return
+    const option = activeClarification.options.find((o) => o.id === optionId)
+    if (!option) return
+
+    const displayAnswer = option.label || optionId
+    const isDefaultPick = isDefaultPersonaOption(option)
+    const cleanedLabel = cleanPersonaLabel(option.label).toLowerCase()
+    const knownPersona = chipPersonas.find((persona) =>
+      persona.id === optionId ||
+      persona.activeVersionId === optionId ||
+      cleanPersonaLabel(persona.name).toLowerCase() === cleanedLabel
+    )
+
+    if (isDefaultPick) {
+      setSelectedPersona(null)
+    } else if (knownPersona) {
+      setSelectedPersona(knownPersona)
+    }
+
+    if (activeClarification.source === 'question_prompt') {
+      const qs     = activeClarification.questions ?? []
+      const cursor = activeClarification.qCursor ?? 0
+      const cur    = qs[cursor]
+      if (!cur) return
+
+      const collected = { ...(activeClarification.collected ?? {}), [cur.id]: optionId }
+
+      if (cursor + 1 < qs.length) {
+        setAnsweredClarifications((prev) => [...prev, { question: cur.question, answer: displayAnswer }])
+        const next = qs[cursor + 1]
+        setActiveClarification({
+          ...activeClarification,
+          kind:        next.type,
+          question:    next.question,
+          description: '',
+          options:     next.options,
+          openEnded:   next.options.length === 0,
+          qCursor:     cursor + 1,
+          collected,
+        })
+        setSelectedClarificationOption(undefined)
+        clarificationTextRef.current = ''
+        return
+      }
+
+      setClarificationInFlight(true)
+      void respondToPrompt(activeClarification.promptId, { response: { answers: collected } })
+        .then(() => {
+          setAnsweredClarifications((prev) => [...prev, { question: cur.question, answer: displayAnswer }])
+          setActiveClarification(null)
+          setSelectedClarificationOption(undefined)
+          clarificationTextRef.current = ''
+          setPhase('thinking')
+        })
+        .catch((e: unknown) => {
+          console.error('[Brain] persona question_prompt respond failed:', e)
+          const msg = e instanceof ApiError && e.status === 404
+            ? 'This prompt expired — please re-send your message.'
+            : 'Failed to submit your persona choice. Please try again.'
+          toast.error(msg)
+        })
+        .finally(() => setClarificationInFlight(false))
+      return
+    }
+
+    setClarificationInFlight(true)
+    void respondToPrompt(activeClarification.promptId, {
+      response: { decision: 'select', value: optionId },
+    })
+      .then(() => {
+        setAnsweredClarifications((prev) => [
+          ...prev,
+          { question: activeClarification.question, answer: displayAnswer },
+        ])
+        setActiveClarification(null)
+        setSelectedClarificationOption(undefined)
+        clarificationTextRef.current = ''
+      })
+      .catch((e: unknown) => {
+        console.error('[Brain] persona clarification respond failed:', e)
+        const msg = e instanceof ApiError && e.status === 404
+          ? 'This prompt expired — please re-send your message.'
+          : 'Failed to submit your persona choice. Please try again.'
+        toast.error(msg)
+      })
+      .finally(() => setClarificationInFlight(false))
+  }, [activeClarification, clarificationInFlight, chipPersonas])
+
+  const handlePersonaPromptSkip = useCallback(() => {
+    if (!activeClarification) return
+    const defaultOption = activeClarification.options.find(isDefaultPersonaOption)
+    if (defaultOption) {
+      handlePersonaPromptProceed(defaultOption.id)
+      return
+    }
+    handleClarificationSkip()
+  }, [activeClarification, handleClarificationSkip, handlePersonaPromptProceed])
+
   // ── Permission prompt handler (event: permission_prompt) ────────────────────
   // Resolve a connector-tool permission ask by POSTing a plain string decision
   // ("allow_once" | "allow" | "block"). Unblocks the stream like clarifications.
@@ -3038,6 +3171,44 @@ function BrainPageInner() {
     (phase === 'clarifying-goal' && planExecutionStarted)
   )
 
+  const activePersonaPrompt = useMemo((): {
+    key: string
+    personas: PersonaSelectionItem[]
+    recommendedId?: string
+  } | null => {
+    if (!activeClarification || !activeClarificationIsPersonaSelection) return null
+
+    const seen = new Set<string>()
+    const personas: PersonaSelectionItem[] = activeClarification.options.flatMap((option) => {
+      if (isDefaultPersonaOption(option) || seen.has(option.id)) return []
+      seen.add(option.id)
+
+      const label = cleanPersonaLabel(option.label || option.id)
+      const labelKey = label.toLowerCase()
+      const knownPersona = chipPersonas.find((persona) =>
+        persona.id === option.id ||
+        persona.activeVersionId === option.id ||
+        cleanPersonaLabel(persona.name).toLowerCase() === labelKey
+      )
+      const name = knownPersona?.name ?? label
+
+      return [{
+        id:          option.id,
+        name,
+        handle:      personaHandleFromName(name),
+        description: personaOptionDescription(option.label),
+        avatarUrl:   knownPersona?.imageUrl ?? undefined,
+      }]
+    })
+
+    if (personas.length === 0) return null
+    return {
+      key: `${activeClarification.promptId}:${activeClarification.question}`,
+      personas,
+      recommendedId: personas[0]?.id,
+    }
+  }, [activeClarification, activeClarificationIsPersonaSelection, chipPersonas])
+
   // Render one timeline item in arrival order. Mutating kinds read their live
   // state by reference (tool status from liveToolCalls, the latest progress
   // from toolProgress, the active permission/connect prompt) so a row added
@@ -3122,6 +3293,20 @@ function BrainPageInner() {
           active, then stays as a record of how Brain approached the task. */}
       {reasoningText && (
         <Rise><BrainNarration text={reasoningText} isStreaming={reasoningActive} /></Rise>
+      )}
+
+      {activePersonaPrompt && (
+        <Rise>
+          <div style={{ maxWidth: 700 }}>
+            <PersonaSelectionCard
+              key={activePersonaPrompt.key}
+              personas={activePersonaPrompt.personas}
+              recommendedId={activePersonaPrompt.recommendedId}
+              onProceed={handlePersonaPromptProceed}
+              onSkip={handlePersonaPromptSkip}
+            />
+          </div>
+        </Rise>
       )}
 
       {/* ActivityBlock — plan-step tracker; persists through executing and paused */}
@@ -3468,7 +3653,7 @@ function BrainPageInner() {
       contextRailData={contextRailData}
       threadRef={threadRef}
       initialInputValue={scheduleInitialInput || undefined}
-      clarificationProps={activeClarification ? {
+      clarificationProps={activeClarification && !activePersonaPrompt ? {
         // The backend's `title` is usually a generic preamble. The actual
         // model-generated question lives in `description`. Prefer the
         // longer body; fall back to the title only when the model didn't
