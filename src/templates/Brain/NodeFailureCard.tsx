@@ -95,7 +95,7 @@ export function NodeFailureCard({
           Cancel
         </Button>
         <div style={{ flex: '1 0 0' }} />
-        {!step.isCritical && (
+        {!step.isCritical && onSkip && (
           <Button variant="outline" size="sm" onClick={onSkip}>
             Skip step
           </Button>

@@ -21,6 +21,12 @@ export interface QuestionCardOption {
   description?: string
   /** Badge shown beside the heading in 'info' mode (e.g. Required / Optional) */
   badge?: { label: string; color: BadgeColor }
+  /** Persona-entity options (entity="persona"): @handle shown under the name. */
+  handle?:      string
+  /** Persona-entity options: avatar image URL for the agent card. */
+  avatarUrl?:   string
+  /** Persona-entity options: server marks the best-ranked agent. */
+  recommended?: boolean
 }
 
 export interface QuestionCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onSelect'> {
@@ -343,7 +349,12 @@ export function QuestionCard(
       setRankedOptions(options)
     }
 
-    const [openEndedOpen, setOpenEndedOpen] = useState(false)
+    // A question with no options is inherently free-text — open the input
+    // immediately so the user can type and send without first having to click
+    // the "Something else…" label (otherwise the typed answer is never captured).
+    const [openEndedOpen, setOpenEndedOpen] = useState(
+      options.length === 0 && type !== 'rank' && type !== 'info',
+    )
     const [openEndedText, setOpenEndedText] = useState('')
     const openEndedRef  = useRef<HTMLTextAreaElement>(null)
     const optionRefs    = useRef<(HTMLDivElement | null)[]>([])

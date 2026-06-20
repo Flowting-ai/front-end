@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useMemo } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { PinIcon, AtomOneIcon, QuillWriteOneIcon } from '@strange-huge/icons'
@@ -13,6 +13,7 @@ import { useHighlight } from '@/context/highlight-context'
 import { useCompare } from '@/context/compare-context'
 import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
+import { sortHighlightsBySourcePosition } from '@/lib/highlight-order'
 
 // Derives the active chat ID from the URL so the gutter can be filtered
 // per-chat. Handles both URL patterns used in the app:
@@ -56,10 +57,13 @@ function FloatingPanelImpl() {
   // return nothing so stale marks from a previous chat never bleed through.
   // Highlights whose chatId is not yet known are shown as a safe fallback
   // until the backend provides chat_id in the response.
-  const gutterMarks: GutterMark[] = currentChatId
-    ? highlights
-        .flatMap(h => (!h.chatId || h.chatId === currentChatId) ? [{ id: h.id, colorIndex: h.colorIndex }] : [])
-    : []
+  const gutterMarks: GutterMark[] = useMemo(() => {
+    if (!currentChatId) return []
+
+    return sortHighlightsBySourcePosition(
+      highlights.filter(h => !h.chatId || h.chatId === currentChatId),
+    ).map(h => ({ id: h.id, colorIndex: h.colorIndex }))
+  }, [currentChatId, highlights])
 
   return (
     <>

@@ -15,8 +15,13 @@ export interface ClarificationCardProps {
    *  know the total ahead of time (e.g. live SSE-driven clarification
    *  where each question is decided on the fly) should leave this unset. */
   totalQuestions?:    number
-  selected?:          string
+  selected?:          string | string[]
   clarificationType?: ClarificationType
+  /** When true the card renders checkboxes (multi-select) instead of radios,
+   *  `selected` is treated as a string[], and the header shows "N Selected". */
+  multiSelect?:       boolean
+  /** Count shown as "N Selected" in the header (multi-select only). */
+  selectionCount?:    number
   /** Placeholder text inside the open-ended text input. Default in
    *  QuestionCard is "Something else on your mind". Override e.g. with
    *  "Type your answer…" for free-text-only clarifications. */
@@ -37,6 +42,8 @@ export function ClarificationCard({
   questionIndex,
   totalQuestions,
   selected,
+  multiSelect,
+  selectionCount,
   openEndedLabel,
   onSelect,
   onOpenEndedSubmit,
@@ -55,10 +62,11 @@ export function ClarificationCard({
   return (
     <QuestionCard
       key={question}
-      type="single"
+      type={multiSelect ? 'multi' : 'single'}
       question={question}
       options={options}
       selected={selected}
+      selectionCount={multiSelect ? selectionCount : undefined}
       onSelect={onSelect}
       paginationLabel={paginationLabel}
       openEndedLabel={openEndedLabel}

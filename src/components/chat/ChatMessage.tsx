@@ -10,7 +10,7 @@ import { StreamingCursor } from "./StreamingCursor";
 import { BlockSequenceRenderer, SourceList } from "./ResponseBlocks";
 import { ConnectPromptCard, PermissionPromptCard } from "./ConnectorPrompts";
 import { ContentRenderer } from "@/lib/content-renderer";
-import { rawRangeFromVisibleRange } from "@/lib/highlight-offsets";
+import { applyRenderedHighlights, clearRenderedHighlights, getRenderedSelectionRange } from "@/lib/rendered-highlights";
 import { usePinboardActions } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
 import { SelectionPopover } from "@/components/SelectionPopover";
@@ -255,21 +255,6 @@ function StreamingTextContent({ content, citations }: { content: string; citatio
   return <ContentRenderer content={content} webCitations={citations} isStreaming cursor={dot} />;
 }
 
-// Returns true when the selection range overlaps any rendered LaTeX/KaTeX
-// formula inside `root`. Used to hide the Highlight option for math, which is
-// intentionally not highlightable.
-function rangeIntersectsKatex(range: Range, root: HTMLElement): boolean {
-  const katexEls = root.querySelectorAll('.katex')
-  for (const el of katexEls) {
-    try {
-      if (range.intersectsNode(el)) return true
-    } catch {
-      /* detached / cross-document node — ignore */
-    }
-  }
-  return false
-}
-
 // ── Main ChatMessage Component ────────────────────────────────────────────────
 
 interface ChatMessageProps {
@@ -309,9 +294,6 @@ export function ChatMessage({
   const [copied, setCopied] = useState(false);
   const [selectionOpen, setSelectionOpen] = useState(false);
   const [selectionAnchor, setSelectionAnchor] = useState<DOMRect | null>(null);
-  // True when the current selection overlaps a rendered LaTeX/KaTeX formula.
-  // LaTeX is not highlightable, so the Highlight option is hidden in that case.
-  const [selectionHasLatex, setSelectionHasLatex] = useState(false);
   const [justModelSelected, setJustModelSelected] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -380,9 +362,6 @@ export function ChatMessage({
         if (!contentRef.current?.contains(range.commonAncestorContainer)) return
         const rect = range.getBoundingClientRect()
         if (!rect.width) return
-        // Hide the Highlight option when the selection overlaps a LaTeX/KaTeX
-        // formula — LaTeX is intentionally not highlightable.
-        setSelectionHasLatex(rangeIntersectsKatex(range, contentRef.current))
         setSelectionAnchor(rect)
         setSelectionOpen(true)
       })
@@ -403,6 +382,39 @@ export function ChatMessage({
       document.removeEventListener('selectionchange', handleSelectionChange)
     }
   }, [disableHighlight, isAssistant])
+
+  useEffect(() => {
+    if (!isAssistant || disableHighlight) return
+    const root = contentRef.current
+    if (!root) return
+
+    let frame: number | null = null
+    const observer = new MutationObserver(() => scheduleApply())
+
+    const apply = () => {
+      frame = null
+      observer.disconnect()
+      if (messageHighlights.length) {
+        applyRenderedHighlights(root, messageHighlights)
+      } else {
+        clearRenderedHighlights(root)
+      }
+      observer.observe(root, { childList: true, characterData: true, subtree: true })
+    }
+
+    const scheduleApply = () => {
+      if (frame != null) return
+      frame = requestAnimationFrame(apply)
+    }
+
+    scheduleApply()
+    observer.observe(root, { childList: true, characterData: true, subtree: true })
+
+    return () => {
+      if (frame != null) cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
+  }, [disableHighlight, isAssistant, messageHighlights])
 
   // Cleanup hover timer on unmount
   useEffect(() => () => {
@@ -454,26 +466,12 @@ export function ChatMessage({
   const handleHighlight = () => {
     const sel = window.getSelection()
     if (!sel || sel.rangeCount === 0) return
-    const selectedText = sel.toString()
-    const text = selectedText.trim()
-    if (!text) return
+    if (!contentRef.current) return
 
-    // Compute character offsets within the message content element so the
-    // backend can reconstruct the exact range when re-rendering the mark.
-    let startOffset = 0
-    let endOffset   = 0
-    if (contentRef.current) {
-      const range    = sel.getRangeAt(0)
-      const preRange = range.cloneRange()
-      preRange.selectNodeContents(contentRef.current)
-      preRange.setEnd(range.startContainer, range.startOffset)
-      const visibleStart = preRange.toString().length + selectedText.search(/\S/)
-      const visibleEnd = visibleStart + text.length
-      const rawRange = rawRangeFromVisibleRange(message.content, visibleStart, visibleEnd)
-      if (!rawRange) return
-      startOffset = rawRange.startOffset
-      endOffset = rawRange.endOffset
-    }
+    const selectionRange = getRenderedSelectionRange(contentRef.current, sel)
+    if (!selectionRange) return
+
+    const { selectedText: text, startOffset, endOffset } = selectionRange
 
     addHighlight({ text, messageId: message.id, startOffset, endOffset, chatId })
     openHighlightPanel()
@@ -770,7 +768,7 @@ export function ChatMessage({
           >
             {isNewMessage && message.isLoading
               ? <StreamingTextContent content={message.content} citations={message.webCitations} />
-              : <ContentRenderer content={message.content} webCitations={message.webCitations} highlights={disableHighlight ? undefined : messageHighlights} />}
+              : <ContentRenderer content={message.content} webCitations={message.webCitations} />}
             {!(isNewMessage && message.isLoading) && (
               <StreamingCursor isVisible={false} />
             )}
@@ -1090,7 +1088,7 @@ export function ChatMessage({
         <SelectionPopover
           open={selectionOpen}
           anchorRect={selectionAnchor}
-          onHighlight={selectionHasLatex ? undefined : handleHighlight}
+          onHighlight={handleHighlight}
           onCopy={handleCopySelection}
         />
       )}

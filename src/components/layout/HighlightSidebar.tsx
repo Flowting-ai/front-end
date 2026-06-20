@@ -1,14 +1,14 @@
 'use client'
 
-import { Suspense, useEffect, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { useHighlight } from '@/context/highlight-context'
 import { HighlightPanel } from '@/components/HighlightPanel'
 import { toast } from '@/components/Toast'
-import type { FilterMode } from '@/context/highlight-context'
 import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
+import { sortHighlightsBySourcePosition } from '@/lib/highlight-order'
 
 function useCurrentChatId(): string | undefined {
   const pathname = usePathname()
@@ -33,6 +33,10 @@ function HighlightSidebarImpl() {
 
   const { push }      = useRouter()
   const currentChatId = useCurrentChatId()
+  const panelHighlights = useMemo(
+    () => filterMode === 'this-chat' ? sortHighlightsBySourcePosition(highlights) : highlights,
+    [filterMode, highlights],
+  )
 
   // Stores a pending cross-chat scroll target when the user clicks "Open in chat"
   // on a highlight from a different chat. Cleared once the scroll succeeds.
@@ -147,7 +151,7 @@ function HighlightSidebarImpl() {
           style={{ height: '100%', flexShrink: 0, overflow: 'hidden' }}
         >
           <HighlightPanel
-            highlights={highlights}
+            highlights={panelHighlights}
             onJump={handleJump}
             onCopy={copyHighlight}
             onDelete={deleteHighlight}

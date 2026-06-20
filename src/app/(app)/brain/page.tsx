@@ -21,6 +21,7 @@ import {
   BrainResultHeader,
   LoopCancelledCard,
   LoopFailedCard,
+  NodeFailureCard,
   ClarificationSummary,
   ArtifactCard,
   type ClarificationSummaryItem,
@@ -247,22 +248,6 @@ function isDefaultPersonaOption(option: QuestionCardOption): boolean {
   return /\b(default|without persona|no persona|none|skip)\b/.test(text)
 }
 
-function personaOptionDescription(label: string): string | undefined {
-  const tail = label.split(/\s*[—–]\s*/).slice(1).join(' — ').replace(/^\((.*)\)$/, '$1').trim()
-  return tail || undefined
-}
-
-function isPersonaSelectionClarification(clarification: {
-  question: string
-  description: string
-  options: QuestionCardOption[]
-}): boolean {
-  if (clarification.options.length === 0) return false
-  const promptText = `${clarification.question} ${clarification.description}`.toLowerCase()
-  const mentionsPersona = promptText.includes('persona') || promptText.includes('agent')
-  if (!mentionsPersona) return false
-  return clarification.options.some((option) => !isDefaultPersonaOption(option))
-}
 
 function synthesizeContextFromMessages(
   messages: BrainMessage[],
@@ -1201,6 +1186,9 @@ function BrainPageInner() {
     type:        string                    // single_choice | multi_choice | text | yes_no
     options:     QuestionCardOption[]       // empty for text kind
     placeholder?: string
+    // What the options represent, set by the backend. Drives whether the
+    // question renders as a PersonaSelectionCard / PinConfirmationCard.
+    entity?:     'generic' | 'persona' | 'pin'
   }
   interface ActiveClarification {
     promptId:    string
@@ -1217,9 +1205,6 @@ function BrainPageInner() {
     collected?:  Record<string, unknown>   // answers gathered so far, keyed by question id
   }
   const [activeClarification, setActiveClarification] = useState<ActiveClarification | null>(null)
-  const activeClarificationIsPersonaSelection = activeClarification
-    ? isPersonaSelectionClarification(activeClarification)
-    : false
   // Connector-tool permission ask (event: permission_prompt) — the connector is
   // linked but the tool's policy is `ask`. Rendered inline in the active turn.
   interface ActivePermissionPrompt {
@@ -1232,6 +1217,9 @@ function BrainPageInner() {
   const [activePermissionPrompt, setActivePermissionPrompt] = useState<ActivePermissionPrompt | null>(null)
   const [permissionInFlight, setPermissionInFlight] = useState(false)
   const [selectedClarificationOption, setSelectedClarificationOption] = useState<string | undefined>(undefined)
+  // Selected option ids for a multi_choice clarification (checkboxes). Kept
+  // separate from the single-select id so toggling one never disturbs the other.
+  const [selectedClarificationMulti, setSelectedClarificationMulti] = useState<string[]>([])
   const [clarificationInFlight, setClarificationInFlight] = useState(false)
   const [answeredClarifications, setAnsweredClarifications] = useState<ClarificationSummaryItem[]>([])
   const clarificationCountRef = useRef(0)
@@ -1243,6 +1231,20 @@ function BrainPageInner() {
   // ── Pause ────────────────────────────────────────────────────────────────────
 
   const [pausedAfterLabel, setPausedAfterLabel] = useState<string | undefined>()
+
+  // ── Step failure (node-failed) ─────────────────────────────────────────────
+  // A step failed mid-execution. We hold the id + error so NodeFailureCard can
+  // render the failed step with its message; the label/criticality are resolved
+  // from the live plan at render time.
+  const [failedStep, setFailedStep] = useState<{ id: string; error: string } | null>(null)
+  // Once a step_failed lands we show the interactive NodeFailureCard; the run's
+  // trailing run_failed must NOT clobber it with the terminal LoopFailedCard.
+  const enteredNodeFailedRef = useRef(false)
+
+  // ── Counter note ───────────────────────────────────────────────────────────
+  // The text of the user's most recent plan revision, surfaced in-thread while
+  // Brain re-plans so the conversation reads coherently (may-day pattern).
+  const [lastCounterText, setLastCounterText] = useState<string | null>(null)
 
   // ── History ──────────────────────────────────────────────────────────────────
 
@@ -1290,6 +1292,14 @@ function BrainPageInner() {
   const chipPersonasFetchedRef = useRef(false)
   const [brainAttachments,     setBrainAttachments]     = useState<PendingAttachment[]>([])
   const [userAttachments,      setUserAttachments]      = useState<UserAttachment[]>([])
+
+  // Persona/pin prompts are identified by the backend-stamped `entity` on the
+  // current question — no string-matching heuristics. user_prompt-sourced
+  // clarifications have no `questions`, so they read as 'generic'.
+  const currentQuestionEntity =
+    activeClarification?.questions?.[activeClarification.qCursor ?? 0]?.entity ?? 'generic'
+  const activeClarificationIsPersonaSelection = currentQuestionEntity === 'persona'
+  const activeClarificationIsPinSelection = currentQuestionEntity === 'pin'
 
   // ── Persist file attachment metadata to localStorage for reload recovery ───────
   // BrainMessage from the server carries no input-file info, so we stash the
@@ -1443,9 +1453,10 @@ function BrainPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (activePermissionPrompt) scrollToBottom(true) }, [activePermissionPrompt?.promptId])
 
-  // Persona prompt-gate card appeared — always scroll into view.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (activeClarificationIsPersonaSelection) scrollToBottom(true) }, [activeClarification?.promptId, activeClarificationIsPersonaSelection])
+  // Persona / pin prompt-gate card appeared — always scroll into view.
+  useEffect(() => {
+    if (activeClarificationIsPersonaSelection || activeClarificationIsPinSelection) scrollToBottom(true)
+  }, [activeClarification?.promptId, activeClarificationIsPersonaSelection, activeClarificationIsPinSelection, scrollToBottom])
 
   useEffect(() => {
     if (!selectedPersona) return
@@ -1481,15 +1492,17 @@ function BrainPageInner() {
     return () => { cancelled = true }
   }, [selectedPersona, models])
 
+  // Persona prompts now render entirely from server-enriched options, so this
+  // only needs to populate the manual persona-chip picker.
   useEffect(() => {
-    if (!(personaChipOpen || activeClarificationIsPersonaSelection) || chipPersonasFetchedRef.current) return
+    if (!personaChipOpen || chipPersonasFetchedRef.current) return
     chipPersonasFetchedRef.current = true
     setLoadingChipPersonas(true)
     fetchPersonas()
       .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
       .catch(() => setChipPersonas([]))
       .finally(() => setLoadingChipPersonas(false))
-  }, [personaChipOpen, activeClarificationIsPersonaSelection])
+  }, [personaChipOpen])
 
   const selectedFolderPins = useMemo(() => {
     const folderIds = new Set(selectedFolders.map((folder) => folder.id))
@@ -1538,10 +1551,14 @@ function BrainPageInner() {
     setActionInFlight(false)
     setActiveClarification(null)
     setSelectedClarificationOption(undefined)
+    setSelectedClarificationMulti([])
     setClarificationInFlight(false)
     setAnsweredClarifications([])
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
+    setFailedStep(null)
+    enteredNodeFailedRef.current = false
+    setLastCounterText(null)
     setStreamedContent('')
     setReasoningText('')
     setReasoningActive(false)
@@ -1769,7 +1786,17 @@ function BrainPageInner() {
             if (!o || typeof o !== 'object') return []
             const oo = o as Record<string, unknown>
             const val = typeof oo.value === 'string' ? oo.value : ''
-            return val ? [{ id: val, label: typeof oo.label === 'string' ? oo.label : val }] : []
+            if (!val) return []
+            // Persona/pin options carry server-enriched fields (description,
+            // avatar_url, handle, recommended); plain options carry none.
+            return [{
+              id:          val,
+              label:       typeof oo.label === 'string' ? oo.label : val,
+              description: typeof oo.description === 'string' ? oo.description : undefined,
+              handle:      typeof oo.handle === 'string' ? oo.handle : undefined,
+              avatarUrl:   typeof oo.avatar_url === 'string' ? oo.avatar_url : undefined,
+              recommended: oo.recommended === true,
+            }]
           })
           const type = typeof obj.type === 'string' ? obj.type : 'text'
           // yes_no has no options in the payload — synthesize the two choices.
@@ -1778,12 +1805,14 @@ function BrainPageInner() {
             : type === 'yes_no'
               ? [{ id: 'yes', label: 'Yes' }, { id: 'no', label: 'No' }]
               : []
+          const entity = obj.entity === 'persona' || obj.entity === 'pin' ? obj.entity : 'generic'
           return [{
             id,
             question:    typeof obj.question === 'string' ? obj.question : 'Quick question',
             type,
             options:     resolvedOpts,
             placeholder: typeof obj.placeholder === 'string' ? obj.placeholder : undefined,
+            entity,
           }]
         })
         if (questions.length === 0) break
@@ -1801,7 +1830,7 @@ function BrainPageInner() {
           description: '',
           options:     first.options,
           index:       clarificationCountRef.current,
-          openEnded:   first.options.length === 0,
+          openEnded:   first.options.length === 0 || first.type === 'text',
           questions,
           qCursor:     0,
           collected:   {},
@@ -1877,6 +1906,13 @@ function BrainPageInner() {
           completeTimerRef.current = null
         }
         const error = typeof d.error === 'string' ? d.error : 'Brain run failed.'
+        // A specific step already surfaced the interactive NodeFailureCard — keep
+        // that (Re-run / Cancel) instead of the terminal LoopFailedCard. Capture
+        // the run-level error on the failed step if it didn't carry its own.
+        if (enteredNodeFailedRef.current) {
+          setFailedStep((prev) => (prev && !prev.error ? { ...prev, error } : prev))
+          break
+        }
         setStreamError(error)
         setPhase('failed')
         break
@@ -1918,8 +1954,13 @@ function BrainPageInner() {
 
       case 'step_failed': {
         const stepId = d.step_id as string
+        const error  = typeof d.error === 'string' ? d.error : ''
         setStepStatuses((prev) => ({ ...prev, [stepId]: 'failed' }))
-        // Execution halts; Opus narration follows as content events
+        // Surface an interactive NodeFailureCard (Re-run / Cancel). Execution
+        // halts here; Opus narration may still follow as content events.
+        setFailedStep({ id: stepId, error })
+        enteredNodeFailedRef.current = true
+        setPhase('node-failed')
         break
       }
 
@@ -1936,6 +1977,10 @@ function BrainPageInner() {
         if (activeRunAbortRef.current) {
           activeRunAbortRef.current = null
         }
+        // A failed step owns the terminal UI (NodeFailureCard). The run still
+        // emits message_saved as it tears down — don't let it schedule the
+        // success transition and flip the failure card to 'complete'.
+        if (enteredNodeFailedRef.current) break
         if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
         completeTimerRef.current = setTimeout(() => {
           setStreamingComplete(true)
@@ -2216,7 +2261,11 @@ function BrainPageInner() {
     setStepStatuses({})
     setShowCounterInput(false)
     setCounterText('')
+    setLastCounterText(null)
     setPausedAfterLabel(undefined)
+    setFailedStep(null)
+    enteredNodeFailedRef.current = false
+    setSelectedClarificationMulti([])
     setStreamImages([])
     setStreamFiles([])
     setToolProgress(null)
@@ -2328,10 +2377,14 @@ function BrainPageInner() {
     setActionInFlight(false)
     setActiveClarification(null)
     setSelectedClarificationOption(undefined)
+    setSelectedClarificationMulti([])
     setClarificationInFlight(false)
     setAnsweredClarifications([])
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
+    setFailedStep(null)
+    enteredNodeFailedRef.current = false
+    setLastCounterText(null)
     setStreamImages([])
     setStreamFiles([])
     setToolProgress(null)
@@ -2593,6 +2646,7 @@ function BrainPageInner() {
     setActionInFlight(true)
     setShowCounterInput(false)
     setCounterText('')
+    setLastCounterText(revision)
     setPhase('thinking')
 
     if (activePlanId) {
@@ -2655,8 +2709,16 @@ function BrainPageInner() {
   // the clarification so the stream resumes.
 
   const handleClarificationSelect = useCallback((id: string) => {
+    // multi_choice clarifications toggle membership (checkboxes); single-choice
+    // replaces the prior pick (radio).
+    if (activeClarification?.kind === 'multi_choice') {
+      setSelectedClarificationMulti((prev) =>
+        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+      )
+      return
+    }
     setSelectedClarificationOption(id)
-  }, [])
+  }, [activeClarification?.kind])
 
   // QuestionCard reports typed text via onOpenEndedSubmit at the moment the
   // user clicks Send. We stash it in a ref so handleClarificationSend (which
@@ -2684,18 +2746,23 @@ function BrainPageInner() {
       const cur    = qs[cursor]
       if (!cur) return
 
-      const isText = activeClarification.openEnded
-      // Choice → selected option value (required). Text → typed string, or
-      // null when blank (the backend accepts null for optional questions).
-      const value: unknown = isText ? (typedText || null) : (selectedId ?? null)
-      if (!isText && value == null) {
+      const isText  = activeClarification.openEnded
+      const isMulti = activeClarification.kind === 'multi_choice'
+      const multiIds = selectedClarificationMulti
+      // Text → typed string (or null when blank). Multi → array of ids (may be
+      // empty — the backend accepts zero+). Single → the selected id (required).
+      const value: unknown = isText ? (typedText || null) : isMulti ? multiIds : (selectedId ?? null)
+      if (!isText && !isMulti && value == null) {
         toast.info('Pick an option before sending.')
         return
       }
       const collected = { ...(activeClarification.collected ?? {}), [cur.id]: value }
+      const labelFor = (id: string) => cur.options.find((o) => o.id === id)?.label ?? id
       const displayAnswer = isText
         ? (typedText || '(skipped)')
-        : (cur.options.find((o) => o.id === selectedId)?.label ?? String(value))
+        : isMulti
+          ? (multiIds.length ? multiIds.map(labelFor).join(', ') : '(none selected)')
+          : (cur.options.find((o) => o.id === selectedId)?.label ?? String(value))
 
       // More questions remain → advance to the next one without POSTing.
       if (cursor + 1 < qs.length) {
@@ -2707,11 +2774,12 @@ function BrainPageInner() {
           question:    next.question,
           description: '',
           options:     next.options,
-          openEnded:   next.options.length === 0,
+          openEnded:   next.options.length === 0 || next.type === 'text',
           qCursor:     cursor + 1,
           collected,
         })
         setSelectedClarificationOption(undefined)
+        setSelectedClarificationMulti([])
         clarificationTextRef.current = ''
         return
       }
@@ -2723,6 +2791,7 @@ function BrainPageInner() {
           setAnsweredClarifications((prev) => [...prev, { question: cur.question, answer: displayAnswer }])
           setActiveClarification(null)
           setSelectedClarificationOption(undefined)
+          setSelectedClarificationMulti([])
           clarificationTextRef.current = ''
           // Hand control back to the stream: 'thinking' lets the next content
           // token flip to 'streaming' (clarifying-goal would swallow it).
@@ -2771,7 +2840,7 @@ function BrainPageInner() {
         toast.error(msg)
       })
       .finally(() => setClarificationInFlight(false))
-  }, [activeClarification, selectedClarificationOption, clarificationInFlight])
+  }, [activeClarification, selectedClarificationOption, selectedClarificationMulti, clarificationInFlight])
 
   // Skip is also the close (X) handler — see ClarificationCard's onClose={onSkip}.
   // Optimistic: dismiss the card immediately so the user gets instant
@@ -2783,6 +2852,7 @@ function BrainPageInner() {
 
     setActiveClarification(null)
     setSelectedClarificationOption(undefined)
+    setSelectedClarificationMulti([])
     clarificationTextRef.current = ''
     setAnsweredClarifications((prev) => [
       ...prev,
@@ -2810,17 +2880,21 @@ function BrainPageInner() {
 
     const displayAnswer = option.label || optionId
     const isDefaultPick = isDefaultPersonaOption(option)
-    const cleanedLabel = cleanPersonaLabel(option.label).toLowerCase()
-    const knownPersona = chipPersonas.find((persona) =>
-      persona.id === optionId ||
-      persona.activeVersionId === optionId ||
-      cleanPersonaLabel(persona.name).toLowerCase() === cleanedLabel
-    )
 
+    // Build the rail/active-bar persona straight from the enriched option —
+    // its value is the persona_id, label the name, avatarUrl the avatar.
     if (isDefaultPick) {
       setSelectedPersona(null)
-    } else if (knownPersona) {
-      setSelectedPersona(knownPersona)
+    } else {
+      setSelectedPersona({
+        id:              optionId,
+        name:            option.label || optionId,
+        imageUrl:        option.avatarUrl ?? null,
+        modelId:         null,
+        activeVersionId: null,
+        systemPrompt:    null,
+        temperature:     null,
+      })
     }
 
     if (activeClarification.source === 'question_prompt') {
@@ -2890,7 +2964,7 @@ function BrainPageInner() {
         toast.error(msg)
       })
       .finally(() => setClarificationInFlight(false))
-  }, [activeClarification, clarificationInFlight, chipPersonas])
+  }, [activeClarification, clarificationInFlight])
 
   const handlePersonaPromptSkip = useCallback(() => {
     if (!activeClarification) return
@@ -2901,6 +2975,60 @@ function BrainPageInner() {
     }
     handleClarificationSkip()
   }, [activeClarification, handleClarificationSkip, handlePersonaPromptProceed])
+
+  const handlePinPromptProceed = useCallback((selectedIds: string[]) => {
+    if (!activeClarification || clarificationInFlight) return
+
+    const qs     = activeClarification.questions ?? []
+    const cursor = activeClarification.qCursor ?? 0
+    const cur    = qs[cursor]
+    if (activeClarification.source !== 'question_prompt' || !cur) {
+      handleClarificationSkip()
+      return
+    }
+
+    const selectedLabels = selectedIds
+      .map((id) => activeClarification.options.find((option) => option.id === id)?.label ?? id)
+      .filter(Boolean)
+    const displayAnswer = selectedLabels.length > 0 ? selectedLabels.join(', ') : { type: 'skipped' as const }
+    const collected = { ...(activeClarification.collected ?? {}), [cur.id]: selectedIds }
+
+    if (cursor + 1 < qs.length) {
+      setAnsweredClarifications((prev) => [...prev, { question: cur.question, answer: displayAnswer }])
+      const next = qs[cursor + 1]
+      setActiveClarification({
+        ...activeClarification,
+        kind:        next.type,
+        question:    next.question,
+        description: '',
+        options:     next.options,
+        openEnded:   next.options.length === 0,
+        qCursor:     cursor + 1,
+        collected,
+      })
+      setSelectedClarificationOption(undefined)
+      clarificationTextRef.current = ''
+      return
+    }
+
+    setClarificationInFlight(true)
+    void respondToPrompt(activeClarification.promptId, { response: { answers: collected } })
+      .then(() => {
+        setAnsweredClarifications((prev) => [...prev, { question: cur.question, answer: displayAnswer }])
+        setActiveClarification(null)
+        setSelectedClarificationOption(undefined)
+        clarificationTextRef.current = ''
+        setPhase('thinking')
+      })
+      .catch((e: unknown) => {
+        console.error('[Brain] pin question_prompt respond failed:', e)
+        const msg = e instanceof ApiError && e.status === 404
+          ? 'This prompt expired — please re-send your message.'
+          : 'Failed to submit your pin selection. Please try again.'
+        toast.error(msg)
+      })
+      .finally(() => setClarificationInFlight(false))
+  }, [activeClarification, clarificationInFlight, handleClarificationSkip])
 
   // ── Permission prompt handler (event: permission_prompt) ────────────────────
   // Resolve a connector-tool permission ask by POSTing a plain string decision
@@ -2948,9 +3076,26 @@ function BrainPageInner() {
   }, [runBrainStream, userMessage, chatId])
 
   const handleChangeDirection = useCallback(() => {
-    // Go back to the plan approval screen so the user can re-inspect
-    setPhase('planning')
-  }, [])
+    // may-day: "Change direction" sends the user back to the ChatInput to type a
+    // new direction — not back to the same plan. Preserve the stopped turn in
+    // history, then reset the active turn so the input is editable again. The
+    // run was already stopped when we entered 'paused' (handleStop).
+    snapshotAndReset(
+      { cancelled: false },
+      planSteps,
+      userMessage,
+      streamedContent,
+      activePlanSummary,
+      completedAt,
+      streamImages,
+      userAttachments,
+      streamFiles,
+    )
+    setPhase('idle')
+  }, [
+    planSteps, userMessage, streamedContent, activePlanSummary, completedAt,
+    streamImages, userAttachments, streamFiles, snapshotAndReset,
+  ])
 
   // ── Restart ───────────────────────────────────────────────────────────────────
 
@@ -3168,6 +3313,7 @@ function BrainPageInner() {
     phase === 'executing' ||
     phase === 'streaming' ||
     phase === 'paused' ||
+    phase === 'node-failed' ||
     (phase === 'clarifying-goal' && planExecutionStarted)
   )
 
@@ -3178,36 +3324,48 @@ function BrainPageInner() {
   } | null => {
     if (!activeClarification || !activeClarificationIsPersonaSelection) return null
 
+    // Options are server-enriched (label = agent name, plus handle/avatar/
+    // description/recommended). Non-agent options (e.g. "Use the default") carry
+    // no avatar/handle and are dropped — the card has its own skip button.
     const seen = new Set<string>()
     const personas: PersonaSelectionItem[] = activeClarification.options.flatMap((option) => {
       if (isDefaultPersonaOption(option) || seen.has(option.id)) return []
       seen.add(option.id)
-
-      const label = cleanPersonaLabel(option.label || option.id)
-      const labelKey = label.toLowerCase()
-      const knownPersona = chipPersonas.find((persona) =>
-        persona.id === option.id ||
-        persona.activeVersionId === option.id ||
-        cleanPersonaLabel(persona.name).toLowerCase() === labelKey
-      )
-      const name = knownPersona?.name ?? label
-
+      const name = option.label || option.id
       return [{
         id:          option.id,
         name,
-        handle:      personaHandleFromName(name),
-        description: personaOptionDescription(option.label),
-        avatarUrl:   knownPersona?.imageUrl ?? undefined,
+        handle:      option.handle || personaHandleFromName(name),
+        description: option.description,
+        avatarUrl:   option.avatarUrl,
       }]
     })
 
     if (personas.length === 0) return null
+    const recommended = activeClarification.options.find((o) => o.recommended && !isDefaultPersonaOption(o))
     return {
       key: `${activeClarification.promptId}:${activeClarification.question}`,
       personas,
-      recommendedId: personas[0]?.id,
+      recommendedId: recommended?.id ?? personas[0]?.id,
     }
-  }, [activeClarification, activeClarificationIsPersonaSelection, chipPersonas])
+  }, [activeClarification, activeClarificationIsPersonaSelection])
+
+  const activePinPrompt = useMemo((): {
+    key: string
+    pins: Array<{ id: string; title: string; source?: string }>
+  } | null => {
+    if (!activeClarification || !activeClarificationIsPinSelection) return null
+    const pins = activeClarification.options.map((option) => ({
+      id:     option.id,
+      title:  option.label || option.id,
+      source: option.description,
+    }))
+    if (pins.length === 0) return null
+    return {
+      key: `${activeClarification.promptId}:${activeClarification.question}`,
+      pins,
+    }
+  }, [activeClarification, activeClarificationIsPinSelection])
 
   // Render one timeline item in arrival order. Mutating kinds read their live
   // state by reference (tool status from liveToolCalls, the latest progress
@@ -3309,6 +3467,19 @@ function BrainPageInner() {
         </Rise>
       )}
 
+      {activePinPrompt && (
+        <Rise>
+          <div style={{ maxWidth: 700 }}>
+            <PinConfirmationCard
+              key={activePinPrompt.key}
+              pins={activePinPrompt.pins}
+              onProceed={handlePinPromptProceed}
+              onSkip={() => handlePinPromptProceed([])}
+            />
+          </div>
+        </Rise>
+      )}
+
       {/* ActivityBlock — plan-step tracker; persists through executing and paused */}
       {showActivityBlock && (
         <ActivityBlock steps={planSteps} interpretation={activePlanSummary} />
@@ -3333,6 +3504,14 @@ function BrainPageInner() {
           </m.div>
         )
       })}
+
+      {/* Counter acknowledgement — while Brain re-plans (and beside the revised
+          plan) show the user's revision request so the thread reads coherently. */}
+      {lastCounterText && (phase === 'thinking' || phase === 'planning') && (
+        <Rise>
+          <BrainNarration text={`Revising the plan based on your note: “${lastCounterText}”`} />
+        </Rise>
+      )}
 
       {/* Plan card + optional counter input — rendered AFTER the timeline so
           approval UI is always at the bottom regardless of how much content
@@ -3387,6 +3566,22 @@ function BrainPageInner() {
           />
         </Rise>
       )}
+
+      {/* NodeFailureCard — a step failed mid-execution. FE-display recovery:
+          Re-run the task or Cancel. (Per-step retry/skip needs backend.) */}
+      {phase === 'node-failed' && failedStep && (() => {
+        const step = planSteps.find((s) => s.id === failedStep.id)
+        return (
+          <Rise>
+            <NodeFailureCard
+              step={{ label: step?.label ?? 'This step', isCritical: step?.isCritical ?? true }}
+              errorMessage={failedStep.error || undefined}
+              onRerun={handleContinue}
+              onCancel={() => setPhase('cancelled')}
+            />
+          </Rise>
+        )
+      })()}
 
       {/* Completed plan recap, below the transcript */}
       {phase === 'complete' && planSteps.length > 0 && (
@@ -3653,7 +3848,7 @@ function BrainPageInner() {
       contextRailData={contextRailData}
       threadRef={threadRef}
       initialInputValue={scheduleInitialInput || undefined}
-      clarificationProps={activeClarification && !activePersonaPrompt ? {
+      clarificationProps={activeClarification && !activePersonaPrompt && !activePinPrompt ? {
         // The backend's `title` is usually a generic preamble. The actual
         // model-generated question lives in `description`. Prefer the
         // longer body; fall back to the title only when the model didn't
@@ -3676,7 +3871,12 @@ function BrainPageInner() {
         // many questions Brain will ask up front. With both omitted the
         // ClarificationCard hides the pagination chip and prev/next arrows
         // entirely, which is the right UX for "one question at a time".
-        selected:       selectedClarificationOption,
+        // multi_choice → checkboxes + array selection + "N Selected" header.
+        multiSelect:    activeClarification.kind === 'multi_choice',
+        selectionCount: selectedClarificationMulti.length,
+        selected:       activeClarification.kind === 'multi_choice'
+                          ? selectedClarificationMulti
+                          : selectedClarificationOption,
         // For free-text questions there are no options to pick — surface a
         // hint that the open-ended text input is the answer field. For choice
         // questions we keep QuestionCard's default ("Something else on your mind").

@@ -143,6 +143,7 @@ export function CodeBlock({ language, value, elementKey, highlights, sourceOffse
     >
       {/* Header bar */}
       <div
+        data-highlight-ignore="true"
         style={{
           display: "flex",
           alignItems: "center",
