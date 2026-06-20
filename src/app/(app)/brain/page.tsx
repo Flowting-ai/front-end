@@ -299,9 +299,13 @@ function synthesizeContextFromMessages(
   // Persona picks in order (latest wins). `label` is the human name pulled from
   // the ask_user option, which survives even if the persona was later deleted.
   const personaPicks: Array<{ id: string; label?: string; avatarUrl?: string }> = []
+  // Pin ids referenced by any plan node, latest turn wins (so the rail reflects
+  // the most recent set). Bare UUIDs — titles are resolved later from pinboard.
+  let pinIds: string[] = []
 
   for (const m of messages) {
-    // Plan nodes carry the persona_id (a version id) + (optional) connector_slugs.
+    // Plan nodes carry the persona_id (a version id), connector_slugs, and the
+    // pin_ids that were fed into the step as context.
     const nodes = m.plan?.plan_json?.nodes ?? []
     for (const n of nodes) {
       const np = (n as unknown as Record<string, unknown>)
@@ -309,6 +313,11 @@ function synthesizeContextFromMessages(
       if (typeof pid === 'string' && pid) personaPicks.push({ id: pid })
       const cs = np.connector_slugs
       if (Array.isArray(cs)) for (const s of cs) if (typeof s === 'string') connectorSlugs.add(s.toLowerCase())
+      const pins = np.pin_ids
+      if (Array.isArray(pins)) {
+        const ids = pins.filter((p): p is string => typeof p === 'string' && p.length > 0)
+        if (ids.length) pinIds = ids
+      }
     }
 
     // tool_calls: persisted as { tool, args, output } objects.
@@ -354,7 +363,7 @@ function synthesizeContextFromMessages(
     }
   }
 
-  if (connectorSlugs.size === 0 && personaPicks.length === 0) return null
+  if (connectorSlugs.size === 0 && personaPicks.length === 0 && pinIds.length === 0) return null
 
   // Resolve the latest-mentioned persona. Prefer the ask_user label (works even
   // for deleted personas); else match the user's personas list by repo id OR
@@ -381,7 +390,10 @@ function synthesizeContextFromMessages(
 
   return {
     persona,
-    pins:  [],
+    // Bare pin_ids from the plan node — titles/tags aren't in the fetched
+    // messages, so emit the ids and let the rail resolve display text from the
+    // loaded pinboard (reactive, so it fills in once the pinboard loads).
+    pins:  pinIds.map((id) => ({ pin_id: id, title: '' })),
     files: [],
     connectors: Array.from(connectorSlugs).sort().map((slug) => ({
       slug,
@@ -4143,12 +4155,18 @@ function BrainPageInner() {
             avatarUrl: liveContext.persona.avatar_url,
           }
         : chipPersona,
+      // Live SSE pins carry titles/tags. Reconstructed pins (chat reload) are
+      // bare ids with empty titles — resolve display text from the loaded
+      // pinboard, dropping any that no longer exist there.
       pins: liveContext.pins?.length
-        ? liveContext.pins.map((p) => ({
-            id:     p.pin_id,
-            title:  p.title,
-            source: p.tags?.length ? p.tags.join(' · ') : undefined,
-          }))
+        ? liveContext.pins.flatMap((p) => {
+            if (p.title) {
+              return [{ id: p.pin_id, title: p.title, source: p.tags?.length ? p.tags.join(' · ') : undefined }]
+            }
+            const match = pinboardPins.find((pp) => pp.id === p.pin_id)
+            if (!match) return []
+            return [{ id: p.pin_id, title: match.title, source: match.folderName || (match.tags?.length ? match.tags.join(' · ') : undefined) }]
+          })
         : chipPins,
       files: (liveContext.files ?? []).map((f) => ({
         name: f.name,
@@ -4160,7 +4178,7 @@ function BrainPageInner() {
         status: c.status === 'failed' ? 'failed' : c.status === 'pending' ? 'pending' : 'connected',
       })),
     }
-  }, [liveContext, selectedPersona, selectedFolderPins, effectivePinIds])
+  }, [liveContext, selectedPersona, selectedFolderPins, effectivePinIds, pinboardPins])
 
   // ── Has any content to render ─────────────────────────────────────────────────
 
