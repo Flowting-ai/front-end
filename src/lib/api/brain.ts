@@ -139,6 +139,8 @@ export interface ContextPersona {
   // Optional avatar URL — populated when the FE reconstructs context from
   // fetched messages on chat reload (the live `context` event omits this).
   avatar_url?:     string
+  // Some backend persona payloads use the persona API's native field name.
+  image_url?:      string
 }
 export interface ContextPin {
   pin_id:           string

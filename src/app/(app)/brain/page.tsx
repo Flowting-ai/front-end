@@ -391,6 +391,47 @@ function synthesizeContextFromMessages(
   }
 }
 
+async function resolveContextPersonaFromId(
+  persona: ContextPersona,
+  personas?: SynthPersonaSource[],
+): Promise<ContextPersona> {
+  const personaId = persona.persona_id
+  if (!personaId) return persona
+
+  const sources = personas ?? await fetchPersonas().catch(() => [])
+  const source = sources.find((candidate) =>
+    candidate.id === personaId ||
+    candidate.activeVersionId === personaId ||
+    candidate.workingVersionId === personaId
+  )
+  if (!source) return persona
+
+  // A repo id points at the normalized current persona. A version id points at
+  // one exact backend version, so fetch that version instead of borrowing the
+  // published persona card's image.
+  if (source.id === personaId) {
+    return {
+      ...persona,
+      name:       persona.name || source.name,
+      handler:    persona.handler || personaHandleFromName(source.name),
+      avatar_url: source.imageUrl || persona.avatar_url || persona.image_url || undefined,
+    }
+  }
+
+  const version = await getVersion(source.id, personaId).catch(() => null)
+  return {
+    ...persona,
+    name:       persona.name || version?.name || source.name,
+    handler:    persona.handler || version?.handler || personaHandleFromName(source.name),
+    avatar_url:
+      version?.image_url ||
+      source.imageUrl ||
+      persona.avatar_url ||
+      persona.image_url ||
+      undefined,
+  }
+}
+
 // ── Generated-file display helpers ───────────────────────────────────────────
 
 function mimeLabel(mime: string): string {
@@ -1721,6 +1762,9 @@ function BrainPageInner() {
         )
         const personas = referencesPersona ? await fetchPersonas().catch(() => []) : []
         const synth = synthesizeContextFromMessages(messages, personas)
+        if (synth?.persona) {
+          synth.persona = await resolveContextPersonaFromId(synth.persona, personas)
+        }
         if (synth) setLiveContext(synth)
       })
       .catch(() => {
@@ -1907,7 +1951,11 @@ function BrainPageInner() {
               label:       typeof oo.label === 'string' ? oo.label : val,
               description: typeof oo.description === 'string' ? oo.description : undefined,
               handle:      typeof oo.handle === 'string' ? oo.handle : undefined,
-              avatarUrl:   typeof oo.avatar_url === 'string' ? oo.avatar_url : undefined,
+              avatarUrl:   typeof oo.avatar_url === 'string'
+                ? oo.avatar_url
+                : typeof oo.image_url === 'string'
+                  ? oo.image_url
+                  : undefined,
               recommended: oo.recommended === true,
             }]
           })
@@ -2213,8 +2261,18 @@ function BrainPageInner() {
       // Per-turn context snapshot — drives the ContextRail. Fires once at the
       // start of the turn with the persona/pins/files/connectors Brain loaded.
       case 'context': {
+        const rawPersona = (
+          d.persona && typeof d.persona === 'object'
+            ? d.persona
+            : null
+        ) as BrainContextEvent['persona']
         setLiveContext({
-          persona:          (d.persona && typeof d.persona === 'object' ? d.persona : null) as BrainContextEvent['persona'],
+          persona: rawPersona
+            ? {
+                ...rawPersona,
+                avatar_url: rawPersona.avatar_url || rawPersona.image_url,
+              }
+            : null,
           user_context:     (d.user_context && typeof d.user_context === 'object' ? d.user_context : null) as BrainContextEvent['user_context'],
           pins:             Array.isArray(d.pins)       ? (d.pins       as BrainContextEvent['pins'])       : [],
           files:            Array.isArray(d.files)      ? (d.files      as BrainContextEvent['files'])      : [],
@@ -2228,6 +2286,23 @@ function BrainPageInner() {
         break
     }
   }, [handleReasoningEvent, scheduleCompletion])
+
+  // The context event's persona_id is the exact version id. If the event omits
+  // its image, hydrate that exact version through the existing persona API.
+  useEffect(() => {
+    const persona = liveContext?.persona
+    if (!persona?.persona_id || persona.avatar_url || persona.image_url) return
+
+    let cancelled = false
+    void resolveContextPersonaFromId(persona).then((resolved) => {
+      if (cancelled || !resolved.avatar_url) return
+      setLiveContext((current) => {
+        if (current?.persona?.persona_id !== resolved.persona_id) return current
+        return { ...current, persona: resolved }
+      })
+    })
+    return () => { cancelled = true }
+  }, [liveContext?.persona])
 
   // ── SSE inline-event handler ──────────────────────────────────────────────────
 
