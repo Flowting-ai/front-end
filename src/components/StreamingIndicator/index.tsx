@@ -46,6 +46,10 @@ export interface StreamingIndicatorProps {
    * Shown once phase reaches "streaming". Souvenir mark shown before that.
    */
   llmId?: string
+  /** Optional custom logo for non-model selections, such as a persona avatar. */
+  logo?: React.ReactNode
+  /** Stable identity used to animate custom-logo swaps. */
+  logoKey?: string
   /** Words cycled during thinking phase. Defaults to THINKING_WORDS. */
   thinkingWords?: readonly string[]
   className?: string
@@ -96,10 +100,12 @@ CyclingLabel.displayName = 'CyclingLabel'
 export interface StreamingLogoProps {
   phase: StreamingPhase
   llmId?: string
+  logo?: React.ReactNode
+  logoKey?: string
   size?: number
 }
 
-export function StreamingLogo({ phase, llmId, size = 16 }: StreamingLogoProps) {
+export function StreamingLogo({ phase, llmId, logo, logoKey, size = 16 }: StreamingLogoProps) {
   const shouldReduceMotion = useReducedMotion() ?? false
   const showModel = phase === 'streaming' || phase === 'complete'
 
@@ -135,17 +141,17 @@ export function StreamingLogo({ phase, llmId, size = 16 }: StreamingLogoProps) {
         ) : (
           // Model icon - smooth crossfade in
           <m.div
-            key={`model-${llmId ?? 'default'}`}
+            key={`selected-${logoKey ?? llmId ?? 'default'}`}
             initial={shouldReduceMotion ? { opacity: 0 } : LOGO_ENTER}
             animate={shouldReduceMotion ? { opacity: 1 } : LOGO_SHOW}
             exit={shouldReduceMotion ? { opacity: 0 } : LOGO_EXIT}
             transition={shouldReduceMotion ? { duration: 0 } : LOGO_SPRING}
             style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            {llmId
+            {logo ?? (llmId
               ? <LlmIcon id={llmId} size={size} variant="color" />
               : <LogoIcon size={size} color="var(--streaming-indicator-label)" />
-            }
+            )}
           </m.div>
         )}
       </AnimatePresence>
@@ -156,7 +162,7 @@ export function StreamingLogo({ phase, llmId, size = 16 }: StreamingLogoProps) {
 // ── StreamingIndicator ─────────────────────────────────────────────────────────
 
 export function StreamingIndicator(
-  { phase, label, llmId, thinkingWords = THINKING_WORDS, className, style, ref }: StreamingIndicatorProps & { ref?: React.Ref<HTMLDivElement> },
+  { phase, label, llmId, logo, logoKey, thinkingWords = THINKING_WORDS, className, style, ref }: StreamingIndicatorProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
     const shouldReduceMotion = useReducedMotion() ?? false
 
@@ -215,7 +221,7 @@ export function StreamingIndicator(
         }}
       >
         {/* ── Logo - always shown, handles its own swap internally ── */}
-        <StreamingLogo phase={phase} llmId={llmId} size={16} />
+        <StreamingLogo phase={phase} llmId={llmId} logo={logo} logoKey={logoKey} size={16} />
 
         {/* ── Label ── */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', overflow: 'hidden', minWidth: 0 }}>

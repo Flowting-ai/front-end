@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { m } from 'framer-motion'
 import {
   WorkflowSquareTenIcon,
@@ -9,6 +9,8 @@ import {
   CancelCircleIcon,
 } from '@strange-huge/icons'
 import { Spinner } from '@/components/Spinner'
+import { StreamingIndicator as ModelStreamingIndicator } from '@/components/StreamingIndicator'
+import { getModelLlmId } from '@/lib/model-icons'
 import { springs } from '@/lib/springs'
 import type { PlanStep } from './lib/phase'
 
@@ -74,6 +76,26 @@ interface LiveStepRowProps {
   step:    PlanStep
   index:   number
   isLast:  boolean
+}
+
+function NodeModelIndicator({ step }: { step: PlanStep }) {
+  const [phase, setPhase] = useState<'choosing' | 'streaming'>('choosing')
+  const modelName = step.modelName || 'Model'
+  const llmId = getModelLlmId(step.modelCompany, step.modelName)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setPhase('streaming'), 420)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  return (
+    <ModelStreamingIndicator
+      phase={phase}
+      label={phase === 'choosing' ? `Selecting ${modelName}…` : `${modelName} · Working…`}
+      llmId={llmId ?? undefined}
+      style={{ marginTop: 2 }}
+    />
+  )
 }
 
 function LiveStepRow({ step, index, isLast }: LiveStepRowProps) {
@@ -169,6 +191,10 @@ function LiveStepRow({ step, index, isLast }: LiveStepRowProps) {
           </span>
         )}
 
+        {isActive && (step.modelId || step.modelName) && (
+          <NodeModelIndicator step={step} />
+        )}
+
         {step.connector && isActive && !step.connectorDisclosure?.length && (
           <span style={{
             fontFamily: 'var(--font-body)',
@@ -213,7 +239,6 @@ export interface ActivityBlockProps {
 // ── ActivityBlock ─────────────────────────────────────────────────────────────
 
 export function ActivityBlock({ steps, interpretation }: ActivityBlockProps) {
-  const executingIndex = steps.findIndex(s => s.status === 'executing')
   const doneCount      = steps.filter(s => s.status === 'complete' || s.status === 'skipped').length
 
   return (

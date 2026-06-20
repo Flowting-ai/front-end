@@ -150,22 +150,26 @@ function mapBackendStepStatus(status?: string): StepStatus {
 
 function mapBackendStep(step: BackendPlanStep): PlanStep {
   return {
-    id:         step.id,
-    label:      step.title,
-    connector:  step.connector_slug,
-    isCritical: false,
-    status:     mapBackendStepStatus(step.status),
+    id:           step.id,
+    label:        step.title,
+    modelId:      step.model_id ?? undefined,
+    modelName:    step.model_name ?? undefined,
+    modelCompany: step.model_company ?? undefined,
+    connector:    step.connector_slug,
+    isCritical:   false,
+    status:       mapBackendStepStatus(step.status),
   }
 }
 
 function mapBackendNode(node: BackendPlanNode): PlanStep {
-  // Title only — the node also carries a model_id, which we intentionally
-  // do not surface in the plan UI.
   return {
-    id:         node.id,
-    label:      node.title,
-    isCritical: false,
-    status:     mapBackendStepStatus(node.status),
+    id:           node.id,
+    label:        node.title,
+    modelId:      node.model_id ?? undefined,
+    modelName:    node.model_name ?? undefined,
+    modelCompany: node.model_company ?? undefined,
+    isCritical:   false,
+    status:       mapBackendStepStatus(node.status),
   }
 }
 
@@ -1702,11 +1706,18 @@ function BrainPageInner() {
   // ── Derived plan steps (base + live step statuses) ───────────────────────────
 
   const planSteps = useMemo<PlanStep[]>(
-    () => activePlanSteps.map((s) => ({
-      ...s,
-      status: stepStatuses[s.id] ?? s.status,
-    })),
-    [activePlanSteps, stepStatuses],
+    () => activePlanSteps.map((step) => {
+      const model = step.modelId
+        ? models.find((candidate) => String(candidate.modelId ?? candidate.id) === step.modelId)
+        : undefined
+      return {
+        ...step,
+        modelName:    step.modelName ?? model?.modelName,
+        modelCompany: step.modelCompany ?? model?.companyName,
+        status:       stepStatuses[step.id] ?? step.status,
+      }
+    }),
+    [activePlanSteps, stepStatuses, models],
   )
 
   const handleReasoningEvent = useCallback((

@@ -37,6 +37,9 @@ export interface BackendPlanStep {
   title:           string
   description?:    string
   kind:            'skill' | 'connector' | 'tool' | 'synthesis'
+  model_id?:       string | null
+  model_name?:     string | null
+  model_company?:  string | null
   tool?:           string
   connector_slug?: string
   depends_on?:     string[]
@@ -48,9 +51,8 @@ export interface BackendPlanStep {
   completed_at?:   string
 }
 
-// Newer plans persist a node graph instead of a flat step list. A node carries
-// the same render-relevant fields (id/title/status) plus a model_id we
-// deliberately don't surface in the UI.
+// Newer plans persist a node graph instead of a flat step list. Preserve its
+// model metadata so live execution can identify the model working on each node.
 export interface BackendPlanNode {
   id:              string
   kind:            string
@@ -58,6 +60,8 @@ export interface BackendPlanNode {
   description?:    string
   status?:         string
   model_id?:       string | null
+  model_name?:     string | null
+  model_company?:  string | null
   result_preview?: string
   started_at?:     string
   completed_at?:   string

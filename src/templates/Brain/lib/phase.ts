@@ -97,6 +97,9 @@ export interface ConnectorRequirement {
 export interface PlanStep {
   id:                  string
   label:               string
+  modelId?:            string
+  modelName?:          string
+  modelCompany?:       string
   connector?:          string              // display name, e.g. "Notion"
   isCritical:          boolean             // true → failure shows Re-run/Cancel only (no Skip)
   status:              StepStatus

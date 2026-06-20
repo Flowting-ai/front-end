@@ -5,6 +5,7 @@ import { AnimatePresence, m } from 'framer-motion'
 import { UserIcon, ArrowRightOneIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
+import { StreamingIndicator } from '@/components/StreamingIndicator'
 import { springs } from '@/lib/springs'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -105,7 +106,46 @@ function InlineAction({ label, onClick }: { label: string; onClick?: () => void 
 
 // ── Compact locked row ────────────────────────────────────────────────────────
 
-type LockState = 'open' | 'persona' | 'none'
+type LockState = 'open' | 'selecting' | 'persona' | 'none'
+
+function PersonaSelectingRow({
+  personaName,
+  avatarUrl,
+}: {
+  personaName: string
+  avatarUrl?: string
+}) {
+  const [phase, setPhase] = useState<'choosing' | 'streaming'>('choosing')
+  const avatarSrc = avatarUrl ?? getFallbackAvatar(personaName)
+
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => setPhase('streaming'), 420)
+    return () => window.clearTimeout(timer)
+  }, [personaName])
+
+  return (
+    <m.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={springs.fast}
+      style={{ padding: '8px 0' }}
+    >
+      <StreamingIndicator
+        phase={phase}
+        label={phase === 'choosing' ? 'Selecting persona…' : `Using ${personaName}`}
+        logoKey={personaName}
+        logo={(
+          // eslint-disable-next-line @next/next/no-img-element -- dynamic persona URL with deterministic fallback
+          <img
+            src={avatarSrc}
+            alt=""
+            style={{ width: 16, height: 16, borderRadius: 4, objectFit: 'cover', display: 'block' }}
+          />
+        )}
+      />
+    </m.div>
+  )
+}
 
 function LockedRow({
   lockState,
@@ -184,17 +224,25 @@ export function PersonaSelectionCard({
 }: PersonaSelectionCardProps) {
   const [lockState,   setLockState]   = useState<LockState>(defaultLocked ? 'persona' : 'open')
   const [lockedName,  setLockedName]  = useState<string>(lockedPersonaName ?? '')
+  const [lockedAvatar, setLockedAvatar] = useState<string | undefined>()
   const [selected,    setSelected]    = useState<string | undefined>(
     recommendedId ?? personas[0]?.id,
   )
 
   const isSingle        = personas.length === 1
 
+  React.useEffect(() => {
+    if (lockState !== 'selecting') return
+    const timer = window.setTimeout(() => setLockState('persona'), 900)
+    return () => window.clearTimeout(timer)
+  }, [lockState])
+
   const handleProceed = () => {
     if (!selected) return
-    const name = personas.find(p => p.id === selected)?.name ?? ''
-    setLockedName(name)
-    setLockState('persona')
+    const persona = personas.find(p => p.id === selected)
+    setLockedName(persona?.name ?? '')
+    setLockedAvatar(persona?.avatarUrl)
+    setLockState('selecting')
     onProceed?.(selected)
   }
 
@@ -211,7 +259,13 @@ export function PersonaSelectionCard({
 
   return (
     <AnimatePresence mode="wait" initial={false}>
-      {lockState !== 'open' ? (
+      {lockState === 'selecting' ? (
+        <PersonaSelectingRow
+          key="selecting"
+          personaName={lockedName}
+          avatarUrl={lockedAvatar}
+        />
+      ) : lockState !== 'open' ? (
         <LockedRow
           key="locked"
           lockState={lockState}
