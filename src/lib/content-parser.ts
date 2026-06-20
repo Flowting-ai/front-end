@@ -10,10 +10,10 @@
  */
 
 export type ContentSegment =
-  | { type: "markdown"; text: string }
-  | { type: "table"; xml: string }
-  | { type: "chart"; xml: string }
-  | { type: "pending"; tag: "table" | "chart" }
+  | { type: "markdown"; text: string; start: number; end: number }
+  | { type: "table"; xml: string; start: number; end: number }
+  | { type: "chart"; xml: string; start: number; end: number }
+  | { type: "pending"; tag: "table" | "chart"; start: number; end: number }
 
 // ---------------------------------------------------------------------------
 // Code-fence exclusion
@@ -111,13 +111,13 @@ export function parseContentSegments(content: string): ContentSegment[] {
 
     if (!found) {
       // No more XML blocks - rest is Markdown
-      segments.push({ type: "markdown", text: content.slice(cursor) })
+      segments.push({ type: "markdown", text: content.slice(cursor), start: cursor, end: content.length })
       break
     }
 
     // Text before the opening tag is Markdown
     if (found.idx > cursor) {
-      segments.push({ type: "markdown", text: content.slice(cursor, found.idx) })
+      segments.push({ type: "markdown", text: content.slice(cursor, found.idx), start: cursor, end: found.idx })
     }
 
     const closeTag = `</${found.tag}>`
@@ -125,13 +125,13 @@ export function parseContentSegments(content: string): ContentSegment[] {
 
     if (closeIdx === -1) {
       // Block is still in-flight (streaming) - no closing tag yet
-      segments.push({ type: "pending", tag: found.tag })
+      segments.push({ type: "pending", tag: found.tag, start: found.idx, end: content.length })
       break // nothing more to parse; the rest is the incomplete block
     }
 
     // Complete block
     const xmlEnd = closeIdx + closeTag.length
-    segments.push({ type: found.tag, xml: content.slice(found.idx, xmlEnd) })
+    segments.push({ type: found.tag, xml: content.slice(found.idx, xmlEnd), start: found.idx, end: xmlEnd })
     cursor = xmlEnd
   }
 

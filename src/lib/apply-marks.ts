@@ -1,6 +1,7 @@
 'use client'
 
 import { HIGHLIGHT_COLORS } from '@/components/HighlightCard'
+import { hasRawRange } from '@/lib/highlight-offsets'
 import type { HighlightSpec } from '@/lib/markdown-utils'
 
 // ── Range-based mark injection (code / plain HTML) ────────────────────────────
@@ -34,7 +35,7 @@ function collectTextNodes(root: Node, doc: Document): Entry[] {
  * Handles cross-span matches (hljs keywords, etc.).
  * Does NOT touch .katex elements — LaTeX is never highlighted.
  */
-export function applyRangeMarks(root: Element, specs: HighlightSpec[], doc: Document): void {
+export function applyRangeMarks(root: Element, specs: HighlightSpec[], doc: Document, offsetBase = 0): void {
   const entries = collectTextNodes(root, doc)
   if (!entries.length) return
 
@@ -43,10 +44,18 @@ export function applyRangeMarks(root: Element, specs: HighlightSpec[], doc: Docu
   type M = { start: number; end: number; spec: HighlightSpec }
   const matches: M[] = []
   for (const spec of specs) {
-    let pos = 0, idx: number
-    while ((idx = fullText.indexOf(spec.text, pos)) !== -1) {
-      matches.push({ start: idx, end: idx + spec.text.length, spec })
-      pos = idx + 1
+    if (hasRawRange(spec)) {
+      const start = spec.startOffset - offsetBase
+      const end = spec.endOffset - offsetBase
+      if (end > 0 && start < fullText.length) {
+        matches.push({ start: Math.max(0, start), end: Math.min(fullText.length, end), spec })
+      }
+    } else {
+      let pos = 0, idx: number
+      while ((idx = fullText.indexOf(spec.text, pos)) !== -1) {
+        matches.push({ start: idx, end: idx + spec.text.length, spec })
+        pos = idx + 1
+      }
     }
   }
   if (!matches.length) return
@@ -91,13 +100,13 @@ export function applyRangeMarks(root: Element, specs: HighlightSpec[], doc: Docu
  * LaTeX/KaTeX content is intentionally never highlighted: collectTextNodes
  * skips `.katex`, so any KaTeX present in `html` passes through untouched.
  */
-export function applyMarksToHtml(html: string, specs: HighlightSpec[], wrapTag = 'pre'): string {
+export function applyMarksToHtml(html: string, specs: HighlightSpec[], wrapTag = 'pre', offsetBase = 0): string {
   if (typeof window === 'undefined' || !specs.length) return html
   try {
     const doc  = new DOMParser().parseFromString(`<${wrapTag}>${html}</${wrapTag}>`, 'text/html')
     const root = doc.querySelector(wrapTag)!
     // Range-based marks for all non-katex text (collectTextNodes skips .katex)
-    applyRangeMarks(root, specs, doc)
+    applyRangeMarks(root, specs, doc, offsetBase)
     return root.innerHTML
   } catch {
     return html

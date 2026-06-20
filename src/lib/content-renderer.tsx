@@ -91,21 +91,17 @@ export function ContentRenderer({
 
   // Segments are positional (markdown, table, chart, pending) — index is the
   // only stable key because adjacent same-type segments are possible.
-  // eslint-disable-next-line react/no-array-index-as-key -- segments have no IDs; adjacent same-type segments make content-based keys non-unique
   const rendered = segments.map((seg, i) => {
     const isLast = i === lastIdx
 
     switch (seg.type) {
       case "table":
-        // eslint-disable-next-line react/no-array-index-as-key -- segment index is stable; no other unique key available
         return <XmlTable key={i} xml={seg.xml} animate={isStreaming} />
 
       case "chart":
-        // eslint-disable-next-line react/no-array-index-as-key -- segment index is stable; no other unique key available
         return <XmlChart key={i} xml={seg.xml} />
 
       case "pending":
-        // eslint-disable-next-line react/no-array-index-as-key -- segment index is stable; no other unique key available
         return <PendingBlockPlaceholder key={i} tag={seg.tag} />
 
       case "markdown": {
@@ -116,12 +112,12 @@ export function ContentRenderer({
         }
 
         return (
-          // eslint-disable-next-line react/no-array-index-as-key -- segment index is stable; no other unique key available
           <React.Fragment key={i}>
             <LineRenderer
               content={seg.text}
               webCitations={webCitations}
               highlights={isStreaming ? undefined : highlights}
+              sourceOffset={seg.start}
             />
             {isStreaming && isLast && cursor}
           </React.Fragment>

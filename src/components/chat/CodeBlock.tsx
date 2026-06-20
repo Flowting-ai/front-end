@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
 import { HIGHLIGHT_COLORS } from "@/components/HighlightCard";
+import { hasRawRange } from "@/lib/highlight-offsets";
 import type { HighlightSpec } from "@/lib/markdown-utils";
 import { applyMarksToHtml } from "@/lib/apply-marks";
 
@@ -21,6 +22,7 @@ interface CodeBlockProps {
   value: string;
   elementKey: string;
   highlights?: HighlightSpec[];
+  sourceOffset?: number;
 }
 
 // applyMarksToHtml is imported from @/lib/apply-marks
@@ -29,15 +31,23 @@ interface CodeBlockProps {
  * Plain-text fallback (hljs not yet loaded): split the code string around
  * highlight matches and return React nodes with <HighlightMark> elements.
  */
-function renderPlainWithMarks(text: string, specs: HighlightSpec[]): React.ReactNode {
+function renderPlainWithMarks(text: string, specs: HighlightSpec[], offsetBase: number): React.ReactNode {
   type M = { start: number; end: number; spec: HighlightSpec }
   const matches: M[] = []
   for (const spec of specs) {
-    let pos = 0
-    let idx: number
-    while ((idx = text.indexOf(spec.text, pos)) !== -1) {
-      matches.push({ start: idx, end: idx + spec.text.length, spec })
-      pos = idx + 1
+    if (hasRawRange(spec)) {
+      const start = spec.startOffset - offsetBase
+      const end = spec.endOffset - offsetBase
+      if (end > 0 && start < text.length) {
+        matches.push({ start: Math.max(0, start), end: Math.min(text.length, end), spec })
+      }
+    } else {
+      let pos = 0
+      let idx: number
+      while ((idx = text.indexOf(spec.text, pos)) !== -1) {
+        matches.push({ start: idx, end: idx + spec.text.length, spec })
+        pos = idx + 1
+      }
     }
   }
   if (!matches.length) return text
@@ -69,12 +79,10 @@ function renderPlainWithMarks(text: string, specs: HighlightSpec[]): React.React
   return nodes
 }
 
-export function CodeBlock({ language, value, elementKey, highlights }: CodeBlockProps) {
+export function CodeBlock({ language, value, elementKey, highlights, sourceOffset = 0 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
 // Raw hljs output — recomputed only when code content changes
   const [rawHtml, setRawHtml] = useState<string | null>(null);
-  // Display HTML with highlight marks applied on top
-  const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
 
   // Run hljs whenever the code itself changes
   useEffect(() => {
@@ -98,10 +106,10 @@ export function CodeBlock({ language, value, elementKey, highlights }: CodeBlock
   }, [value, language]);
 
   // Re-apply marks whenever the raw syntax-highlighted HTML or specs change
-  useEffect(() => {
-    if (rawHtml === null) { setHighlightedHtml(null); return; }
-    setHighlightedHtml(highlights?.length ? applyMarksToHtml(rawHtml, highlights) : rawHtml);
-  }, [rawHtml, highlights]);
+  const highlightedHtml = useMemo(() => {
+    if (rawHtml === null) return null;
+    return highlights?.length ? applyMarksToHtml(rawHtml, highlights, 'pre', sourceOffset) : rawHtml;
+  }, [rawHtml, highlights, sourceOffset]);
 
   const handleCopy = async () => {
     try {
@@ -203,14 +211,13 @@ export function CodeBlock({ language, value, elementKey, highlights }: CodeBlock
         {highlightedHtml != null ? (
           <code
             className={language ? `language-${language} hljs` : "hljs"}
-            // eslint-disable-next-line react/no-danger -- hljs + mark output is library/app-generated, not user content
             dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             style={{ background: "transparent", padding: 0 }}
           />
         ) : (
           <code className={language ? `language-${language}` : ""}>
             {highlights?.length
-              ? renderPlainWithMarks(value.trimEnd(), highlights)
+              ? renderPlainWithMarks(value.trimEnd(), highlights, sourceOffset)
               : value.trimEnd()}
           </code>
         )}

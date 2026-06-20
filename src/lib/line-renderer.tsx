@@ -22,6 +22,7 @@ import { CodeBlock } from "@/components/chat/CodeBlock"
 import { CitationChip } from "@/components/chat/ResponseBlocks"
 import { HighlightMark } from "@/components/HighlightMark"
 import { sanitizeKaTeX } from "@/lib/security"
+import { hasRawRange } from "@/lib/highlight-offsets"
 import type { WebCitation } from "@/hooks/use-chat-state"
 import type { HighlightSpec } from "./markdown-utils"
 
@@ -37,7 +38,6 @@ function renderKatex(math: string, display: boolean, key: string): React.ReactNo
       <span
         key={key}
         style={{ display: display ? "block" : "inline-block", margin: display ? "8px 0" : "0 2px", overflowX: display ? "auto" : undefined }}
-        // eslint-disable-next-line react/no-danger -- KaTeX output is library-generated and sanitized
         dangerouslySetInnerHTML={{ __html: html }}
       />
     )
@@ -56,7 +56,60 @@ type InlineCtx = {
   highlights?: HighlightSpec[]
 }
 
-function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): React.ReactNode[] {
+type RawHighlightSpec = HighlightSpec & { startOffset: number; endOffset: number }
+
+function rawHighlights(ctx: InlineCtx): RawHighlightSpec[] {
+  return ctx.highlights?.filter((highlight): highlight is RawHighlightSpec => hasRawRange(highlight)) ?? []
+}
+
+function renderHighlightedText(
+  text: string,
+  rawStart: number,
+  prefix: string,
+  ctx: InlineCtx,
+): React.ReactNode[] {
+  if (!text) return []
+
+  const rawEnd = rawStart + text.length
+  const spans = rawHighlights(ctx)
+    .flatMap((spec) => {
+      const start = Math.max(rawStart, spec.startOffset)
+      const end = Math.min(rawEnd, spec.endOffset)
+      return end > start ? [{ start: start - rawStart, end: end - rawStart, spec }] : []
+    })
+    .sort((a, b) => a.start - b.start || b.end - a.end)
+
+  if (!spans.length) return [text]
+
+  const resolved: typeof spans = []
+  let cursor = 0
+  for (const span of spans) {
+    if (span.start >= cursor) {
+      resolved.push(span)
+      cursor = span.end
+    }
+  }
+
+  const nodes: React.ReactNode[] = []
+  let pos = 0
+  resolved.forEach((span, index) => {
+    if (span.start > pos) nodes.push(text.slice(pos, span.start))
+    nodes.push(
+      <HighlightMark
+        key={`${prefix}-rawhl${index}`}
+        colorIndex={span.spec.colorIndex}
+        data-highlight-id={span.spec.id}
+      >
+        {text.slice(span.start, span.end)}
+      </HighlightMark>,
+    )
+    pos = span.end
+  })
+  if (pos < text.length) nodes.push(text.slice(pos))
+  return nodes
+}
+
+function renderInlineSegment(text: string, sourceStart: number, prefix: string, ctx: InlineCtx): React.ReactNode[] {
   const nodes: React.ReactNode[] = []
   const { webCitations, urlMap } = ctx
 
@@ -78,22 +131,24 @@ function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): Reac
   let m: RegExpExecArray | null
 
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) nodes.push(text.slice(last, m.index))
+    if (m.index > last) {
+      nodes.push(...renderHighlightedText(text.slice(last, m.index), sourceStart + last, `${prefix}-txt${idx}`, ctx))
+    }
 
     const key = `${prefix}-in${idx++}`
 
     if (m[1] !== undefined) {
       // **bold**
-      nodes.push(<strong key={key} style={{ fontWeight: 600 }}>{m[1]}</strong>)
+      nodes.push(<strong key={key} style={{ fontWeight: 600 }}>{renderHighlightedText(m[1], sourceStart + m.index + 2, key, ctx)}</strong>)
     } else if (m[2] !== undefined) {
       // __bold__
-      nodes.push(<strong key={key} style={{ fontWeight: 600 }}>{m[2]}</strong>)
+      nodes.push(<strong key={key} style={{ fontWeight: 600 }}>{renderHighlightedText(m[2], sourceStart + m.index + 2, key, ctx)}</strong>)
     } else if (m[3] !== undefined) {
       // *italic*
-      nodes.push(<em key={key}>{m[3]}</em>)
+      nodes.push(<em key={key}>{renderHighlightedText(m[3], sourceStart + m.index + 1, key, ctx)}</em>)
     } else if (m[4] !== undefined) {
       // _italic_
-      nodes.push(<em key={key}>{m[4]}</em>)
+      nodes.push(<em key={key}>{renderHighlightedText(m[4], sourceStart + m.index + 1, key, ctx)}</em>)
     } else if (m[5] !== undefined) {
       // `inline code`
       nodes.push(
@@ -110,7 +165,7 @@ function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): Reac
             whiteSpace: "pre",
           }}
         >
-          {m[5]}
+          {renderHighlightedText(m[5], sourceStart + m.index + 1, key, ctx)}
         </code>,
       )
     } else if (m[6] !== undefined && m[7] !== undefined) {
@@ -127,12 +182,12 @@ function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): Reac
             textUnderlineOffset: "2px",
           }}
         >
-          {m[6]}
+          {renderHighlightedText(m[6], sourceStart + m.index + 1, key, ctx)}
         </a>,
       )
     } else if (m[8] !== undefined) {
       // ~~strikethrough~~
-      nodes.push(<s key={key}>{m[8]}</s>)
+      nodes.push(<s key={key}>{renderHighlightedText(m[8], sourceStart + m.index + 2, key, ctx)}</s>)
     } else if (m[9] !== undefined) {
       // {N} citation chip
       const n = parseInt(m[9], 10)
@@ -176,88 +231,60 @@ function renderInlineSegment(text: string, prefix: string, ctx: InlineCtx): Reac
     last = m.index + m[0].length
   }
 
-  if (last < text.length) nodes.push(text.slice(last))
+  if (last < text.length) nodes.push(...renderHighlightedText(text.slice(last), sourceStart + last, `${prefix}-tail`, ctx))
   return nodes.length === 0 ? [text] : nodes
 }
 
 // Apply text-highlight marks around known highlight spans, then run inline rendering.
 function renderInlineLine(
   text: string,
+  sourceStart: number,
   prefix: string,
   ctx: InlineCtx,
-  highlights?: HighlightSpec[],
 ): React.ReactNode[] {
-  if (!highlights?.length) return renderInlineSegment(text, prefix, ctx)
-
-  // Find all highlight matches in this line
-  type Span = { start: number; end: number; spec: HighlightSpec }
-  const spans: Span[] = []
-  for (const spec of highlights) {
-    let pos = 0
-    let idx: number
-    while ((idx = text.indexOf(spec.text, pos)) !== -1) {
-      spans.push({ start: idx, end: idx + spec.text.length, spec })
-      pos = idx + 1
-    }
-  }
-  if (!spans.length) return renderInlineSegment(text, prefix, ctx)
-
-  // Sort and remove overlaps
-  spans.sort((a, b) => a.start - b.start || b.end - a.end)
-  const resolved: Span[] = []
-  let cursor = 0
-  for (const s of spans) {
-    if (s.start >= cursor) { resolved.push(s); cursor = s.end }
-  }
-
-  // Build nodes: non-highlighted → renderInlineSegment, highlighted → HighlightMark
-  const nodes: React.ReactNode[] = []
-  let p = 0
-  let i = 0
-  for (const s of resolved) {
-    if (s.start > p) {
-      nodes.push(...renderInlineSegment(text.slice(p, s.start), `${prefix}-hl${i}pre`, ctx))
-    }
-    nodes.push(
-      <HighlightMark
-        key={`${prefix}-hl${i}`}
-        colorIndex={s.spec.colorIndex}
-        data-highlight-id={s.spec.id}
-      >
-        {renderInlineSegment(text.slice(s.start, s.end), `${prefix}-hl${i}txt`, ctx)}
-      </HighlightMark>,
-    )
-    p = s.end
-    i++
-  }
-  if (p < text.length) {
-    nodes.push(...renderInlineSegment(text.slice(p), `${prefix}-hl${i}post`, ctx))
-  }
-  return nodes
+  return renderInlineSegment(text, sourceStart, prefix, ctx)
 }
 
 // ── Block types ────────────────────────────────────────────────────────────────
 
-type TableRow = string[]
+type SourceText = { text: string; start: number }
+type TableRow = SourceText[]
 
 type Block =
   | { kind: "empty" }
-  | { kind: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; text: string }
-  | { kind: "code"; lang: string; lines: string[] }
+  | { kind: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; text: SourceText }
+  | { kind: "code"; lang: string; lines: SourceText[] }
   | { kind: "latex"; content: string; display: boolean }
   | { kind: "table"; headers: TableRow; rows: TableRow[] }
-  | { kind: "ul"; items: string[] }
-  | { kind: "ol"; start: number; items: string[] }
+  | { kind: "ul"; items: SourceText[] }
+  | { kind: "ol"; start: number; items: SourceText[] }
   | { kind: "hr" }
-  | { kind: "blockquote"; text: string }
-  | { kind: "paragraph"; lines: string[] }
+  | { kind: "blockquote"; text: SourceText }
+  | { kind: "paragraph"; lines: SourceText[] }
 
 // Split a GFM table row: "| a | b | c |" → ["a", "b", "c"]
-function parseTableRow(line: string): TableRow {
-  return line
-    .replace(/^\||\|$/g, "")
-    .split("|")
-    .map((c) => c.trim())
+function parseTableRow(line: string, sourceStart: number): TableRow {
+  const cells: TableRow = []
+  let cellStart = line.startsWith("|") ? 1 : 0
+  let cursor = cellStart
+
+  while (cursor <= line.length) {
+    const pipe = line.indexOf("|", cursor)
+    const end = pipe === -1 ? line.length : pipe
+    const raw = line.slice(cellStart, end)
+    const text = raw.trim()
+    if (text) {
+      cells.push({ text, start: sourceStart + cellStart + raw.indexOf(text) })
+    } else {
+      cells.push({ text: "", start: sourceStart + cellStart })
+    }
+    if (pipe === -1) break
+    cellStart = pipe + 1
+    cursor = cellStart
+  }
+
+  if (line.endsWith("|")) cells.pop()
+  return cells
 }
 
 function isTableSeparator(line: string): boolean {
@@ -266,8 +293,14 @@ function isTableSeparator(line: string): boolean {
 
 // ── Parser ─────────────────────────────────────────────────────────────────────
 
-function parseBlocks(content: string): Block[] {
+function parseBlocks(content: string, sourceOffset = 0): Block[] {
   const raw = content.split("\n")
+  const lineStarts: number[] = []
+  let nextStart = sourceOffset
+  for (const line of raw) {
+    lineStarts.push(nextStart)
+    nextStart += line.length + 1
+  }
   const blocks: Block[] = []
   let i = 0
 
@@ -285,10 +318,10 @@ function parseBlocks(content: string): Block[] {
     // ── Fenced code block ───────────────────────────────────────────────────────
     if (t.startsWith("```")) {
       const lang = t.slice(3).trim()
-      const codeLines: string[] = []
+      const codeLines: SourceText[] = []
       i++
       while (i < raw.length && !raw[i].trim().startsWith("```")) {
-        codeLines.push(raw[i])
+        codeLines.push({ text: raw[i], start: lineStarts[i] })
         i++
       }
       i++ // consume closing ```
@@ -338,7 +371,7 @@ function parseBlocks(content: string): Block[] {
       blocks.push({
         kind: "heading",
         level: Math.min(headingMatch[1].length, 6) as 1 | 2 | 3 | 4 | 5 | 6,
-        text: headingMatch[2],
+        text: { text: headingMatch[2], start: lineStarts[i] + line.indexOf(headingMatch[2]) },
       })
       i++
       continue
@@ -353,7 +386,7 @@ function parseBlocks(content: string): Block[] {
 
     // ── Blockquote ──────────────────────────────────────────────────────────────
     if (t.startsWith("> ")) {
-      blocks.push({ kind: "blockquote", text: t.slice(2) })
+      blocks.push({ kind: "blockquote", text: { text: t.slice(2), start: lineStarts[i] + line.indexOf(t) + 2 } })
       i++
       continue
     }
@@ -361,11 +394,12 @@ function parseBlocks(content: string): Block[] {
     // ── GFM Table ───────────────────────────────────────────────────────────────
     // Detect: current line is a table row AND the next line is a separator
     if (t.startsWith("|") && i + 1 < raw.length && isTableSeparator(raw[i + 1])) {
-      const headers = parseTableRow(t)
+      const headers = parseTableRow(t, lineStarts[i] + line.indexOf(t))
       i += 2 // skip header + separator
       const rows: TableRow[] = []
       while (i < raw.length && raw[i].trim().startsWith("|")) {
-        rows.push(parseTableRow(raw[i]))
+        const rowText = raw[i].trim()
+        rows.push(parseTableRow(rowText, lineStarts[i] + raw[i].indexOf(rowText)))
         i++
       }
       blocks.push({ kind: "table", headers, rows })
@@ -374,9 +408,10 @@ function parseBlocks(content: string): Block[] {
 
     // ── Unordered list ──────────────────────────────────────────────────────────
     if (/^[-*+] /.test(t)) {
-      const items: string[] = []
+      const items: SourceText[] = []
       while (i < raw.length && /^[-*+] /.test(raw[i].trim())) {
-        items.push(raw[i].trim().slice(2))
+        const itemLine = raw[i].trim()
+        items.push({ text: itemLine.slice(2), start: lineStarts[i] + raw[i].indexOf(itemLine) + 2 })
         i++
       }
       blocks.push({ kind: "ul", items })
@@ -387,9 +422,10 @@ function parseBlocks(content: string): Block[] {
     const olMatch = t.match(/^(\d+)\. /)
     if (olMatch) {
       const start = Number(olMatch[1])
-      const items: string[] = []
+      const items: SourceText[] = []
       while (i < raw.length && /^\d+\. /.test(raw[i].trim())) {
-        items.push(raw[i].trim().replace(/^\d+\.\s/, ""))
+        const item = raw[i].trim().replace(/^\d+\.\s/, "")
+        items.push({ text: item, start: lineStarts[i] + raw[i].indexOf(item) })
         i++
       }
       blocks.push({ kind: "ol", start, items })
@@ -397,7 +433,7 @@ function parseBlocks(content: string): Block[] {
     }
 
     // ── Paragraph ───────────────────────────────────────────────────────────────
-    const paraLines: string[] = []
+    const paraLines: SourceText[] = []
     while (i < raw.length) {
       const pl = raw[i]
       const pt = pl.trim()
@@ -412,7 +448,7 @@ function parseBlocks(content: string): Block[] {
       if (/^\d+\. /.test(pt)) break
       // Stop at a table header (next line is separator)
       if (pt.startsWith("|") && i + 1 < raw.length && isTableSeparator(raw[i + 1])) break
-      paraLines.push(pl)
+      paraLines.push({ text: pl, start: lineStarts[i] })
       i++
     }
     if (paraLines.length > 0) blocks.push({ kind: "paragraph", lines: paraLines })
@@ -443,9 +479,10 @@ export interface LineRendererProps {
   content: string
   webCitations?: WebCitation[]
   highlights?: HighlightSpec[]
+  sourceOffset?: number
 }
 
-export function LineRenderer({ content, webCitations, highlights }: LineRendererProps) {
+export function LineRenderer({ content, webCitations, highlights, sourceOffset = 0 }: LineRendererProps) {
   // Build a URL→index map once so inline citation matching is O(1)
   const urlMap = React.useMemo<Map<string, number>>(() => {
     const m = new Map<string, number>()
@@ -455,14 +492,14 @@ export function LineRenderer({ content, webCitations, highlights }: LineRenderer
 
   const ctx: InlineCtx = { webCitations, urlMap, highlights }
 
-  const blocks = React.useMemo(() => parseBlocks(content), [content])
+  const blocks = React.useMemo(() => parseBlocks(content, sourceOffset), [content, sourceOffset])
 
   const rendered = blocks.map((block, bi) => {
     const k = `lr-b${bi}`
 
     // Helper: render one line with inline markdown + citations + highlights
-    const inline = (line: string, lineKey: string) =>
-      renderInlineLine(line, lineKey, ctx, highlights)
+    const inline = (line: SourceText, lineKey: string) =>
+      renderInlineLine(line.text, line.start, lineKey, ctx)
 
     switch (block.kind) {
 
@@ -492,9 +529,10 @@ export function LineRenderer({ content, webCitations, highlights }: LineRenderer
           <CodeBlock
             key={k}
             language={block.lang || undefined}
-            value={block.lines.join("\n")}
+            value={block.lines.map(line => line.text).join("\n")}
             elementKey={k}
             highlights={highlights}
+            sourceOffset={block.lines[0]?.start ?? sourceOffset}
           />
         )
 

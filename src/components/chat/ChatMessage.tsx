@@ -10,6 +10,7 @@ import { StreamingCursor } from "./StreamingCursor";
 import { BlockSequenceRenderer, SourceList } from "./ResponseBlocks";
 import { ConnectPromptCard, PermissionPromptCard } from "./ConnectorPrompts";
 import { ContentRenderer } from "@/lib/content-renderer";
+import { rawRangeFromVisibleRange } from "@/lib/highlight-offsets";
 import { usePinboardActions } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
 import { SelectionPopover } from "@/components/SelectionPopover";
@@ -324,7 +325,9 @@ export function ChatMessage({
       // messageId is missing/null (e.g. created before the API sent message_id).
       // For the latter case the rehype plugin's text-search naturally limits
       // the mark to whichever message actually contains the selected text.
-      .flatMap(h => (h.messageId === message.id || !h.messageId) ? [{ id: h.id, text: h.text, colorIndex: h.colorIndex }] : []),
+      .flatMap(h => (h.messageId === message.id || !h.messageId)
+        ? [{ id: h.id, text: h.text, colorIndex: h.colorIndex, startOffset: h.startOffset, endOffset: h.endOffset }]
+        : []),
     [highlights, message.id],
   )
 
@@ -399,7 +402,7 @@ export function ChatMessage({
       document.removeEventListener('mouseup', handleMouseUp)
       document.removeEventListener('selectionchange', handleSelectionChange)
     }
-  }, [isAssistant])
+  }, [disableHighlight, isAssistant])
 
   // Cleanup hover timer on unmount
   useEffect(() => () => {
@@ -451,7 +454,8 @@ export function ChatMessage({
   const handleHighlight = () => {
     const sel = window.getSelection()
     if (!sel || sel.rangeCount === 0) return
-    const text = sel.toString().trim()
+    const selectedText = sel.toString()
+    const text = selectedText.trim()
     if (!text) return
 
     // Compute character offsets within the message content element so the
@@ -463,8 +467,12 @@ export function ChatMessage({
       const preRange = range.cloneRange()
       preRange.selectNodeContents(contentRef.current)
       preRange.setEnd(range.startContainer, range.startOffset)
-      startOffset = preRange.toString().length
-      endOffset   = startOffset + text.length
+      const visibleStart = preRange.toString().length + selectedText.search(/\S/)
+      const visibleEnd = visibleStart + text.length
+      const rawRange = rawRangeFromVisibleRange(message.content, visibleStart, visibleEnd)
+      if (!rawRange) return
+      startOffset = rawRange.startOffset
+      endOffset = rawRange.endOffset
     }
 
     addHighlight({ text, messageId: message.id, startOffset, endOffset, chatId })

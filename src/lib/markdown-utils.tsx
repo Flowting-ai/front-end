@@ -19,7 +19,13 @@ const rehypePlugins: Pluggable[] = [rehypeKatex];
 
 // ── Highlight mark types & rehype plugin ──────────────────────────────────────
 
-export type HighlightSpec = { id: string; text: string; colorIndex: 0 | 1 | 2 | 3 }
+export type HighlightSpec = {
+  id: string;
+  text: string;
+  colorIndex: 0 | 1 | 2 | 3;
+  startOffset?: number;
+  endOffset?: number;
+}
 
 // Minimal HAST-compatible node shapes - avoids importing @types/hast directly.
 type HastNodeAny = {
