@@ -1270,7 +1270,11 @@ export default function PersonasPage() {
                         left:                0,
                         width:               '100%',
                         display:             'grid',
-                        gridTemplateColumns: 'repeat(3, 1fr)',
+                        // Match may-day: every card is a uniform 314px wide
+                        // (caps at 314, shrinks equally on narrow widths) and the
+                        // row is centred so cards never stretch unevenly.
+                        gridTemplateColumns: 'repeat(3, minmax(0, 314px))',
+                        justifyContent:      'center',
                         gap:                 16,
                         paddingBottom:       16,
                       }}
@@ -1319,7 +1323,7 @@ export default function PersonasPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {receivedLoading ? (
                 /* Skeleton — card (140px) + strip (~30px) + gap (8px) = ~178px per cell */
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 314px))', justifyContent: 'center', gap: 16 }}>
                   {Array.from({ length: 3 }).map((_, i) => (
                     <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div style={{ height: 140, borderRadius: 16, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
@@ -1337,7 +1341,7 @@ export default function PersonasPage() {
                   </p>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 314px))', justifyContent: 'center', gap: 16 }}>
                   {receivedShares.map(share => {
                     const persona = personaByRepoId[share.persona_repo_id]
                     return (
