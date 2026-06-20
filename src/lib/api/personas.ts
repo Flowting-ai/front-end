@@ -296,10 +296,13 @@ export async function createPersonaRepo(params: {
 
 export async function deletePersona(repoId: string): Promise<void> {
   await apiFetch(PERSONA_DETAIL_ENDPOINT(repoId), { method: "DELETE" });
+  // Mutation — bust so every consumer (sidebar, search, agents grid) refetches.
+  bustPersonasCache();
 }
 
 export async function togglePause(repoId: string): Promise<void> {
   await apiFetch(PERSONA_PAUSE_ENDPOINT(repoId), { method: "PATCH" });
+  bustPersonasCache();
 }
 
 export async function setActiveVersion(repoId: string, versionId: string): Promise<PersonaRepoResponse> {

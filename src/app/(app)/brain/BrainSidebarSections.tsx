@@ -15,6 +15,11 @@ import {
 } from '@/lib/api/brain'
 import { stripDocumentBlocks } from '@/lib/brain-file-extract'
 import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
+import {
+  BRAIN_THREAD_CREATED_EVENT,
+  BRAIN_THREAD_TITLE_UPDATED_EVENT,
+  type BrainThreadEventDetail,
+} from '@/hooks/use-sidebar-events'
 
 // ── Dropdown styles — match ChatHistoryItem / ProjectChatItem exactly ─────────
 
@@ -96,6 +101,7 @@ function BrainThreadItem({
           variant={isEditing ? 'chat-item-edit' : 'chat-item'}
           label={stripDocumentBlocks(thread.chat_title) || 'Untitled'}
           selected={isActive}
+          href={isEditing ? undefined : `/brain?id=${thread.id}`}
           onClick={() => { if (!isEditing) onSelect() }}
           onMoreClick={handleMoreClick}
           onRename={() => setIsEditing(true)}
@@ -198,6 +204,35 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
       .then(setThreads)
       .catch(() => setThreads([]))
       .finally(() => setIsLoading(false))
+  }, [])
+
+  // Keep the list in sync when a thread is created / titled elsewhere on the
+  // page, so a new brain thread appears without a manual refresh — mirrors the
+  // persona-chat event flow.
+  useEffect(() => {
+    const handleCreated = (e: Event) => {
+      const { chatId, title } = (e as CustomEvent<BrainThreadEventDetail>).detail
+      setThreads(prev =>
+        prev.some(t => t.id === chatId)
+          ? prev
+          : [{ id: chatId, chat_title: title || 'New thread', starred: false }, ...prev],
+      )
+    }
+    const handleTitleUpdated = (e: Event) => {
+      const { chatId, title } = (e as CustomEvent<BrainThreadEventDetail>).detail
+      if (!title) return
+      setThreads(prev =>
+        prev.some(t => t.id === chatId)
+          ? prev.map(t => (t.id === chatId ? { ...t, chat_title: title } : t))
+          : [{ id: chatId, chat_title: title, starred: false }, ...prev],
+      )
+    }
+    window.addEventListener(BRAIN_THREAD_CREATED_EVENT, handleCreated)
+    window.addEventListener(BRAIN_THREAD_TITLE_UPDATED_EVENT, handleTitleUpdated)
+    return () => {
+      window.removeEventListener(BRAIN_THREAD_CREATED_EVENT, handleCreated)
+      window.removeEventListener(BRAIN_THREAD_TITLE_UPDATED_EVENT, handleTitleUpdated)
+    }
   }, [])
 
   const handleRename = async (id: string, title: string) => {

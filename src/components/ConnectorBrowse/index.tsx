@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react'
 import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
+import Tabs from '@/components/Tabs'
 import { CONNECTOR_CATEGORIES, connectorCategory } from '@/lib/connectorCategories'
 import type { ConnectorCategory } from '@/lib/connectorCategories'
 
@@ -89,36 +90,15 @@ export function CategoryFilter({
       <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: 'var(--neutral-500)' }}>
         Categories
       </span>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {chips.map(chip => {
-          const active = chip === value
-          return (
-            <button
-              key={chip}
-              type="button"
-              aria-pressed={active}
-              onClick={() => onChange(chip)}
-              style={{
-                height: 30,
-                padding: '0 12px',
-                borderRadius: 999,
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: 13,
-                lineHeight: '20px',
-                whiteSpace: 'nowrap',
-                backgroundColor: active ? 'var(--neutral-900)' : 'white',
-                color: active ? 'white' : 'var(--neutral-600)',
-                boxShadow: active ? 'none' : '0px 0px 0px 1px var(--neutral-200)',
-              }}
-            >
+      <Tabs value={value} onValueChange={next => onChange(next as CategorySelection)}>
+        <Tabs.List size="small" scrollable>
+          {chips.map(chip => (
+            <Tabs.Trigger key={chip} value={chip}>
               {chip === 'all' ? 'All connectors' : chip}
-            </button>
-          )
-        })}
-      </div>
+            </Tabs.Trigger>
+          ))}
+        </Tabs.List>
+      </Tabs>
     </div>
   )
 }

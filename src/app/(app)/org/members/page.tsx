@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { PlusSignIcon, SearchOneIcon } from '@strange-huge/icons'
+import { PlusSignIcon, SearchOneIcon, CancelCircleIcon } from '@strange-huge/icons'
 import { Badge }            from '@/components/Badge'
 import { RoleBadge }        from '@/components/RoleBadge'
 import { CREDIT_CAP_COLUMNS, CreditCapRow } from '@/components/CreditCapRow'
@@ -194,7 +194,22 @@ function RoleButton({
 
 const REVEAL = { duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] as const }
 
-function RemoveButton({ memberName, onConfirm }: { memberName: string; onConfirm: () => void }) {
+function RemoveButton({
+  memberName,
+  onConfirm,
+  label = 'Remove',
+  confirmLabel = 'Confirm remove',
+  icon,
+}: {
+  memberName:    string
+  onConfirm:     () => void
+  /** Idle button text (e.g. "Remove" or "Revoke"). */
+  label?:        string
+  /** Confirmation button text (e.g. "Confirm remove" or "Revoke invite"). */
+  confirmLabel?: string
+  /** Leading icon for the idle button. Defaults to the remove-user glyph. */
+  icon?:         React.ReactNode
+}) {
   const [hov,        setHov]        = React.useState(false)
   const [confirming, setConfirming] = React.useState(false)
 
@@ -204,7 +219,7 @@ function RemoveButton({ memberName, onConfirm }: { memberName: string; onConfirm
         <motion.button
           key="remove"
           type="button"
-          aria-label={`Remove ${memberName}`}
+          aria-label={`${label} ${memberName}`}
           onClick={() => setConfirming(true)}
           onMouseEnter={() => setHov(true)}
           onMouseLeave={() => setHov(false)}
@@ -222,10 +237,12 @@ function RemoveButton({ memberName, onConfirm }: { memberName: string; onConfirm
             whiteSpace:      'nowrap', outline: 'none', transition: 'background-color 120ms ease',
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-            <path d="M7 7.875a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM1.75 12.25c0-2.071 2.351-3.5 5.25-3.5M10.5 10.5l1.75 1.75M12.25 10.5L10.5 12.25" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Remove
+          {icon ?? (
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <path d="M7 7.875a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM1.75 12.25c0-2.071 2.351-3.5 5.25-3.5M10.5 10.5l1.75 1.75M12.25 10.5L10.5 12.25" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+          {label}
           <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none', boxShadow: SHADOW_REMOVE_INNER }} />
         </motion.button>
       ) : (
@@ -245,7 +262,7 @@ function RemoveButton({ memberName, onConfirm }: { memberName: string; onConfirm
             onClick={() => { setConfirming(false); onConfirm() }}
             style={{ color: 'var(--red-500)', flexShrink: 0 }}
           >
-            Confirm remove
+            {confirmLabel}
           </Button>
         </motion.div>
       )}
@@ -370,6 +387,119 @@ function AssignTeamButton({
   )
 }
 
+// ── Assign-editor-team modal ──────────────────────────────────────────────────
+// Guardrail: making someone a team editor first requires choosing which team
+// they'll edit, so editor access is never granted without an explicit scope.
+
+function AssignEditorTeamModal({
+  memberName,
+  teams,
+  onCancel,
+  onConfirm,
+}: {
+  memberName: string
+  teams:      { id: string; name: string }[]
+  onCancel:   () => void
+  onConfirm:  (teamIds: string[]) => void
+}) {
+  const [selected, setSelected] = useState<string[]>([])
+  const toggle = (id: string) =>
+    setSelected(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Assign team editor"
+      style={{
+        position:        'fixed',
+        inset:           0,
+        zIndex:          300,
+        display:         'flex',
+        alignItems:      'center',
+        justifyContent:  'center',
+        backgroundColor: 'rgba(0,0,0,0.35)',
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
+    >
+      <div
+        style={{
+          width:           420,
+          maxWidth:        'calc(100vw - 32px)',
+          borderRadius:    20,
+          backgroundColor: 'var(--neutral-white)',
+          border:          '1px solid var(--neutral-200)',
+          boxShadow:       '0px 8px 32px rgba(0,0,0,0.12)',
+          overflow:        'hidden',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: '24px 24px 16px' }}>
+          <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
+            Assign team editor
+          </h2>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
+            Choose which team(s) <strong style={{ color: 'var(--neutral-700)' }}>{memberName}</strong> will edit as a team editor. Select one or more.
+          </p>
+        </div>
+
+        {/* Team options */}
+        <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
+          {teams.map(team => {
+            const active = selected.includes(team.id)
+            return (
+              <button
+                key={team.id}
+                type="button"
+                onClick={() => toggle(team.id)}
+                style={{
+                  display:         'flex',
+                  alignItems:      'center',
+                  gap:             10,
+                  width:           '100%',
+                  padding:         '10px 12px',
+                  borderRadius:    10,
+                  border:          `1px solid ${active ? 'var(--neutral-900)' : 'var(--neutral-200)'}`,
+                  backgroundColor: active ? 'var(--neutral-50)' : 'transparent',
+                  cursor:          'pointer',
+                  textAlign:       'left',
+                  transition:      'all 0.1s',
+                }}
+              >
+                <span style={{
+                  width: 16, height: 16, borderRadius: 5, flexShrink: 0,
+                  border: `2px solid ${active ? 'var(--neutral-900)' : 'var(--neutral-300)'}`,
+                  backgroundColor: active ? 'var(--neutral-900)' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.1s',
+                }}>
+                  {active && (
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+                      <path d="M2 5l2 2 4-4.5" stroke="var(--neutral-white)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </span>
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-800)' }}>
+                  {team.name}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '20px 24px 24px' }}>
+          <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+          <Button variant="default" size="sm" disabled={selected.length === 0} onClick={() => { if (selected.length > 0) onConfirm(selected) }}>
+            {selected.length > 1 ? `Assign editor (${selected.length} teams)` : 'Assign editor'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Members table ─────────────────────────────────────────────────────────────
 
 const WORKSPACE_MEMBER_COLUMNS = 'minmax(260px, 1.25fr) 130px minmax(280px, 1fr) 150px'
@@ -381,19 +511,23 @@ function MembersTable({
   loading,
   availableTeams,
   onChangeRole,
+  onRequestEditor,
   onRemove,
+  onRevokeInvite,
   onInviteClick,
   onAssignTeam,
 }: {
-  members:        OrgMember[]
-  ownerMemberId:  string
-  isAdmin:        boolean
-  loading?:       boolean
-  availableTeams: { id: string; name: string }[]
-  onChangeRole:   (id: string, role: WorkspaceRole) => void
-  onRemove:       (id: string) => void
-  onInviteClick:  () => void
-  onAssignTeam:   (memberId: string, teamId: string) => Promise<void>
+  members:         OrgMember[]
+  ownerMemberId:   string
+  isAdmin:         boolean
+  loading?:        boolean
+  availableTeams:  { id: string; name: string }[]
+  onChangeRole:    (id: string, role: WorkspaceRole) => void
+  onRequestEditor: (id: string, memberName: string) => void
+  onRemove:        (id: string) => void
+  onRevokeInvite:  (id: string) => void
+  onInviteClick:   () => void
+  onAssignTeam:    (memberId: string, teamId: string) => Promise<void>
 }) {
   const [openDropdown,  setOpenDropdown]  = useState<string | null>(null)
   const [dropdownAnchor, setDropdownAnchor] = useState<HTMLButtonElement | null>(null)
@@ -517,7 +651,12 @@ function MembersTable({
                       {openDropdown === member.id && canEditMember && dropdownAnchor && dropdownPosition && (
                         <RoleDropdown
                           currentRole={member.role}
-                          onSelect={role => { onChangeRole(member.id, role); setOpenDropdown(null) }}
+                          onSelect={role => {
+                            setOpenDropdown(null)
+                            // Editor needs a team scope — defer to the picker modal.
+                            if (role === 'editor') onRequestEditor(member.id, member.name || member.email)
+                            else onChangeRole(member.id, role)
+                          }}
                           onClose={() => setOpenDropdown(null)}
                           triggerEl={dropdownAnchor}
                           position={dropdownPosition}
@@ -548,6 +687,15 @@ function MembersTable({
                   {canEditMember && (
                     <RemoveButton memberName={member.name || member.email} onConfirm={() => onRemove(member.id)} />
                   )}
+                  {isAdmin && !isOwner && member.inviteStatus === 'invite_sent' && (
+                    <RemoveButton
+                      memberName={member.name || member.email}
+                      label="Revoke"
+                      confirmLabel="Revoke invite"
+                      icon={<CancelCircleIcon size={14} />}
+                      onConfirm={() => onRevokeInvite(member.id)}
+                    />
+                  )}
                 </SettingsTableCell>
               </SettingsTableRow>
             )
@@ -569,10 +717,10 @@ function MembersTable({
 // ── Roles & Permissions section (collapsible) ────────────────────────────────
 
 const ROLES_INFO = [
-  { role: 'owner'  as const, description: 'Full organization control, including billing, payment methods, invoices, subscriptions, credit purchases, and ownership transfer.' },
-  { role: 'admin'  as const, description: 'Inherits Editor access and manages workspace settings, members, teams, connectors, and credit allocation. Cannot manage billing or payments.' },
+  { role: 'owner'  as const, description: 'Full organization control, including billing, payment methods, invoices, subscriptions, topup credit purchases, and ownership transfer.' },
+  { role: 'admin'  as const, description: 'Everything a owner can do. But cannot manage billing or payments.' },
   { role: 'editor' as const, description: 'Inherits Member access and can edit content in assigned teams, without organization settings or member administration.' },
-  { role: 'member' as const, description: 'Baseline access through assigned projects. Cannot change organization settings, manage members, or edit teams.' },
+  { role: 'member' as const, description: 'Baseline access through assigned projects. Cannot change organization settings, manage other members, or edit teams.' },
 ]
 
 function RolesPermissionsSection() {
@@ -833,6 +981,8 @@ export default function OrgMembersPage() {
   const [inviteLoading,  setInviteLoading]  = useState(false)
   const [projects,       setProjects]       = useState<ApiProjectSummary[]>([])
   const [allowedDomains, setAllowedDomains] = useState<string[]>([])
+  // Member awaiting a team selection before being made a team editor.
+  const [editorTarget,   setEditorTarget]   = useState<{ memberId: string; memberName: string } | null>(null)
 
   useEffect(() => {
     if (!orgId) return
@@ -895,20 +1045,39 @@ export default function OrgMembersPage() {
   const adminCount     = members.filter(m => m.orgRole === 'owner' || m.orgRole === 'admin').length
   const pendingInvites = members.filter(m => m.inviteStatus === 'invite_sent').length
 
-  const handleChangeRole = async (id: string, role: WorkspaceRole) => {
+  // Change a member's workspace role. Promoting/demoting to `editor` requires one
+  // or more target teams (collected by the team-picker modal and passed as
+  // editorTeamIds); the chosen grants are added on top of existing memberships.
+  const handleChangeRole = async (id: string, role: WorkspaceRole, editorTeamIds?: string[]) => {
     const prev = members
     const prevMember = prev.find(m => m.id === id)
     if (!prevMember) return
     if (!orgId) return
 
     const previousTeamIds = prevMember.teamMemberships.map(tm => tm.teamId)
-    const targetMemberships = previousTeamIds.length > 0
-      ? prevMember.teamMemberships
-      : teams.map(team => ({ teamId: team.id, teamName: team.name, isTeamOwner: false }))
 
-    if (role === 'editor' && targetMemberships.length === 0) {
-      toast.error('Create a team before assigning a team editor')
-      return
+    // Resolve the editor's target team memberships. With teams chosen in the
+    // modal we merge them onto existing grants; the all-teams fallback only
+    // applies when none were picked.
+    let targetMemberships = prevMember.teamMemberships
+    if (role === 'editor') {
+      if (editorTeamIds && editorTeamIds.length > 0) {
+        const chosen = editorTeamIds.map(tid => ({
+          teamId:      tid,
+          teamName:    teams.find(team => team.id === tid)?.name ?? 'Team',
+          isTeamOwner: false,
+        }))
+        targetMemberships = [
+          ...prevMember.teamMemberships.filter(tm => !editorTeamIds.includes(tm.teamId)),
+          ...chosen,
+        ]
+      } else if (previousTeamIds.length === 0) {
+        targetMemberships = teams.map(team => ({ teamId: team.id, teamName: team.name, isTeamOwner: false }))
+      }
+      if (targetMemberships.length === 0) {
+        toast.error('Create a team before assigning a team editor')
+        return
+      }
     }
 
     setMembers(ms => ms.map(m => {
@@ -918,6 +1087,8 @@ export default function OrgMembersPage() {
       return { ...m, role: 'member', orgRole: 'member', teamMemberships: [] }
     }))
 
+    const roleLabel = role === 'admin' ? 'Admin' : role === 'editor' ? 'Team editor' : 'Member'
+
     try {
       if (role === 'admin') {
         await setMemberRole(orgId, id, 'admin')
@@ -925,15 +1096,36 @@ export default function OrgMembersPage() {
       } else {
         await setMemberRole(orgId, id, 'member')
         if (role === 'editor') {
-          await Promise.all(targetMemberships.map(tm => addTeamEditor(orgId, tm.teamId, id)))
+          // Grant only the newly chosen teams when picked; existing editor grants
+          // stay intact. Falls back to all target teams otherwise.
+          const teamsToGrant = editorTeamIds && editorTeamIds.length > 0
+            ? editorTeamIds
+            : targetMemberships.map(tm => tm.teamId)
+          await Promise.all(teamsToGrant.map(tid => addTeamEditor(orgId, tid, id)))
         } else if (previousTeamIds.length > 0) {
           await Promise.all(previousTeamIds.map(tid => removeTeamEditor(orgId, tid, id)))
         }
       }
+      let successMsg = `Role changed to ${roleLabel}`
+      if (role === 'editor' && editorTeamIds && editorTeamIds.length > 0) {
+        successMsg = editorTeamIds.length === 1
+          ? `Assigned as team editor of ${teams.find(t => t.id === editorTeamIds[0])?.name ?? 'team'}`
+          : `Assigned as team editor of ${editorTeamIds.length} teams`
+      }
+      toast.success(successMsg)
     } catch (err) {
       setMembers(prev)
       toast.error(err instanceof Error ? err.message : 'Failed to update role')
     }
+  }
+
+  // Promotion/demotion to editor first asks which team to assign (guardrail).
+  const handleRequestEditor = (memberId: string, memberName: string) => {
+    if (teams.length === 0) {
+      toast.error('Create a team before assigning a team editor')
+      return
+    }
+    setEditorTarget({ memberId, memberName })
   }
 
   const handleAssignTeam = async (memberId: string, teamId: string) => {
@@ -959,13 +1151,31 @@ export default function OrgMembersPage() {
 
   const handleRemove = async (id: string) => {
     const prev = members
+    const removed = prev.find(m => m.id === id)
     setMembers(ms => ms.filter(m => m.id !== id))
     if (!orgId) return
     try {
       await removeMember(orgId, id)
+      toast.success(`Removed ${removed?.name || removed?.email || 'member'}`)
     } catch (err) {
       setMembers(prev)
       toast.error(err instanceof Error ? err.message : 'Failed to remove member')
+    }
+  }
+
+  // Revoke a pending invite. Pending invites are backed by a placeholder member
+  // record keyed by user_id, so the same DELETE member endpoint cancels them.
+  const handleRevokeInvite = async (id: string) => {
+    const prev = members
+    const invited = prev.find(m => m.id === id)
+    setMembers(ms => ms.filter(m => m.id !== id))
+    if (!orgId) return
+    try {
+      await removeMember(orgId, id)
+      toast.success(`Invite to ${invited?.email || 'member'} revoked`)
+    } catch (err) {
+      setMembers(prev)
+      toast.error(err instanceof Error ? err.message : 'Failed to revoke invite')
     }
   }
 
@@ -1024,6 +1234,9 @@ export default function OrgMembersPage() {
       }])
       setInviteOpen(false)
       toast.success('Invite sent')
+      // Reconcile the optimistic (synthetic-id) row with the real backend
+      // invite record so its user_id is available for revoking.
+      refreshMembers()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to send invite')
     } finally {
@@ -1118,7 +1331,9 @@ export default function OrgMembersPage() {
           loading={membersLoading}
           availableTeams={teams.map(t => ({ id: t.id, name: t.name }))}
           onChangeRole={handleChangeRole}
+          onRequestEditor={handleRequestEditor}
           onRemove={handleRemove}
+          onRevokeInvite={handleRevokeInvite}
           onInviteClick={() => setInviteOpen(true)}
           onAssignTeam={handleAssignTeam}
         />
@@ -1145,6 +1360,20 @@ export default function OrgMembersPage() {
             : []
         ))}
       />
+
+      {/* Team-editor scope picker (guardrail before granting editor access) */}
+      {editorTarget && (
+        <AssignEditorTeamModal
+          memberName={editorTarget.memberName}
+          teams={teams.map(team => ({ id: team.id, name: team.name }))}
+          onCancel={() => setEditorTarget(null)}
+          onConfirm={(teamIds) => {
+            const { memberId } = editorTarget
+            setEditorTarget(null)
+            void handleChangeRole(memberId, 'editor', teamIds)
+          }}
+        />
+      )}
     </div>
   )
 }

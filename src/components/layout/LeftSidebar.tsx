@@ -270,12 +270,13 @@ const menuItemDestructiveStyle: React.CSSProperties = {
 interface ProjectChatItemProps {
   chat:     ProjectChat
   isActive: boolean
+  href?:    string
   onSelect: () => void
   onRename: (chatId: string, title: string) => Promise<void>
   onDelete: (chatId: string) => void
 }
 
-function ProjectChatItem({ chat, isActive, onSelect, onRename, onDelete }: ProjectChatItemProps) {
+function ProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }: ProjectChatItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [menuOpen,  setMenuOpen]  = useState(false)
   const triggerRef       = useRef<HTMLButtonElement>(null)
@@ -308,6 +309,7 @@ function ProjectChatItem({ chat, isActive, onSelect, onRename, onDelete }: Proje
           variant={isEditing ? "chat-item-edit" : "chat-item"}
           label={chat.title}
           selected={isActive}
+          href={isEditing ? undefined : href}
           onClick={() => { if (!isEditing) onSelect() }}
           onMoreClick={handleMoreClick}
           onRename={() => setIsEditing(true)}
@@ -465,6 +467,7 @@ function ProjectsSection({
               variant="default"
               label="New project"
               icon={<FolderAddIcon size={20} />}
+              href={newProjectHref}
               onClick={() => push(newProjectHref)}
             />
           )}
@@ -502,6 +505,7 @@ function ProjectsSection({
                       key={chat.id}
                       chat={chat}
                       isActive={pathname === `/project/${project.id}/chat/${chat.id}`}
+                      href={`/project/${project.id}/chat/${chat.id}`}
                       onSelect={() => push(`/project/${project.id}/chat/${chat.id}`)}
                       onRename={async (chatId, title) => {
                         renameChat(project.id, chatId, title)
@@ -517,6 +521,7 @@ function ProjectsSection({
                       icon={<MoreHorizontalIcon size={20} animated />}
                       label="View all Project Chats"
                       selected={pathname === `/project/${project.id}`}
+                      href={`/project/${project.id}`}
                       onClick={() => push(`/project/${project.id}`)}
                     />
                   )}
@@ -532,6 +537,7 @@ function ProjectsSection({
               variant="default"
               icon={<MoreHorizontalIcon size={20} animated />}
               label="See all projects"
+              href="/projects"
               onClick={() => push("/projects")}
             />
           )}
@@ -711,6 +717,7 @@ function PersonaChatItem({
           variant={isEditing ? "chat-item-edit" : "chat-item"}
           label={chat.title}
           selected={isActive}
+          href={isEditing ? undefined : `/agents/${personaId}/chat?chatId=${chat.id}`}
           onClick={() => { if (!isEditing) onSelect() }}
           onMoreClick={handleMoreClick}
           onRename={() => setIsEditing(true)}
@@ -974,6 +981,7 @@ function PersonasSectionAll() {
                   variant="default"
                   label="New chat"
                   icon={<PlusSignIcon size={20} />}
+                  href={`/agents/${persona.id}/chat`}
                   onClick={() => push(`/agents/${persona.id}/chat`)}
                 />
 

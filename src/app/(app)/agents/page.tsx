@@ -330,6 +330,7 @@ function SharedAgentCard({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <PersonaCard
+        style={{ width: '100%' }}
         variant="default"
         name={share.name}
         handle={persona?.handle.replace(/^@/, '') ?? ''}
@@ -822,9 +823,19 @@ export default function PersonasPage() {
   async function handlePauseToggle(id: string, name: string, currentlyPaused: boolean) {
     try {
       await togglePause(id)
-      setPersonas(prev => prev.map(p =>
-        p.id === id ? { ...p, isPaused: !p.isPaused, isActive: p.isPaused } : p
-      ))
+      setPersonas(prev => prev.map(p => {
+        if (p.id !== id) return p
+        const nextActive = p.isPaused // was paused → resuming
+        return {
+          ...p,
+          isPaused: !p.isPaused,
+          isActive: nextActive,
+          // Keep `status` in sync so the filter panel (which filters on status)
+          // reflects pause/resume immediately — no page refresh needed. Drafts
+          // (no live version) can't be paused, so leave their status untouched.
+          status: p.status === 'draft' ? 'draft' : nextActive ? 'active' : 'paused',
+        }
+      }))
       toast.success(currentlyPaused ? `"${name}" resumed` : `"${name}" paused`)
     } catch (err) {
       console.error('Failed to toggle pause:', err)
@@ -1267,6 +1278,12 @@ export default function PersonasPage() {
                       {gridRows[vRow.index].map(persona => (
                         <PersonaCard
                           key={persona.id}
+                          // Fill the grid cell (the DS default is a fixed 314px,
+                          // which overflows the 1fr cells) and stretch to the
+                          // row's height so every card in a row is uniform — this
+                          // also keeps the hover action bar over empty space
+                          // instead of clipping the description.
+                          style={{ width: '100%', height: '100%' }}
                           variant={persona.status === 'draft' || !persona.hasSystemInstructions || unpublishedMap[persona.id] ? 'draft' : 'default'}
                           name={persona.name}
                           handle={persona.handle.replace(/^@/, '')}

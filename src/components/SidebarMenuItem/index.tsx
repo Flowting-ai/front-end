@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { m, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
@@ -75,6 +76,14 @@ export interface SidebarMenuItemProps extends React.HTMLAttributes<HTMLDivElemen
   fluid?: boolean
   /** Icon-only mode for collapsed sidebar - hides labels, shortcut, and text content */
   collapsed?: boolean
+  /**
+   * Destination route. When set (and the variant is navigable, i.e. not
+   * `header`/`chat-item-edit`), the row renders as a real `<a href>` (Next
+   * Link) so the browser exposes "Open in new tab / new window", middle-click,
+   * and ⌘/Ctrl-click. Plain left-clicks still run `onClick` (client-side
+   * navigation); modifier/middle clicks fall through to native behavior.
+   */
+  href?: string
 }
 
 // ── Shared text styles ────────────────────────────────────────────────────────
@@ -129,6 +138,7 @@ export function SidebarMenuItem({
       selected = false,
       fluid = false,
       collapsed = false,
+      href,
       className,
       onMouseEnter: externalMouseEnter,
       onMouseLeave: externalMouseLeave,
@@ -215,6 +225,19 @@ export function SidebarMenuItem({
       if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsFocused(false)
       externalBlur?.(e)
     }
+    // When rendered as an anchor (href set), let modifier / middle clicks fall
+    // through to the browser (open in new tab/window). For a plain left click,
+    // run the existing onClick (router.push) and preventDefault so Next <Link>
+    // doesn't also navigate (which would double-push history).
+    const isLink = Boolean(href) && !isHeader && !isEditVariant
+    const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return
+      if (onClick) {
+        e.preventDefault()
+        onClick(e as unknown as React.MouseEvent<HTMLDivElement>)
+      }
+    }
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (!isHeader && (e.key === 'Enter' || e.key === ' ')) {
         e.preventDefault()
@@ -256,19 +279,36 @@ export function SidebarMenuItem({
       cursor:          isHeader ? 'default' : isEditVariant ? 'text' : 'pointer',
       transition:      isEditVariant ? undefined : 'background-color 150ms, box-shadow 150ms',
     }
+    const itemClassName = cn(!isHeader && !isEditVariant && 'kaya-sidebar-item', className)
+
+    // Render as a real <a href> (Next Link) when a destination is provided so
+    // the browser exposes "Open in new tab / new window" and honors middle /
+    // ⌘ / Ctrl clicks; otherwise a div with role="button" (legacy behavior).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const RootEl: any = isLink ? Link : 'div'
+    const rootSpecificProps = isLink
+      ? {
+          href,
+          onClick: handleAnchorClick,
+          style:   { ...containerStyle, textDecoration: 'none' },
+        }
+      : {
+          ref,
+          role:     isHeader || isEditVariant ? undefined : 'button',
+          tabIndex: isHeader || isEditVariant ? undefined : 0,
+          onClick:  isHeader ? undefined : onClick,
+          style:    containerStyle,
+        }
+
     return (
-      <div
-        ref={ref}
-        role={isHeader || isEditVariant ? undefined : 'button'}
-        tabIndex={isHeader || isEditVariant ? undefined : 0}
-        className={cn(!isHeader && !isEditVariant && 'kaya-sidebar-item', className)}
-        style={containerStyle}
+      <RootEl
+        className={itemClassName}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onFocus={handleItemFocus}
         onBlur={handleItemBlur}
         onKeyDown={handleKeyDown}
-        onClick={isHeader ? undefined : onClick}
+        {...rootSpecificProps}
         {...props}
       >
 
@@ -282,7 +322,7 @@ export function SidebarMenuItem({
               <button
                 type="button"
                 tabIndex={isActive ? 0 : -1}
-                onClick={(e) => { e.stopPropagation(); onShowClick(e) }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); onShowClick(e) }}
                 style={{
                   fontFamily:  'var(--font-body)',
                   fontWeight:  'var(--font-weight-medium)',
@@ -463,7 +503,7 @@ export function SidebarMenuItem({
             {isActive && (
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); onMoreClick?.(e) }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); onMoreClick?.(e) }}
                 style={{
                   display:         'flex',
                   alignItems:      'center',
@@ -611,7 +651,7 @@ export function SidebarMenuItem({
                   animate={{ opacity: 1, filter: 'blur(0px)' }}
                   exit={{ opacity: 0, filter: 'blur(4px)' }}
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  onClick={(e) => { e.stopPropagation(); onSettingsClick?.(e) }}
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); onSettingsClick?.(e) }}
                   style={{
                     display:         'flex',
                     alignItems:      'center',
@@ -633,7 +673,7 @@ export function SidebarMenuItem({
           </>
         )}
 
-      </div>
+      </RootEl>
     )
 }
 

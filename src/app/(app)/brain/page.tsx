@@ -36,6 +36,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { Chip } from '@/components/Chip'
 import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon, ImageDownloadTwoIcon } from '@strange-huge/icons'
 import { useFileUpload } from '@/hooks/use-file-upload'
+import { emitBrainThreadCreated, emitBrainThreadTitleUpdated } from '@/hooks/use-sidebar-events'
 import { fetchPersonas, getVersion } from '@/lib/api/personas'
 import type { PinFolder } from '@/lib/api/pins'
 import {
@@ -1069,6 +1070,10 @@ function BrainPageInner() {
   // ── Chat identity ────────────────────────────────────────────────────────────
 
   const [chatId, setChatId] = useState<string | null>(chatIdFromUrl)
+  // Mirrors chatId synchronously so the streaming title handler (whose closure
+  // may predate the new id) can emit the sidebar title-update for the right thread.
+  const chatIdRef = useRef<string | null>(chatIdFromUrl)
+  useEffect(() => { chatIdRef.current = chatId }, [chatId])
 
   // ── Phase ────────────────────────────────────────────────────────────────────
 
@@ -1388,8 +1393,13 @@ function BrainPageInner() {
   }, [personaChipOpen])
 
   useEffect(() => () => {
+    // Clear the UI completion timer so it can't fire after unmount, but do NOT
+    // abort the in-flight generation: leaving this screen (navigating to another
+    // page, minimizing, switching apps/tabs, losing focus) must let the request
+    // run to completion in the background. The backend persists the response, so
+    // returning to this thread shows the finished result. Generation is only
+    // stopped by the explicit Stop button, a new send, or a real network error.
     if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
-    abortRef.current?.abort()
   }, [])
 
   // ── Sync chatId + full state reset when navigating between brain threads ──────
@@ -1743,6 +1753,10 @@ function BrainPageInner() {
         if (title && typeof document !== 'undefined') {
           document.title = `${title} — Brain`
         }
+        // Reflect the resolved title in the sidebar thread list live.
+        if (title && chatIdRef.current) {
+          emitBrainThreadTitleUpdated({ chatId: chatIdRef.current, title })
+        }
         break
       }
 
@@ -2061,6 +2075,10 @@ function BrainPageInner() {
           skipNextResetRef.current = true
           skipNextHistoryLoadRef.current = true
           setChatId(resolvedChatId)
+          chatIdRef.current = resolvedChatId
+          // Surface the new thread in the sidebar immediately (title resolves
+          // later via the stream's 'title' event).
+          emitBrainThreadCreated({ chatId: resolvedChatId, title: 'New thread' })
           if (fromScheduleId) {
             linkScheduleToChat(fromScheduleId, resolvedChatId)
             // If the id looks like a local temp id (not a UUID), flag it for
