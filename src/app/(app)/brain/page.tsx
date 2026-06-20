@@ -3340,10 +3340,9 @@ function BrainPageInner() {
         void stopBrainChat(chatId).catch(() => {})
       }
     }
-    const completedSteps = planSteps.filter((s) => s.status === 'complete')
-    setPausedAfterLabel(completedSteps[completedSteps.length - 1]?.label)
-    setPhase('paused')
-  }, [activePlanId, phase, chatId, planSteps])
+    setReasoningActive(false)
+    setPhase('cancelled')
+  }, [activePlanId, phase, chatId])
 
   // ── Pause card ────────────────────────────────────────────────────────────────
 
@@ -3910,6 +3909,11 @@ function BrainPageInner() {
           <LoopCancelledCard
             completedSteps={planSteps.filter((s) => s.status === 'complete').length}
             totalSteps={planSteps.length}
+            context={
+              planSteps.length > 0
+                ? 'Stream stopped. Any completed work remains above, but no final output was produced.'
+                : 'Stream stopped before execution began. No output was produced.'
+            }
             onStartNew={handleRestart}
           />
         </Rise>
@@ -4099,10 +4103,26 @@ function BrainPageInner() {
         }
       : undefined
 
+    // Pins the user has staged (via folder selection) for the next send. Shown
+    // read-only in the rail so they're visible before the first turn fires and
+    // as a fallback when the SSE `context` event carries no pins. `effectivePinIds`
+    // is what actually gets sent, so filter to exactly those.
+    const stagedPinIds = new Set(effectivePinIds)
+    const chipPins: ContextRailData['pins'] = selectedFolderPins
+      .filter((pin) => stagedPinIds.has(pin.id))
+      .map((pin) => ({
+        id:     pin.id,
+        title:  pin.title,
+        source: pin.folderName || (pin.tags?.length ? pin.tags.join(' · ') : undefined),
+      }))
+
     if (!liveContext) {
-      // No turn has run yet — show the chip persona so the rail opens
-      // immediately when the user selects a persona before their first send.
-      return chipPersona ? { persona: chipPersona } : {}
+      // No turn has run yet — show the chip persona + staged pins so the rail
+      // opens immediately when the user selects context before their first send.
+      const initial: ContextRailData = {}
+      if (chipPersona) initial.persona = chipPersona
+      if (chipPins.length) initial.pins = chipPins
+      return initial
     }
 
     const fmtSize = (bytes?: number): string | null => {
@@ -4123,11 +4143,13 @@ function BrainPageInner() {
             avatarUrl: liveContext.persona.avatar_url,
           }
         : chipPersona,
-      pins: (liveContext.pins ?? []).map((p) => ({
-        id:     p.pin_id,
-        title:  p.title,
-        source: p.tags?.length ? p.tags.join(' · ') : undefined,
-      })),
+      pins: liveContext.pins?.length
+        ? liveContext.pins.map((p) => ({
+            id:     p.pin_id,
+            title:  p.title,
+            source: p.tags?.length ? p.tags.join(' · ') : undefined,
+          }))
+        : chipPins,
       files: (liveContext.files ?? []).map((f) => ({
         name: f.name,
         meta: [f.mime_type, fmtSize(f.size)].filter(Boolean).join(' · ') || undefined,
@@ -4138,7 +4160,7 @@ function BrainPageInner() {
         status: c.status === 'failed' ? 'failed' : c.status === 'pending' ? 'pending' : 'connected',
       })),
     }
-  }, [liveContext, selectedPersona])
+  }, [liveContext, selectedPersona, selectedFolderPins, effectivePinIds])
 
   // ── Has any content to render ─────────────────────────────────────────────────
 
