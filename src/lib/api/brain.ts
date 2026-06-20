@@ -170,6 +170,29 @@ export interface BrainContextEvent {
   available_models?: unknown[]
 }
 
+// One real-world side effect a connector write-tool performed during a run
+// (a sent email, a created Notion page, …). Mirrors core/sse_schemas.py
+// ExternalOutputAction exactly. `view_url`/`logo_url` are best-effort and may
+// be absent. There is deliberately no undo — most external writes can't be
+// reversed (the FE 5s undo countdown is never wired to the backend).
+export interface ExternalOutputAction {
+  verb:            string   // "Sent" | "Created" | "Updated" | "Deleted" | "Posted"
+  target:          string   // "email to kai@example.com" | "Notion page 'Q1 Sync'"
+  connector:       string   // display name: "Gmail" | "Notion" | "Slack"
+  connector_slug?: string
+  logo_url?:       string
+  detail?:         string   // "Subject: Q1 Report · 3 attachments"
+  view_url?:       string   // link to the affected resource; absent → no View button
+}
+
+// Emitted once at plan completion summarizing every external write a run made.
+// Mirrors core/sse_schemas.py ExternalOutputEvent (event: external_output).
+// Empty `actions` ⇒ the run only read/produced artifacts; the FE shows no card.
+export interface ExternalOutputEvent {
+  actions:       ExternalOutputAction[]
+  completed_at?: string
+}
+
 export interface BrainMessage {
   id:                  string
   input:               string

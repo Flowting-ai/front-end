@@ -24,6 +24,7 @@ import {
   NodeFailureCard,
   ClarificationSummary,
   ArtifactCard,
+  ExternalOutputCard,
   type ClarificationSummaryItem,
   type PersonaSelectionItem,
 } from '@/templates/Brain'
@@ -75,6 +76,7 @@ import {
   type BackendPlanNode,
   type BrainContextEvent,
   type ContextPersona,
+  type ExternalOutputAction,
   type BrainMessage,
   type BrainPlanResponse,
   type GeneratedFileEvent,
@@ -551,6 +553,7 @@ interface LocalTurn {
   planSummary?:    string
   images?:         ImageEvent[]
   generatedFiles?: GeneratedFileEvent[]
+  externalActions?: ExternalOutputAction[]
   completedAt?:    Date
   cancelled:       boolean
   attachments?:    UserAttachment[]
@@ -1203,6 +1206,27 @@ function MessageImages({ images }: { images: { url: string }[] }) {
   )
 }
 
+// ── External-output card ("Done in the world") ────────────────────────────────
+// Adapts the backend ExternalOutputAction (snake_case, view_url/logo_url) to the
+// may-day ExternalOutputCard props: logo falls back to the bundled connector
+// asset, and view_url becomes an onView handler (omitted ⇒ no View button). No
+// `onUndo` — the backend never promises reversibility (see the schema docstring).
+function ExternalOutputBlock({ actions }: { actions: ExternalOutputAction[] }) {
+  if (actions.length === 0) return null
+  const cardActions = actions.map((a) => {
+    const url = a.view_url
+    return {
+      verb:      a.verb,
+      target:    a.target,
+      connector: a.connector,
+      logoSrc:   a.logo_url ?? connectorLogoSrc(a.connector_slug ?? a.connector) ?? undefined,
+      detail:    a.detail,
+      onView:    url ? () => window.open(url, '_blank', 'noopener') : undefined,
+    }
+  })
+  return <ExternalOutputCard actions={cardActions} />
+}
+
 // ── Inner page ────────────────────────────────────────────────────────────────
 
 function BrainPageInner() {
@@ -1464,6 +1488,9 @@ function BrainPageInner() {
   // list (snapshot) and the latest tool-progress are kept as separate state.
   const [streamImages,       setStreamImages]       = useState<ImageEvent[]>([])
   const [streamFiles,        setStreamFiles]        = useState<GeneratedFileEvent[]>([])
+  // External write actions ("Done in the world") surfaced once at run completion
+  // via the `external_output` SSE event. Rendered at the end of the turn.
+  const [externalActions,    setExternalActions]    = useState<ExternalOutputAction[]>([])
   const [toolProgress,       setToolProgress]       = useState<ToolProgressEvent | null>(null)
 
   // ── Live turn context (event: context) ────────────────────────────────────────
@@ -1705,6 +1732,7 @@ function BrainPageInner() {
     setPausedAfterLabel(undefined)
     setStreamImages([])
     setStreamFiles([])
+    setExternalActions([])
     setToolProgress(null)
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
@@ -2294,6 +2322,22 @@ function BrainPageInner() {
         break
       }
 
+      // External write actions ("Done in the world") — emitted once near run
+      // completion. Validate each row against the backend shape (verb/target/
+      // connector are required) and stash for the end-of-turn card.
+      case 'external_output': {
+        const raw = Array.isArray(d.actions) ? (d.actions as unknown[]) : []
+        const actions = raw.filter(
+          (a): a is ExternalOutputAction =>
+            !!a && typeof a === 'object' &&
+            typeof (a as Record<string, unknown>).verb === 'string' &&
+            typeof (a as Record<string, unknown>).target === 'string' &&
+            typeof (a as Record<string, unknown>).connector === 'string',
+        )
+        if (actions.length > 0) setExternalActions(actions)
+        break
+      }
+
       default:
         break
     }
@@ -2440,6 +2484,7 @@ function BrainPageInner() {
     currentStreamImages: ImageEvent[],
     currentAttachments: UserAttachment[] = [],
     currentStreamFiles: GeneratedFileEvent[] = [],
+    currentExternalActions: ExternalOutputAction[] = [],
   ) => {
     const key = `turn-${++turnCounterRef.current}`
     setLocalTurns((prev) => [
@@ -2454,6 +2499,7 @@ function BrainPageInner() {
         planSummary:    currentActivePlanSummary || undefined,
         images:         currentStreamImages.length > 0 ? currentStreamImages : undefined,
         generatedFiles: currentStreamFiles.length > 0 ? currentStreamFiles : undefined,
+        externalActions: currentExternalActions.length > 0 ? currentExternalActions : undefined,
         completedAt:    currentCompletedAt ?? undefined,
         cancelled:      opts.cancelled ?? false,
         attachments:    currentAttachments.length > 0 ? currentAttachments : undefined,
@@ -2482,6 +2528,7 @@ function BrainPageInner() {
     setSelectedClarificationMulti([])
     setStreamImages([])
     setStreamFiles([])
+    setExternalActions([])
     setToolProgress(null)
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
@@ -2615,6 +2662,7 @@ function BrainPageInner() {
     setLastCounterText(null)
     setStreamImages([])
     setStreamFiles([])
+    setExternalActions([])
     setToolProgress(null)
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
@@ -2783,6 +2831,7 @@ function BrainPageInner() {
         streamImages,
         userAttachments,
         streamFiles,
+        externalActions,
       )
     }
 
@@ -2835,7 +2884,7 @@ function BrainPageInner() {
     void doSend()
   }, [
     phase, chatId, planSteps, userMessage, streamedContent, reasoningText, reasoningSections,
-    activePlanSummary, completedAt, streamImages, streamFiles, snapshotAndReset, runBrainStream,
+    activePlanSummary, completedAt, streamImages, streamFiles, externalActions, snapshotAndReset, runBrainStream,
     brainAttachments, userAttachments, creditStatus.blocked, selectedPersona, effectivePinIds,
     selectedFolders.length, pinboardLoading,
   ])
@@ -3394,12 +3443,13 @@ function BrainPageInner() {
       streamImages,
       userAttachments,
       streamFiles,
+      externalActions,
     )
     seedBrainInput(userMessage)
     setPhase('idle')
   }, [
     planSteps, userMessage, streamedContent, reasoningText, reasoningSections, activePlanSummary, completedAt,
-    streamImages, userAttachments, streamFiles, snapshotAndReset, seedBrainInput,
+    streamImages, userAttachments, streamFiles, externalActions, snapshotAndReset, seedBrainInput,
   ])
 
   // ── Restart ───────────────────────────────────────────────────────────────────
@@ -3417,9 +3467,10 @@ function BrainPageInner() {
       streamImages,
       userAttachments,
       streamFiles,
+      externalActions,
     )
     setPhase('idle')
-  }, [phase, planSteps, userMessage, streamedContent, reasoningText, reasoningSections, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles])
+  }, [phase, planSteps, userMessage, streamedContent, reasoningText, reasoningSections, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles, externalActions])
 
   // ── New chat ─────────────────────────────────────────────────────────────────
   // Used by both the sidebar's "Brain" button and the "+ New chat" entry.
@@ -3461,6 +3512,7 @@ function BrainPageInner() {
     setPausedAfterLabel(undefined)
     setStreamImages([])
     setStreamFiles([])
+    setExternalActions([])
     setToolProgress(null)
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
@@ -3606,6 +3658,9 @@ function BrainPageInner() {
             />
           ))}
         </div>
+      )}
+      {turn.externalActions && turn.externalActions.length > 0 && (
+        <ExternalOutputBlock actions={turn.externalActions} />
       )}
       {turn.cancelled && !turn.output && (
         <LoopCancelledCard
@@ -3913,6 +3968,12 @@ function BrainPageInner() {
       {/* Completed plan recap, below the transcript */}
       {phase === 'complete' && planSteps.length > 0 && (
         <Rise><LoopHistoryCard steps={planSteps} completedAt={completedAt ?? undefined} /></Rise>
+      )}
+
+      {/* External writes recap ("Done in the world") — sits at the very end of
+          the completed turn, after the plan recap. */}
+      {phase === 'complete' && externalActions.length > 0 && (
+        <Rise><ExternalOutputBlock actions={externalActions} /></Rise>
       )}
 
       {/* Cancelled */}
