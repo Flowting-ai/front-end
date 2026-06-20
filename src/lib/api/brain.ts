@@ -2,6 +2,7 @@
 
 import { apiFetch, apiFetchJson, ApiError } from './client'
 import { API_BASE_URL } from '../config'
+import type { ReasoningSection } from '../reasoning'
 
 // ── Endpoint helpers ──────────────────────────────────────────────────────────
 
@@ -168,7 +169,7 @@ export interface BrainMessage {
   input:               string
   output?:             string
   reasoning?:          string | null
-  reasoning_sections?: unknown[] | null
+  reasoning_sections?: ReasoningSection[] | null
   model_name?:         string | null
   created_at?:         string | null
   tool_calls?:         unknown[] | null
@@ -361,9 +362,9 @@ export interface BrainNamedEvents {
 // Inline events arrive as `data: {"type": "<name>", ...}` with no `event:`
 // header. Discriminated on `type`.
 
-export interface ReasoningHeadingInline    { type: 'reasoning_heading'; content: string }
-export interface ReasoningBodyInline       { type: 'reasoning_body';    content: string }
-export interface ReasoningInline           { type: 'reasoning';         content: string }
+export interface ReasoningHeadingInline    { type: 'reasoning_heading'; content?: string; delta?: string }
+export interface ReasoningBodyInline       { type: 'reasoning_body';    content?: string; delta?: string }
+export interface ReasoningInline           { type: 'reasoning';         content?: string; delta?: string }
 export interface ContentInline             { type: 'content';           content: string }
 
 export interface ToolCallPreview {

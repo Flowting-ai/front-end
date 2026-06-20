@@ -20,6 +20,7 @@ import type {
   ChatsListResponse,
   MessagesListResponse,
 } from "@/types/chat";
+import type { ReasoningSection } from "@/lib/reasoning";
 
 // ── Chat list ─────────────────────────────────────────────────────────────────
 
@@ -207,7 +208,7 @@ interface BackendMessage {
   // Structured web searches (query + link URLs)
   web_searches?: Array<{ query: string; links: string[] }> | null;
   // Structured reasoning steps
-  reasoning_sections?: Array<{ heading: string; body: string }> | null;
+  reasoning_sections?: ReasoningSection[] | null;
   // Structured response blocks persisted by the backend (table, chart, steps, etc.)
   response_blocks?: Array<{ kind: string; [key: string]: unknown }> | null;
 }

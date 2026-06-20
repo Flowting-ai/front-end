@@ -1,3 +1,5 @@
+import type { ReasoningSection } from "@/lib/reasoning";
+
 export interface Chat {
   id: string;
   owner_user_id?: string;
@@ -66,7 +68,7 @@ export interface Message {
   file_attachments?: BackendFileAttachment[];
   thinking?: string;
   /** Structured reasoning steps from the backend (heading + body per step). */
-  reasoning_sections?: Array<{ heading: string; body: string }>;
+  reasoning_sections?: ReasoningSection[];
   citations?: Citation[];
   sources?: Source[];
   /** Raw web_searches payload from the backend - used to hydrate sources on load. */

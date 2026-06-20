@@ -9,6 +9,7 @@ import { CHAT_STOP_ENDPOINT } from "@/lib/config"
 import { logger } from "@/lib/logger"
 import type { UIMessage } from "@/hooks/use-chat-state"
 import { registerStream, completeStream } from "@/lib/stream-registry"
+import type { ReasoningSection } from "@/lib/reasoning"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -189,11 +190,11 @@ export function useStreamingChat({
     let assistantContent = ""
     let reasoningContent = ""
     // Accumulated structured reasoning sections from heading/body SSE events
-    const reasoningSectionsAcc: Array<{ heading: string; body: string }> = []
+    const reasoningSectionsAcc: ReasoningSection[] = []
     let currentReasHeading = ""
     let currentReasBody = ""
     // Returns a snapshot of all sections including the in-progress one
-    const snapshotSections = (): Array<{ heading: string; body: string }> => {
+    const snapshotSections = (): ReasoningSection[] => {
       const out = [...reasoningSectionsAcc]
       if (currentReasHeading) out.push({ heading: currentReasHeading, body: currentReasBody })
       return out
@@ -246,7 +247,7 @@ export function useStreamingChat({
         for (const eventStr of events) {
           const lines = eventStr.split(/\r?\n/)
           let eventName = ""
-          let dataLines: string[] = []
+          const dataLines: string[] = []
 
           for (const line of lines) {
             if (line.startsWith("event:")) {

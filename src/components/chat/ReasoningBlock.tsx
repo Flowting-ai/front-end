@@ -18,7 +18,6 @@ import {
   Globe02Icon,
   Brain01Icon,
   Brain02Icon,
-  Brain03Icon,
 } from "@hugeicons/core-free-icons";
 import { LlmIcon } from "@strange-huge/icons/llm";
 import { LineRenderer } from "@/lib/line-renderer";
@@ -26,35 +25,11 @@ import { ActivitiesSection } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
 import { springs } from "@/lib/springs";
 import { getModelLlmId } from "@/lib/model-icons";
+import {
+  cleanReasoningHeading,
+  type ReasoningSection,
+} from "@/lib/reasoning";
 import type { ActivityItem, ModelSelectedMeta } from "@/hooks/use-chat-state";
-
-// ── CyclingLabel - cycles through words with spring + blur swap ───────────────
-
-const THINKING_WORDS = ["Thinking…", "Analysing…", "Processing…", "Considering…"];
-
-function CyclingLabel({ words, textStyle }: { words: string[]; textStyle?: React.CSSProperties }) {
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    setIdx(0);
-    if (words.length <= 1) return;
-    const t = setInterval(() => setIdx((i) => (i + 1) % words.length), 2800);
-    return () => clearInterval(t);
-  }, [words.join("|")]); // eslint-disable-line
-  return (
-    <AnimatePresence mode="popLayout" initial={false}>
-      {/* eslint-disable-next-line react/no-array-index-as-key -- cycling label segments; positionally stable */}
-      <m.span key={idx}
-        initial={{ scale: 0.82, opacity: 0, filter: "blur(5px)" }}
-        animate={{ scale: 1, opacity: 1, filter: "none" }}
-        exit={{ scale: 0.82, opacity: 0, filter: "blur(5px)" }}
-        transition={{ type: "spring", stiffness: 520, damping: 32 }}
-        style={{ display: "block", transformOrigin: "left center", ...textStyle }}
-      >
-        {words[idx]}
-      </m.span>
-    </AnimatePresence>
-  );
-}
 
 // ── SouvenirMark - inline SVG logo ────────────────────────────────────────────
 
@@ -91,17 +66,18 @@ export function ModelLogo({
 
 // ── AnimatedLogo - Souvenir mark → model icon swing-in with glow burst ────────
 
-export function AnimatedLogo({
-  modelMeta,
-  modelName,
-  isThinkingInProgress,
-  justSelected,
-}: {
+interface AnimatedLogoProps {
   modelMeta?: ModelSelectedMeta;
   modelName?: string;
   isThinkingInProgress?: boolean;
   justSelected: boolean;
-}) {
+}
+
+export function AnimatedLogo({
+  modelMeta,
+  modelName,
+  justSelected,
+}: AnimatedLogoProps) {
   const llmId = getModelLlmId(modelMeta?.company, modelMeta?.modelName || modelName);
   const hasModel = !!(modelMeta?.modelName || modelName);
   const showModel = hasModel;
@@ -210,17 +186,6 @@ function ModelNameLabel({
 
 // ── Structured reasoning sections (from backend reasoning_sections[]) ────────
 
-type ReasoningSection = { heading: string; body: string };
-
-/** Strip trailing **..** patterns and ellipsis the model sometimes appends. */
-function cleanHeading(heading: string): string {
-  return heading
-    .replace(/\*\*[^*]*\*\*$/, "")
-    .replace(/…$/, "")
-    .replace(/^#+\s*/, "") // strip any leading markdown heading hashes
-    .trim();
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const REASONING_ICON_MAP: Array<{ pattern: RegExp; icon: any }> = [
   { pattern: /consider|observ|perceiv|notic|review|assess/i,          icon: AiVisionRecognitionIcon },
@@ -248,12 +213,9 @@ function getReasoningIcon(heading: string): any {
 
 /** Render inline markdown bold + text for step summaries */
 function renderStepBody(text: string) {
-  // eslint-disable-next-line react/no-array-index-as-key -- regex-split text segments have no stable IDs; positions are stable
   return text.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**"))
-      // eslint-disable-next-line react/no-array-index-as-key -- regex-split text segments have no stable IDs
       return <strong key={i} style={{ fontWeight: 600, color: "var(--neutral-800, #3B3632)" }}>{part.slice(2, -2)}</strong>;
-    // eslint-disable-next-line react/no-array-index-as-key -- regex-split text segments have no stable IDs
     return <span key={i}>{part}</span>;
   });
 }
@@ -271,7 +233,7 @@ function ReasoningStep({
   isActive: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const heading = cleanHeading(section.heading);
+  const heading = cleanReasoningHeading(section.heading);
   const hasBody = section.body.trim().length > 0;
   const isLast = index === total - 1;
   const icon = getReasoningIcon(heading);
@@ -409,14 +371,14 @@ function ReasoningSections({
   sections: ReasoningSection[];
   isStreaming: boolean;
 }) {
-  const valid = sections.filter((s) => cleanHeading(s.heading).length > 2);
+  const valid = sections.filter((s) => cleanReasoningHeading(s.heading).length > 2);
   if (valid.length === 0) return null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
       {valid.map((s, i) => (
         <m.div
-          key={s.heading}
+          key={`${s.heading}-${i}`}
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18, ease: "easeOut" }}
@@ -435,19 +397,20 @@ function ReasoningSections({
 
 // ── Left bar + thinking content ────────────────────────────────────────────────
 
-function ThinkingContent({
-  thinkingContent,
-  reasoningSections,
-  hasActivities,
-  activities,
-  isStreaming,
-}: {
+export interface ReasoningContentProps {
   thinkingContent: string;
   reasoningSections?: ReasoningSection[];
-  hasActivities: boolean;
   activities?: ActivityItem[];
   isStreaming: boolean;
-}) {
+}
+
+export function ReasoningContent({
+  thinkingContent,
+  reasoningSections,
+  activities,
+  isStreaming,
+}: ReasoningContentProps) {
+  const hasActivities = Boolean(activities?.length);
   // Show structured sections whenever they exist - even during streaming.
   // When streaming, the last section gets the shimmer "active" treatment.
   // Fall back to raw thinkingContent only when no sections are available.
@@ -504,7 +467,7 @@ interface ReasoningBlockProps {
   modelMeta?: ModelSelectedMeta;
   activities?: ActivityItem[];
   /** Structured reasoning steps from the backend - rendered as collapsible steps when done. */
-  reasoningSections?: Array<{ heading: string; body: string }>;
+  reasoningSections?: ReasoningSection[];
 }
 
 export function ReasoningBlock({
@@ -543,10 +506,10 @@ export function ReasoningBlock({
     }
   }, [currentModel]);
 
-  if (!thinkingContent && !isThinkingInProgress) return null;
+  if (!thinkingContent && !reasoningSections?.length && !isThinkingInProgress) return null;
 
   const hasActivities = Boolean(activities?.length);
-  const hasContent = Boolean(thinkingContent) || hasActivities;
+  const hasContent = Boolean(thinkingContent) || Boolean(reasoningSections?.length) || hasActivities;
   const hasModel = !!(modelMeta?.modelName || modelName);
 
   const outerVisible = isThinkingInProgress || outerOpen;
@@ -571,7 +534,6 @@ export function ReasoningBlock({
         <AnimatedLogo
           modelMeta={modelMeta}
           modelName={modelName}
-          isThinkingInProgress={isThinkingInProgress}
           justSelected={justSelected}
         />
 
@@ -692,10 +654,9 @@ export function ReasoningBlock({
             transition={COLLAPSE_TRANSITION}
             style={{ overflow: "hidden" }}
           >
-            <ThinkingContent
+            <ReasoningContent
               thinkingContent={thinkingContent}
               reasoningSections={reasoningSections}
-              hasActivities={hasActivities}
               activities={activities}
               isStreaming={!!isThinkingInProgress}
             />

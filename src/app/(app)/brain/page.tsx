@@ -29,6 +29,7 @@ import {
 } from '@/templates/Brain'
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
+import { ReasoningContent } from '@/components/chat/ReasoningBlock'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { useCreditStatus, CREDITS_EXHAUSTED_EVENT } from '@/hooks/use-credit-status'
@@ -89,6 +90,14 @@ import { isExtractable, extractText, stripDocumentBlocks } from '@/lib/brain-fil
 import { linkScheduleToChat, consumePendingPrompt, remapScheduleLink } from '@/lib/scheduleLinks'
 import { listTasks } from '@/lib/api/tasks'
 import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
+import {
+  appendReasoningEvent,
+  createReasoningState,
+  normalizeReasoningSections,
+  reasoningEventText,
+  type ReasoningEventType,
+  type ReasoningSection,
+} from '@/lib/reasoning'
 import type { ContextRailData } from '@/templates/Brain/ContextRail'
 
 // ── Page (Suspense wrapper required for useSearchParams) ──────────────────────
@@ -127,12 +136,6 @@ function isFinalInlineDone(data: unknown): boolean {
   if (!data || typeof data !== 'object') return false
   const d = data as Record<string, unknown>
   return d.type === 'done' && d.finish_reason !== 'tool_calls'
-}
-
-function eventText(data: Record<string, unknown>): string {
-  return typeof data.content === 'string' ? data.content
-    : typeof data.delta === 'string' ? data.delta
-    : ''
 }
 
 function mapBackendStepStatus(status?: string): StepStatus {
@@ -460,6 +463,8 @@ interface LocalTurn {
   key:             string
   userInput:       string
   output:          string
+  reasoning?:      string
+  reasoningSections?: ReasoningSection[]
   planSteps?:      PlanStep[]
   planSummary?:    string
   images?:         ImageEvent[]
@@ -1178,11 +1183,12 @@ function BrainPageInner() {
   const [pendingRemapId, setPendingRemapId]       = useState<string | null>(null)
   const [stepStatuses, setStepStatuses]           = useState<Record<string, StepStatus>>({})
   const [streamedContent, setStreamedContent]     = useState('')
-  // Extended-thinking / reasoning prose, accumulated per turn and surfaced via
-  // BrainNarration. Headings open a section; bodies append. `reasoningActive`
-  // drives the live cursor and is cleared once visible content starts.
-  const [reasoningText, setReasoningText]         = useState('')
+  // Chat and Brain share the same structured reasoning model. Legacy raw
+  // reasoning remains available as a markdown fallback when no sections arrive.
+  const [reasoningState, setReasoningState]       = useState(createReasoningState)
   const [reasoningActive, setReasoningActive]     = useState(false)
+  const reasoningText = reasoningState.text
+  const reasoningSections = reasoningState.sections
   const [streamingComplete, setStreamingComplete] = useState(false)
   const [completedAt, setCompletedAt]             = useState<Date | null>(null)
   const [streamError, setStreamError]             = useState<string | null>(null)
@@ -1566,6 +1572,7 @@ function BrainPageInner() {
 
   const scheduleCompletion = useCallback(() => {
     if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
+    setReasoningActive(false)
     completeTimerRef.current = setTimeout(() => {
       setStreamingComplete(true)
       completeTimerRef.current = setTimeout(() => {
@@ -1608,7 +1615,7 @@ function BrainPageInner() {
     enteredNodeFailedRef.current = false
     setLastCounterText(null)
     setStreamedContent('')
-    setReasoningText('')
+    setReasoningState(createReasoningState())
     setReasoningActive(false)
     setStreamingComplete(false)
     setCompletedAt(null)
@@ -1661,6 +1668,10 @@ function BrainPageInner() {
           setActivePlanSummary(latestPlan.plan_json?.summary ?? '')
           setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, s.status ?? 'pending' as StepStatus])))
           setStreamedContent(latestWithPlan.output ?? '')
+          setReasoningState(createReasoningState(
+            latestWithPlan.reasoning ?? '',
+            normalizeReasoningSections(latestWithPlan.reasoning_sections),
+          ))
           setPhase(
             latestPlan.status === 'proposed'
               ? 'planning'
@@ -1697,6 +1708,18 @@ function BrainPageInner() {
     })),
     [activePlanSteps, stepStatuses],
   )
+
+  const handleReasoningEvent = useCallback((
+    type: ReasoningEventType,
+    data: Record<string, unknown>,
+  ) => {
+    const chunk = reasoningEventText(data)
+    if (!chunk) return
+
+    setPhase((prev) => prev === 'thinking' ? 'streaming' : prev)
+    setReasoningActive(true)
+    setReasoningState((prev) => appendReasoningEvent(prev, type, chunk))
+  }, [])
 
   // ── SSE named-event handler ───────────────────────────────────────────────────
 
@@ -1961,17 +1984,7 @@ function BrainPageInner() {
       case 'reasoning':
       case 'reasoning_heading':
       case 'reasoning_body': {
-        setPhase((prev) => prev === 'thinking' ? 'streaming' : prev)
-        const chunk = eventText(d)
-        if (chunk) {
-          setReasoningActive(true)
-          setReasoningText((prev) => {
-            if (name === 'reasoning_heading') {
-              return prev ? `${prev}\n\n${chunk}` : chunk
-            }
-            return prev + chunk
-          })
-        }
+        handleReasoningEvent(name, d)
         break
       }
 
@@ -2177,7 +2190,7 @@ function BrainPageInner() {
       default:
         break
     }
-  }, [scheduleCompletion])
+  }, [handleReasoningEvent, scheduleCompletion])
 
   // ── SSE inline-event handler ──────────────────────────────────────────────────
 
@@ -2227,22 +2240,7 @@ function BrainPageInner() {
     // the reasoning text yet (separate UI), but the phase transition alone
     // is enough to surface progress and stop the spinner.
     if (t === 'reasoning_body' || t === 'reasoning_heading' || t === 'reasoning') {
-      // Only move off 'thinking'; leave 'planning' alone so the plan card stays
-      // visible while extended-thinking tokens stream in after plan_proposed.
-      setPhase((prev) => prev === 'thinking' ? 'streaming' : prev)
-      // Accumulate the reasoning prose so BrainNarration can surface it. A
-      // heading opens a new section (rendered on its own line); bodies/legacy
-      // deltas append in place.
-      const chunk = eventText(d)
-      if (chunk) {
-        setReasoningActive(true)
-        setReasoningText((prev) => {
-          if (t === 'reasoning_heading') {
-            return prev ? `${prev}\n\n${chunk}` : chunk
-          }
-          return prev + chunk
-        })
-      }
+      handleReasoningEvent(t, d)
       return
     }
 
@@ -2302,7 +2300,7 @@ function BrainPageInner() {
       }
       return
     }
-  }, [scheduleCompletion])
+  }, [handleReasoningEvent, scheduleCompletion])
 
   // ── Snapshot + reset active turn ─────────────────────────────────────────────
 
@@ -2311,6 +2309,8 @@ function BrainPageInner() {
     currentPlanSteps: PlanStep[],
     currentUserMessage: string,
     currentStreamedContent: string,
+    currentReasoningText: string,
+    currentReasoningSections: ReasoningSection[],
     currentActivePlanSummary: string,
     currentCompletedAt: Date | null,
     currentStreamImages: ImageEvent[],
@@ -2324,6 +2324,8 @@ function BrainPageInner() {
         key,
         userInput:      currentUserMessage,
         output:         currentStreamedContent,
+        reasoning:      currentReasoningText || undefined,
+        reasoningSections: currentReasoningSections.length > 0 ? currentReasoningSections : undefined,
         planSteps:      currentPlanSteps.length > 0 ? currentPlanSteps : undefined,
         planSummary:    currentActivePlanSummary || undefined,
         images:         currentStreamImages.length > 0 ? currentStreamImages : undefined,
@@ -2338,7 +2340,7 @@ function BrainPageInner() {
     setUserMessage('')
     setUserAttachments([])
     setStreamedContent('')
-    setReasoningText('')
+    setReasoningState(createReasoningState())
     setReasoningActive(false)
     setStreamingComplete(false)
     setCompletedAt(null)
@@ -2470,7 +2472,7 @@ function BrainPageInner() {
     setUserAttachments((allDisplayFiles ?? files)?.map(f => ({ file_name: f.name, file_type: f.type, file_size: f.size })) ?? [])
     setPhase('thinking')
     setStreamedContent('')
-    setReasoningText('')
+    setReasoningState(createReasoningState())
     setReasoningActive(false)
     setStreamingComplete(false)
     setCompletedAt(null)
@@ -2655,6 +2657,8 @@ function BrainPageInner() {
         planSteps,
         userMessage,
         streamedContent,
+        reasoningText,
+        reasoningSections,
         activePlanSummary,
         completedAt,
         streamImages,
@@ -2711,7 +2715,7 @@ function BrainPageInner() {
 
     void doSend()
   }, [
-    phase, chatId, planSteps, userMessage, streamedContent,
+    phase, chatId, planSteps, userMessage, streamedContent, reasoningText, reasoningSections,
     activePlanSummary, completedAt, streamImages, streamFiles, snapshotAndReset, runBrainStream,
     brainAttachments, userAttachments, creditStatus.blocked, selectedPersona, effectivePinIds,
     selectedFolders.length, pinboardLoading,
@@ -3265,6 +3269,8 @@ function BrainPageInner() {
       planSteps,
       userMessage,
       streamedContent,
+      reasoningText,
+      reasoningSections,
       activePlanSummary,
       completedAt,
       streamImages,
@@ -3274,7 +3280,7 @@ function BrainPageInner() {
     seedBrainInput(userMessage)
     setPhase('idle')
   }, [
-    planSteps, userMessage, streamedContent, activePlanSummary, completedAt,
+    planSteps, userMessage, streamedContent, reasoningText, reasoningSections, activePlanSummary, completedAt,
     streamImages, userAttachments, streamFiles, snapshotAndReset, seedBrainInput,
   ])
 
@@ -3286,6 +3292,8 @@ function BrainPageInner() {
       planSteps,
       userMessage,
       streamedContent,
+      reasoningText,
+      reasoningSections,
       activePlanSummary,
       completedAt,
       streamImages,
@@ -3293,7 +3301,7 @@ function BrainPageInner() {
       streamFiles,
     )
     setPhase('idle')
-  }, [phase, planSteps, userMessage, streamedContent, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles])
+  }, [phase, planSteps, userMessage, streamedContent, reasoningText, reasoningSections, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles])
 
   // ── New chat ─────────────────────────────────────────────────────────────────
   // Used by both the sidebar's "Brain" button and the "+ New chat" entry.
@@ -3327,7 +3335,7 @@ function BrainPageInner() {
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
     setStreamedContent('')
-    setReasoningText('')
+    setReasoningState(createReasoningState())
     setReasoningActive(false)
     setStreamingComplete(false)
     setCompletedAt(null)
@@ -3360,6 +3368,7 @@ function BrainPageInner() {
     // the clean user text, not the full injected message).
     const cleanInput = stripDocumentBlocks(msg.input)
     const msgAttachments = storedHistoryAttachments[cleanInput]
+    const msgReasoningSections = normalizeReasoningSections(msg.reasoning_sections)
 
     // Map persisted tool_calls into ActivityFeedItem[] for the history view.
     const rawToolCalls = (msg.tool_calls ?? []) as Array<Record<string, unknown>>
@@ -3407,6 +3416,13 @@ function BrainPageInner() {
           {msgAttachments && <AttachmentChips attachments={msgAttachments} />}
           <MessageBubble role="user" content={cleanInput} maxWidth="75%" />
         </div>
+        {(msg.reasoning || msgReasoningSections.length > 0) && (
+          <ReasoningContent
+            thinkingContent={msg.reasoning ?? ''}
+            reasoningSections={msgReasoningSections}
+            isStreaming={false}
+          />
+        )}
         {planSteps.length > 0 && (
           <LoopHistoryCard
             steps={planSteps}
@@ -3443,6 +3459,13 @@ function BrainPageInner() {
         {turn.attachments && <AttachmentChips attachments={turn.attachments} />}
         <MessageBubble role="user" content={turn.userInput} maxWidth="75%" />
       </div>
+      {(turn.reasoning || turn.reasoningSections?.length) && (
+        <ReasoningContent
+          thinkingContent={turn.reasoning ?? ''}
+          reasoningSections={turn.reasoningSections}
+          isStreaming={false}
+        />
+      )}
       {turn.planSteps && turn.planSteps.length > 0 && (
         <LoopHistoryCard
           steps={turn.planSteps}
@@ -3628,11 +3651,15 @@ function BrainPageInner() {
         <Rise><ClarificationSummary items={answeredClarifications} /></Rise>
       )}
 
-      {/* Brain's extended-thinking prose (reasoning_heading/body deltas),
-          surfaced as inter-phase narration. Streams live while reasoning is
-          active, then stays as a record of how Brain approached the task. */}
-      {reasoningText && (
-        <Rise><BrainNarration text={reasoningText} isStreaming={reasoningActive} /></Rise>
+      {/* Brain and Chat share this structured reasoning presentation. */}
+      {(reasoningText || reasoningSections.length > 0) && (
+        <Rise>
+          <ReasoningContent
+            thinkingContent={reasoningText}
+            reasoningSections={reasoningSections}
+            isStreaming={reasoningActive}
+          />
+        </Rise>
       )}
 
       {activePersonaPrompt && (
