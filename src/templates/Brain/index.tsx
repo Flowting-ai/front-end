@@ -131,6 +131,8 @@ export interface BrainShellProps {
   threadRef?: React.RefObject<HTMLDivElement | null>
   /** Pre-populate the chat input with this text (e.g. from a schedule creation flow). */
   initialInputValue?: string
+  /** Changes when the same initialInputValue should be applied again. */
+  initialInputKey?: string | number
 }
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
@@ -159,21 +161,23 @@ export function BrainShell({
   contextRailData,
   threadRef,
   initialInputValue,
+  initialInputKey,
 }: BrainShellProps) {
   const normalizedInitialInputValue = initialInputValue ?? ''
+  const normalizedInitialInputKey = `${initialInputKey ?? ''}:${normalizedInitialInputValue}`
   const [optimisticPhase, setOptimisticPhase] = useState<{ basePhase: Phase; phase: Phase } | null>(null)
   const [inputState, setInputState] = useState({
-    initialValue: normalizedInitialInputValue,
+    initialKey:   normalizedInitialInputKey,
     value:        normalizedInitialInputValue,
   })
   const [userClosed, setUserClosed] = useState(false)
   const phase = optimisticPhase?.basePhase === defaultPhase ? optimisticPhase.phase : defaultPhase
-  const inputValue = inputState.initialValue === normalizedInitialInputValue
+  const inputValue = inputState.initialKey === normalizedInitialInputKey
     ? inputState.value
     : normalizedInitialInputValue
   const setInputValue = useCallback((value: string) => {
-    setInputState({ initialValue: normalizedInitialInputValue, value })
-  }, [normalizedInitialInputValue])
+    setInputState({ initialKey: normalizedInitialInputKey, value })
+  }, [normalizedInitialInputKey])
 
   const contextRailOpen = (CONTEXT_RAIL_PHASES.has(phase) || hasAnyContext(contextRailData)) && !userClosed
   const isIdle          = phase === 'idle'

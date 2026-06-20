@@ -123,6 +123,18 @@ function formatToolSlug(slug: string): string {
   return slug.replace(/_/g, ' ')
 }
 
+function isFinalInlineDone(data: unknown): boolean {
+  if (!data || typeof data !== 'object') return false
+  const d = data as Record<string, unknown>
+  return d.type === 'done' && d.finish_reason !== 'tool_calls'
+}
+
+function eventText(data: Record<string, unknown>): string {
+  return typeof data.content === 'string' ? data.content
+    : typeof data.delta === 'string' ? data.delta
+    : ''
+}
+
 function mapBackendStepStatus(status?: string): StepStatus {
   switch (status) {
     case 'running':   return 'executing'
@@ -455,6 +467,16 @@ interface LocalTurn {
   completedAt?:    Date
   cancelled:       boolean
   attachments?:    UserAttachment[]
+}
+
+interface BrainTurnRequest {
+  input:            string
+  existingChatId:   string | null
+  fromScheduleId?:  string
+  files?:           File[]
+  displayInput?:    string
+  allDisplayFiles?: File[]
+  contextOpts:      Pick<BrainStreamOpts, 'persona_id' | 'pin_ids'>
 }
 
 // ── Counter input UI ──────────────────────────────────────────────────────────
@@ -1380,6 +1402,8 @@ function BrainPageInner() {
   // to the plan-approval flow rather than the clarification flow. Cleared
   // once consumed or when the plan is resolved (approved/countered/cancelled).
   const pendingPlanIdRef = useRef<string | null>(null)
+  const waitingForPlanApprovalRef = useRef(false)
+  const lastTurnRequestRef = useRef<BrainTurnRequest | null>(null)
 
   const fileInputRef    = useRef<HTMLInputElement>(null)
   const selectModelRef  = useRef(selectModel)
@@ -1540,6 +1564,17 @@ function BrainPageInner() {
     if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
   }, [])
 
+  const scheduleCompletion = useCallback(() => {
+    if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
+    completeTimerRef.current = setTimeout(() => {
+      setStreamingComplete(true)
+      completeTimerRef.current = setTimeout(() => {
+        setCompletedAt(new Date())
+        setPhase('complete')
+      }, 400)
+    }, 400)
+  }, [])
+
   // ── Sync chatId + full state reset when navigating between brain threads ──────
   useEffect(() => {
     if (skipNextResetRef.current) {
@@ -1589,6 +1624,7 @@ function BrainPageInner() {
     seenToolIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
+    waitingForPlanApprovalRef.current = false
     activeRunSeqRef.current = 0
     setActivePlanId(null)
     setPendingRemapId(null)
@@ -1682,6 +1718,7 @@ function BrainPageInner() {
         const planId   = typeof d.plan_id === 'string' ? d.plan_id : null
         const summary  = (d.summary as string) ?? ''
         pendingPlanIdRef.current = planId
+        waitingForPlanApprovalRef.current = true
         setActivePlanId(planId)
         setActivePlanSteps(steps)
         setActivePlanSummary(summary)
@@ -1737,6 +1774,7 @@ function BrainPageInner() {
           optionMentionsApprove
         if (isPlanApproval) {
           pendingPlanIdRef.current = null
+          waitingForPlanApprovalRef.current = true
           setPromptId(promptId)
           // Make sure we don't leave a stale clarification on screen from a
           // previous prompt — the plan-approval gate replaces it.
@@ -1894,6 +1932,7 @@ function BrainPageInner() {
 
       case 'plan_approved': {
         pendingPlanIdRef.current = null
+        waitingForPlanApprovalRef.current = false
         const planId = typeof d.plan_id === 'string' ? d.plan_id : null
         if (planId) setActivePlanId(planId)
         setPhase('executing')
@@ -1901,6 +1940,7 @@ function BrainPageInner() {
       }
 
       case 'run_queued': {
+        waitingForPlanApprovalRef.current = false
         const planId = typeof d.plan_id === 'string' ? d.plan_id : null
         if (planId) setActivePlanId(planId)
         setPhase('executing')
@@ -1908,12 +1948,30 @@ function BrainPageInner() {
       }
 
       case 'run_started': {
+        waitingForPlanApprovalRef.current = false
         setPhase('executing')
         break
       }
 
       case 'run_summarizing': {
         setPhase('streaming')
+        break
+      }
+
+      case 'reasoning':
+      case 'reasoning_heading':
+      case 'reasoning_body': {
+        setPhase((prev) => prev === 'thinking' ? 'streaming' : prev)
+        const chunk = eventText(d)
+        if (chunk) {
+          setReasoningActive(true)
+          setReasoningText((prev) => {
+            if (name === 'reasoning_heading') {
+              return prev ? `${prev}\n\n${chunk}` : chunk
+            }
+            return prev + chunk
+          })
+        }
         break
       }
 
@@ -1951,12 +2009,14 @@ function BrainPageInner() {
       case 'plan_countered': {
         // Opus is revising; wait for the next plan_proposed
         pendingPlanIdRef.current = null
+        waitingForPlanApprovalRef.current = false
         setPhase('thinking')
         break
       }
 
       case 'plan_cancelled': {
         pendingPlanIdRef.current = null
+        waitingForPlanApprovalRef.current = false
         setPhase('cancelled')
         break
       }
@@ -2002,14 +2062,7 @@ function BrainPageInner() {
         // emits message_saved as it tears down — don't let it schedule the
         // success transition and flip the failure card to 'complete'.
         if (enteredNodeFailedRef.current) break
-        if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
-        completeTimerRef.current = setTimeout(() => {
-          setStreamingComplete(true)
-          completeTimerRef.current = setTimeout(() => {
-            setCompletedAt(new Date())
-            setPhase('complete')
-          }, 400)
-        }, 400)
+        scheduleCompletion()
         break
       }
 
@@ -2124,7 +2177,7 @@ function BrainPageInner() {
       default:
         break
     }
-  }, [])
+  }, [scheduleCompletion])
 
   // ── SSE inline-event handler ──────────────────────────────────────────────────
 
@@ -2180,7 +2233,7 @@ function BrainPageInner() {
       // Accumulate the reasoning prose so BrainNarration can surface it. A
       // heading opens a new section (rendered on its own line); bodies/legacy
       // deltas append in place.
-      const chunk = typeof d.content === 'string' ? d.content : ''
+      const chunk = eventText(d)
       if (chunk) {
         setReasoningActive(true)
         setReasoningText((prev) => {
@@ -2225,17 +2278,31 @@ function BrainPageInner() {
     }
 
     // End of agentic round. The visible answer (if any) has already been
-    // assembled from content tokens; we don't reset anything here because
-    // message_saved drives the transition to 'complete'. finish_reason of
-    // length/incomplete/content_filter signals a truncated response.
+    // assembled from content tokens. `message_saved` is the preferred terminal
+    // signal, but some backend paths only emit final inline `done`; treat that
+    // as terminal too so the live "Writing..." phase cannot hang forever.
     if (t === 'done') {
       const finish = typeof d.finish_reason === 'string' ? d.finish_reason : null
+      if (finish === 'tool_calls') return
       if (finish === 'length' || finish === 'incomplete' || finish === 'content_filter') {
         console.warn('[Brain] response truncated:', finish)
       }
+      const current = phaseRef.current
+      if (
+        current !== 'planning' &&
+        current !== 'clarifying-goal' &&
+        current !== 'paused' &&
+        current !== 'cancelled' &&
+        current !== 'failed' &&
+        current !== 'node-failed' &&
+        !waitingForPlanApprovalRef.current &&
+        !enteredNodeFailedRef.current
+      ) {
+        scheduleCompletion()
+      }
       return
     }
-  }, [])
+  }, [scheduleCompletion])
 
   // ── Snapshot + reset active turn ─────────────────────────────────────────────
 
@@ -2297,6 +2364,7 @@ function BrainPageInner() {
     seenToolIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
+    waitingForPlanApprovalRef.current = false
     activeRunSeqRef.current = 0
     setActivePlanId(null)
   }, [])
@@ -2329,7 +2397,10 @@ function BrainPageInner() {
           }
           handleNamedEvent(name, data)
         },
-        onInline: handleInlineEvent,
+        onInline: (data) => {
+          if (isFinalInlineDone(data)) terminalEventReceived = true
+          handleInlineEvent(data)
+        },
         onClose:  () => {
           closed = true
           if (activeRunAbortRef.current === controller) activeRunAbortRef.current = null
@@ -2371,6 +2442,16 @@ function BrainPageInner() {
     allDisplayFiles?: File[],  // all files to show as chips (includes text-extracted ones)
     contextOpts:      Pick<BrainStreamOpts, 'persona_id' | 'pin_ids'> = {},
   ) => {
+    lastTurnRequestRef.current = {
+      input,
+      existingChatId,
+      fromScheduleId,
+      files,
+      displayInput,
+      allDisplayFiles,
+      contextOpts,
+    }
+
     if (completeTimerRef.current) {
       clearTimeout(completeTimerRef.current)
       completeTimerRef.current = null
@@ -2421,6 +2502,7 @@ function BrainPageInner() {
     seenToolIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
+    waitingForPlanApprovalRef.current = false
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -2475,7 +2557,10 @@ function BrainPageInner() {
           }
           handleNamedEvent(name, data)
         },
-        onInline: handleInlineEvent,
+        onInline: (data) => {
+          if (isFinalInlineDone(data)) terminalEventReceived = true
+          handleInlineEvent(data)
+        },
         onClose:  () => {
           abortRef.current = null
           if (terminalEventReceived) return
@@ -2528,7 +2613,10 @@ function BrainPageInner() {
   // with the prompt stashed in memory. We read it once, feed it into BrainShell's
   // input so the user can review and send it, and keep the schedule id around so
   // the first handleSend can still call linkScheduleToChat.
-  const [scheduleInitialInput,  setScheduleInitialInput]  = useState('')
+  const [inputSeed, setInputSeed] = useState({ value: '', key: 0 })
+  const seedBrainInput = useCallback((value: string) => {
+    setInputSeed((prev) => ({ value, key: prev.key + 1 }))
+  }, [])
   const pendingFromScheduleIdRef = useRef<string | null>(null)
   const handledScheduleIdRef     = useRef<string | null>(null)
   // Holds a local temp schedule ID that needs remapping to a backend UUID once
@@ -2540,8 +2628,8 @@ function BrainPageInner() {
     const prompt = consumePendingPrompt(sid)
     if (!prompt) return
     pendingFromScheduleIdRef.current = sid
-    queueMicrotask(() => setScheduleInitialInput(prompt))
-  }, [searchParams])
+    queueMicrotask(() => seedBrainInput(prompt))
+  }, [searchParams, seedBrainInput])
 
   // ── Send handler ──────────────────────────────────────────────────────────────
 
@@ -2650,6 +2738,7 @@ function BrainPageInner() {
     void action
       .then(() => {
         pendingPlanIdRef.current = null
+        waitingForPlanApprovalRef.current = false
         activeRunSeqRef.current = 0
         setPhase('executing')
       })
@@ -3148,8 +3237,22 @@ function BrainPageInner() {
   // ── Pause card ────────────────────────────────────────────────────────────────
 
   const handleContinue = useCallback(() => {
-    // Re-run the same input; the backend starts a fresh execution turn
-    void runBrainStream(userMessage, chatId)
+    // Re-run the effective request for this turn (API text, files, persona,
+    // and pin scope), not just the display text rendered in the user bubble.
+    const request = lastTurnRequestRef.current
+    if (!request) {
+      void runBrainStream(userMessage, chatId)
+      return
+    }
+    void runBrainStream(
+      request.input,
+      chatId ?? request.existingChatId,
+      undefined,
+      request.files,
+      request.displayInput,
+      request.allDisplayFiles,
+      request.contextOpts,
+    )
   }, [runBrainStream, userMessage, chatId])
 
   const handleChangeDirection = useCallback(() => {
@@ -3168,10 +3271,11 @@ function BrainPageInner() {
       userAttachments,
       streamFiles,
     )
+    seedBrainInput(userMessage)
     setPhase('idle')
   }, [
     planSteps, userMessage, streamedContent, activePlanSummary, completedAt,
-    streamImages, userAttachments, streamFiles, snapshotAndReset,
+    streamImages, userAttachments, streamFiles, snapshotAndReset, seedBrainInput,
   ])
 
   // ── Restart ───────────────────────────────────────────────────────────────────
@@ -3239,6 +3343,7 @@ function BrainPageInner() {
     seenToolIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
+    waitingForPlanApprovalRef.current = false
     setHistoryMessages([])
     setLocalTurns([])
   }, [chatIdFromUrl, push])
@@ -3924,7 +4029,8 @@ function BrainPageInner() {
       onSend={handleSend}
       contextRailData={contextRailData}
       threadRef={threadRef}
-      initialInputValue={scheduleInitialInput || undefined}
+      initialInputValue={inputSeed.value || undefined}
+      initialInputKey={inputSeed.key}
       clarificationProps={activeClarification && !activePersonaPrompt && !activePinPrompt ? {
         // The backend's `title` is usually a generic preamble. The actual
         // model-generated question lives in `description`. Prefer the
