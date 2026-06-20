@@ -3474,18 +3474,27 @@ function BrainPageInner() {
 
   // ── New chat ─────────────────────────────────────────────────────────────────
   // Used by both the sidebar's "Brain" button and the "+ New chat" entry.
-  // When we're on /brain?id=xxx, push('/brain') drops the chat id and the
-  // thread-change effect wipes state. When we're already on /brain with no
-  // id, the URL doesn't change so that effect never fires — wipe state
-  // imperatively for cases like an orphaned chat (no X-Chat-Id) or stale
-  // local turns after a hot reload.
+  //
+  // The reset runs IMPERATIVELY here and never delegates to the thread-change
+  // effect. Relying on `push('/brain')` to fire that effect is unsafe: a send
+  // that's aborted before its `replace('/brain?id=…')` lands leaves
+  // `skipNextResetRef` stuck `true`, and the effect then early-returns without
+  // wiping — so the URL drops the id but the old thread stays on screen. We
+  // defuse the guard flags and do the full wipe directly; the URL change (when
+  // there's an id) is just cleanup, and any re-run of the effect is a no-op.
 
   const handleNewChat = useCallback(() => {
+    // Stop any in-flight stream AND run subscription so neither can push events
+    // into the fresh thread.
     abortRef.current?.abort()
-    if (chatIdFromUrl) {
-      push('/brain')
-      return
-    }
+    activeRunAbortRef.current?.abort()
+    activeRunAbortRef.current = null
+    activeRunSeqRef.current = 0
+    // Clear the navigation guards so a stale `true` (from an aborted send) can't
+    // suppress this or the next reset.
+    skipNextResetRef.current = false
+    skipNextHistoryLoadRef.current = false
+
     setChatId(null)
     setPhase('idle')
     setUserMessage('')
@@ -3499,10 +3508,14 @@ function BrainPageInner() {
     setActionInFlight(false)
     setActiveClarification(null)
     setSelectedClarificationOption(undefined)
+    setSelectedClarificationMulti([])
     setClarificationInFlight(false)
     setAnsweredClarifications([])
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
+    setFailedStep(null)
+    enteredNodeFailedRef.current = false
+    setLastCounterText(null)
     setStreamedContent('')
     setReasoningState(createReasoningState())
     setReasoningActive(false)
@@ -3522,8 +3535,16 @@ function BrainPageInner() {
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
     waitingForPlanApprovalRef.current = false
+    setActivePlanId(null)
+    setPendingRemapId(null)
+    setLiveContext(null)
     setHistoryMessages([])
     setLocalTurns([])
+    setHistoryLoaded(true)
+
+    // Drop the chat id from the URL when present so a refresh stays on a fresh
+    // thread. State is already wiped above, so the effect re-running is harmless.
+    if (chatIdFromUrl) push('/brain')
   }, [chatIdFromUrl, push])
 
   // ── Thread: history from server (reload path) ─────────────────────────────────
