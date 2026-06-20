@@ -138,6 +138,15 @@ function isFinalInlineDone(data: unknown): boolean {
   return d.type === 'done' && d.finish_reason !== 'tool_calls'
 }
 
+function isTerminalBrainEvent(name: string): boolean {
+  return (
+    name === 'message_saved' ||
+    name === 'run_completed' ||
+    name === 'run_failed' ||
+    name === 'run_cancelled'
+  )
+}
+
 function mapBackendStepStatus(status?: string): StepStatus {
   switch (status) {
     case 'running':   return 'executing'
@@ -247,7 +256,13 @@ function mapHistoryPlanSteps(plan: BrainPlanResponse): PlanStep[] {
 // `persona_id` / `ask_user` answers. Pins/files inputs aren't recoverable —
 // they aren't in the fetched data — so those sections stay empty.
 
-interface SynthPersonaSource { id: string; name: string; imageUrl?: string | null; activeVersionId?: string | null }
+interface SynthPersonaSource {
+  id: string
+  name: string
+  imageUrl?: string | null
+  activeVersionId?: string | null
+  workingVersionId?: string | null
+}
 
 // Strip the descriptive tail from an ask_user persona option label, e.g.
 // `kratos — (GPT-5 mini)` → `kratos`, `Digital Marketing Assistant — expert …` →
@@ -283,7 +298,7 @@ function synthesizeContextFromMessages(
   const connectorSlugs = new Set<string>()
   // Persona picks in order (latest wins). `label` is the human name pulled from
   // the ask_user option, which survives even if the persona was later deleted.
-  const personaPicks: Array<{ id: string; label?: string }> = []
+  const personaPicks: Array<{ id: string; label?: string; avatarUrl?: string }> = []
 
   for (const m of messages) {
     // Plan nodes carry the persona_id (a version id) + (optional) connector_slugs.
@@ -325,7 +340,12 @@ function synthesizeContextFromMessages(
                 const opts = (q && Array.isArray(q.options) ? q.options : []) as Array<Record<string, unknown>>
                 const opt = opts.find((o) => o?.value === v)
                 const label = typeof opt?.label === 'string' ? cleanPersonaLabel(opt.label) : undefined
-                personaPicks.push({ id: v, label })
+                const avatarUrl = typeof opt?.avatar_url === 'string'
+                  ? opt.avatar_url
+                  : typeof opt?.image_url === 'string'
+                    ? opt.image_url
+                    : undefined
+                personaPicks.push({ id: v, label, avatarUrl })
               }
             }
           }
@@ -338,11 +358,16 @@ function synthesizeContextFromMessages(
 
   // Resolve the latest-mentioned persona. Prefer the ask_user label (works even
   // for deleted personas); else match the user's personas list by repo id OR
-  // active version id (Brain stores the version id); else a graceful fallback.
+  // published/working version id (Brain stores the version id); else a graceful
+  // fallback. Persisted ask_user options may also carry the exact avatar URL.
   let persona: ContextPersona | null = null
   if (personaPicks.length > 0) {
     const pick = personaPicks[personaPicks.length - 1]
-    const p = personas.find((x) => x.id === pick.id || x.activeVersionId === pick.id)
+    const p = personas.find((x) =>
+      x.id === pick.id ||
+      x.activeVersionId === pick.id ||
+      x.workingVersionId === pick.id
+    )
     const resolvedName = pick.label || p?.name
     persona = {
       persona_id: pick.id,
@@ -350,7 +375,7 @@ function synthesizeContextFromMessages(
       // Only emit a handle when we actually resolved a name — a raw id slice
       // ("@0c72c3e6") is meaningless to the user, so leave it blank otherwise.
       handler:    resolvedName ? resolvedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '',
-      avatar_url: p?.imageUrl ?? undefined,
+      avatar_url: pick.avatarUrl ?? p?.imageUrl ?? undefined,
     }
   }
 
@@ -2000,6 +2025,7 @@ function BrainPageInner() {
       }
 
       case 'run_completed': {
+        if (!enteredNodeFailedRef.current) scheduleCompletion()
         break
       }
 
@@ -2396,18 +2422,12 @@ function BrainPageInner() {
     activeRunAbortRef.current = controller
     let closed = false
     let terminalEventReceived = false
+    let streamErrored = false
 
     void subscribeBrainRun(activePlanId, activeRunSeqRef.current, controller.signal)
       .then((response) => consumeBrainStream(response, {
         onNamed:  (name, data) => {
-          if (
-            name === 'message_saved' ||
-            name === 'run_completed' ||
-            name === 'run_failed' ||
-            name === 'run_cancelled'
-          ) {
-            terminalEventReceived = true
-          }
+          if (isTerminalBrainEvent(name)) terminalEventReceived = true
           handleNamedEvent(name, data)
         },
         onInline: (data) => {
@@ -2417,13 +2437,14 @@ function BrainPageInner() {
         onClose:  () => {
           closed = true
           if (activeRunAbortRef.current === controller) activeRunAbortRef.current = null
-          if (!terminalEventReceived && !controller.signal.aborted) {
+          if (!terminalEventReceived && !streamErrored && !controller.signal.aborted) {
             setStreamError('Brain disconnected before the run finished. Please try again.')
             setPhase('failed')
           }
         },
         onError:  (e) => {
           if (e.name === 'AbortError') return
+          streamErrored = true
           console.error('[Brain] run stream error:', e)
           setStreamError(e.message || 'Brain run connection lost. Reopen this chat to reconnect.')
           setPhase('failed')
@@ -2562,12 +2583,11 @@ function BrainPageInner() {
 
       let durablePlanProposed = false
       let terminalEventReceived = false
+      let streamErrored = false
       await consumeBrainStream(response, {
         onNamed:  (name, data) => {
           if (name === 'plan_proposed') durablePlanProposed = true
-          if (name === 'message_saved' || name === 'run_failed' || name === 'run_cancelled') {
-            terminalEventReceived = true
-          }
+          if (isTerminalBrainEvent(name)) terminalEventReceived = true
           handleNamedEvent(name, data)
         },
         onInline: (data) => {
@@ -2576,7 +2596,7 @@ function BrainPageInner() {
         },
         onClose:  () => {
           abortRef.current = null
-          if (terminalEventReceived) return
+          if (terminalEventReceived || streamErrored) return
           const current = phaseRef.current
           const safelyWaitingForUser = current === 'paused' || current === 'cancelled' || current === 'failed'
           if (durablePlanProposed || safelyWaitingForUser) return
@@ -2587,6 +2607,7 @@ function BrainPageInner() {
           // User-initiated stop arrives as AbortError — the Stop handler
           // already transitioned phase to 'paused', so don't override.
           if (e.name === 'AbortError') return
+          streamErrored = true
           console.error('[Brain] stream error:', e)
           setStreamError(e.message || 'Connection lost. Please try again.')
           setPhase('failed')

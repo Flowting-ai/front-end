@@ -466,7 +466,7 @@ const STREAM_IDLE_TIMEOUT_MS = 300_000
 /**
  * Reads a Brain SSE response body until the stream closes.
  *
- * Spec-compliant parsing: tolerates `\r\n` / `\n` line endings, optional
+ * Spec-compliant parsing: tolerates `\r\n` / `\n` / `\r` line endings, optional
  * space after `event:` / `data:`, and multi-line `data:` (joined with `\n`
  * before JSON.parse, per WHATWG EventSource spec).
  *
@@ -492,6 +492,36 @@ export async function consumeBrainStream(
   let timedOut = false
   let watchdog: ReturnType<typeof setTimeout> | null = null
 
+  const dispatchBlock = (block: string) => {
+    if (!block.trim()) return
+
+    let eventName = ''
+    const dataLines: string[] = []
+    for (const rawLine of block.split(/\r\n|\r|\n/)) {
+      if (rawLine.startsWith('event:')) {
+        const v = rawLine.slice(6)
+        eventName = v.startsWith(' ') ? v.slice(1) : v
+      } else if (rawLine.startsWith('data:')) {
+        const v = rawLine.slice(5)
+        dataLines.push(v.startsWith(' ') ? v.slice(1) : v)
+      }
+      // `id:`, `retry:`, `:` comments, and blank lines are ignored.
+    }
+    if (dataLines.length === 0) return
+
+    const dataStr = dataLines.join('\n')
+    let data: unknown
+    try {
+      data = JSON.parse(dataStr)
+    } catch {
+      console.warn('[Brain SSE] failed to parse data block:', dataStr.slice(0, 200))
+      return
+    }
+
+    if (eventName) callbacks.onNamed(eventName, data)
+    else           callbacks.onInline(data)
+  }
+
   const armWatchdog = () => {
     if (watchdog) clearTimeout(watchdog)
     watchdog = setTimeout(() => {
@@ -503,7 +533,7 @@ export async function consumeBrainStream(
 
   // Matches `\n\n`, `\r\n\r\n`, and the mixed forms — per the SSE spec, any
   // of CR / LF / CRLF is a valid line terminator.
-  const boundaryRe = /\r?\n\r?\n/
+  const boundaryRe = /\r\n\r\n|\n\n|\r\r/
 
   try {
     while (true) {
@@ -516,35 +546,15 @@ export async function consumeBrainStream(
       while ((m = boundaryRe.exec(buf)) !== null) {
         const block = buf.slice(0, m.index)
         buf = buf.slice(m.index + m[0].length)
-        if (!block) continue
-
-        let eventName = ''
-        const dataLines: string[] = []
-        for (const rawLine of block.split(/\r?\n/)) {
-          if (rawLine.startsWith('event:')) {
-            const v = rawLine.slice(6)
-            eventName = v.startsWith(' ') ? v.slice(1) : v
-          } else if (rawLine.startsWith('data:')) {
-            const v = rawLine.slice(5)
-            dataLines.push(v.startsWith(' ') ? v.slice(1) : v)
-          }
-          // `id:`, `retry:`, `:` comments, and blank lines are ignored.
-        }
-        if (dataLines.length === 0) continue
-
-        const dataStr = dataLines.join('\n')
-        let data: unknown
-        try {
-          data = JSON.parse(dataStr)
-        } catch {
-          console.warn('[Brain SSE] failed to parse data block:', dataStr.slice(0, 200))
-          continue
-        }
-
-        if (eventName) callbacks.onNamed(eventName, data)
-        else           callbacks.onInline(data)
+        dispatchBlock(block)
       }
     }
+    buf += decoder.decode()
+    // Some streaming servers close immediately after the final event instead
+    // of writing one more blank-line delimiter. Dispatch that complete tail
+    // before onClose classifies the stream as terminal or disconnected.
+    dispatchBlock(buf)
+    buf = ''
   } catch (e) {
     // Cancelling via the watchdog resolves read() with {done:true}; only
     // genuine fetch/abort errors land here. AbortError (user-initiated stop)
