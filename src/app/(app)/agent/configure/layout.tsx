@@ -18,6 +18,7 @@ import {
 } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
+import { Tooltip } from '@/components/Tooltip'
 import { FloatingMenu } from '@/components/FloatingMenu'
 import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 import { Badge } from '@/components/Badge'
@@ -965,8 +966,10 @@ function ConfigureStepNav() {
   const idx = ALL_CONFIGURE_TABS.indexOf(tabKey as typeof ALL_CONFIGURE_TABS[number])
   if (idx === -1) return null
 
-  const prevTab = idx > 0 ? ALL_CONFIGURE_TABS[idx - 1] : null
-  const nextTab = idx < ALL_CONFIGURE_TABS.length - 1 ? ALL_CONFIGURE_TABS[idx + 1] : null
+  const prevTab   = idx > 0 ? ALL_CONFIGURE_TABS[idx - 1] : null
+  const nextTab   = idx < ALL_CONFIGURE_TABS.length - 1 ? ALL_CONFIGURE_TABS[idx + 1] : null
+  const prevLabel = idx > 0 ? ALL_CONFIGURE_LABELS[idx - 1] : null
+  const nextLabel = idx < ALL_CONFIGURE_TABS.length - 1 ? ALL_CONFIGURE_LABELS[idx + 1] : null
 
   // Read the live query string at click time so it always reflects the current
   // agent (repoId/name/versionId) regardless of how the user reached this step.
@@ -994,14 +997,18 @@ function ConfigureStepNav() {
         boxShadow:       '0px 2px 8px rgba(0,0,0,0.10), 0px 0px 0px 1px var(--neutral-200)',
       }}
     >
-      <Button
-        variant="outline"
-        size="sm"
-        leftIcon={<ArrowLeftOneIcon size={16} />}
-        onClick={handleBack}
-      >
-        Back
-      </Button>
+      {prevTab && (
+        <Tooltip content={`Go to ${prevLabel} tab`} side="top">
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<ArrowLeftOneIcon size={16} />}
+            onClick={handleBack}
+          >
+            Back
+          </Button>
+        </Tooltip>
+      )}
 
       <span
         style={{
@@ -1016,14 +1023,18 @@ function ConfigureStepNav() {
         {idx + 1} / {ALL_CONFIGURE_TABS.length}
       </span>
 
-      <Button
-        variant="default"
-        size="sm"
-        rightIcon={nextTab ? <ArrowRightOneIcon size={16} /> : undefined}
-        onClick={handleContinue}
-      >
-        {nextTab ? 'Continue' : 'Finish'}
-      </Button>
+      {nextTab && (
+        <Tooltip content={`Go to ${nextLabel} tab`} side="top">
+          <Button
+            variant="default"
+            size="sm"
+            rightIcon={<ArrowRightOneIcon size={16} />}
+            onClick={handleContinue}
+          >
+            Continue
+          </Button>
+        </Tooltip>
+      )}
     </div>
   )
 }

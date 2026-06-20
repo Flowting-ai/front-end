@@ -488,6 +488,7 @@ export function ChatInput(
           backgroundColor: "var(--chat-input-bg)",
           boxShadow: shadow,
           transition: "box-shadow 150ms",
+          cursor: disabled ? "not-allowed" : undefined,
         }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -574,6 +575,7 @@ export function ChatInput(
             onBlur={() => setIsFocused(false)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
+            disabled={disabled}
             readOnly={isRecording}
             aria-label={textareaLabel}
             aria-multiline="true"
@@ -592,6 +594,7 @@ export function ChatInput(
               lineHeight: szLineHeight,
               color: "var(--chat-input-text)",
               caretColor: "var(--focus-ring)",
+              cursor: disabled ? "not-allowed" : undefined,
             }}
           />
         </div>

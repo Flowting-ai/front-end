@@ -29,6 +29,8 @@ import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from "@/comp
 import { fetchPersonas, getVersion } from "@/lib/api/personas";
 import { ModelMenu } from "@/components/chat/ModelMenu";
 import { toast } from "sonner";
+import { useCreditStatus, CREDITS_EXHAUSTED_EVENT } from "@/hooks/use-credit-status";
+import { UsageLimitStrip } from "@/components/chat/UsageLimitStrip";
 import { copyChat, setChatVisibility } from "@/lib/api/chat";
 import { createChatShare, listChatShares, deleteChatShare, type ChatShare, type ChatShareMode } from "@/lib/api/chat-shares";
 import { useOrg } from "@/context/org-context";
@@ -240,6 +242,8 @@ function ChatPageInner() {
   const { replace } = useRouter();
   const { orgId, teams: orgTeams, members: orgMembers } = useOrg();
   const { user } = useAuth();
+  const creditStatus = useCreditStatus();
+  const showNewChatStrip = creditStatus.applies && creditStatus.pctUsed >= 0.9;
   const { projects } = useProjects();
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
@@ -821,6 +825,13 @@ function ChatPageInner() {
   // Capture typed message from new-chat landing → transition to ChatInterface
   const handleNewChatSend = (value: string) => {
     if (!value.trim() && newChatAttachments.length === 0) return;
+    if (creditStatus.blocked) {
+      toast.error("You've used all your credits", {
+        description: "Buy a top-up to continue using Souvenir.",
+      });
+      window.dispatchEvent(new Event(CREDITS_EXHAUSTED_EVENT));
+      return;
+    }
     const pendingFiles = newChatAttachments.map((a) => a.file);
     // Capture @-mention pins (with labels) before clearing so they are forwarded to the initial send.
     setAddMenuFiles(pendingFiles);
@@ -1016,6 +1027,13 @@ function ChatPageInner() {
                       onSelect={handleNewChatPinSelect}
                       maxVisibleItems={2}
                     />
+                    {showNewChatStrip && (
+                      <UsageLimitStrip
+                        pctUsed={creditStatus.pctUsed}
+                        remaining={creditStatus.remaining}
+                        total={creditStatus.total}
+                      />
+                    )}
                     <ChatInput
                       value={newChatInput}
                       onChange={setNewChatInput}
@@ -1028,6 +1046,7 @@ function ChatPageInner() {
                       modelMenu={selectedPersona ? undefined : <ModelMenu />}
                       disabledModelSelector={!!selectedPersona}
                       chips={newChatChips}
+                      disabled={creditStatus.blocked}
                       attachmentsSlot={
                         newChatMentionedPins.length > 0 ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -1053,9 +1072,11 @@ function ChatPageInner() {
                         )
                       }
                       placeholder={
-                        selectedMode
-                          ? MODE_PLACEHOLDERS[selectedMode]
-                          : "How can I help you today?"
+                        creditStatus.blocked
+                          ? "Credits exhausted. Buy a top-up to continue."
+                          : selectedMode
+                            ? MODE_PLACEHOLDERS[selectedMode]
+                            : "How can I help you today?"
                       }
                       onMentionChange={handleNewChatMentionChange}
                       isPinDropdownOpen={newChatShowPinDropdown}
