@@ -99,13 +99,18 @@ export function creditsFromUsage(usage: UserUsage | null | undefined): CreditBal
       u.trial.amount != null ? u.trial.amount + topup : null,
     );
   }
-  // Subscriber / free: (plan_credits + topup_credits - used) * 1000 is the actual
-  // credits when the API sends explicit plan_credits. Fall back to usage.credits
-  // (the all-in REMAINING already folding in top-ups) for older API shapes.
+  // Subscriber / free. Backend semantics (services/users get_credit_summary):
+  // plan_credits and topup_credits are the LIVE balance — they already drain as
+  // you spend — and `used` is the cumulative spend. So the remaining balance is
+  // plan_credits + topup (do NOT subtract `used` again: that double-counts spend
+  // and drives the sidebar to 0 once you've used ~half, and to a negative→0 right
+  // after a plan change when fresh plan_credits meets a large carried `used`).
+  // The period allowance is then remaining + used — matching /stripe/billing's
+  // total_credits = balance + used, so the sidebar and Billing page agree.
   if (typeof usage.plan_credits === 'number') {
     const usedDollars = usage.used ?? u.spent_this_period ?? 0;
-    const remainingDollars = usage.plan_credits + topup - usedDollars;
-    return build(remainingDollars, usedDollars, false, usage.plan_credits + topup);
+    const remainingDollars = usage.plan_credits + topup;
+    return build(remainingDollars, usedDollars, false, remainingDollars + usedDollars);
   }
   return build(usage.credits, u.spent_this_period, false);
 }

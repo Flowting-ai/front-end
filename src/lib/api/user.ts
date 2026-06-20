@@ -72,14 +72,18 @@ export interface UserUpcomingInvoice {
 }
 
 export interface UserUsage {
-  /** Period credit allowance (API field `credits`). */
+  /** LIVE remaining balance in dollars (API field `credits` = plan_credits +
+   *  topup_credits). NOT an allowance — it already drains as you spend. */
   credits: number;
-  /** Plan allowance in dollars (API field `plan_credits`). Present on current API shape. */
+  /** LIVE remaining plan balance in dollars (API field `plan_credits`). Drains
+   *  as you spend — it is NOT the fixed grant. Remaining = plan_credits + topup;
+   *  do not subtract `used` (that double-counts spend). Present on current API shape. */
   plan_credits?: number;
   /** Purchased top-up balance in dollars (API field `topup_credits`), additive
-   *  on top of the plan allowance. Preserved verbatim by normalizeUserProfile. */
+   *  on top of the remaining plan balance. Preserved verbatim by normalizeUserProfile. */
   topup_credits?: number;
-  /** Credits used in dollars (API field `used`). Present on current API shape. */
+  /** Cumulative credits used in dollars (API field `used`). Period allowance =
+   *  remaining + used. Present on current API shape. */
   used?: number;
   /** Credits consumed in the current period (API field `spent_this_period`). */
   spent_this_period: number;
