@@ -211,6 +211,7 @@ export function ContextRail({ data, onClose }: ContextRailProps) {
         minHeight:           0,
         overflowY:           'scroll',
         overscrollBehaviorY: 'contain',
+        scrollbarGutter:      'stable',
         display:             'flex',
         flexDirection:       'column',
       }} className="kaya-scrollbar">

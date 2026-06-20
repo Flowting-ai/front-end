@@ -59,6 +59,23 @@ function getFallbackAvatar(seed: string): string {
   return FALLBACK_AVATARS[hash % FALLBACK_AVATARS.length]
 }
 
+function PersonaAvatar({ avatarUrl, name }: { avatarUrl?: string; name: string }) {
+  const [imgError, setImgError] = useState(false)
+  const src = (avatarUrl && !imgError) ? avatarUrl : getFallbackAvatar(name)
+
+  return (
+    <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic persona URL with onError fallback */}
+      <img
+        src={src}
+        alt=""
+        onError={() => setImgError(true)}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+      />
+    </div>
+  )
+}
+
 // ── Inline action button ──────────────────────────────────────────────────────
 
 function InlineAction({ label, onClick }: { label: string; onClick?: () => void }) {
@@ -172,7 +189,6 @@ export function PersonaSelectionCard({
   )
 
   const isSingle        = personas.length === 1
-  const selectedPersona = personas.find(p => p.id === selected)
 
   const handleProceed = () => {
     if (!selected) return
@@ -315,10 +331,7 @@ export function PersonaSelectionCard({
                 )}
               </div>
 
-              {/* Avatar */}
-              <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
-                <img src={avatarSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-              </div>
+              <PersonaAvatar avatarUrl={avatarSrc} name={p.name} />
 
               {/* Name · handle · description */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: '1 0 0', minWidth: 0 }}>

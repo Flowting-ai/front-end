@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useCallback, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { Sidebar, type SidebarProps } from '@/components/Sidebar'
 import { ChatInput, type ChatInputProps } from '@/components/chat/ChatInput'
@@ -74,7 +74,7 @@ import { ProjectConfigPanel, type ProjectConfigPanelProps, type ProjectConfig } 
 export { ProjectConfigPanel, type ProjectConfigPanelProps, type ProjectConfig }
 import { StuckCard, type StuckCardProps } from './StuckCard'
 export { StuckCard, type StuckCardProps }
-import { type Phase, PHASE_TRANSITIONS } from './lib/phase'
+import { type Phase } from './lib/phase'
 
 // ── Phases where the ContextRail is visible ───────────────────────────────────
 // Rail slides in once a plan exists (planning → complete), AND whenever any
@@ -82,55 +82,27 @@ import { type Phase, PHASE_TRANSITIONS } from './lib/phase'
 // lets the rail show during idle / thinking / clarifying-goal too, so the
 // user can see what's in scope before the first turn.
 const CONTEXT_RAIL_PHASES = new Set<Phase>([
-  'planning', 'executing', 'paused', 'node-failed', 'streaming', 'complete',
+  'user-sent',
+  'thinking',
+  'clarifying-goal',
+  'souvenir',
+  'confirming-pins',
+  'planning',
+  'executing',
+  'paused',
+  'node-failed',
+  'fix-proposed',
+  'stuck',
+  'streaming',
+  'complete',
 ])
 
 function hasAnyContext(data: ContextRailData | undefined): boolean {
   if (!data) return false
   return !!data.persona
       || (data.pins?.length ?? 0) > 0
+      || (data.files?.length ?? 0) > 0
       || (data.connectors?.length ?? 0) > 0
-}
-
-// ── ContextRail placeholder ───────────────────────────────────────────────────
-// Real content (pins, context sources) comes in a later sprint.
-
-function ContextRailPlaceholder() {
-  return (
-    <div style={{
-      width:           '100%',
-      height:          '100%',
-      backgroundColor: 'var(--neutral-50)',
-      borderLeft:      '1px solid var(--neutral-200)',
-      display:         'flex',
-      flexDirection:   'column',
-      alignItems:      'center',
-      justifyContent:  'center',
-      gap:             '8px',
-      padding:         '24px',
-    }}>
-      <p style={{
-        margin:     0,
-        fontFamily: 'var(--font-body)',
-        fontSize:   'var(--font-size-caption)',
-        fontWeight: 'var(--font-weight-medium)',
-        color:      'var(--neutral-400)',
-        textAlign:  'center',
-      }}>
-        Context Rail
-      </p>
-      <p style={{
-        margin:     0,
-        fontFamily: 'var(--font-body)',
-        fontSize:   'var(--font-size-caption)',
-        lineHeight: 'var(--line-height-caption)',
-        color:      'var(--neutral-300)',
-        textAlign:  'center',
-      }}>
-        Pins and sources used by Brain appear here during an active loop.
-      </p>
-    </div>
-  )
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -188,22 +160,20 @@ export function BrainShell({
   threadRef,
   initialInputValue,
 }: BrainShellProps) {
-  const [phase,      setPhase]      = useState<Phase>(defaultPhase)
-  const [inputValue, setInputValue] = useState('')
+  const normalizedInitialInputValue = initialInputValue ?? ''
+  const [optimisticPhase, setOptimisticPhase] = useState<{ basePhase: Phase; phase: Phase } | null>(null)
+  const [inputState, setInputState] = useState({
+    initialValue: normalizedInitialInputValue,
+    value:        normalizedInitialInputValue,
+  })
   const [userClosed, setUserClosed] = useState(false)
-
-  // When the parent passes a pre-composed prompt (e.g. from schedule creation),
-  // populate the textarea so the user can review and send it.
-  useEffect(() => {
-    if (initialInputValue) setInputValue(initialInputValue)
-  }, [initialInputValue])
-  const prevDefaultPhaseRef = useRef(defaultPhase)
-  if (prevDefaultPhaseRef.current !== defaultPhase) {
-    prevDefaultPhaseRef.current = defaultPhase
-    setPhase(defaultPhase)
-    // Re-open the context rail when a new loop starts
-    if (CONTEXT_RAIL_PHASES.has(defaultPhase)) setUserClosed(false)
-  }
+  const phase = optimisticPhase?.basePhase === defaultPhase ? optimisticPhase.phase : defaultPhase
+  const inputValue = inputState.initialValue === normalizedInitialInputValue
+    ? inputState.value
+    : normalizedInitialInputValue
+  const setInputValue = useCallback((value: string) => {
+    setInputState({ initialValue: normalizedInitialInputValue, value })
+  }, [normalizedInitialInputValue])
 
   const contextRailOpen = (CONTEXT_RAIL_PHASES.has(phase) || hasAnyContext(contextRailData)) && !userClosed
   const isIdle          = phase === 'idle'
@@ -212,7 +182,10 @@ export function BrainShell({
   const handleSend = (value: string) => {
     if (!value.trim()) return
     // idle → user-sent on send. Consumer drives subsequent phases.
-    if (phase === 'idle') setPhase('user-sent')
+    if (phase === 'idle') {
+      setOptimisticPhase({ basePhase: defaultPhase, phase: 'user-sent' })
+      setUserClosed(false)
+    }
     setInputValue('')
     onSend?.(value)
   }
@@ -285,6 +258,7 @@ export function BrainShell({
                 width:               '100%',
                 overflowY:           'auto',
                 overscrollBehaviorY: 'contain',
+                scrollbarGutter:      'stable',
               }}
               className="kaya-scrollbar"
             >
