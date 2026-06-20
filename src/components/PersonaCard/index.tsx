@@ -26,11 +26,6 @@ const SHADOW_CARD_TEMPLATE = '0px 2px 2.8px 0px var(--blue-100), 0px 0px 0px 1px
 
 const EMPTY_PERSONA_TAGS: string[] = []
 
-// ── Tag color palette ─────────────────────────────────────────────────────────
-// Deterministic: same tag string always resolves to the same color across renders.
-
-const TAG_BADGE_COLORS = ['Blue', 'Purple', 'Green', 'Yellow', 'Brown', 'Red'] as const
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getInitials(name: string): string {
@@ -92,59 +87,29 @@ function PersonaAvatar({
   size?:      number
   radius?:    number
 }) {
+  // Match may-day: when no avatar (or the provided URL fails to load) fall back
+  // to a deterministic marble image rather than initials.
   const [imgError, setImgError] = useState(false)
-  const showImage = avatarUrl && !imgError
-
-  if (showImage) {
-    return (
-      <div
-        aria-hidden
-        style={{
-          width:        size,
-          height:       size,
-          borderRadius: radius,
-          overflow:     'hidden',
-          flexShrink:   0,
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic avatar URL, onError fallback requires HTMLImageElement access */}
-        <img
-          src={avatarUrl}
-          alt={name}
-          onError={() => setImgError(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-        />
-      </div>
-    )
-  }
-
-  const initials = (name ?? '')
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(w => w[0] ?? '')
-    .join('')
-    .toUpperCase() || '?'
+  const src = (avatarUrl && !imgError) ? avatarUrl : getFallbackAvatar(name)
 
   return (
     <div
       aria-hidden
       style={{
-        width:           size,
-        height:          size,
-        borderRadius:    radius,
-        flexShrink:      0,
-        background:      'var(--neutral-100)',
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        fontFamily:      'var(--font-body)',
-        fontWeight:      'var(--font-weight-medium)',
-        fontSize:        Math.round(size * 0.3),
-        color:           'var(--neutral-500)',
-        userSelect:      'none',
+        width:        size,
+        height:       size,
+        borderRadius: radius,
+        overflow:     'hidden',
+        flexShrink:   0,
       }}
     >
-      {initials}
+      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic avatar URL, onError fallback requires HTMLImageElement access */}
+      <img
+        src={src}
+        alt={name}
+        onError={() => setImgError(true)}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+      />
     </div>
   )
 }
@@ -410,6 +375,7 @@ function ActionBar({
       {type === 'hover' && (
         <>
           {onEdit && <IconButton variant="ghost" size="sm" aria-label="Edit persona" icon={<PenOneIcon />} onClick={onEdit} />}
+          {onLink && <IconButton variant="ghost" size="sm" aria-label="Copy link" icon={<ShareOneIcon />} onClick={onLink} />}
           <div style={{ flex: 1 }} />
           <Button variant="secondary" size="sm" onClick={onUseInChat}>Use in chat</Button>
         </>
@@ -612,7 +578,7 @@ function PersonaCardInner({
           border:          isDraft
             ? `1px dashed ${isHovered ? 'var(--neutral-400)' : 'var(--neutral-300)'}`
             : undefined,
-          cursor:          'default',
+          cursor:          'pointer',
           boxSizing:       'border-box' as const,
           zIndex:          menuOpen ? 100 : undefined,
           ...style,
@@ -867,8 +833,8 @@ function PersonaCardInner({
                 )}
                 {visibility === 'private' && <Badge color="Neutral" label="Private" />}
                 {visibility === 'team'    && <Badge color="Neutral" label="Team"    />}
-                {tags.map((tag, i) => (
-                  <Badge key={tag} color={TAG_BADGE_COLORS[i % TAG_BADGE_COLORS.length]} label={tag} />
+                {tags.map(tag => (
+                  <Badge key={tag} color="Neutral" label={tag} />
                 ))}
               </div>
 

@@ -1300,7 +1300,15 @@ export default function PersonasPage() {
                           tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
                           shared={persona.sourceShareId !== null}
+                          // Badge-row data to match the may-day reference variants:
+                          // model badge, Superlink (when an active link exists),
+                          // and Private/Team visibility.
+                          modelVisible={Boolean(resolveModelName(persona.modelId))}
+                          modelName={resolveModelName(persona.modelId) ?? undefined}
+                          superlink={activeShareRepoIds.has(persona.id)}
+                          visibility={visibilityForPersona[persona.id] === 'team' ? 'team' : visibilityForPersona[persona.id] === 'private' ? 'private' : undefined}
                           onEdit={persona.sourceShareId === null ? () => { toast.success(`Editing "${persona.name}"`); push(`/agent/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined}
+                          onLink={persona.sourceShareId === null ? () => { toast.info('Opening sharing settings…'); push(`/agent/configure/sharing?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}${persona.activeVersionId ? `&versionId=${persona.activeVersionId}` : ''}`) } : undefined}
                           onUseInChat={() => push(`/agents/${persona.id}/chat`)}
                           onResume={persona.sourceShareId === null ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined}
                           onMenuEdit={persona.sourceShareId === null ? () => { toast.success(`Editing "${persona.name}"`); push(`/agent/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined}
