@@ -5,6 +5,7 @@ import { QuestionCard, type QuestionCardOption } from '@/components/QuestionCard
 import { type ClarificationType } from './lib/phase'
 
 export interface ClarificationCardProps {
+  questionKey?:        string
   question:           string
   options:            QuestionCardOption[]
   /** 1-based index of the current question. Optional — used only when
@@ -37,6 +38,7 @@ export interface ClarificationCardProps {
 }
 
 export function ClarificationCard({
+  questionKey,
   question,
   options,
   questionIndex,
@@ -61,7 +63,7 @@ export function ClarificationCard({
 
   return (
     <QuestionCard
-      key={question}
+      key={questionKey ?? question}
       type={multiSelect ? 'multi' : 'single'}
       question={question}
       options={options}

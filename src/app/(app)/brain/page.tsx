@@ -248,6 +248,14 @@ function isDefaultPersonaOption(option: QuestionCardOption): boolean {
   return /\b(default|without persona|no persona|none|skip)\b/.test(text)
 }
 
+function isTextOnlyQuestion(question: { type: string; options: QuestionCardOption[] }): boolean {
+  return question.options.length === 0 || question.type === 'text'
+}
+
+function allowsCustomQuestionAnswer(question: { allowCustom?: boolean }): boolean {
+  return question.allowCustom !== false
+}
+
 
 function synthesizeContextFromMessages(
   messages: BrainMessage[],
@@ -1186,6 +1194,8 @@ function BrainPageInner() {
     type:        string                    // single_choice | multi_choice | text | yes_no
     options:     QuestionCardOption[]       // empty for text kind
     placeholder?: string
+    required:    boolean
+    allowCustom: boolean
     // What the options represent, set by the backend. Drives whether the
     // question renders as a PersonaSelectionCard / PinConfirmationCard.
     entity?:     'generic' | 'persona' | 'pin'
@@ -1199,6 +1209,9 @@ function BrainPageInner() {
     options:     QuestionCardOption[]      // empty for free-text
     index:       number                    // 1-based, increments per turn
     openEnded:   boolean                   // current question takes free text
+    questionKey?: string                   // stable key for resetting local card state
+    allowCustom: boolean                   // typed custom answers are accepted
+    required:    boolean
     // question_prompt only — step through N questions, then POST once:
     questions?:  QPQuestion[]
     qCursor?:    number                    // index into `questions`
@@ -1753,6 +1766,9 @@ function BrainPageInner() {
           options,
           index:       clarificationCountRef.current,
           openEnded:   kind === 'input',
+          questionKey: `${promptId}:user_prompt`,
+          allowCustom: true,
+          required:    true,
         })
         setSelectedClarificationOption(undefined)
         setClarificationInFlight(false)
@@ -1812,6 +1828,8 @@ function BrainPageInner() {
             type,
             options:     resolvedOpts,
             placeholder: typeof obj.placeholder === 'string' ? obj.placeholder : undefined,
+            required:    obj.required !== false,
+            allowCustom: obj.allow_custom !== false,
             entity,
           }]
         })
@@ -1830,7 +1848,10 @@ function BrainPageInner() {
           description: '',
           options:     first.options,
           index:       clarificationCountRef.current,
-          openEnded:   first.options.length === 0 || first.type === 'text',
+          openEnded:   isTextOnlyQuestion(first),
+          questionKey: `${promptId}:${first.id}`,
+          allowCustom: allowsCustomQuestionAnswer(first),
+          required:    first.required,
           questions,
           qCursor:     0,
           collected:   {},
@@ -2753,21 +2774,22 @@ function BrainPageInner() {
 
       const isText  = activeClarification.openEnded
       const isMulti = activeClarification.kind === 'multi_choice'
+      const customAnswer = activeClarification.allowCustom ? typedText : ''
       const multiIds = selectedClarificationMulti
-      // Text → typed string (or null when blank). Multi → array of ids (may be
-      // empty — the backend accepts zero+). Single → the selected id (required).
-      const value: unknown = isText ? (typedText || null) : isMulti ? multiIds : (selectedId ?? null)
-      if (!isText && !isMulti && value == null) {
-        toast.info('Pick an option before sending.')
+      // Custom typed answer wins for every question. Otherwise text → typed
+      // string/null, multi → selected ids, single/yes_no → selected id.
+      const value: unknown = customAnswer || (isText ? (typedText || null) : isMulti ? multiIds : (selectedId ?? null))
+      if (!customAnswer && !isText && !isMulti && value == null) {
+        toast.info('Pick an option or type an answer before sending.')
         return
       }
       const collected = { ...(activeClarification.collected ?? {}), [cur.id]: value }
       const labelFor = (id: string) => cur.options.find((o) => o.id === id)?.label ?? id
-      const displayAnswer = isText
+      const displayAnswer = customAnswer || (isText
         ? (typedText || '(skipped)')
         : isMulti
           ? (multiIds.length ? multiIds.map(labelFor).join(', ') : '(none selected)')
-          : (cur.options.find((o) => o.id === selectedId)?.label ?? String(value))
+          : (cur.options.find((o) => o.id === selectedId)?.label ?? String(value)))
 
       // More questions remain → advance to the next one without POSTing.
       if (cursor + 1 < qs.length) {
@@ -2779,7 +2801,10 @@ function BrainPageInner() {
           question:    next.question,
           description: '',
           options:     next.options,
-          openEnded:   next.options.length === 0 || next.type === 'text',
+          openEnded:   isTextOnlyQuestion(next),
+          questionKey: `${activeClarification.promptId}:${next.id}`,
+          allowCustom: allowsCustomQuestionAnswer(next),
+          required:    next.required,
           qCursor:     cursor + 1,
           collected,
         })
@@ -2848,13 +2873,57 @@ function BrainPageInner() {
   }, [activeClarification, selectedClarificationOption, selectedClarificationMulti, clarificationInFlight])
 
   // Skip is also the close (X) handler — see ClarificationCard's onClose={onSkip}.
-  // Optimistic: dismiss the card immediately so the user gets instant
-  // feedback. The POST runs in the background; if it returns 404 (prompt
-  // expired) the user has already moved on, so we just log and continue.
+  // For multi-question `question_prompt` batches, skip applies only to the
+  // current question. The backend prompt is resolved once, after the final
+  // question has an answer or skipped marker.
   const handleClarificationSkip = useCallback(() => {
     if (!activeClarification) return
-    const { promptId, question, source } = activeClarification
 
+    if (activeClarification.source === 'question_prompt') {
+      const qs     = activeClarification.questions ?? []
+      const cursor = activeClarification.qCursor ?? 0
+      const cur    = qs[cursor]
+      if (!cur) return
+
+      const skippedAnswer = { type: 'skipped' as const }
+      const collected = { ...(activeClarification.collected ?? {}), [cur.id]: null }
+      setAnsweredClarifications((prev) => [...prev, { question: cur.question, answer: skippedAnswer }])
+      setSelectedClarificationOption(undefined)
+      setSelectedClarificationMulti([])
+      clarificationTextRef.current = ''
+
+      if (cursor + 1 < qs.length) {
+        const next = qs[cursor + 1]
+        setActiveClarification({
+          ...activeClarification,
+          kind:        next.type,
+          question:    next.question,
+          description: '',
+          options:     next.options,
+          openEnded:   isTextOnlyQuestion(next),
+          questionKey: `${activeClarification.promptId}:${next.id}`,
+          allowCustom: allowsCustomQuestionAnswer(next),
+          required:    next.required,
+          qCursor:     cursor + 1,
+          collected,
+        })
+        return
+      }
+
+      setActiveClarification(null)
+      setClarificationInFlight(true)
+      setPhase('thinking')
+      void respondToPrompt(activeClarification.promptId, { response: { answers: collected } })
+        .catch((e: unknown) => {
+          if (!(e instanceof ApiError && e.status === 404)) {
+            console.warn('[Brain] clarification skip failed:', e)
+          }
+        })
+        .finally(() => setClarificationInFlight(false))
+      return
+    }
+
+    const { promptId, question } = activeClarification
     setActiveClarification(null)
     setSelectedClarificationOption(undefined)
     setSelectedClarificationMulti([])
@@ -2863,14 +2932,7 @@ function BrainPageInner() {
       ...prev,
       { question, answer: { type: 'skipped' as const } },
     ])
-    // question_prompt blocks the stream until it's resolved — skipping must
-    // still POST (empty answers) so the gate releases, then resume.
-    if (source === 'question_prompt') setPhase('thinking')
-
-    const body = source === 'question_prompt'
-      ? { response: { answers: {} } }
-      : { response: { decision: 'skip' } }
-    void respondToPrompt(promptId, body)
+    void respondToPrompt(promptId, { response: { decision: 'skip' } })
       .catch((e: unknown) => {
         if (!(e instanceof ApiError && e.status === 404)) {
           console.warn('[Brain] clarification skip failed:', e)
@@ -2919,11 +2981,15 @@ function BrainPageInner() {
           question:    next.question,
           description: '',
           options:     next.options,
-          openEnded:   next.options.length === 0,
+          openEnded:   isTextOnlyQuestion(next),
+          questionKey: `${activeClarification.promptId}:${next.id}`,
+          allowCustom: allowsCustomQuestionAnswer(next),
+          required:    next.required,
           qCursor:     cursor + 1,
           collected,
         })
         setSelectedClarificationOption(undefined)
+        setSelectedClarificationMulti([])
         clarificationTextRef.current = ''
         return
       }
@@ -2934,6 +3000,7 @@ function BrainPageInner() {
           setAnsweredClarifications((prev) => [...prev, { question: cur.question, answer: displayAnswer }])
           setActiveClarification(null)
           setSelectedClarificationOption(undefined)
+          setSelectedClarificationMulti([])
           clarificationTextRef.current = ''
           setPhase('thinking')
         })
@@ -3007,11 +3074,15 @@ function BrainPageInner() {
         question:    next.question,
         description: '',
         options:     next.options,
-        openEnded:   next.options.length === 0,
+        openEnded:   isTextOnlyQuestion(next),
+        questionKey: `${activeClarification.promptId}:${next.id}`,
+        allowCustom: allowsCustomQuestionAnswer(next),
+        required:    next.required,
         qCursor:     cursor + 1,
         collected,
       })
       setSelectedClarificationOption(undefined)
+      setSelectedClarificationMulti([])
       clarificationTextRef.current = ''
       return
     }
@@ -3022,6 +3093,7 @@ function BrainPageInner() {
         setAnsweredClarifications((prev) => [...prev, { question: cur.question, answer: displayAnswer }])
         setActiveClarification(null)
         setSelectedClarificationOption(undefined)
+        setSelectedClarificationMulti([])
         clarificationTextRef.current = ''
         setPhase('thinking')
       })
@@ -3861,6 +3933,7 @@ function BrainPageInner() {
         question:       activeClarification.description?.trim()
                           ? activeClarification.description
                           : activeClarification.question,
+        questionKey:    activeClarification.questionKey,
         options:        activeClarification.options.length > 0
                           ? activeClarification.options
                           // permission/confirm prompts arrive with empty options;
