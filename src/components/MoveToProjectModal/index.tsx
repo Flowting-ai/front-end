@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useMounted } from '@/hooks/use-mounted'
 import { createPortal } from 'react-dom'
 import { m, AnimatePresence } from 'framer-motion'
-import { InformationCircleIcon, FolderOneIcon } from '@strange-huge/icons'
+import { FolderOneIcon, CancelOneIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/Button'
+import { Button }     from '@/components/Button'
+import { IconButton } from '@/components/IconButton'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
@@ -44,16 +45,28 @@ interface ProjectRowProps {
 }
 
 function ProjectRow({ project, selected, onSelect }: ProjectRowProps) {
-  const [hovered, setHovered] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  const applyHoverStyle = () => {
+    if (!buttonRef.current) return
+    buttonRef.current.style.backgroundColor = selected ? 'var(--neutral-50)' : 'rgba(237,225,215,0.6)'
+    buttonRef.current.style.boxShadow = selected ? SHADOW_ROW_SELECTED : SHADOW_ROW_HOVER
+  }
+  const clearHoverStyle = () => {
+    if (!buttonRef.current) return
+    buttonRef.current.style.backgroundColor = selected ? 'var(--neutral-50)' : 'transparent'
+    buttonRef.current.style.boxShadow = selected ? SHADOW_ROW_SELECTED : 'none'
+  }
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       role="radio"
       aria-checked={selected}
       onClick={onSelect}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={applyHoverStyle}
+      onMouseLeave={clearHoverStyle}
       style={{
         display:         'flex',
         alignItems:      'center',
@@ -63,8 +76,8 @@ function ProjectRow({ project, selected, onSelect }: ProjectRowProps) {
         border:          'none',
         width:           '100%',
         textAlign:       'left',
-        backgroundColor: selected || hovered ? 'var(--neutral-50)' : 'transparent',
-        boxShadow:       selected ? SHADOW_ROW_SELECTED : hovered ? SHADOW_ROW_HOVER : 'none',
+        backgroundColor: selected ? 'var(--neutral-50)' : 'transparent',
+        boxShadow:       selected ? SHADOW_ROW_SELECTED : 'none',
         cursor:          'pointer',
         transition:      'background-color 120ms, box-shadow 120ms',
       }}
@@ -154,6 +167,8 @@ export function MoveToProjectModal({
   className,
 }: MoveToProjectModalProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [atTop,      setAtTop]      = useState(true)
+  const [atBottom,   setAtBottom]   = useState(false)
   const mounted = useMounted()
 
   const handleConfirm = () => {
@@ -165,6 +180,12 @@ export function MoveToProjectModal({
   const handleClose = () => {
     setSelectedId(null)
     onClose()
+  }
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    setAtTop(el.scrollTop < 8)
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8)
   }
 
   const chatLabel = chatCount === 1 ? '1 chat' : `${chatCount} chats`
@@ -231,13 +252,14 @@ export function MoveToProjectModal({
             <div style={{
               padding:      '20px 20px 16px',
               borderBottom: '1px solid var(--neutral-100)',
+              position:     'relative',
             }}>
               <p style={{
                 margin:     0,
-                fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-body-lg)',
-                fontWeight: 600,
-                lineHeight: 'var(--line-height-body-lg)',
+                fontFamily: 'var(--font-title)',
+                fontSize:   '1.5rem',
+                fontWeight: 400,
+                lineHeight: '2rem',
                 color:      'var(--neutral-900)',
               }}>
                 Move to project
@@ -252,40 +274,63 @@ export function MoveToProjectModal({
               }}>
                 Moving {chatLabel}
               </p>
+              <div style={{ position: 'absolute', top: 14, right: 14 }}>
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Close"
+                  icon={<CancelOneIcon size={16} />}
+                  onClick={handleClose}
+                />
+              </div>
             </div>
 
-            {/* ── Context warning — read before picking ──────────────────── */}
+            {/* ── Context card — ModelFeaturedCard default (unselected) style ── */}
             <div style={{
               margin:          '16px 16px 0',
-              padding:         '12px 14px',
-              borderRadius:    10,
-              backgroundColor: 'rgba(251,145,58,0.07)',
-              boxShadow:       '0px 0px 0px 1px rgba(251,145,58,0.22)',
-              display:         'flex',
-              gap:             10,
-              alignItems:      'flex-start',
+              borderRadius:    12,
+              position:        'relative',
+              overflow:        'hidden',
+              backgroundColor: '#FFFFFF',
+              boxShadow:       'var(--shadow-model-featured-default-outer)',
             }}>
-              <div aria-hidden style={{ flexShrink: 0, marginTop: 2 }}>
-                <InformationCircleIcon size={16} color="rgba(172,80,10,0.85)" />
-              </div>
-              <div>
+              {/* Inner depth shadow */}
+              <div aria-hidden style={{
+                position:      'absolute',
+                inset:         0,
+                borderRadius:  'inherit',
+                boxShadow:     'var(--shadow-model-featured-default-inner)',
+                pointerEvents: 'none',
+              }} />
+
+              {/* Content */}
+              <div style={{
+                position:      'relative',
+                padding:       '12px 14px',
+                display:       'flex',
+                flexDirection: 'column',
+                gap:           4,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <InformationCircleIcon animated size={16} color="var(--neutral-500)" />
+                  <p style={{
+                    margin:     0,
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 500,
+                    fontSize:   '15px',
+                    lineHeight: '20px',
+                    color:      'var(--neutral-700)',
+                  }}>
+                    {noun.charAt(0).toUpperCase() + noun.slice(1)} will know everything the project knows
+                  </p>
+                </div>
                 <p style={{
                   margin:     0,
                   fontFamily: 'var(--font-body)',
-                  fontSize:   'var(--font-size-body)',
-                  fontWeight: 600,
-                  lineHeight: 'var(--line-height-body)',
-                  color:      'rgba(140,65,10,1)',
-                }}>
-                  {noun.charAt(0).toUpperCase() + noun.slice(1)} will know everything the project knows
-                </p>
-                <p style={{
-                  margin:     '5px 0 0',
-                  fontFamily: 'var(--font-body)',
-                  fontSize:   'var(--font-size-caption)',
                   fontWeight: 400,
+                  fontSize:   'var(--font-size-caption)',
                   lineHeight: 'var(--line-height-caption)',
-                  color:      'rgba(140,65,10,0.78)',
+                  color:      'var(--neutral-600)',
                 }}>
                   All of the project's instructions, uploaded files, and context will be
                   automatically available inside {noun} once moved. The AI will use that
@@ -295,38 +340,106 @@ export function MoveToProjectModal({
             </div>
 
             {/* ── Project list ───────────────────────────────────────────── */}
-            <div
-              role="radiogroup"
-              aria-label="Select a project"
-              style={{
-                padding:       '12px 16px',
-                display:       'flex',
-                flexDirection: 'column',
-                gap:           4,
-                maxHeight:     272,
-                overflowY:     'auto',
-              }}
-            >
-              {projects.length === 0 ? (
-                <p style={{
-                  margin:     '20px 0',
-                  textAlign:  'center',
-                  fontFamily: 'var(--font-body)',
-                  fontSize:   'var(--font-size-body)',
-                  color:      'var(--neutral-400)',
-                }}>
-                  No projects yet
-                </p>
-              ) : (
-                projects.map((project) => (
-                  <ProjectRow
-                    key={project.id}
-                    project={project}
-                    selected={selectedId === project.id}
-                    onSelect={() => setSelectedId(project.id)}
-                  />
-                ))
-              )}
+            <div style={{ position: 'relative', padding: '12px 16px 0' }}>
+              <div
+                role="radiogroup"
+                aria-label="Select a project"
+                className="kaya-scrollbar"
+                onScroll={handleScroll}
+                style={{
+                  display:             'flex',
+                  flexDirection:       'column',
+                  gap:                 4,
+                  maxHeight:           240,
+                  overflowY:           'auto',
+                  overscrollBehaviorY: 'contain',
+                  padding:             3,
+                  paddingBottom:       12,
+                }}
+              >
+                {projects.length === 0 ? (
+                  <p style={{
+                    margin:     '20px 0',
+                    textAlign:  'center',
+                    fontFamily: 'var(--font-body)',
+                    fontSize:   'var(--font-size-body)',
+                    color:      'var(--neutral-400)',
+                  }}>
+                    No projects yet
+                  </p>
+                ) : (
+                  projects.map((project) => (
+                    <ProjectRow
+                      key={project.id}
+                      project={project}
+                      selected={selectedId === project.id}
+                      onSelect={() => setSelectedId(project.id)}
+                    />
+                  ))
+                )}
+              </div>
+
+              {/* Top blur edge */}
+              {[
+                { height: 32, blur: 2 },
+                { height: 20, blur: 4 },
+                { height: 12, blur: 6 },
+              ].map(({ height, blur }) => (
+                <div key={blur} aria-hidden style={{
+                  position:            'absolute',
+                  top: 12, left: 16, right: 16,
+                  height:              `${height}px`,
+                  backdropFilter:      `blur(${blur}px)`,
+                  WebkitBackdropFilter:`blur(${blur}px)`,
+                  maskImage:           'linear-gradient(to bottom, black 0%, transparent 100%)',
+                  WebkitMaskImage:     'linear-gradient(to bottom, black 0%, transparent 100%)',
+                  pointerEvents:       'none',
+                  zIndex:              10,
+                  opacity:             atTop ? 0 : 1,
+                  transition:          'opacity 150ms ease',
+                }} />
+              ))}
+              <div aria-hidden style={{
+                position:      'absolute',
+                top: 12, left: 16, right: 16,
+                height:        '32px',
+                background:    'linear-gradient(to bottom, var(--neutral-white) 0%, transparent 100%)',
+                pointerEvents: 'none',
+                zIndex:        11,
+                opacity:       atTop ? 0 : 1,
+                transition:    'opacity 150ms ease',
+              }} />
+
+              {/* Bottom blur edge */}
+              {[
+                { height: 32, blur: 2 },
+                { height: 20, blur: 4 },
+                { height: 12, blur: 6 },
+              ].map(({ height, blur }) => (
+                <div key={blur} aria-hidden style={{
+                  position:            'absolute',
+                  bottom: 0, left: 16, right: 16,
+                  height:              `${height}px`,
+                  backdropFilter:      `blur(${blur}px)`,
+                  WebkitBackdropFilter:`blur(${blur}px)`,
+                  maskImage:           'linear-gradient(to top, black 0%, transparent 100%)',
+                  WebkitMaskImage:     'linear-gradient(to top, black 0%, transparent 100%)',
+                  pointerEvents:       'none',
+                  zIndex:              10,
+                  opacity:             atBottom ? 0 : 1,
+                  transition:          'opacity 150ms ease',
+                }} />
+              ))}
+              <div aria-hidden style={{
+                position:      'absolute',
+                bottom: 0, left: 16, right: 16,
+                height:        '32px',
+                background:    'linear-gradient(to top, var(--neutral-white) 0%, transparent 100%)',
+                pointerEvents: 'none',
+                zIndex:        11,
+                opacity:       atBottom ? 0 : 1,
+                transition:    'opacity 150ms ease',
+              }} />
             </div>
 
             {/* ── Footer ─────────────────────────────────────────────────── */}

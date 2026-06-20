@@ -309,7 +309,7 @@ function SouvenirWordmark() {
 
 // ── Steps ──────────────────────────────────────────────────────────────────────
 
-type ModalStep = "welcome" | "choose-plan" | "credits-added";
+type ModalStep = "welcome" | "credits-added";
 
 // ── Modal ──────────────────────────────────────────────────────────────────────
 
@@ -381,7 +381,7 @@ function WelcomeModalImpl() {
   const handleBuySubscription = useCallback(() => {
     localStorage.setItem(WELCOME_ACK_KEY, "1");
     setVisible(false);
-    router.push("/settings/billing");
+    router.push("/settings/billing/change-plan");
   }, [router]);
 
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "there";
@@ -512,60 +512,7 @@ function WelcomeModalImpl() {
                       textAlign: "center",
                     }}
                   >
-                    Your workspace is ready. Let&apos;s get you started with a plan.
-                  </p>
-
-                  <Button
-                    size="sm"
-                    rightIcon={<span style={{ fontSize: 12 }}>→</span>}
-                    onClick={() => setStep("choose-plan")}
-                  >
-                    Continue
-                  </Button>
-                </m.div>
-              )}
-
-              {step === "choose-plan" && (
-                <m.div
-                  key="step-choose"
-                  initial={{ opacity: 0, x: 12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 12 }}
-                  transition={{ duration: 0.18 }}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "20px",
-                    width: "100%",
-                  }}
-                >
-                  <h2
-                    style={{
-                      fontFamily: "var(--font-title)",
-                      fontWeight: 400,
-                      fontSize: "22px",
-                      lineHeight: "28px",
-                      color: "var(--neutral-900, #26211e)",
-                      margin: 0,
-                      textAlign: "center",
-                    }}
-                  >
-                    Choose how to get started
-                  </h2>
-
-                  <p
-                    style={{
-                      fontFamily: "var(--font-body)",
-                      fontWeight: 400,
-                      fontSize: "14px",
-                      lineHeight: "20px",
-                      color: "var(--neutral-500, #6a625d)",
-                      margin: 0,
-                      textAlign: "center",
-                    }}
-                  >
-                    Try Souvenir free or unlock the full experience with a subscription.
+                    Your workspace is ready. Choose how to get started.
                   </p>
 
                   <div

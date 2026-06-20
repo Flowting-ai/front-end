@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import type { AccountType } from "@/context/onboarding-context";
@@ -172,6 +172,14 @@ export default function OnboardingAccountTypePage() {
   const { data, setAccountType } = useOnboarding();
   const [selected, setSelected] = useState<AccountType | null>(data.accountType);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!user?.orgId) return
+    // Invited into an existing org — treat as individual, skip this page.
+    setAccountType('individual')
+    void updateOnboarding({ role_fit: 'just_me' })
+    push('/onboarding/import')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleContinue = async () => {
     if (!selected || submitting) return;

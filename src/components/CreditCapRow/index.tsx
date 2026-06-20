@@ -142,7 +142,7 @@ export function CreditCapRow({
   allocationUsed,
   creditCap,
   isAdmin = false,
-  canAssign = true,
+  canAssign = false,
   onAssignCredits,
 }: CreditCapRowProps) {
   const [editing, setEditing] = useState(false)

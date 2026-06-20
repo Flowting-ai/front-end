@@ -433,7 +433,7 @@ function matchModel(
   repoId: string,
   fallback: AIModel | null,
 ): AIModel | null {
-  if (!modelId) return fallback
+  if (!modelId) return null
 
   const byId = models.find(m =>
     (m.modelId != null && String(m.modelId) !== 'undefined' && String(m.modelId) === modelId) ||
@@ -541,7 +541,7 @@ function PersonaConfigureInstructionsContent() {
   const [showInfo,      setShowInfo]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
 
-  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag, setPendingChangeTags, refreshVersions, versions, setNeedsRepublish, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setOnPublishAndLeave, registerAutoSave, setVersionsOpen, publishedVersionId, markPublished, tabDirtyFlags, setTabDirty } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag, setPendingChangeTags, refreshVersions, versions, setNeedsRepublish, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setOnPublishAndLeave, registerAutoSave, registerContinueHandler, setVersionsOpen, publishedVersionId, markPublished, tabDirtyFlags, setTabDirty } = usePersonaConfigure()
 
   const [exampleConvOpen, setExampleConvOpen] = useState(false)
   const [exampleConvExpanded, setExampleConvExpanded] = useState(false)
@@ -556,7 +556,8 @@ function PersonaConfigureInstructionsContent() {
   const savedSnapshotRef   = useRef<{ instruction: string; modelId: string; temperature: number } | null>(null)
   const hasDraftLoadedRef  = useRef(false)
   const handlePublishRef   = useRef<() => void>(() => { /* set after mount */ })
-  const instructionAutoSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
+  const instructionAutoSaveRef    = useRef<() => Promise<void>>(() => Promise.resolve())
+  const instructionContinueRef    = useRef<() => void>(() => {})
 
   // ── Initialise: fetch models, then create or load persona ──────────────────
 
@@ -692,7 +693,7 @@ function PersonaConfigureInstructionsContent() {
             temperature: repo.active_version.temperature ?? 0.5,
           }
         } else {
-          setSelectedModel(firstModel)
+          setSelectedModel(null)
         }
       } else {
         // ── No URL params — repo creation now happens on the tone wizard page.
@@ -1121,6 +1122,30 @@ function PersonaConfigureInstructionsContent() {
     return () => registerAutoSave(null)
   }, [registerAutoSave])
 
+  // Continue handler for the ConfigureStepNav Continue button — validates model +
+  // instruction before autosaving and navigating to the next tab.
+  instructionContinueRef.current = () => {
+    if (!isInitialising) {
+      if (!selectedModel) {
+        toast.error('Please select a model before continuing.')
+        return
+      }
+      if (!hasContent) {
+        toast.error('Please add system instructions before continuing.')
+        return
+      }
+    }
+    const params = new URLSearchParams(searchParams.toString())
+    if (repoId)    params.set('repoId',    repoId)
+    if (versionId) params.set('versionId', versionId)
+    safeNavigate(`/agent/configure/profile?${params.toString()}`)
+  }
+
+  useEffect(() => {
+    registerContinueHandler(() => instructionContinueRef.current())
+    return () => registerContinueHandler(null)
+  }, [registerContinueHandler])
+
   // ── Tab navigation ────────────────────────────────────────────────────────────
 
   function navigateTab(tab: Tab) {
@@ -1154,9 +1179,6 @@ function PersonaConfigureInstructionsContent() {
     <>
       <div
         style={{
-          backgroundColor: 'rgba(255,255,255,0.2)',
-          border: '1px solid var(--neutral-200)',
-          borderRadius: 22,
           display: 'flex',
           flexDirection: 'column',
           gap: 2,

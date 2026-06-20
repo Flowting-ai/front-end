@@ -16,6 +16,7 @@ export interface MemberRowProps {
   onRemove?:       () => void
   showTeamsColumn: boolean
   isAdmin:         boolean
+  isOwner?:        boolean
   divider?:        boolean
 }
 
@@ -81,8 +82,6 @@ const confirmVariants = {
   closed: { height: 0,              opacity: 0, transition: { duration: 0.14, ease: 'easeIn' as const  } },
 }
 
-const ROLES: WorkspaceRole[] = ['admin', 'editor', 'member']
-
 export function MemberRow({
   member,
   isCurrentUser,
@@ -90,8 +89,12 @@ export function MemberRow({
   onRemove,
   showTeamsColumn,
   isAdmin,
+  isOwner = false,
   divider = true,
 }: MemberRowProps) {
+  const availableRoles: WorkspaceRole[] = isOwner
+    ? ['admin', 'editor', 'member']
+    : ['editor', 'member']
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [menuOpen,      setMenuOpen]      = useState(false)
 
@@ -144,9 +147,9 @@ export function MemberRow({
           </p>
         </div>
 
-        {/* Role — dropdown if admin, not current user */}
+        {/* Role — dropdown if admin, not current user, and target is not a protected admin */}
         <div style={{ width: 100, flexShrink: 0 }}>
-          {isAdmin && !isCurrentUser && onRoleChange ? (
+          {isAdmin && !isCurrentUser && onRoleChange && (isOwner || member.orgRole === 'member') ? (
             <DropdownFloat
               open={menuOpen}
               onOpenChange={setMenuOpen}
@@ -171,7 +174,7 @@ export function MemberRow({
               }
             >
               <Dropdown>
-                {ROLES.map(r => (
+                {availableRoles.map(r => (
                   <DropdownMenuItem
                     key={r}
                     label={r.charAt(0).toUpperCase() + r.slice(1)}
@@ -210,7 +213,7 @@ export function MemberRow({
 
         {/* Remove button */}
         <div style={{ width: 80, flexShrink: 0 }}>
-          {isAdmin && !isCurrentUser && onRemove && (
+          {isAdmin && !isCurrentUser && onRemove && (isOwner || member.orgRole === 'member') && (
             <button
               onClick={() => setConfirmRemove(true)}
               style={{

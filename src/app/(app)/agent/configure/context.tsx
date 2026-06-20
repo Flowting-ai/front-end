@@ -86,6 +86,10 @@ interface PersonaConfigureContextValue {
   // Auto-save on tab switch
   registerAutoSave: (fn: (() => Promise<void>) | null) => void
 
+  // Continue handler registered by the active tab — used by ConfigureStepNav
+  registerContinueHandler: (fn: (() => void) | null) => void
+  invokeTabContinue: () => void
+
   // Publication state — single source of truth, derived from the backend's
   // published_version_id (NOT client storage) so every tab agrees on Live vs
   // Unpublished and never shows a spurious "not published" warning.
@@ -305,6 +309,14 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   const autoSaveRef = useRef<(() => Promise<void>) | null>(null)
   const registerAutoSave = useCallback((fn: (() => Promise<void>) | null) => {
     autoSaveRef.current = fn
+  }, [])
+
+  const continueHandlerRef = useRef<(() => void) | null>(null)
+  const registerContinueHandler = useCallback((fn: (() => void) | null) => {
+    continueHandlerRef.current = fn
+  }, [])
+  const invokeTabContinue = useCallback(() => {
+    continueHandlerRef.current?.()
   }, [])
 
   // ── Leave-confirm guard ──────────────────────────────────────────────────────
@@ -815,6 +827,8 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     setHasShareLink,
 
     registerAutoSave,
+    registerContinueHandler,
+    invokeTabContinue,
 
     activeVersionId,
     publishedVersionId,

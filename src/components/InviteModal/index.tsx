@@ -335,6 +335,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
             onChange={nextRole => {
               setRole(nextRole)
               setProjectId('')
+              if (nextRole === 'admin') setCapDraft('')
             }}
           />
         </div>
@@ -427,8 +428,8 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
           </div>
         )}
 
-        {/* Credit cap */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* Credit cap — only for member/editor roles; admins use the workspace pool */}
+        {role !== 'admin' && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span style={{
             fontFamily: 'var(--font-body)',
             fontWeight: 500,
@@ -472,7 +473,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
               credits
             </span>
           </div>
-        </div>
+        </div>}
 
         {/* Footer */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>

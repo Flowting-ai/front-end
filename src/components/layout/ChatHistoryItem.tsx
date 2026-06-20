@@ -5,6 +5,12 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { SidebarMenuItem } from "@/components/ui";
 import type { Chat } from "@/types/chat";
 import { openDeleteChatDialog } from "./AppDialogs";
+import { MoveToProjectModal }    from "@/components/MoveToProjectModal";
+import { useProjects }           from "@/context/projects-context";
+import { useChatHistoryContext } from "@/context/chat-history-context";
+import { addChatToProject }      from "@/lib/api/projects";
+import { toast }                 from "sonner";
+import { FolderOneIcon, PenOneIcon, StarIcon } from "@strange-huge/icons";
 
 // ── Shared dropdown item style ────────────────────────────────────────────────
 
@@ -50,10 +56,14 @@ export function ChatHistoryItem({
 }: ChatHistoryItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moveModalOpen, setMoveModalOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   // Prevents Radix from stealing focus back to the trigger when rename is clicked.
   // Set to true in the Rename onSelect; cleared in onCloseAutoFocus after e.preventDefault().
   const pendingRenameRef = useRef(false);
+
+  const { projects, addChat } = useProjects();
+  const { removeLocal }       = useChatHistoryContext();
 
   const handleCommit = (value: string) => {
     const trimmed = value.trim();
@@ -76,7 +86,21 @@ export function ChatHistoryItem({
     });
   };
 
+  const handleMoveToProject = async (projectId: string) => {
+    setMoveModalOpen(false);
+    try {
+      await addChatToProject(projectId, chat.id);
+      addChat(projectId, chat.id, chat.title);
+      removeLocal(chat.id);
+      const project = projects.find((p) => p.id === projectId);
+      toast.success(`Moved to "${project?.name ?? "project"}"`);
+    } catch {
+      toast.error("Failed to move chat — please try again.");
+    }
+  };
+
   return (
+    <>
     <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
       <div style={{ position: "relative", width: "100%" }}>
         <SidebarMenuItem
@@ -148,6 +172,7 @@ export function ChatHistoryItem({
                 "transparent")
             }
           >
+            <PenOneIcon animated size={14} color="var(--neutral-600)" />
             Rename
           </DropdownMenu.Item>
 
@@ -163,7 +188,24 @@ export function ChatHistoryItem({
                 "transparent")
             }
           >
+            <StarIcon animated size={14} color="var(--neutral-600)" />
             {chat.starred ? "Unstar" : "Star"}
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Item
+            style={menuItemStyle}
+            onSelect={() => setMoveModalOpen(true)}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLElement).style.backgroundColor =
+                "var(--neutral-50)")
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLElement).style.backgroundColor =
+                "transparent")
+            }
+          >
+            <FolderOneIcon size={14} color="var(--neutral-600)" variant="static" />
+            Move to project
           </DropdownMenu.Item>
 
           <DropdownMenu.Separator
@@ -191,5 +233,14 @@ export function ChatHistoryItem({
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
+
+    <MoveToProjectModal
+      open={moveModalOpen}
+      onClose={() => setMoveModalOpen(false)}
+      onConfirm={handleMoveToProject}
+      projects={projects.map((p) => ({ id: p.id, name: p.name, description: p.description }))}
+      chatCount={1}
+    />
+    </>
   );
 }

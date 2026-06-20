@@ -46,16 +46,16 @@ function RoleDropdown({
   onClose,
   triggerEl,
   position,
+  availableRoles = ['admin', 'editor', 'member'] as WorkspaceRole[],
 }: {
-  currentRole: WorkspaceRole
-  onSelect:    (r: WorkspaceRole) => void
-  onClose:     () => void
-  triggerEl:   HTMLButtonElement
-  position:    { top: number; left: number }
+  currentRole:     WorkspaceRole
+  onSelect:        (r: WorkspaceRole) => void
+  onClose:         () => void
+  triggerEl:       HTMLButtonElement
+  position:        { top: number; left: number }
+  availableRoles?: WorkspaceRole[]
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
-
-  const ROLES: WorkspaceRole[] = ['admin', 'editor', 'member']
   const LABELS: Record<WorkspaceRole, string> = {
     admin:  'Admin',
     editor: 'Team editor',
@@ -86,7 +86,7 @@ function RoleDropdown({
       style={{ position: 'fixed', top: position.top, left: position.left, zIndex: 9999, minWidth: 220 }}
     >
       <Popover ref={panelRef} variant="dropdown" maxHeight={false} role="menu" style={{ padding: 4 }}>
-        {ROLES.map(r => (
+        {availableRoles.map(r => (
           <DropdownMenuItem
             key={r}
             fluid
@@ -508,6 +508,7 @@ function MembersTable({
   members,
   ownerMemberId,
   isAdmin,
+  isCurrentUserOwner = false,
   loading,
   availableTeams,
   onChangeRole,
@@ -517,17 +518,18 @@ function MembersTable({
   onInviteClick,
   onAssignTeam,
 }: {
-  members:         OrgMember[]
-  ownerMemberId:   string
-  isAdmin:         boolean
-  loading?:        boolean
-  availableTeams:  { id: string; name: string }[]
-  onChangeRole:    (id: string, role: WorkspaceRole) => void
-  onRequestEditor: (id: string, memberName: string) => void
-  onRemove:        (id: string) => void
-  onRevokeInvite:  (id: string) => void
-  onInviteClick:   () => void
-  onAssignTeam:    (memberId: string, teamId: string) => Promise<void>
+  members:              OrgMember[]
+  ownerMemberId:        string
+  isAdmin:              boolean
+  isCurrentUserOwner?:  boolean
+  loading?:             boolean
+  availableTeams:       { id: string; name: string }[]
+  onChangeRole:         (id: string, role: WorkspaceRole) => void
+  onRequestEditor:      (id: string, memberName: string) => void
+  onRemove:             (id: string) => void
+  onRevokeInvite:       (id: string) => void
+  onInviteClick:        () => void
+  onAssignTeam:         (memberId: string, teamId: string) => Promise<void>
 }) {
   const [openDropdown,  setOpenDropdown]  = useState<string | null>(null)
   const [dropdownAnchor, setDropdownAnchor] = useState<HTMLButtonElement | null>(null)
@@ -598,7 +600,7 @@ function MembersTable({
             </div>
           ) : filteredMembers.map(member => {
             const isOwner = member.id === ownerMemberId
-            const canEditMember = isAdmin && !isOwner && member.inviteStatus !== 'invite_sent'
+            const canEditMember = isAdmin && !isOwner && member.inviteStatus !== 'invite_sent' && (isCurrentUserOwner || member.orgRole === 'member')
             const hasGlobalAccess = member.orgRole === 'owner' || member.orgRole === 'admin'
             const unassignedTeams = availableTeams.filter(team => (
               !member.teamMemberships.some(membership => membership.teamId === team.id)
@@ -651,6 +653,7 @@ function MembersTable({
                       {openDropdown === member.id && canEditMember && dropdownAnchor && dropdownPosition && (
                         <RoleDropdown
                           currentRole={member.role}
+                          availableRoles={isCurrentUserOwner ? ['admin', 'editor', 'member'] : ['editor', 'member']}
                           onSelect={role => {
                             setOpenDropdown(null)
                             // Editor needs a team scope — defer to the picker modal.
@@ -933,6 +936,7 @@ export default function OrgMembersPage() {
   const { orgId, org, members: orgMembers, membersLoading, currentUserRole, teams, refreshMembers } = useOrg()
   const { user } = useAuth()
   const isAdmin = currentUserRole === 'admin'
+  const currentUserIsOwner = orgMembers.find(m => m.email === user?.email)?.orgRole === 'owner'
 
   const [members,        setMembers]        = useState<OrgMember[]>(orgMembers)
 
@@ -1328,6 +1332,7 @@ export default function OrgMembersPage() {
           members={displayMembers}
           ownerMemberId={ownerMemberId}
           isAdmin={isAdmin}
+          isCurrentUserOwner={currentUserIsOwner}
           loading={membersLoading}
           availableTeams={teams.map(t => ({ id: t.id, name: t.name }))}
           onChangeRole={handleChangeRole}

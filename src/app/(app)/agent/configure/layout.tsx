@@ -242,7 +242,7 @@ function PersonaHelpButton() {
   )
 
   return (
-    <div style={{ position: 'absolute', bottom: 20, left: 16, zIndex: 20 }}>
+    <div style={{ position: 'relative', zIndex: 20 }}>
       {/* Highlight active element + elevate it above the overlay */}
       {helpOpen && helpActiveId && (
         <style>{`
@@ -959,6 +959,7 @@ function AiSuggestExpandedOverlay() {
 function ConfigureStepNav() {
   const pathname = usePathname()
   const { push } = useRouter()
+  const { invokeTabContinue } = usePersonaConfigure()
 
   const tabKey = pathname.split('/configure/')[1]?.split('?')[0] ?? ''
   const idx = ALL_CONFIGURE_TABS.indexOf(tabKey as typeof ALL_CONFIGURE_TABS[number])
@@ -975,22 +976,20 @@ function ConfigureStepNav() {
   }
 
   const handleBack = () => (prevTab ? goToStep(prevTab) : push('/agents'))
-  const handleContinue = () => (nextTab ? goToStep(nextTab) : push('/agents'))
+  const handleContinue = () => {
+    // Instructions tab owns its own validation + autosave — delegate to it.
+    if (tabKey === 'instructions') { invokeTabContinue(); return }
+    nextTab ? goToStep(nextTab) : push('/agents')
+  }
 
   return (
     <div
       style={{
-        position:        'absolute',
-        bottom:          20,
-        left:            '50%',
-        transform:       'translateX(-50%)',
-        zIndex:          15,
         display:         'flex',
         alignItems:      'center',
         gap:             8,
         padding:         6,
         borderRadius:    12,
-        maxWidth:        'calc(100% - 32px)',
         backgroundColor: 'var(--neutral-white)',
         boxShadow:       '0px 2px 8px rgba(0,0,0,0.10), 0px 0px 0px 1px var(--neutral-200)',
       }}
@@ -1047,17 +1046,26 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
         width: '100%', height: '100%', position: 'relative',
       }}
     >
-      {/* Left configure panel (page content) with FloatingMenu + help overlays */}
-      <div style={{ flex: '1 0 0', minWidth: 0, position: 'relative' }}>
-        {children}
-        {/* Floating action menu — right-centre */}
-        <div data-panel-container style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
-          <PersonaFloatingMenu />
+      {/* Left configure panel (page content) with FloatingMenu + footer */}
+      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'rgba(255,255,255,0.2)', border: '1px solid var(--neutral-200)', borderRadius: 22, overflow: 'hidden' }}>
+        {/* Scrollable content area */}
+        <div style={{ flex: '1 0 0', minHeight: 0, position: 'relative' }}>
+          {children}
+          {/* Floating action menu — right-centre */}
+          <div data-panel-container style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+            <PersonaFloatingMenu />
+          </div>
         </div>
-        {/* Help trigger + main tab info card — bottom-left */}
-        <PersonaHelpButton />
-        {/* Step Back / Continue — bottom-centre */}
-        <ConfigureStepNav />
+        {/* Footer: info button left · back/continue centre · right reserved */}
+        <div style={{ flexShrink: 0, height: 56, display: 'flex', alignItems: 'center', borderTop: '1px solid var(--neutral-200)', paddingLeft: 12, paddingRight: 12 }}>
+          <div style={{ flex: '1 0 0', display: 'flex', alignItems: 'center' }}>
+            <PersonaHelpButton />
+          </div>
+          <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center' }}>
+            <ConfigureStepNav />
+          </div>
+          <div style={{ flex: '1 0 0' }} />
+        </div>
       </div>
 
       {/* ── Test chat panel (collapsed) ────────────────────────────────────── */}

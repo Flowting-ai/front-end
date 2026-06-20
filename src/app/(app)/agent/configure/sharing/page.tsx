@@ -136,9 +136,6 @@ function PersonaConfigureSharingContent() {
   return (
       <div
         style={{
-          backgroundColor: 'rgba(255,255,255,0.2)',
-          border: '1px solid var(--neutral-200)',
-          borderRadius: 22,
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
