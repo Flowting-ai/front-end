@@ -5,12 +5,8 @@ import {
   FilterMailIcon,
   SearchOneIcon,
   UserIcon,
-  PlusSignIcon,
-  TickTwoIcon,
-  CancelOneIcon,
 } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
-import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import {
   SettingsTable,
@@ -21,9 +17,8 @@ import {
   SettingsTableToolbar,
 } from '@/components/SettingsTable'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
-import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
-import { getOrgPlanUsage, setMemberCap } from '@/lib/api/organization'
+import { getOrgPlanUsage } from '@/lib/api/organization'
 import type { OrgMember, TeamBurn } from '@/types/teams'
 
 type DateRange = '7d' | '30d' | 'mtd' | 'qtd'
@@ -219,8 +214,8 @@ function StatCard({
         minWidth:        0,
         backgroundColor: 'var(--neutral-white)',
         borderRadius:    8,
-        boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-        padding:         wide ? '12px 0' : 12,
+        boxShadow:       'var(--shadow-surface-card)',
+        padding:         '16px 18px',
         display:         'flex',
         flexDirection:   'column',
         alignItems:      'flex-start',
@@ -228,17 +223,17 @@ function StatCard({
       }}
     >
       {wide && (
-        <div style={{ padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 23, width: '100%' }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
             {title}
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-              <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+              <p style={{ flex: '1 0 0', fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                 {value}
               </p>
               {rangeLabel && (
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0, whiteSpace: 'nowrap' }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '18px', color: 'var(--neutral-500)', margin: 0, whiteSpace: 'nowrap' }}>
                   {rangeLabel}
                 </p>
               )}
@@ -456,159 +451,13 @@ function FeatureChart({ days }: { days: ChartDay[] }) {
   )
 }
 
-// ── Editable cap cell (admin only) ───────────────────────────────────────────
+// ── Member caps table ─────────────────────────────────────────────
 
-function CapCell({
-  memberId,
-  orgId,
-  initialCap,
-}: {
-  memberId:   string
-  orgId:      string | null
-  initialCap: number | undefined
-}) {
-  // initialCap is already in credits (normalizeMember converts dollars→credits)
-  // committedCap tracks the last successfully saved value so the view updates
-  // immediately without waiting for useOrg to re-fetch the members list.
-  const [committedCap, setCommittedCap] = useState<number | undefined>(initialCap)
-  const [editing,      setEditing]      = useState(false)
-  const [draft,        setDraft]        = useState('')
-  const [saving,       setSaving]       = useState(false)
-  const inputRef = React.useRef<HTMLInputElement>(null)
-
-  function startEdit() {
-    setDraft('')
-    setEditing(true)
-    setTimeout(() => inputRef.current?.focus(), 0)
-  }
-
-  function cancelEdit() {
-    setDraft('')
-    setEditing(false)
-  }
-
-  async function save() {
-    if (!orgId) return
-    const amount = parseInt(draft.trim(), 10)
-    if (isNaN(amount) || amount <= 0) {
-      setDraft('')
-      setEditing(false)
-      return
-    }
-    const newCap = (committedCap ?? 0) + amount
-    // backend expects dollars; 1000 credits = $1
-    const capDollars = newCap / 1000
-    setSaving(true)
-    try {
-      await setMemberCap(orgId, memberId, capDollars)
-      setCommittedCap(newCap)
-      toast.success(`${amount.toLocaleString()} credits assigned`)
-      setEditing(false)
-    } catch {
-      toast.error('Failed to assign credits')
-      setDraft('')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (editing) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-        <div
-          style={{
-            display:         'flex',
-            alignItems:      'center',
-            height:          32,
-            borderRadius:    8,
-            backgroundColor: 'var(--neutral-white)',
-            boxShadow:       '0px 0px 0px 1.5px var(--neutral-400)',
-            opacity:         saving ? 0.6 : 1,
-            transition:      'opacity 150ms',
-          }}
-        >
-          <input
-            ref={inputRef}
-            type="number"
-            min={1}
-            value={draft}
-            placeholder="Add credits"
-            aria-label="Credits to assign"
-            disabled={saving}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') { void save() }
-              if (e.key === 'Escape') { cancelEdit() }
-            }}
-            style={{
-              width:      90,
-              padding:    '0 10px',
-              border:     'none',
-              outline:    'none',
-              background: 'transparent',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 400,
-              fontSize:   14,
-              color:      'var(--neutral-700)',
-              MozAppearance: 'textfield' as React.CSSProperties['MozAppearance'],
-            }}
-          />
-        </div>
-        <IconButton
-          variant="ghost"
-          size="sm"
-          aria-label="Save cap"
-          disabled={saving}
-          icon={<TickTwoIcon size={16} color="var(--green-600)" />}
-          onClick={() => { void save() }}
-        />
-        <IconButton
-          variant="ghost"
-          size="sm"
-          aria-label="Cancel"
-          disabled={saving}
-          icon={<CancelOneIcon size={16} color="var(--neutral-400)" />}
-          onClick={cancelEdit}
-        />
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-      <div style={{ width: 104, textAlign: 'right', flexShrink: 0 }}>
-        {committedCap != null ? (
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '18px', color: 'var(--neutral-800)', margin: 0, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-            {committedCap.toLocaleString()} credits
-          </p>
-        ) : (
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, color: 'var(--neutral-300)', margin: 0, whiteSpace: 'nowrap' }}>
-            No cap
-          </p>
-        )}
-      </div>
-      <Button
-        variant="secondary"
-        size="sm"
-        leftIcon={<PlusSignIcon size={16} />}
-        onClick={startEdit}
-      >
-        Assign
-      </Button>
-    </div>
-  )
-}
-
-// ── Member caps table ─────────────────────────────────────────────────────────
 
 function MemberCapsTable({
   members,
-  orgId,
-  isAdmin,
 }: {
   members: OrgMember[]
-  orgId:   string | null
-  isAdmin: boolean
 }) {
   return (
     <SettingsTable>
@@ -622,9 +471,7 @@ function MemberCapsTable({
       <SettingsTableHeader columns={MEMBER_CAP_COLUMNS} columnGap={MEMBER_CAP_COLUMN_GAP}>
         <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
         <SettingsTableHeaderCell align="center">Credits used</SettingsTableHeaderCell>
-        <SettingsTableHeaderCell align="center">
-          {isAdmin ? 'Assign credits' : 'Cap'}
-        </SettingsTableHeaderCell>
+        <SettingsTableHeaderCell align="center">Cap</SettingsTableHeaderCell>
         <SettingsTableHeaderCell align="center">Usage</SettingsTableHeaderCell>
       </SettingsTableHeader>
 
@@ -665,11 +512,7 @@ function MemberCapsTable({
             </SettingsTableCell>
 
             <SettingsTableCell align="center">
-              {isAdmin ? (
-                // Admins can assign a cap to any member in the table, including
-                // those who were never given a cap at invite time.
-                <CapCell memberId={member.id} orgId={orgId} initialCap={member.creditCap} />
-              ) : member.orgRole !== 'member' ? (
+              {member.orgRole !== 'member' ? (
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-300)' }}>-</span>
               ) : member.creditCap != null ? (
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
@@ -773,8 +616,8 @@ function AnalyticsPageSkeleton() {
         <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: CARD_SHADOW, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: 12 }}>
           <div style={{ display: 'flex', gap: 9 }}>
             {/* Wide credit pool card */}
-            <div style={{ flex: '0 0 399px', height: 141, backgroundColor: 'var(--neutral-white)', borderRadius: 8, boxShadow: INNER_SHADOW, padding: '12px 0', display: 'flex', flexDirection: 'column', gap: 0 }}>
-              <div style={{ padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 23 }}>
+            <div style={{ flex: '0 0 399px', height: 141, backgroundColor: 'var(--neutral-white)', borderRadius: 8, boxShadow: INNER_SHADOW, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <SkeletonBlock width={100} height={14} radius={4} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
@@ -1034,7 +877,7 @@ export default function OrgUsageAnalyticsPage() {
           <FeatureChart days={featureSeries.days} />
         </PageCard>
 
-        <MemberCapsTable members={activeMembers} orgId={orgId} isAdmin={currentUserRole === 'admin'} />
+        <MemberCapsTable members={activeMembers} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <RankedList title="Top users by credit usage" items={topUsers} />

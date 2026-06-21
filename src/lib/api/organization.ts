@@ -30,12 +30,19 @@ interface OrganizationResponse {
   plan_type: 'teams' | 'enterprise' | null
 }
 
+interface AdminBillingPermsResponse {
+  can_top_up: boolean
+  can_manage_payment: boolean
+  can_view_invoices: boolean
+}
+
 interface OrganizationSettingsResponse {
   organization_id: string
   org_instructions: string | null
   allowed_email_domains: string[] | null
   default_chat_visibility: string | null
   default_persona_visibility: string | null
+  admin_billing_perms?: AdminBillingPermsResponse | null
 }
 
 interface MemberResponse {
@@ -107,12 +114,18 @@ interface AuditEntryResponse {
 // ── Normalizers ───────────────────────────────────────────────────────────────
 
 function normalizeSettings(s: OrganizationSettingsResponse): OrgSettings {
+  const p = s.admin_billing_perms
   return {
     organizationId:           s.organization_id,
     orgInstructions:          s.org_instructions,
     allowedEmailDomains:      s.allowed_email_domains,
     defaultChatVisibility:    s.default_chat_visibility,
     defaultPersonaVisibility: s.default_persona_visibility,
+    adminBillingPerms: {
+      canTopUp:         p?.can_top_up         ?? true,
+      canManagePayment: p?.can_manage_payment  ?? true,
+      canViewInvoices:  p?.can_view_invoices   ?? true,
+    },
   }
 }
 
@@ -292,10 +305,15 @@ export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
 export async function updateOrgSettings(
   orgId: string,
   params: {
-    orgInstructions?:        string | null
-    allowedEmailDomains?:    string[] | null
-    defaultChatVisibility?:  string | null
+    orgInstructions?:          string | null
+    allowedEmailDomains?:      string[] | null
+    defaultChatVisibility?:    string | null
     defaultPersonaVisibility?: string | null
+    adminBillingPerms?: {
+      canTopUp?:         boolean
+      canManagePayment?: boolean
+      canViewInvoices?:  boolean
+    }
   },
 ): Promise<OrgSettings> {
   const data = await apiFetchJson<OrganizationSettingsResponse>(ORG_SETTINGS_ENDPOINT(orgId), {

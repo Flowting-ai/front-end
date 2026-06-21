@@ -13,6 +13,8 @@ import {
   chargeTopUp,
   type BillingInfo,
 } from '@/lib/api/stripe'
+import { getOrgSettings, updateOrgSettings } from '@/lib/api/organization'
+import type { AdminBillingPerms } from '@/types/teams'
 
 /*
  * Settings → Organization → Billing ("Plans & Usage")
@@ -318,6 +320,13 @@ export default function OrgBillingPage() {
   const [billingLoading, setBillingLoading] = useState(true)
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false)
 
+  const [adminBillingPerms, setAdminBillingPerms] = useState<AdminBillingPerms>({
+    canTopUp:         true,
+    canManagePayment: true,
+    canViewInvoices:  true,
+  })
+  const [settingsLoading, setSettingsLoading] = useState(true)
+
   const totalCredits   = plan?.totalCredits ?? 0
   const usedCredits    = plan?.used ?? 0
   const remainingCreds = plan?.remaining ?? 0
@@ -347,13 +356,36 @@ export default function OrgBillingPage() {
   const projectedInvoice = billing?.projected_invoice_usd ?? plan?.projectedInvoiceUsd ?? 250
   const totalTokens = billing?.total_tokens ?? plan?.totalTokens ?? 0
 
+  // Fetch admin billing permissions from org settings (needed by both roles).
   useEffect(() => {
-    if (!orgId || !isOwner) return
+    if (!orgId) return
+    setSettingsLoading(true)
+    getOrgSettings(orgId)
+      .then(s => setAdminBillingPerms(s.adminBillingPerms))
+      .catch(console.error)
+      .finally(() => setSettingsLoading(false))
+  }, [orgId])
+
+  // Fetch billing data. Owner always fetches; admins fetch once we know their
+  // perms — if none of the three billing sections are enabled we skip the call.
+  useEffect(() => {
+    if (!orgId) return
+    if (!isOwner && settingsLoading) return
+    if (
+      !isOwner &&
+      !adminBillingPerms.canTopUp &&
+      !adminBillingPerms.canManagePayment &&
+      !adminBillingPerms.canViewInvoices
+    ) {
+      setBillingLoading(false)
+      return
+    }
     fetchBilling()
       .then(setBilling)
       .catch(console.error)
       .finally(() => setBillingLoading(false))
-  }, [orgId, isOwner])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, isOwner, settingsLoading])
 
   const pm = billing?.payment_method
   const cardBrand = (pm?.brand ?? 'visa') as CardBrand
@@ -368,6 +400,24 @@ export default function OrgBillingPage() {
     else toast.error('Could not open billing portal.')
   }
 
+  const handlePermToggle = async (key: keyof AdminBillingPerms) => {
+    if (!orgId) return
+    const prev = adminBillingPerms
+    const next: AdminBillingPerms = { ...prev, [key]: !prev[key] }
+    setAdminBillingPerms(next) // optimistic
+    try {
+      const updated = await updateOrgSettings(orgId, { adminBillingPerms: next })
+      setAdminBillingPerms(updated.adminBillingPerms)
+    } catch {
+      setAdminBillingPerms(prev) // revert on error
+      toast.error('Failed to save permission.')
+    }
+  }
+
+  const handleRequestPlanChange = () => {
+    toast.info('Contact your organization owner to change the plan.')
+  }
+
   // Billing-cycle dates.
   const now          = new Date()
   const cycleStart   = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -377,13 +427,18 @@ export default function OrgBillingPage() {
     ? fmtDate(billing?.current_period_end)
     : fmtShort(cycleEnd)
 
-  if (isOwner && billingLoading) {
+  if (settingsLoading || (isOwner && billingLoading)) {
     return (
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
         <PlansPageSkeleton />
       </div>
     )
   }
+
+  // Effective per-section visibility for the current user.
+  const canSeeCredits  = isOwner || adminBillingPerms.canTopUp
+  const canSeePayment  = isOwner || adminBillingPerms.canManagePayment
+  const canSeeInvoices = isOwner || adminBillingPerms.canViewInvoices
 
   // ── Hero ──────────────────────────────────────────────────────────────────────
   const hero = isEnterprise ? (
@@ -407,6 +462,7 @@ export default function OrgBillingPage() {
       onAnnualChange={setAnnual}
       onContactSales={handleStripePortal}
       onUpgrade={() => router.push('/org/change-plan')}
+      onRequestPlanChange={handleRequestPlanChange}
     />
   )
 
@@ -472,19 +528,17 @@ export default function OrgBillingPage() {
               <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                 Top-up packs. Unused credits roll 1 billing cycle.
               </p>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                {isOwner ? (
+              {canSeeCredits && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <Button variant="secondary" onClick={() => setBuyCreditsOpen(true)}>Buy more Credits</Button>
-                ) : (
-                  <Badge label="Owner only" tone="yellow" />
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Payment — owner only */}
-        {isOwner && (
+        {/* Payment — visible when owner OR admin with canManagePayment */}
+        {canSeePayment && (
           <SectionCard title="Payment" subtitle="Manage your billing details.">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <CardBrandLogo brand={cardBrand} />
@@ -503,8 +557,16 @@ export default function OrgBillingPage() {
           </SectionCard>
         )}
 
-        {/* Invoice history — owner only */}
-        {isOwner && (
+        {/* Admin permissions — owner control panel */}
+        {isOwner && !isEnterprise && (
+          <AdminPermissionsPanel
+            perms={adminBillingPerms}
+            onToggle={handlePermToggle}
+          />
+        )}
+
+        {/* Invoice history — visible when owner OR admin with canViewInvoices */}
+        {canSeeInvoices && (
           <SectionCard
             title="Invoice history"
             action={<Button variant="secondary" onClick={() => toast.success('Exporting all invoices…')}>Export all</Button>}
@@ -516,10 +578,132 @@ export default function OrgBillingPage() {
       </div>
 
       {/* Modals */}
-      {isOwner && !isEnterprise && buyCreditsOpen && (
+      {canSeeCredits && !isEnterprise && buyCreditsOpen && (
         <BuyMoreCreditsModal onClose={() => setBuyCreditsOpen(false)} billing={billing} cardBrand={cardBrand} />
       )}
     </div>
+  )
+}
+
+// ── Admin permissions panel (owner view) ──────────────────────────────────────
+
+function PermToggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      style={{
+        position:   'relative',
+        width:      34,
+        height:     20,
+        borderRadius: 20,
+        border:     'none',
+        padding:    0,
+        cursor:     'pointer',
+        flexShrink: 0,
+        background: checked ? 'var(--blue-400, #6e98cb)' : 'var(--neutral-100, #ede1d7)',
+        boxShadow:  checked
+          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.7)'
+          : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
+        transition: 'background 0.15s ease, box-shadow 0.15s ease',
+      }}
+    >
+      <span style={{
+        position:     'absolute',
+        top:          2,
+        left:         checked ? 16 : 2,
+        width:        16,
+        height:       16,
+        borderRadius: '50%',
+        background:   'white',
+        boxShadow:    checked
+          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.4), inset 0px -1px 0px 0px rgba(18,60,95,0.15)'
+          : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
+        transition:   'left 0.15s ease',
+      }} />
+    </button>
+  )
+}
+
+const PERM_ROWS: Array<{
+  key:      keyof AdminBillingPerms
+  title:    string
+  subtitle: string
+}> = [
+  { key: 'canTopUp',         title: 'Add credits / top up',  subtitle: 'Buy credits, within the spend cap.' },
+  { key: 'canManagePayment', title: 'Manage payment method', subtitle: 'View and update the card on file.' },
+  { key: 'canViewInvoices',  title: 'View invoices',         subtitle: 'See and download billing history.' },
+]
+
+function AdminPermissionsPanel({
+  perms,
+  onToggle,
+}: {
+  perms:    AdminBillingPerms
+  onToggle: (key: keyof AdminBillingPerms) => void
+}) {
+  return (
+    <SectionCard
+      title="Admin permissions"
+      subtitle="Applies to everyone with the Admin role."
+      bodyPadding="12px 24px"
+      bodyGap={12}
+    >
+      {PERM_ROWS.map(({ key, title, subtitle }) => (
+        <div
+          key={key}
+          style={{
+            background:    'white',
+            borderRadius:  16,
+            padding:       12,
+            boxShadow:     SHADOW_TILE,
+            display:       'flex',
+            alignItems:    'center',
+            gap:           8,
+          }}
+        >
+          <div style={{ flex: '1 0 0', minWidth: 0 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+              {title}
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+              {subtitle}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+            <PermToggle checked={perms[key]} onChange={() => onToggle(key)} />
+            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', minWidth: 24 }}>
+              {perms[key] ? 'On' : 'Off'}
+            </span>
+          </div>
+        </div>
+      ))}
+
+      {/* Change plan — always owner-only, no toggle */}
+      <div
+        style={{
+          background:    'white',
+          borderRadius:  16,
+          padding:       12,
+          boxShadow:     SHADOW_TILE,
+          display:       'flex',
+          alignItems:    'center',
+          gap:           8,
+        }}
+      >
+        <div style={{ flex: '1 0 0', minWidth: 0 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+            Change plan
+          </p>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+            Switch tiers or cancel the subscription.
+          </p>
+        </div>
+        <Badge label="Owner only" tone="yellow" />
+      </div>
+    </SectionCard>
   )
 }
 
@@ -535,16 +719,18 @@ function TeamsHero({
   onAnnualChange,
   onContactSales,
   onUpgrade,
+  onRequestPlanChange,
 }: {
-  isOwner:        boolean
-  nextBilling:    string
-  monthlyPrice:   number
-  tierIdx:        number
-  onTierChange:   (i: number) => void
-  annual:         boolean
-  onAnnualChange: (v: boolean) => void
-  onContactSales: () => void
-  onUpgrade:      () => void
+  isOwner:             boolean
+  nextBilling:         string
+  monthlyPrice:        number
+  tierIdx:             number
+  onTierChange:        (i: number) => void
+  annual:              boolean
+  onAnnualChange:      (v: boolean) => void
+  onContactSales:      () => void
+  onUpgrade:           () => void
+  onRequestPlanChange: () => void
 }) {
   const tier = TIERS[tierIdx] ?? TIERS[0]
   return (
@@ -616,7 +802,7 @@ function TeamsHero({
         </>
       ) : (
         <div style={{ display: 'flex' }}>
-          <Badge label="Plan changes are owner-only" tone="yellow" />
+          <Button variant="secondary" onClick={onRequestPlanChange}>Request plan change</Button>
         </div>
       )}
     </HeroShell>

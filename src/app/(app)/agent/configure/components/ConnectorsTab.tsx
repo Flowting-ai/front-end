@@ -9,6 +9,7 @@ import { listConnectors } from '@/lib/api/connectors'
 import { getVersion, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
 import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 import { CONNECTOR_LOGO_MAP } from '@/lib/connectorLogos'
+import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -227,6 +228,7 @@ export default function ConnectorsTab({
   onSaveVersion?:      () => Promise<void>
 }) {
   const { push } = useRouter()
+  const { safeNavigate } = usePersonaConfigure()
 
   const [linked,          setLinked]          = useState<ConnectorCatalogEntry[]>([])
   const [personaSlugs,    setPersonaSlugs]    = useState<Set<string>>(new Set())
@@ -538,16 +540,13 @@ export default function ConnectorsTab({
           <section data-help-id="help-connectors-enabled" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <p style={SECTION_LABEL}>Connectors enabled for this agent</p>
             {linked.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 12px' }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>
-                  No connectors have been connected yet. Activate connectors in Settings to use them in this persona.
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '24px 16px', textAlign: 'center' }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0, maxWidth: 300 }}>
+                  No connectors have been connected yet. Activate connectors in Settings to use them in this agent.
                 </p>
-                <button
-                  onClick={() => push('/settings/connectors')}
-                  style={{ alignSelf: 'flex-start', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--neutral-200)', backgroundColor: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-700)' }}
-                >
+                <Button variant="secondary" size="sm" onClick={() => safeNavigate('/settings/connectors')}>
                   Go to Settings
-                </button>
+                </Button>
               </div>
             ) : enabledForPersona.length === 0 ? (
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '16px 12px' }}>

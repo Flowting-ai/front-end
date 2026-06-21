@@ -238,8 +238,9 @@ function PersonaConfigureSharingContent() {
                   const hasFlag     = tabDirtyFlags[tab] !== undefined
                   const isDirtyT    = hasFlag ? tabDirtyFlags[tab] ?? false : pendingChangeTags.includes(tab)
                   const isPristine  = !hasFlag && !pendingChangeTags.includes(tab)
-                  const bgColor     = isPristine ? '#D1D5DB' : (isDirtyT ? '#F97316' : '#6FCF97')
-                  const borderColor = isPristine ? '#9CA3AF' : (isDirtyT ? '#C2600F' : '#27AE60')
+                  const showGray    = isPristine && !publishedVersionId
+                  const bgColor     = showGray ? '#D1D5DB' : (isDirtyT ? '#F97316' : '#6FCF97')
+                  const borderColor = showGray ? '#9CA3AF' : (isDirtyT ? '#C2600F' : '#27AE60')
                   return (
                     <div key={`${tab}-light`} aria-hidden style={{ height: 4, backgroundColor: bgColor, border: `1px solid ${borderColor}`, borderRadius: 2, transition: 'background-color 300ms, border-color 300ms' }} />
                   )

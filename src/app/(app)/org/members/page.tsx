@@ -279,16 +279,30 @@ function TeamsBadges({
   teams: OrgMember['teamMemberships']
   hasGlobalAccess?: boolean
 }) {
-  if (hasGlobalAccess) return <Badge color="Neutral" label="All teams" />
-  if (teams.length === 0) return <span style={{ color: 'var(--neutral-300)' }}>—</span>
+  if (hasGlobalAccess || teams.length === 0) return null
   return (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {teams.map(t => (
-        <Badge
+        <span
           key={t.teamId}
-          color={t.isTeamOwner ? 'Green' : 'Blue'}
-          label={`${t.isTeamOwner ? '★ ' : ''}${t.teamName}`}
-        />
+          style={{
+            display:         'inline-flex',
+            alignItems:      'center',
+            padding:         '2px 6px',
+            borderRadius:    6,
+            backgroundColor: 'var(--neutral-50)',
+            boxShadow:       '0px 0px 0px 1px var(--neutral-100)',
+            fontFamily:      'var(--font-body)',
+            fontWeight:      500,
+            fontSize:        'var(--font-size-caption)',
+            lineHeight:      'var(--line-height-caption)',
+            color:           'var(--neutral-700)',
+            whiteSpace:      'nowrap',
+            flexShrink:      0,
+          }}
+        >
+          {t.teamName}
+        </span>
       ))}
     </div>
   )
@@ -510,31 +524,19 @@ function MembersTable({
   isAdmin,
   isCurrentUserOwner = false,
   loading,
-  availableTeams,
-  onChangeRole,
-  onRequestEditor,
   onRemove,
   onRevokeInvite,
   onInviteClick,
-  onAssignTeam,
 }: {
   members:              OrgMember[]
   ownerMemberId:        string
   isAdmin:              boolean
   isCurrentUserOwner?:  boolean
   loading?:             boolean
-  availableTeams:       { id: string; name: string }[]
-  onChangeRole:         (id: string, role: WorkspaceRole) => void
-  onRequestEditor:      (id: string, memberName: string) => void
   onRemove:             (id: string) => void
   onRevokeInvite:       (id: string) => void
   onInviteClick:        () => void
-  onAssignTeam:         (memberId: string, teamId: string) => Promise<void>
 }) {
-  const [openDropdown,  setOpenDropdown]  = useState<string | null>(null)
-  const [dropdownAnchor, setDropdownAnchor] = useState<HTMLButtonElement | null>(null)
-  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null)
-  const [assigningId,   setAssigningId]   = useState<string | null>(null)
   const [searchQuery,   setSearchQuery]   = useState('')
   const normalizedQuery = searchQuery.trim().toLowerCase()
   const filteredMembers = normalizedQuery
@@ -602,14 +604,6 @@ function MembersTable({
             const isOwner = member.id === ownerMemberId
             const canEditMember = isAdmin && !isOwner && member.inviteStatus !== 'invite_sent' && (isCurrentUserOwner || member.orgRole === 'member')
             const hasGlobalAccess = member.orgRole === 'owner' || member.orgRole === 'admin'
-            const unassignedTeams = availableTeams.filter(team => (
-              !member.teamMemberships.some(membership => membership.teamId === team.id)
-            ))
-            const roleLabel = member.orgRole === 'owner' || member.orgRole === 'admin'
-              ? member.orgRole.charAt(0).toUpperCase() + member.orgRole.slice(1)
-              : member.role === 'editor'
-                ? 'Team editor'
-                : 'Member'
 
             return (
               <SettingsTableRow
@@ -635,55 +629,28 @@ function MembersTable({
                   </div>
                 </SettingsTableCell>
 
-                <SettingsTableCell>
-                  <div style={{ position: 'relative' }}>
-                    <RoleButton
-                      role={member.role}
-                      label={roleLabel}
-                      isOwner={isOwner}
-                      isAdmin={canEditMember}
-                      onClick={event => {
-                        const rect = event.currentTarget.getBoundingClientRect()
-                        setDropdownAnchor(event.currentTarget)
-                        setDropdownPosition({ top: rect.bottom + 4, left: rect.left })
-                        setOpenDropdown(prev => prev === member.id ? null : member.id)
-                      }}
-                    />
-                    <AnimatePresence>
-                      {openDropdown === member.id && canEditMember && dropdownAnchor && dropdownPosition && (
-                        <RoleDropdown
-                          currentRole={member.role}
-                          availableRoles={isCurrentUserOwner ? ['admin', 'editor', 'member'] : ['editor', 'member']}
-                          onSelect={role => {
-                            setOpenDropdown(null)
-                            // Editor needs a team scope — defer to the picker modal.
-                            if (role === 'editor') onRequestEditor(member.id, member.name || member.email)
-                            else onChangeRole(member.id, role)
-                          }}
-                          onClose={() => setOpenDropdown(null)}
-                          triggerEl={dropdownAnchor}
-                          position={dropdownPosition}
+                <SettingsTableCell style={{ alignSelf: 'flex-start', paddingTop: 16, paddingBottom: 16 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {member.orgRole === 'owner' ? (
+                      <Badge color="Yellow" label="Owner" />
+                    ) : member.orgRole === 'admin' ? (
+                      <RoleBadge role="admin" size="sm" />
+                    ) : member.teamMemberships.length > 0 ? (
+                      member.teamMemberships.map(t => (
+                        <RoleBadge
+                          key={t.teamId}
+                          role={t.isTeamOwner ? 'editor' : 'member'}
+                          size="sm"
                         />
-                      )}
-                    </AnimatePresence>
+                      ))
+                    ) : (
+                      <RoleBadge role="member" size="sm" />
+                    )}
                   </div>
                 </SettingsTableCell>
 
-                <SettingsTableCell>
-                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, minWidth: 0 }}>
-                    <TeamsBadges teams={member.teamMemberships} hasGlobalAccess={hasGlobalAccess} />
-                    {isAdmin && !hasGlobalAccess && member.inviteStatus !== 'invite_sent' && unassignedTeams.length > 0 && (
-                      <AssignTeamButton
-                        teams={unassignedTeams}
-                        assigning={assigningId === member.id}
-                        onSelect={async teamId => {
-                          setAssigningId(member.id)
-                          try { await onAssignTeam(member.id, teamId) }
-                          finally { setAssigningId(null) }
-                        }}
-                      />
-                    )}
-                  </div>
+                <SettingsTableCell style={{ alignSelf: 'flex-start', paddingTop: 16, paddingBottom: 16 }}>
+                  <TeamsBadges teams={member.teamMemberships} hasGlobalAccess={hasGlobalAccess} />
                 </SettingsTableCell>
 
                 <SettingsTableCell align="end">
@@ -960,7 +927,7 @@ export default function OrgMembersPage() {
         for (const { team, editors } of editorRows) {
           for (const editor of editors) {
             const current = membershipsByUser.get(editor.userId) ?? []
-            current.push({ teamId: team.id, teamName: team.name, isTeamOwner: false })
+            current.push({ teamId: team.id, teamName: team.name, isTeamOwner: true })
             membershipsByUser.set(editor.userId, current)
           }
         }
@@ -1069,14 +1036,14 @@ export default function OrgMembersPage() {
         const chosen = editorTeamIds.map(tid => ({
           teamId:      tid,
           teamName:    teams.find(team => team.id === tid)?.name ?? 'Team',
-          isTeamOwner: false,
+          isTeamOwner: true,
         }))
         targetMemberships = [
           ...prevMember.teamMemberships.filter(tm => !editorTeamIds.includes(tm.teamId)),
           ...chosen,
         ]
       } else if (previousTeamIds.length === 0) {
-        targetMemberships = teams.map(team => ({ teamId: team.id, teamName: team.name, isTeamOwner: false }))
+        targetMemberships = teams.map(team => ({ teamId: team.id, teamName: team.name, isTeamOwner: true }))
       }
       if (targetMemberships.length === 0) {
         toast.error('Create a team before assigning a team editor')
@@ -1231,7 +1198,7 @@ export default function OrgMembersPage() {
         orgRole:         role === 'admin' ? 'admin' : 'member',
         inviteStatus:    'invite_sent',
         teamMemberships: role === 'editor'
-          ? [{ teamId, teamName: teams.find(t => t.id === teamId)?.name ?? 'Team', isTeamOwner: false }]
+          ? [{ teamId, teamName: teams.find(t => t.id === teamId)?.name ?? 'Team', isTeamOwner: true }]
           : [],
         creditUsed:      0,
         allocationUsed:  0,
@@ -1334,13 +1301,9 @@ export default function OrgMembersPage() {
           isAdmin={isAdmin}
           isCurrentUserOwner={currentUserIsOwner}
           loading={membersLoading}
-          availableTeams={teams.map(t => ({ id: t.id, name: t.name }))}
-          onChangeRole={handleChangeRole}
-          onRequestEditor={handleRequestEditor}
           onRemove={handleRemove}
           onRevokeInvite={handleRevokeInvite}
           onInviteClick={() => setInviteOpen(true)}
-          onAssignTeam={handleAssignTeam}
         />
 
         {/* Credit caps */}

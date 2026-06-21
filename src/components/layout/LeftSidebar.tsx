@@ -26,6 +26,7 @@ import type { Team } from "@/types/teams";
 import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
 import type { SidebarAdminGroup } from "@/components/Sidebar";
+import type { ChipColor } from "@/components/Chip";
 
 // -- Collapse state persistence ------------------------------------------------
 
@@ -1226,21 +1227,28 @@ function LeftSidebarImpl({
     ? user.firstName?.trim() || user.name?.split(" ")[0]?.trim() || ""
     : "";
 
-  // Role tag shown next to the logo. A user can hold several roles at once — an
-  // org-level role plus a per-team role on each team they belong to — so surface
-  // the highest-ranked one rather than any single team's role. e.g. an editor on
-  // one team and a member on another shows "Editor".
+  // Role chip next to the wordmark.
+  // admin/owner show their single org-level role — team roles don't add to it.
+  // Members show their highest team role (editor beats member).
   // Hierarchy: owner > admin > editor > member.
   const ROLE_RANK: Record<string, number> = { owner: 4, admin: 3, editor: 2, member: 1 }
-  const highestRole = [orgRole, ...teams.map(t => t.myRole)]
-    .filter((r): r is NonNullable<typeof r> => Boolean(r))
-    .reduce<string | undefined>(
-      (best, r) => ((ROLE_RANK[r] ?? 0) > (ROLE_RANK[best ?? ''] ?? 0) ? r : best),
-      undefined,
-    )
-  const orgBadgeSublabel = orgId && highestRole
-    ? highestRole.charAt(0).toUpperCase() + highestRole.slice(1)
+  const displayRole = (orgRole === 'owner' || orgRole === 'admin')
+    ? orgRole
+    : teams
+        .map(t => t.myRole)
+        .filter(Boolean)
+        .reduce<string | undefined>(
+          (best, r) => ((ROLE_RANK[r] ?? 0) > (ROLE_RANK[best ?? ''] ?? 0) ? r : best),
+          undefined,
+        ) ?? (orgId ? 'member' : undefined)
+  const orgBadgeSublabel = orgId && displayRole
+    ? displayRole.charAt(0).toUpperCase() + displayRole.slice(1)
     : undefined
+  const orgBadgeChipColor: ChipColor =
+    displayRole === 'owner'  ? 'Yellow' :
+    displayRole === 'admin'  ? 'Red'    :
+    displayRole === 'editor' ? 'Blue'   :
+    'Neutral'
 
   // Teams ? "Teams | Admin/Editor/Member" | paid ? "Pro"/"Starter"/"Power" | trial ? "Free Trial" | none ? "No Plan Selected"
   const planLabel = orgId
@@ -1307,6 +1315,7 @@ function LeftSidebarImpl({
       orgId={orgId ?? undefined}
       showAdmin={Boolean(orgId) && currentUserRole === 'admin'}
       orgBadgeSublabel={orgBadgeSublabel}
+      orgBadgeChipColor={orgBadgeChipColor}
       accountMenu={(collapsed) => {
         if (!user) {
           return collapsed ? (

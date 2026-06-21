@@ -1,6 +1,7 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
@@ -14,8 +15,11 @@ import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { IconButton } from '@/components/IconButton'
 import { AccountMenu } from '@/components/AccountMenu'
 import { Badge } from '@/components/Badge'
+import { Button } from '@/components/Button'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
+import { useSettingsGuard } from '@/context/settings-guard-context'
+import { useMounted } from '@/hooks/use-mounted'
 import { toast } from 'sonner'
 
 const MY_SETTINGS_ITEMS = [
@@ -36,6 +40,36 @@ export function SettingsSidebar() {
   const pathname = usePathname()
   const { user, logout, isAuthenticated } = useAuth()
   const { orgId, org, currentUserRole } = useOrg()
+  const { isDirty, saveRef } = useSettingsGuard()
+  const portalMounted = useMounted()
+  const [pendingHref,    setPendingHref]    = useState<string | null>(null)
+  const [isSavingGuard,  setIsSavingGuard]  = useState(false)
+
+  const safeNavigate = (href: string) => {
+    if (isDirty && pathname !== href) {
+      setPendingHref(href)
+      return
+    }
+    push(href)
+  }
+
+  const handleDiscard = () => {
+    const href = pendingHref!
+    setPendingHref(null)
+    push(href)
+  }
+
+  const handleSaveAndContinue = async () => {
+    if (!saveRef.current) { handleDiscard(); return }
+    setIsSavingGuard(true)
+    const ok = await saveRef.current()
+    setIsSavingGuard(false)
+    if (ok) {
+      const href = pendingHref!
+      setPendingHref(null)
+      push(href)
+    }
+  }
 
   const displayName = user
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
@@ -45,7 +79,9 @@ export function SettingsSidebar() {
     ? `Teams | ${org?.name ?? 'Teams'}`
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
-      : undefined
+      : user?.isTrial
+        ? 'Free Trial'
+        : 'No Plan Selected'
 
   const planWarning = !orgId && !user?.planType && !user?.isTrial
 
@@ -55,6 +91,7 @@ export function SettingsSidebar() {
     : (user?.creditsRemaining ?? undefined)
 
   return (
+    <>
     <div
       style={{
         display:         'flex',
@@ -79,7 +116,7 @@ export function SettingsSidebar() {
           size="sm"
           aria-label="Go back"
           icon={<ArrowLeftOneIcon size={20} />}
-          onClick={() => push('/chat')}
+          onClick={() => safeNavigate('/chat')}
         />
         <p style={{
           fontFamily:   'var(--font-title)',
@@ -148,7 +185,7 @@ export function SettingsSidebar() {
                   icon={item.icon}
                   label={item.label}
                   selected={pathname === item.href}
-                  onClick={() => push(item.href)}
+                  onClick={() => safeNavigate(item.href)}
                 />
               )
             ))}
@@ -185,16 +222,53 @@ export function SettingsSidebar() {
             collapsed={false}
             panelWidth={274}
             placement="top-start"
-            onProfile={() => push('/settings/account')}
-            onUpgradePlan={() => push('/settings/billing')}
-            onSettings={() => push('/settings')}
-            onOrganization={orgId ? () => push('/org/general') : undefined}
+            onProfile={() => safeNavigate('/settings/account')}
+            onUpgradePlan={() => safeNavigate('/settings/billing')}
+            onSettings={() => safeNavigate('/settings')}
+            onOrganization={orgId ? () => safeNavigate('/org/general') : undefined}
             onWhatsNew={() => toast.info("What's new — coming soon!")}
-            onHelp={() => push('/settings/help')}
+            onHelp={() => safeNavigate('/settings/help')}
             onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
           />
         )}
       </div>
     </div>
+
+    {/* ── Unsaved changes confirmation modal ── */}
+    {portalMounted && pendingHref && createPortal(
+      // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions
+      <div
+        style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        onClick={() => { if (!isSavingGuard) setPendingHref(null) }}
+      >
+        {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions */}
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Unsaved account changes"
+          style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)', display: 'flex', flexDirection: 'column', gap: 20, boxShadow: '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1px var(--neutral-100)' }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
+              Unsaved account changes
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
+              Your profile changes will be lost if you leave now.
+            </p>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button variant="secondary" size="sm" disabled={isSavingGuard} onClick={handleDiscard}>
+              Discard changes
+            </Button>
+            <Button variant="default" size="sm" loading={isSavingGuard} onClick={() => { void handleSaveAndContinue() }}>
+              Save & continue
+            </Button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    )}
+    </>
   )
 }

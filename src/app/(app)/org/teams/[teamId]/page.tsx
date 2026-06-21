@@ -47,7 +47,8 @@ import type { ConnectorRequestStatus } from '@/lib/api/teams'
 import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 import { connectorLogoSrc } from '@/lib/connectorLogos'
 import { listMembers } from '@/lib/api/organization'
-import type { Team, TeamEditor, OrgMember, OrgRole } from '@/types/teams'
+import { fetchPersonas, personasForTeamContext, type Persona } from '@/lib/api/personas'
+import type { Team, TeamEditor, OrgMember, OrgRole, WorkspaceRole } from '@/types/teams'
 import { toast } from 'sonner'
 
 const EDITOR_COLUMNS = '1fr 1fr 160px'
@@ -183,11 +184,19 @@ function RedOutlineButton({ children, onClick, disabled }: { children: React.Rea
 
 // ── Invite modal (inline, simple) ─────────────────────────────────────────────
 
-function InvitePanel({ onInvite, onClose }: {
-  onInvite: (emails: string[]) => Promise<void>
+const ROLE_LABELS: Record<WorkspaceRole, string> = {
+  admin:  'Admin',
+  editor: 'Editor',
+  member: 'Member',
+}
+
+function InvitePanel({ availableRoles, onInvite, onClose }: {
+  availableRoles: WorkspaceRole[]
+  onInvite: (emails: string[], role: WorkspaceRole) => Promise<void>
   onClose: () => void
 }) {
-  const [raw, setRaw] = useState('')
+  const [raw,     setRaw]     = useState('')
+  const [role,    setRole]    = useState<WorkspaceRole>(availableRoles[availableRoles.length - 1] ?? 'member')
   const [sending, setSending] = useState(false)
 
   const handleSend = async () => {
@@ -195,7 +204,7 @@ function InvitePanel({ onInvite, onClose }: {
     if (!emails.length) return
     setSending(true)
     try {
-      await onInvite(emails)
+      await onInvite(emails, role)
       setRaw('')
       onClose()
     } catch (err) {
@@ -216,6 +225,35 @@ function InvitePanel({ onInvite, onClose }: {
         placeholder="email@example.com, another@example.com"
         fluid
       />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
+          Role
+        </p>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {availableRoles.map(r => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRole(r)}
+              style={{
+                padding:         '5px 12px',
+                borderRadius:    8,
+                border:          'none',
+                cursor:          'pointer',
+                fontFamily:      'var(--font-body)',
+                fontWeight:      500,
+                fontSize:        13,
+                lineHeight:      '20px',
+                backgroundColor: role === r ? 'var(--neutral-900)' : 'var(--neutral-100)',
+                color:           role === r ? 'var(--neutral-white)' : 'var(--neutral-500)',
+                transition:      'background-color 120ms, color 120ms',
+              }}
+            >
+              {ROLE_LABELS[r]}
+            </button>
+          ))}
+        </div>
+      </div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
         <Button variant="default" size="sm" disabled={!raw.trim() || sending} onClick={handleSend}>
@@ -353,21 +391,48 @@ function AddEditorPanel({ orgId, existingEditorIds, onAdd, onClose }: {
 
 function TeamConnectorRow({
   entry,
-  approved,
+  teamStatus,
+  isAdmin,
   busy,
   divider,
   onToggle,
 }: {
   entry: ConnectorCatalogEntry
-  approved: boolean
+  teamStatus: ConnectorRequestStatus | undefined
+  isAdmin: boolean
   busy: boolean
   divider: boolean
   onToggle: (checked: boolean) => void
 }) {
   const src = connectorLogoSrc(entry.slug)
   const initials = entry.display_name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()
+
+  // org_enabled=false means the org admin disabled this connector globally; teams cannot override.
+  const isOrgLocked = entry.org_enabled === false
+
+  // Effective state: explicit team override → org default → off.
+  const effectivelyOn = teamStatus === 'approved'
+    ? true
+    : teamStatus === 'denied'
+    ? false
+    : entry.org_enabled === true
+
+  const cat = connectorCategory(entry.slug)
+  const sublabel = isOrgLocked
+    ? `${cat} · Disabled by org`
+    : entry.org_enabled && teamStatus === 'denied'
+    ? `${cat} · Org-wide · Off for team`
+    : entry.org_enabled
+    ? `${cat} · Org-wide`
+    : cat
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px', borderBottom: divider ? '1px solid var(--neutral-100)' : undefined }}>
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px',
+      borderBottom: divider ? '1px solid var(--neutral-100)' : undefined,
+      opacity: isOrgLocked ? 0.55 : 1,
+      transition: 'opacity 150ms',
+    }}>
       <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'white', boxShadow: '0px 0px 0px 1px var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, color: 'var(--neutral-700)', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 11 }}>
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element -- bundled brand asset with runtime slug path
@@ -375,12 +440,18 @@ function TeamConnectorRow({
         ) : (initials || '?')}
       </div>
       <div style={{ flex: '1 0 0', minWidth: 0 }}>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.display_name}</p>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
-          {connectorCategory(entry.slug)}{entry.org_enabled ? ' · Org-wide' : ''}
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {entry.display_name}
+        </p>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: isOrgLocked ? 'var(--neutral-400)' : 'var(--neutral-500)', margin: 0 }}>
+          {sublabel}
         </p>
       </div>
-      <Switch checked={approved} disabled={busy} onCheckedChange={onToggle} />
+      <Switch
+        checked={effectivelyOn}
+        disabled={!isAdmin || isOrgLocked || busy}
+        onCheckedChange={onToggle}
+      />
     </div>
   )
 }
@@ -388,6 +459,9 @@ function TeamConnectorRow({
 const teamEntrySlug = (entry: ConnectorCatalogEntry): string => entry.slug
 
 function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }) {
+  const { currentUserRole } = useOrg()
+  const isAdmin = currentUserRole === 'admin'
+
   const [entries, setEntries] = useState<ConnectorCatalogEntry[]>([])
   const [statusBySlug, setStatusBySlug] = useState<Record<string, ConnectorRequestStatus>>({})
   const [loading, setLoading] = useState(true)
@@ -429,15 +503,20 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
   }, [orgId, teamId])
 
   async function handleToggle(entry: ConnectorCatalogEntry, checked: boolean) {
+    if (!isAdmin) return
+    // Org-disabled connectors cannot be overridden at team level.
+    if (entry.org_enabled === false) return
     setBusySlug(entry.slug)
     try {
+      const current = statusBySlug[entry.slug] as ConnectorRequestStatus | undefined
       if (checked) {
-        if (!statusBySlug[entry.slug]) {
-          await requestTeamConnector(orgId, teamId, entry.slug)
-        }
+        // Create a request record first if none exists (required before PATCH).
+        if (!current) await requestTeamConnector(orgId, teamId, entry.slug)
         await setTeamConnectorStatus(orgId, teamId, entry.slug, 'approved')
         toast.success(`${entry.display_name} enabled for this team`)
       } else {
+        // Need a record to deny; create one if this connector has never been requested.
+        if (!current) await requestTeamConnector(orgId, teamId, entry.slug)
         await setTeamConnectorStatus(orgId, teamId, entry.slug, 'denied')
         toast.success(`${entry.display_name} disabled for this team`)
       }
@@ -451,7 +530,14 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
 
   return (
     <Card>
-      <CardHeader title="Connectors" subtitle="Choose which connectors this team can use. Org-wide connectors are available to every team by default." />
+      <CardHeader
+        title="Connectors"
+        subtitle={isAdmin
+          ? 'Enable or disable connectors for this team. Org-wide connectors are on by default; you can override them per team.'
+          : 'Connectors available to this team. Contact an admin to change access.'
+        }
+        compact
+      />
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center' }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>Loading connectors…</p>
@@ -487,7 +573,8 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
             <TeamConnectorRow
               key={entry.slug}
               entry={entry}
-              approved={statusBySlug[entry.slug] === 'approved'}
+              teamStatus={statusBySlug[entry.slug] as ConnectorRequestStatus | undefined}
+              isAdmin={isAdmin}
               busy={busySlug === entry.slug}
               divider={index < browse.pageItems.length - 1}
               onToggle={checked => void handleToggle(entry, checked)}
@@ -506,7 +593,7 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
 export default function TeamSettingsPage() {
   const params = useParams<{ teamId: string }>()
   const router = useRouter()
-  const { orgId, refreshTeams } = useOrg()
+  const { orgId, refreshTeams, currentUserRole, orgRole } = useOrg()
 
   const [team, setTeam] = useState<Team | null>(null)
   const [loading, setLoading] = useState(true)
@@ -519,9 +606,15 @@ export default function TeamSettingsPage() {
   const [teamDesc, setTeamDesc] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const [inviteOpen, setInviteOpen] = useState(false)
-  const [addEditorOpen, setAddEditorOpen] = useState(false)
+  const [inviteOpen,  setInviteOpen]  = useState(false)
   const [deleteInput, setDeleteInput] = useState('')
+
+  const availableRoles: WorkspaceRole[] = orgRole === 'owner'
+    ? ['admin', 'editor', 'member']
+    : ['editor', 'member']
+
+  const [teamAgents, setTeamAgents] = useState<Persona[]>([])
+  const [agentsLoading, setAgentsLoading] = useState(true)
 
   useEffect(() => {
     const routeTeamId = params.teamId
@@ -597,6 +690,16 @@ export default function TeamSettingsPage() {
       cancelled = true
     }
   }, [orgId])
+
+  useEffect(() => {
+    if (!params.teamId) return
+    const teamId = params.teamId
+    setAgentsLoading(true)
+    fetchPersonas()
+      .then(list => setTeamAgents(personasForTeamContext(list, teamId)))
+      .catch(() => setTeamAgents([]))
+      .finally(() => setAgentsLoading(false))
+  }, [params.teamId])
 
   const editorIds = useMemo(() => new Set(editors.map(e => e.userId)), [editors])
 
@@ -681,9 +784,9 @@ export default function TeamSettingsPage() {
     }
   }
 
-  const handleInvite = async (emails: string[]) => {
+  const handleInvite = async (emails: string[], role: WorkspaceRole) => {
     if (!orgId || !team) return
-    await inviteTeamMembers(orgId, team.id, emails)
+    await inviteTeamMembers(orgId, team.id, emails, role)
     toast.success(`Invite sent to ${emails.length} email${emails.length > 1 ? 's' : ''}`)
   }
 
@@ -825,10 +928,7 @@ export default function TeamSettingsPage() {
                 <IconButton variant="ghost" size="sm" aria-label="Search members" icon={<SearchOneIcon size={20} />} />
                 <IconButton variant="ghost" size="sm" aria-label="Filter members" icon={<FilterMailIcon size={20} />} />
               </div>
-              <Button variant="outline" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={() => { setAddEditorOpen(o => !o); setInviteOpen(false) }}>
-                Add editor
-              </Button>
-              <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={() => { setInviteOpen(o => !o); setAddEditorOpen(false) }}>
+              <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={() => setInviteOpen(o => !o)}>
                 Invite members
               </Button>
             </div>
@@ -880,16 +980,9 @@ export default function TeamSettingsPage() {
             </SettingsTableRow>
           ))}
 
-          {addEditorOpen && orgId && (
-            <AddEditorPanel
-              orgId={orgId}
-              existingEditorIds={new Set(editors.map(e => e.userId))}
-              onAdd={handleAddEditor}
-              onClose={() => setAddEditorOpen(false)}
-            />
-          )}
           {inviteOpen && (
             <InvitePanel
+              availableRoles={availableRoles}
               onInvite={handleInvite}
               onClose={() => setInviteOpen(false)}
             />
@@ -897,6 +990,45 @@ export default function TeamSettingsPage() {
         </SettingsTable>
 
         {orgId && <TeamConnectorsCard orgId={orgId} teamId={team.id} />}
+
+        <Card>
+          <CardHeader
+            title="Shared agents"
+            subtitle="Agents published to this team. Manage sharing from the agent's configure page."
+            compact
+          />
+          <div style={{ padding: '12px 24px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {agentsLoading && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>Loading…</p>
+            )}
+            {!agentsLoading && teamAgents.length === 0 && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+                No agents shared to this team yet.
+              </p>
+            )}
+            {!agentsLoading && teamAgents.map(agent => (
+              <div key={agent.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                borderRadius: 10, backgroundColor: 'var(--neutral-50)', boxShadow: '0px 0px 0px 1px var(--neutral-100)' }}>
+                <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
+                    color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {agent.name}
+                  </p>
+                  {agent.description && (
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)', margin: 0,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {agent.description}
+                    </p>
+                  )}
+                </div>
+                <Badge
+                  color={agent.status === 'active' ? 'Green' : agent.status === 'paused' ? 'Yellow' : 'Neutral'}
+                  label={agent.status === 'active' ? 'Live' : agent.status === 'paused' ? 'Paused' : 'Draft'}
+                />
+              </div>
+            ))}
+          </div>
+        </Card>
 
         <Card danger>
           <CardHeader title="Danger Zone" subtitle="Actions here are permanent and cannot be undone." danger compact />

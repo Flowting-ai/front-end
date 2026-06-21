@@ -185,9 +185,11 @@ export function SettingsTableRow({
 export function SettingsTableCell({
   children,
   align = 'start',
+  style,
 }: {
   children: React.ReactNode
   align?: 'start' | 'center' | 'end'
+  style?: React.CSSProperties
 }) {
   return (
     <div
@@ -197,6 +199,7 @@ export function SettingsTableCell({
         alignItems:     'center',
         justifyContent: align === 'start' ? 'flex-start' : align === 'end' ? 'flex-end' : 'center',
         minWidth:       0,
+        ...style,
       }}
     >
       {children}

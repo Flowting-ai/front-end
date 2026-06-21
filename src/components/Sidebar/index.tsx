@@ -291,6 +291,8 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   showAdmin?: boolean
   /** Secondary label shown below the org name in the interactive badge — e.g. "Admin", "Owner". */
   orgBadgeSublabel?: string
+  /** Chip color for the role badge next to the wordmark. Defaults to 'Neutral'. */
+  orgBadgeChipColor?: ChipColor
   /** Grouped org/admin nav shown in the admin body. Defaults to the standard three groups. */
   adminGroups?: SidebarAdminGroup[]
   /** Fires when an org/admin row is clicked. */
@@ -921,6 +923,7 @@ export function Sidebar({
       orgColor,
       showAdmin           = false,
       orgBadgeSublabel,
+      orgBadgeChipColor   = 'Neutral',
       adminGroups         = DEFAULT_ADMIN_GROUPS,
       onAdminSectionClick,
       adminItems,
@@ -1130,7 +1133,7 @@ export function Sidebar({
                   <SouvenirWordmark />
                 </button>
                 {orgBadgeSublabel && (
-                  <Chip size="Small" color="Purple" label={orgBadgeSublabel} />
+                  <Chip size="Small" color={orgBadgeChipColor} label={orgBadgeSublabel} />
                 )}
               </div>
             )}

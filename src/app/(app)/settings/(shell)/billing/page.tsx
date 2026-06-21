@@ -18,6 +18,8 @@ import { CardBrandLogo } from '@/components/CardBrandLogo'
 import type { CardBrand } from '@/components/CardBrandLogo'
 import { BuyCreditsModal } from '@/components/BuyCreditsModal'
 import { creditsFromBilling } from '@/lib/credits'
+import { startTrial } from '@/lib/api/stripe'
+import { TokenCircleIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -205,6 +207,7 @@ export default function BillingPage() {
   const [showCancelDialog,     setShowCancelDialog]     = useState(false)
   const [isCanceling,          setIsCanceling]          = useState(false)
   const [isResuming,           setIsResuming]           = useState(false)
+  const [isClaimingTrial,      setIsClaimingTrial]      = useState(false)
 
   const didInit = useRef(false)
 
@@ -430,6 +433,20 @@ export default function BillingPage() {
     }
   }
 
+  const handleClaimTrial = async () => {
+    if (isClaimingTrial) return
+    setIsClaimingTrial(true)
+    try {
+      await startTrial()
+      toast.success('1,000 free trial credits added to your account.')
+      await reload()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not claim free credits')
+    } finally {
+      setIsClaimingTrial(false)
+    }
+  }
+
   // ── Dialogs ─────────────────────────────────────────────────────────────────
 
   const dialogCardStyle: React.CSSProperties = {
@@ -580,6 +597,11 @@ export default function BillingPage() {
                     </Button>
                   ) : (
                     <span style={{ ...regMuted, color: C.ink }}>Plan changes are managed by the organization owner.</span>
+                  )}
+                  {!isTeamAccount && !planType && canManageBilling && billingLoaded && !billing?.credits?.trial && (
+                    <Button variant="secondary" size="md" loading={isClaimingTrial} leftIcon={<TokenCircleIcon size={16} animated />} onClick={() => { void handleClaimTrial() }}>
+                      Claim free 1,000 credits
+                    </Button>
                   )}
                   {hasActiveSub && !cancelAtPeriodEnd && (
                     <button

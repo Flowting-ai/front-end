@@ -125,12 +125,23 @@ export interface ActivityEntry {
   detail: string
 }
 
+export interface AdminBillingPerms {
+  /** Admin can see and click "Buy more Credits". */
+  canTopUp: boolean
+  /** Admin can see the Payment section (card details + Stripe portal). */
+  canManagePayment: boolean
+  /** Admin can see Invoice history. */
+  canViewInvoices: boolean
+}
+
 export interface OrgSettings {
   organizationId: string
   orgInstructions: string | null
   allowedEmailDomains: string[] | null
   defaultChatVisibility: string | null
   defaultPersonaVisibility: string | null
+  /** What billing sections admins are permitted to see. Defaults to all-on. */
+  adminBillingPerms: AdminBillingPerms
 }
 
 export interface TeamBurn {

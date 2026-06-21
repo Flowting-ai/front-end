@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
-import { Plus, Search, Upload, MoreHorizontal, Eye, ChevronDown, ArrowUp } from "lucide-react";
+import { Plus, Search, Upload, MoreHorizontal, ChevronDown, ArrowUp } from "lucide-react";
 import { FILE_ACCEPT } from "@/hooks/use-file-upload";
 
 export type KnowledgeFile = {
@@ -174,32 +174,6 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
       </div>
 
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, position: "relative", opacity: (isUploading || isDeleting) ? 0.3 : 1, pointerEvents: (isUploading || isDeleting) ? "none" : "auto" }}>
-        {file.type !== "connected" && (
-          <button
-            type="button"
-            onClick={() => {
-              if (onPreview) {
-                onPreview(file);
-              } else if (file.url) {
-                window.open(file.url, "_blank", "noopener,noreferrer");
-              }
-            }}
-            title="Preview file"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              height: 32,
-              width: 32,
-              borderRadius: 8,
-              border: "1px solid rgba(59,54,50,0.3)",
-              backgroundColor: "transparent",
-              cursor: "pointer",
-            }}
-          >
-            <Eye size={20} color="#524b47" />
-          </button>
-        )}
         <div ref={actionMenuRef} style={{ position: "relative" }}>
           <button
             type="button"
@@ -368,12 +342,18 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
     const valid = typeOk.filter(f => f.size <= FILE_SIZE_LIMIT_MB * 1024 * 1024);
     if (valid.length === 0) return;
 
+    // Duplicate prevention — compare by file name against all existing entries
+    const duplicates = valid.filter(f => files.some(existing => existing.name === f.name));
+    duplicates.forEach(f => toast.error(`"${f.name}" is already in the knowledge base.`));
+    const unique = valid.filter(f => !files.some(existing => existing.name === f.name));
+    if (unique.length === 0) return;
+
     if (onRawFilesSelected) {
-      onRawFilesSelected(valid);
+      onRawFilesSelected(unique);
       return;
     }
     // Fallback: optimistic local state only
-    const newFiles: KnowledgeFile[] = raw.map(file => {
+    const newFiles: KnowledgeFile[] = unique.map(file => {
       const ext = file.name.split(".").pop()?.toUpperCase() ?? "FILE";
       const bytes = file.size
       const sizeStr = bytes < 0.1 * 1024 * 1024
@@ -727,6 +707,12 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
         </div>
       </div>
 
+      {searchQuery && filteredFiles.length === 0 && files.length > 0 && (
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 400, color: "var(--neutral-400)", margin: 0, textAlign: "center", padding: "12px 0" }}>
+          No files matching &ldquo;{searchQuery}&rdquo;
+        </p>
+      )}
+
       {regularFiles.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Files</p>
@@ -797,20 +783,22 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
         </div>
       )}
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          justifyContent: "space-between",
-          fontFamily: "var(--font-body)",
-          fontSize: 14,
-          fontWeight: 500,
-          color: "#6a625d",
-        }}
-      >
-        <span>{docCount} {docCount === 1 ? "document" : "documents"}{linkCount > 0 ? ` · ${linkCount} ${linkCount === 1 ? "link" : "links"}` : ""} / {FILE_LIMIT} max</span>
-        <span>{totalSizeMB < 1 ? `${(totalSizeMB * 1024).toFixed(0)} KB` : `${totalSizeMB.toFixed(1)} MB`} / {SIZE_LIMIT_MB} MB</span>
-      </div>
+      {!searchQuery && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            fontFamily: "var(--font-body)",
+            fontSize: 14,
+            fontWeight: 500,
+            color: "#6a625d",
+          }}
+        >
+          <span>{docCount} {docCount === 1 ? "document" : "documents"}{linkCount > 0 ? ` · ${linkCount} ${linkCount === 1 ? "link" : "links"}` : ""} / {FILE_LIMIT} max</span>
+          <span>{totalSizeMB < 1 ? `${(totalSizeMB * 1024).toFixed(0)} KB` : `${totalSizeMB.toFixed(1)} MB`} / {SIZE_LIMIT_MB} MB</span>
+        </div>
+      )}
 
       <input ref={fileInputRef} type="file" multiple accept={FILE_ACCEPT} style={{ display: "none" }} onChange={handleFileUpload} />
     </div>

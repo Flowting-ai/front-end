@@ -240,7 +240,7 @@ export default function ChatPage() {
 function ChatPageInner() {
   const searchParams = useSearchParams();
   const { replace } = useRouter();
-  const { orgId, teams: orgTeams, members: orgMembers } = useOrg();
+  const { orgId, teams: orgTeams, members: orgMembers, activeTeamId } = useOrg();
   const { user } = useAuth();
   const creditStatus = useCreditStatus();
   const showNewChatStrip = creditStatus.applies && creditStatus.pctUsed >= 0.9;
@@ -600,6 +600,7 @@ function ChatPageInner() {
       )}
       selectedPersonaId={selectedPersona?.id ?? null}
       onPersonaChange={setSelectedPersona}
+      teamId={activeTeamId}
     />
   );
 

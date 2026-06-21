@@ -16,7 +16,8 @@ import {
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
-import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, type Persona } from '@/lib/api/personas'
+import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, personasForTeamContext, type Persona } from '@/lib/api/personas'
+import { useOrg } from '@/context/org-context'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import type { AIModel } from '@/types/ai-model'
 import { fetchDashboard, listShares, listReceived, revokeShare, type PersonaShare, type ReceivedShareResponse, type ShareDashboardResponse } from '@/lib/api/persona-shares'
@@ -516,6 +517,7 @@ export default function PersonasPage() {
   const { push } = useRouter()
   const pathname = usePathname()
   const { close: closePinboard } = usePinboard()
+  const { activeTeamId } = useOrg()
 
   const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')
   const [personas,     setPersonas]     = useState<Persona[]>([])
@@ -561,7 +563,7 @@ export default function PersonasPage() {
     ;(async () => {
       try {
         const list = await fetchPersonas()
-        setPersonas(list)
+        setPersonas(personasForTeamContext(list, activeTeamId))
 
         // Build tag/avatar overrides from sessionStorage (current-session edits) with
         // localStorage as cross-session fallback for tags. Only non-empty values are stored
@@ -606,7 +608,7 @@ export default function PersonasPage() {
     Promise.all([fetchDashboard(slDays), fetchPersonas()])
       .then(([dash, allPersonas]) => {
         setDashboard(dash)
-        setPersonas(allPersonas)
+        setPersonas(personasForTeamContext(allPersonas, activeTeamId))
       })
       .catch(console.error)
       .finally(() => setSharesLoading(false))
