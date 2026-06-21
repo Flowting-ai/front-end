@@ -204,6 +204,10 @@ export interface BrainMessage {
   tool_calls?:         unknown[] | null
   plan?:               BrainPlanResponse | null
   attachments?:        BrainAttachment[]
+  // External writes this turn performed ("Done in the world"). Persisted on the
+  // message (MessageMetadata.external_output) so the card survives a reload —
+  // same shape as the live `external_output` SSE event.
+  external_output?:    ExternalOutputAction[] | null
 }
 
 // ── Bootstrap (GET /brain/bootstrap) ──────────────────────────────────────────
