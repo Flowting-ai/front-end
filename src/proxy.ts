@@ -104,15 +104,14 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/org/general", request.url));
   }
 
-  // Auth0 handles its own routes - never block /auth/*
+  // Auth0 handles its own routes - never block /auth/*. The v4 SDK middleware
+  // serves /auth/access-token natively (handleAccessToken): it reads the
+  // `audience` query param the client sends and responds with the { token }
+  // shape `getAccessToken` expects, plus a JSON 401 when there is no session.
+  // We serve it here through the SDK rather than bypassing to a custom route
+  // handler — bypassing relied on App Router resolving the static
+  // /auth/access-token segment, which 404s and breaks client token fetches.
   if (pathname.startsWith("/auth/")) {
-    // /auth/access-token has an explicit route handler override
-    // (src/app/auth/access-token/route.ts) that wraps the SDK response with
-    // the correct audience and a stable { token } shape. Pass through so that
-    // route handler is actually invoked instead of being shadowed by the proxy.
-    if (pathname === "/auth/access-token") {
-      return NextResponse.next();
-    }
     return await auth0.middleware(request);
   }
 
