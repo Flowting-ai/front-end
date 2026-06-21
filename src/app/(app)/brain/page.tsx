@@ -42,6 +42,7 @@ import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/comp
 import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
 import { Button } from '@/components/Button'
+import { ApprovalCard } from '@/components/ApprovalCard'
 import { Dropdown } from '@/components/Dropdown'
 import { Chip } from '@/components/Chip'
 import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon, ImageDownloadTwoIcon, PinIcon } from '@strange-huge/icons'
@@ -132,6 +133,15 @@ function formatToolSlug(slug: string): string {
   }
   // lowercase_snake → space-separated
   return slug.replace(/_/g, ' ')
+}
+
+// Map the backend approval verb (past-tense: "Sent"/"Posted"/"Deleted"/…) to the
+// ApprovalCard's three action types, which drive its badge colour.
+function approvalActionType(verb: string): 'delete' | 'send' | 'publish' {
+  const v = verb.toLowerCase()
+  if (v.includes('delet') || v.includes('remov') || v.includes('archiv')) return 'delete'
+  if (v.includes('post') || v.includes('publish') || v.includes('shar') || v.includes('creat') || v.includes('updat')) return 'publish'
+  return 'send' // Sent / replied / emailed / messaged
 }
 
 function isFinalInlineDone(data: unknown): boolean {
@@ -247,6 +257,55 @@ function mapHistoryPlanSteps(plan: BrainPlanResponse): PlanStep[] {
   if (pj?.steps?.length) return applyFlowGrouping(pj.steps.map(mapBackendStep), pj.edges)
   if (pj?.nodes?.length) return applyFlowGrouping(pj.nodes.map(mapBackendNode), pj.edges)
   return []
+}
+
+// ── Plan node outputs → reasoning / chat split ────────────────────────────────
+// A plan is a DAG. Leaf nodes are those nothing depends on (no outgoing edge).
+// The backend makes a SOLE leaf's output the final chat answer (synthesis only
+// runs when there are multiple leaves). So we render every non-leaf node's
+// output inside the reasoning block ("Step N: <output>") and let the leaf land
+// in the chat bubble.
+
+function computeLeafIds(stepIds: string[], edges: unknown): Set<string> {
+  const ids = new Set(stepIds)
+  const hasOutgoing = new Set<string>()
+  const edgeList = Array.isArray(edges) ? edges : []
+  for (const e of edgeList) {
+    const from = (e as { from?: unknown })?.from
+    if (typeof from === 'string' && ids.has(from)) hasOutgoing.add(from)
+  }
+  return new Set(stepIds.filter((id) => !hasOutgoing.has(id)))
+}
+
+interface NodeMeta { title: string; order: number }
+
+// Live: build reasoning sections from accumulated non-leaf node outputs, in plan
+// order. The leaf's tokens go to the chat bubble, so it's excluded here.
+function buildNodeReasoningSections(
+  nodeOutputs: Record<string, string>,
+  meta: Record<string, NodeMeta>,
+  leafIds: Set<string>,
+): ReasoningSection[] {
+  return Object.entries(nodeOutputs)
+    .filter(([id, body]) => body.trim() && !leafIds.has(id))
+    .sort((a, b) => (meta[a[0]]?.order ?? 0) - (meta[b[0]]?.order ?? 0))
+    .map(([id, body]) => ({ heading: meta[id]?.title || 'Step', body }))
+}
+
+// Reload: rebuild the same non-leaf node sections from the persisted plan
+// (each node carries a `result_preview`). The leaf's full output is already the
+// saved message body, so it stays in the chat bubble.
+function historyNodeReasoningSections(plan: BrainPlanResponse | null | undefined): ReasoningSection[] {
+  const pj = plan?.plan_json
+  // Newer plans persist `nodes`; older ones a flat `steps` list. Both carry
+  // id/title/result_preview, so handle either.
+  const nodes: Array<{ id: string; title: string; result_preview?: string }> =
+    (pj?.nodes?.length ? pj.nodes : pj?.steps) ?? []
+  if (nodes.length <= 1) return []
+  const leafIds = computeLeafIds(nodes.map((n) => n.id), pj?.edges)
+  return nodes
+    .filter((n) => !leafIds.has(n.id) && (n.result_preview ?? '').trim())
+    .map((n) => ({ heading: n.title || 'Step', body: n.result_preview ?? '' }))
 }
 
 // ── Synthesize a context snapshot from fetched messages ──────────────────────
@@ -1029,6 +1088,7 @@ type TimelineItem =
   | { kind: 'image';      id: string; url: string }
   | { kind: 'progress';   id: string }
   | { kind: 'permission'; id: string; promptId: string }
+  | { kind: 'approval';   id: string; promptId: string }
   | { kind: 'connect';    id: string; slug: string }
 
 function ActivityFeed({ items }: { items: ActivityFeedItem[] }) {
@@ -1363,6 +1423,19 @@ function BrainPageInner() {
   }
   const [activePermissionPrompt, setActivePermissionPrompt] = useState<ActivePermissionPrompt | null>(null)
   const [permissionInFlight, setPermissionInFlight] = useState(false)
+  // Write-approval ask (event: approval_prompt) — HITL confirmation before Brain
+  // performs a real-world side effect (send email, post, delete …). Independent
+  // of permission policy; fires for every write. Rendered inline as ApprovalCard.
+  interface ActiveApprovalPrompt {
+    promptId:      string
+    verb:          string
+    connectorSlug: string
+    displayName:   string
+    toolSlug:      string
+    target:        string
+  }
+  const [activeApprovalPrompt, setActiveApprovalPrompt] = useState<ActiveApprovalPrompt | null>(null)
+  const [approvalInFlight, setApprovalInFlight] = useState(false)
   const [selectedClarificationOption, setSelectedClarificationOption] = useState<string | undefined>(undefined)
   // Selected option ids for a multi_choice clarification (checkboxes). Kept
   // separate from the single-select id so toggling one never disturbs the other.
@@ -1510,6 +1583,29 @@ function BrainPageInner() {
   const seenToolIdsRef  = useRef<Set<string>>(new Set())
   const progressPushedRef = useRef(false)
   const timelineSeqRef  = useRef(0)
+
+  // ── Per-node plan outputs (step_content) ────────────────────────────────────
+  // Intermediate (non-leaf) node outputs accumulate here and render in the
+  // reasoning block; the sole leaf node's tokens stream to the chat bubble.
+  // planNodeMetaRef/planLeafIdsRef are set from the approved plan's nodes+edges.
+  const [nodeOutputs, setNodeOutputs] = useState<Record<string, string>>({})
+  // State drives the render; ref mirrors give the SSE handler a stale-free read
+  // (it isn't in the handler's dep list). Both are set together on plan_proposed.
+  const [planNodeMeta, setPlanNodeMeta] = useState<Record<string, NodeMeta>>({})
+  const [planLeafIds,  setPlanLeafIds]  = useState<Set<string>>(new Set())
+  const planLeafIdsRef = useRef<Set<string>>(planLeafIds)
+  useEffect(() => { planLeafIdsRef.current = planLeafIds }, [planLeafIds])
+
+  // Non-leaf node outputs as reasoning sections, shown ahead of the model's own
+  // reasoning so the plan's intermediate work renders in the thinking block.
+  const liveNodeReasoningSections = useMemo(
+    () => buildNodeReasoningSections(nodeOutputs, planNodeMeta, planLeafIds),
+    [nodeOutputs, planNodeMeta, planLeafIds],
+  )
+  const activeReasoningSections = useMemo(
+    () => [...liveNodeReasoningSections, ...reasoningSections],
+    [liveNodeReasoningSections, reasoningSections],
+  )
 
   // ── Plan-approval correlation ───────────────────────────────────────────────
   // plan_proposed → user_prompt(kind='choice') is the plan approval gate.
@@ -1733,9 +1829,13 @@ function BrainPageInner() {
     setStreamImages([])
     setStreamFiles([])
     setExternalActions([])
+    setNodeOutputs({})
+    setPlanNodeMeta({})
+    setPlanLeafIds(new Set())
     setToolProgress(null)
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
+    setActiveApprovalPrompt(null)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
@@ -1860,6 +1960,13 @@ function BrainPageInner() {
         const steps    = applyFlowGrouping(rawSteps.map(mapBackendStep), d.edges)
         const planId   = typeof d.plan_id === 'string' ? d.plan_id : null
         const summary  = (d.summary as string) ?? ''
+        // Record node titles/order + leaf set so step_content can split node
+        // outputs between the reasoning block (non-leaf) and chat (sole leaf).
+        setPlanNodeMeta(Object.fromEntries(
+          rawSteps.map((s, i) => [s.id, { title: s.title, order: i }]),
+        ))
+        setPlanLeafIds(computeLeafIds(rawSteps.map((s) => s.id), d.edges))
+        setNodeOutputs({})
         pendingPlanIdRef.current = planId
         waitingForPlanApprovalRef.current = true
         setActivePlanId(planId)
@@ -2077,6 +2184,24 @@ function BrainPageInner() {
         break
       }
 
+      // Write-approval gate (HITL): Brain paused before a real-world side effect.
+      // Render an inline ApprovalCard; resolve by POSTing approve / reject.
+      case 'approval_prompt': {
+        const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
+        if (!promptId) break
+        setActiveApprovalPrompt({
+          promptId,
+          verb:          typeof d.verb === 'string' ? d.verb : '',
+          connectorSlug: typeof d.connector_slug === 'string' ? d.connector_slug : '',
+          displayName:   typeof d.display_name === 'string' ? d.display_name : (typeof d.connector_slug === 'string' ? d.connector_slug : ''),
+          toolSlug:      typeof d.tool_slug === 'string' ? d.tool_slug : '',
+          target:        typeof d.target === 'string' ? d.target : '',
+        })
+        setApprovalInFlight(false)
+        setTimeline((prev) => [...prev, { kind: 'approval', id: `approval-${++timelineSeqRef.current}`, promptId }])
+        break
+      }
+
       case 'plan_approved': {
         pendingPlanIdRef.current = null
         waitingForPlanApprovalRef.current = false
@@ -2168,6 +2293,33 @@ function BrainPageInner() {
       case 'step_completed': {
         const stepId = d.step_id as string
         setStepStatuses((prev) => ({ ...prev, [stepId]: 'complete' }))
+        break
+      }
+
+      // Per-node output tokens. The sole leaf node is the final answer → stream
+      // it into the chat bubble exactly like an inline `content` token. Every
+      // other node's output accumulates for the reasoning block.
+      case 'step_content': {
+        const stepId  = typeof d.step_id === 'string' ? d.step_id : ''
+        const content = typeof d.content === 'string' ? d.content : ''
+        if (!stepId || !content) break
+        const leaves = planLeafIdsRef.current
+        if (leaves.size === 1 && leaves.has(stepId)) {
+          setStreamedContent((prev) => prev + content)
+          setReasoningActive(false)
+          setTimeline((prev) => {
+            const last = prev[prev.length - 1]
+            if (last && last.kind === 'text') {
+              const copy = prev.slice()
+              copy[copy.length - 1] = { ...last, text: last.text + content }
+              return copy
+            }
+            return [...prev, { kind: 'text', id: `text-${++timelineSeqRef.current}`, text: content }]
+          })
+          setPhase((prev) => (prev === 'executing' || prev === 'thinking' || prev === 'planning' ? 'streaming' : prev))
+        } else {
+          setNodeOutputs((prev) => ({ ...prev, [stepId]: (prev[stepId] ?? '') + content }))
+        }
         break
       }
 
@@ -2529,9 +2681,13 @@ function BrainPageInner() {
     setStreamImages([])
     setStreamFiles([])
     setExternalActions([])
+    setNodeOutputs({})
+    setPlanNodeMeta({})
+    setPlanLeafIds(new Set())
     setToolProgress(null)
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
+    setActiveApprovalPrompt(null)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
@@ -2663,9 +2819,13 @@ function BrainPageInner() {
     setStreamImages([])
     setStreamFiles([])
     setExternalActions([])
+    setNodeOutputs({})
+    setPlanNodeMeta({})
+    setPlanLeafIds(new Set())
     setToolProgress(null)
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
+    setActiveApprovalPrompt(null)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
@@ -2825,7 +2985,7 @@ function BrainPageInner() {
         userMessage,
         streamedContent,
         reasoningText,
-        reasoningSections,
+        activeReasoningSections,
         activePlanSummary,
         completedAt,
         streamImages,
@@ -2883,7 +3043,7 @@ function BrainPageInner() {
 
     void doSend()
   }, [
-    phase, chatId, planSteps, userMessage, streamedContent, reasoningText, reasoningSections,
+    phase, chatId, planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections,
     activePlanSummary, completedAt, streamImages, streamFiles, externalActions, snapshotAndReset, runBrainStream,
     brainAttachments, userAttachments, creditStatus.blocked, selectedPersona, effectivePinIds,
     selectedFolders.length, pinboardLoading,
@@ -3390,6 +3550,26 @@ function BrainPageInner() {
       .finally(() => setPermissionInFlight(false))
   }, [activePermissionPrompt, permissionInFlight])
 
+  // ── Write-approval handler (event: approval_prompt) ─────────────────────────
+  // Resolve a HITL write approval by POSTing a plain string ("approve" | "reject").
+  // The ApprovalCard owns its own resolved-state animation; the deny reason is
+  // FE-only display (the backend only consumes the decision string).
+  const handleApprovalDecision = useCallback((decision: 'approve' | 'reject') => {
+    if (!activeApprovalPrompt || approvalInFlight) return
+    const { promptId } = activeApprovalPrompt
+    setApprovalInFlight(true)
+    void respondToPrompt(promptId, { response: decision })
+      .then(() => { setPhase('thinking') })
+      .catch((e: unknown) => {
+        console.error('[Brain] approval respond failed:', e)
+        const msg = e instanceof ApiError && e.status === 404
+          ? 'This approval expired — please re-send your message.'
+          : 'Failed to submit your decision. Please try again.'
+        toast.error(msg)
+      })
+      .finally(() => setApprovalInFlight(false))
+  }, [activeApprovalPrompt, approvalInFlight])
+
   // ── Stop ──────────────────────────────────────────────────────────────────────
 
   const handleStop = useCallback(() => {
@@ -3437,7 +3617,7 @@ function BrainPageInner() {
       userMessage,
       streamedContent,
       reasoningText,
-      reasoningSections,
+      activeReasoningSections,
       activePlanSummary,
       completedAt,
       streamImages,
@@ -3448,7 +3628,7 @@ function BrainPageInner() {
     seedBrainInput(userMessage)
     setPhase('idle')
   }, [
-    planSteps, userMessage, streamedContent, reasoningText, reasoningSections, activePlanSummary, completedAt,
+    planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections, activePlanSummary, completedAt,
     streamImages, userAttachments, streamFiles, externalActions, snapshotAndReset, seedBrainInput,
   ])
 
@@ -3461,7 +3641,7 @@ function BrainPageInner() {
       userMessage,
       streamedContent,
       reasoningText,
-      reasoningSections,
+      activeReasoningSections,
       activePlanSummary,
       completedAt,
       streamImages,
@@ -3470,7 +3650,7 @@ function BrainPageInner() {
       externalActions,
     )
     setPhase('idle')
-  }, [phase, planSteps, userMessage, streamedContent, reasoningText, reasoningSections, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles, externalActions])
+  }, [phase, planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles, externalActions])
 
   // ── New chat ─────────────────────────────────────────────────────────────────
   // Used by both the sidebar's "Brain" button and the "+ New chat" entry.
@@ -3526,9 +3706,13 @@ function BrainPageInner() {
     setStreamImages([])
     setStreamFiles([])
     setExternalActions([])
+    setNodeOutputs({})
+    setPlanNodeMeta({})
+    setPlanLeafIds(new Set())
     setToolProgress(null)
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
+    setActiveApprovalPrompt(null)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
@@ -3559,7 +3743,13 @@ function BrainPageInner() {
     // the clean user text, not the full injected message).
     const cleanInput = stripDocumentBlocks(msg.input)
     const msgAttachments = storedHistoryAttachments[cleanInput]
-    const msgReasoningSections = normalizeReasoningSections(msg.reasoning_sections)
+    // Merge the model's own reasoning sections with the plan's non-leaf node
+    // outputs (rebuilt from the persisted plan), so reloaded plan turns show the
+    // same "intermediate steps in reasoning, leaf in chat" split as the live run.
+    const msgReasoningSections = [
+      ...historyNodeReasoningSections(msg.plan),
+      ...normalizeReasoningSections(msg.reasoning_sections),
+    ]
 
     // Map persisted tool_calls into ActivityFeedItem[] for the history view.
     const rawToolCalls = (msg.tool_calls ?? []) as Array<Record<string, unknown>>
@@ -3810,6 +4000,23 @@ function BrainPageInner() {
         return activePermissionPrompt?.promptId === item.promptId
           ? <PermissionPromptCard key={item.id} prompt={activePermissionPrompt} disabled={permissionInFlight} onDecide={handlePermissionDecision} />
           : null
+      case 'approval':
+        // Inline write-approval card at the exact pause point. The card owns its
+        // own accepted/denied resolved state, so it stays rendered after a choice.
+        return activeApprovalPrompt?.promptId === item.promptId
+          ? (
+            <ApprovalCard
+              key={item.id}
+              actionType={approvalActionType(activeApprovalPrompt.verb)}
+              connectorName={activeApprovalPrompt.displayName}
+              targetName={activeApprovalPrompt.target || formatToolSlug(activeApprovalPrompt.toolSlug) || 'this action'}
+              description={`Brain is about to perform this action in the real world via ${activeApprovalPrompt.displayName}. Review before it runs.`}
+              reversible={false}
+              onAccept={() => handleApprovalDecision('approve')}
+              onDeny={() => handleApprovalDecision('reject')}
+            />
+          )
+          : null
       case 'connect':
         return toolConnectPrompt?.connector_slug === item.slug
           ? (
@@ -3849,11 +4056,11 @@ function BrainPageInner() {
       )}
 
       {/* Brain and Chat share this structured reasoning presentation. */}
-      {(reasoningText || reasoningSections.length > 0) && (
+      {(reasoningText || activeReasoningSections.length > 0) && (
         <Rise>
           <ReasoningContent
             thinkingContent={reasoningText}
-            reasoningSections={reasoningSections}
+            reasoningSections={activeReasoningSections}
             isStreaming={reasoningActive}
           />
         </Rise>
