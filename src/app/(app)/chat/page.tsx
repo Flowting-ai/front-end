@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { X } from "lucide-react";
 const WelcomeModal = dynamic(() => import("@/components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })), { ssr: false, loading: () => null });
 import { ChatInterface } from "@/components/chat/ChatInterface";
+import { JoinedGreeting, JoinedTodos } from "@/components/onboarding/JoinedLanding";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
 import { InitialPrompts } from "@/components/chat/InitialPrompts";
@@ -247,6 +248,9 @@ function ChatPageInner() {
   const { projects } = useProjects();
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
+  // First-time landing after finishing the team-invite flow (/chat?joined=<team>).
+  // Swaps the greeting + template cards for the "You just joined" welcome.
+  const joinedTeam    = searchParams.get("joined")?.trim() || null;
 
   const [activeChatId, setActiveChatId] = useState<string | undefined>(chatIdFromUrl);
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null);
@@ -1009,7 +1013,7 @@ function ChatPageInner() {
                 <m.div
                   exit={{ opacity: 0, y: -28, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
-                  <InitialPrompts />
+                  {joinedTeam ? <JoinedGreeting teamName={joinedTeam} /> : <InitialPrompts />}
                 </m.div>
 
                 {/* Input + action buttons + template cards exit downward */}
@@ -1120,31 +1124,35 @@ function ChatPageInner() {
                     ))}
                   </div>
 
-                  {/* ── Template cards ──────────────────────────────────────── */}
-                  <div style={{ marginTop: "28px" }}>
-                    <p
-                      style={{
-                        fontFamily: "var(--font-body)",
-                        fontSize:   "13px",
-                        fontWeight: 500,
-                        color:      "var(--neutral-500)",
-                        margin:     "0 0 10px",
-                        textAlign:  "left",
-                      }}
-                    >
-                      Not sure where to start?
-                    </p>
-                    <div style={{ display: "flex", gap: "10px" }}>
-                      {TEMPLATE_CARDS.map((card) => (
-                        <TemplateCard
-                          key={card.label}
-                          icon={card.icon}
-                          label={card.label}
-                          onClick={() => handleNewChatSend(card.prompt)}
-                        />
-                      ))}
+                  {/* ── Template cards / first-time joined orientation ──────── */}
+                  {joinedTeam ? (
+                    <JoinedTodos teamName={joinedTeam} />
+                  ) : (
+                    <div style={{ marginTop: "28px" }}>
+                      <p
+                        style={{
+                          fontFamily: "var(--font-body)",
+                          fontSize:   "13px",
+                          fontWeight: 500,
+                          color:      "var(--neutral-500)",
+                          margin:     "0 0 10px",
+                          textAlign:  "left",
+                        }}
+                      >
+                        Not sure where to start?
+                      </p>
+                      <div style={{ display: "flex", gap: "10px" }}>
+                        {TEMPLATE_CARDS.map((card) => (
+                          <TemplateCard
+                            key={card.label}
+                            icon={card.icon}
+                            label={card.label}
+                            onClick={() => handleNewChatSend(card.prompt)}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </m.div>
               </div>
             </div>

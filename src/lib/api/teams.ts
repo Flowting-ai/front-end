@@ -16,8 +16,18 @@ import {
   ORG_TEAM_CONNECTION_ENDPOINT,
   TEAM_INVITE_PREVIEW_ENDPOINT,
   TEAM_INVITE_ACCEPT_ENDPOINT,
+  TEAM_INVITE_ONBOARDING_ENDPOINT,
 } from '@/lib/config'
-import type { Team, TeamEditor, TeamInvite, WorkspaceRole } from '@/types/teams'
+import type {
+  Team,
+  TeamEditor,
+  TeamInvite,
+  WorkspaceRole,
+  OrgRole,
+  InvitedMember,
+  InvitedProject,
+  TeamInviteOnboarding,
+} from '@/types/teams'
 import type {
   ApiKeyField,
   ConnectorTool,
@@ -256,6 +266,105 @@ export async function getTeamInvitePreview(inviteId: string): Promise<TeamInvite
     teamName:      data.team_name,
     invitedByName: data.invited_by_name,
     expiresAt:     data.expires_at,
+  }
+}
+
+// ── Team-invite onboarding (rich payload) ──────────────────────────────────────
+
+interface InvitedMemberResponse {
+  user_id: string
+  name?: string | null
+  initials?: string | null
+  email?: string | null
+  image?: string | null
+  role?: OrgRole | null
+  credit_cap?: number | null
+}
+
+interface InvitedProjectResponse {
+  id: string
+  title?: string | null
+  description?: string | null
+  member_count?: number | null
+  members?: InvitedMemberResponse[] | null
+}
+
+interface InviteOnboardingResponse {
+  invite_id: string
+  team_id: string
+  team_name?: string | null
+  team_description?: string | null
+  organization_id: string
+  organization_name?: string | null
+  organization_description?: string | null
+  organization_logo_url?: string | null
+  invited_by_name?: string | null
+  invited_by_email?: string | null
+  invited_by_image?: string | null
+  role?: OrgRole | null
+  grant_team_editor?: boolean | null
+  grant_team_viewer?: boolean | null
+  credit_cap?: number | null
+  project_id?: string | null
+  project_name?: string | null
+  member_count?: number | null
+  members?: InvitedMemberResponse[] | null
+  project_count?: number | null
+  projects?: InvitedProjectResponse[] | null
+  organization_member_count?: number | null
+  organization_members?: InvitedMemberResponse[] | null
+  expires_at: string
+}
+
+function normalizeInvitedMember(m: InvitedMemberResponse): InvitedMember {
+  return {
+    userId:    m.user_id,
+    name:      m.name ?? '',
+    initials:  m.initials ?? '',
+    email:     m.email ?? '',
+    image:     m.image ?? null,
+    role:      m.role ?? 'member',
+    creditCap: m.credit_cap ?? 0,
+  }
+}
+
+function normalizeInvitedProject(p: InvitedProjectResponse): InvitedProject {
+  return {
+    id:          p.id,
+    title:       p.title ?? '',
+    description: p.description ?? '',
+    memberCount: p.member_count ?? (p.members?.length ?? 0),
+    members:     (p.members ?? []).map(normalizeInvitedMember),
+  }
+}
+
+export async function getTeamInviteOnboarding(inviteId: string): Promise<TeamInviteOnboarding> {
+  const data = await apiFetchJson<InviteOnboardingResponse>(TEAM_INVITE_ONBOARDING_ENDPOINT(inviteId))
+  return {
+    inviteId:                data.invite_id,
+    teamId:                  data.team_id,
+    teamName:                data.team_name ?? '',
+    teamDescription:         data.team_description ?? '',
+    organizationId:          data.organization_id,
+    organizationName:        data.organization_name ?? '',
+    organizationDescription: data.organization_description ?? '',
+    organizationLogoUrl:     data.organization_logo_url ?? null,
+    invitedByName:           data.invited_by_name ?? '',
+    invitedByEmail:          data.invited_by_email ?? '',
+    invitedByImage:          data.invited_by_image ?? null,
+    role:                    data.role ?? 'member',
+    grantTeamEditor:         data.grant_team_editor ?? false,
+    grantTeamViewer:         data.grant_team_viewer ?? false,
+    creditCap:               data.credit_cap ?? 0,
+    projectId:               data.project_id ?? null,
+    projectName:             data.project_name ?? null,
+    memberCount:             data.member_count ?? (data.members?.length ?? 0),
+    members:                 (data.members ?? []).map(normalizeInvitedMember),
+    projectCount:            data.project_count ?? (data.projects?.length ?? 0),
+    projects:                (data.projects ?? []).map(normalizeInvitedProject),
+    organizationMemberCount: data.organization_member_count ?? (data.organization_members?.length ?? 0),
+    organizationMembers:     (data.organization_members ?? []).map(normalizeInvitedMember),
+    expiresAt:               data.expires_at,
   }
 }
 

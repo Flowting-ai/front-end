@@ -132,6 +132,10 @@ export default async function proxy(request: NextRequest) {
   const hasOnboarded = onboarding?.allowsMainApp === true;
   const hasKnownOnboardingState = onboarding !== null;
   const isPricingPage = pathname.startsWith("/onboarding/pricing");
+  // The team-invite onboarding flow lives under /onboarding/team/<inviteId>. An
+  // already-onboarded user can still be invited into a new team, so they must be
+  // allowed into this flow rather than bounced to "/" like the rest of onboarding.
+  const isTeamInviteOnboarding = pathname.startsWith("/onboarding/team");
 
   if (onboardingResult.requiresReauth) {
     const loginUrl = new URL("/auth/login", request.url);
@@ -139,8 +143,9 @@ export default async function proxy(request: NextRequest) {
     return Response.redirect(loginUrl);
   }
 
-  // Completed onboarding - block re-entry into onboarding flow
-  if (pathname.startsWith("/onboarding/") && hasOnboarded && !isPricingPage) {
+  // Completed onboarding - block re-entry into onboarding flow (except the
+  // pricing return page and the team-invite flow, which onboarded users may use).
+  if (pathname.startsWith("/onboarding/") && hasOnboarded && !isPricingPage && !isTeamInviteOnboarding) {
     return Response.redirect(new URL("/", request.url));
   }
 

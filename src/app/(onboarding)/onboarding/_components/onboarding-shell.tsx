@@ -37,7 +37,7 @@ export function OnboardingScreen({
   subtitle?: string;
   /** Content-column width in px. Decider/hello use 518; workspace uses 653. */
   width?: number;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   footer?: React.ReactNode;
 }) {
   return (

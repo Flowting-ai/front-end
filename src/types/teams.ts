@@ -86,6 +86,72 @@ export interface TeamInvite {
   inviteUrl: string
 }
 
+// ── Team-invite onboarding ─────────────────────────────────────────────────────
+// The rich payload the backend returns for an invitee landing in the dedicated
+// team-invite onboarding flow (distinct from the individual onboarding). It
+// describes the org / team / projects and the people the invitee is joining.
+
+/** A person reference inside the invite onboarding payload. */
+export interface InvitedMember {
+  userId: string
+  name: string
+  /** Pre-computed display initials (e.g. "JS"). */
+  initials: string
+  email: string
+  /** Avatar URL; null when the member has no image. */
+  image: string | null
+  role: OrgRole
+  /** Per-member monthly credit cap; 0 means uncapped / not set. */
+  creditCap: number
+}
+
+/** A project the invitee will (or may) be a member of. */
+export interface InvitedProject {
+  id: string
+  title: string
+  description: string
+  memberCount: number
+  members: InvitedMember[]
+}
+
+/** Full context for the team-invite onboarding flow. */
+export interface TeamInviteOnboarding {
+  inviteId: string
+  // ── Team being joined ─────────────────────────────────────────────────────
+  teamId: string
+  teamName: string
+  teamDescription: string
+  // ── Parent organization ───────────────────────────────────────────────────
+  organizationId: string
+  organizationName: string
+  organizationDescription: string
+  organizationLogoUrl: string | null
+  // ── Who invited them ──────────────────────────────────────────────────────
+  invitedByName: string
+  invitedByEmail: string
+  invitedByImage: string | null
+  // ── What the invite grants ────────────────────────────────────────────────
+  role: OrgRole
+  grantTeamEditor: boolean
+  grantTeamViewer: boolean
+  /** Monthly credit cap applied to the invitee; 0 means uncapped / not set. */
+  creditCap: number
+  // ── Default project the invite points at (optional) ───────────────────────
+  projectId: string | null
+  projectName: string | null
+  // ── Team roster ───────────────────────────────────────────────────────────
+  memberCount: number
+  members: InvitedMember[]
+  // ── Team projects ─────────────────────────────────────────────────────────
+  projectCount: number
+  projects: InvitedProject[]
+  // ── Organization roster ───────────────────────────────────────────────────
+  organizationMemberCount: number
+  organizationMembers: InvitedMember[]
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
+  expiresAt: string
+}
+
 export interface TeamProject {
   id: string
   teamId: string

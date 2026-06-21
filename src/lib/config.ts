@@ -253,6 +253,11 @@ export const TEAM_INVITE_PREVIEW_ENDPOINT = (inviteId: string) =>
   withBase(`/team-invite/${inviteId}`)
 export const TEAM_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>
   withBase(`/team-invite/${inviteId}/accept`)
+// Rich invite payload that drives the dedicated team-invite onboarding flow
+// (org/team/projects/members the invitee is joining). Superset of the preview.
+// TODO(backend): confirm final path — assumed `/team-invite/{id}/onboarding`.
+export const TEAM_INVITE_ONBOARDING_ENDPOINT = (inviteId: string) =>
+  withBase(`/team-invite/${inviteId}/onboarding`)
 
 // ── Organization ──────────────────────────────────────────────────────────────
 export const ORGANIZATIONS_ENDPOINT = withBase('/organizations')
