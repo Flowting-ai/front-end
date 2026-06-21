@@ -1226,15 +1226,20 @@ function LeftSidebarImpl({
     ? user.firstName?.trim() || user.name?.split(" ")[0]?.trim() || ""
     : "";
 
-  // Reflect the same team the sidebar switcher displays. For non-admins the
-  // switcher defaults to the first visible team when activeTeamId is still
-  // unset; use that same fallback so the top badge doesn't show the org role.
-  const activeBadgeTeam = activeTeamId === null && currentUserRole === 'admin'
-    ? null
-    : (teams.find(t => t.id === activeTeamId) ?? teams[0] ?? null)
-  const activeBadgeRole = activeBadgeTeam?.myRole ?? orgRole
-  const orgBadgeSublabel = orgId && activeBadgeRole
-    ? activeBadgeRole.charAt(0).toUpperCase() + activeBadgeRole.slice(1)
+  // Role tag shown next to the logo. A user can hold several roles at once — an
+  // org-level role plus a per-team role on each team they belong to — so surface
+  // the highest-ranked one rather than any single team's role. e.g. an editor on
+  // one team and a member on another shows "Editor".
+  // Hierarchy: owner > admin > editor > member.
+  const ROLE_RANK: Record<string, number> = { owner: 4, admin: 3, editor: 2, member: 1 }
+  const highestRole = [orgRole, ...teams.map(t => t.myRole)]
+    .filter((r): r is NonNullable<typeof r> => Boolean(r))
+    .reduce<string | undefined>(
+      (best, r) => ((ROLE_RANK[r] ?? 0) > (ROLE_RANK[best ?? ''] ?? 0) ? r : best),
+      undefined,
+    )
+  const orgBadgeSublabel = orgId && highestRole
+    ? highestRole.charAt(0).toUpperCase() + highestRole.slice(1)
     : undefined
 
   // Teams ? "Teams | Admin/Editor/Member" | paid ? "Pro"/"Starter"/"Power" | trial ? "Free Trial" | none ? "No Plan Selected"

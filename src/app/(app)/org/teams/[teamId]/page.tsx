@@ -10,6 +10,7 @@ import {
   SearchOneIcon,
   UserIcon,
 } from '@strange-huge/icons'
+import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { IconButton } from '@/components/IconButton'
@@ -46,11 +47,26 @@ import type { ConnectorRequestStatus } from '@/lib/api/teams'
 import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 import { connectorLogoSrc } from '@/lib/connectorLogos'
 import { listMembers } from '@/lib/api/organization'
-import type { Team, TeamEditor, OrgMember } from '@/types/teams'
+import type { Team, TeamEditor, OrgMember, OrgRole } from '@/types/teams'
 import { toast } from 'sonner'
 
 const EDITOR_COLUMNS = '1fr 1fr 160px'
 const EDITOR_COLUMN_GAP = 0
+
+/**
+ * A row in the Team Members table. The live backend has no team-roster endpoint,
+ * so membership is derived from the org members list (each member carries the
+ * `team_id` they belong to) and cross-referenced with the team editors list to
+ * mark edit rights. See `roster` in TeamSettingsPage.
+ */
+interface RosterMember {
+  userId:   string
+  name:     string
+  email:    string | null
+  orgRole?: OrgRole
+  isEditor: boolean
+  pending:  boolean
+}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -115,17 +131,29 @@ function SkeletonCard({ children }: { children: React.ReactNode }) {
   )
 }
 
-function EditorCell({ editor }: { editor: TeamEditor }) {
+/** Role/status chip shown beside a member's name in the roster. */
+function RoleBadge({ member }: { member: RosterMember }) {
+  if (member.pending)            return <Badge color="Neutral" label="Invite sent" />
+  if (member.orgRole === 'owner') return <Badge color="Purple"  label="Owner" />
+  if (member.orgRole === 'admin') return <Badge color="Blue"    label="Admin" />
+  if (member.isEditor)           return <Badge color="Green"   label="Editor" />
+  return <Badge color="Neutral" label="Member" />
+}
+
+function MemberCell({ member }: { member: RosterMember }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
       <MemberAvatar />
       <div style={{ minWidth: 0 }}>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {editor.name ?? editor.userId}
-        </p>
-        {editor.email && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {member.name}
+          </p>
+          <RoleBadge member={member} />
+        </div>
+        {member.email && (
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {editor.email}
+            {member.email}
           </p>
         )}
       </div>
@@ -484,6 +512,8 @@ export default function TeamSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [editors, setEditors] = useState<TeamEditor[]>([])
   const [editorsLoading, setEditorsLoading] = useState(true)
+  const [orgMembers, setOrgMembers] = useState<OrgMember[]>([])
+  const [membersLoading, setMembersLoading] = useState(true)
 
   const [teamName, setTeamName] = useState('')
   const [teamDesc, setTeamDesc] = useState('')
@@ -544,6 +574,66 @@ export default function TeamSettingsPage() {
       cancelled = true
     }
   }, [orgId, params.teamId])
+
+  // Team membership is derived from the org member list: each member carries the
+  // `team_id` they belong to. The backend exposes no team-roster endpoint, so we
+  // fetch all members once and filter by team below.
+  useEffect(() => {
+    if (!orgId) return
+    const currentOrgId: string = orgId
+    let cancelled = false
+    async function loadMembers() {
+      setMembersLoading(true)
+      try {
+        const rows = await listMembers(currentOrgId)
+        if (!cancelled) setOrgMembers(rows)
+      } catch (err) {
+        if (!cancelled) console.error(err)
+      }
+      if (!cancelled) setMembersLoading(false)
+    }
+    void loadMembers()
+    return () => {
+      cancelled = true
+    }
+  }, [orgId])
+
+  const editorIds = useMemo(() => new Set(editors.map(e => e.userId)), [editors])
+
+  // Full team roster: org members assigned to this team, plus any editors not
+  // captured by `team_id` (e.g. admins/owners). Editors are surfaced first.
+  const roster = useMemo<RosterMember[]>(() => {
+    const teamId = team?.id
+    if (!teamId) return []
+    const byId = new Map<string, RosterMember>()
+    for (const m of orgMembers) {
+      if (m.teamMemberships.some(t => t.teamId === teamId)) {
+        byId.set(m.id, {
+          userId:   m.id,
+          name:     m.name || m.email || m.id,
+          email:    m.email || null,
+          orgRole:  m.orgRole,
+          isEditor: editorIds.has(m.id),
+          pending:  m.inviteStatus === 'invite_sent',
+        })
+      }
+    }
+    for (const e of editors) {
+      const existing = byId.get(e.userId)
+      if (existing) { existing.isEditor = true; continue }
+      byId.set(e.userId, {
+        userId:   e.userId,
+        name:     e.name || e.email || e.userId,
+        email:    e.email || null,
+        isEditor: true,
+        pending:  false,
+      })
+    }
+    return [...byId.values()].sort((a, b) =>
+      Number(b.isEditor) - Number(a.isEditor) || a.name.localeCompare(b.name))
+  }, [orgMembers, editors, editorIds, team?.id])
+
+  const rosterLoading = editorsLoading || membersLoading
 
   const handleSave = async () => {
     if (!orgId || !team) return
@@ -750,35 +840,42 @@ export default function TeamSettingsPage() {
             <SettingsTableHeaderCell align="center">Actions</SettingsTableHeaderCell>
           </SettingsTableHeader>
 
-          {editorsLoading && (
+          {rosterLoading && (
             <div style={{ padding: '24px', textAlign: 'center' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>Loading members…</p>
             </div>
           )}
 
-          {!editorsLoading && editors.length === 0 && (
+          {!rosterLoading && roster.length === 0 && (
             <div style={{ padding: '24px', textAlign: 'center' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>No members yet.</p>
             </div>
           )}
 
-          {editors.map((editor, index) => (
+          {!rosterLoading && roster.map((member, index) => (
             <SettingsTableRow
-              key={editor.userId}
+              key={member.userId}
               columns={EDITOR_COLUMNS}
               columnGap={EDITOR_COLUMN_GAP}
-              divider={index < editors.length - 1}
+              divider={index < roster.length - 1}
             >
               <SettingsTableCell>
-                <EditorCell editor={editor} />
+                <MemberCell member={member} />
               </SettingsTableCell>
               <SettingsTableCell>
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600)' }}>
-                  {editor.email ?? '—'}
+                  {member.email ?? '—'}
                 </span>
               </SettingsTableCell>
               <SettingsTableCell align="center">
-                <RedOutlineButton onClick={() => handleRemoveEditor(editor.userId)}>Remove</RedOutlineButton>
+                {member.isEditor ? (
+                  // Revokes edit rights only — the member stays on the team.
+                  <RedOutlineButton onClick={() => handleRemoveEditor(member.userId)}>Remove editor</RedOutlineButton>
+                ) : !member.pending && member.orgRole === 'member' ? (
+                  <Button variant="secondary" size="sm" onClick={() => void handleAddEditor(member.userId)}>Make editor</Button>
+                ) : (
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-300)' }}>—</span>
+                )}
               </SettingsTableCell>
             </SettingsTableRow>
           ))}

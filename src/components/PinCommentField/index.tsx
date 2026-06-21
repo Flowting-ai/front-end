@@ -153,7 +153,7 @@ export function PinCommentField({
         {/* Textarea area — grows to fill available width */}
         <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
           <AnimatePresence initial={false}>
-            {!value && placeholder && (
+            {!value && !isFocused && placeholder && (
               <m.span
                 key="placeholder"
                 aria-hidden

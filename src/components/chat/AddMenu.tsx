@@ -11,7 +11,7 @@ import {
   UserAiIcon,
 } from '@strange-huge/icons'
 import type { PinFolder } from '@/lib/api/pins'
-import { fetchPersonas } from '@/lib/api/personas'
+import { fetchPersonas, personasForTeamContext } from '@/lib/api/personas'
 import type { Persona } from '@/lib/api/personas'
 import { usePinboard } from '@/context/pinboard-context'
 
@@ -52,6 +52,11 @@ export interface ChatAddMenuProps {
   onFolderToggle:    (folder: PinFolder) => void
   selectedPersonaId: string | null
   onPersonaChange:   (persona: SelectedPersonaInfo | null) => void
+  /**
+   * Team project scope. When set, the agent picker lists only agents shared to
+   * this team (never private/individual ones). Omit/null outside a team project.
+   */
+  teamId?:           string | null
   hidePersona?:      boolean
   hideStyle?:        boolean
   hideWebSearch?:    boolean
@@ -68,6 +73,7 @@ export function ChatAddMenu({
   onFolderToggle,
   selectedPersonaId,
   onPersonaChange,
+  teamId,
   hidePersona,
   hideStyle,
   hideWebSearch,
@@ -94,10 +100,11 @@ export function ChatAddMenu({
     const needsLoad = personas.length === 0
     if (needsLoad) setLoadingPersonas(true)
     fetchPersonas()
-      .then(setPersonas)
+      // In a team project, restrict to agents shared to that team — never private ones.
+      .then(list => setPersonas(personasForTeamContext(list, teamId)))
       .catch(() => setPersonas([]))
       .finally(() => setLoadingPersonas(false))
-  }, [personaMenuOpen]) // eslint-disable-line react-hooks/exhaustive-deps -- personas.length read only for the initial guard, not a dep
+  }, [personaMenuOpen, teamId]) // eslint-disable-line react-hooks/exhaustive-deps -- personas.length read only for the initial guard, not a dep
 
   return (
     <Dropdown style={{ width: 200 }}>
@@ -165,7 +172,7 @@ export function ChatAddMenu({
                           }}
                         />
                       ))
-                    : <Dropdown.Item label="No agents yet" fluid disabled />
+                    : <Dropdown.Item label={teamId ? 'No shared team agents' : 'No agents yet'} fluid disabled />
                 }
               </Dropdown.Section>
             </Dropdown>

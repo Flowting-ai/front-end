@@ -212,7 +212,7 @@ export function InputField({
           {/* Native input via Base UI Field.Control */}
           <div style={{ position: 'relative', flex: 1, padding: '0 2px', display: 'flex', alignItems: 'center', minWidth: 0 }}>
             <AnimatePresence initial={false}>
-              {!hasValue && placeholder && (
+              {!hasValue && !isFocused && placeholder && (
                 <m.span
                   key="placeholder"
                   aria-hidden

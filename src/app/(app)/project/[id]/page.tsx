@@ -33,7 +33,7 @@ import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/comp
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
 import type { PinFolder } from '@/lib/api/pins'
 import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
-import { fetchPersonas } from '@/lib/api/personas'
+import { fetchPersonas, personasForTeamContext } from '@/lib/api/personas'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
 import { FloatingMenu } from '@/components/FloatingMenu'
@@ -99,10 +99,11 @@ export default function ProjectPage() {
     if (!personaChipOpen) return
     setLoadingChipPersonas(true)
     fetchPersonas()
-      .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
+      // Team projects offer only team-shared agents; private projects show all.
+      .then(list => setChipPersonas(personasForTeamContext(list, project?.teamId ?? null).map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
       .catch(() => setChipPersonas([]))
       .finally(() => setLoadingChipPersonas(false))
-  }, [personaChipOpen])
+  }, [personaChipOpen, project?.teamId])
 
   // Team name for the header chip — only team projects need it.
   useEffect(() => {
@@ -509,6 +510,7 @@ export default function ProjectPage() {
                   )}
                   selectedPersonaId={selectedPersona?.id ?? null}
                   onPersonaChange={setSelectedPersona}
+                  teamId={project.teamId ?? null}
                 />
               }
               chips={

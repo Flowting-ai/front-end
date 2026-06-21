@@ -128,7 +128,7 @@ export function ChipInput(
         {/* Animated placeholder overlay - sits absolutely above the input row.
             Uses the same blur+opacity cross-fade as PinCommentField. */}
         <AnimatePresence initial={false}>
-          {!value && placeholder && (
+          {!value && !isFocused && placeholder && (
             <m.span
               key="placeholder"
               aria-hidden

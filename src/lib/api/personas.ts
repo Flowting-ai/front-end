@@ -238,6 +238,19 @@ export function fetchPersonas(): Promise<Persona[]> {
   return _fetchPersonasInFlight
 }
 
+/**
+ * Agents selectable inside a team context. In a team project, only agents shared
+ * to that team are offered — never private/individual ones. Outside a team
+ * (`teamId` null/undefined) the list is returned unchanged.
+ */
+export function personasForTeamContext(
+  personas: Persona[],
+  teamId: string | null | undefined,
+): Persona[] {
+  if (!teamId) return personas
+  return personas.filter(p => p.visibility === 'team' && p.teamIds.includes(teamId))
+}
+
 export async function getPersona(repoId: string): Promise<Persona> {
   const repo = await apiFetchJson<PersonaRepoResponse>(PERSONA_DETAIL_ENDPOINT(repoId));
   return normalizeRepo(repo);

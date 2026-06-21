@@ -17,7 +17,7 @@ import { useFileUpload }                                   from '@/hooks/use-fil
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
 import { usePinboard, type PinItem }                       from '@/context/pinboard-context'
 import type { PinMentionable }                             from '@/components/chat/PinMentionDropdown'
-import { fetchPersonas, getVersion }                       from '@/lib/api/personas'
+import { fetchPersonas, personasForTeamContext, getVersion } from '@/lib/api/personas'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
 import { Dropdown }                                        from '@/components/Dropdown'
 import { Chip }                                            from '@/components/Chip'
@@ -369,10 +369,11 @@ function ProjectChatPageInner() {
     if (!personaChipOpen) return
     setLoadingChipPersonas(true)
     fetchPersonas()
-      .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
+      // Team projects offer only team-shared agents; private projects show all.
+      .then(list => setChipPersonas(personasForTeamContext(list, project?.teamId ?? null).map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
       .catch(() => setChipPersonas([]))
       .finally(() => setLoadingChipPersonas(false))
-  }, [personaChipOpen])
+  }, [personaChipOpen, project?.teamId])
 
   // ── Chips ─────────────────────────────────────────────────────────────────
 
@@ -480,6 +481,7 @@ function ProjectChatPageInner() {
       )}
       selectedPersonaId={selectedPersona?.id ?? null}
       onPersonaChange={setSelectedPersona}
+      teamId={project?.teamId ?? null}
     />
   )
 

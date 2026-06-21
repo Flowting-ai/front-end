@@ -180,7 +180,7 @@ export function PasswordInputField({
           {/* Input - ref'd for the toggle animation */}
           <div ref={contentRef} style={{ position: 'relative', flex: 1, padding: '0 2px', display: 'flex', alignItems: 'center', minWidth: 0 }}>
             <AnimatePresence initial={false}>
-              {!hasValue && (
+              {!hasValue && !isFocused && (
                 <m.span
                   key="placeholder"
                   aria-hidden
