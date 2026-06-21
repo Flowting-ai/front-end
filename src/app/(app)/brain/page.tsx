@@ -3638,6 +3638,9 @@ function BrainPageInner() {
             ))}
           </div>
         )}
+        {msg.external_output && msg.external_output.length > 0 && (
+          <ExternalOutputBlock actions={msg.external_output} />
+        )}
       </m.div>
     )
   })
