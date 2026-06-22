@@ -58,7 +58,7 @@ type HelpItem = { heading: string; description: string; isRequired?: boolean; hi
 // Floating panel items are available on all 5 configure tabs
 const PANEL_ITEMS: HelpItem[] = [
   { heading: 'Test Chat',      description: 'Open a live chat to test your agent before publishing. See exactly how it responds to real questions in real time.',           highlightId: 'help-test-chat'      },
-  { heading: 'AI Suggestions', description: 'Ask AI for tips on improving your system instruction, tone, or coverage. The AI reads your current draft before advising.',   highlightId: 'help-ai-suggestions' },
+  { heading: 'AI Suggestions', description: 'Ask AI for tips on improving your agent instruction, tone, or coverage. The AI reads your current draft before advising.',   highlightId: 'help-ai-suggestions' },
   { heading: 'Versions',       description: 'Browse all saved versions of this agent and restore any previous state with one click. Versions are created via Save Version.', highlightId: 'help-versions'       },
 ]
 
@@ -68,7 +68,7 @@ const TAB_HELP: Record<string, { title: string; items: HelpItem[] }> = {
     // Order mirrors the on-page layout: model dropdown → instruction → temperature → examples → action buttons
     items: [
       { heading: 'Model',                description: 'Choose the AI engine that powers this agent. Different models suit different tasks — some excel at reasoning, others at writing or speed.',              isRequired: false, highlightId: 'help-model'        },
-      { heading: 'System Instruction',   description: 'Tell the agent who it is and how to behave. Describe its role, tone, expertise, and any limits. The more specific you are, the better it performs.',   isRequired: true,  highlightId: 'help-instruction'  },
+      { heading: 'Agent Instruction',   description: 'Tell the agent who it is and how to behave. Describe its role, tone, expertise, and any limits. The more specific you are, the better it performs.',   isRequired: true,  highlightId: 'help-instruction'  },
       { heading: 'Creativity Level',     description: 'Controls how varied the responses are. Low = precise and consistent. High = imaginative and varied. 0.5 is a good starting point for most agents.',    isRequired: false, highlightId: 'help-temperature'  },
       { heading: 'Example Conversations',description: 'Add sample exchanges to show the agent exactly how it should respond. Even 2–3 good examples dramatically improve response quality.',                   isRequired: false, highlightId: 'help-examples'     },
       { heading: 'Save Version',         description: 'Creates a named checkpoint of your current instruction, model, and settings. Restore any version at any time from the Versions panel on the right.',   highlightId: 'help-save-version'  },

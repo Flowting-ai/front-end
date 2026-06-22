@@ -593,7 +593,9 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
 export default function TeamSettingsPage() {
   const params = useParams<{ teamId: string }>()
   const router = useRouter()
-  const { orgId, refreshTeams, currentUserRole, orgRole } = useOrg()
+  const { orgId, refreshTeams, currentUserRole, orgRole, caps } = useOrg()
+  // Team CRUD (archive/delete) is org admin+ only — members can never do it.
+  const canManageTeam = caps.canManageOrg
 
   const [team, setTeam] = useState<Team | null>(null)
   const [loading, setLoading] = useState(true)
@@ -754,6 +756,7 @@ export default function TeamSettingsPage() {
 
   const handleArchive = async () => {
     if (!orgId || !team) return
+    if (!canManageTeam) { toast.error('Only an admin or owner can archive a team.'); return }
     try {
       await archiveTeam(orgId, team.id)
       refreshTeams()
@@ -765,6 +768,7 @@ export default function TeamSettingsPage() {
 
   const handleDelete = async () => {
     if (!orgId || !team || deleteInput !== team.name) return
+    if (!canManageTeam) { toast.error('Only an admin or owner can delete a team.'); return }
     try {
       await deleteTeam(orgId, team.id)
       refreshTeams()
@@ -1030,6 +1034,8 @@ export default function TeamSettingsPage() {
           </div>
         </Card>
 
+        {/* Team archive/delete is org admin+ only — hidden entirely from members. */}
+        {canManageTeam && (
         <Card danger>
           <CardHeader title="Danger Zone" subtitle="Actions here are permanent and cannot be undone." danger compact />
 
@@ -1070,6 +1076,7 @@ export default function TeamSettingsPage() {
             </div>
           </div>
       </Card>
+        )}
     </SettingsPageShell>
   )
 }

@@ -307,6 +307,15 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const deleteProject = useCallback(async (id: string) => {
     const snapshot = projects.find(p => p.id === id)
 
+    // Guardrail: deletion requires edit rights. The backend `canEdit` flag is
+    // false for plain members (they only ever hold view/ProjectMember grants),
+    // so this blocks members from deleting a project even if a delete control
+    // is somehow reachable. Editors/admins on the owning team keep their access.
+    if (snapshot && !snapshot.canEdit) {
+      toast.error('You don’t have permission to delete this project.')
+      return
+    }
+
     // optimistic
     setProjects(prev => prev.filter(p => p.id !== id))
     setChats(prev => prev.filter(c => c.projectId !== id))

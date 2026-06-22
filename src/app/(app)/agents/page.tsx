@@ -740,7 +740,10 @@ export default function PersonasPage() {
   // Filter + sort — split into three chained memos so a sort change doesn't
   // re-run filtering, and a filter change doesn't re-run the sort.
   const statusFiltered = useMemo(() => {
-    if (filterStatus === 'active') return personas.filter(p => p.isActive && !p.isPaused)
+    // Pause is a binary backend flag (is_active). "Active" = not paused (covers
+    // live + draft that are switched on); "Paused" = is_active false. This is a
+    // clean partition and matches the pause toggle exactly.
+    if (filterStatus === 'active') return personas.filter(p => !p.isPaused)
     if (filterStatus === 'paused') return personas.filter(p => p.isPaused)
     return personas
   }, [personas, filterStatus])
@@ -750,9 +753,11 @@ export default function PersonasPage() {
 
     if (filters.status.size > 0) {
       result = result.filter(p => {
-        if (filters.status.has('live')   && p.status === 'active' && !p.isPaused) return true
-        if (filters.status.has('draft')  && (p.status === 'draft' || !p.hasSystemInstructions)) return true
-        if (filters.status.has('paused') && p.status === 'paused') return true
+        // Paused is exclusive: a paused agent shows only under "Paused", never
+        // under Live/Draft (the !hasSystemInstructions heuristic must not leak it).
+        if (filters.status.has('live')   && !p.isPaused && p.status === 'active') return true
+        if (filters.status.has('draft')  && !p.isPaused && (p.status === 'draft' || !p.hasSystemInstructions)) return true
+        if (filters.status.has('paused') && p.isPaused) return true
         return false
       })
     }
@@ -824,19 +829,32 @@ export default function PersonasPage() {
   }
 
   async function handlePauseToggle(id: string, name: string, currentlyPaused: boolean) {
+    // Guardrail: only published agents (those with a live version) can be paused.
+    // An unpublished draft has nothing live to pause, so block it with guidance.
+    if (!currentlyPaused) {
+      const target = personas.find(p => p.id === id)
+      if (target && !target.activeVersionId) {
+        toast.error('Publish this agent before pausing it.')
+        return
+      }
+    }
     try {
       await togglePause(id)
       setPersonas(prev => prev.map(p => {
         if (p.id !== id) return p
         const nextActive = p.isPaused // was paused → resuming
+        // Keep status/isPaused in sync so the dropdown + filter panel reflect
+        // pause/resume immediately. Paused == !is_active (takes precedence);
+        // when resuming, fall back to live/draft based on the published version.
+        const nextStatus = !nextActive
+          ? 'paused'
+          : p.activeVersionId ? 'active' : 'draft'
         return {
           ...p,
-          isPaused: !p.isPaused,
           isActive: nextActive,
-          // Keep `status` in sync so the filter panel (which filters on status)
-          // reflects pause/resume immediately — no page refresh needed. Drafts
-          // (no live version) can't be paused, so leave their status untouched.
-          status: p.status === 'draft' ? 'draft' : nextActive ? 'active' : 'paused',
+          // Invariant: isPaused === !isActive === (status === 'paused').
+          isPaused: !nextActive,
+          status: nextStatus,
         }
       }))
       toast.success(currentlyPaused ? `"${name}" resumed` : `"${name}" paused`)
@@ -1317,7 +1335,9 @@ export default function PersonasPage() {
                           onResume={persona.sourceShareId === null ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined}
                           onMenuEdit={persona.sourceShareId === null ? () => { toast.success(`Editing "${persona.name}"`); push(`/agent/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined}
                           onMenuShare={persona.sourceShareId === null ? () => { toast.info('Opening sharing settings…'); push(`/agent/configure/sharing?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}${persona.activeVersionId ? `&versionId=${persona.activeVersionId}` : ''}`) } : undefined}
-                          onMenuPauseToggle={persona.sourceShareId === null ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined}
+                          // Only offer pause once published (has a live version);
+                          // resume stays available for any already-paused agent.
+                          onMenuPauseToggle={persona.sourceShareId === null && (persona.activeVersionId !== null || persona.isPaused) ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined}
                           onMenuDelete={() => setDeleteTarget(persona)}
                         />
                       ))}

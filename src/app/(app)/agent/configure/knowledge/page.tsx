@@ -470,9 +470,10 @@ function PersonaConfigureKnowledgeContent() {
     >
       {/* ── Top navigation bar ────────────────────────────────────────────── */}
       <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 8, height: 36, position: 'relative' }}>
-          {/* Back arrow + label */}
-          <div style={{ flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 36, position: 'relative' }}>
+          {/* Back arrow + label — left column. Equal flex on both side columns
+             keeps the centre tabs perfectly centred at any width. */}
+          <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
             {anyPanelOpen ? (
               <IconButton
                 variant="ghost"
@@ -493,8 +494,8 @@ function PersonaConfigureKnowledgeContent() {
             )}
           </div>
 
-          {/* Tabs — absolutely centered so left/right items don't affect positioning */}
-          <div style={anyPanelOpen ? { display: 'inline-flex', alignItems: 'flex-start', position: 'relative' } : { position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }}>
+          {/* Tabs — centre column, centred between the back button and actions. */}
+          <div style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'flex-start', position: 'relative' }}>
             {/* Frosted glass — only covers the tab button row, not the traffic lights */}
             <div
               aria-hidden
@@ -573,8 +574,8 @@ function PersonaConfigureKnowledgeContent() {
             </div>
           </div>
 
-          {/* Action buttons — top right */}
-          <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+          {/* Action buttons — right column (equal flex mirrors the left column) */}
+          <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
             {anyPanelOpen ? (
               <IconButton
                 variant="outline"

@@ -398,6 +398,17 @@ export function InviteStateScreen({
       ? "This invite link doesn't exist or has already been used."
       : errorMsg || "Please try again.";
 
+  // Close the tab. Browsers only honour window.close() for script-opened
+  // windows, so fall back to leaving the flow (onHome) when it's blocked — the
+  // setTimeout never fires if the window actually closed (the page unloads).
+  const handleClose = () => {
+    window.close();
+    setTimeout(() => {
+      if (onHome) onHome();
+      else window.location.href = "/";
+    }, 150);
+  };
+
   return (
     <InviteCanvas>
       <InviteCard width={620}>
@@ -407,7 +418,7 @@ export function InviteStateScreen({
           {status === "error" && onRetry && (
             <Button variant="outline" size="md" onClick={onRetry}>Try again</Button>
           )}
-          {onHome && <Button variant="default" size="md" onClick={onHome}>Go home</Button>}
+          <Button variant="default" size="md" onClick={handleClose}>Close</Button>
         </div>
       </InviteCard>
     </InviteCanvas>

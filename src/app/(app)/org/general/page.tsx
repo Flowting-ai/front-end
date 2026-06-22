@@ -460,7 +460,9 @@ function GeneralPageSkeleton() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrgGeneralPage() {
-  const { orgId } = useOrg()
+  const { orgId, caps } = useOrg()
+  // Deleting the organization (the workspace/space) is org admin+ only.
+  const canDeleteOrg = caps.canManageOrg
   const { user } = useAuth()
   const router = useRouter()
 
@@ -581,6 +583,7 @@ export default function OrgGeneralPage() {
 
   const handleDeleteOrg = async () => {
     if (!orgId || deleteOrgInput !== workspaceName) return
+    if (!canDeleteOrg) { toast.error('Only an admin or owner can delete this organization.'); return }
     setDeletingOrg(true)
     try {
       await deleteOrg(orgId, deleteOrgInput)
@@ -1286,7 +1289,8 @@ export default function OrgGeneralPage() {
             )}
           </div>
 
-          {/* Delete organization */}
+          {/* Delete organization — org admin+ only; hidden from members. */}
+          {canDeleteOrg && (
           <div style={{ padding: '12px 24px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24 }}>
               <div style={{ flex: '1 0 0', minWidth: 0 }}>
@@ -1323,6 +1327,7 @@ export default function OrgGeneralPage() {
               </div>
             </div>
           </div>
+          )}
         </div>
 
       </div>

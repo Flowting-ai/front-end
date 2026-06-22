@@ -878,7 +878,7 @@ function PersonaConfigureInstructionsContent() {
       return
     }
     if (!hasContent) {
-      toast.error('Please add system instructions before saving a version.')
+      toast.error('Please add agent instructions before saving a version.')
       return
     }
     if (!isDirty) return
@@ -1131,7 +1131,7 @@ function PersonaConfigureInstructionsContent() {
         return
       }
       if (!hasContent) {
-        toast.error('Please add system instructions before continuing.')
+        toast.error('Please add agent instructions before continuing.')
         return
       }
     }
@@ -1158,7 +1158,7 @@ function PersonaConfigureInstructionsContent() {
         return
       }
       if (!hasContent) {
-        toast.error('Please add system instructions before switching tabs.')
+        toast.error('Please add agent instructions before switching tabs.')
         return
       }
     }
@@ -1194,9 +1194,10 @@ function PersonaConfigureInstructionsContent() {
       >
         {/* ── Top navigation bar ─────────────────────────────────────────────── */}
         <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 8, height: 36, position: 'relative' }}>
-            {/* Back arrow + label */}
-            <div style={{ flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 36, position: 'relative' }}>
+            {/* Back arrow + label — left column. Equal flex on both side columns
+               keeps the centre tabs perfectly centred at any width. */}
+            <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
               {anyPanelOpen ? (
                 <IconButton
                   variant="ghost"
@@ -1217,11 +1218,8 @@ function PersonaConfigureInstructionsContent() {
               )}
             </div>
 
-            {/* Tabs — centered when no panel open, left-aligned when a panel is open */}
-            <div style={anyPanelOpen
-              ? { display: 'inline-flex', alignItems: 'flex-start', position: 'relative' }
-              : { position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }
-            }>
+            {/* Tabs — centre column, centred between the back button and actions. */}
+            <div style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'flex-start', position: 'relative' }}>
               {/* Frosted glass — only covers the tab button row, not the traffic lights */}
               <div
                 aria-hidden
@@ -1324,8 +1322,8 @@ function PersonaConfigureInstructionsContent() {
 
 
 
-            {/* Action buttons — top right */}
-            <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+            {/* Action buttons — right column (equal flex mirrors the left column) */}
+            <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
               {anyPanelOpen ? (
                 <IconButton
                   variant="outline"

@@ -16,7 +16,6 @@ import {
   ORG_TEAM_CONNECTION_ENDPOINT,
   TEAM_INVITE_PREVIEW_ENDPOINT,
   TEAM_INVITE_ACCEPT_ENDPOINT,
-  TEAM_INVITE_ONBOARDING_ENDPOINT,
 } from '@/lib/config'
 import type {
   Team,
@@ -339,7 +338,9 @@ function normalizeInvitedProject(p: InvitedProjectResponse): InvitedProject {
 }
 
 export async function getTeamInviteOnboarding(inviteId: string): Promise<TeamInviteOnboarding> {
-  const data = await apiFetchJson<InviteOnboardingResponse>(TEAM_INVITE_ONBOARDING_ENDPOINT(inviteId))
+  // The backend returns the full invite payload from the preview path itself
+  // (GET /team-invite/{id}) — there is no separate /onboarding endpoint.
+  const data = await apiFetchJson<InviteOnboardingResponse>(TEAM_INVITE_PREVIEW_ENDPOINT(inviteId))
   return {
     inviteId:                data.invite_id,
     teamId:                  data.team_id,

@@ -5,6 +5,7 @@ import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import {
   PERSONAS_ENDPOINT,
   PERSONA_DETAIL_ENDPOINT,
+  PERSONA_USE_ENDPOINT,
   PERSONA_ENHANCE_ENDPOINT,
   PERSONA_STARTER_ENDPOINT,
   PERSONA_PAUSE_ENDPOINT,
@@ -18,7 +19,7 @@ import {
   PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT,
   PERSONA_VERSION_FILES_ENDPOINT,
   PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT,
-  PERSONA_VERSION_CONNECTORS_ENDPOINT,
+  PERSONA_VERSION_CONNECTOR_HINTS_ENDPOINT,
   PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT,
   PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT,
   PERSONA_CHATS_ENDPOINT,
@@ -67,6 +68,8 @@ export interface PersonaVersionResponse {
   total_usage: number;
   /** Slugs of connectors that are BLOCKED (disabled) for this version. */
   blocked_connectors: string[];
+  /** Soft hints: connectors this version benefits from when relevant (not enforced). */
+  connector_hints: string[];
   source_share_id: string | null;
   version_tags: string[];
   persona_tags: string[];
@@ -99,6 +102,7 @@ export interface PersonaVersionListItem {
   is_active: boolean;
   version_tags: string[];
   persona_tags: string[];
+  connector_hints: string[];
   created_at: string;
   updated_at: string;
 }
@@ -173,12 +177,15 @@ function normalizeRepo(repo: PersonaRepoResponse): Persona {
     tags: v?.persona_tags ?? [],
     temperature: v?.temperature ?? null,
     isActive: repo.is_active,
-    isPaused: !repo.is_active && repo.version_count > 0,
-    status: !liveVersionId
-      ? "draft"
-      : repo.is_active
+    // The backend has no dedicated pause flag — pausing simply sets
+    // is_active=false, independently of whether the agent was ever published.
+    // So "paused" == !is_active and takes precedence over draft/live.
+    isPaused: !repo.is_active,
+    status: !repo.is_active
+      ? "paused"
+      : liveVersionId
       ? "active"
-      : "paused",
+      : "draft",
     activeVersionId: liveVersionId,
     workingVersionId: repo.active_version_id,
     publishedAt: repo.published_at ?? null,
@@ -307,14 +314,36 @@ export async function createPersonaRepo(params: {
   return repo;
 }
 
+/**
+ * POST /persona/{repoId}/use — copy a visible persona (e.g. a team-published one)
+ * into the caller's own list. Returns the newly-created repo. Busts the list so
+ * the copy shows up immediately.
+ */
+export async function usePersonaRepo(repoId: string): Promise<PersonaRepoResponse> {
+  const repo = await apiFetchJson<PersonaRepoResponse>(PERSONA_USE_ENDPOINT(repoId), {
+    method: "POST",
+  });
+  _personaDetailCache.set(repo.id, { data: repo, time: Date.now() });
+  _personasCache = null;
+  _personasCacheTime = 0;
+  return repo;
+}
+
 export async function deletePersona(repoId: string): Promise<void> {
-  await apiFetch(PERSONA_DETAIL_ENDPOINT(repoId), { method: "DELETE" });
+  // apiFetch returns non-2xx responses as-is (it doesn't throw), so we must check
+  // res.ok ourselves — otherwise a failed delete would look successful and the
+  // caller would optimistically remove the card for an agent still on the server.
+  const res = await apiFetch(PERSONA_DETAIL_ENDPOINT(repoId), { method: "DELETE" });
+  if (!res.ok) throw new Error(`Failed to delete persona (status ${res.status})`);
   // Mutation — bust so every consumer (sidebar, search, agents grid) refetches.
   bustPersonasCache();
 }
 
 export async function togglePause(repoId: string): Promise<void> {
-  await apiFetch(PERSONA_PAUSE_ENDPOINT(repoId), { method: "PATCH" });
+  // Same guard as deletePersona: apiFetch won't throw on non-2xx, so check
+  // res.ok before the caller optimistically flips pause state in the UI.
+  const res = await apiFetch(PERSONA_PAUSE_ENDPOINT(repoId), { method: "PATCH" });
+  if (!res.ok) throw new Error(`Failed to toggle pause (status ${res.status})`);
   bustPersonasCache();
 }
 
@@ -595,20 +624,21 @@ export async function deleteDocument(
 // ── Version connectors ────────────────────────────────────────────────────────
 
 /**
- * PUT /persona/{repo_id}/versions/{persona_id}/connectors
- * Full-replace the set of connectors enabled for this version.
- * Pass an empty array to detach all connectors from this version.
+ * PATCH /persona/{repo_id}/versions/{persona_id}/connector-hints
+ * Replace the set of soft connector hints for this version. Hints are surfaced
+ * to the model as connectors that help when relevant — they are not enforced.
+ * Pass an empty array to clear all hints.
  */
-export async function setVersionConnectors(
+export async function setVersionConnectorHints(
   repoId: string,
   versionId: string,
-  connectorSlugs: string[],
+  hintSlugs: string[],
 ): Promise<PersonaVersionResponse> {
   return apiFetchJson<PersonaVersionResponse>(
-    PERSONA_VERSION_CONNECTORS_ENDPOINT(repoId, versionId),
+    PERSONA_VERSION_CONNECTOR_HINTS_ENDPOINT(repoId, versionId),
     {
-      method: 'PUT',
-      body: JSON.stringify({ connector_slugs: connectorSlugs }),
+      method: 'PATCH',
+      body: JSON.stringify({ slugs: hintSlugs }),
     },
   );
 }

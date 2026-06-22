@@ -104,6 +104,8 @@ export const MODELS_TEST_ENDPOINT = withBase("/llm/models/test");
 export const PERSONAS_ENDPOINT = withBase("/persona");
 export const PERSONA_DETAIL_ENDPOINT = (repoId: string) =>
   withBase(`/persona/${repoId}`);
+export const PERSONA_USE_ENDPOINT = (repoId: string) =>
+  withBase(`/persona/${repoId}/use`);
 export const PERSONA_ENHANCE_ENDPOINT = withBase("/persona/enhance-prompt");
 export const PERSONA_STARTER_ENDPOINT = withBase("/persona/starter");
 export const PERSONA_PAUSE_ENDPOINT = (repoId: string) =>
@@ -129,8 +131,8 @@ export const PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT = (repoId: string, versionId
   withBase(`/persona/${repoId}/versions/${versionId}/knowledge-url`);
 export const PERSONA_VERSION_FILES_ENDPOINT = (repoId: string, versionId: string) =>
   withBase(`/persona/${repoId}/versions/${versionId}/files`);
-export const PERSONA_VERSION_CONNECTORS_ENDPOINT = (repoId: string, versionId: string) =>
-  withBase(`/persona/${repoId}/versions/${versionId}/connectors`);
+export const PERSONA_VERSION_CONNECTOR_HINTS_ENDPOINT = (repoId: string, versionId: string) =>
+  withBase(`/persona/${repoId}/versions/${versionId}/connector-hints`);
 export const PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT = (repoId: string, versionId: string) =>
   withBase(`/persona/${repoId}/versions/${versionId}/blocked-connectors`);
 export const PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT = (repoId: string, versionId: string, slug: string) =>
@@ -253,11 +255,6 @@ export const TEAM_INVITE_PREVIEW_ENDPOINT = (inviteId: string) =>
   withBase(`/team-invite/${inviteId}`)
 export const TEAM_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>
   withBase(`/team-invite/${inviteId}/accept`)
-// Rich invite payload that drives the dedicated team-invite onboarding flow
-// (org/team/projects/members the invitee is joining). Superset of the preview.
-// TODO(backend): confirm final path — assumed `/team-invite/{id}/onboarding`.
-export const TEAM_INVITE_ONBOARDING_ENDPOINT = (inviteId: string) =>
-  withBase(`/team-invite/${inviteId}/onboarding`)
 
 // ── Organization ──────────────────────────────────────────────────────────────
 export const ORGANIZATIONS_ENDPOINT = withBase('/organizations')
