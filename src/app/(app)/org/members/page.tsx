@@ -1159,6 +1159,13 @@ export default function OrgMembersPage() {
   ) => {
     if (!orgId) return
 
+    const normalizedEmail = email.trim().toLowerCase()
+    const alreadyMember = members.some(m => m.email?.toLowerCase() === normalizedEmail)
+    if (alreadyMember) {
+      toast.error(`${email} is already a member of this workspace`)
+      return
+    }
+
     if (allowedDomains.length > 0) {
       const domain = email.trim().split('@')[1]?.toLowerCase() ?? ''
       if (!allowedDomains.includes(domain)) {

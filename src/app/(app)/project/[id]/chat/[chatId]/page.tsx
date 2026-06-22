@@ -154,6 +154,20 @@ const TEMPLATE_CARDS: Array<{ icon: React.ReactNode; label: string; prompt: stri
   { icon: <AuctionIcon       size={24} color="var(--green-500)"  animated />, label: 'Compare and evaluate my options',     prompt: 'Help me compare and evaluate my options' },
 ]
 
+// ── Per-chat settings persistence ────────────────────────────────────────────
+
+const PROJECT_CHAT_SETTINGS_PREFIX = 'souvenir_project_chat_'
+
+interface ProjectChatSettings { webSearch: boolean; persona: SelectedPersonaInfo | null }
+
+function loadProjectChatSettings(chatId: string): ProjectChatSettings | null {
+  try { const raw = localStorage.getItem(PROJECT_CHAT_SETTINGS_PREFIX + chatId); return raw ? JSON.parse(raw) : null } catch { return null }
+}
+
+function saveProjectChatSettings(chatId: string, s: ProjectChatSettings) {
+  try { localStorage.setItem(PROJECT_CHAT_SETTINGS_PREFIX + chatId, JSON.stringify(s)) } catch {}
+}
+
 // ── Loading / not-found screens ───────────────────────────────────────────────
 
 function CentredMessage({ children }: { children: React.ReactNode }) {
@@ -238,13 +252,20 @@ function ProjectChatPageInner() {
   const [selectedStyleId,    setSelectedStyleId]    = useState<string | null>(null)
   const [styleChipOpen,      setStyleChipOpen]      = useState(false)
   const [selectedFolders,    setSelectedFolders]    = useState<PinFolder[]>([])
-  const [selectedPersona,    setSelectedPersona]    = useState<SelectedPersonaInfo | null>(null)
+  // Read from sessionStorage synchronously in the lazy initializer so selectedPersona
+  // is populated on the FIRST render. If we used useEffect instead, ChatInterface would
+  // capture selectedPersonaId=null in its initial-send effect (runs in the same flush,
+  // before the state update from a useEffect could apply) and the agent would be ignored.
+  const [selectedPersona,    setSelectedPersona]    = useState<SelectedPersonaInfo | null>(() => {
+    if (!isNewChat || typeof window === 'undefined') return null
+    const stored = sessionStorage.getItem('project-chat-pending-persona')
+    if (!stored) return null
+    sessionStorage.removeItem('project-chat-pending-persona')
+    try { return JSON.parse(stored) as SelectedPersonaInfo } catch { return null }
+  })
   const [personaChipOpen,    setPersonaChipOpen]    = useState(false)
   const [chipPersonas,       setChipPersonas]       = useState<SelectedPersonaInfo[]>([])
   const [loadingChipPersonas, setLoadingChipPersonas] = useState(false)
-
-  // Tracks which chatIds in this session were created via the persona endpoint.
-  const personaChatIds = useRef(new Map<string, string>()) // chatId → personaId
 
   const fileInputRef           = useRef<HTMLInputElement>(null)
   const newChatInputWrapperRef = useRef<HTMLDivElement>(null)
@@ -321,13 +342,13 @@ function ProjectChatPageInner() {
 
   // ── Model selector ────────────────────────────────────────────────────────
 
-  const { models, selectedModel, selectModel, open: openModelSelector, museActive, museAdvanced, enableReasoning } = useModelSelectorContext()
+  const { models, selectedModel, selectModel, open: openModelSelector, museActive, museAdvanced, enableReasoning, setPersonaActive } = useModelSelectorContext()
 
   const modelButtonLabel = museActive
     ? museAdvanced ? 'Souvenir AI Muse (Advanced)' : 'Souvenir AI Muse (Basic)'
     : selectedModel?.modelName
 
-  const handleModelClick = (e: React.MouseEvent<HTMLButtonElement>) => { openModelSelector(e.currentTarget) }
+  const handleModelClick = (e: React.MouseEvent<HTMLButtonElement>) => { if (selectedPersona) return; openModelSelector(e.currentTarget) }
 
   const handleModelSwitchConfirm = () => {
     if (pendingModelSwitch) { selectModel(pendingModelSwitch); setPendingModelSwitch(null) }
@@ -365,6 +386,26 @@ function ProjectChatPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
 
+  // Lock model selector while a persona chip is active (matches normal chat page).
+  useEffect(() => {
+    setPersonaActive(!!selectedPersona)
+  }, [selectedPersona, setPersonaActive])
+
+  // Load persisted settings when navigating to an existing project chat.
+  useEffect(() => {
+    if (!activeChatId) return
+    const s = loadProjectChatSettings(activeChatId)
+    if (!s) return
+    setWebSearchEnabled(s.webSearch ?? false)
+    if (s.persona) setSelectedPersona(s.persona)
+  }, [activeChatId])
+
+  // Persist settings whenever they change for an existing chat.
+  useEffect(() => {
+    if (!activeChatId) return
+    saveProjectChatSettings(activeChatId, { webSearch: webSearchEnabled, persona: selectedPersona })
+  }, [activeChatId, webSearchEnabled, selectedPersona])
+
   useEffect(() => {
     if (!personaChipOpen) return
     setLoadingChipPersonas(true)
@@ -378,10 +419,6 @@ function ProjectChatPageInner() {
   // ── Chips ─────────────────────────────────────────────────────────────────
 
   const activeStyle = USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId) ?? null
-
-  // Persona is "active" when starting a new chat or the current chat was created
-  // as a persona chat in this session; otherwise the chip is cosmetic (model only).
-  const personaApplied = !activeChatId || !!personaChatIds.current.get(activeChatId)
 
   const newChatChips: React.ReactNode = (
     <>
@@ -440,8 +477,6 @@ function ProjectChatPageInner() {
               personaImage={selectedPersona.imageUrl ?? undefined}
               onRemove={() => setSelectedPersona(null)}
               onExpand={() => setPersonaChipOpen(v => !v)}
-              title={!personaApplied ? "Agent model is active — system instructions apply to new chats only" : undefined}
-              style={!personaApplied ? { opacity: 0.65 } : undefined}
             />
           }
         >
@@ -459,7 +494,7 @@ function ProjectChatPageInner() {
                         onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
                       />
                     ))
-                  : <Dropdown.Item label="No agents yet" fluid disabled />
+                  : <Dropdown.Item label={project?.teamId ? 'No shared team agents' : 'No agents yet'} fluid disabled />
               }
             </Dropdown.Section>
           </Dropdown>
@@ -625,9 +660,10 @@ function ProjectChatPageInner() {
                       onSend={handleSend}
                       onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
                       modelName={modelButtonLabel}
-                      onModelClick={handleModelClick}
+                      onModelClick={selectedPersona ? undefined : handleModelClick}
                       addMenu={addMenu}
-                      modelMenu={<ModelMenu />}
+                      modelMenu={selectedPersona ? undefined : <ModelMenu />}
+                      disabledModelSelector={!!selectedPersona}
                       chips={newChatChips}
                       attachmentsSlot={
                         <AttachmentManager
@@ -701,9 +737,8 @@ function ProjectChatPageInner() {
             <ChatInterface
               chatId={activeChatId}
               onChatCreated={(newChatId) => {
-                if (selectedPersona?.activeVersionId) {
-                  personaChatIds.current.set(newChatId, selectedPersona.activeVersionId)
-                }
+                // Persist settings immediately so the load effect reads the right value.
+                saveProjectChatSettings(newChatId, { webSearch: webSearchEnabled, persona: selectedPersona })
                 // Update local state immediately so markChatAsOptimistic + chatId
                 // prop change land in the same React commit (same as main chat page).
                 setActiveChatId(newChatId)
@@ -723,9 +758,10 @@ function ProjectChatPageInner() {
               onChatMoveToTop={() => {}}
               selectedModel={modelButtonLabel}
               selectedModelId={selectedModel?.id}
-              onModelClick={handleModelClick}
+              onModelClick={selectedPersona ? undefined : handleModelClick}
               addMenu={addMenu}
-              modelMenu={<ModelMenu />}
+              modelMenu={selectedPersona ? undefined : <ModelMenu />}
+              disabledModelSelector={!!selectedPersona}
               initialPrompt={initialPrompt}
               initialFiles={initialFiles}
               onClearInitialFiles={() => setInitialFiles([])}
@@ -736,13 +772,10 @@ function ProjectChatPageInner() {
               chips={newChatChips}
               selectedFolders={selectedFolders}
               selectedStyleId={selectedStyleId}
-              selectedPersonaId={
-                !activeChatId
-                  ? (selectedPersona?.activeVersionId ?? null)
-                  : (personaChatIds.current.get(activeChatId) ?? null)
-              }
-              selectedPersonaSystemPrompt={!activeChatId ? (selectedPersona?.systemPrompt ?? null) : null}
-              selectedPersonaTemperature={!activeChatId ? (selectedPersona?.temperature ?? null) : null}
+              selectedPersonaId={selectedPersona?.activeVersionId ?? null}
+              selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
+              selectedPersonaTemperature={selectedPersona?.temperature ?? null}
+              skipModelSelected={!!selectedPersona}
             />
           </m.div>
         )}

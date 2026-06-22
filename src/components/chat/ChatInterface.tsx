@@ -185,6 +185,12 @@ interface ChatInterfaceProps {
   hidePinActions?: boolean;
   /** Readable shared chat whose original is owned by somebody else. */
   readOnly?: boolean;
+  /**
+   * When true, model_selected SSE events are ignored so the agent's pre-seeded
+   * model is not overwritten by the backend during streaming. Pass when a persona
+   * is active so the model name/logo in the reasoning section stays correct.
+   */
+  skipModelSelected?: boolean;
 }
 
 export function ChatInterface({
@@ -220,6 +226,7 @@ export function ChatInterface({
   loadMessages,
   hidePinActions = false,
   readOnly = false,
+  skipModelSelected,
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [inputValue, setInputValue] = useState("");
@@ -451,6 +458,7 @@ export function ChatInterface({
     currentChatIdRef,
     ...(endpoint ? { endpoint } : {}),
     ...(onStopBackend ? { onStopBackend } : {}),
+    ...(skipModelSelected ? { skipModelSelected } : {}),
   });
 
   const isStreaming = streamState === "streaming" || streamState === "waiting";

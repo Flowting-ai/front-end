@@ -790,6 +790,14 @@ export default function TeamSettingsPage() {
 
   const handleInvite = async (emails: string[], role: WorkspaceRole) => {
     if (!orgId || !team) return
+    const existingEmails = new Set(orgMembers.map(m => m.email?.toLowerCase()).filter(Boolean))
+    const alreadyMembers = emails.filter(e => existingEmails.has(e.toLowerCase()))
+    if (alreadyMembers.length > 0) {
+      toast.error(
+        `${alreadyMembers.join(', ')} ${alreadyMembers.length === 1 ? 'is' : 'are'} already a member of this workspace`,
+      )
+      return
+    }
     await inviteTeamMembers(orgId, team.id, emails, role)
     toast.success(`Invite sent to ${emails.length} email${emails.length > 1 ? 's' : ''}`)
   }
@@ -1038,20 +1046,6 @@ export default function TeamSettingsPage() {
         {canManageTeam && (
         <Card danger>
           <CardHeader title="Danger Zone" subtitle="Actions here are permanent and cannot be undone." danger compact />
-
-          <div style={{ padding: '6px 24px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 24 }}>
-              <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                  Archive team
-                </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                  This will archive the team and all its projects. Members can no longer access team content.
-                </p>
-              </div>
-              <RedOutlineButton onClick={handleArchive}>Archive</RedOutlineButton>
-            </div>
-          </div>
 
           <div style={{ padding: '6px 24px 12px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 24 }}>

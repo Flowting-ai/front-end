@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { AnimatePresence, m } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Chip } from '@/components/Chip'
 import { useProjects } from '@/context/projects-context'
@@ -15,7 +15,7 @@ import { useFileUpload } from '@/hooks/use-file-upload'
 import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow'
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
-import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
+import { ProjectTeamPanel } from '@/components/ProjectTeamPanel'
 import { TeamChip } from '@/components/TeamChip'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { setProjectVisibility } from '@/lib/api/projects'
@@ -50,7 +50,7 @@ export default function ProjectPage() {
   const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats, loading: projectsLoading } = useProjects()
   const { pins, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const chatHistory = useChatHistoryContext()
-  const { open: openModelSelector } = useModelSelectorContext()
+  const { open: openModelSelector, setPersonaActive } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
 
   const { orgId, caps, members } = useOrg()
@@ -70,6 +70,7 @@ export default function ProjectPage() {
   const [instructionsOpen, setInstructionsOpen] = useState(false)
   const [chatInputValue,   setChatInputValue]   = useState('')
   const [panelOpen,        setPanelOpen]        = useState(true)
+  const [teamPanelOpen,    setTeamPanelOpen]    = useState(false)
   const [webSearchEnabled, setWebSearchEnabled] = useState(false)
   const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null)
   const [styleChipOpen,    setStyleChipOpen]    = useState(false)
@@ -151,6 +152,11 @@ export default function ProjectPage() {
     return () => { cancelled = true }
   }, [activeTab, params.id])
 
+  // Lock the model selector context while an agent chip is active on the project page.
+  useEffect(() => {
+    setPersonaActive(!!selectedPersona)
+  }, [selectedPersona, setPersonaActive])
+
   if (!project) {
     if (projectsLoading || projectLoading) {
       return (
@@ -169,13 +175,17 @@ export default function ProjectPage() {
   const projectId = project.id
 
   function handleModelClick(e: React.MouseEvent<HTMLButtonElement>) {
+    if (selectedPersona) return
     openModelSelector(e.currentTarget)
   }
 
   function handleSendChat(text: string) {
     if (!text.trim()) return
-    // Navigate to a new project chat - ChatInterface will create the chat and
-    // the page's onChatCreated callback links it back to this project.
+    if (selectedPersona) {
+      sessionStorage.setItem('project-chat-pending-persona', JSON.stringify(selectedPersona))
+    } else {
+      sessionStorage.removeItem('project-chat-pending-persona')
+    }
     push(`/project/${projectId}/chat/new?q=${encodeURIComponent(text.trim())}`)
     setChatInputValue('')
   }
@@ -495,8 +505,9 @@ export default function ProjectPage() {
               onSend={handleSendChat}
               onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
               modelName={modelButtonLabel}
-              onModelClick={handleModelClick}
-              modelMenu={<ModelMenu />}
+              onModelClick={selectedPersona ? undefined : handleModelClick}
+              modelMenu={selectedPersona ? undefined : <ModelMenu />}
+              disabledModelSelector={!!selectedPersona}
               addMenu={
                 <ChatAddMenu
                   webSearchEnabled={webSearchEnabled}
@@ -591,7 +602,7 @@ export default function ProjectPage() {
                                     onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
                                   />
                                 ))
-                              : <Dropdown.Item label="No agents yet" fluid disabled />
+                              : <Dropdown.Item label={project.teamId ? 'No shared team agents' : 'No agents yet'} fluid disabled />
                           }
                         </Dropdown.Section>
                       </Dropdown>
@@ -718,7 +729,7 @@ export default function ProjectPage() {
         style={{
           position:   'absolute',
           top:        '50%',
-          right:      panelOpen ? 366 : 16,
+          right:      (panelOpen || teamPanelOpen) ? 366 : 16,
           transform:  'translateY(-50%)',
           zIndex:     20,
           transition: 'right 380ms cubic-bezier(0.4,0,0.2,1)',
@@ -730,7 +741,10 @@ export default function ProjectPage() {
             label="Instructions & Files"
             active={panelOpen}
             onClick={() => {
-              if (!panelOpen) closePinboard()
+              if (!panelOpen) {
+                closePinboard()
+                setTeamPanelOpen(false)
+              }
               setPanelOpen(v => !v)
             }}
           />
@@ -739,16 +753,33 @@ export default function ProjectPage() {
             label="Pinboard"
             active={pinboardOpen}
             onClick={() => {
-              if (!pinboardOpen) setPanelOpen(false)
+              if (!pinboardOpen) {
+                setPanelOpen(false)
+                setTeamPanelOpen(false)
+              }
               togglePinboard()
             }}
           />
+          {project.teamId && (
+            <FloatingMenuItem
+              icon={<UserIcon size={20} />}
+              label="Team"
+              active={teamPanelOpen}
+              onClick={() => {
+                if (!teamPanelOpen) {
+                  closePinboard()
+                  setPanelOpen(false)
+                }
+                setTeamPanelOpen(v => !v)
+              }}
+            />
+          )}
         </FloatingMenu>
       </div>
 
       {/* ── Right panel - toggled by the floating menu ────────────────── */}
       <AnimatePresence>
-        {panelOpen && (
+        {(panelOpen || teamPanelOpen) && (
           <m.div
             key="project-panel"
             initial={{ width: 0, opacity: 0 }}
@@ -765,39 +796,42 @@ export default function ProjectPage() {
             }}
           >
             <div style={{ width: 356, padding: '87px 24px 24px', boxSizing: 'border-box' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <ProjectInstructionsPanel
-                  value={project.instructions}
-                  onSave={project.canEdit ? (text) => updateProject(projectId, { instructions: text }) : undefined}
-                  onOpenEditor={project.canEdit ? () => setInstructionsOpen(true) : undefined}
-                />
-                <ProjectFilesPanel
-                  files={project.files}
-                  pendingFiles={pendingFiles}
-                  usedBytes={project.files.reduce((s, f) => s + f.sizeBytes, 0)}
-                  totalBytes={100 * 1024 * 1024}
-                  onUpload={project.canEdit ? async (fileList) => {
-                    const files = Array.from(fileList)
-                    setPendingFiles(files)
-                    try {
-                      await uploadFiles(projectId, files)
-                      toast.success(files.length === 1 ? 'File uploaded' : `${files.length} files uploaded`)
-                    } catch {
-                      // errors already toasted by the context
-                    } finally {
-                      setPendingFiles([])
-                    }
-                  } : undefined}
-                  onRemove={project.canEdit ? (fileId) => removeFile(projectId, fileId) : undefined}
-                />
-                {project.teamId && project.canEdit && (
-                  <ProjectMembersPanel
-                    teamId={project.teamId}
-                    projectId={projectId}
-                    ownerUserId={project.ownerUserId}
+              {panelOpen && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <ProjectInstructionsPanel
+                    value={project.instructions}
+                    onSave={project.canEdit ? (text) => updateProject(projectId, { instructions: text }) : undefined}
+                    onOpenEditor={project.canEdit ? () => setInstructionsOpen(true) : undefined}
                   />
-                )}
-              </div>
+                  <ProjectFilesPanel
+                    files={project.files}
+                    pendingFiles={pendingFiles}
+                    usedBytes={project.files.reduce((s, f) => s + f.sizeBytes, 0)}
+                    totalBytes={100 * 1024 * 1024}
+                    onUpload={project.canEdit ? async (fileList) => {
+                      const files = Array.from(fileList)
+                      setPendingFiles(files)
+                      try {
+                        await uploadFiles(projectId, files)
+                        toast.success(files.length === 1 ? 'File uploaded' : `${files.length} files uploaded`)
+                      } catch {
+                        // errors already toasted by the context
+                      } finally {
+                        setPendingFiles([])
+                      }
+                    } : undefined}
+                    onRemove={project.canEdit ? (fileId) => removeFile(projectId, fileId) : undefined}
+                  />
+                </div>
+              )}
+              {teamPanelOpen && project.teamId && (
+                <ProjectTeamPanel
+                  teamId={project.teamId}
+                  projectId={projectId}
+                  ownerUserId={project.ownerUserId}
+                  canEdit={project.canEdit}
+                />
+              )}
             </div>
           </m.div>
         )}

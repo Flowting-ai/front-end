@@ -536,8 +536,12 @@ function PersonaConfigureInstructionsContent() {
     } catch { return [] }
   })
   const [connectorSlugs, setConnectorSlugs] = useState<string[] | null>(null)
-  const [isInitialising, setIsInitialising] = useState(true)
-  const [isSaving,      setIsSaving]      = useState(false)
+  const [isInitialising,  setIsInitialising]  = useState(true)
+  // True once the draft-restore effect has finished (applied or skipped the draft).
+  // Gates the auto-detect change effects so they never fire during the initial
+  // state-hydration phase and the traffic-light only shows its stable final state.
+  const [isDraftApplied,  setIsDraftApplied]  = useState(false)
+  const [isSaving,        setIsSaving]        = useState(false)
   const [showInfo,      setShowInfo]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
 
@@ -575,11 +579,9 @@ function PersonaConfigureInstructionsContent() {
       // awaits it together with its persona calls so the round-trips overlap.
       const modelsPromise = fetchModelsWithCache().catch(() => [] as AIModel[])
       let fetchedModels: AIModel[] = []
-      let firstModel: AIModel | null = null
       const applyModels = (models: AIModel[]) => {
         fetchedModels = models
         setAllModels(models)
-        firstModel = models[0] ?? null
       }
 
       if (repoIdParam && versionIdParam) {
@@ -602,7 +604,7 @@ function PersonaConfigureInstructionsContent() {
         const isCustomNoModel = typeof window !== 'undefined' && !!sessionStorage.getItem(noModelFlag)
         const resolvedModel1 = isCustomNoModel
           ? null
-          : matchModel(fetchedModels, version.model_id, repoIdParam, firstModel)
+          : matchModel(fetchedModels, version.model_id, repoIdParam, null)
         if (isCustomNoModel) {
           // Consume the flag so subsequent visits (after user has selected a model) fall through normally.
           sessionStorage.removeItem(noModelFlag)
@@ -660,7 +662,7 @@ function PersonaConfigureInstructionsContent() {
           // Stamp URL so a reload goes straight to this version, and keep
           // useSearchParams in sync so tab navigation carries the right versionId.
           replace(`?repoId=${repoIdParam}&versionId=${fullVersion.id}`)
-          const resolvedModel2 = matchModel(fetchedModels, fullVersion.model_id, repoIdParam, firstModel)
+          const resolvedModel2 = matchModel(fetchedModels, fullVersion.model_id, repoIdParam, null)
           setSelectedModel(resolvedModel2)
           setBackendModelId(isModelIdAvailable(fetchedModels, fullVersion.model_id) ? (fullVersion.model_id ?? null) : null)
           if (resolvedModel2) writePersonaModelCache(repoIdParam, resolvedModel2)
@@ -681,7 +683,7 @@ function PersonaConfigureInstructionsContent() {
           if (repo.active_version.blocked_connectors?.length > 0) setConnectorSlugs(repo.active_version.blocked_connectors)
           setVersionId(repo.active_version.id)
           replace(`?repoId=${repoIdParam}&versionId=${repo.active_version.id}`)
-          const resolvedModel3 = matchModel(fetchedModels, repo.active_version.model_id, repoIdParam, firstModel)
+          const resolvedModel3 = matchModel(fetchedModels, repo.active_version.model_id, repoIdParam, null)
           setSelectedModel(resolvedModel3)
           setBackendModelId(isModelIdAvailable(fetchedModels, repo.active_version.model_id) ? (repo.active_version.model_id ?? null) : null)
           if (resolvedModel3) writePersonaModelCache(repoIdParam, resolvedModel3)
@@ -761,7 +763,7 @@ function PersonaConfigureInstructionsContent() {
     hasDraftLoadedRef.current = true
     try {
       const raw = sessionStorage.getItem(instructionsDraftKey(repoId))
-      if (!raw) return
+      if (!raw) { setIsDraftApplied(true); return }
       const draft = JSON.parse(raw) as { instruction?: string; temperature?: number; modelId?: string | null }
       const snapshot = savedSnapshotRef.current
       // Skip applying the draft when all of its values already match the saved
@@ -772,19 +774,26 @@ function PersonaConfigureInstructionsContent() {
         snapshot &&
         (typeof draft.instruction !== 'string' || draft.instruction === snapshot.instruction) &&
         (typeof draft.temperature !== 'number' || draft.temperature === snapshot.temperature) &&
-        (!draft.modelId                        || draft.modelId     === snapshot.modelId)
-      ) return
+        // treat undefined (field absent in old drafts) as "no preference", but
+        // null means the user explicitly cleared the model — don't skip that.
+        (draft.modelId === undefined            || draft.modelId     === snapshot.modelId)
+      ) { setIsDraftApplied(true); return }
       if (typeof draft.instruction === 'string') {
         setInstruction(draft.instruction)
         resetInstructionHistory(draft.instruction)
         setExampleConversations(parseExampleConversations(draft.instruction))
       }
       if (typeof draft.temperature === 'number') setTemperature(draft.temperature)
-      if (draft.modelId && allModels.length > 0) {
+      if (draft.modelId === null) {
+        // User explicitly had no model selected — restore that state so the
+        // picker stays empty instead of falling back to whatever init resolved.
+        setSelectedModel(null)
+      } else if (draft.modelId && allModels.length > 0) {
         const m = allModels.find(mm => stableKey(mm) === draft.modelId)
         if (m) { setSelectedModel(m); writePersonaModelCache(repoId, m) }
       }
     } catch { /* ignore */ }
+    setIsDraftApplied(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally fire only when init completes; allModels captured from closure
   }, [isInitialising, repoId])
 
@@ -975,15 +984,17 @@ function PersonaConfigureInstructionsContent() {
     currentModelId !== savedSnapshotRef.current.modelId ||
     temperature !== savedSnapshotRef.current.temperature
 
-  // Auto-detect change tags
+  // Auto-detect change tags — guarded by isDraftApplied so they never fire
+  // during the initial hydration phase (init load + draft restore). Once
+  // isDraftApplied is true the effects behave exactly as before.
   useEffect(() => {
-    if (!savedSnapshotRef.current) return
+    if (!isDraftApplied || !savedSnapshotRef.current) return
     if (instruction !== savedSnapshotRef.current.instruction) addPendingChangeTag('Instructions')
-  }, [instruction, addPendingChangeTag])
+  }, [isDraftApplied, instruction, addPendingChangeTag])
   useEffect(() => {
-    if (!savedSnapshotRef.current) return
+    if (!isDraftApplied || !savedSnapshotRef.current) return
     if (currentModelId !== savedSnapshotRef.current.modelId || temperature !== savedSnapshotRef.current.temperature) addPendingChangeTag('Model')
-  }, [currentModelId, temperature, addPendingChangeTag])
+  }, [isDraftApplied, currentModelId, temperature, addPendingChangeTag])
 
   // When the instructions page confirms the content is clean (matches the saved
   // snapshot), remove any Instructions/Model tags that may have been added
@@ -1296,14 +1307,14 @@ function PersonaConfigureInstructionsContent() {
                   const hasFlag   = tabDirtyFlags[tab] !== undefined
                   const isDirtyT  = hasFlag ? tabDirtyFlags[tab] ?? false : pendingChangeTags.includes(tab)
                   const isPristine  = !hasFlag && !pendingChangeTags.includes(tab)
-                  const showGray    = isPristine && !publishedVersionId
+                  const showGray    = isPristine && (!publishedVersionId || isInitialising || !isDraftApplied)
                   const bgColor     = showGray ? '#D1D5DB' : (isDirtyT ? '#F97316' : '#6FCF97')
                   const borderColor = showGray ? '#9CA3AF' : (isDirtyT ? '#C2600F' : '#27AE60')
                   return (
                     <div key={`${tab}-light`} aria-hidden style={{ height: 4, backgroundColor: bgColor, border: `1px solid ${borderColor}`, borderRadius: 2, transition: 'background-color 300ms, border-color 300ms' }} />
                   )
                 })}
-                {(anyDirty || publishedVersionId != null || (!!repoId && !!versionId)) && (
+                {isDraftApplied && !isInitialising && (anyDirty || publishedVersionId != null || (!!repoId && !!versionId)) && (
                   <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 10, pointerEvents: 'none', zIndex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
                     {(anyDirty || publishedVersionId != null) && (
                       <>

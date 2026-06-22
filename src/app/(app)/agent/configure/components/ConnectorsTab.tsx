@@ -7,7 +7,7 @@ import { Button } from '@/components/Button'
 import { ArrowUpRightOneIcon } from '@strange-huge/icons'
 import { listConnectors } from '@/lib/api/connectors'
 import { getVersion, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
-import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
+import type { ConnectorCatalogEntry, ConnectorAccountOption } from '@/lib/api/connectors'
 import { CONNECTOR_LOGO_MAP } from '@/lib/connectorLogos'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 
@@ -38,6 +38,14 @@ function SpinnerIcon({ size = 14 }: { size?: number }) {
     >
       <style>{`@keyframes conn-spin { to { transform: rotate(360deg) } }`}</style>
       <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0 }}>
+      <path d="M2.5 3.75L5 6.25L7.5 3.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   )
 }
@@ -107,6 +115,161 @@ function ToggleSwitch({ on, onChange, disabled }: { on: boolean; onChange: () =>
   )
 }
 
+// ── Account options helper ────────────────────────────────────────────────────
+// Builds the list of selectable account options for a connector. Prefers the
+// server-provided account_options array; falls back to scalar fields on the entry
+// when account_options is absent (older catalog responses).
+
+function buildAccountOptions(entry: ConnectorCatalogEntry): ConnectorAccountOption[] {
+  const serverOpts = (entry.account_options ?? []).filter(
+    o => o.connected && o.status === 'active',
+  )
+  if (serverOpts.length > 0) return serverOpts
+
+  const opts: ConnectorAccountOption[] = []
+  if (entry.linked) {
+    opts.push({
+      account_ref:        'personal',
+      connector_slug:     entry.slug,
+      scope:              'personal',
+      account_label:      'Personal',
+      account_identifier: null,
+      connected:          true,
+      status:             'active',
+      team_ids:           [],
+      team_names:         [],
+      shared_account_id:  null,
+      linked_by_user_id:  null,
+      can_manage:         false,
+    })
+  }
+  if (entry.workspace_linked) {
+    opts.push({
+      account_ref:        entry.shared_account_id ? `shared:${entry.shared_account_id}` : 'shared',
+      connector_slug:     entry.slug,
+      scope:              'shared_team',
+      account_label:      entry.account_label ?? 'Shared',
+      account_identifier: entry.account_identifier,
+      connected:          true,
+      status:             'active',
+      team_ids:           [],
+      team_names:         [],
+      shared_account_id:  entry.shared_account_id,
+      linked_by_user_id:  entry.workspace_linked_by,
+      can_manage:         false,
+    })
+  }
+  return opts
+}
+
+// ── Account dropdown ──────────────────────────────────────────────────────────
+
+function AccountDropdown({
+  options,
+  selectedRef,
+  onChange,
+  disabled,
+}: {
+  options:     ConnectorAccountOption[]
+  selectedRef: string | null
+  onChange:    (ref: string) => void
+  disabled?:   boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  const selected = options.find(o => o.account_ref === selectedRef) ?? options[0]
+  const label    = selected?.scope === 'personal' ? 'Personal' : 'Shared'
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', flexShrink: 0 }}>
+      {/* Trigger */}
+      <button
+        onClick={() => { if (!disabled) setOpen(o => !o) }}
+        disabled={disabled}
+        style={{
+          display:        'inline-flex',
+          alignItems:     'center',
+          gap:            4,
+          padding:        '3px 8px',
+          borderRadius:   6,
+          border:         '1px solid var(--neutral-200, #e5ddd7)',
+          backgroundColor: open ? 'var(--neutral-100, #f0ebe6)' : 'white',
+          cursor:         disabled ? 'default' : 'pointer',
+          fontFamily:     'var(--font-body)',
+          fontWeight:     500,
+          fontSize:       12,
+          lineHeight:     '18px',
+          color:          '#3b3632',
+          whiteSpace:     'nowrap',
+          transition:     'background-color 120ms',
+        }}
+      >
+        {label}
+        <ChevronDownIcon />
+      </button>
+
+      {/* Dropdown menu */}
+      {open && (
+        <div style={{
+          position:        'absolute',
+          right:           0,
+          top:             'calc(100% + 4px)',
+          zIndex:          60,
+          backgroundColor: 'white',
+          borderRadius:    10,
+          boxShadow:       '0px 4px 16px 0px rgba(38,33,30,0.14), 0px 0px 0px 1px var(--neutral-100)',
+          minWidth:        180,
+          overflow:        'hidden',
+          padding:         4,
+        }}>
+          {options.map(opt => {
+            const isSelected = opt.account_ref === (selectedRef ?? options[0]?.account_ref)
+            const optLabel   = opt.scope === 'personal' ? 'Personal' : (opt.account_label || 'Shared')
+            return (
+              <button
+                key={opt.account_ref}
+                onClick={() => { onChange(opt.account_ref); setOpen(false) }}
+                style={{
+                  display:         'flex',
+                  flexDirection:   'column',
+                  alignItems:      'flex-start',
+                  width:           '100%',
+                  padding:         '7px 10px',
+                  borderRadius:    6,
+                  border:          'none',
+                  backgroundColor: isSelected ? 'var(--neutral-50, #f7f2ed)' : 'transparent',
+                  cursor:          'pointer',
+                  textAlign:       'left',
+                  gap:             1,
+                }}
+              >
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: isSelected ? 600 : 500, fontSize: 13, color: '#3b3632' }}>
+                  {optLabel}
+                </span>
+                {opt.account_identifier && (
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, color: '#827a74' }}>
+                    {opt.account_identifier}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 
 function SkeletonRow() {
@@ -129,16 +292,27 @@ function PersonaConnectorRow({
   enabled,
   saving,
   onToggle,
+  selectedAccountRef,
+  onAccountChange,
 }: {
-  entry:    ConnectorCatalogEntry
-  enabled:  boolean
-  saving:   boolean
-  onToggle: () => void
+  entry:              ConnectorCatalogEntry
+  enabled:            boolean
+  saving:             boolean
+  onToggle:           () => void
+  selectedAccountRef: string | null
+  onAccountChange:    (ref: string) => void
 }) {
+  const accountOptions = buildAccountOptions(entry)
+  const hasChoice      = accountOptions.length > 1
+  const selectedOpt    = accountOptions.find(o => o.account_ref === selectedAccountRef) ?? accountOptions[0]
+
+  // Description line: prefer the selected account's email; fall back to connector description.
+  const descriptionText = selectedOpt?.account_identifier ?? entry.description
+
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8,
-      height: 56, padding: '0 12px', borderRadius: 12,
+      minHeight: 56, padding: '0 12px', borderRadius: 12,
     }}>
       <div style={{
         width: 38, height: 38, backgroundColor: 'white', borderRadius: 5,
@@ -153,12 +327,43 @@ function PersonaConnectorRow({
           {entry.display_name}
         </p>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: '#827a74', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {entry.description}
+          {descriptionText}
         </p>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         {saving && <SpinnerIcon size={12} />}
+
+        {/* Account picker — only shown when both personal and shared are available */}
+        {hasChoice && (
+          <AccountDropdown
+            options={accountOptions}
+            selectedRef={selectedAccountRef}
+            onChange={onAccountChange}
+            disabled={saving}
+          />
+        )}
+
+        {/* Static account badge when only one option exists */}
+        {!hasChoice && accountOptions.length === 1 && (
+          <span style={{
+            display:         'inline-flex',
+            alignItems:      'center',
+            padding:         '3px 8px',
+            borderRadius:    6,
+            border:          '1px solid var(--neutral-200, #e5ddd7)',
+            backgroundColor: 'var(--neutral-50, #f7f2ed)',
+            fontFamily:      'var(--font-body)',
+            fontWeight:      500,
+            fontSize:        12,
+            lineHeight:      '18px',
+            color:           '#6a625d',
+            whiteSpace:      'nowrap',
+          }}>
+            {accountOptions[0].scope === 'personal' ? 'Personal' : (accountOptions[0].account_label || 'Shared')}
+          </span>
+        )}
+
         <ToggleSwitch on={enabled} onChange={onToggle} disabled={saving} />
       </div>
     </div>
@@ -177,8 +382,6 @@ const SECTION_LABEL: React.CSSProperties = {
 }
 
 // ── User-removed connector tracking (per version) ─────────────────────────────
-// Tracks connectors the user explicitly toggled OFF so they don't get
-// auto-enabled again when linked connectors are synced from Settings.
 
 function removedKey(versionId: string) {
   return `persona_conn_removed_${versionId}`
@@ -212,6 +415,33 @@ function clearUserRemovedSlug(versionId: string, slug: string) {
   } catch {}
 }
 
+// ── Account selection persistence (per version) ───────────────────────────────
+// Stores {slug → account_ref} in localStorage so the chosen account survives
+// page reloads. Keys: "personal" | "shared:{shared_account_id}".
+
+function accountsKey(versionId: string) {
+  return `persona_conn_accounts_${versionId}`
+}
+
+function getStoredAccountRefs(versionId: string): Record<string, string> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(accountsKey(versionId))
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function storeAccountRef(versionId: string, slug: string, ref: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const stored = getStoredAccountRefs(versionId)
+    stored[slug] = ref
+    localStorage.setItem(accountsKey(versionId), JSON.stringify(stored))
+  } catch {}
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ConnectorsTab({
@@ -230,16 +460,17 @@ export default function ConnectorsTab({
   const { push } = useRouter()
   const { safeNavigate } = usePersonaConfigure()
 
-  const [linked,          setLinked]          = useState<ConnectorCatalogEntry[]>([])
-  const [personaSlugs,    setPersonaSlugs]    = useState<Set<string>>(new Set())
-  const [blockedSlugs,    setBlockedSlugs]    = useState<Set<string>>(new Set())
-  const [confirmSlug,     setConfirmSlug]     = useState<string | null>(null)
-  const [showNavModal,    setShowNavModal]     = useState(false)
-  const [isSavingNav,     setIsSavingNav]     = useState(false)
-  const [loading,         setLoading]         = useState(true)
-  const [loadError,       setLoadError]       = useState('')
-  const [savingSlug,      setSavingSlug]      = useState<string | null>(null)
-  const [searchQuery,     setSearchQuery]     = useState('')
+  const [linked,           setLinked]           = useState<ConnectorCatalogEntry[]>([])
+  const [personaSlugs,     setPersonaSlugs]     = useState<Set<string>>(new Set())
+  const [blockedSlugs,     setBlockedSlugs]     = useState<Set<string>>(new Set())
+  const [connectorAccounts, setConnectorAccounts] = useState<Record<string, string>>({})
+  const [confirmSlug,      setConfirmSlug]      = useState<string | null>(null)
+  const [showNavModal,     setShowNavModal]      = useState(false)
+  const [isSavingNav,      setIsSavingNav]      = useState(false)
+  const [loading,          setLoading]          = useState(true)
+  const [loadError,        setLoadError]        = useState('')
+  const [savingSlug,       setSavingSlug]       = useState<string | null>(null)
+  const [searchQuery,      setSearchQuery]      = useState('')
 
   // Stable ref so callbacks never force load/handleToggle recreation
   const onChangeRef = useRef(onConnectorsChange)
@@ -254,11 +485,9 @@ export default function ConnectorsTab({
         listConnectors(),
         getVersion(repoId, versionId),
       ])
-      const linkedConnectors = catalog.filter(c => c.linked)
+      const linkedConnectors = catalog.filter(c => c.linked || c.org_enabled === true)
       setLinked(linkedConnectors)
 
-      // blocked_connectors is a block-list: slugs in it are disabled; all
-      // other linked connectors are considered enabled.
       const existingBlocked = new Set<string>(version.blocked_connectors ?? [])
       const desired = new Set<string>(
         linkedConnectors.filter(c => !existingBlocked.has(c.slug)).map(c => c.slug),
@@ -267,6 +496,9 @@ export default function ConnectorsTab({
       setPersonaSlugs(desired)
       setBlockedSlugs(existingBlocked)
       onChangeRef.current?.([...desired], [...existingBlocked])
+
+      // Load persisted account selections from localStorage
+      setConnectorAccounts(getStoredAccountRefs(versionId))
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load connectors'
       setLoadError(msg)
@@ -278,19 +510,22 @@ export default function ConnectorsTab({
 
   useEffect(() => { void load() }, [load])
 
+  const handleAccountChange = useCallback((slug: string, ref: string) => {
+    if (!versionId) return
+    setConnectorAccounts(prev => ({ ...prev, [slug]: ref }))
+    storeAccountRef(versionId, slug, ref)
+  }, [versionId])
+
   const handleToggle = useCallback((slug: string) => {
     if (savingSlug || !repoId || !versionId) return
     if (personaSlugs.has(slug)) {
-      // Show confirmation before disabling
       setConfirmSlug(slug)
     } else {
-      // Re-enable immediately (no confirmation needed)
       void doEnable(slug)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- doEnable captured below
   }, [savingSlug, repoId, versionId, personaSlugs])
 
-  // Re-enable a connector: unblock it for this persona version
   const doEnable = useCallback(async (slug: string) => {
     if (!repoId || !versionId) return
     setSavingSlug(slug)
@@ -319,7 +554,6 @@ export default function ConnectorsTab({
     }
   }, [repoId, versionId, personaSlugs, blockedSlugs, linked, personaName])
 
-  // Disable a connector (called after confirm dialog confirms)
   const doDisable = useCallback(async (slug: string) => {
     setConfirmSlug(null)
     if (!repoId || !versionId) return
@@ -349,7 +583,6 @@ export default function ConnectorsTab({
     }
   }, [repoId, versionId, personaSlugs, blockedSlugs, linked, personaName])
 
-  // Filter by search query
   const matchesSearch = useCallback((c: ConnectorCatalogEntry) => {
     if (!searchQuery.trim()) return true
     const q = searchQuery.toLowerCase()
@@ -542,7 +775,7 @@ export default function ConnectorsTab({
             {linked.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '24px 16px', textAlign: 'center' }}>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0, maxWidth: 300 }}>
-                  No connectors have been connected yet. Activate connectors in Settings to use them in this agent.
+                  No connectors are available yet. Connect or enable connectors in Settings to use them in this agent.
                 </p>
                 <Button variant="secondary" size="sm" onClick={() => safeNavigate('/settings/connectors')}>
                   Go to Settings
@@ -563,6 +796,8 @@ export default function ConnectorsTab({
                     enabled
                     saving={savingSlug === c.slug}
                     onToggle={() => void handleToggle(c.slug)}
+                    selectedAccountRef={connectorAccounts[c.slug] ?? null}
+                    onAccountChange={ref => handleAccountChange(c.slug, ref)}
                   />
                 ))}
               </div>
@@ -586,6 +821,8 @@ export default function ConnectorsTab({
                       enabled={false}
                       saving={savingSlug === c.slug}
                       onToggle={() => void handleToggle(c.slug)}
+                      selectedAccountRef={connectorAccounts[c.slug] ?? null}
+                      onAccountChange={ref => handleAccountChange(c.slug, ref)}
                     />
                   ))}
                 </div>

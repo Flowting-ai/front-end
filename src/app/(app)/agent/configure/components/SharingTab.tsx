@@ -28,7 +28,7 @@ import {
   revokeShare,
   type PersonaShare,
 } from '@/lib/api/persona-shares'
-import { getPersonaRepo, setPersonaVisibility } from '@/lib/api/personas'
+import { getPersonaRepo, setPersonaVisibility, bustPersonasCache } from '@/lib/api/personas'
 import { ApiError } from '@/lib/api/client'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
@@ -241,6 +241,9 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
   const [visibility,        setVisibility]        = useState<Visibility>('private')
   const [selectedTeamIds,   setSelectedTeamIds]   = useState<string[]>([])
   const [visibilitySaving,  setVisibilitySaving]  = useState(false)
+  // Tracks the last-saved state so the button is disabled when nothing changed.
+  const [savedVisibility,   setSavedVisibility]   = useState<Visibility>('private')
+  const [savedTeamIds,      setSavedTeamIds]      = useState<string[]>([])
 
   // Team dropdown scroll-edge state (drives blur overlays)
   const [atTop,    setAtTop]    = useState(true)
@@ -318,6 +321,8 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
         if (cancelled) return
         setVisibility(repo.visibility)
         setSelectedTeamIds(repo.team_ids ?? [])
+        setSavedVisibility(repo.visibility)
+        setSavedTeamIds(repo.team_ids ?? [])
       })
       .catch(() => {})
     return () => { cancelled = true }
@@ -467,18 +472,53 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
 
       {/* ── Visibility ──────────────────────────────────────────────────────── */}
       <div data-help-id="help-sharing-visibility" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: 14,
-            lineHeight: 1.5,
-            letterSpacing: '0.07px',
-            color: '#0a0a0a',
-          }}
-        >
-          Visibility
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: 20,
+              lineHeight: 1.4,
+              letterSpacing: '0.07px',
+              color: '#0a0a0a',
+            }}
+          >
+            Visibility
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={
+              visibilitySaving ||
+              !repoId ||
+              (visibility === savedVisibility && selectedTeamIds.slice().sort().join(',') === savedTeamIds.slice().sort().join(',')) ||
+              (visibility === 'team' && (!orgId || selectedTeamIds.length === 0))
+            }
+            onClick={async () => {
+              if (!repoId) { toast.error('Save the agent first.'); return }
+              if (visibility === 'team' && selectedTeamIds.length === 0) { toast.error('Select at least one team.'); return }
+              setVisibilitySaving(true)
+              try {
+                await setPersonaVisibility(
+                  repoId,
+                  visibility === 'private' ? 'private' : 'team',
+                  visibility === 'team' ? selectedTeamIds : undefined,
+                )
+                setSavedVisibility(visibility)
+                setSavedTeamIds(selectedTeamIds)
+                bustPersonasCache()
+                onChanged?.()
+                toast.success('Visibility updated')
+              } catch (err) {
+                toast.error((err as ApiError).message ?? 'Failed to update visibility')
+              } finally {
+                setVisibilitySaving(false)
+              }
+            }}
+          >
+            {visibilitySaving ? 'Saving…' : 'Save visibility'}
+          </Button>
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <VisibilityRow
@@ -644,38 +684,6 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
           />
         </div>
 
-        {/* Save visibility button */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={
-              visibilitySaving ||
-              !repoId ||
-              (visibility === 'team' && (!orgId || selectedTeamIds.length === 0))
-            }
-            onClick={async () => {
-              if (!repoId) { toast.error('Save the agent first.'); return }
-              if (visibility === 'team' && selectedTeamIds.length === 0) { toast.error('Select at least one team.'); return }
-              setVisibilitySaving(true)
-              try {
-                await setPersonaVisibility(
-                  repoId,
-                  visibility === 'private' ? 'private' : 'team',
-                  visibility === 'team' ? selectedTeamIds : undefined,
-                )
-                onChanged?.()
-                toast.success('Visibility updated')
-              } catch (err) {
-                toast.error((err as ApiError).message ?? 'Failed to update visibility')
-              } finally {
-                setVisibilitySaving(false)
-              }
-            }}
-          >
-            {visibilitySaving ? 'Saving…' : 'Save visibility'}
-          </Button>
-        </div>
       </div>
 
       {/* ── Divider ─────────────────────────────────────────────────────────── */}

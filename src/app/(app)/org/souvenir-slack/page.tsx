@@ -208,11 +208,9 @@ export default function SouvenirSlackPage() {
     getOrgSlackStatus(orgId)
       .then(s => {
         setStatus(s)
-        setModalOpen(isAdmin && !s.connected)
       })
       .catch(() => {
         setStatus({ connected: false, workspaces: [] })
-        setModalOpen(isAdmin)
       })
       .finally(() => setStatusLoading(false))
   }
@@ -224,12 +222,10 @@ export default function SouvenirSlackPage() {
       .then(s => {
         if (cancelled) return
         setStatus(s)
-        setModalOpen(isAdmin && !s.connected)
       })
       .catch(() => {
         if (cancelled) return
         setStatus({ connected: false, workspaces: [] })
-        setModalOpen(isAdmin)
       })
       .finally(() => {
         if (!cancelled) setStatusLoading(false)
@@ -356,7 +352,13 @@ export default function SouvenirSlackPage() {
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
             Connect your workspace before creating project channels.
           </p>
-          <Button variant="default" size="sm" style={{ marginTop: 4 }} onClick={() => setModalOpen(true)}>
+          <Button
+            variant="default"
+            size="sm"
+            style={{ marginTop: 4 }}
+            onClick={() => setModalOpen(true)}
+            leftIcon={<img src="/connector-logos/slack.svg" alt="" width={14} height={14} style={{ objectFit: 'contain', display: 'block' }} />}
+          >
             Connect Slack workspace
           </Button>
         </div>

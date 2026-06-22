@@ -258,14 +258,22 @@ export async function pollConnectorUntilActive(
     initialIntervalMs = 2_000,
     maxIntervalMs     = 30_000,
     timeoutMs         = 120_000,
-  }: { initialIntervalMs?: number; maxIntervalMs?: number; timeoutMs?: number } = {},
+    signal,
+  }: { initialIntervalMs?: number; maxIntervalMs?: number; timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<ConnectorCatalogEntry> {
   const deadline = Date.now() + timeoutMs
   let intervalMs  = initialIntervalMs
   while (Date.now() < deadline) {
+    if (signal?.aborted) throw new DOMException('Polling aborted', 'AbortError')
     const entry = await getConnector(slug)
     if (entry.linked) return entry
-    await new Promise<void>((resolve) => setTimeout(resolve, intervalMs))
+    await new Promise<void>((resolve, reject) => {
+      const t = setTimeout(resolve, intervalMs)
+      signal?.addEventListener('abort', () => {
+        clearTimeout(t)
+        reject(new DOMException('Polling aborted', 'AbortError'))
+      }, { once: true })
+    })
     // Double the interval each round, but never exceed the cap.
     intervalMs = Math.min(intervalMs * 2, maxIntervalMs)
   }

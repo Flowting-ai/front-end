@@ -79,16 +79,6 @@ function BrandMarks() {
   )
 }
 
-// ── ArrowRight ───────────────────────────────────────────────────────────────────
-
-function ArrowRight() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden style={{ display: 'block' }}>
-      <path d="M3.5 8h9M9 4.5L12.5 8 9 11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 // ── Card ───────────────────────────────────────────────────────────────────────
 
 interface SlackConnectModalProps {
@@ -253,11 +243,14 @@ export function SlackConnectModal({ isOpen, onClose, orgId, onConnected }: Slack
               <Button variant="outline" size="sm" onClick={onClose} disabled={connecting}>
                 Cancel
               </Button>
-              <Button variant="default" size="sm" loading={connecting} onClick={handleConnect}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  Connect Slack workspace
-                  <ArrowRight />
-                </span>
+              <Button
+                variant="default"
+                size="sm"
+                loading={connecting}
+                onClick={handleConnect}
+                leftIcon={<img src="/connector-logos/slack.svg" alt="" width={14} height={14} style={{ objectFit: 'contain', display: 'block' }} />}
+              >
+                Connect Slack workspace
               </Button>
             </div>
           </div>

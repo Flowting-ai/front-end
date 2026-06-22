@@ -10,7 +10,7 @@ import { AccountMenu } from "@/components/AccountMenu";
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
-import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat } from "@/lib/api/personas";
+import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { listTasks } from "@/lib/api/tasks";
 import type { ScheduledTaskListItem } from "@/lib/api/tasks";
@@ -792,7 +792,7 @@ function PersonaChatItem({
 
 // -- Personas section - all personas, each collapsible with their chats -------
 
-function PersonasSectionAll() {
+function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   const { push }            = useRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
@@ -808,13 +808,13 @@ function PersonasSectionAll() {
     Record<string, { chats: PersonaChat[]; loaded: boolean; loading: boolean }>
   >({})
 
-  // Load all personas once on mount
+  // Load personas on mount; filter to team-shared only when teamId is provided.
   useEffect(() => {
     fetchPersonas()
-      .then(setPersonas)
+      .then(list => setPersonas(personasForTeamContext(list, teamId ?? null)))
       .catch(console.error)
       .finally(() => setIsLoading(false))
-  }, [])
+  }, [teamId])
 
   // Load chats for a given persona — idempotent (no-op if already loaded/loading)
   const loadPersonaChats = useCallback((personaId: string) => {
@@ -947,7 +947,7 @@ function PersonasSectionAll() {
                 color:      "var(--neutral-400)",
               }}
             >
-              No agents yet
+              {teamId ? 'No shared agents for this team yet' : 'No agents yet'}
             </div>
           )}
 
@@ -1098,7 +1098,7 @@ function LeftSidebarImpl({
   const chatSearchParams = useSearchParams();
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
-  const { chats: projectChats } = useProjects();
+  const { chats: projectChats, getProject } = useProjects();
   const { orgId, org, orgRole, currentUserRole, teams, activeTeamId, setActiveTeamId } = useOrg();
 
   // -- Global search ---------------------------------------------------------
@@ -1107,6 +1107,12 @@ function LeftSidebarImpl({
   const isPersonaPage = pathname?.startsWith("/agents") || pathname?.startsWith("/agent");
   const isProjectPage = pathname?.startsWith("/project") ?? false;
   const isBrainPage   = pathname?.startsWith("/brain") ?? false;
+
+  // Detect team project context: extract the project id from the path and look
+  // up its teamId so the agents tab can show only team-shared agents.
+  const currentProjectId   = isProjectPage ? (pathname?.match(/^\/project\/([^/]+)/)?.[1] ?? null) : null
+  const currentProject     = currentProjectId ? getProject(currentProjectId) : undefined
+  const currentProjectTeamId = currentProject?.teamId ?? null
   const isAdminPage   = pathname?.startsWith("/org") ?? false;
   const isTeamSettingsPage = pathname?.startsWith("/teams/") ?? false;
   const isNewChatPage = pathname === '/chat' && !chatSearchParams.get('id');
@@ -1291,8 +1297,13 @@ function LeftSidebarImpl({
       onChatTabClick={isPersonaPage ? () => push("/chat") : handleNewChat}
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
-      onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }}
+      onPersonasClick={currentProjectTeamId
+        // On team project pages: just switch the sidebar tab — don't navigate away.
+        ? undefined
+        : () => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }
+      }
       onNewAgentChat={() => push("/agents")}
+      agentItems={currentProjectTeamId ? <PersonasSectionAll teamId={currentProjectTeamId} /> : undefined}
       onBrainClick={() => { toast.info("Opening Brain", { id: 'nav' }); push("/brain") }}
       // Clicking the admin tab switches the sidebar body to admin AND navigates
       // to General — always landing on General regardless of prior admin page.

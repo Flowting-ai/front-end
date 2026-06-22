@@ -178,6 +178,9 @@ export function PersonaChatInterface({
     setStreamState,
     endpoint: "/api/persona-chat",
     onStopBackend: handleStopBackend,
+    // Persona model is pre-seeded from the agent's configured version; ignore
+    // backend model_selected events so the correct name/logo always shows.
+    skipModelSelected: true,
   });
 
   // ── Persona load + model sync ─────────────────────────────────────────────

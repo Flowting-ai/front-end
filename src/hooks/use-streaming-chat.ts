@@ -35,6 +35,9 @@ export interface UseStreamingChatParams {
   /** Ref to the chatId currently displayed in the UI. When provided, setStreamState calls are
    *  suppressed for background streams whose chatId no longer matches what is displayed. */
   currentChatIdRef?: React.RefObject<string | undefined>
+  /** When true, model_selected SSE events are ignored. Use in persona chat where the model is
+   *  pre-seeded from the agent's configured version and must not be overwritten by the backend. */
+  skipModelSelected?: boolean
 }
 
 // ── Batch-flush interval ──────────────────────────────────────────────────────
@@ -53,6 +56,7 @@ export function useStreamingChat({
   endpoint = "/api/chat",
   onStopBackend,
   currentChatIdRef,
+  skipModelSelected,
 }: UseStreamingChatParams) {
   const xhrRef = useRef<XMLHttpRequest | null>(null)
   const stopRequestedRef = useRef(false)
@@ -665,6 +669,9 @@ export function useStreamingChat({
           }
 
           if (eventName === "model_selected") {
+            // In persona chat the model is pre-seeded from the agent's configured
+            // version; ignore the backend event to avoid overwriting the correct info.
+            if (skipModelSelected) continue
             // Backend selected a model - update the loading message with model info
             const modelName = asString(parsed.model_name) ?? asString(parsed.modelName)
             if (modelName) {

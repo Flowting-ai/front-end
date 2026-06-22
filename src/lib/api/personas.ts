@@ -255,7 +255,13 @@ export function personasForTeamContext(
   teamId: string | null | undefined,
 ): Persona[] {
   if (!teamId) return personas
-  return personas.filter(p => p.visibility === 'team' && p.teamIds.includes(teamId))
+  // The list endpoint never returns team_ids (always []), so when teamIds is
+  // empty we trust the visibility flag rather than dropping the persona entirely.
+  // If team_ids are ever populated by the list endpoint, the stricter check kicks in.
+  return personas.filter(p =>
+    p.visibility === 'team' &&
+    (p.teamIds.length === 0 || p.teamIds.includes(teamId))
+  )
 }
 
 export async function getPersona(repoId: string): Promise<Persona> {

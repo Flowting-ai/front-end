@@ -1235,60 +1235,6 @@ export default function OrgGeneralPage() {
             </p>
           </div>
 
-          {/* Transfer ownership */}
-          <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24 }}>
-              <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                  Transfer ownership
-                </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: 0 }}>
-                  Move ownership to another member. You will become an admin.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleOpenTransfer}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '5px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                  backgroundColor: 'white', flexShrink: 0,
-                  boxShadow: '0px 1px 1.5px 0px rgba(24,2,2,0.05), 0px 1px 2px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-200, #fecaca)',
-                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
-                  color: 'var(--red-700, #b91c1c)',
-                }}
-              >
-                Transfer
-              </button>
-            </div>
-            {transferOpen && (
-              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <select
-                  value={transferTarget}
-                  onChange={e => setTransferTarget(e.target.value)}
-                  style={{
-                    fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)',
-                    border: '1px solid var(--neutral-200)', borderRadius: 8,
-                    padding: '8px 12px', backgroundColor: 'white', cursor: 'pointer', width: '100%',
-                  }}
-                >
-                  <option value="">Select new owner…</option>
-                  {orgMembers.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.name || m.email} {m.email && m.name ? `(${m.email})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <Button variant="outline" size="sm" onClick={() => setTransferOpen(false)}>Cancel</Button>
-                  <Button variant="default" size="sm" disabled={!transferTarget || transferring} onClick={handleTransferOwnership}>
-                    {transferring ? 'Transferring…' : 'Confirm transfer'}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Delete organization — org admin+ only; hidden from members. */}
           {canDeleteOrg && (
           <div style={{ padding: '12px 24px' }}>

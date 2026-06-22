@@ -544,7 +544,7 @@ function DefaultAgentItems({ agents, activeFolder, expandedFolders, selectedItem
                 label={agentLabels[agent.id] ?? agent.label}
                 active={activeFolder === agent.id}
                 expanded={expandedFolders.has(agent.id)}
-                icon={<UserAiIcon size={20} />}
+                icon={<UserAiIcon size={20} animated />}
                 onClick={() => handleFolderOpen(agent.id)}
                 onExpandedChange={(v) => onFolderExpand(agent.id, v)}
                 onCommit={(val) => setAgentLabels(prev => ({ ...prev, [agent.id]: val || prev[agent.id] }))}
@@ -1160,39 +1160,53 @@ export function Sidebar({
             </div>
           </div>
 
-          {/* ── Tab strip — Chats / Agents / Brain.
-                Admin is NOT a tab — entered via the OrgBadge.
-                When in admin mode, no tab is highlighted (value=""). ── */}
+          {/* ── Tab strip + Manage Organization.
+                In teams accounts (orgId present) both are grouped inside a
+                rounded border so they read as a single navigation cluster. ── */}
           {!isCollapsed && (
-            <div style={{ paddingLeft: '12px', paddingRight: '12px' }}>
+            <div
+              style={orgId ? {
+                margin: '0 8px',
+                padding: '5px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '5px',
+                border: '1px solid var(--neutral-200)',
+                borderRadius: '10px',
+              } : {
+                paddingLeft: '12px',
+                paddingRight: '12px',
+              }}
+            >
+              {/* Chats / Agents / Brain tabs.
+                  Admin is NOT a tab — entered via the OrgBadge.
+                  When in admin mode, no tab is highlighted (value=""). */}
               <Tabs
                 value={bodySection === 'admin' ? '' : bodySection}
                 onValueChange={(v) => onSelectSection(v as 'chats' | 'agents' | 'brain')}
               >
                 <TabsList size="medium" fluid>
                   <TabsTrigger value="chats"  icon={<BubbleChatIcon    size={16} />} onClick={onChatTabClick}>Chats</TabsTrigger>
-                  <TabsTrigger value="agents" icon={<UserAiIcon        size={16} />} onClick={onPersonasClick}>Agents</TabsTrigger>
-                  <TabsTrigger value="brain"  icon={<NeuralNetworkIcon size={16} />} onClick={onBrainClick}>Brain</TabsTrigger>
+                  <TabsTrigger value="agents" icon={<UserAiIcon        size={16} animated />} onClick={onPersonasClick}>Agents</TabsTrigger>
+                  <TabsTrigger value="brain"  icon={<NeuralNetworkIcon size={16} animated />} onClick={onBrainClick}>Brain</TabsTrigger>
                 </TabsList>
               </Tabs>
-            </div>
-          )}
 
-          {/* Manage Organization — shown below tabs for all sections when admin */}
-          {showAdmin && !isCollapsed && (
-            <div style={{ paddingLeft: '12px', paddingRight: '12px', display: 'flex' }}>
-              <OrgBadge
-                orgName={orgName ?? ''}
-                fullName={orgName}
-                orgLogoSrc={orgLogoSrc}
-                orgId={orgId}
-                color={orgColor}
-                interactive
-                fluid
-                active={bodySection === 'admin'}
-                onClick={() => onSelectSection('admin')}
-                sublabel={orgBadgeSublabel}
-              />
+              {/* Manage Organization — shown below tabs for admin/owner roles */}
+              {showAdmin && (
+                <OrgBadge
+                  orgName={orgName ?? ''}
+                  fullName={orgName}
+                  orgLogoSrc={orgLogoSrc}
+                  orgId={orgId}
+                  color={orgColor}
+                  interactive
+                  fluid
+                  active={bodySection === 'admin'}
+                  onClick={() => onSelectSection('admin')}
+                  sublabel={orgBadgeSublabel}
+                />
+              )}
             </div>
           )}
 
@@ -1216,7 +1230,7 @@ export function Sidebar({
                   variant="new-chat"
                   label={computedNewChatLabel}
                   selected={newChatButtonSelected ?? selectedItem === 'new-chat'}
-                  icon={<BubbleChatAddIcon size={20} animated />}
+                  icon={bodySection === 'agents' ? <UserAiIcon size={20} animated /> : <BubbleChatAddIcon size={20} animated />}
                   onClick={() => {
                     setSelectedItem('new-chat')
                     setActiveFolder(null)
@@ -1291,7 +1305,7 @@ export function Sidebar({
                 <SidebarMenuItem
                   collapsed
                   variant="default"
-                  icon={<UserAiIcon size={20} />}
+                  icon={<UserAiIcon size={20} animated />}
                   label="Agents"
                   selected={bodySection === 'agents'}
                   onClick={() => onSelectSection('agents')}

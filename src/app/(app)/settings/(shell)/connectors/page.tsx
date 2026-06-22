@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { Switch } from '@/components/Switch'
-import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import {
   listConnectors,
   initiateLink,
@@ -608,13 +607,17 @@ function useConnectFlow(
   const [state,        setState]        = useState<ConnectState>('idle')
   const [errorMsg,     setErrorMsg]     = useState('')
   const [apiKeyValues, setApiKeyValues] = useState<Record<string, string>>({})
-  const abortedRef = useRef(false)
+  const abortedRef  = useRef(false)
+  const pollAbortRef = useRef<AbortController | null>(null)
   // Reset on every effect setup so React StrictMode's mount→cleanup→mount
   // cycle doesn't leave abortedRef stuck at true (which would silently bail
   // every async handler — manifesting as "click Connect, nothing happens").
   useEffect(() => {
     abortedRef.current = false
-    return () => { abortedRef.current = true }
+    return () => {
+      abortedRef.current = true
+      pollAbortRef.current?.abort()
+    }
   }, [])
 
   const startOAuth = useCallback((initData?: Record<string, string>) => {
@@ -645,28 +648,58 @@ function useConnectFlow(
           window.open(url, '_blank')
         }
         setState('polling')
-        return pollConnectorUntilActive(entry.slug)
-      })
-      .then((activeEntry) => {
-        if (!activeEntry || abortedRef.current) return
-        popup?.close()
-        setState('idle')
-        toast.success(`${entry.display_name} connected`)
-        onConnected(activeEntry)
+
+        pollAbortRef.current?.abort()
+        pollAbortRef.current = new AbortController()
+        const { signal } = pollAbortRef.current
+
+        // Detect the user closing the popup without completing auth.
+        // When closed, abort polling immediately instead of waiting for the 120s timeout.
+        const closedCheck = setInterval(() => {
+          if (popup?.closed) {
+            clearInterval(closedCheck)
+            pollAbortRef.current?.abort()
+            if (!abortedRef.current) {
+              setState('idle')
+              toast.info(`${entry.display_name} connection cancelled`)
+            }
+          }
+        }, 1_000)
+
+        return pollConnectorUntilActive(entry.slug, { signal })
+          .then((activeEntry) => {
+            clearInterval(closedCheck)
+            if (!activeEntry || abortedRef.current) return
+            popup?.close()
+            setState('idle')
+            toast.success(`${entry.display_name} connected`)
+            onConnected(activeEntry)
+          })
+          .catch((err: unknown) => {
+            clearInterval(closedCheck)
+            if (abortedRef.current) return
+            // User closed the popup — not an error, just silently reset
+            if (err instanceof DOMException && err.name === 'AbortError') return
+            popup?.close()
+            setState('error')
+            let msg = err instanceof Error ? err.message : 'Connection failed'
+            // For 5xx, prefer the verbatim backend detail (e.g. "Multiple connected
+            // accounts found...") instead of the laundered generic message.
+            if (err instanceof ApiError && err.status >= 500) {
+              msg = err.rawMessage
+                ? `${entry.display_name} (${err.status}): ${err.rawMessage}`
+                : `${entry.display_name}: backend returned ${err.status}. ` +
+                  `The connector provider may not be configured (check backend logs).`
+            }
+            setErrorMsg(msg)
+            toast.error(msg)
+          })
       })
       .catch((err: unknown) => {
         if (abortedRef.current) return
         popup?.close()
         setState('error')
-        let msg = err instanceof Error ? err.message : 'Connection failed'
-        // For 5xx, prefer the verbatim backend detail (e.g. "Multiple connected
-        // accounts found...") instead of the laundered generic message.
-        if (err instanceof ApiError && err.status >= 500) {
-          msg = err.rawMessage
-            ? `${entry.display_name} (${err.status}): ${err.rawMessage}`
-            : `${entry.display_name}: backend returned ${err.status}. ` +
-              `The connector provider may not be configured (check backend logs).`
-        }
+        const msg = err instanceof Error ? err.message : 'Connection failed'
         setErrorMsg(msg)
         toast.error(msg)
       })
@@ -1045,14 +1078,13 @@ function SkeletonCard() {
 export default function ConnectorsPage() {
   const { user } = useAuth()
   const { orgId } = useOrg()
-  const [mainTab,        setMainTab]        = useState('my')
-  const [searchQuery,    setSearchQuery]    = useState('')
-  const [isSearching,    setIsSearching]    = useState(false)
-  const [suggestionsOn,  setSuggestionsOn]  = useState(false)
-  const [connectors,     setConnectors]     = useState<ConnectorCatalogEntry[]>([])
-  const [loading,        setLoading]        = useState(true)
-  const [loadError,      setLoadError]      = useState('')
-  const [modalEntry,     setModalEntry]     = useState<ConnectorCatalogEntry | null>(null)
+  const [searchQuery,         setSearchQuery]         = useState('')
+  const [isSearching,         setIsSearching]         = useState(false)
+  const [suggestionsOn,       setSuggestionsOn]       = useState(false)
+  const [connectors,          setConnectors]          = useState<ConnectorCatalogEntry[]>([])
+  const [loading,             setLoading]             = useState(true)
+  const [loadError,           setLoadError]           = useState('')
+  const [modalEntry,          setModalEntry]          = useState<ConnectorCatalogEntry | null>(null)
 
   const fetchConnectors = useCallback(async () => {
     setLoading(true)
@@ -1072,21 +1104,11 @@ export default function ConnectorsPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- initial connector load hydrates local UI state from the API
   useEffect(() => { void fetchConnectors() }, [fetchConnectors])
 
-  const isTeamsPlan = user?.roleFit === 'small_team' || user?.roleFit === 'large_team'
-  const hasWorkspacePlan = isTeamsPlan || Boolean(user?.orgId ?? orgId)
-  const hasWorkspaceConnectors = connectors.some(hasConnectedWorkspaceAccount)
-  const canSeeWorkspaceTab = hasWorkspacePlan || hasWorkspaceConnectors
-  const activeMainTab = canSeeWorkspaceTab ? mainTab : 'my'
-
   // Update a single entry in state (after connect / permission change / disconnect)
   const handleUpdate = useCallback((updated: ConnectorCatalogEntry) => {
     setConnectors(prev => prev.map(c => c.slug === updated.slug ? updated : c))
-    // Sync modal if it's open for this connector
     setModalEntry(prev => prev?.slug === updated.slug ? updated : prev)
-    // If disconnected, close modal
-    if (!updated.linked) {
-      setModalEntry(null)
-    }
+    if (!updated.linked) setModalEntry(null)
   }, [])
 
   const handleManage = useCallback((entry: ConnectorCatalogEntry) => {
@@ -1106,25 +1128,18 @@ export default function ConnectorsPage() {
     return connectors
   })()
 
-  const activeFiltered = activeMainTab === 'workspace'
-    ? filtered.filter(hasConnectedWorkspaceAccount)
-    : filtered
   const browse = useConnectorBrowse(
-    activeFiltered,
+    filtered,
     (c: ConnectorCatalogEntry) => c.slug,
-    { resetKey: `${searchQuery}|${activeMainTab}` },
+    { resetKey: searchQuery },
   )
-  const isConnected = (c: ConnectorCatalogEntry) => activeMainTab === 'workspace'
-    ? hasConnectedWorkspaceAccount(c)
-    : c.linked
-  const connectedTotal = browse.filteredItems.filter(isConnected).length
-  const connected = browse.pageItems.filter(isConnected)
-  const available = browse.pageItems.filter(c => !isConnected(c))
+  const connectedTotal = browse.filteredItems.filter(c => c.linked).length
+  const connected = browse.pageItems.filter(c => c.linked)
+  const available = browse.pageItems.filter(c => !c.linked)
   const emptyMessage = searchQuery
     ? `No connectors found for "${searchQuery}"`
-    : activeMainTab === 'workspace'
-      ? 'No connected workspace shared accounts yet.'
-      : 'No connectors available.'
+    : 'No connectors available.'
+
 
   return (
     <>
@@ -1158,18 +1173,10 @@ export default function ConnectorsPage() {
               fontSize:   24,
               lineHeight: '32px',
               color:      'var(--neutral-900)',
-              margin:     '0 0 12px',
+              margin:     0,
             }}>
               Connectors
             </h1>
-            {canSeeWorkspaceTab && (
-              <Tabs value={activeMainTab} onValueChange={setMainTab}>
-                <TabsList>
-                  <TabsTrigger value="my">My Connectors</TabsTrigger>
-                  <TabsTrigger value="workspace">Workspace Connectors</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
           </div>
 
           {/* Suggestions toggle */}
@@ -1299,7 +1306,7 @@ export default function ConnectorsPage() {
                     Retry
                   </button>
                 </div>
-              ) : activeFiltered.length === 0 ? (
+              ) : filtered.length === 0 ? (
                 <p style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 400,
@@ -1311,100 +1318,100 @@ export default function ConnectorsPage() {
                 }}>
                   {emptyMessage}
                 </p>
-              ) : browse.pageItems.length === 0 ? (
-                <p style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  fontSize:   14,
-                  color:      'var(--neutral-400)',
-                  margin:     0,
-                  padding:    '24px 8px',
-                  textAlign:  'center',
-                }}>
-                  No connectors match your filters.
-                </p>
               ) : (
                 <>
-                  <div style={{ marginBottom: 16 }}>
-                    <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
-                  </div>
+                  {browse.pageItems.length === 0 ? (
+                    <p style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 400,
+                      fontSize:   14,
+                      color:      'var(--neutral-400)',
+                      margin:     0,
+                      padding:    '24px 8px',
+                      textAlign:  'center',
+                    }}>
+                      No connectors match your filters.
+                    </p>
+                  ) : (
+                    <>
+                      <div style={{ marginBottom: 16 }}>
+                        <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
+                      </div>
 
-                  {/* Connected section */}
-                  {connected.length > 0 && (
-                    <div style={{ marginBottom: 24 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                        <p style={{
-                          fontFamily: 'var(--font-body)',
-                          fontWeight: 500,
-                          fontSize:   14,
-                          lineHeight: '22px',
-                          color:      'var(--neutral-900)',
-                          margin:     0,
-                        }}>
-                          {activeMainTab === 'workspace' ? 'Connected workspace accounts' : 'Connected'}
-                        </p>
-                        <span style={{
-                          display:         'inline-flex',
-                          alignItems:      'center',
-                          padding:         '1px 6px',
-                          borderRadius:    6,
-                          backgroundColor: 'var(--green-50)',
-                          boxShadow:       '0px 0px 0px 1px rgba(128,183,7,0.4)',
-                          fontFamily:      'var(--font-body)',
-                          fontWeight:      500,
-                          fontSize: 12,
-                          lineHeight:      '16px',
-                          color:           'var(--green-800)',
-                        }}>
-                          {connectedTotal} {activeMainTab === 'workspace' ? 'shared' : 'active'}
-                        </span>
+                      {/* Connected section */}
+                      {connected.length > 0 && (
+                        <div style={{ marginBottom: 24 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                            <p style={{
+                              fontFamily: 'var(--font-body)',
+                              fontWeight: 500,
+                              fontSize:   14,
+                              lineHeight: '22px',
+                              color:      'var(--neutral-900)',
+                              margin:     0,
+                            }}>
+                              Connected
+                            </p>
+                            <span style={{
+                              display:         'inline-flex',
+                              alignItems:      'center',
+                              padding:         '1px 6px',
+                              borderRadius:    6,
+                              backgroundColor: 'var(--green-50)',
+                              boxShadow:       '0px 0px 0px 1px rgba(128,183,7,0.4)',
+                              fontFamily:      'var(--font-body)',
+                              fontWeight:      500,
+                              fontSize:        12,
+                              lineHeight:      '16px',
+                              color:           'var(--green-800)',
+                            }}>
+                              {connectedTotal} active
+                            </span>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                            {connected.map(c => (
+                              <ConnectorCard
+                                key={c.slug}
+                                entry={c}
+                                onManage={handleManage}
+                                onUpdate={handleUpdate}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Available section */}
+                      {available.length > 0 && (
+                        <div>
+                          <p style={{
+                            fontFamily: 'var(--font-body)',
+                            fontWeight: 500,
+                            fontSize:   14,
+                            lineHeight: '22px',
+                            color:      'var(--neutral-900)',
+                            margin:     '0 0 12px',
+                          }}>
+                            {connectedTotal > 0 ? 'Available to connect' : 'All Connectors'}
+                          </p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                            {available.map(c => (
+                              <ConnectorCard
+                                key={c.slug}
+                                entry={c}
+                                onManage={handleManage}
+                                onUpdate={handleUpdate}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ marginTop: 16 }}>
+                        <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                        {connected.map(c => (
-                          <ConnectorCard
-                            key={c.slug}
-                            entry={c}
-                            onManage={handleManage}
-                            onUpdate={handleUpdate}
-                            mode={activeMainTab === 'workspace' ? 'workspace' : 'personal'}
-                          />
-                        ))}
-                      </div>
-                    </div>
+                    </>
                   )}
-
-                  {/* Available section */}
-                  {available.length > 0 && (
-                    <div>
-                      <p style={{
-                        fontFamily: 'var(--font-body)',
-                        fontWeight: 500,
-                        fontSize:   14,
-                        lineHeight: '22px',
-                        color:      'var(--neutral-900)',
-                        margin:     '0 0 12px',
-                      }}>
-                        {activeMainTab === 'workspace'
-                          ? connectedTotal > 0 ? 'Other connected workspace accounts' : 'Connected workspace accounts'
-                          : connectedTotal > 0 ? 'Available to connect' : 'All Connectors'}
-                      </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                        {available.map(c => (
-                          <ConnectorCard
-                            key={c.slug}
-                            entry={c}
-                            onManage={handleManage}
-                            onUpdate={handleUpdate}
-                            mode={activeMainTab === 'workspace' ? 'workspace' : 'personal'}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div style={{ marginTop: 16 }}>
-                    <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
-                  </div>
                 </>
               )}
             </div>
