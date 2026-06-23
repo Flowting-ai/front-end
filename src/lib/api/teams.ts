@@ -358,8 +358,9 @@ export async function getTeamInviteOnboarding(inviteId: string): Promise<TeamInv
     grantTeamViewer:         data.grant_team_viewer ?? false,
     // The backend stores credit caps in thousands (the org members page sends
     // creditCap / 1000 on invite). Scale back to display credits so e.g. an
-    // assigned 10,000 reads as 10,000 here instead of the raw 10.
-    creditCap:               Math.round((data.credit_cap ?? 0) * 1000),
+    // assigned 10,000 reads as 10,000 here instead of the raw 10. `null` means
+    // no cap was set — keep it null so the UI can hide the line entirely.
+    creditCap:               data.credit_cap == null ? null : Math.round(data.credit_cap * 1000),
     projectId:               data.project_id ?? null,
     projectName:             data.project_name ?? null,
     memberCount:             data.member_count ?? (data.members?.length ?? 0),

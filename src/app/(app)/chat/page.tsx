@@ -241,7 +241,7 @@ export default function ChatPage() {
 function ChatPageInner() {
   const searchParams = useSearchParams();
   const { replace } = useRouter();
-  const { orgId, teams: orgTeams, members: orgMembers, activeTeamId } = useOrg();
+  const { orgId, org, teams: orgTeams, members: orgMembers, activeTeamId } = useOrg();
   const { user } = useAuth();
   const creditStatus = useCreditStatus();
   const showNewChatStrip = creditStatus.applies && creditStatus.pctUsed >= 0.9;
@@ -250,7 +250,21 @@ function ChatPageInner() {
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
   // First-time landing after finishing the team-invite flow (/chat?joined=<team>).
   // Swaps the greeting + template cards for the "You just joined" welcome.
-  const joinedTeam    = searchParams.get("joined")?.trim() || null;
+  //
+  // The `joined` value is only a TRIGGER — never rendered verbatim, since the URL
+  // is user-editable and could otherwise spoof an arbitrary name on the landing.
+  // We resolve the display name from trusted org context: honour the param only
+  // when it matches a team/org the user actually belongs to, otherwise fall back
+  // to their real active team (or org) name.
+  const justJoined    = searchParams.get("joined") != null;
+  const joinedTeam    = (() => {
+    if (!justJoined) return null;
+    const requested = searchParams.get("joined")?.trim().toLowerCase() || "";
+    const knownNames = [org.name, ...orgTeams.map((t) => t.name)].filter(Boolean);
+    const matched = knownNames.find((n) => n.toLowerCase() === requested);
+    const activeTeamName = orgTeams.find((t) => t.id === activeTeamId)?.name;
+    return matched ?? activeTeamName ?? org.name ?? null;
+  })();
 
   const [activeChatId, setActiveChatId] = useState<string | undefined>(chatIdFromUrl);
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null);

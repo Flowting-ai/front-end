@@ -95,9 +95,7 @@ export default function TeamInviteConfirmPage() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <CardTitle>You&apos;re joining {target}</CardTitle>
-          <CardSubtitle>
-            {isOrgRole ? "Organization" : "Team"}-welcome primer — what to know before you dive in.
-          </CardSubtitle>
+          <CardSubtitle>{target} welcomes you - know these before you dive in.</CardSubtitle>
         </div>
 
         {/* Role-scoped context: org roster for admins, team roster for editors,
@@ -114,10 +112,12 @@ export default function TeamInviteConfirmPage() {
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <InfoSection
-            title={`Credits assigned to you${invite.creditCap > 0 ? ` — ${invite.creditCap.toLocaleString()}` : ""}`}
-            body="These credits are assigned to you. You can always request more credits when you run out of them."
-          />
+          {invite.creditCap != null && (
+            <InfoSection
+              title={`Credits assigned to you${invite.creditCap > 0 ? ` — ${invite.creditCap.toLocaleString()}` : ""}`}
+              body="These credits are assigned to you. You can always request more credits when you run out of them."
+            />
+          )}
           <InfoSection
             title={`Admin: ${adminName}`}
             body="You can request credits, connectors, or any project-level changes from your admin."

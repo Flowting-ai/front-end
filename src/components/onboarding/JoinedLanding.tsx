@@ -123,7 +123,6 @@ function CardView({ card }: { card: TodoCard }) {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
-        flex: "1 1 0",
         minWidth: 0,
         display: "flex",
         flexDirection: "column",
@@ -187,7 +186,16 @@ export function JoinedTodos({ teamName }: { teamName: string }) {
       >
         Todo
       </p>
-      <div style={{ display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
+      {/* Responsive grid (KDS pattern): 3-up on wide, collapsing to 2 then 1
+          column on narrower viewports without any media queries. */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 10,
+          alignItems: "stretch",
+        }}
+      >
         {cards.map((c) => (
           <CardView key={c.title} card={c} />
         ))}

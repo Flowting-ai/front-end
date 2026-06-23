@@ -134,8 +134,12 @@ export interface TeamInviteOnboarding {
   role: OrgRole
   grantTeamEditor: boolean
   grantTeamViewer: boolean
-  /** Monthly credit cap applied to the invitee; 0 means uncapped / not set. */
-  creditCap: number
+  /**
+   * Monthly credit cap applied to the invitee, in display credits.
+   * `null` means no cap was set for this invite (don't surface it at all);
+   * a number is the assigned cap.
+   */
+  creditCap: number | null
   // ── Default project the invite points at (optional) ───────────────────────
   projectId: string | null
   projectName: string | null
