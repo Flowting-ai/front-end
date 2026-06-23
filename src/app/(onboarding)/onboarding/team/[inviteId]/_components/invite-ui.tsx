@@ -227,6 +227,26 @@ export function TeamRow({ invite }: { invite: TeamInviteOnboarding }) {
   );
 }
 
+/** "Organization name" heading with the org-wide member stack on the right. */
+export function OrgRow({ invite }: { invite: TeamInviteOnboarding }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-body)",
+          fontWeight: 600,
+          fontSize: 15,
+          lineHeight: "22px",
+          color: "var(--neutral-900,#26211e)",
+        }}
+      >
+        {invite.organizationName || "Organization"}
+      </span>
+      <MemberStack members={invite.organizationMembers} count={invite.organizationMemberCount} />
+    </div>
+  );
+}
+
 /** List of projects (title + one-line description). */
 export function ProjectList({ projects }: { projects: InvitedProject[] }) {
   if (projects.length === 0) return null;

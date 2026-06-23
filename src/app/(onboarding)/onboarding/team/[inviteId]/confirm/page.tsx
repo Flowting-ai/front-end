@@ -1,29 +1,26 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/Button";
-import { useAuth } from "@/context/auth-context";
 import { useTeamInviteOnboarding } from "@/context/team-invite-onboarding-context";
-import { ApiError } from "@/lib/api/client";
-import { acceptTeamInvite } from "@/lib/api/teams";
-import { updateOnboarding } from "@/lib/api/user";
 import {
   InviteCanvas,
   InviteCard,
   InviteStateScreen,
   OrgHeader,
+  OrgRow,
   CardTitle,
   CardSubtitle,
   TeamRow,
+  ProjectList,
   inviteRoleLabel,
 } from "../_components/invite-ui";
 
 // ── Screen 4 — "You're joining {team}" (confirmation) ───────────────────────────
-// Final step. "Enter Workspace" commits the membership (POST /team-invite/{id}/
-// accept), marks onboarding complete so the app gate lets the invitee in, then
-// lands them on the first-time joined chat screen.
+// Final orientation step. Membership + onboarding were already committed on
+// screen 1 ("Accept invite"), so "Enter Workspace" simply lands the now-member on
+// the first-time joined chat screen.
 
 function InfoSection({ title, body }: { title: string; body: string }) {
   return (
@@ -60,10 +57,7 @@ function capitalize(s: string): string {
 
 export default function TeamInviteConfirmPage() {
   const { push } = useRouter();
-  const { refreshUser } = useAuth();
   const { status, invite, errorMsg, refetch } = useTeamInviteOnboarding();
-  const [submitting, setSubmitting] = useState(false);
-  const [accepted, setAccepted] = useState(false);
 
   if (status !== "ready" || !invite) {
     return (
@@ -76,31 +70,22 @@ export default function TeamInviteConfirmPage() {
     );
   }
 
-  const target = invite.teamName || invite.projectName || invite.organizationName || "the team";
   const roleLabel = inviteRoleLabel(invite);
   const adminName = invite.invitedByName || invite.invitedByEmail || "your admin";
 
-  const handleEnter = async () => {
-    if (submitting || accepted) return;
-    setSubmitting(true);
-    try {
-      // 1) Commit membership. 2) Mark onboarding complete so OnboardingGuard /
-      // proxy let the invitee into the app. 3) Refresh so auth-context picks up
-      // the new org + completion before we navigate.
-      await acceptTeamInvite(invite.inviteId);
-      await updateOnboarding({ onboarding_completed: true });
-      await refreshUser();
-      setAccepted(true);
-      toast.success(`You've joined ${target}`);
-      push(`/chat?joined=${encodeURIComponent(target)}`);
-    } catch (err) {
-      setSubmitting(false);
-      if (err instanceof ApiError && err.status === 410) {
-        toast.error("This invite has expired.");
-        return;
-      }
-      toast.error(err instanceof ApiError ? err.message : "Couldn't join the team. Please try again.");
-    }
+  // What the invitee is joining is scoped to their role:
+  //  • admin / owner  → the organization (they get org-wide context)
+  //  • editor         → the team (team roster + projects)
+  //  • member / viewer → the team, project-first (the projects they'll work in)
+  const isOrgRole = roleLabel === "admin" || roleLabel === "owner";
+  const target = isOrgRole
+    ? invite.organizationName || invite.teamName || "the organization"
+    : invite.teamName || invite.projectName || invite.organizationName || "the team";
+
+  const handleEnter = () => {
+    // Membership + onboarding were already committed on screen 1; just enter.
+    toast.success(`You've joined ${target}`);
+    push(`/chat?joined=${encodeURIComponent(target)}`);
   };
 
   return (
@@ -110,10 +95,23 @@ export default function TeamInviteConfirmPage() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <CardTitle>You&apos;re joining {target}</CardTitle>
-          <CardSubtitle>Team-welcome primer — what to know before you dive in.</CardSubtitle>
+          <CardSubtitle>
+            {isOrgRole ? "Organization" : "Team"}-welcome primer — what to know before you dive in.
+          </CardSubtitle>
         </div>
 
-        <TeamRow invite={invite} />
+        {/* Role-scoped context: org roster for admins, team roster for editors,
+            the project list for members/viewers. */}
+        {isOrgRole ? (
+          <OrgRow invite={invite} />
+        ) : roleLabel === "editor" ? (
+          <TeamRow invite={invite} />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <TeamRow invite={invite} />
+            <ProjectList projects={invite.projects} />
+          </div>
+        )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <InfoSection
@@ -135,7 +133,7 @@ export default function TeamInviteConfirmPage() {
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <Button size="md" loading={submitting} disabled={submitting} onClick={() => void handleEnter()}>
+          <Button size="md" onClick={handleEnter}>
             Enter Workspace
           </Button>
         </div>

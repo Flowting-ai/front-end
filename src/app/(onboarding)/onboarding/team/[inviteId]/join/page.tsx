@@ -55,7 +55,7 @@ export default function TeamInviteJoinPage() {
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
           <InvitedBy invite={invite} />
           <Button size="md" onClick={() => push(`/onboarding/team/${params.inviteId}/profile`)}>
-            Accept invite
+            Continue
           </Button>
         </div>
       </InviteCard>

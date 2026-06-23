@@ -356,7 +356,10 @@ export async function getTeamInviteOnboarding(inviteId: string): Promise<TeamInv
     role:                    data.role ?? 'member',
     grantTeamEditor:         data.grant_team_editor ?? false,
     grantTeamViewer:         data.grant_team_viewer ?? false,
-    creditCap:               data.credit_cap ?? 0,
+    // The backend stores credit caps in thousands (the org members page sends
+    // creditCap / 1000 on invite). Scale back to display credits so e.g. an
+    // assigned 10,000 reads as 10,000 here instead of the raw 10.
+    creditCap:               Math.round((data.credit_cap ?? 0) * 1000),
     projectId:               data.project_id ?? null,
     projectName:             data.project_name ?? null,
     memberCount:             data.member_count ?? (data.members?.length ?? 0),
