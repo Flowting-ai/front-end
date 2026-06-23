@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/context/auth-context'
+import { useOrg } from '@/context/org-context'
 
 // ── Credit lifecycle events ──────────────────────────────────────────────────
 // Dispatched on `window`; the AuthProvider listens for CREDITS_UPDATED and
@@ -90,8 +91,24 @@ export function deriveCreditStatus(user: CreditStatusInput | null | undefined): 
 /**
  * Single source of truth for the individual credit/topup balance state.
  * Thin React wrapper over {@link deriveCreditStatus} reading the auth user.
+ *
+ * Org members are gated by the workspace pool (useOrg().plan) — never the
+ * individual credit/topup model — so the "you've used all your credits, buy a
+ * top-up" modal/toast must not fire for them. `deriveCreditStatus` already
+ * excludes them via `orgId == null`, but `/users/me` doesn't always include
+ * `org_id`, which would wrongly engage individual gating for (e.g.) an
+ * Enterprise account. The OrgProvider resolves the real org id (falling back to
+ * listOrganizations), so we suppress individual gating whenever an org is
+ * resolved — and also while resolution is still pending, to avoid a wrong flash.
  */
 export function useCreditStatus(): CreditStatus {
   const { user } = useAuth()
-  return deriveCreditStatus(user)
+  const { orgId, orgReady } = useOrg()
+  const status = deriveCreditStatus(user)
+
+  const orgGated = !orgReady || orgId != null
+  if (orgGated && status.applies) {
+    return { ...status, applies: false, level: 'normal', blocked: false }
+  }
+  return status
 }

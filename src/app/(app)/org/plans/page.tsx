@@ -342,7 +342,6 @@ export default function OrgBillingPage() {
   const includedRemaining = billing?.included_usage_remaining_usd ?? effectivePlan?.includedUsageRemainingUsd ?? 0
   const overage = billing?.overage_usd ?? effectivePlan?.overageUsd ?? 0
   const projectedInvoice = billing?.projected_invoice_usd ?? effectivePlan?.projectedInvoiceUsd ?? 250
-  const totalTokens = billing?.total_tokens ?? effectivePlan?.totalTokens ?? 0
   const poolCapUsd = effectivePlan?.poolCapUsd ?? null
   const enterpriseIncludedCredits = Math.round(includedUsage * 1000)
   const hasOrgCreditPool = rawTotalCredits > 0
@@ -567,13 +566,6 @@ export default function OrgBillingPage() {
                   </div>
                 )}
               </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-              <StatTile flex label="Included provider usage" value={fmtUsd(includedUsage)} sub={`${fmtUsd(includedRemaining)} remaining`} />
-              <StatTile flex label="Current overage" value={fmtUsd(overage)} sub="Metered after included usage" />
-              <StatTile flex label="Projected invoice" value={fmtUsd(projectedInvoice)} sub="$250 base fee plus overage" />
-              <StatTile flex label="Tokens processed" value={totalTokens.toLocaleString()} sub="Metered at provider cost" />
             </div>
 
             <SpendLimitCard
