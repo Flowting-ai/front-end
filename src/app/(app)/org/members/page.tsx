@@ -664,7 +664,7 @@ function MembersTable({
                         {openRoleId === member.id && roleTriggerRefs.current[member.id] && (
                           <RoleDropdown
                             currentRole={displayRoleFor(member)}
-                            availableRoles={['admin', 'member']}
+                            availableRoles={['admin', 'editor', 'member']}
                             onSelect={r => {
                               if (r === 'editor') onRequestEditor(member.id, member.name || member.email)
                               else onChangeRole(member.id, r)
