@@ -65,6 +65,11 @@ const TOP_UPS = [
 const fmtUsd = (n: number) =>
   `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
+// Credits are USD × 1000. The Enterprise view speaks in credits, so usage/limits
+// are displayed via this helper even though the backend stores them in USD.
+const CREDITS_PER_USD = 1000
+const fmtCredits = (usd: number) => Math.round(usd * CREDITS_PER_USD).toLocaleString()
+
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -572,6 +577,7 @@ export default function OrgBillingPage() {
               overageCapUsd={overageCapUsd}
               overage={overage}
               overageUsedPct={overageUsedPct}
+              includedUsage={includedUsage}
               isOwner={isOwner}
               onEdit={() => setCapModalOpen(true)}
               onRequest={handleRequestCapChange}
@@ -1349,6 +1355,7 @@ function SpendLimitCard({
   overageCapUsd,
   overage,
   overageUsedPct,
+  includedUsage,
   isOwner,
   onEdit,
   onRequest,
@@ -1356,6 +1363,7 @@ function SpendLimitCard({
   overageCapUsd:  number | null
   overage:        number
   overageUsedPct: number
+  includedUsage:  number
   isOwner:        boolean
   onEdit:         () => void
   onRequest:      () => void
@@ -1364,7 +1372,7 @@ function SpendLimitCard({
   return (
     <SectionCard
       title="Overage spend limit"
-      subtitle="Caps usage billed beyond the $125 included each month. Usage up to the included amount is always allowed."
+      subtitle={`Caps usage billed beyond the ${fmtCredits(includedUsage)} included credits each month. Usage up to the included amount is always allowed.`}
       action={
         isOwner
           ? <Button variant="secondary" onClick={onEdit}>Edit limit</Button>
@@ -1378,7 +1386,7 @@ function SpendLimitCard({
               Unlimited
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-              Usage beyond the included $125 is unlimited and billed at exact provider cost.
+              Usage beyond the included {fmtCredits(includedUsage)} credits is unlimited and billed at exact provider cost.
             </p>
           </div>
           <Badge label="No cap" tone="neutral" />
@@ -1387,17 +1395,17 @@ function SpendLimitCard({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-              {fmtUsd(overageCapUsd)}
+              {fmtCredits(overageCapUsd)}
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-              overage cap / month
+              credits / month overage cap
             </p>
           </div>
           <div style={{ position: 'relative', height: 4, borderRadius: 2, background: 'var(--neutral-100)', width: '100%' }}>
             <div style={{ position: 'absolute', left: 0, top: 0, height: 4, borderRadius: 2, background: overageUsedPct >= 100 ? 'var(--red-700)' : 'var(--neutral-900)', width: `${overageUsedPct}%`, transition: 'width 0.3s ease' }} />
           </div>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-            {fmtUsd(overage)} of {fmtUsd(overageCapUsd)} overage used · {Math.round(overageUsedPct)}% of limit
+            {fmtCredits(overage)} of {fmtCredits(overageCapUsd)} credits used · {Math.round(overageUsedPct)}% of limit
           </p>
         </div>
       )}
@@ -1418,21 +1426,24 @@ function SpendCapModal({
   onSave:        (valueUsd: number | null) => void
   onClose:       () => void
 }) {
+  // Edited in credits; the backend stores the limit in USD, so convert on save.
   const [unlimited, setUnlimited] = useState(currentCapUsd == null)
-  const [value,     setValue]     = useState(currentCapUsd != null ? String(currentCapUsd) : '')
+  const [value,     setValue]     = useState(
+    currentCapUsd != null ? String(Math.round(currentCapUsd * CREDITS_PER_USD)) : '',
+  )
 
-  const parsed = parseFloat(value)
-  const valid  = unlimited || (!isNaN(parsed) && parsed >= 0)
+  const parsedCredits = parseFloat(value)
+  const valid  = unlimited || (!isNaN(parsedCredits) && parsedCredits >= 0)
 
   const handleSave = () => {
     if (!valid) { toast.error('Enter a valid amount.'); return }
-    onSave(unlimited ? null : parsed)
+    onSave(unlimited ? null : parsedCredits / CREDITS_PER_USD)
   }
 
   return (
     <ModalShell
       title="Overage spend limit"
-      subtitle={`Set the maximum usage billed beyond the ${fmtUsd(includedUsage)} included each month. The included allowance is never restricted — only spend past it.`}
+      subtitle={`Set the maximum usage billed beyond the ${fmtCredits(includedUsage)} included credits each month. The included allowance is never restricted — only spend past it.`}
       maxWidth={560}
       onClose={onClose}
       footer={
@@ -1455,7 +1466,7 @@ function SpendCapModal({
           <PermToggle checked={unlimited} onChange={() => setUnlimited(u => !u)} />
         </div>
         {!unlimited && (
-          <InputField label="Cap overage at (above included)" value={value} onChange={setValue} prefix="$" placeholder="0.00" />
+          <InputField label="Cap overage at (credits, above included)" value={value} onChange={setValue} placeholder="e.g. 500,000" />
         )}
       </div>
     </ModalShell>
