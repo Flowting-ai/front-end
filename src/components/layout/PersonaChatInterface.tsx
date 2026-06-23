@@ -24,9 +24,8 @@ import {
 import { apiFetch } from "@/lib/api/client";
 import { PERSONA_CHAT_STOP_ENDPOINT } from "@/lib/config";
 import { logger } from "@/lib/logger";
-import { useCreditStatus, CREDITS_EXHAUSTED_EVENT } from "@/hooks/use-credit-status";
+import { useCreditStatus } from "@/hooks/use-credit-status";
 import { CreditStatusBanner } from "@/components/CreditStatusBanner";
-import { toast } from "sonner";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -387,14 +386,9 @@ export function PersonaChatInterface({
     const trimmed = text.trim();
     if ((!trimmed && attachments.length === 0) || isStreaming) return;
 
-    // Hard-stop: an exhausted credit/topup user cannot send until they top up.
-    if (creditStatus.blocked) {
-      toast.error("You've used all your credits", {
-        description: 'Buy a top-up to continue using Souvenir.',
-      });
-      window.dispatchEvent(new Event(CREDITS_EXHAUSTED_EVENT));
-      return;
-    }
+    // Hard-stop backstop: an exhausted credit/topup user cannot send. The input is
+    // already disabled and the CreditStatusBanner explains why, so block silently.
+    if (creditStatus.blocked) return;
 
     const filesToSend = attachments.map(a => a.file);
 

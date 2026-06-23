@@ -8,8 +8,6 @@ import { useAuth } from '@/context/auth-context'
 
 /** Fire after any operation that changes the credit balance (e.g. a topup). */
 export const CREDITS_UPDATED_EVENT = 'credits:updated'
-/** Fire to surface the "credits exhausted" modal imperatively (e.g. a blocked send). */
-export const CREDITS_EXHAUSTED_EVENT = 'credits:exhausted'
 
 /** Broadcast that the credit balance changed → triggers a profile refresh. */
 export function notifyCreditsUpdated(): void {

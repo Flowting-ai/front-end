@@ -30,7 +30,7 @@ import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from "@/comp
 import { fetchPersonas, getVersion } from "@/lib/api/personas";
 import { ModelMenu } from "@/components/chat/ModelMenu";
 import { toast } from "sonner";
-import { useCreditStatus, CREDITS_EXHAUSTED_EVENT } from "@/hooks/use-credit-status";
+import { useCreditStatus } from "@/hooks/use-credit-status";
 import { UsageLimitStrip } from "@/components/chat/UsageLimitStrip";
 import { copyChat, setChatVisibility } from "@/lib/api/chat";
 import { createChatShare, listChatShares, deleteChatShare, type ChatShare, type ChatShareMode } from "@/lib/api/chat-shares";
@@ -844,13 +844,9 @@ function ChatPageInner() {
   // Capture typed message from new-chat landing → transition to ChatInterface
   const handleNewChatSend = (value: string) => {
     if (!value.trim() && newChatAttachments.length === 0) return;
-    if (creditStatus.blocked) {
-      toast.error("You've used all your credits", {
-        description: "Buy a top-up to continue using Souvenir.",
-      });
-      window.dispatchEvent(new Event(CREDITS_EXHAUSTED_EVENT));
-      return;
-    }
+    // Hard-stop backstop: an exhausted credit/topup user cannot send. The input is
+    // already disabled and the CreditStatusBanner explains why, so block silently.
+    if (creditStatus.blocked) return;
     const pendingFiles = newChatAttachments.map((a) => a.file);
     // Capture @-mention pins (with labels) before clearing so they are forwarded to the initial send.
     setAddMenuFiles(pendingFiles);

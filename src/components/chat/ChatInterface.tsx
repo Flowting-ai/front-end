@@ -31,8 +31,7 @@ import { useRouter } from "next/navigation";
 import { InlineCreditNotice, type CreditNoticeStatus } from "@/components/InlineCreditNotice";
 import { CreditStatusBanner } from "@/components/CreditStatusBanner";
 import { UsageLimitStrip, resolveUsageLevel, USAGE_LEVEL_TOKENS } from "@/components/chat/UsageLimitStrip";
-import { useCreditStatus, CREDITS_EXHAUSTED_EVENT } from "@/hooks/use-credit-status";
-import { toast } from "sonner";
+import { useCreditStatus } from "@/hooks/use-credit-status";
 import type { PinFolder } from "@/lib/api/pins";
 import type { PinMentionable } from "./PinMentionDropdown";
 import type { Source } from "@/types/chat";
@@ -709,15 +708,9 @@ export function ChatInterface({
     const allFiles = attachments.map((a) => a.file);
     if (!text.trim() && allFiles.length === 0) return;
 
-    // Hard-stop: an exhausted credit/topup user cannot send until they top up.
-    // Surfaces the global exhausted modal so they can buy credits.
-    if (creditStatus.blocked) {
-      toast.error("You've used all your credits", {
-        description: 'Buy a top-up to continue using Souvenir.',
-      });
-      window.dispatchEvent(new Event(CREDITS_EXHAUSTED_EVENT));
-      return;
-    }
+    // Hard-stop backstop: an exhausted credit/topup user cannot send. The input is
+    // already disabled and the CreditStatusBanner explains why, so block silently.
+    if (creditStatus.blocked) return;
 
     const content = text.trim();
     // Capture mentionedPins before clearing so they're stored on the optimistic message.

@@ -33,7 +33,7 @@ import { MessageBubble } from '@/components/MessageBubble'
 import { ReasoningContent } from '@/components/chat/ReasoningBlock'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
-import { useCreditStatus, CREDITS_EXHAUSTED_EVENT } from '@/hooks/use-credit-status'
+import { useCreditStatus } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
 import { AccountMenu } from '@/components/AccountMenu'
 import { BrainSidebarSections } from './BrainSidebarSections'
@@ -2963,14 +2963,9 @@ function BrainPageInner() {
   // ── Send handler ──────────────────────────────────────────────────────────────
 
   const handleSend = useCallback((value: string) => {
-    // Hard-stop: an exhausted credit/topup user cannot send until they top up.
-    if (creditStatus.blocked) {
-      toast.error("You've used all your credits", {
-        description: 'Buy a top-up to continue using Souvenir.',
-      })
-      window.dispatchEvent(new Event(CREDITS_EXHAUSTED_EVENT))
-      return
-    }
+    // Hard-stop backstop: an exhausted credit/topup user cannot send. The input is
+    // already disabled, so block silently.
+    if (creditStatus.blocked) return
 
     if (selectedFolders.length > 0 && pinboardLoading) {
       toast.info('Your pin context is still loading. Try sending again in a moment.')
