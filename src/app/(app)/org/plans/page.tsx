@@ -337,26 +337,34 @@ export default function OrgBillingPage() {
   const [settingsLoading, setSettingsLoading] = useState(true)
   const effectivePlan = localPlan ?? plan
 
-  const rawTotalCredits   = effectivePlan?.totalCredits ?? 0
-  const rawUsedCredits    = effectivePlan?.used ?? 0
-  const rawRemainingCreds = effectivePlan?.remaining ?? 0
-  const membersCount      = orgMembers.length
+  const membersCount = orgMembers.length
 
-  const providerUsage = billing?.provider_usage_usd ?? effectivePlan?.providerUsageUsd ?? 0
-  const includedUsage = billing?.included_usage_usd ?? effectivePlan?.includedUsageUsd ?? 125
-  const includedRemaining = billing?.included_usage_remaining_usd ?? effectivePlan?.includedUsageRemainingUsd ?? 0
-  const overage = billing?.overage_usd ?? effectivePlan?.overageUsd ?? 0
-  const projectedInvoice = billing?.projected_invoice_usd ?? effectivePlan?.projectedInvoiceUsd ?? 250
-  const poolCapUsd = effectivePlan?.poolCapUsd ?? null
-  const enterpriseIncludedCredits = Math.round(includedUsage * 1000)
-  const hasOrgCreditPool = rawTotalCredits > 0
-  const totalCredits = hasOrgCreditPool ? rawTotalCredits : (isEnterprise ? enterpriseIncludedCredits : 0)
-  const remainingCreds = hasOrgCreditPool ? rawRemainingCreds : (isEnterprise ? Math.round(includedRemaining * 1000) : 0)
-  const usedCredits = hasOrgCreditPool ? rawUsedCredits : Math.max(totalCredits - remainingCreds, 0)
+  // Everything below comes straight from the plan endpoint (getOrgPlan, validated
+  // by planResponseSchema) — the single source of truth. No merge with
+  // /stripe/billing and no business-default fallbacks; the `?? 0`/`?? null` here
+  // is only null-safety while the plan loads. USD fields stay in USD; the credit
+  // view converts via `toCredits` (credits = USD × 1000).
+  const toCredits = (usd: number) => Math.round(usd * 1000)
+
+  const providerUsage     = effectivePlan?.providerUsageUsd ?? 0
+  const includedUsage     = effectivePlan?.includedUsageUsd ?? 0
+  const includedRemaining = effectivePlan?.includedUsageRemainingUsd ?? 0
+  const overage           = effectivePlan?.overageUsd ?? 0
+  const projectedInvoice  = effectivePlan?.projectedInvoiceUsd ?? 0
+  const poolCapUsd        = effectivePlan?.poolCapUsd ?? null
+  // base fee = projected invoice − overage (compute_enterprise_billing).
+  const baseFeeUsd        = Math.max(projectedInvoice - overage, 0)
+
+  // Credit view. Teams: the prepaid shared pool (already credits from the plan).
+  // Enterprise: the included allowance / provider usage, expressed in credits.
+  const totalCredits   = isEnterprise ? toCredits(includedUsage)        : (effectivePlan?.totalCredits ?? 0)
+  const remainingCreds = isEnterprise ? toCredits(includedRemaining)    : (effectivePlan?.remaining ?? 0)
+  const usedCredits    = isEnterprise ? toCredits(providerUsage)        : (effectivePlan?.used ?? 0)
+
   const hasUnlimitedEnterpriseCap = poolCapUsd == null || poolCapUsd >= ENTERPRISE_INTERMAX
-  // Owner-set ceiling on overage spend *above* the $125 included (backend overage_limit).
-  // Usage up to the included allowance is always permitted; this only caps the metered
-  // overage beyond it. `null` ⇒ unlimited (the ENTERPRISE_INTERMAX sentinel).
+  // Owner-set ceiling on overage spend *above* the included allowance (backend
+  // overage_limit / pool_cap). Usage up to the included amount is always
+  // permitted; this only caps metered overage beyond it. `null` ⇒ unlimited.
   const overageCapUsd = hasUnlimitedEnterpriseCap ? null : poolCapUsd
   const overageUsedPct = overageCapUsd && overageCapUsd > 0
     ? Math.min(100, (overage / overageCapUsd) * 100)
@@ -495,6 +503,7 @@ export default function OrgBillingPage() {
       includedUsage={includedUsage}
       overage={overage}
       projectedInvoice={projectedInvoice}
+      baseFeeUsd={baseFeeUsd}
       cycleLabel={`${fmtShort(cycleStart)} – ${fmtShort(cycleEnd)}`}
     />
   ) : (
@@ -934,6 +943,7 @@ function EnterpriseHero({
   includedUsage,
   overage,
   projectedInvoice,
+  baseFeeUsd,
   cycleLabel,
 }: {
   nextBilling:    string
@@ -945,6 +955,7 @@ function EnterpriseHero({
   includedUsage: number
   overage: number
   projectedInvoice: number
+  baseFeeUsd: number
   cycleLabel:     string
 }) {
   const pct = totalCredits > 0 ? Math.min(100, (usedCredits / totalCredits) * 100) : 0
@@ -958,10 +969,10 @@ function EnterpriseHero({
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
             Next billing: {nextBilling}
           </p>
-          <Badge label="$250/month" tone="blue" />
+          <Badge label={`$${Math.round(baseFeeUsd)}/month`} tone="blue" />
         </div>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-          Shared credits · Unlimited seats · $125 included provider usage · Usage as of {usageAsOf}
+          Shared credits · Unlimited seats · {fmtCredits(includedUsage)} included credits · Usage as of {usageAsOf}
         </p>
       </div>
 
@@ -988,7 +999,9 @@ function EnterpriseHero({
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Badge label="Postpaid · exact provider cost after allowance" tone="yellow" />
         <Badge
-          label={overage > 0 ? `${fmtUsd(overage)} overage` : `${fmtUsd(Math.max(includedUsage - providerUsage, 0))} included usage left`}
+          label={overage > 0
+            ? `${fmtCredits(overage)} credits overage`
+            : `${fmtCredits(Math.max(includedUsage - providerUsage, 0))} included credits left`}
           tone={overage > 0 ? 'red' : 'green'}
         />
         <Badge label={`${fmtUsd(projectedInvoice)} projected invoice`} tone="neutral" />

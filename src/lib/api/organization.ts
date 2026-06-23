@@ -1,5 +1,6 @@
 'use client'
 
+import { z } from 'zod'
 import { apiFetch, apiFetchJson } from './client'
 import {
   ORGANIZATIONS_ENDPOINT,
@@ -46,48 +47,57 @@ interface OrganizationSettingsResponse {
   admin_billing_perms?: AdminBillingPermsResponse | null
 }
 
-interface MemberResponse {
-  user_id: string
-  name: string | null
-  email: string | null
-  role: OrgRole
-  credit_cap: number | null
-  credit_extra?: number
-  credit_used: number
-  usage_total?: number
-  invite_status: 'active' | 'pending'
-  invite_id?: string | null
-  team_id?: string | null
-  team_name?: string | null
-  is_pending_invite?: boolean
-}
+// ── Plan endpoint schema ──────────────────────────────────────────────────────
+// Mirrors services/organizations/schemas.py exactly (MemberResponse / PlanResponse).
+// The response is validated at the boundary so the UI renders deterministically
+// from the endpoint's real shape — no guessed defaults, no fabricated fields.
+// Server-side every field is always present (Pydantic bakes the defaults in), so
+// the only `.default()`s here are the ones the backend itself declares.
 
-interface PlanResponse {
-  organization_id: string
-  plan_type: 'teams' | 'enterprise'
-  billing_model: 'prepaid' | 'postpaid'
-  plan_credits: number
-  topup_credits: number
-  total_credits: number
-  used: number
-  remaining: number
-  percent_used: number
-  pool_status: string
-  pool_cap?: number | null
-  members: MemberResponse[]
-  included_usage_usd?: number
-  provider_usage_usd?: number
-  included_usage_remaining_usd?: number
-  overage_usd?: number
-  projected_invoice_usd?: number
-  input_tokens?: number
-  output_tokens?: number
-  reasoning_tokens?: number
-  cached_tokens?: number
-  total_tokens?: number
-  usage_event_count?: number
-  metered_event_count?: number
-}
+const memberResponseSchema = z.object({
+  user_id:          z.string(),
+  name:             z.string().nullable().default(null),
+  email:            z.string().nullable().default(null),
+  role:             z.enum(['owner', 'admin', 'member']),
+  credit_cap:       z.number().nullable().default(null),
+  credit_extra:     z.number().default(0),
+  credit_used:      z.number().default(0),
+  usage_total:      z.number().default(0),
+  invite_status:    z.enum(['active', 'pending']),
+  invite_id:        z.string().nullable().default(null),
+  team_id:          z.string().nullable().default(null),
+  team_name:        z.string().nullable().default(null),
+  is_pending_invite: z.boolean().default(false),
+})
+
+const planResponseSchema = z.object({
+  organization_id:  z.string(),
+  plan_type:        z.string(),               // backend: str ("teams" | "enterprise")
+  billing_model:    z.string(),               // backend: str ("prepaid" | "postpaid")
+  plan_credits:     z.number(),
+  topup_credits:    z.number(),
+  total_credits:    z.number(),
+  used:             z.number(),
+  remaining:        z.number(),
+  percent_used:     z.number(),
+  pool_status:      z.enum(['healthy', 'warning_95', 'paused']),
+  pool_cap:         z.number().nullable().default(null),
+  members:          z.array(memberResponseSchema).default([]),
+  included_usage_usd:           z.number().default(0),
+  provider_usage_usd:           z.number().default(0),
+  included_usage_remaining_usd: z.number().default(0),
+  overage_usd:                  z.number().default(0),
+  projected_invoice_usd:        z.number().default(0),
+  input_tokens:     z.number().int().default(0),
+  output_tokens:    z.number().int().default(0),
+  reasoning_tokens: z.number().int().default(0),
+  cached_tokens:    z.number().int().default(0),
+  total_tokens:     z.number().int().default(0),
+  usage_event_count: z.number().int().default(0),
+})
+
+type MemberResponse = z.infer<typeof memberResponseSchema>
+type PlanResponse = z.infer<typeof planResponseSchema>
 
 interface TeamBurnResponse {
   team_id: string
@@ -155,17 +165,20 @@ function normalizeMember(m: MemberResponse): OrgMember {
     }] : [],
     creditUsed:      inviteStatus === 'invite_sent'
       ? 0
-      : toDisplayCredits(m.usage_total ?? m.credit_used),
+      : toDisplayCredits(m.usage_total),
     allocationUsed:  inviteStatus === 'invite_sent' ? 0 : toDisplayCredits(m.credit_used),
     creditCap:       m.credit_cap != null ? toDisplayCredits(m.credit_cap) : undefined,
   }
 }
 
 function normalizePlan(p: PlanResponse): OrgPlan {
+  // Every field below is guaranteed present by planResponseSchema, so there are
+  // no `??` fallbacks: the values are exactly what the backend computed. USD
+  // figures stay in USD here; the UI converts to credits (× 1000) at the edge.
   return {
     organizationId: p.organization_id,
-    planType:       p.plan_type ?? 'teams',
-    billingModel:   p.billing_model ?? 'prepaid',
+    planType:       p.plan_type === 'enterprise' ? 'enterprise' : 'teams',
+    billingModel:   p.billing_model === 'postpaid' ? 'postpaid' : 'prepaid',
     planCredits:    toDisplayCredits(p.plan_credits),
     topupCredits:   toDisplayCredits(p.topup_credits),
     totalCredits:   toDisplayCredits(p.total_credits),
@@ -173,20 +186,19 @@ function normalizePlan(p: PlanResponse): OrgPlan {
     remaining:      toDisplayCredits(p.remaining),
     percentUsed:    p.percent_used,
     poolStatus:     p.pool_status,
-    poolCapUsd:     p.pool_cap ?? null,
-    members:        (p.members ?? []).map(normalizeMember),
-    includedUsageUsd: p.included_usage_usd ?? 0,
-    providerUsageUsd: p.provider_usage_usd ?? 0,
-    includedUsageRemainingUsd: p.included_usage_remaining_usd ?? 0,
-    overageUsd: p.overage_usd ?? 0,
-    projectedInvoiceUsd: p.projected_invoice_usd ?? 0,
-    inputTokens: p.input_tokens ?? 0,
-    outputTokens: p.output_tokens ?? 0,
-    reasoningTokens: p.reasoning_tokens ?? 0,
-    cachedTokens: p.cached_tokens ?? 0,
-    totalTokens: p.total_tokens ?? 0,
-    usageEventCount: p.usage_event_count ?? 0,
-    meteredEventCount: p.metered_event_count ?? 0,
+    poolCapUsd:     p.pool_cap,
+    members:        p.members.map(normalizeMember),
+    includedUsageUsd: p.included_usage_usd,
+    providerUsageUsd: p.provider_usage_usd,
+    includedUsageRemainingUsd: p.included_usage_remaining_usd,
+    overageUsd: p.overage_usd,
+    projectedInvoiceUsd: p.projected_invoice_usd,
+    inputTokens: p.input_tokens,
+    outputTokens: p.output_tokens,
+    reasoningTokens: p.reasoning_tokens,
+    cachedTokens: p.cached_tokens,
+    totalTokens: p.total_tokens,
+    usageEventCount: p.usage_event_count,
   }
 }
 
@@ -327,16 +339,16 @@ export async function updateOrgSettings(
 }
 
 export async function getOrgPlan(orgId: string): Promise<OrgPlan> {
-  const data = await apiFetchJson<PlanResponse>(ORG_PLAN_ENDPOINT(orgId))
-  return normalizePlan(data)
+  const raw = await apiFetchJson<unknown>(ORG_PLAN_ENDPOINT(orgId))
+  return normalizePlan(planResponseSchema.parse(raw))
 }
 
 export async function setOrgPoolCap(orgId: string, poolCapUsd: number): Promise<OrgPlan> {
-  const data = await apiFetchJson<PlanResponse>(ORG_PLAN_POOL_CAP_ENDPOINT(orgId), {
+  const raw = await apiFetchJson<unknown>(ORG_PLAN_POOL_CAP_ENDPOINT(orgId), {
     method: 'PATCH',
     body:   JSON.stringify({ poolCap: poolCapUsd }),
   })
-  return normalizePlan(data)
+  return normalizePlan(planResponseSchema.parse(raw))
 }
 
 /**

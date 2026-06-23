@@ -244,7 +244,6 @@ export interface OrgPlan {
   cachedTokens: number
   totalTokens: number
   usageEventCount: number
-  meteredEventCount: number
 }
 
 export interface OrgPlanUsage {
