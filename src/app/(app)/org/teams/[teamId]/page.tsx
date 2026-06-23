@@ -803,6 +803,12 @@ export default function TeamSettingsPage() {
       .finally(() => setAgentsLoading(false))
   }, [params.teamId])
 
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') void refreshRoster() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [orgId, params.teamId])
+
   const editorIds = useMemo(() => new Set(editors.map(e => e.userId)), [editors])
 
   // Full team roster: org members assigned to this team, plus any editors not

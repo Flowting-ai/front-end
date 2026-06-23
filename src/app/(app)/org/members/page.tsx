@@ -1004,6 +1004,12 @@ export default function OrgMembersPage() {
   const [editorTarget,   setEditorTarget]   = useState<{ memberId: string; memberName: string } | null>(null)
 
   useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshMembers() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [refreshMembers])
+
+  useEffect(() => {
     if (!orgId) return
     getOrgSettings(orgId)
       .then(s => setAllowedDomains(s.allowedEmailDomains ?? []))
