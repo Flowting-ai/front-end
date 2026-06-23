@@ -231,6 +231,8 @@ export interface OrgPlan {
   remaining: number
   percentUsed: number
   poolStatus: string
+  /** Hard ceiling on the credit pool (display credits); 0 means no cap / unlimited. */
+  poolCap: number
   members: OrgMember[]
   includedUsageUsd: number
   providerUsageUsd: number

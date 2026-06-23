@@ -14,6 +14,8 @@ import {
   ORG_MEMBER_ROLE_ENDPOINT,
   ORG_MEMBER_CAP_ENDPOINT,
   ORG_OVERFLOW_APPROVE_ENDPOINT,
+  ORG_POOL_CAP_ENDPOINT,
+  ORG_POOL_STATUS_ENDPOINT,
 } from '@/lib/config'
 import type { OrgRole, OrgSettings, OrgMember, OrgPlan, OrgPlanUsage, AuditLogEntry } from '@/types/teams'
 
@@ -72,6 +74,7 @@ interface PlanResponse {
   remaining: number
   percent_used: number
   pool_status: string
+  pool_cap?: number
   members: MemberResponse[]
   included_usage_usd?: number
   provider_usage_usd?: number
@@ -171,6 +174,7 @@ function normalizePlan(p: PlanResponse): OrgPlan {
     remaining:      toDisplayCredits(p.remaining),
     percentUsed:    p.percent_used,
     poolStatus:     p.pool_status,
+    poolCap:        toDisplayCredits(p.pool_cap),
     members:        (p.members ?? []).map(normalizeMember),
     includedUsageUsd: p.included_usage_usd ?? 0,
     providerUsageUsd: p.provider_usage_usd ?? 0,
@@ -326,6 +330,44 @@ export async function updateOrgSettings(
 export async function getOrgPlan(orgId: string): Promise<OrgPlan> {
   const data = await apiFetchJson<PlanResponse>(ORG_PLAN_ENDPOINT(orgId))
   return normalizePlan(data)
+}
+
+/**
+ * PATCH /organizations/{id}/plan/pool-cap — set the org credit-pool ceiling.
+ * `capCredits` is in display credits (what the UI shows); the backend stores
+ * raw credits (display ÷ 1000), mirroring setMemberCap. Returns the fresh plan.
+ */
+export async function setPoolCap(orgId: string, capCredits: number): Promise<OrgPlan> {
+  const data = await apiFetchJson<PlanResponse>(ORG_POOL_CAP_ENDPOINT(orgId), {
+    method: 'PATCH',
+    body:   JSON.stringify({ poolCap: Math.round(capCredits / 1000) }),
+  })
+  return normalizePlan(data)
+}
+
+interface PoolStatusResponse {
+  organization_id: string
+  status: string
+  percent_used: number
+  remaining: number
+}
+
+export interface PoolStatus {
+  organizationId: string
+  status: string
+  percentUsed: number
+  remaining: number
+}
+
+/** GET /organizations/{id}/pool-status — lightweight pool health + remaining. */
+export async function getPoolStatus(orgId: string): Promise<PoolStatus> {
+  const data = await apiFetchJson<PoolStatusResponse>(ORG_POOL_STATUS_ENDPOINT(orgId))
+  return {
+    organizationId: data.organization_id,
+    status:         data.status,
+    percentUsed:    data.percent_used,
+    remaining:      toDisplayCredits(data.remaining),
+  }
 }
 
 /**

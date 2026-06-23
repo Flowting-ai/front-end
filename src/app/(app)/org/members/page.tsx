@@ -524,6 +524,8 @@ function MembersTable({
   isAdmin,
   isCurrentUserOwner = false,
   loading,
+  onChangeRole,
+  onRequestEditor,
   onRemove,
   onRevokeInvite,
   onInviteClick,
@@ -533,11 +535,20 @@ function MembersTable({
   isAdmin:              boolean
   isCurrentUserOwner?:  boolean
   loading?:             boolean
+  /** Change an org-level role directly (admin / member). */
+  onChangeRole:         (id: string, role: WorkspaceRole) => void
+  /** Editor is team-scoped, so it goes through the team-picker modal first. */
+  onRequestEditor:      (id: string, name: string) => void
   onRemove:             (id: string) => void
   onRevokeInvite:       (id: string) => void
   onInviteClick:        () => void
 }) {
   const [searchQuery,   setSearchQuery]   = useState('')
+  // Role dropdown open-state + trigger anchoring (RoleDropdown is portal-mounted
+  // and positions itself off the trigger's viewport rect).
+  const [openRoleId, setOpenRoleId] = useState<string | null>(null)
+  const [roleMenuPos, setRoleMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  const roleTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const normalizedQuery = searchQuery.trim().toLowerCase()
   const filteredMembers = normalizedQuery
     ? members.filter(member => (
@@ -630,23 +641,57 @@ function MembersTable({
                 </SettingsTableCell>
 
                 <SettingsTableCell style={{ alignSelf: 'flex-start', paddingTop: 16, paddingBottom: 16 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {member.orgRole === 'owner' ? (
-                      <Badge color="Yellow" label="Owner" />
-                    ) : member.orgRole === 'admin' ? (
-                      <RoleBadge role="admin" size="sm" />
-                    ) : member.teamMemberships.length > 0 ? (
-                      member.teamMemberships.map(t => (
-                        <RoleBadge
-                          key={t.teamId}
-                          role={t.isTeamOwner ? 'editor' : 'member'}
-                          size="sm"
-                        />
-                      ))
-                    ) : (
-                      <RoleBadge role="member" size="sm" />
-                    )}
-                  </div>
+                  {canEditMember ? (
+                    // Editable: interactive role control. Editor is team-scoped so
+                    // it routes through the team-picker modal (onRequestEditor);
+                    // admin/member are applied directly. A non-owner admin can only
+                    // assign editor/member — minting admins is owner-only.
+                    <div style={{ position: 'relative' }}>
+                      <RoleButton
+                        role={displayRoleFor(member)}
+                        isAdmin
+                        btnRef={el => { roleTriggerRefs.current[member.id] = el }}
+                        onClick={e => {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          setRoleMenuPos({ top: rect.bottom + 4, left: rect.left })
+                          setOpenRoleId(prev => (prev === member.id ? null : member.id))
+                        }}
+                      />
+                      <AnimatePresence>
+                        {openRoleId === member.id && roleTriggerRefs.current[member.id] && (
+                          <RoleDropdown
+                            currentRole={displayRoleFor(member)}
+                            availableRoles={isCurrentUserOwner ? ['admin', 'editor', 'member'] : ['editor', 'member']}
+                            onSelect={r => {
+                              if (r === 'editor') onRequestEditor(member.id, member.name || member.email)
+                              else onChangeRole(member.id, r)
+                            }}
+                            onClose={() => setOpenRoleId(null)}
+                            triggerEl={roleTriggerRefs.current[member.id]!}
+                            position={roleMenuPos}
+                          />
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {member.orgRole === 'owner' ? (
+                        <Badge color="Yellow" label="Owner" />
+                      ) : member.orgRole === 'admin' ? (
+                        <RoleBadge role="admin" size="sm" />
+                      ) : member.teamMemberships.length > 0 ? (
+                        member.teamMemberships.map(t => (
+                          <RoleBadge
+                            key={t.teamId}
+                            role={t.isTeamOwner ? 'editor' : 'member'}
+                            size="sm"
+                          />
+                        ))
+                      ) : (
+                        <RoleBadge role="member" size="sm" />
+                      )}
+                    </div>
+                  )}
                 </SettingsTableCell>
 
                 <SettingsTableCell style={{ alignSelf: 'flex-start', paddingTop: 16, paddingBottom: 16 }}>
@@ -1308,6 +1353,8 @@ export default function OrgMembersPage() {
           isAdmin={isAdmin}
           isCurrentUserOwner={currentUserIsOwner}
           loading={membersLoading}
+          onChangeRole={(id, role) => void handleChangeRole(id, role)}
+          onRequestEditor={handleRequestEditor}
           onRemove={handleRemove}
           onRevokeInvite={handleRevokeInvite}
           onInviteClick={() => setInviteOpen(true)}

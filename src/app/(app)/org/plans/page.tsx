@@ -13,8 +13,7 @@ import {
   chargeTopUp,
   type BillingInfo,
 } from '@/lib/api/stripe'
-import { getOrgSettings, updateOrgSettings } from '@/lib/api/organization'
-import type { AdminBillingPerms } from '@/types/teams'
+import { setPoolCap } from '@/lib/api/organization'
 
 /*
  * Settings → Organization → Billing ("Plans & Usage")
@@ -140,6 +139,71 @@ function StatTile({
         </p>
       )}
       {children}
+    </div>
+  )
+}
+
+/** Compact number formatting for projections: 1_480_000 → "1.48M", 642_000 → "642K". */
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 10_000)    return `${Math.round(n / 1_000)}K`
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`
+  return n.toLocaleString()
+}
+
+/**
+ * Wide control tile (enterprise): a headline value + meta, with a toggle and an
+ * action button along the bottom. Used for the spend-cap and auto-recharge cards.
+ * A missing onToggle/onAction renders the control read-only (insufficient perms).
+ */
+function ControlCard({
+  title,
+  subtitle,
+  value,
+  meta,
+  toggleLabel,
+  toggleChecked,
+  onToggle,
+  actionLabel,
+  onAction,
+}: {
+  title:         string
+  subtitle:      string
+  value:         string
+  meta:          string
+  toggleLabel:   string
+  toggleChecked: boolean
+  onToggle?:     () => void
+  actionLabel:   string
+  onAction?:     () => void
+}) {
+  return (
+    <div style={{
+      background:    'var(--neutral-white, #fff)',
+      borderRadius:  8,
+      padding:       16,
+      boxShadow:     SHADOW_TILE,
+      display:       'flex',
+      flexDirection: 'column',
+      gap:           10,
+      flex:          '1 1 0',
+      minWidth:      280,
+    }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>{title}</p>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '19px', color: 'var(--neutral-500)', margin: 0 }}>{subtitle}</p>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+        <span style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)' }}>{value}</span>
+        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '19px', color: 'var(--neutral-500)' }}>{meta}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <PermToggle checked={toggleChecked} onChange={onToggle ?? (() => {})} />
+          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '19px', color: 'var(--neutral-700)' }}>{toggleLabel}</span>
+        </div>
+        {onAction && <Button variant="secondary" size="sm" onClick={onAction}>{actionLabel}</Button>}
+      </div>
     </div>
   )
 }
@@ -320,17 +384,25 @@ export default function OrgBillingPage() {
   const [billingLoading, setBillingLoading] = useState(true)
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false)
 
-  const [adminBillingPerms, setAdminBillingPerms] = useState<AdminBillingPerms>({
-    canTopUp:         true,
-    canManagePayment: true,
-    canViewInvoices:  true,
-  })
-  const [settingsLoading, setSettingsLoading] = useState(true)
+  // Spend cap = the org credit-pool ceiling (pool_cap), persisted via
+  // PATCH /organizations/{id}/plan/pool-cap. capOverride holds the optimistic
+  // value after an edit (the plan in org-context isn't auto-refetched here).
+  const [capOverride,      setCapOverride]      = useState<number | null>(null)
+  const [spendCapModalOpen, setSpendCapModalOpen] = useState(false)
+  const [spendCapSaving,   setSpendCapSaving]   = useState(false)
+  // Auto-recharge has no backend field yet — local UI until one exists.
+  // TODO(api): persist auto-recharge once the backend exposes it.
+  const [autoRecharge,    setAutoRecharge]    = useState(true)
+  const rechargeAmount    = 500
+  const rechargeThreshold = 100
 
   const totalCredits   = plan?.totalCredits ?? 0
   const usedCredits    = plan?.used ?? 0
   const remainingCreds = plan?.remaining ?? 0
   const membersCount   = orgMembers.length
+  // Credit-pool cap (display credits); 0 means no cap / unlimited. capOverride
+  // wins after an edit so the UI reflects the change before context refetches.
+  const poolCap        = capOverride ?? plan?.poolCap ?? 0
 
   const currentTierIdx = useMemo(() => {
     const i = TIERS.findIndex(t => t.credits === totalCredits)
@@ -349,43 +421,25 @@ export default function OrgBillingPage() {
   const tier        = TIERS[tierIdx] ?? TIERS[0]
   const tierMonthly = annual ? Math.round(tier.price * 0.75) : tier.price
 
-  const providerUsage = billing?.provider_usage_usd ?? plan?.providerUsageUsd ?? 0
-  const includedUsage = billing?.included_usage_usd ?? plan?.includedUsageUsd ?? 125
-  const includedRemaining = billing?.included_usage_remaining_usd ?? plan?.includedUsageRemainingUsd ?? 0
-  const overage = billing?.overage_usd ?? plan?.overageUsd ?? 0
-  const projectedInvoice = billing?.projected_invoice_usd ?? plan?.projectedInvoiceUsd ?? 250
-  const totalTokens = billing?.total_tokens ?? plan?.totalTokens ?? 0
+  // Enterprise is usage-based (postpaid): charges are in dollars, while usage is
+  // reported in credits. Current charges this cycle come from provider usage.
+  const totalTokens    = billing?.total_tokens ?? plan?.totalTokens ?? 0
+  const currentCharges = billing?.provider_usage_usd ?? plan?.providerUsageUsd ?? 0
+  // Blended $/1k-tokens rate, derived from charges over tokens processed.
+  const blendedRate    = totalTokens > 0 ? currentCharges / (totalTokens / 1000) : 0
+  // Pool-cap consumption (credits) — drives the hero progress + spend-cap card.
+  const capPct         = poolCap > 0 ? Math.min(100, (usedCredits / poolCap) * 100) : 0
 
   // Fetch admin billing permissions from org settings (needed by both roles).
+  // Billing is owner-only — admins have no billing permission — so only the
+  // owner fetches billing data. Everyone else skips it entirely.
   useEffect(() => {
-    if (!orgId) return
-    setSettingsLoading(true)
-    getOrgSettings(orgId)
-      .then(s => setAdminBillingPerms(s.adminBillingPerms))
-      .catch(console.error)
-      .finally(() => setSettingsLoading(false))
-  }, [orgId])
-
-  // Fetch billing data. Owner always fetches; admins fetch once we know their
-  // perms — if none of the three billing sections are enabled we skip the call.
-  useEffect(() => {
-    if (!orgId) return
-    if (!isOwner && settingsLoading) return
-    if (
-      !isOwner &&
-      !adminBillingPerms.canTopUp &&
-      !adminBillingPerms.canManagePayment &&
-      !adminBillingPerms.canViewInvoices
-    ) {
-      setBillingLoading(false)
-      return
-    }
+    if (!orgId || !isOwner) { setBillingLoading(false); return }
     fetchBilling()
       .then(setBilling)
       .catch(console.error)
       .finally(() => setBillingLoading(false))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId, isOwner, settingsLoading])
+  }, [orgId, isOwner])
 
   const pm = billing?.payment_method
   const cardBrand = (pm?.brand ?? 'visa') as CardBrand
@@ -400,22 +454,24 @@ export default function OrgBillingPage() {
     else toast.error('Could not open billing portal.')
   }
 
-  const handlePermToggle = async (key: keyof AdminBillingPerms) => {
-    if (!orgId) return
-    const prev = adminBillingPerms
-    const next: AdminBillingPerms = { ...prev, [key]: !prev[key] }
-    setAdminBillingPerms(next) // optimistic
-    try {
-      const updated = await updateOrgSettings(orgId, { adminBillingPerms: next })
-      setAdminBillingPerms(updated.adminBillingPerms)
-    } catch {
-      setAdminBillingPerms(prev) // revert on error
-      toast.error('Failed to save permission.')
-    }
-  }
-
   const handleRequestPlanChange = () => {
     toast.info('Contact your organization owner to change the plan.')
+  }
+
+  // Persist the credit-pool cap (0 = remove the cap / unlimited).
+  const handleSaveCap = async (capCredits: number) => {
+    if (!orgId) return
+    setSpendCapSaving(true)
+    try {
+      const updated = await setPoolCap(orgId, capCredits)
+      setCapOverride(updated.poolCap)
+      setSpendCapModalOpen(false)
+      toast.success(capCredits > 0 ? `Spend cap set to ${capCredits.toLocaleString()} credits` : 'Spend cap removed')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update spend cap')
+    } finally {
+      setSpendCapSaving(false)
+    }
   }
 
   // Billing-cycle dates.
@@ -427,7 +483,12 @@ export default function OrgBillingPage() {
     ? fmtDate(billing?.current_period_end)
     : fmtShort(cycleEnd)
 
-  if (settingsLoading || (isOwner && billingLoading)) {
+  // Projected month-end credit usage: extrapolate this cycle's usage by how far
+  // through the cycle we are (guard against the first day or a zero-length span).
+  const cycleElapsed = (now.getTime() - cycleStart.getTime()) / Math.max(1, cycleEnd.getTime() - cycleStart.getTime())
+  const projectedCredits = cycleElapsed > 0.05 ? Math.round(usedCredits / cycleElapsed) : usedCredits
+
+  if (isOwner && billingLoading) {
     return (
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
         <PlansPageSkeleton />
@@ -435,21 +496,22 @@ export default function OrgBillingPage() {
     )
   }
 
-  // Effective per-section visibility for the current user.
-  const canSeeCredits  = isOwner || adminBillingPerms.canTopUp
-  const canSeePayment  = isOwner || adminBillingPerms.canManagePayment
-  const canSeeInvoices = isOwner || adminBillingPerms.canViewInvoices
+  // Billing is owner-only: admins (and everyone else) have no billing permission.
+  const canSeeCredits  = isOwner
+  const canSeePayment  = isOwner
+  const canSeeInvoices = isOwner
 
   // ── Hero ──────────────────────────────────────────────────────────────────────
   const hero = isEnterprise ? (
     <EnterpriseHero
       nextBilling={nextBilling}
       usageAsOf={fmtDate(now.toISOString())}
-      providerUsage={providerUsage}
-      includedUsage={includedUsage}
-      overage={overage}
-      projectedInvoice={projectedInvoice}
+      currentCharges={currentCharges}
+      poolCap={poolCap}
+      capPct={capPct}
       cycleLabel={`${fmtShort(cycleStart)} – ${fmtShort(cycleEnd)}`}
+      canAddCredits={canSeeCredits}
+      onAddCredits={() => setBuyCreditsOpen(true)}
     />
   ) : (
     <TeamsHero
@@ -489,7 +551,7 @@ export default function OrgBillingPage() {
           </h1>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
             {isEnterprise
-              ? '$250 monthly platform fee with $125 of provider usage included.'
+              ? 'Pay only for what you use. No fixed monthly fee.'
               : 'Shared prepaid usage for your organization.'}
           </p>
         </div>
@@ -499,10 +561,34 @@ export default function OrgBillingPage() {
         {isEnterprise ? (
           <>
             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-              <StatTile flex label="Provider usage" value={fmtUsd(providerUsage)} sub={`${fmtUsd(includedRemaining)} included usage remaining`} />
-              <StatTile flex label="Current overage" value={fmtUsd(overage)} sub="Billed at exact provider cost" />
-              <StatTile flex label="Projected invoice" value={fmtUsd(projectedInvoice)} sub="$250 base fee plus overage" />
-              <StatTile flex label="Tokens processed" value={totalTokens.toLocaleString()} sub={`${membersCount} active member${membersCount === 1 ? '' : 's'}`} />
+              <StatTile flex label="Credits used this cycle" value={usedCredits.toLocaleString()} sub={`Projected month-end: ~${formatCompact(projectedCredits)}`} />
+              <StatTile flex label="Seats active" value={String(membersCount)} sub="Unlimited · billed by usage" />
+              <StatTile flex label="Blended rate" value={`${fmtUsd(blendedRate)} / 1k`} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+              <ControlCard
+                title="Monthly spend cap"
+                subtitle="Hard ceiling on credit usage — no surprise bills."
+                value={poolCap > 0 ? poolCap.toLocaleString() : 'Unlimited'}
+                meta={poolCap > 0 ? `${usedCredits.toLocaleString()} used · ${Math.round(capPct)}% of cap` : `${usedCredits.toLocaleString()} credits used`}
+                toggleLabel={poolCap > 0 ? 'Enforced by owner' : 'No cap'}
+                toggleChecked={poolCap > 0}
+                onToggle={isOwner ? () => { if (poolCap > 0) void handleSaveCap(0); else setSpendCapModalOpen(true) } : undefined}
+                actionLabel="Change cap"
+                onAction={isOwner ? () => setSpendCapModalOpen(true) : undefined}
+              />
+              <ControlCard
+                title="Auto-recharge"
+                subtitle="Top up automatically so usage never pauses."
+                value={fmtUsd(rechargeAmount)}
+                meta={`added when balance falls below ${fmtUsd(rechargeThreshold)}`}
+                toggleLabel={autoRecharge ? 'On' : 'Off'}
+                toggleChecked={autoRecharge}
+                onToggle={canSeeCredits ? () => setAutoRecharge(v => !v) : undefined}
+                actionLabel="Edit threshold"
+                onAction={canSeeCredits ? () => toast.info('Auto-recharge editing is coming soon.') : undefined}
+              />
             </div>
           </>
         ) : (
@@ -557,15 +643,7 @@ export default function OrgBillingPage() {
           </SectionCard>
         )}
 
-        {/* Admin permissions — owner control panel */}
-        {isOwner && !isEnterprise && (
-          <AdminPermissionsPanel
-            perms={adminBillingPerms}
-            onToggle={handlePermToggle}
-          />
-        )}
-
-        {/* Invoice history — visible when owner OR admin with canViewInvoices */}
+        {/* Invoice history — owner only */}
         {canSeeInvoices && (
           <SectionCard
             title="Invoice history"
@@ -578,8 +656,16 @@ export default function OrgBillingPage() {
       </div>
 
       {/* Modals */}
-      {canSeeCredits && !isEnterprise && buyCreditsOpen && (
+      {canSeeCredits && buyCreditsOpen && (
         <BuyMoreCreditsModal onClose={() => setBuyCreditsOpen(false)} billing={billing} cardBrand={cardBrand} />
+      )}
+      {isEnterprise && isOwner && spendCapModalOpen && (
+        <SpendCapModal
+          currentCap={poolCap}
+          saving={spendCapSaving}
+          onClose={() => setSpendCapModalOpen(false)}
+          onSave={handleSaveCap}
+        />
       )}
     </div>
   )
@@ -624,86 +710,6 @@ function PermToggle({ checked, onChange }: { checked: boolean; onChange: () => v
         transition:   'left 0.15s ease',
       }} />
     </button>
-  )
-}
-
-const PERM_ROWS: Array<{
-  key:      keyof AdminBillingPerms
-  title:    string
-  subtitle: string
-}> = [
-  { key: 'canTopUp',         title: 'Add credits / top up',  subtitle: 'Buy credits, within the spend cap.' },
-  { key: 'canManagePayment', title: 'Manage payment method', subtitle: 'View and update the card on file.' },
-  { key: 'canViewInvoices',  title: 'View invoices',         subtitle: 'See and download billing history.' },
-]
-
-function AdminPermissionsPanel({
-  perms,
-  onToggle,
-}: {
-  perms:    AdminBillingPerms
-  onToggle: (key: keyof AdminBillingPerms) => void
-}) {
-  return (
-    <SectionCard
-      title="Admin permissions"
-      subtitle="Applies to everyone with the Admin role."
-      bodyPadding="12px 24px"
-      bodyGap={12}
-    >
-      {PERM_ROWS.map(({ key, title, subtitle }) => (
-        <div
-          key={key}
-          style={{
-            background:    'white',
-            borderRadius:  16,
-            padding:       12,
-            boxShadow:     SHADOW_TILE,
-            display:       'flex',
-            alignItems:    'center',
-            gap:           8,
-          }}
-        >
-          <div style={{ flex: '1 0 0', minWidth: 0 }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-              {title}
-            </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-              {subtitle}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-            <PermToggle checked={perms[key]} onChange={() => onToggle(key)} />
-            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', minWidth: 24 }}>
-              {perms[key] ? 'On' : 'Off'}
-            </span>
-          </div>
-        </div>
-      ))}
-
-      {/* Change plan — always owner-only, no toggle */}
-      <div
-        style={{
-          background:    'white',
-          borderRadius:  16,
-          padding:       12,
-          boxShadow:     SHADOW_TILE,
-          display:       'flex',
-          alignItems:    'center',
-          gap:           8,
-        }}
-      >
-        <div style={{ flex: '1 0 0', minWidth: 0 }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-            Change plan
-          </p>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-            Switch tiers or cancel the subscription.
-          </p>
-        </div>
-        <Badge label="Owner only" tone="yellow" />
-      </div>
-    </SectionCard>
   )
 }
 
@@ -840,21 +846,22 @@ function CycleTab({ active, onClick, children }: { active: boolean; onClick: () 
 function EnterpriseHero({
   nextBilling,
   usageAsOf,
-  providerUsage,
-  includedUsage,
-  overage,
-  projectedInvoice,
+  currentCharges,
+  poolCap,
+  capPct,
   cycleLabel,
+  canAddCredits,
+  onAddCredits,
 }: {
   nextBilling:    string
   usageAsOf:      string
-  providerUsage: number
-  includedUsage: number
-  overage: number
-  projectedInvoice: number
+  currentCharges: number
+  poolCap:        number
+  capPct:         number
   cycleLabel:     string
+  canAddCredits:  boolean
+  onAddCredits:   () => void
 }) {
-  const pct = includedUsage > 0 ? Math.min(100, (providerUsage / includedUsage) * 100) : 0
   return (
     <HeroShell>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -868,33 +875,35 @@ function EnterpriseHero({
           <Badge label="Volume pricing" tone="blue" />
         </div>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-          $250 charged monthly · $125 provider usage included · Unlimited usage · Usage as of {usageAsOf}
+          Billed monthly in arrears · Net 30 · Usage as of {usageAsOf}
         </p>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
         <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-          {fmtUsd(projectedInvoice)}
+          {fmtUsd(currentCharges)}
         </p>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-          projected invoice
+          current charges this cycle
         </p>
       </div>
 
-      <ProgressBar pct={pct} />
+      <ProgressBar pct={capPct} />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-600)' }}>
           Cycle: {cycleLabel}
         </span>
         <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-white, #fff)' }}>
-          {overage > 0 ? `${fmtUsd(overage)} overage accrued` : `${fmtUsd(includedUsage - providerUsage)} included usage left`}
+          {poolCap > 0 ? `Spend cap ${poolCap.toLocaleString()} credits` : 'No spend cap'}
         </span>
       </div>
 
-      <div style={{ display: 'flex' }}>
-        <Badge label="Postpaid · exact provider cost after allowance" tone="yellow" />
-      </div>
+      {canAddCredits && (
+        <div style={{ display: 'flex' }}>
+          <Button variant="secondary" size="sm" onClick={onAddCredits}>Add credits</Button>
+        </div>
+      )}
     </HeroShell>
   )
 }
@@ -1118,6 +1127,42 @@ function InputField({
         />
       </div>
     </div>
+  )
+}
+
+// ── Monthly spend-cap modal ──────────────────────────────────────────────────
+
+function SpendCapModal({
+  currentCap,
+  saving,
+  onClose,
+  onSave,
+}: {
+  currentCap: number
+  saving:     boolean
+  onClose:    () => void
+  onSave:     (cap: number) => void
+}) {
+  const [value, setValue] = useState(currentCap > 0 ? String(currentCap) : '')
+  const parsed = Math.max(0, Math.round(Number(value.replace(/[^0-9.]/g, '')) || 0))
+  return (
+    <ModalShell
+      title="Monthly spend cap"
+      subtitle="Set a hard ceiling on credit usage for this cycle. Set to 0 to remove the cap."
+      maxWidth={420}
+      onClose={onClose}
+      footerNote="Usage pauses once the cap is reached — no surprise overage."
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button loading={saving} disabled={saving} onClick={() => onSave(parsed)}>
+            {parsed > 0 ? 'Set cap' : 'Remove cap'}
+          </Button>
+        </div>
+      }
+    >
+      <InputField label="Spend cap (credits)" value={value} onChange={setValue} placeholder="e.g. 500000" />
+    </ModalShell>
   )
 }
 

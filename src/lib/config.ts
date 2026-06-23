@@ -268,6 +268,8 @@ export const ORG_PLAN_USAGE_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/plan/usage`)
 export const ORG_POOL_STATUS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/pool-status`)
+export const ORG_POOL_CAP_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/plan/pool-cap`)
 export const ORG_AUDIT_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/audit`)
 export const ORG_TRANSFER_OWNER_ENDPOINT = (orgId: string) =>
