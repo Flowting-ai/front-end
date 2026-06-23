@@ -1251,9 +1251,9 @@ function LeftSidebarImpl({
     ? displayRole.charAt(0).toUpperCase() + displayRole.slice(1)
     : undefined
   const orgBadgeChipColor: ChipColor =
-    displayRole === 'owner'  ? 'Yellow' :
-    displayRole === 'admin'  ? 'Red'    :
-    displayRole === 'editor' ? 'Blue'   :
+    displayRole === 'owner'  ? 'Purple' :
+    displayRole === 'admin'  ? 'Blue'   :
+    displayRole === 'editor' ? 'Green'  :
     'Neutral'
 
   // Teams ? "Teams | Admin/Editor/Member" | paid ? "Pro"/"Starter"/"Power" | trial ? "Free Trial" | none ? "No Plan Selected"

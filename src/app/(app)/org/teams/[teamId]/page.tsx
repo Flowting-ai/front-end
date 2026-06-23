@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
 import {
+  ExchangeOneIcon,
   FilterMailIcon,
   PlusSignIcon,
   SearchOneIcon,
@@ -190,22 +191,57 @@ const ROLE_LABELS: Record<WorkspaceRole, string> = {
   member: 'Member',
 }
 
-function InvitePanel({ availableRoles, onInvite, onClose }: {
+function InvitePanel({ availableRoles, orgMembers, rosterIds, onInvite, onClose }: {
   availableRoles: WorkspaceRole[]
+  orgMembers: OrgMember[]
+  rosterIds: Set<string>
   onInvite: (emails: string[], role: WorkspaceRole) => Promise<void>
   onClose: () => void
 }) {
-  const [raw,     setRaw]     = useState('')
-  const [role,    setRole]    = useState<WorkspaceRole>(availableRoles[availableRoles.length - 1] ?? 'member')
-  const [sending, setSending] = useState(false)
+  const [raw,      setRaw]      = useState('')
+  const [role,     setRole]     = useState<WorkspaceRole>(availableRoles[availableRoles.length - 1] ?? 'member')
+  const [sending,  setSending]  = useState(false)
+  const [selected, setSelected] = useState<OrgMember[]>([])
+  const [dropOpen, setDropOpen] = useState(false)
+  const triggerRef  = useRef<HTMLButtonElement>(null)
+  const dropPanelRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
+
+  const eligible = useMemo(() =>
+    orgMembers.filter(m => m.inviteStatus !== 'invite_sent' && !rosterIds.has(m.id)),
+    [orgMembers, rosterIds]
+  )
+
+  useEffect(() => {
+    if (dropOpen && triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: r.left, width: r.width })
+    }
+  }, [dropOpen])
+
+  useEffect(() => {
+    if (!dropOpen) return
+    const handler = (e: MouseEvent) => {
+      if (triggerRef.current?.contains(e.target as Node) || dropPanelRef.current?.contains(e.target as Node)) return
+      setDropOpen(false)
+    }
+    document.addEventListener('mousedown', handler, true)
+    return () => document.removeEventListener('mousedown', handler, true)
+  }, [dropOpen])
+
+  const toggleMember = (m: OrgMember) =>
+    setSelected(prev => prev.some(s => s.id === m.id) ? prev.filter(s => s.id !== m.id) : [...prev, m])
 
   const handleSend = async () => {
-    const emails = raw.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean)
-    if (!emails.length) return
+    const typedEmails = raw.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean)
+    const pickedEmails = selected.map(m => m.email).filter((e): e is string => !!e)
+    const all = [...new Set([...typedEmails, ...pickedEmails])]
+    if (!all.length) return
     setSending(true)
     try {
-      await onInvite(emails, role)
+      await onInvite(all, role)
       setRaw('')
+      setSelected([])
       onClose()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to send invites')
@@ -214,17 +250,93 @@ function InvitePanel({ availableRoles, onInvite, onClose }: {
     }
   }
 
+  const canSend = (raw.trim().length > 0 || selected.length > 0) && !sending
+
   return (
     <div style={{ padding: '16px 24px', borderTop: '1px solid var(--neutral-100)', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
         Invite members
       </p>
+
       <InputField
         value={raw}
         onChange={setRaw}
         placeholder="email@example.com, another@example.com"
         fluid
       />
+
+      {eligible.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
+            Or add from workspace
+          </p>
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={() => setDropOpen(o => !o)}
+            style={{
+              fontFamily: 'var(--font-body)', fontSize: 14,
+              color: selected.length > 0 ? 'var(--neutral-900)' : 'var(--neutral-400)',
+              border: '1px solid var(--neutral-200)', borderRadius: 8,
+              padding: '8px 12px', backgroundColor: 'white', cursor: 'pointer',
+              width: '100%', textAlign: 'left',
+            }}
+          >
+            {selected.length > 0
+              ? `${selected.length} member${selected.length > 1 ? 's' : ''} selected`
+              : 'Select workspace members…'}
+          </button>
+          {dropOpen && pos && createPortal(
+            <AnimatePresence>
+              <motion.div
+                ref={dropPanelRef}
+                style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 300 }}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0, transition: { duration: 0.12 } }}
+              >
+                <Popover variant="dropdown" style={{ width: '100%', maxHeight: 220, overflowY: 'auto' }}>
+                  {eligible.map(m => (
+                    <DropdownMenuItem
+                      key={m.id}
+                      fluid
+                      label={m.name || m.email}
+                      subLabel={m.name ? (m.email ?? undefined) : undefined}
+                      selected={selected.some(s => s.id === m.id)}
+                      onClick={() => toggleMember(m)}
+                    />
+                  ))}
+                </Popover>
+              </motion.div>
+            </AnimatePresence>,
+            document.body
+          )}
+          {selected.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {selected.map(m => (
+                <span
+                  key={m.id}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '2px 8px', borderRadius: 6,
+                    backgroundColor: 'var(--neutral-100)',
+                    fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-700)',
+                  }}
+                >
+                  {m.name || m.email}
+                  <button
+                    type="button"
+                    onClick={() => toggleMember(m)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', color: 'var(--neutral-400)', fontSize: 16, lineHeight: 1 }}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
           Role
@@ -254,9 +366,10 @@ function InvitePanel({ availableRoles, onInvite, onClose }: {
           ))}
         </div>
       </div>
+
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-        <Button variant="default" size="sm" disabled={!raw.trim() || sending} onClick={handleSend}>
+        <Button variant="default" size="sm" disabled={!canSend} onClick={handleSend}>
           {sending ? 'Sending…' : 'Send invites'}
         </Button>
       </div>
@@ -266,34 +379,19 @@ function InvitePanel({ availableRoles, onInvite, onClose }: {
 
 // ── Add-editor panel ──────────────────────────────────────────────────────────
 
-function AddEditorPanel({ orgId, existingEditorIds, onAdd, onClose }: {
-  orgId: string
-  existingEditorIds: Set<string>
+function AddEditorPanel({ rosterMembers, onAdd, onClose }: {
+  rosterMembers: RosterMember[]
   onAdd: (userId: string) => Promise<void>
   onClose: () => void
 }) {
-  const [members, setMembers] = useState<OrgMember[]>([])
-  const [selected, setSelected] = useState<OrgMember | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Only team members who are regular members (not editors, not pending, not owner/admin)
+  const eligible = rosterMembers.filter(m => !m.isEditor && !m.pending && m.orgRole === 'member')
+  const [selected, setSelected] = useState<RosterMember | null>(null)
   const [saving, setSaving] = useState(false)
   const [dropOpen, setDropOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
-
-  useEffect(() => {
-    listMembers(orgId)
-      .then(all => setMembers(
-        all.filter(m =>
-          m.inviteStatus !== 'invite_sent' &&
-          m.orgRole !== 'owner' &&
-          m.orgRole !== 'admin' &&
-          !existingEditorIds.has(m.id)
-        )
-      ))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [orgId, existingEditorIds])
 
   useEffect(() => {
     if (dropOpen && triggerRef.current) {
@@ -319,7 +417,7 @@ function AddEditorPanel({ orgId, existingEditorIds, onAdd, onClose }: {
     if (!selected) return
     setSaving(true)
     try {
-      await onAdd(selected.id)
+      await onAdd(selected.userId)
       onClose()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add editor')
@@ -331,12 +429,12 @@ function AddEditorPanel({ orgId, existingEditorIds, onAdd, onClose }: {
   return (
     <div style={{ padding: '16px 24px', borderTop: '1px solid var(--neutral-100)', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
-        Add existing member as editor
+        Promote team member to editor
       </p>
-      {loading ? (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>Loading members…</p>
-      ) : members.length === 0 ? (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>Everyone eligible is already an editor of this team.</p>
+      {eligible.length === 0 ? (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>
+          All team members are already editors.
+        </p>
       ) : (
         <>
           <button
@@ -351,7 +449,7 @@ function AddEditorPanel({ orgId, existingEditorIds, onAdd, onClose }: {
               width: '100%', textAlign: 'left',
             }}
           >
-            {selected ? (selected.name || selected.email) : 'Select a member…'}
+            {selected ? (selected.name || selected.email) : 'Select a team member…'}
           </button>
           {dropOpen && pos && createPortal(
             <AnimatePresence>
@@ -362,13 +460,13 @@ function AddEditorPanel({ orgId, existingEditorIds, onAdd, onClose }: {
                 animate={{ opacity: 1, y: 0, transition: { duration: 0.12 } }}
               >
                 <Popover variant="dropdown" style={{ width: '100%' }}>
-                  {members.map(m => (
+                  {eligible.map(m => (
                     <DropdownMenuItem
-                      key={m.id}
+                      key={m.userId}
                       fluid
-                      label={m.name || m.email}
-                      subLabel={m.name ? m.email : undefined}
-                      selected={selected?.id === m.id}
+                      label={m.name || m.email || undefined}
+                      subLabel={m.name ? (m.email ?? undefined) : undefined}
+                      selected={selected?.userId === m.userId}
                       onClick={() => { setSelected(m); setDropOpen(false) }}
                     />
                   ))}
@@ -381,7 +479,7 @@ function AddEditorPanel({ orgId, existingEditorIds, onAdd, onClose }: {
       )}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-        <Button variant="default" size="sm" disabled={!selected || saving || loading} onClick={handleAdd}>
+        <Button variant="default" size="sm" disabled={!selected || saving || eligible.length === 0} onClick={handleAdd}>
           {saving ? 'Adding…' : 'Add editor'}
         </Button>
       </div>
@@ -608,8 +706,10 @@ export default function TeamSettingsPage() {
   const [teamDesc, setTeamDesc] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const [inviteOpen,  setInviteOpen]  = useState(false)
+  const [inviteOpen,    setInviteOpen]    = useState(false)
+  const [addEditorOpen, setAddEditorOpen] = useState(false)
   const [deleteInput, setDeleteInput] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
 
   const availableRoles: WorkspaceRole[] = orgRole === 'owner'
     ? ['admin', 'editor', 'member']
@@ -738,7 +838,26 @@ export default function TeamSettingsPage() {
       Number(b.isEditor) - Number(a.isEditor) || a.name.localeCompare(b.name))
   }, [orgMembers, editors, editorIds, team?.id])
 
+  const rosterIds = useMemo(() => new Set(roster.map(m => m.userId)), [roster])
+
   const rosterLoading = editorsLoading || membersLoading
+
+  const refreshRoster = async () => {
+    if (!orgId || !params.teamId) return
+    setRefreshing(true)
+    try {
+      const [rows, editorRows] = await Promise.all([
+        listMembers(orgId),
+        listTeamEditors(orgId, params.teamId),
+      ])
+      setOrgMembers(rows)
+      setEditors(editorRows)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const handleSave = async () => {
     if (!orgId || !team) return
@@ -790,16 +909,10 @@ export default function TeamSettingsPage() {
 
   const handleInvite = async (emails: string[], role: WorkspaceRole) => {
     if (!orgId || !team) return
-    const existingEmails = new Set(orgMembers.map(m => m.email?.toLowerCase()).filter(Boolean))
-    const alreadyMembers = emails.filter(e => existingEmails.has(e.toLowerCase()))
-    if (alreadyMembers.length > 0) {
-      toast.error(
-        `${alreadyMembers.join(', ')} ${alreadyMembers.length === 1 ? 'is' : 'are'} already a member of this workspace`,
-      )
-      return
-    }
     await inviteTeamMembers(orgId, team.id, emails, role)
     toast.success(`Invite sent to ${emails.length} email${emails.length > 1 ? 's' : ''}`)
+    setInviteOpen(false)
+    void refreshRoster()
   }
 
   const handleAddEditor = async (userId: string) => {
@@ -940,7 +1053,13 @@ export default function TeamSettingsPage() {
                 <IconButton variant="ghost" size="sm" aria-label="Search members" icon={<SearchOneIcon size={20} />} />
                 <IconButton variant="ghost" size="sm" aria-label="Filter members" icon={<FilterMailIcon size={20} />} />
               </div>
-              <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={() => setInviteOpen(o => !o)}>
+              <Button variant="ghost" size="sm" leftIcon={<ExchangeOneIcon animated={refreshing} size={16} />} disabled={refreshing} onClick={() => void refreshRoster()}>
+                Refresh
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => { setAddEditorOpen(o => !o); setInviteOpen(false) }}>
+                Add editor
+              </Button>
+              <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={16} />} onClick={() => { setInviteOpen(o => !o); setAddEditorOpen(false) }}>
                 Invite members
               </Button>
             </div>
@@ -995,8 +1114,17 @@ export default function TeamSettingsPage() {
           {inviteOpen && (
             <InvitePanel
               availableRoles={availableRoles}
+              orgMembers={orgMembers}
+              rosterIds={rosterIds}
               onInvite={handleInvite}
               onClose={() => setInviteOpen(false)}
+            />
+          )}
+          {addEditorOpen && (
+            <AddEditorPanel
+              rosterMembers={roster}
+              onAdd={handleAddEditor}
+              onClose={() => setAddEditorOpen(false)}
             />
           )}
         </SettingsTable>

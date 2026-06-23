@@ -231,9 +231,9 @@ export async function inviteTeamMembers(
     body: JSON.stringify({
       emails,
       role: orgRole,
-      grantTeamEditor,
-      ...(creditCap && creditCap > 0 ? { creditCap } : {}),
-      ...(projectId ? { projectId } : {}),
+      grant_team_editor: grantTeamEditor,
+      ...(creditCap && creditCap > 0 ? { credit_cap: creditCap } : {}),
+      ...(projectId ? { project_id: projectId } : {}),
     }),
   })
   return normalizeInvite(data)

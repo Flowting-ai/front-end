@@ -85,6 +85,7 @@ export function Button({
   active = false,
   children = 'Button',
   className,
+  style: callerStyle,
   onMouseEnter: externalMouseEnter,
   onMouseLeave: externalMouseLeave,
   onFocus: externalFocus,
@@ -240,6 +241,7 @@ export function Button({
         outlineColor: isFocused ? 'var(--focus-ring)' : 'transparent',
         transition: 'filter 200ms, outline-color 150ms',
         cursor: isDisabled ? 'not-allowed' : 'pointer',
+        ...callerStyle,
       }}
     >
       {defaultStrokeColor && strokeClipPath && (

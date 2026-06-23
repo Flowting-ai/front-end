@@ -435,6 +435,10 @@ function relativeTime(iso: string): string {
   return `${Math.round(secs / 86400)}d ago`
 }
 
+function localDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+}
+
 function humanizeAction(a: string): string {
   return a.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())
 }
@@ -486,7 +490,12 @@ function ActivityTab({ orgId, teamId }: { orgId: string; teamId: string }) {
               </span>
             </SettingsTableCell>
             <SettingsTableCell align="end">
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)' }}>{relativeTime(e.createdAt)}</span>
+              <span
+                title={localDateTime(e.createdAt)}
+                style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', cursor: 'default' }}
+              >
+                {relativeTime(e.createdAt)}
+              </span>
             </SettingsTableCell>
           </SettingsTableRow>
         ))}

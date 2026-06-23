@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { PlusSignIcon, SearchOneIcon, CancelCircleIcon } from '@strange-huge/icons'
-import { Badge }            from '@/components/Badge'
+import { PlusSignIcon, SearchOneIcon, CancelCircleIcon, ExchangeOneIcon } from '@strange-huge/icons'
+import { Badge, type BadgeColor } from '@/components/Badge'
 import { RoleBadge }        from '@/components/RoleBadge'
 import { CREDIT_CAP_COLUMNS, CreditCapRow } from '@/components/CreditCapRow'
 import { Button }           from '@/components/Button'
@@ -272,37 +272,24 @@ function RemoveButton({
 
 // ── Teams badges column ───────────────────────────────────────────────────────
 
+const BADGE_COLORS: BadgeColor[] = ['Blue', 'Red', 'Green', 'Yellow', 'Purple', 'Brown', 'Neutral']
+
 function TeamsBadges({
   teams,
-  hasGlobalAccess = false,
+  colorMap,
+  orgRole,
 }: {
   teams: OrgMember['teamMemberships']
-  hasGlobalAccess?: boolean
+  colorMap: Record<string, BadgeColor>
+  orgRole: OrgMember['orgRole']
 }) {
-  if (hasGlobalAccess || teams.length === 0) return null
+  if (orgRole === 'owner') return <Badge color="Purple" label="All teams" />
+  if (orgRole === 'admin') return <Badge color="Blue" label="All teams" />
+  if (teams.length === 0) return <Badge color="Neutral" label="No team assigned" />
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
       {teams.map(t => (
-        <span
-          key={t.teamId}
-          style={{
-            display:         'inline-flex',
-            alignItems:      'center',
-            padding:         '2px 6px',
-            borderRadius:    6,
-            backgroundColor: 'var(--neutral-50)',
-            boxShadow:       '0px 0px 0px 1px var(--neutral-100)',
-            fontFamily:      'var(--font-body)',
-            fontWeight:      500,
-            fontSize:        'var(--font-size-caption)',
-            lineHeight:      'var(--line-height-caption)',
-            color:           'var(--neutral-700)',
-            whiteSpace:      'nowrap',
-            flexShrink:      0,
-          }}
-        >
-          {t.teamName}
-        </span>
+        <Badge key={t.teamId} color={colorMap[t.teamId] ?? 'Neutral'} label={t.teamName} />
       ))}
     </div>
   )
@@ -529,6 +516,7 @@ function MembersTable({
   onRemove,
   onRevokeInvite,
   onInviteClick,
+  onRefresh,
 }: {
   members:              OrgMember[]
   ownerMemberId:        string
@@ -542,6 +530,7 @@ function MembersTable({
   onRemove:             (id: string) => void
   onRevokeInvite:       (id: string) => void
   onInviteClick:        () => void
+  onRefresh:            () => void
 }) {
   const [searchQuery,   setSearchQuery]   = useState('')
   // Role dropdown open-state + trigger anchoring (RoleDropdown is portal-mounted
@@ -549,6 +538,11 @@ function MembersTable({
   const [openRoleId, setOpenRoleId] = useState<string | null>(null)
   const [roleMenuPos, setRoleMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
   const roleTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const teamColorMap = useMemo<Record<string, BadgeColor>>(() => {
+    const ids = Array.from(new Set(members.flatMap(m => m.teamMemberships.map(t => t.teamId)))).sort()
+    return Object.fromEntries(ids.map((id, i) => [id, BADGE_COLORS[i % BADGE_COLORS.length]]))
+  }, [members])
+
   const normalizedQuery = searchQuery.trim().toLowerCase()
   const filteredMembers = normalizedQuery
     ? members.filter(member => (
@@ -564,6 +558,15 @@ function MembersTable({
     <SettingsTable columns={WORKSPACE_MEMBER_COLUMNS} columnGap={0}>
       <SettingsTableToolbar title="Workspace Members" style={{ flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 12, maxWidth: '100%' }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            leftIcon={<ExchangeOneIcon animated size={16} />}
+            aria-label="Refresh members"
+            onClick={onRefresh}
+          >
+            Refresh
+          </Button>
           <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
             <InputField
               label="Search members"
@@ -661,7 +664,7 @@ function MembersTable({
                         {openRoleId === member.id && roleTriggerRefs.current[member.id] && (
                           <RoleDropdown
                             currentRole={displayRoleFor(member)}
-                            availableRoles={isCurrentUserOwner ? ['admin', 'editor', 'member'] : ['editor', 'member']}
+                            availableRoles={['admin', 'member']}
                             onSelect={r => {
                               if (r === 'editor') onRequestEditor(member.id, member.name || member.email)
                               else onChangeRole(member.id, r)
@@ -676,26 +679,26 @@ function MembersTable({
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {member.orgRole === 'owner' ? (
-                        <Badge color="Yellow" label="Owner" />
+                        <Badge color="Purple" label="Owner" />
                       ) : member.orgRole === 'admin' ? (
-                        <RoleBadge role="admin" size="sm" />
+                        <Badge color="Blue" label="Admin" />
                       ) : member.teamMemberships.length > 0 ? (
                         member.teamMemberships.map(t => (
-                          <RoleBadge
+                          <Badge
                             key={t.teamId}
-                            role={t.isTeamOwner ? 'editor' : 'member'}
-                            size="sm"
+                            color={t.isTeamOwner ? 'Green' : 'Neutral'}
+                            label={t.isTeamOwner ? 'Editor' : 'Member'}
                           />
                         ))
                       ) : (
-                        <RoleBadge role="member" size="sm" />
+                        <Badge color="Neutral" label="Member" />
                       )}
                     </div>
                   )}
                 </SettingsTableCell>
 
                 <SettingsTableCell style={{ alignSelf: 'flex-start', paddingTop: 16, paddingBottom: 16 }}>
-                  <TeamsBadges teams={member.teamMemberships} hasGlobalAccess={hasGlobalAccess} />
+                  <TeamsBadges teams={member.teamMemberships} colorMap={teamColorMap} orgRole={member.orgRole} />
                 </SettingsTableCell>
 
                 <SettingsTableCell align="end">
@@ -779,11 +782,11 @@ function RolesPermissionsSection() {
         <React.Fragment key={item.role}>
           {index > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', margin: '0 24px' }} />}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 24px' }}>
-            {item.role === 'owner' ? (
-              <Badge label="Owner" color="Yellow" style={{ flexShrink: 0 }} />
-            ) : (
-              <RoleBadge role={item.role} size="sm" style={{ flexShrink: 0 }} />
-            )}
+            <Badge
+              label={item.role.charAt(0).toUpperCase() + item.role.slice(1)}
+              color={item.role === 'owner' ? 'Purple' : item.role === 'admin' ? 'Blue' : item.role === 'editor' ? 'Green' : 'Neutral'}
+              style={{ flexShrink: 0 }}
+            />
             <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)', lineHeight: 'var(--line-height-body)' }}>
               {item.description}
             </span>
@@ -1358,6 +1361,7 @@ export default function OrgMembersPage() {
           onRemove={handleRemove}
           onRevokeInvite={handleRevokeInvite}
           onInviteClick={() => setInviteOpen(true)}
+          onRefresh={refreshMembers}
         />
 
         {/* Credit caps */}
