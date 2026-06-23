@@ -997,7 +997,6 @@ function EnterpriseHero({
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Badge label="Postpaid · exact provider cost after allowance" tone="yellow" />
         <Badge
           label={overage > 0
             ? `${fmtCredits(overage)} credits overage`
@@ -1397,9 +1396,6 @@ function SpendLimitCard({
           <div style={{ flex: '1 0 0', minWidth: 0 }}>
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
               Unlimited
-            </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-              Usage beyond the included {fmtCredits(includedUsage)} credits is unlimited and billed at exact provider cost.
             </p>
           </div>
           <Badge label="No cap" tone="neutral" />
