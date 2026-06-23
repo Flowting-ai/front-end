@@ -61,7 +61,7 @@ export default function TeamInviteWelcomePage() {
       await updateOnboarding({ onboarding_completed: true });
       await refreshUser();
       if (wasAlreadyOnboarded) {
-        push(`/onboarding/team/${invite.teamId}/profile`);
+        push(`/onboarding/team/${invite.inviteId}/confirm`);
       } else {
         push(`/onboarding/team/${invite.inviteId}/join`);
       }
