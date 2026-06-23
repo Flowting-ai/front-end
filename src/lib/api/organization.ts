@@ -6,6 +6,7 @@ import {
   ORG_ENDPOINT,
   ORG_SETTINGS_ENDPOINT,
   ORG_PLAN_ENDPOINT,
+  ORG_PLAN_POOL_CAP_ENDPOINT,
   ORG_PLAN_USAGE_ENDPOINT,
   ORG_AUDIT_ENDPOINT,
   ORG_TRANSFER_OWNER_ENDPOINT,
@@ -72,6 +73,7 @@ interface PlanResponse {
   remaining: number
   percent_used: number
   pool_status: string
+  pool_cap?: number | null
   members: MemberResponse[]
   included_usage_usd?: number
   provider_usage_usd?: number
@@ -171,6 +173,7 @@ function normalizePlan(p: PlanResponse): OrgPlan {
     remaining:      toDisplayCredits(p.remaining),
     percentUsed:    p.percent_used,
     poolStatus:     p.pool_status,
+    poolCapUsd:     p.pool_cap ?? null,
     members:        (p.members ?? []).map(normalizeMember),
     includedUsageUsd: p.included_usage_usd ?? 0,
     providerUsageUsd: p.provider_usage_usd ?? 0,
@@ -325,6 +328,14 @@ export async function updateOrgSettings(
 
 export async function getOrgPlan(orgId: string): Promise<OrgPlan> {
   const data = await apiFetchJson<PlanResponse>(ORG_PLAN_ENDPOINT(orgId))
+  return normalizePlan(data)
+}
+
+export async function setOrgPoolCap(orgId: string, poolCapUsd: number): Promise<OrgPlan> {
+  const data = await apiFetchJson<PlanResponse>(ORG_PLAN_POOL_CAP_ENDPOINT(orgId), {
+    method: 'PATCH',
+    body:   JSON.stringify({ poolCap: poolCapUsd }),
+  })
   return normalizePlan(data)
 }
 

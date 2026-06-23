@@ -264,6 +264,8 @@ export const ORG_SETTINGS_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/settings`)
 export const ORG_PLAN_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/plan`)
+export const ORG_PLAN_POOL_CAP_ENDPOINT = (orgId: string) =>
+  withBase(`/organizations/${orgId}/plan/pool-cap`)
 export const ORG_PLAN_USAGE_ENDPOINT = (orgId: string) =>
   withBase(`/organizations/${orgId}/plan/usage`)
 export const ORG_POOL_STATUS_ENDPOINT = (orgId: string) =>

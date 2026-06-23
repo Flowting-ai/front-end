@@ -231,6 +231,7 @@ export interface OrgPlan {
   remaining: number
   percentUsed: number
   poolStatus: string
+  poolCapUsd: number | null
   members: OrgMember[]
   includedUsageUsd: number
   providerUsageUsd: number

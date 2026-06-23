@@ -13,8 +13,8 @@ import {
   chargeTopUp,
   type BillingInfo,
 } from '@/lib/api/stripe'
-import { getOrgSettings, updateOrgSettings } from '@/lib/api/organization'
-import type { AdminBillingPerms } from '@/types/teams'
+import { getOrgSettings, setOrgPoolCap, updateOrgSettings } from '@/lib/api/organization'
+import type { AdminBillingPerms, OrgPlan } from '@/types/teams'
 
 /*
  * Settings → Organization → Billing ("Plans & Usage")
@@ -34,6 +34,7 @@ const SHADOW_TILE     = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px 
 const SHADOW_HERO    = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 1px 0px 1px var(--neutral-100)'  // gradient hero panel
 const SHADOW_MODAL   = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)'
 const SHADOW_INPUT   = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+const ENTERPRISE_INTERMAX = 2_147_483_647
 
 // Hero gradient — extracted verbatim from Figma (mauve + gold radial blend, image fill).
 const HERO_GRADIENT_TEAMS =
@@ -319,6 +320,9 @@ export default function OrgBillingPage() {
   const [billing,        setBilling]        = useState<BillingInfo | null>(null)
   const [billingLoading, setBillingLoading] = useState(true)
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false)
+  const [localPlan,      setLocalPlan]      = useState<OrgPlan | null>(null)
+  const [capModalOpen,   setCapModalOpen]   = useState(false)
+  const [savingCap,      setSavingCap]      = useState(false)
 
   const [adminBillingPerms, setAdminBillingPerms] = useState<AdminBillingPerms>({
     canTopUp:         true,
@@ -326,11 +330,33 @@ export default function OrgBillingPage() {
     canViewInvoices:  true,
   })
   const [settingsLoading, setSettingsLoading] = useState(true)
+  const effectivePlan = localPlan ?? plan
 
-  const totalCredits   = plan?.totalCredits ?? 0
-  const usedCredits    = plan?.used ?? 0
-  const remainingCreds = plan?.remaining ?? 0
-  const membersCount   = orgMembers.length
+  const rawTotalCredits   = effectivePlan?.totalCredits ?? 0
+  const rawUsedCredits    = effectivePlan?.used ?? 0
+  const rawRemainingCreds = effectivePlan?.remaining ?? 0
+  const membersCount      = orgMembers.length
+
+  const providerUsage = billing?.provider_usage_usd ?? effectivePlan?.providerUsageUsd ?? 0
+  const includedUsage = billing?.included_usage_usd ?? effectivePlan?.includedUsageUsd ?? 125
+  const includedRemaining = billing?.included_usage_remaining_usd ?? effectivePlan?.includedUsageRemainingUsd ?? 0
+  const overage = billing?.overage_usd ?? effectivePlan?.overageUsd ?? 0
+  const projectedInvoice = billing?.projected_invoice_usd ?? effectivePlan?.projectedInvoiceUsd ?? 250
+  const totalTokens = billing?.total_tokens ?? effectivePlan?.totalTokens ?? 0
+  const poolCapUsd = effectivePlan?.poolCapUsd ?? null
+  const enterpriseIncludedCredits = Math.round(includedUsage * 1000)
+  const hasOrgCreditPool = rawTotalCredits > 0
+  const totalCredits = hasOrgCreditPool ? rawTotalCredits : (isEnterprise ? enterpriseIncludedCredits : 0)
+  const remainingCreds = hasOrgCreditPool ? rawRemainingCreds : (isEnterprise ? Math.round(includedRemaining * 1000) : 0)
+  const usedCredits = hasOrgCreditPool ? rawUsedCredits : Math.max(totalCredits - remainingCreds, 0)
+  const hasUnlimitedEnterpriseCap = poolCapUsd == null || poolCapUsd >= ENTERPRISE_INTERMAX
+  // Owner-set ceiling on overage spend *above* the $125 included (backend overage_limit).
+  // Usage up to the included allowance is always permitted; this only caps the metered
+  // overage beyond it. `null` ⇒ unlimited (the ENTERPRISE_INTERMAX sentinel).
+  const overageCapUsd = hasUnlimitedEnterpriseCap ? null : poolCapUsd
+  const overageUsedPct = overageCapUsd && overageCapUsd > 0
+    ? Math.min(100, (overage / overageCapUsd) * 100)
+    : 0
 
   const currentTierIdx = useMemo(() => {
     const i = TIERS.findIndex(t => t.credits === totalCredits)
@@ -348,13 +374,6 @@ export default function OrgBillingPage() {
 
   const tier        = TIERS[tierIdx] ?? TIERS[0]
   const tierMonthly = annual ? Math.round(tier.price * 0.75) : tier.price
-
-  const providerUsage = billing?.provider_usage_usd ?? plan?.providerUsageUsd ?? 0
-  const includedUsage = billing?.included_usage_usd ?? plan?.includedUsageUsd ?? 125
-  const includedRemaining = billing?.included_usage_remaining_usd ?? plan?.includedUsageRemainingUsd ?? 0
-  const overage = billing?.overage_usd ?? plan?.overageUsd ?? 0
-  const projectedInvoice = billing?.projected_invoice_usd ?? plan?.projectedInvoiceUsd ?? 250
-  const totalTokens = billing?.total_tokens ?? plan?.totalTokens ?? 0
 
   // Fetch admin billing permissions from org settings (needed by both roles).
   useEffect(() => {
@@ -418,6 +437,26 @@ export default function OrgBillingPage() {
     toast.info('Contact your organization owner to change the plan.')
   }
 
+  const handleRequestCapChange = () => {
+    toast.info('Contact your organization owner to change the spend limit.')
+  }
+
+  // Persist the overage limit. `null` ⇒ unlimited (sent as the INTERMAX sentinel).
+  const handleSaveCap = async (valueUsd: number | null) => {
+    if (!orgId) return
+    setSavingCap(true)
+    try {
+      const updated = await setOrgPoolCap(orgId, valueUsd == null ? ENTERPRISE_INTERMAX : valueUsd)
+      setLocalPlan(updated)
+      setCapModalOpen(false)
+      toast.success('Spend limit updated.')
+    } catch {
+      toast.error('Failed to update spend limit.')
+    } finally {
+      setSavingCap(false)
+    }
+  }
+
   // Billing-cycle dates.
   const now          = new Date()
   const cycleStart   = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -445,6 +484,9 @@ export default function OrgBillingPage() {
     <EnterpriseHero
       nextBilling={nextBilling}
       usageAsOf={fmtDate(now.toISOString())}
+      totalCredits={totalCredits}
+      usedCredits={usedCredits}
+      remainingCredits={remainingCreds}
       providerUsage={providerUsage}
       includedUsage={includedUsage}
       overage={overage}
@@ -499,11 +541,49 @@ export default function OrgBillingPage() {
         {isEnterprise ? (
           <>
             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-              <StatTile flex label="Provider usage" value={fmtUsd(providerUsage)} sub={`${fmtUsd(includedRemaining)} included usage remaining`} />
-              <StatTile flex label="Current overage" value={fmtUsd(overage)} sub="Billed at exact provider cost" />
-              <StatTile flex label="Projected invoice" value={fmtUsd(projectedInvoice)} sub="$250 base fee plus overage" />
-              <StatTile flex label="Tokens processed" value={totalTokens.toLocaleString()} sub={`${membersCount} active member${membersCount === 1 ? '' : 's'}`} />
+              <StatTile label="Shared credits"    value={totalCredits.toLocaleString()}   sub={`Resets ${nextBilling}`} />
+              <StatTile label="Credits Remaining" value={remainingCreds.toLocaleString()} sub={`${usedCredits.toLocaleString()} used this month`} />
+              <StatTile label="Seats used"        value={String(membersCount)}            sub="Unlimited seats" />
+              <div style={{
+                background:    'var(--neutral-white, #fff)',
+                borderRadius:  8,
+                padding:       12,
+                boxShadow:     SHADOW_TILE,
+                display:       'flex',
+                flexDirection: 'column',
+                gap:           6,
+                flex:          '1 1 220px',
+                minWidth:      200,
+              }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                  Monthly caps
+                </p>
+                <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                  Set per-member credit caps for this organization.
+                </p>
+                {canSeeCredits && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button variant="secondary" onClick={() => router.push('/org/members')}>Manage caps</Button>
+                  </div>
+                )}
+              </div>
             </div>
+
+            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+              <StatTile flex label="Included provider usage" value={fmtUsd(includedUsage)} sub={`${fmtUsd(includedRemaining)} remaining`} />
+              <StatTile flex label="Current overage" value={fmtUsd(overage)} sub="Metered after included usage" />
+              <StatTile flex label="Projected invoice" value={fmtUsd(projectedInvoice)} sub="$250 base fee plus overage" />
+              <StatTile flex label="Tokens processed" value={totalTokens.toLocaleString()} sub="Metered at provider cost" />
+            </div>
+
+            <SpendLimitCard
+              overageCapUsd={overageCapUsd}
+              overage={overage}
+              overageUsedPct={overageUsedPct}
+              isOwner={isOwner}
+              onEdit={() => setCapModalOpen(true)}
+              onRequest={handleRequestCapChange}
+            />
           </>
         ) : (
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
@@ -580,6 +660,15 @@ export default function OrgBillingPage() {
       {/* Modals */}
       {canSeeCredits && !isEnterprise && buyCreditsOpen && (
         <BuyMoreCreditsModal onClose={() => setBuyCreditsOpen(false)} billing={billing} cardBrand={cardBrand} />
+      )}
+      {isOwner && isEnterprise && capModalOpen && (
+        <SpendCapModal
+          currentCapUsd={overageCapUsd}
+          includedUsage={includedUsage}
+          saving={savingCap}
+          onSave={handleSaveCap}
+          onClose={() => setCapModalOpen(false)}
+        />
       )}
     </div>
   )
@@ -840,6 +929,9 @@ function CycleTab({ active, onClick, children }: { active: boolean; onClick: () 
 function EnterpriseHero({
   nextBilling,
   usageAsOf,
+  totalCredits,
+  usedCredits,
+  remainingCredits,
   providerUsage,
   includedUsage,
   overage,
@@ -848,36 +940,39 @@ function EnterpriseHero({
 }: {
   nextBilling:    string
   usageAsOf:      string
+  totalCredits: number
+  usedCredits: number
+  remainingCredits: number
   providerUsage: number
   includedUsage: number
   overage: number
   projectedInvoice: number
   cycleLabel:     string
 }) {
-  const pct = includedUsage > 0 ? Math.min(100, (providerUsage / includedUsage) * 100) : 0
+  const pct = totalCredits > 0 ? Math.min(100, (usedCredits / totalCredits) * 100) : 0
   return (
     <HeroShell>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-          Enterprise
+          Enterprise Plan
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
             Next billing: {nextBilling}
           </p>
-          <Badge label="Volume pricing" tone="blue" />
+          <Badge label="$250/month" tone="blue" />
         </div>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-          $250 charged monthly · $125 provider usage included · Unlimited usage · Usage as of {usageAsOf}
+          Shared credits · Unlimited seats · $125 included provider usage · Usage as of {usageAsOf}
         </p>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
         <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-          {fmtUsd(projectedInvoice)}
+          {remainingCredits.toLocaleString()}
         </p>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-          projected invoice
+          credits remaining
         </p>
       </div>
 
@@ -888,12 +983,17 @@ function EnterpriseHero({
           Cycle: {cycleLabel}
         </span>
         <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-white, #fff)' }}>
-          {overage > 0 ? `${fmtUsd(overage)} overage accrued` : `${fmtUsd(includedUsage - providerUsage)} included usage left`}
+          {usedCredits.toLocaleString()} of {totalCredits.toLocaleString()} credits used
         </span>
       </div>
 
-      <div style={{ display: 'flex' }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Badge label="Postpaid · exact provider cost after allowance" tone="yellow" />
+        <Badge
+          label={overage > 0 ? `${fmtUsd(overage)} overage` : `${fmtUsd(Math.max(includedUsage - providerUsage, 0))} included usage left`}
+          tone={overage > 0 ? 'red' : 'green'}
+        />
+        <Badge label={`${fmtUsd(projectedInvoice)} projected invoice`} tone="neutral" />
       </div>
     </HeroShell>
   )
@@ -1243,5 +1343,129 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
       <span style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)' }}>{label}</span>
       <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)' }}>{value}</span>
     </div>
+  )
+}
+
+// ── Overage spend limit (Enterprise) ──────────────────────────────────────────
+//
+// Enterprise usage is unlimited by default and billed in arrears. The owner can
+// cap the *overage* — usage billed beyond the $125 included each month. The cap
+// never restricts the included allowance, only spend past it (backend
+// EnterpriseContract.overage_limit; `null` here ⇒ the INTERMAX "unlimited" sentinel).
+
+function SpendLimitCard({
+  overageCapUsd,
+  overage,
+  overageUsedPct,
+  isOwner,
+  onEdit,
+  onRequest,
+}: {
+  overageCapUsd:  number | null
+  overage:        number
+  overageUsedPct: number
+  isOwner:        boolean
+  onEdit:         () => void
+  onRequest:      () => void
+}) {
+  const unlimited = overageCapUsd == null
+  return (
+    <SectionCard
+      title="Overage spend limit"
+      subtitle="Caps usage billed beyond the $125 included each month. Usage up to the included amount is always allowed."
+      action={
+        isOwner
+          ? <Button variant="secondary" onClick={onEdit}>Edit limit</Button>
+          : <Button variant="secondary" onClick={onRequest}>Request change</Button>
+      }
+    >
+      {unlimited ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: '1 0 0', minWidth: 0 }}>
+            <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+              Unlimited
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+              Usage beyond the included $125 is unlimited and billed at exact provider cost.
+            </p>
+          </div>
+          <Badge label="No cap" tone="neutral" />
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+            <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+              {fmtUsd(overageCapUsd)}
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+              overage cap / month
+            </p>
+          </div>
+          <div style={{ position: 'relative', height: 4, borderRadius: 2, background: 'var(--neutral-100)', width: '100%' }}>
+            <div style={{ position: 'absolute', left: 0, top: 0, height: 4, borderRadius: 2, background: overageUsedPct >= 100 ? 'var(--red-700)' : 'var(--neutral-900)', width: `${overageUsedPct}%`, transition: 'width 0.3s ease' }} />
+          </div>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+            {fmtUsd(overage)} of {fmtUsd(overageCapUsd)} overage used · {Math.round(overageUsedPct)}% of limit
+          </p>
+        </div>
+      )}
+    </SectionCard>
+  )
+}
+
+function SpendCapModal({
+  currentCapUsd,
+  includedUsage,
+  saving,
+  onSave,
+  onClose,
+}: {
+  currentCapUsd: number | null
+  includedUsage: number
+  saving:        boolean
+  onSave:        (valueUsd: number | null) => void
+  onClose:       () => void
+}) {
+  const [unlimited, setUnlimited] = useState(currentCapUsd == null)
+  const [value,     setValue]     = useState(currentCapUsd != null ? String(currentCapUsd) : '')
+
+  const parsed = parseFloat(value)
+  const valid  = unlimited || (!isNaN(parsed) && parsed >= 0)
+
+  const handleSave = () => {
+    if (!valid) { toast.error('Enter a valid amount.'); return }
+    onSave(unlimited ? null : parsed)
+  }
+
+  return (
+    <ModalShell
+      title="Overage spend limit"
+      subtitle={`Set the maximum usage billed beyond the ${fmtUsd(includedUsage)} included each month. The included allowance is never restricted — only spend past it.`}
+      maxWidth={560}
+      onClose={onClose}
+      footer={
+        <Button variant="default" fluid onClick={handleSave} loading={saving} disabled={!valid}>
+          Save limit
+        </Button>
+      }
+      footerNote="Usage that would exceed the limit is paused until the next cycle or until the limit is raised."
+    >
+      <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: '1 0 0', minWidth: 0 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+              No limit
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+              Allow unlimited overage, billed at exact provider cost.
+            </p>
+          </div>
+          <PermToggle checked={unlimited} onChange={() => setUnlimited(u => !u)} />
+        </div>
+        {!unlimited && (
+          <InputField label="Cap overage at (above included)" value={value} onChange={setValue} prefix="$" placeholder="0.00" />
+        )}
+      </div>
+    </ModalShell>
   )
 }
