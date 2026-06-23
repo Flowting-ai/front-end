@@ -16,9 +16,9 @@ import {
   OrgHeader,
   CardTitle,
   CardSubtitle,
-  TeamRow,
-  ProjectList,
+  InviteScope,
   inviteRoleLabel,
+  inviteTargetName,
 } from "./_components/invite-ui";
 
 // ── Screen 1 — "You're invited to {team}" ───────────────────────────────────────
@@ -47,7 +47,7 @@ export default function TeamInviteWelcomePage() {
   }
 
   const firstName = user?.firstName?.trim() || user?.name?.split(" ")[0]?.trim() || "there";
-  const target = invite.teamName || invite.projectName || invite.organizationName || "the team";
+  const target = inviteTargetName(invite);
 
   const handleAccept = async () => {
     if (submitting) return;
@@ -86,8 +86,7 @@ export default function TeamInviteWelcomePage() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <TeamRow invite={invite} />
-          <ProjectList projects={invite.projects} />
+          <InviteScope invite={invite} />
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end" }}>

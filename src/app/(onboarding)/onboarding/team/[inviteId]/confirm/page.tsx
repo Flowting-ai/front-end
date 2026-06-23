@@ -9,12 +9,11 @@ import {
   InviteCard,
   InviteStateScreen,
   OrgHeader,
-  OrgRow,
   CardTitle,
   CardSubtitle,
-  TeamRow,
-  ProjectList,
+  InviteScope,
   inviteRoleLabel,
+  inviteTargetName,
 } from "../_components/invite-ui";
 
 // ── Screen 4 — "You're joining {team}" (confirmation) ───────────────────────────
@@ -73,14 +72,9 @@ export default function TeamInviteConfirmPage() {
   const roleLabel = inviteRoleLabel(invite);
   const adminName = invite.invitedByName || invite.invitedByEmail || "your admin";
 
-  // What the invitee is joining is scoped to their role:
-  //  • admin / owner  → the organization (they get org-wide context)
-  //  • editor         → the team (team roster + projects)
-  //  • member / viewer → the team, project-first (the projects they'll work in)
-  const isOrgRole = roleLabel === "admin" || roleLabel === "owner";
-  const target = isOrgRole
-    ? invite.organizationName || invite.teamName || "the organization"
-    : invite.teamName || invite.projectName || invite.organizationName || "the team";
+  // What the invitee is joining + the roster shown are scoped to the backend
+  // role (admin → org, editor → team, member → project), shared across screens.
+  const target = inviteTargetName(invite);
 
   const handleEnter = () => {
     // Membership + onboarding were already committed on screen 1; just enter.
@@ -99,17 +93,8 @@ export default function TeamInviteConfirmPage() {
         </div>
 
         {/* Role-scoped context: org roster for admins, team roster for editors,
-            the project list for members/viewers. */}
-        {isOrgRole ? (
-          <OrgRow invite={invite} />
-        ) : roleLabel === "editor" ? (
-          <TeamRow invite={invite} />
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <TeamRow invite={invite} />
-            <ProjectList projects={invite.projects} />
-          </div>
-        )}
+            team + project list for members/viewers. */}
+        <InviteScope invite={invite} />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           {invite.creditCap != null && (
@@ -123,11 +108,11 @@ export default function TeamInviteConfirmPage() {
             body="You can request credits, connectors, or any project-level changes from your admin."
           />
           <InfoSection
-            title="Shared: projects, personas, connectors"
+            title="Shared: projects, agents, connectors"
             body="These surfaces are shared and you'll have your personal space too."
           />
           <InfoSection
-            title={`As ${roleLabel === "admin" || roleLabel === "owner" ? "an" : "a"} ${capitalize(roleLabel)}: chat, run Brain, create your own agent`}
+            title={`As ${roleLabel === "admin" || roleLabel === "owner" ? "an" : "a"} ${capitalize(roleLabel)}: chat, run Brain, create your own team and agents`}
             body="You can share useful content with the team. Reusable resources with the team."
           />
         </div>

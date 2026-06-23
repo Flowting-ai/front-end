@@ -10,9 +10,9 @@ import {
   OrgHeader,
   CardTitle,
   CardSubtitle,
-  TeamRow,
-  ProjectList,
+  InviteScope,
   InvitedBy,
+  inviteTargetName,
 } from "../_components/invite-ui";
 
 // ── Screen 2 — "Join {team}" ────────────────────────────────────────────────────
@@ -35,7 +35,7 @@ export default function TeamInviteJoinPage() {
     );
   }
 
-  const target = invite.teamName || invite.projectName || invite.organizationName || "the team";
+  const target = inviteTargetName(invite);
 
   return (
     <InviteCanvas>
@@ -48,8 +48,7 @@ export default function TeamInviteJoinPage() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <TeamRow invite={invite} />
-          <ProjectList projects={invite.projects} />
+          <InviteScope invite={invite} />
         </div>
 
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
