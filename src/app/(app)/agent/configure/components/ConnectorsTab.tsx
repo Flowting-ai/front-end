@@ -353,14 +353,23 @@ export default function ConnectorsTab({
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0, maxWidth: 300 }}>
             No connectors are available yet. Connect or enable connectors in Settings to use them in this agent.
           </p>
-          <Button variant="secondary" size="sm" onClick={() => safeNavigate('/settings/connectors')}>
+          <Button variant="secondary" size="sm" onClick={() => setShowNavModal(true)}>
             Go to Settings
           </Button>
         </div>
       ) : workspaceRows.length === 0 && personalRows.length === 0 ? (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '16px 12px' }}>
-          No connectors match &ldquo;{searchQuery}&rdquo;.
-        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '24px 16px', textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0, maxWidth: 300 }}>
+            {searchQuery
+              ? <>No connectors match &ldquo;{searchQuery}&rdquo;.</>
+              : 'No connectors are connected yet. Connect accounts in Settings to use them here.'}
+          </p>
+          {!searchQuery && (
+            <Button variant="secondary" size="sm" onClick={() => setShowNavModal(true)}>
+              Go to Settings
+            </Button>
+          )}
+        </div>
       ) : (
         <>
           {/* ── Workspace connectors — shared org accounts ──────────────────── */}

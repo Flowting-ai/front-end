@@ -13,11 +13,12 @@ import { ModelSwitchDialog }                               from '@/components/ch
 import { PinMentionDropdown }                              from '@/components/chat/PinMentionDropdown'
 import { useModelSelectorContext }                         from '@/context/model-selector-context'
 import { useProjects }                                     from '@/context/projects-context'
+import { useOrg }                                          from '@/context/org-context'
 import { useFileUpload }                                   from '@/hooks/use-file-upload'
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
 import { usePinboard, type PinItem }                       from '@/context/pinboard-context'
 import type { PinMentionable }                             from '@/components/chat/PinMentionDropdown'
-import { fetchPersonas, personasForTeamContext, getVersion } from '@/lib/api/personas'
+import { fetchPersonas, personasForTeamContext, getVersion, usePersonaRepo } from '@/lib/api/personas'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
 import { Dropdown }                                        from '@/components/Dropdown'
 import { Chip }                                            from '@/components/Chip'
@@ -193,6 +194,7 @@ function ProjectChatPageInner() {
     renameChat,
     loadProjectChats,
   } = useProjects()
+  const { currentUserRole } = useOrg()
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
   const isNewChat = params.chatId === 'new'
@@ -266,6 +268,8 @@ function ProjectChatPageInner() {
   const [personaChipOpen,    setPersonaChipOpen]    = useState(false)
   const [chipPersonas,       setChipPersonas]       = useState<SelectedPersonaInfo[]>([])
   const [loadingChipPersonas, setLoadingChipPersonas] = useState(false)
+  // Cache original-repo-id → member's copy info so usePersonaRepo is called at most once per session per persona
+  const teamPersonaCopyCache = useRef<Map<string, SelectedPersonaInfo>>(new Map())
 
   const fileInputRef           = useRef<HTMLInputElement>(null)
   const newChatInputWrapperRef = useRef<HTMLDivElement>(null)
@@ -409,12 +413,55 @@ function ProjectChatPageInner() {
   useEffect(() => {
     if (!personaChipOpen) return
     setLoadingChipPersonas(true)
-    fetchPersonas()
-      // Team projects offer only team-shared agents; private projects show all.
-      .then(list => setChipPersonas(personasForTeamContext(list, project?.teamId ?? null).map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
-      .catch(() => setChipPersonas([]))
-      .finally(() => setLoadingChipPersonas(false))
-  }, [personaChipOpen, project?.teamId])
+
+    const teamId = project?.teamId ?? null
+    // Members/editors can't use another user's persona directly — _resolve_persona enforces ownership.
+    // For team projects, transparently copy each team-shared persona into the member's own account
+    // so the chat can proceed with their copy's version ID instead of the admin's.
+    const needsCopy = Boolean(teamId) && currentUserRole !== 'admin'
+    let cancelled = false
+
+    async function loadChipPersonas() {
+      const list = await fetchPersonas()
+      if (cancelled) return
+      const teamPersonas = personasForTeamContext(list, teamId)
+
+      if (!needsCopy) {
+        setChipPersonas(teamPersonas.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null })))
+        return
+      }
+
+      const resolved = await Promise.all(teamPersonas.map(async p => {
+        const base: SelectedPersonaInfo = { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }
+        if (p.visibility !== 'team') return base
+        const cached = teamPersonaCopyCache.current.get(p.id)
+        if (cached) return cached
+        try {
+          const copy = await usePersonaRepo(p.id)
+          const v = copy.published_version ?? copy.active_version
+          const info: SelectedPersonaInfo = {
+            id: copy.id,
+            name: p.name,
+            imageUrl: v?.image_url ?? p.imageUrl,
+            modelId: v?.model_id ?? p.modelId,
+            activeVersionId: copy.published_version_id ?? null,
+            systemPrompt: null,
+            temperature: v?.temperature ?? p.temperature,
+          }
+          teamPersonaCopyCache.current.set(p.id, info)
+          return info
+        } catch {
+          return base
+        }
+      }))
+      if (!cancelled) setChipPersonas(resolved)
+    }
+
+    loadChipPersonas()
+      .catch(() => { if (!cancelled) setChipPersonas([]) })
+      .finally(() => { if (!cancelled) setLoadingChipPersonas(false) })
+    return () => { cancelled = true }
+  }, [personaChipOpen, project?.teamId, currentUserRole])
 
   // ── Chips ─────────────────────────────────────────────────────────────────
 
@@ -776,6 +823,7 @@ function ProjectChatPageInner() {
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
               skipModelSelected={!!selectedPersona}
+              hideUsageStrip
             />
           </m.div>
         )}

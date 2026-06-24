@@ -533,7 +533,7 @@ function PersonaPublishedContent() {
                     variant="default"
                     size="sm"
                     leftIcon={<LinkSixIcon size={16} />}
-                    style={{ width: 242, justifyContent: 'center' }}
+                    fluid
                     onClick={handleGenerateSuperLink}
                     loading={isGenerating}
                     disabled={isGenerating}

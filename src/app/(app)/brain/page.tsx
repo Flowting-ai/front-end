@@ -1747,7 +1747,9 @@ function BrainPageInner() {
     chipPersonasFetchedRef.current = true
     setLoadingChipPersonas(true)
     fetchPersonas()
-      .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
+      // Only surface personally-owned agents in this context — team-shared personas
+      // are scoped to project chat where the copy flow handles them correctly.
+      .then(list => setChipPersonas(list.filter(p => p.visibility === 'private').map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
       .catch(() => setChipPersonas([]))
       .finally(() => setLoadingChipPersonas(false))
   }, [personaChipOpen])

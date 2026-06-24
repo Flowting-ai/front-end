@@ -33,7 +33,7 @@ import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/comp
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
 import type { PinFolder } from '@/lib/api/pins'
 import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
-import { fetchPersonas, personasForTeamContext } from '@/lib/api/personas'
+import { fetchPersonas, personasForTeamContext, usePersonaRepo } from '@/lib/api/personas'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
 import { FloatingMenu } from '@/components/FloatingMenu'
@@ -53,7 +53,7 @@ export default function ProjectPage() {
   const { open: openModelSelector, setPersonaActive } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
 
-  const { orgId, caps, members } = useOrg()
+  const { orgId, caps, members, currentUserRole } = useOrg()
   const project = getProject(params.id)
   const chats   = getChats(params.id)
 
@@ -79,6 +79,7 @@ export default function ProjectPage() {
   const [personaChipOpen,      setPersonaChipOpen]      = useState(false)
   const [chipPersonas,         setChipPersonas]         = useState<SelectedPersonaInfo[]>([])
   const [loadingChipPersonas,  setLoadingChipPersonas]  = useState(false)
+  const teamPersonaCopyCache = useRef<Map<string, SelectedPersonaInfo>>(new Map())
   const [newChatAttachments,   setNewChatAttachments]   = useState<PendingAttachment[]>([])
   const [pendingFiles,     setPendingFiles]     = useState<File[]>([])
   const [projectLoading,   setProjectLoading]   = useState(true)
@@ -99,12 +100,52 @@ export default function ProjectPage() {
   useEffect(() => {
     if (!personaChipOpen) return
     setLoadingChipPersonas(true)
-    fetchPersonas()
-      // Team projects offer only team-shared agents; private projects show all.
-      .then(list => setChipPersonas(personasForTeamContext(list, project?.teamId ?? null).map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
-      .catch(() => setChipPersonas([]))
-      .finally(() => setLoadingChipPersonas(false))
-  }, [personaChipOpen, project?.teamId])
+
+    const teamId = project?.teamId ?? null
+    const needsCopy = Boolean(teamId) && currentUserRole !== 'admin'
+    let cancelled = false
+
+    async function loadChipPersonas() {
+      const list = await fetchPersonas()
+      if (cancelled) return
+      const teamPersonas = personasForTeamContext(list, teamId)
+
+      if (!needsCopy) {
+        setChipPersonas(teamPersonas.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null })))
+        return
+      }
+
+      const resolved = await Promise.all(teamPersonas.map(async p => {
+        const base: SelectedPersonaInfo = { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }
+        if (p.visibility !== 'team') return base
+        const cached = teamPersonaCopyCache.current.get(p.id)
+        if (cached) return cached
+        try {
+          const copy = await usePersonaRepo(p.id)
+          const v = copy.published_version ?? copy.active_version
+          const info: SelectedPersonaInfo = {
+            id: copy.id,
+            name: p.name,
+            imageUrl: v?.image_url ?? p.imageUrl,
+            modelId: v?.model_id ?? p.modelId,
+            activeVersionId: copy.published_version_id ?? null,
+            systemPrompt: null,
+            temperature: v?.temperature ?? p.temperature,
+          }
+          teamPersonaCopyCache.current.set(p.id, info)
+          return info
+        } catch {
+          return base
+        }
+      }))
+      if (!cancelled) setChipPersonas(resolved)
+    }
+
+    loadChipPersonas()
+      .catch(() => { if (!cancelled) setChipPersonas([]) })
+      .finally(() => { if (!cancelled) setLoadingChipPersonas(false) })
+    return () => { cancelled = true }
+  }, [personaChipOpen, project?.teamId, currentUserRole])
 
   // Team name for the header chip — only team projects need it.
   useEffect(() => {

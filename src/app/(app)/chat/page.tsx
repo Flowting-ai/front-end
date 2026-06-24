@@ -698,7 +698,9 @@ function ChatPageInner() {
     if (!personaChipOpen) return
     setLoadingChipPersonas(true)
     fetchPersonas()
-      .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
+      // Normal chat only surfaces personally-owned agents. Team-shared personas are
+      // scoped to project chat where the copy flow handles them correctly.
+      .then(list => setChipPersonas(list.filter(p => p.visibility === 'private').map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
       .catch(() => setChipPersonas([]))
       .finally(() => setLoadingChipPersonas(false))
   }, [personaChipOpen])

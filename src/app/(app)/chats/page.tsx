@@ -467,6 +467,7 @@ export default function ChatsPage() {
                         starred={chat.starred}
                         selectionMode={selectionMode}
                         selected={selectedIds.has(chat.id)}
+                        readOnly={chat.can_edit === false && chat.visibility === 'team'}
                         onSelect={() => toggleSelect(chat.id)}
                         onClick={() => handleOpenChat(chat.id)}
                         onRename={(newTitle) => rename(chat.id, newTitle)}

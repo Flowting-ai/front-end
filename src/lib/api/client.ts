@@ -81,6 +81,9 @@ export function friendlyApiError(raw: string, statusCode?: number): string {
   if (statusCode === 422 || lower.includes("validation error")) {
     return "Something was wrong with the request. Please check your input and try again.";
   }
+  if (lower.includes("persona not found") || lower.includes("persona repo not found")) {
+    return "This agent isn't available to you. Ask the owner to share it with you via a personal link.";
+  }
   if (statusCode === 404) {
     return "The requested resource was not found.";
   }

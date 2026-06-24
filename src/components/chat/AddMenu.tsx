@@ -100,8 +100,13 @@ export function ChatAddMenu({
     const needsLoad = personas.length === 0
     if (needsLoad) setLoadingPersonas(true)
     fetchPersonas()
-      // In a team project, restrict to agents shared to that team — never private ones.
-      .then(list => setPersonas(personasForTeamContext(list, teamId)))
+      .then(list => setPersonas(
+        teamId
+          // Team project: agents shared to that team only.
+          ? personasForTeamContext(list, teamId)
+          // Normal chat: personal and super-link agents only — never team-shared ones.
+          : list.filter(p => p.visibility === 'private')
+      ))
       .catch(() => setPersonas([]))
       .finally(() => setLoadingPersonas(false))
   }, [personaMenuOpen, teamId]) // eslint-disable-line react-hooks/exhaustive-deps -- personas.length read only for the initial guard, not a dep

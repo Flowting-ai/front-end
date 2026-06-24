@@ -245,6 +245,9 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
   const [savedVisibility,   setSavedVisibility]   = useState<Visibility>('private')
   const [savedTeamIds,      setSavedTeamIds]      = useState<string[]>([])
 
+  // Team dropdown toggle
+  const [teamsDropdownOpen, setTeamsDropdownOpen] = useState(false)
+
   // Team dropdown scroll-edge state (drives blur overlays)
   const [atTop,    setAtTop]    = useState(true)
   const [atBottom, setAtBottom] = useState(false)
@@ -258,12 +261,12 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
 
   // Re-evaluate atBottom whenever dropdown opens or team list changes
   useEffect(() => {
-    if (visibility !== 'team') return
+    if (!teamsDropdownOpen) return
     const el = teamListRef.current
     if (!el) return
     setAtTop(true)
     setAtBottom(el.scrollHeight - el.clientHeight < 8)
-  }, [visibility, editableTeams.length])
+  }, [teamsDropdownOpen, editableTeams.length])
 
   // ── Link share state ───────────────────────────────────────────────────────
   const [superLinkEnabled, setSuperLinkEnabled] = useState(false)
@@ -525,7 +528,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
             label="Private"
             description="Only you can use this persona"
             selected={visibility === 'private'}
-            onClick={() => setVisibility('private')}
+            onClick={() => { setVisibility('private'); setTeamsDropdownOpen(false) }}
           />
 
           {/* Team row + floating dropdown */}
@@ -539,8 +542,42 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
               onClick={() => setVisibility('team')}
             />
 
+            {/* Show/hide teams toggle — sits over the right edge of the card */}
+            {orgId && (
+              <button
+                type="button"
+                disabled={visibility !== 'team'}
+                onClick={e => { e.stopPropagation(); setTeamsDropdownOpen(o => !o) }}
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  right: 12,
+                  transform: 'translateY(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--neutral-200)',
+                  cursor: visibility !== 'team' ? 'not-allowed' : 'pointer',
+                  backgroundColor: teamsDropdownOpen && visibility === 'team' ? 'var(--neutral-100)' : 'white',
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 500,
+                  fontSize: 12,
+                  lineHeight: '16px',
+                  color: visibility !== 'team' ? 'var(--neutral-300)' : 'var(--neutral-700)',
+                  opacity: visibility !== 'team' ? 0.5 : 1,
+                  transition: 'background-color 150ms, opacity 150ms',
+                  whiteSpace: 'nowrap',
+                  zIndex: 1,
+                }}
+              >
+                {teamsDropdownOpen && visibility === 'team' ? 'Hide teams' : 'Show teams'}
+              </button>
+            )}
+
             <AnimatePresence initial={false}>
-              {visibility === 'team' && orgId && (
+              {visibility === 'team' && orgId && teamsDropdownOpen && (
                 <m.div
                   key="team-dropdown"
                   initial={{ opacity: 0, scale: 0.97, y: -4 }}

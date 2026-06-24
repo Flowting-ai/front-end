@@ -184,6 +184,8 @@ interface ChatInterfaceProps {
   hidePinActions?: boolean;
   /** Readable shared chat whose original is owned by somebody else. */
   readOnly?: boolean;
+  /** When true, the usage-limit strip is never shown (e.g. team project chats). */
+  hideUsageStrip?: boolean;
   /**
    * When true, model_selected SSE events are ignored so the agent's pre-seeded
    * model is not overwritten by the backend during streaming. Pass when a persona
@@ -226,6 +228,7 @@ export function ChatInterface({
   hidePinActions = false,
   readOnly = false,
   skipModelSelected,
+  hideUsageStrip = false,
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [inputValue, setInputValue] = useState("");
@@ -303,7 +306,7 @@ export function ChatInterface({
   const { museActive, museAdvanced } = useModelSelectorContext();
 
   // Auth context — refreshUser for updating usage after stream completes
-  const { refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   // Org context — pool status drives InlineCreditNotice above input
   const { plan, org, orgId, currentUserRole: orgRole } = useOrg();
@@ -311,11 +314,35 @@ export function ChatInterface({
   const creditStatus = useCreditStatus();
 
   // Usage strip: show org pool for org users, personal credits for individuals.
+  // For members with an assigned credit cap, reflect their cap usage rather than
+  // the org pool so a fresh cap assignment shows correctly even if the pool is at 100%.
   const isOrgUser = Boolean(orgId) && !creditStatus.applies
-  const stripPctUsed   = isOrgUser ? (org?.creditPool?.percentUsed ?? 0) : creditStatus.pctUsed
-  const stripRemaining = isOrgUser ? (org?.creditPool?.remaining   ?? null) : creditStatus.remaining
-  const stripTotal     = isOrgUser ? (org?.creditPool?.total       ?? null) : creditStatus.total
-  const showStrip      = (creditStatus.applies || isOrgUser) && stripPctUsed >= 0.9
+  const myMemberRecord = isOrgUser
+    ? plan?.members.find(m =>
+        (user?.id != null && m.id === String(user.id)) ||
+        (user?.email != null && m.email === user.email)
+      )
+    : undefined
+  const myCapTotal = myMemberRecord?.creditCap ?? 0
+  const myCapUsed  = myMemberRecord?.allocationUsed ?? 0
+  const memberHasCap = myCapTotal > 0
+
+  const stripPctUsed   = isOrgUser
+    ? memberHasCap
+      ? Math.min(myCapUsed / myCapTotal, 1)
+      : (org?.creditPool?.percentUsed ?? 0)
+    : creditStatus.pctUsed
+  const stripRemaining = isOrgUser
+    ? memberHasCap
+      ? Math.max(myCapTotal - myCapUsed, 0)
+      : (org?.creditPool?.remaining ?? null)
+    : creditStatus.remaining
+  const stripTotal     = isOrgUser
+    ? memberHasCap
+      ? myCapTotal
+      : (org?.creditPool?.total ?? null)
+    : creditStatus.total
+  const showStrip      = !hideUsageStrip && (creditStatus.applies || isOrgUser) && stripPctUsed >= 0.9
   const stripLevel     = resolveUsageLevel(stripPctUsed)
   const stripTokens    = USAGE_LEVEL_TOKENS[stripLevel]
   const router = useRouter();

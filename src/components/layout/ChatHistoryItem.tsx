@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { SidebarMenuItem } from "@/components/ui";
+import { Badge } from "@/components/Badge";
 import type { Chat } from "@/types/chat";
 import { openDeleteChatDialog } from "./AppDialogs";
 import { MoveToProjectModal }    from "@/components/MoveToProjectModal";
@@ -54,6 +55,8 @@ export function ChatHistoryItem({
   onDelete,
   onStar,
 }: ChatHistoryItemProps) {
+  const isReadOnly = chat.can_edit === false && chat.visibility === 'team';
+
   const [isEditing, setIsEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
@@ -109,11 +112,14 @@ export function ChatHistoryItem({
           label={chat.title}
           selected={isActive}
           href={isEditing ? undefined : `/chat?id=${chat.id}`}
+          badge={!isEditing && chat.can_edit === false && chat.visibility === 'team'
+            ? <Badge color="Red" label="Read only" />
+            : undefined}
           onClick={() => {
             if (!isEditing) onSelect(chat.id);
           }}
-          onMoreClick={handleMoreClick}
-          onRename={() => setIsEditing(true)}
+          onMoreClick={isReadOnly ? undefined : handleMoreClick}
+          onRename={isReadOnly ? undefined : () => setIsEditing(true)}
           onCommit={handleCommit}
           onCancel={() => setIsEditing(false)}
         />

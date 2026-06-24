@@ -6,6 +6,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { m, AnimatePresence } from 'framer-motion'
 import { PinIcon, MoreHorizontalIcon } from '@strange-huge/icons'
 import { Checkbox } from '@/components/Checkbox'
+import { Badge } from '@/components/Badge'
 import { cn } from '@/lib/utils'
 
 // ── Shadows (Figma exact) ─────────────────────────────────────────────────────
@@ -53,6 +54,8 @@ export interface ChatRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   isEmpty?: boolean
   disabled?: boolean
   asChild?: boolean
+  /** When true, shows a red "Read only" badge — for shared team chats the viewer doesn't own. */
+  readOnly?: boolean
 }
 
 // ── PinCountChip ─────────────────────────────────────────────────────────────
@@ -166,9 +169,10 @@ function MenuItem({ label, destructive, onSelect }: MenuItemProps) {
 interface ThreeDotButtonOwnProps {
   visible: boolean
   title: string
+  readOnly?: boolean
 }
 
-function ThreeDotButton({ visible, title, onClick, ref, ...rest }: ThreeDotButtonOwnProps & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'title'> & { ref?: React.Ref<HTMLButtonElement> }) {
+function ThreeDotButton({ visible, title, readOnly = false, onClick, ref, ...rest }: ThreeDotButtonOwnProps & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'title'> & { ref?: React.Ref<HTMLButtonElement> }) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
 
@@ -176,7 +180,7 @@ function ThreeDotButton({ visible, title, onClick, ref, ...rest }: ThreeDotButto
     <button
       ref={ref}
       type="button"
-      onClick={(e) => { e.stopPropagation(); onClick?.(e) }}
+      onClick={readOnly ? undefined : (e) => { e.stopPropagation(); onClick?.(e) }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}
@@ -191,7 +195,7 @@ function ThreeDotButton({ visible, title, onClick, ref, ...rest }: ThreeDotButto
         borderRadius:    8,
         border:          'none',
         backgroundColor: hovered ? 'rgba(237,225,215,0.6)' : 'transparent',
-        cursor:          'pointer',
+        cursor:          readOnly ? 'not-allowed' : 'pointer',
         outline:         focused ? '2px solid var(--blue-400)' : 'none',
         outlineOffset:   2,
         flexShrink:      0,
@@ -225,6 +229,7 @@ function ChatRowInner(
     isEmpty       = false,
     disabled      = false,
     asChild       = false,
+    readOnly      = false,
     className,
     style,
     onClick,
@@ -464,7 +469,7 @@ function ChatRowInner(
               )}
             </div>
 
-            {/* Right controls — three-dot + pin chip */}
+            {/* Right controls — read-only badge + three-dot + pin chip */}
             <div
               style={{
                 display:    'flex',
@@ -473,7 +478,13 @@ function ChatRowInner(
                 flexShrink: 0,
               }}
             >
-              {!selectionMode && (
+              {readOnly && !selectionMode && (
+                <Badge color="Red" label="Read only" />
+              )}
+              {!selectionMode && readOnly && (
+                <ThreeDotButton visible={showMenu} title={resolvedTitle} readOnly />
+              )}
+              {!selectionMode && !readOnly && (
                 <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
                   <DropdownMenu.Trigger asChild>
                     <ThreeDotButton visible={showMenu} title={resolvedTitle} />

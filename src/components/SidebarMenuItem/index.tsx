@@ -45,6 +45,12 @@ export interface SidebarMenuItemProps extends React.HTMLAttributes<HTMLDivElemen
   avatarSrc?: string
   /** Shortcut badge text - default variant only, e.g. '⌘ K' */
   shortcut?: string
+  /**
+   * Optional badge node shown at the right of chat-item rows at rest.
+   * Hidden when the row is active (hovered/selected) so the ··· button can appear.
+   * chat-item variant only.
+   */
+  badge?: React.ReactNode
   /** Click handler for the "..." more button - chat-item only */
   onMoreClick?: React.MouseEventHandler<HTMLButtonElement>
   /**
@@ -127,6 +133,7 @@ export function SidebarMenuItem({
       icon = DEFAULT_ICON,
       avatarSrc,
       shortcut,
+      badge,
       onMoreClick,
       onRename,
       onCommit,
@@ -499,28 +506,48 @@ export function SidebarMenuItem({
               </m.p>
             </div>
 
-            {/* More button - reveals on hover or selected */}
-            {isActive && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); e.preventDefault(); onMoreClick?.(e) }}
-                style={{
-                  display:         'flex',
-                  alignItems:      'center',
-                  justifyContent:  'center',
-                  overflow:        'hidden',
-                  padding:         '6px',
-                  borderRadius:    '8px',
-                  flexShrink:      0,
-                  backgroundColor: 'var(--sidebar-menu-item-hover-bg)',
-                  border:          'none',
-                  cursor:          'pointer',
-                  color:           'var(--sidebar-menu-item-text)',
-                }}
-              >
-                <MoreHorizontalIcon size={20} />
-              </button>
-            )}
+            {/* Right group: badge (always) + more button (on hover/select).
+                Grouping them lets the layout animation drive the badge left
+                as the more button slides in from the right. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+              {badge && (
+                <m.div
+                  layout
+                  transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                  style={{ display: 'flex', alignItems: 'center' }}
+                >
+                  {badge}
+                </m.div>
+              )}
+              <AnimatePresence mode="popLayout">
+                {isActive && (
+                  <m.button
+                    key="more"
+                    type="button"
+                    initial={{ opacity: 0, x: 6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 6 }}
+                    transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+                    onClick={onMoreClick ? (e) => { e.stopPropagation(); e.preventDefault(); onMoreClick(e) } : undefined}
+                    style={{
+                      display:         'flex',
+                      alignItems:      'center',
+                      justifyContent:  'center',
+                      overflow:        'hidden',
+                      padding:         '6px',
+                      borderRadius:    '8px',
+                      flexShrink:      0,
+                      backgroundColor: 'var(--sidebar-menu-item-hover-bg)',
+                      border:          'none',
+                      cursor:          onMoreClick ? 'pointer' : 'not-allowed',
+                      color:           'var(--sidebar-menu-item-text)',
+                    }}
+                  >
+                    <MoreHorizontalIcon size={20} />
+                  </m.button>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* Inner depth shadow - hover + selected */}
             {isActive && (
