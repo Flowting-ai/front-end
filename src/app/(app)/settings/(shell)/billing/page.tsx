@@ -21,6 +21,7 @@ import { creditsFromBilling } from '@/lib/credits'
 import { startTrial } from '@/lib/api/stripe'
 import { TokenCircleIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
+import { Badge } from '@/components/Badge'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // Kaya design system. Besley (serif) for headings + regular body; Geist for
@@ -262,7 +263,16 @@ export default function BillingPage() {
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
-  const liveReady = isHydrated && !!user
+  // Compute team-account flag early so liveReady can gate on orgPlan for teams.
+  const earlyIsTeamAccount = Boolean(
+    billing?.plan_type === 'teams' || user?.orgId || orgId ||
+    user?.roleFit === 'small_team' || user?.roleFit === 'large_team',
+  )
+  // Don't mark ready until billing has been attempted. For team accounts also
+  // wait for orgPlan — without it the credits chain bottoms out at 0
+  // (user.creditsTotal is 0 for org members) and paints a wrong snapshot.
+  const liveReady = isHydrated && !!user && billingLoaded &&
+    (!earlyIsTeamAccount || orgPlan !== null)
 
   const nextBillingLive = fmtDate(
     billing?.upcoming_invoice?.next_payment_date ?? user?.nextBillingDate ?? user?.currentPeriodEnd,
@@ -299,7 +309,10 @@ export default function BillingPage() {
     user?.roleFit === 'small_team' ||
     user?.roleFit === 'large_team',
   )
-  const orgCreditsTotal     = liveIsTeamAccount && orgPlan ? orgPlan.totalCredits : null
+  // planCredits + topupCredits are fixed for the billing period and don't
+  // drain with usage. orgPlan.totalCredits can reflect the remaining pool
+  // (backend sets it to the current balance), so it's only safe for remaining.
+  const orgCreditsTotal     = liveIsTeamAccount && orgPlan ? orgPlan.planCredits + orgPlan.topupCredits : null
   const orgCreditsRemaining = liveIsTeamAccount && orgPlan ? orgPlan.remaining : null
   const orgCreditsUsed      = liveIsTeamAccount && orgPlan ? orgPlan.used : null
 
@@ -604,18 +617,21 @@ export default function BillingPage() {
                     </Button>
                   )}
                   {hasActiveSub && !cancelAtPeriodEnd && (
-                    <button
-                      onClick={() => setShowCancelDialog(true)}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        padding: '6px 10px 8px', borderRadius: 10, cursor: 'pointer',
-                        backgroundColor: C.white, border: 'none',
-                        boxShadow: '0px 1.091px 1.091px 0px rgba(24,2,2,0.05), 0px 1.455px 3.127px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-100), inset 0px -2.182px 0.364px 0px var(--red-100)',
-                        fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-700)', whiteSpace: 'nowrap',
-                      }}
-                    >
-                      Cancel Plan
-                    </button>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        onClick={() => setShowCancelDialog(true)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          padding: '6px 10px 8px', borderRadius: 10, cursor: 'pointer',
+                          backgroundColor: C.white, border: 'none',
+                          boxShadow: '0px 1.091px 1.091px 0px rgba(24,2,2,0.05), 0px 1.455px 3.127px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-100), inset 0px -2.182px 0.364px 0px var(--red-100)',
+                          fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--red-700)', whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Cancel Plan
+                      </button>
+                      <Badge label="Subscription Active" color="Green" />
+                    </div>
                   )}
                   {cancelAtPeriodEnd && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -635,6 +651,7 @@ export default function BillingPage() {
                       >
                         {isResuming ? 'Resuming…' : 'Resume Plan'}
                       </button>
+                      <Badge label="Subscription Cancelled" color="Red" />
                     </div>
                   )}
                 </div>

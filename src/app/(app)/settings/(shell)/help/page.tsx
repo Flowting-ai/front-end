@@ -294,8 +294,8 @@ export default function HelpPage() {
           />
           <LinkRow title="Help Center"         description="Guides, documentation, and direct support options."                  divider />
           <LinkRow title="Contact Support"     description="Guides, tutorials, and FAQs for getting the most out of Souvenir"    divider />
-          <LinkRow title="Community Discord"   description="Connect with other Souvenir users, share workflows, get tips"        divider />
-          <LinkRow title="What's new"          description="Changelog - see every feature release, fix, and update" />
+          <LinkRow title="Community Slack"   description="Connect with other Souvenir users, share workflows, get tips"   href="https://join.slack.com/t/souvenircommunity/shared_invite/zt-41rhgppbm-G7Z_dv1VJXdSL087irwKJg" divider />
+          {/* <LinkRow title="What's new"          description="Changelog - see every feature release, fix, and update" /> */}
         </InfoCard>
 
         {/* ── Legal card ── */}
@@ -304,10 +304,10 @@ export default function HelpPage() {
             title="Legal"
             subtitle="Review the agreements and policies that govern your use of Souvenir."
           />
-          <LinkRow title="Terms of Service"           description="Your agreement with Souvenir AI regarding use of the platform"     divider />
-          <LinkRow title="Privacy Policy"             description="How we collect, use, and protect your personal data"               divider />
-          <LinkRow title="Data Processing Agreement"  description="DPA for teams and enterprise customers - GDPR, DPDPA compliant"    divider />
-          <LinkRow title="Cookie Policy"              description="How we use cookies and similar tracking technologies" />
+          <LinkRow title="Terms of Service"           description="Your agreement with Souvenir AI regarding use of the platform"     href="https://www.getsouvenir.com/legal/terms"   divider />
+          <LinkRow title="Privacy Policy"             description="How we collect, use, and protect your personal data"               href="https://www.getsouvenir.com/legal/privacy" divider />
+          {/* <LinkRow title="Data Processing Agreement"  description="DPA for teams and enterprise customers - GDPR, DPDPA compliant"    divider /> */}
+          <LinkRow title="Cookie Policy"              description="How we use cookies and similar tracking technologies"              href="https://www.getsouvenir.com/legal/cookies" />
         </InfoCard>
 
         {/* ── Footer ── */}

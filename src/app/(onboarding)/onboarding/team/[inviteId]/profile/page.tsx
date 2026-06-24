@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import type { OnboardingRole } from "@/context/onboarding-context";
@@ -12,9 +12,15 @@ import { OnboardingScreen, OnboardingFooter } from "../../../_components/onboard
 import { InviteStateScreen } from "../_components/invite-ui";
 
 // ── Screen 3 — profile (name + role) ────────────────────────────────────────────
-// Mirrors the individual /onboarding/hello step but lives inside the isolated
-// team-invite flow so the two never interfere. Persists via the shared, user-level
-// endpoints (POST /users/create, PATCH /users/me, PATCH /users/me/onboarding).
+// Used in two modes:
+//   Invite mode  — [inviteId] is a real invite ID; context loads, after saving
+//                  advances to the confirm screen.
+//   Standalone   — [inviteId] is actually a teamId (already-onboarded user was
+//                  redirected here after accepting an invite). Context 404s so
+//                  status is never "ready"; after saving we go straight to /chat.
+//
+// In both modes: if the user already has firstName, lastName, and onboardingRole
+// we auto-redirect to /chat immediately — no need to ask again.
 
 const ROLES: OnboardingRole[] = [
   "Founder",
@@ -111,9 +117,6 @@ export default function TeamInviteProfilePage() {
   const { isHydrated, isAuthenticated, user } = useAuth();
   const { status, invite, errorMsg, refetch } = useTeamInviteOnboarding();
 
-  // `null` means "not yet edited" — the field then shows the prefilled value
-  // derived from the authenticated profile. Storing null avoids a setState-in-
-  // effect prefill (and lets the prefill update if the profile loads late).
   const [firstName, setFirstName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
   const [role, setRole] = useState<OnboardingRole | null>(null);
@@ -132,6 +135,16 @@ export default function TeamInviteProfilePage() {
   const firstValue = firstName ?? profileFirst;
   const lastValue = lastName ?? profileLast;
 
+  // If all three profile fields already exist, skip straight to /chat.
+  const hasCompleteProfile = useMemo(
+    () => isHydrated && !!user && !!profileFirst && !!profileLast && !!user.onboardingRole,
+    [isHydrated, user, profileFirst, profileLast],
+  );
+
+  useEffect(() => {
+    if (hasCompleteProfile) push("/chat");
+  }, [hasCompleteProfile, push]);
+
   // Ensure the backend user record exists so the PATCH calls succeed.
   useEffect(() => {
     if (!isHydrated) return;
@@ -139,16 +152,22 @@ export default function TeamInviteProfilePage() {
     void createUser();
   }, [isHydrated, isAuthenticated]);
 
-  if (status !== "ready" || !invite) {
+  // Invite context is still fetching — show loading (applies to both modes).
+  if (status === "loading") {
     return (
       <InviteStateScreen
-        status={status === "ready" ? "loading" : status}
-        errorMsg={errorMsg}
+        status="loading"
+        errorMsg=""
         onRetry={refetch}
         onHome={() => push("/chat")}
       />
     );
   }
+
+  // STANDALONE MODE: status is not_found / expired / error, meaning the URL
+  // segment is a teamId rather than a real inviteId. Show the form and send
+  // the user to /chat after saving (no confirm screen to advance to).
+  const isStandalone = status !== "ready" || !invite;
 
   const canContinue = firstValue.trim().length > 0 && lastValue.trim().length > 0 && role !== null;
 
@@ -163,7 +182,7 @@ export default function TeamInviteProfilePage() {
     } finally {
       setIsSaving(false);
     }
-    push(`/onboarding/team/${params.inviteId}/confirm`);
+    push(isStandalone ? "/chat" : `/onboarding/team/${params.inviteId}/confirm`);
   };
 
   const greetingName = firstValue.trim() || user?.firstName || "there";
@@ -174,7 +193,7 @@ export default function TeamInviteProfilePage() {
       subtitle="Let's check a few things before we start."
       footer={
         <OnboardingFooter
-          onBack={() => push(`/onboarding/team/${params.inviteId}/join`)}
+          onBack={() => push(isStandalone ? "/chat" : `/onboarding/team/${params.inviteId}/join`)}
           onContinue={() => { void handleContinue(); }}
           continueDisabled={!canContinue}
           continueLoading={isSaving}

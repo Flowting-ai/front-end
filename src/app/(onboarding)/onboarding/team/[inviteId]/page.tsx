@@ -52,15 +52,19 @@ export default function TeamInviteWelcomePage() {
   const handleAccept = async () => {
     if (submitting) return;
     setSubmitting(true);
+    // Capture onboarding state BEFORE mutations — already-onboarded users skip
+    // the new-user join flow and land on the profile page instead (which
+    // auto-skips to /chat if all profile fields are already populated).
+    const wasAlreadyOnboarded = user?.onboardingCompleted === true;
     try {
-      // Commit membership (POST /team-invite/{id}/accept) and complete onboarding
-      // together so app access is granted atomically, then refresh so auth-context
-      // picks up the new org + completion. From here the remaining screens are
-      // optional — bailing out still leaves a full member who lands in /chat.
       await acceptTeamInvite(invite.inviteId);
       await updateOnboarding({ onboarding_completed: true });
       await refreshUser();
-      push(`/onboarding/team/${invite.inviteId}/join`);
+      if (wasAlreadyOnboarded) {
+        push(`/onboarding/team/${invite.inviteId}/confirm`);
+      } else {
+        push(`/onboarding/team/${invite.inviteId}/join`);
+      }
     } catch (err) {
       setSubmitting(false);
       if (err instanceof ApiError && err.status === 410) {

@@ -166,7 +166,7 @@ export default async function proxy(request: NextRequest) {
   // otherwise the invitation popup never renders.
   const isTeamInvite = pathname.startsWith("/team-invite");
 
-  if (session && hasKnownOnboardingState && !hasOnboarded && !justCompletedCheckout && !isBillingConfirmation && !isTeamInvite) {
+  if (session && hasKnownOnboardingState && !hasOnboarded && !justCompletedCheckout && !isBillingConfirmation && !isTeamInvite && !isTeamInviteOnboarding) {
     return Response.redirect(new URL(onboarding!.nextPath, request.url));
   }
 

@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { PlusSignIcon, SearchOneIcon, CancelCircleIcon } from '@strange-huge/icons'
-import { Badge }            from '@/components/Badge'
+import { PlusSignIcon, SearchOneIcon, CancelCircleIcon, ExchangeOneIcon } from '@strange-huge/icons'
+import { Badge, type BadgeColor } from '@/components/Badge'
 import { RoleBadge }        from '@/components/RoleBadge'
 import { CREDIT_CAP_COLUMNS, CreditCapRow } from '@/components/CreditCapRow'
 import { Button }           from '@/components/Button'
@@ -26,8 +26,9 @@ import { toast }           from 'sonner'
 import { useOrg }           from '@/context/org-context'
 import { useAuth }          from '@/context/auth-context'
 import { setMemberRole, removeMember, getOrgSettings, setMemberCap } from '@/lib/api/organization'
-import { inviteTeamMembers, listTeamEditors, addTeamEditor, removeTeamEditor } from '@/lib/api/teams'
+import { inviteTeamMembers, addTeamEditor, removeTeamEditor } from '@/lib/api/teams'
 import { fetchProjects, type ApiProjectSummary } from '@/lib/api/projects'
+import { fetchTeamAccessSnapshot } from '@/lib/team-access'
 import { updateUser } from '@/lib/api/user'
 import type { OrgMember, WorkspaceRole } from '@/types/teams'
 
@@ -272,37 +273,24 @@ function RemoveButton({
 
 // ── Teams badges column ───────────────────────────────────────────────────────
 
+const BADGE_COLORS: BadgeColor[] = ['Blue', 'Red', 'Green', 'Yellow', 'Purple', 'Brown', 'Neutral']
+
 function TeamsBadges({
   teams,
-  hasGlobalAccess = false,
+  colorMap,
+  orgRole,
 }: {
   teams: OrgMember['teamMemberships']
-  hasGlobalAccess?: boolean
+  colorMap: Record<string, BadgeColor>
+  orgRole: OrgMember['orgRole']
 }) {
-  if (hasGlobalAccess || teams.length === 0) return null
+  if (orgRole === 'owner') return <Badge color="Purple" label="All teams" />
+  if (orgRole === 'admin') return <Badge color="Blue" label="All teams" />
+  if (teams.length === 0) return <Badge color="Neutral" label="No team assigned" />
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
       {teams.map(t => (
-        <span
-          key={t.teamId}
-          style={{
-            display:         'inline-flex',
-            alignItems:      'center',
-            padding:         '2px 6px',
-            borderRadius:    6,
-            backgroundColor: 'var(--neutral-50)',
-            boxShadow:       '0px 0px 0px 1px var(--neutral-100)',
-            fontFamily:      'var(--font-body)',
-            fontWeight:      500,
-            fontSize:        'var(--font-size-caption)',
-            lineHeight:      'var(--line-height-caption)',
-            color:           'var(--neutral-700)',
-            whiteSpace:      'nowrap',
-            flexShrink:      0,
-          }}
-        >
-          {t.teamName}
-        </span>
+        <Badge key={t.teamId} color={colorMap[t.teamId] ?? 'Neutral'} label={t.teamName} />
       ))}
     </div>
   )
@@ -524,20 +512,38 @@ function MembersTable({
   isAdmin,
   isCurrentUserOwner = false,
   loading,
+  onChangeRole,
+  onRequestEditor,
   onRemove,
   onRevokeInvite,
   onInviteClick,
+  onRefresh,
 }: {
   members:              OrgMember[]
   ownerMemberId:        string
   isAdmin:              boolean
   isCurrentUserOwner?:  boolean
   loading?:             boolean
+  /** Change an org-level role directly (admin / member). */
+  onChangeRole:         (id: string, role: WorkspaceRole) => void
+  /** Editor is team-scoped, so it goes through the team-picker modal first. */
+  onRequestEditor:      (id: string, name: string) => void
   onRemove:             (id: string) => void
   onRevokeInvite:       (id: string) => void
   onInviteClick:        () => void
+  onRefresh:            () => void
 }) {
   const [searchQuery,   setSearchQuery]   = useState('')
+  // Role dropdown open-state + trigger anchoring (RoleDropdown is portal-mounted
+  // and positions itself off the trigger's viewport rect).
+  const [openRoleId, setOpenRoleId] = useState<string | null>(null)
+  const [roleMenuPos, setRoleMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  const roleTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const teamColorMap = useMemo<Record<string, BadgeColor>>(() => {
+    const ids = Array.from(new Set(members.flatMap(m => m.teamMemberships.map(t => t.teamId)))).sort()
+    return Object.fromEntries(ids.map((id, i) => [id, BADGE_COLORS[i % BADGE_COLORS.length]]))
+  }, [members])
+
   const normalizedQuery = searchQuery.trim().toLowerCase()
   const filteredMembers = normalizedQuery
     ? members.filter(member => (
@@ -553,6 +559,15 @@ function MembersTable({
     <SettingsTable columns={WORKSPACE_MEMBER_COLUMNS} columnGap={0}>
       <SettingsTableToolbar title="Workspace Members" style={{ flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 12, maxWidth: '100%' }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            leftIcon={<ExchangeOneIcon animated size={16} />}
+            aria-label="Refresh members"
+            onClick={onRefresh}
+          >
+            Refresh
+          </Button>
           <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
             <InputField
               label="Search members"
@@ -630,27 +645,61 @@ function MembersTable({
                 </SettingsTableCell>
 
                 <SettingsTableCell style={{ alignSelf: 'flex-start', paddingTop: 16, paddingBottom: 16 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {member.orgRole === 'owner' ? (
-                      <Badge color="Yellow" label="Owner" />
-                    ) : member.orgRole === 'admin' ? (
-                      <RoleBadge role="admin" size="sm" />
-                    ) : member.teamMemberships.length > 0 ? (
-                      member.teamMemberships.map(t => (
-                        <RoleBadge
-                          key={t.teamId}
-                          role={t.isTeamOwner ? 'editor' : 'member'}
-                          size="sm"
-                        />
-                      ))
-                    ) : (
-                      <RoleBadge role="member" size="sm" />
-                    )}
-                  </div>
+                  {canEditMember ? (
+                    // Editable: interactive role control. Editor is team-scoped so
+                    // it routes through the team-picker modal (onRequestEditor);
+                    // admin/member are applied directly. A non-owner admin can only
+                    // assign editor/member — minting admins is owner-only.
+                    <div style={{ position: 'relative' }}>
+                      <RoleButton
+                        role={displayRoleFor(member)}
+                        isAdmin
+                        btnRef={el => { roleTriggerRefs.current[member.id] = el }}
+                        onClick={e => {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          setRoleMenuPos({ top: rect.bottom + 4, left: rect.left })
+                          setOpenRoleId(prev => (prev === member.id ? null : member.id))
+                        }}
+                      />
+                      <AnimatePresence>
+                        {openRoleId === member.id && roleTriggerRefs.current[member.id] && (
+                          <RoleDropdown
+                            currentRole={displayRoleFor(member)}
+                            availableRoles={['admin', 'editor', 'member']}
+                            onSelect={r => {
+                              if (r === 'editor') onRequestEditor(member.id, member.name || member.email)
+                              else onChangeRole(member.id, r)
+                            }}
+                            onClose={() => setOpenRoleId(null)}
+                            triggerEl={roleTriggerRefs.current[member.id]!}
+                            position={roleMenuPos}
+                          />
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {member.orgRole === 'owner' ? (
+                        <Badge color="Purple" label="Owner" />
+                      ) : member.orgRole === 'admin' ? (
+                        <Badge color="Blue" label="Admin" />
+                      ) : member.teamMemberships.length > 0 ? (
+                        member.teamMemberships.map(t => (
+                          <Badge
+                            key={t.teamId}
+                            color={t.isTeamOwner ? 'Green' : 'Neutral'}
+                            label={t.isTeamOwner ? 'Editor' : 'Member'}
+                          />
+                        ))
+                      ) : (
+                        <Badge color="Neutral" label="Member" />
+                      )}
+                    </div>
+                  )}
                 </SettingsTableCell>
 
                 <SettingsTableCell style={{ alignSelf: 'flex-start', paddingTop: 16, paddingBottom: 16 }}>
-                  <TeamsBadges teams={member.teamMemberships} hasGlobalAccess={hasGlobalAccess} />
+                  <TeamsBadges teams={member.teamMemberships} colorMap={teamColorMap} orgRole={member.orgRole} />
                 </SettingsTableCell>
 
                 <SettingsTableCell align="end">
@@ -734,11 +783,11 @@ function RolesPermissionsSection() {
         <React.Fragment key={item.role}>
           {index > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', margin: '0 24px' }} />}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 24px' }}>
-            {item.role === 'owner' ? (
-              <Badge label="Owner" color="Yellow" style={{ flexShrink: 0 }} />
-            ) : (
-              <RoleBadge role={item.role} size="sm" style={{ flexShrink: 0 }} />
-            )}
+            <Badge
+              label={item.role.charAt(0).toUpperCase() + item.role.slice(1)}
+              color={item.role === 'owner' ? 'Purple' : item.role === 'admin' ? 'Blue' : item.role === 'editor' ? 'Green' : 'Neutral'}
+              style={{ flexShrink: 0 }}
+            />
             <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)', lineHeight: 'var(--line-height-body)' }}>
               {item.description}
             </span>
@@ -850,7 +899,29 @@ function MembersPageSkeleton() {
 
 function displayRoleFor(member: OrgMember): WorkspaceRole {
   if (member.orgRole === 'owner' || member.orgRole === 'admin') return 'admin'
-  return member.teamMemberships.length > 0 ? 'editor' : 'member'
+  return member.teamMemberships.some(team => team.isTeamOwner) ? 'editor' : 'member'
+}
+
+function mergeTeamMemberships(
+  baseMemberships: OrgMember['teamMemberships'],
+  editorMemberships: OrgMember['teamMemberships'],
+): OrgMember['teamMemberships'] {
+  const merged = new Map<string, OrgMember['teamMemberships'][number]>()
+
+  for (const membership of baseMemberships) {
+    merged.set(membership.teamId, membership)
+  }
+  for (const membership of editorMemberships) {
+    const existing = merged.get(membership.teamId)
+    merged.set(
+      membership.teamId,
+      existing
+        ? { ...existing, isTeamOwner: existing.isTeamOwner || membership.isTeamOwner }
+        : membership,
+    )
+  }
+
+  return [...merged.values()]
 }
 
 // ── Credit caps section ───────────────────────────────────────────────────────
@@ -917,27 +988,14 @@ export default function OrgMembersPage() {
       let next = orgMembers.map(member => ({ ...member, role: displayRoleFor(member) }))
 
       if (orgId && teams.length > 0) {
-        const editorRows = await Promise.all(
-          teams.map(async team => ({
-            team,
-            editors: await listTeamEditors(orgId, team.id).catch(() => []),
-          })),
-        )
-        const membershipsByUser = new Map<string, OrgMember['teamMemberships']>()
-        for (const { team, editors } of editorRows) {
-          for (const editor of editors) {
-            const current = membershipsByUser.get(editor.userId) ?? []
-            current.push({ teamId: team.id, teamName: team.name, isTeamOwner: true })
-            membershipsByUser.set(editor.userId, current)
-          }
-        }
+        const { membershipsByUser } = await fetchTeamAccessSnapshot(orgId, teams)
         next = next.map(member => {
-          const activeMemberships = membershipsByUser.get(member.id) ?? []
+          const accessMemberships = membershipsByUser.get(member.id) ?? []
           const teamMemberships = member.orgRole === 'owner' || member.orgRole === 'admin'
             ? []
             : member.inviteStatus === 'invite_sent'
             ? member.teamMemberships
-            : activeMemberships
+            : mergeTeamMemberships(member.teamMemberships, accessMemberships)
           return { ...member, teamMemberships, role: displayRoleFor({ ...member, teamMemberships }) }
         })
       }
@@ -954,6 +1012,12 @@ export default function OrgMembersPage() {
   const [allowedDomains, setAllowedDomains] = useState<string[]>([])
   // Member awaiting a team selection before being made a team editor.
   const [editorTarget,   setEditorTarget]   = useState<{ memberId: string; memberName: string } | null>(null)
+
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshMembers() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [refreshMembers])
 
   useEffect(() => {
     if (!orgId) return
@@ -1025,7 +1089,9 @@ export default function OrgMembersPage() {
     if (!prevMember) return
     if (!orgId) return
 
-    const previousTeamIds = prevMember.teamMemberships.map(tm => tm.teamId)
+    const previousEditorTeamIds = prevMember.teamMemberships
+      .filter(teamMembership => teamMembership.isTeamOwner)
+      .map(teamMembership => teamMembership.teamId)
 
     // Resolve the editor's target team memberships. With teams chosen in the
     // modal we merge them onto existing grants; the all-teams fallback only
@@ -1042,7 +1108,7 @@ export default function OrgMembersPage() {
           ...prevMember.teamMemberships.filter(tm => !editorTeamIds.includes(tm.teamId)),
           ...chosen,
         ]
-      } else if (previousTeamIds.length === 0) {
+      } else if (prevMember.teamMemberships.length === 0) {
         targetMemberships = teams.map(team => ({ teamId: team.id, teamName: team.name, isTeamOwner: true }))
       }
       if (targetMemberships.length === 0) {
@@ -1055,7 +1121,12 @@ export default function OrgMembersPage() {
       if (m.id !== id) return m
       if (role === 'admin') return { ...m, role: 'admin', orgRole: 'admin', teamMemberships: [] }
       if (role === 'editor') return { ...m, role: 'editor', orgRole: 'member', teamMemberships: targetMemberships }
-      return { ...m, role: 'member', orgRole: 'member', teamMemberships: [] }
+      return {
+        ...m,
+        role: 'member',
+        orgRole: 'member',
+        teamMemberships: m.teamMemberships.filter(teamMembership => !teamMembership.isTeamOwner),
+      }
     }))
 
     const roleLabel = role === 'admin' ? 'Admin' : role === 'editor' ? 'Team editor' : 'Member'
@@ -1063,7 +1134,7 @@ export default function OrgMembersPage() {
     try {
       if (role === 'admin') {
         await setMemberRole(orgId, id, 'admin')
-        await Promise.all(previousTeamIds.map(tid => removeTeamEditor(orgId, tid, id)))
+        await Promise.all(previousEditorTeamIds.map(tid => removeTeamEditor(orgId, tid, id)))
       } else {
         await setMemberRole(orgId, id, 'member')
         if (role === 'editor') {
@@ -1073,8 +1144,8 @@ export default function OrgMembersPage() {
             ? editorTeamIds
             : targetMemberships.map(tm => tm.teamId)
           await Promise.all(teamsToGrant.map(tid => addTeamEditor(orgId, tid, id)))
-        } else if (previousTeamIds.length > 0) {
-          await Promise.all(previousTeamIds.map(tid => removeTeamEditor(orgId, tid, id)))
+        } else if (previousEditorTeamIds.length > 0) {
+          await Promise.all(previousEditorTeamIds.map(tid => removeTeamEditor(orgId, tid, id)))
         }
       }
       let successMsg = `Role changed to ${roleLabel}`
@@ -1110,7 +1181,9 @@ export default function OrgMembersPage() {
           ? {
               ...m,
               role: m.orgRole === 'owner' || m.orgRole === 'admin' ? 'admin' : 'editor',
-              teamMemberships: [...m.teamMemberships, { teamId, teamName: team?.name ?? '', isTeamOwner: false }],
+              teamMemberships: mergeTeamMemberships(m.teamMemberships, [
+                { teamId, teamName: team?.name ?? '', isTeamOwner: true },
+              ]),
             }
           : m,
       ))
@@ -1204,9 +1277,11 @@ export default function OrgMembersPage() {
         role,
         orgRole:         role === 'admin' ? 'admin' : 'member',
         inviteStatus:    'invite_sent',
-        teamMemberships: role === 'editor'
-          ? [{ teamId, teamName: teams.find(t => t.id === teamId)?.name ?? 'Team', isTeamOwner: true }]
-          : [],
+        teamMemberships: [{
+          teamId,
+          teamName: teams.find(t => t.id === teamId)?.name ?? 'Team',
+          isTeamOwner: role === 'editor',
+        }],
         creditUsed:      0,
         allocationUsed:  0,
       }])
@@ -1308,9 +1383,12 @@ export default function OrgMembersPage() {
           isAdmin={isAdmin}
           isCurrentUserOwner={currentUserIsOwner}
           loading={membersLoading}
+          onChangeRole={(id, role) => void handleChangeRole(id, role)}
+          onRequestEditor={handleRequestEditor}
           onRemove={handleRemove}
           onRevokeInvite={handleRevokeInvite}
           onInviteClick={() => setInviteOpen(true)}
+          onRefresh={refreshMembers}
         />
 
         {/* Credit caps */}
