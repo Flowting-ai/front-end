@@ -17,6 +17,7 @@ import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
 import { useConnectorBrowse, CategoryFilter, Pagination } from '@/components/ConnectorBrowse'
 import { CONNECTOR_LOGO_MAP } from '@/lib/connectorLogos'
+import { connectorCategory } from '@/lib/connectorCategories'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 
@@ -59,6 +60,91 @@ function SpinnerIcon({ size = 14 }: { size?: number }) {
       <style>{`@keyframes conn-spin { to { transform: rotate(360deg) } }`}</style>
       <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
+  )
+}
+
+function MoreIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="3.5" r="1.4" fill="var(--neutral-500)" />
+      <circle cx="8" cy="8"   r="1.4" fill="var(--neutral-500)" />
+      <circle cx="8" cy="12.5" r="1.4" fill="var(--neutral-500)" />
+    </svg>
+  )
+}
+
+// ── Card kebab menu ─────────────────────────────────────────────────────────
+// Contextual quick-actions in the card's top-right ⋮. Connected connectors get
+// Manage + Disconnect; available ones get Connect. Workspace (read-only) cards
+// don't render it.
+
+function CardKebabMenu({ items }: { items: { label: string; onSelect: () => void; danger?: boolean }[] }) {
+  const [open, setOpen] = useState(false)
+  if (items.length === 0) return null
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        aria-label="More actions"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display:         'flex',
+          alignItems:      'center',
+          justifyContent:  'center',
+          width:           28,
+          height:          28,
+          borderRadius:    8,
+          border:          'none',
+          backgroundColor: open ? 'var(--neutral-100)' : 'transparent',
+          cursor:          'pointer',
+        }}
+      >
+        <MoreIcon />
+      </button>
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position:        'absolute',
+            right:           0,
+            top:             'calc(100% + 4px)',
+            backgroundColor: 'white',
+            borderRadius:    10,
+            boxShadow:       '0px 4px 16px 0px rgba(38,33,30,0.12), 0px 0px 0px 1px var(--neutral-100)',
+            overflow:        'hidden',
+            zIndex:          20,
+            minWidth:        150,
+            padding:         4,
+          }}>
+            {items.map(item => (
+              <button
+                key={item.label}
+                onClick={() => { item.onSelect(); setOpen(false) }}
+                style={{
+                  display:         'flex',
+                  width:           '100%',
+                  padding:         '8px 10px',
+                  borderRadius:    6,
+                  border:          'none',
+                  backgroundColor: 'transparent',
+                  cursor:          'pointer',
+                  fontFamily:      'var(--font-body)',
+                  fontWeight:      400,
+                  fontSize:        13,
+                  lineHeight:      '20px',
+                  color:           item.danger ? 'var(--red-600, #dc2626)' : 'var(--neutral-700)',
+                  textAlign:       'left',
+                  whiteSpace:      'nowrap',
+                }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.backgroundColor = item.danger ? 'var(--red-50, #fff5f5)' : 'var(--neutral-50)')}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 
@@ -840,6 +926,29 @@ function ConnectorCard({
     }
   }
 
+  const handleDisconnect = useCallback(async () => {
+    if (typeof window !== 'undefined' &&
+        !window.confirm(`Disconnect ${entry.display_name}? This removes it from your account and disables it for agents using it.`)) return
+    try {
+      await unlinkConnector(entry.slug)
+      toast.success(`${entry.display_name} disconnected`)
+      onUpdate({ ...entry, linked: false, tools: [] })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to disconnect')
+    }
+  }, [entry, onUpdate])
+
+  // Contextual ⋮ actions. Workspace cards are read-only here (managed in the org
+  // admin area), so they get no menu.
+  const kebabItems = isWorkspace
+    ? []
+    : isActive
+      ? [
+          { label: 'Manage',     onSelect: () => onManage(entry) },
+          { label: 'Disconnect', onSelect: () => void handleDisconnect(), danger: true },
+        ]
+      : [{ label: 'Connect', onSelect: handleConnectClick }]
+
   return (
     <div style={{
       position:        'relative',
@@ -878,11 +987,11 @@ function ConnectorCard({
             lineHeight:    '16px',
             color:         'var(--neutral-400)',
             margin:        0,
-            textTransform: 'capitalize',
           }}>
-            {entry.auth_mode === 'api_key' ? 'API Key' : 'OAuth'}
+            {connectorCategory(entry.slug)}
           </p>
         </div>
+        <CardKebabMenu items={kebabItems} />
       </div>
 
       {/* Description */}
@@ -1085,6 +1194,7 @@ export default function ConnectorsPage() {
   const [loading,             setLoading]             = useState(true)
   const [loadError,           setLoadError]           = useState('')
   const [modalEntry,          setModalEntry]          = useState<ConnectorCatalogEntry | null>(null)
+  const [activeTab,           setActiveTab]           = useState<'my' | 'workspace'>('my')
 
   const fetchConnectors = useCallback(async () => {
     setLoading(true)
@@ -1136,6 +1246,9 @@ export default function ConnectorsPage() {
   const connectedTotal = browse.filteredItems.filter(c => c.linked).length
   const connected = browse.pageItems.filter(c => c.linked)
   const available = browse.pageItems.filter(c => !c.linked)
+  // Workspace tab: connectors exposing a connected shared org account the viewer
+  // can use (not paginated — shared accounts are few).
+  const workspaceItems = browse.filteredItems.filter(hasConnectedWorkspaceAccount)
   const emptyMessage = searchQuery
     ? `No connectors found for "${searchQuery}"`
     : 'No connectors available.'
@@ -1166,7 +1279,7 @@ export default function ConnectorsPage() {
         }}>
 
           {/* Page header */}
-          <div style={{ paddingLeft: 4, marginBottom: 16 }}>
+          <div style={{ paddingLeft: 4, marginBottom: 12 }}>
             <h1 style={{
               fontFamily: 'var(--font-title)',
               fontWeight: 400,
@@ -1177,6 +1290,34 @@ export default function ConnectorsPage() {
             }}>
               Connectors
             </h1>
+          </div>
+
+          {/* My / Workspace tabs */}
+          <div style={{ display: 'flex', gap: 4, paddingLeft: 4, marginBottom: 8 }}>
+            {([['my', 'My Connectors'], ['workspace', 'Workspace Connectors']] as const).map(([id, label]) => {
+              const active = activeTab === id
+              return (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  style={{
+                    padding:         '6px 12px',
+                    borderRadius:    8,
+                    border:          'none',
+                    cursor:          'pointer',
+                    backgroundColor: active ? 'var(--blue-50, #eef4fd)' : 'transparent',
+                    color:           active ? 'var(--blue-700, #1d4ed8)' : 'var(--neutral-500)',
+                    fontFamily:      'var(--font-body)',
+                    fontWeight:      500,
+                    fontSize:        14,
+                    lineHeight:      '20px',
+                    whiteSpace:      'nowrap',
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
           </div>
 
           {/* Suggestions toggle */}
@@ -1320,7 +1461,37 @@ export default function ConnectorsPage() {
                 </p>
               ) : (
                 <>
-                  {browse.pageItems.length === 0 ? (
+                  <div style={{ marginBottom: 16 }}>
+                    <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
+                  </div>
+
+                  {activeTab === 'workspace' ? (
+                    workspaceItems.length === 0 ? (
+                      <p style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 400,
+                        fontSize:   14,
+                        color:      'var(--neutral-400)',
+                        margin:     0,
+                        padding:    '24px 8px',
+                        textAlign:  'center',
+                      }}>
+                        No shared workspace accounts are available to you yet.
+                      </p>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                        {workspaceItems.map(c => (
+                          <ConnectorCard
+                            key={c.slug}
+                            entry={c}
+                            mode="workspace"
+                            onManage={handleManage}
+                            onUpdate={handleUpdate}
+                          />
+                        ))}
+                      </div>
+                    )
+                  ) : browse.pageItems.length === 0 ? (
                     <p style={{
                       fontFamily: 'var(--font-body)',
                       fontWeight: 400,
@@ -1334,10 +1505,6 @@ export default function ConnectorsPage() {
                     </p>
                   ) : (
                     <>
-                      <div style={{ marginBottom: 16 }}>
-                        <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
-                      </div>
-
                       {/* Connected section */}
                       {connected.length > 0 && (
                         <div style={{ marginBottom: 24 }}>
