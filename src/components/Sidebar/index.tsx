@@ -1161,11 +1161,12 @@ export function Sidebar({
           </div>
 
           {/* ── Tab strip + Manage Organization.
-                In teams accounts (orgId present) both are grouped inside a
-                rounded border so they read as a single navigation cluster. ── */}
+                For admin/owner roles in teams accounts both are grouped inside a
+                rounded border so they read as a single navigation cluster.
+                Editor/member roles see no border — they don't have the OrgBadge. ── */}
           {!isCollapsed && (
             <div
-              style={orgId ? {
+              style={showAdmin ? {
                 margin: '0 8px',
                 padding: '5px',
                 display: 'flex',

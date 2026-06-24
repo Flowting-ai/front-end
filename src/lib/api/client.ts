@@ -50,6 +50,9 @@ export function friendlyApiError(raw: string, statusCode?: number): string {
   if (lower.includes("forbidden") || statusCode === 403) {
     return "You don't have permission to perform this action.";
   }
+  if (statusCode === 402 || lower.includes("request failed with status 402")) {
+    return "Insufficient credits";
+  }
   if (statusCode === 429 || lower.includes("rate limit") || lower.includes("too many requests")) {
     return "You're sending requests too quickly. Please wait a moment and try again.";
   }

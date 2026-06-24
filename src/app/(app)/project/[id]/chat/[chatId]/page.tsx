@@ -822,8 +822,6 @@ function ProjectChatPageInner() {
               selectedPersonaId={selectedPersona?.activeVersionId ?? null}
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
-              skipModelSelected={!!selectedPersona}
-              hideUsageStrip
             />
           </m.div>
         )}

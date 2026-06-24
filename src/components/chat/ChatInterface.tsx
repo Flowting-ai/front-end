@@ -30,7 +30,6 @@ import { useOrg } from "@/context/org-context";
 import { useRouter } from "next/navigation";
 import { InlineCreditNotice, type CreditNoticeStatus } from "@/components/InlineCreditNotice";
 import { CreditStatusBanner } from "@/components/CreditStatusBanner";
-import { UsageLimitStrip, resolveUsageLevel, USAGE_LEVEL_TOKENS } from "@/components/chat/UsageLimitStrip";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import type { PinFolder } from "@/lib/api/pins";
 import type { PinMentionable } from "./PinMentionDropdown";
@@ -184,8 +183,6 @@ interface ChatInterfaceProps {
   hidePinActions?: boolean;
   /** Readable shared chat whose original is owned by somebody else. */
   readOnly?: boolean;
-  /** When true, the usage-limit strip is never shown (e.g. team project chats). */
-  hideUsageStrip?: boolean;
   /**
    * When true, model_selected SSE events are ignored so the agent's pre-seeded
    * model is not overwritten by the backend during streaming. Pass when a persona
@@ -228,7 +225,6 @@ export function ChatInterface({
   hidePinActions = false,
   readOnly = false,
   skipModelSelected,
-  hideUsageStrip = false,
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [inputValue, setInputValue] = useState("");
@@ -309,42 +305,10 @@ export function ChatInterface({
   const { user, refreshUser } = useAuth();
 
   // Org context — pool status drives InlineCreditNotice above input
-  const { plan, org, orgId, currentUserRole: orgRole } = useOrg();
+  const { plan, orgId, currentUserRole: orgRole } = useOrg();
   // Individual credit/topup status — drives the warning banner + hard send-gate.
   const creditStatus = useCreditStatus();
 
-  // Usage strip: show org pool for org users, personal credits for individuals.
-  // For members with an assigned credit cap, reflect their cap usage rather than
-  // the org pool so a fresh cap assignment shows correctly even if the pool is at 100%.
-  const isOrgUser = Boolean(orgId) && !creditStatus.applies
-  const myMemberRecord = isOrgUser
-    ? plan?.members.find(m =>
-        (user?.id != null && m.id === String(user.id)) ||
-        (user?.email != null && m.email === user.email)
-      )
-    : undefined
-  const myCapTotal = myMemberRecord?.creditCap ?? 0
-  const myCapUsed  = myMemberRecord?.allocationUsed ?? 0
-  const memberHasCap = myCapTotal > 0
-
-  const stripPctUsed   = isOrgUser
-    ? memberHasCap
-      ? Math.min(myCapUsed / myCapTotal, 1)
-      : (org?.creditPool?.percentUsed ?? 0)
-    : creditStatus.pctUsed
-  const stripRemaining = isOrgUser
-    ? memberHasCap
-      ? Math.max(myCapTotal - myCapUsed, 0)
-      : (org?.creditPool?.remaining ?? null)
-    : creditStatus.remaining
-  const stripTotal     = isOrgUser
-    ? memberHasCap
-      ? myCapTotal
-      : (org?.creditPool?.total ?? null)
-    : creditStatus.total
-  const showStrip      = !hideUsageStrip && (creditStatus.applies || isOrgUser) && stripPctUsed >= 0.9
-  const stripLevel     = resolveUsageLevel(stripPctUsed)
-  const stripTokens    = USAGE_LEVEL_TOKENS[stripLevel]
   const router = useRouter();
   const [dismissedCreditStatus, setDismissedCreditStatus] = useState<CreditNoticeStatus | null>(null);
 
@@ -1100,24 +1064,13 @@ export function ChatInterface({
         <CreditStatusBanner />
 
         {/* Encasing container — adds a level-coloured border when a credit pool is active,
-            wrapping both the usage strip header and the chat input as one visual unit. */}
+            chat input wrapper */}
         <div
           style={{
-            width:        '100%',
-            maxWidth:     '754px',
-            ...(showStrip && {
-              borderRadius:    '24px',
-              backgroundColor: stripTokens.bg,
-            }),
+            width:    '100%',
+            maxWidth: '754px',
           }}
         >
-          {showStrip && (
-            <UsageLimitStrip
-              pctUsed={stripPctUsed}
-              remaining={stripRemaining}
-              total={stripTotal}
-            />
-          )}
 
           {/* position:relative wrapper lets PinMentionDropdown use absolute positioning */}
           <div
