@@ -26,8 +26,9 @@ import { toast }           from 'sonner'
 import { useOrg }           from '@/context/org-context'
 import { useAuth }          from '@/context/auth-context'
 import { setMemberRole, removeMember, getOrgSettings, setMemberCap } from '@/lib/api/organization'
-import { inviteTeamMembers, listTeamEditors, addTeamEditor, removeTeamEditor } from '@/lib/api/teams'
+import { inviteTeamMembers, addTeamEditor, removeTeamEditor } from '@/lib/api/teams'
 import { fetchProjects, type ApiProjectSummary } from '@/lib/api/projects'
+import { fetchTeamAccessSnapshot } from '@/lib/team-access'
 import { updateUser } from '@/lib/api/user'
 import type { OrgMember, WorkspaceRole } from '@/types/teams'
 
@@ -898,7 +899,29 @@ function MembersPageSkeleton() {
 
 function displayRoleFor(member: OrgMember): WorkspaceRole {
   if (member.orgRole === 'owner' || member.orgRole === 'admin') return 'admin'
-  return member.teamMemberships.length > 0 ? 'editor' : 'member'
+  return member.teamMemberships.some(team => team.isTeamOwner) ? 'editor' : 'member'
+}
+
+function mergeTeamMemberships(
+  baseMemberships: OrgMember['teamMemberships'],
+  editorMemberships: OrgMember['teamMemberships'],
+): OrgMember['teamMemberships'] {
+  const merged = new Map<string, OrgMember['teamMemberships'][number]>()
+
+  for (const membership of baseMemberships) {
+    merged.set(membership.teamId, membership)
+  }
+  for (const membership of editorMemberships) {
+    const existing = merged.get(membership.teamId)
+    merged.set(
+      membership.teamId,
+      existing
+        ? { ...existing, isTeamOwner: existing.isTeamOwner || membership.isTeamOwner }
+        : membership,
+    )
+  }
+
+  return [...merged.values()]
 }
 
 // ── Credit caps section ───────────────────────────────────────────────────────
@@ -965,27 +988,14 @@ export default function OrgMembersPage() {
       let next = orgMembers.map(member => ({ ...member, role: displayRoleFor(member) }))
 
       if (orgId && teams.length > 0) {
-        const editorRows = await Promise.all(
-          teams.map(async team => ({
-            team,
-            editors: await listTeamEditors(orgId, team.id).catch(() => []),
-          })),
-        )
-        const membershipsByUser = new Map<string, OrgMember['teamMemberships']>()
-        for (const { team, editors } of editorRows) {
-          for (const editor of editors) {
-            const current = membershipsByUser.get(editor.userId) ?? []
-            current.push({ teamId: team.id, teamName: team.name, isTeamOwner: true })
-            membershipsByUser.set(editor.userId, current)
-          }
-        }
+        const { membershipsByUser } = await fetchTeamAccessSnapshot(orgId, teams)
         next = next.map(member => {
-          const activeMemberships = membershipsByUser.get(member.id) ?? []
+          const accessMemberships = membershipsByUser.get(member.id) ?? []
           const teamMemberships = member.orgRole === 'owner' || member.orgRole === 'admin'
             ? []
             : member.inviteStatus === 'invite_sent'
             ? member.teamMemberships
-            : activeMemberships
+            : mergeTeamMemberships(member.teamMemberships, accessMemberships)
           return { ...member, teamMemberships, role: displayRoleFor({ ...member, teamMemberships }) }
         })
       }
@@ -1079,7 +1089,9 @@ export default function OrgMembersPage() {
     if (!prevMember) return
     if (!orgId) return
 
-    const previousTeamIds = prevMember.teamMemberships.map(tm => tm.teamId)
+    const previousEditorTeamIds = prevMember.teamMemberships
+      .filter(teamMembership => teamMembership.isTeamOwner)
+      .map(teamMembership => teamMembership.teamId)
 
     // Resolve the editor's target team memberships. With teams chosen in the
     // modal we merge them onto existing grants; the all-teams fallback only
@@ -1096,7 +1108,7 @@ export default function OrgMembersPage() {
           ...prevMember.teamMemberships.filter(tm => !editorTeamIds.includes(tm.teamId)),
           ...chosen,
         ]
-      } else if (previousTeamIds.length === 0) {
+      } else if (prevMember.teamMemberships.length === 0) {
         targetMemberships = teams.map(team => ({ teamId: team.id, teamName: team.name, isTeamOwner: true }))
       }
       if (targetMemberships.length === 0) {
@@ -1109,7 +1121,12 @@ export default function OrgMembersPage() {
       if (m.id !== id) return m
       if (role === 'admin') return { ...m, role: 'admin', orgRole: 'admin', teamMemberships: [] }
       if (role === 'editor') return { ...m, role: 'editor', orgRole: 'member', teamMemberships: targetMemberships }
-      return { ...m, role: 'member', orgRole: 'member', teamMemberships: [] }
+      return {
+        ...m,
+        role: 'member',
+        orgRole: 'member',
+        teamMemberships: m.teamMemberships.filter(teamMembership => !teamMembership.isTeamOwner),
+      }
     }))
 
     const roleLabel = role === 'admin' ? 'Admin' : role === 'editor' ? 'Team editor' : 'Member'
@@ -1117,7 +1134,7 @@ export default function OrgMembersPage() {
     try {
       if (role === 'admin') {
         await setMemberRole(orgId, id, 'admin')
-        await Promise.all(previousTeamIds.map(tid => removeTeamEditor(orgId, tid, id)))
+        await Promise.all(previousEditorTeamIds.map(tid => removeTeamEditor(orgId, tid, id)))
       } else {
         await setMemberRole(orgId, id, 'member')
         if (role === 'editor') {
@@ -1127,8 +1144,8 @@ export default function OrgMembersPage() {
             ? editorTeamIds
             : targetMemberships.map(tm => tm.teamId)
           await Promise.all(teamsToGrant.map(tid => addTeamEditor(orgId, tid, id)))
-        } else if (previousTeamIds.length > 0) {
-          await Promise.all(previousTeamIds.map(tid => removeTeamEditor(orgId, tid, id)))
+        } else if (previousEditorTeamIds.length > 0) {
+          await Promise.all(previousEditorTeamIds.map(tid => removeTeamEditor(orgId, tid, id)))
         }
       }
       let successMsg = `Role changed to ${roleLabel}`
@@ -1164,7 +1181,9 @@ export default function OrgMembersPage() {
           ? {
               ...m,
               role: m.orgRole === 'owner' || m.orgRole === 'admin' ? 'admin' : 'editor',
-              teamMemberships: [...m.teamMemberships, { teamId, teamName: team?.name ?? '', isTeamOwner: false }],
+              teamMemberships: mergeTeamMemberships(m.teamMemberships, [
+                { teamId, teamName: team?.name ?? '', isTeamOwner: true },
+              ]),
             }
           : m,
       ))
@@ -1258,9 +1277,11 @@ export default function OrgMembersPage() {
         role,
         orgRole:         role === 'admin' ? 'admin' : 'member',
         inviteStatus:    'invite_sent',
-        teamMemberships: role === 'editor'
-          ? [{ teamId, teamName: teams.find(t => t.id === teamId)?.name ?? 'Team', isTeamOwner: true }]
-          : [],
+        teamMemberships: [{
+          teamId,
+          teamName: teams.find(t => t.id === teamId)?.name ?? 'Team',
+          isTeamOwner: role === 'editor',
+        }],
         creditUsed:      0,
         allocationUsed:  0,
       }])

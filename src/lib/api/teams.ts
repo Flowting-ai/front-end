@@ -223,21 +223,22 @@ export async function inviteTeamMembers(
 ): Promise<TeamInvite> {
   // Role mapping → org role + team grant flags:
   //   admin  → orgRole: admin,  no team grant (admins have org-wide access)
-  //   editor → orgRole: member, grant_team_editor: true  (TeamEditor row on accept)
-  //   member → orgRole: member, grant_team_viewer: true  (TeamViewer row on accept,
-  //            so the member gets a team_id and appears in the team roster)
+  //   editor → orgRole: member, grantTeamEditor: true   (TeamEditor row on accept)
+  //   member → orgRole: member, no viewer/editor grant. Optional projectId
+  //            is the backend-supported way to attach a plain member to work
+  //            under this team without elevating them to Viewer or Editor.
   const orgRole = role === 'admin' ? 'admin' : 'member'
   const grantTeamEditor = role === 'editor'
-  const grantTeamViewer = role === 'member'
+  const grantTeamViewer = false
   const data = await apiFetchJson<InviteResponse>(ORG_TEAM_INVITES_ENDPOINT(orgId, teamId), {
     method: 'POST',
     body: JSON.stringify({
       emails,
       role: orgRole,
-      grant_team_editor: grantTeamEditor,
-      grant_team_viewer: grantTeamViewer,
-      ...(creditCap && creditCap > 0 ? { credit_cap: creditCap } : {}),
-      ...(projectId ? { project_id: projectId } : {}),
+      grantTeamEditor,
+      grantTeamViewer,
+      ...(creditCap && creditCap > 0 ? { creditCap } : {}),
+      ...(projectId ? { projectId } : {}),
     }),
   })
   return normalizeInvite(data)

@@ -21,7 +21,15 @@ import type { Team } from '@/types/teams'
 
 const SLIDE = { duration: 0.28, ease: [0.4, 0, 0.2, 1] as const }
 
-function CreateTeamForm({ onCancel, onCreate }: { onCancel: () => void; onCreate: (name: string, desc: string) => void }) {
+function CreateTeamForm({
+  onCancel,
+  onCreate,
+  borderPosition = 'top',
+}: {
+  onCancel: () => void
+  onCreate: (name: string, desc: string) => void
+  borderPosition?: 'top' | 'bottom'
+}) {
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
   return (
@@ -33,7 +41,8 @@ function CreateTeamForm({ onCancel, onCreate }: { onCancel: () => void; onCreate
     >
       <div style={{
         padding:         '20px 24px',
-        borderTop:       '1px solid var(--neutral-100)',
+        borderTop:       borderPosition === 'top' ? '1px solid var(--neutral-100)' : undefined,
+        borderBottom:    borderPosition === 'bottom' ? '1px solid var(--neutral-100)' : undefined,
         backgroundColor: 'var(--neutral-white)',
         display:         'flex',
         flexDirection:   'column',
@@ -258,6 +267,16 @@ export default function OrgTeamsPage() {
             </p>
           </SettingsTableToolbar>
 
+          <AnimatePresence initial={false}>
+            {creating && (
+              <CreateTeamForm
+                borderPosition="bottom"
+                onCancel={() => setCreating(false)}
+                onCreate={handleCreateTeam}
+              />
+            )}
+          </AnimatePresence>
+
           <SettingsTableHeader
             columns={TEAM_COLUMNS}
             columnGap={TEAM_COLUMN_GAP}
@@ -308,14 +327,6 @@ export default function OrgTeamsPage() {
             </SettingsTableRow>
           ))}
 
-          <AnimatePresence initial={false}>
-            {creating && (
-              <CreateTeamForm
-                onCancel={() => setCreating(false)}
-                onCreate={handleCreateTeam}
-              />
-            )}
-          </AnimatePresence>
         </SettingsTable>
       </div>
     </div>

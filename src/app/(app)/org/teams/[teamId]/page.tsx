@@ -35,7 +35,6 @@ import {
   updateTeam,
   archiveTeam,
   deleteTeam,
-  listTeamEditors,
   addTeamEditor,
   removeTeamEditor,
   inviteTeamMembers,
@@ -47,20 +46,17 @@ import {
 import type { ConnectorRequestStatus } from '@/lib/api/teams'
 import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 import { connectorLogoSrc } from '@/lib/connectorLogos'
+import type { ApiProjectSummary } from '@/lib/api/projects'
 import { listMembers } from '@/lib/api/organization'
 import { fetchPersonas, personasForTeamContext, type Persona } from '@/lib/api/personas'
+import { fetchTeamAccessSnapshot } from '@/lib/team-access'
 import type { Team, TeamEditor, OrgMember, OrgRole, WorkspaceRole } from '@/types/teams'
 import { toast } from 'sonner'
 
 const EDITOR_COLUMNS = '1fr 1fr 160px'
 const EDITOR_COLUMN_GAP = 0
 
-/**
- * A row in the Team Members table. The live backend has no team-roster endpoint,
- * so membership is derived from the org members list (each member carries the
- * `team_id` they belong to) and cross-referenced with the team editors list to
- * mark edit rights. See `roster` in TeamSettingsPage.
- */
+/** A row in the Team Members table built from backend-backed team access grants. */
 interface RosterMember {
   userId:   string
   name:     string
@@ -133,6 +129,40 @@ function SkeletonCard({ children }: { children: React.ReactNode }) {
   )
 }
 
+function useDropdownAnchorPosition(
+  open: boolean,
+  triggerRef: React.RefObject<HTMLButtonElement | null>,
+) {
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
+
+  useEffect(() => {
+    if (!open) {
+      setPos(null)
+      return
+    }
+
+    const updatePosition = () => {
+      const trigger = triggerRef.current
+      if (!trigger) {
+        setPos(null)
+        return
+      }
+      const rect = trigger.getBoundingClientRect()
+      setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    }
+
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [open, triggerRef])
+
+  return pos
+}
+
 /** Role/status chip shown beside a member's name in the roster. */
 function RoleBadge({ member }: { member: RosterMember }) {
   if (member.pending)            return <Badge color="Neutral" label="Invite sent" />
@@ -191,33 +221,28 @@ const ROLE_LABELS: Record<WorkspaceRole, string> = {
   member: 'Member',
 }
 
-function InvitePanel({ availableRoles, orgMembers, rosterIds, onInvite, onClose }: {
+function InvitePanel({ availableRoles, orgMembers, rosterIds, projects, onInvite, onClose }: {
   availableRoles: WorkspaceRole[]
   orgMembers: OrgMember[]
   rosterIds: Set<string>
-  onInvite: (emails: string[], role: WorkspaceRole) => Promise<void>
+  projects: ApiProjectSummary[]
+  onInvite: (emails: string[], role: WorkspaceRole, projectId?: string) => Promise<void>
   onClose: () => void
 }) {
   const [raw,      setRaw]      = useState('')
   const [role,     setRole]     = useState<WorkspaceRole>(availableRoles[availableRoles.length - 1] ?? 'member')
+  const [projectId, setProjectId] = useState('')
   const [sending,  setSending]  = useState(false)
   const [selected, setSelected] = useState<OrgMember[]>([])
   const [dropOpen, setDropOpen] = useState(false)
   const triggerRef  = useRef<HTMLButtonElement>(null)
   const dropPanelRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  const pos = useDropdownAnchorPosition(dropOpen, triggerRef)
 
   const eligible = useMemo(() =>
     orgMembers.filter(m => m.inviteStatus !== 'invite_sent' && !rosterIds.has(m.id)),
     [orgMembers, rosterIds]
   )
-
-  useEffect(() => {
-    if (dropOpen && triggerRef.current) {
-      const r = triggerRef.current.getBoundingClientRect()
-      setPos({ top: r.bottom + 4, left: r.left, width: r.width })
-    }
-  }, [dropOpen])
 
   useEffect(() => {
     if (!dropOpen) return
@@ -229,6 +254,10 @@ function InvitePanel({ availableRoles, orgMembers, rosterIds, onInvite, onClose 
     return () => document.removeEventListener('mousedown', handler, true)
   }, [dropOpen])
 
+  useEffect(() => {
+    if (role !== 'member' && projectId) setProjectId('')
+  }, [projectId, role])
+
   const toggleMember = (m: OrgMember) =>
     setSelected(prev => prev.some(s => s.id === m.id) ? prev.filter(s => s.id !== m.id) : [...prev, m])
 
@@ -239,9 +268,10 @@ function InvitePanel({ availableRoles, orgMembers, rosterIds, onInvite, onClose 
     if (!all.length) return
     setSending(true)
     try {
-      await onInvite(all, role)
+      await onInvite(all, role, role === 'member' && projectId ? projectId : undefined)
       setRaw('')
       setSelected([])
+      setProjectId('')
       onClose()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to send invites')
@@ -367,6 +397,37 @@ function InvitePanel({ availableRoles, orgMembers, rosterIds, onInvite, onClose 
         </div>
       </div>
 
+      {role === 'member' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
+            Project access (optional)
+          </p>
+          <select
+            aria-label="Project access"
+            value={projectId}
+            onChange={event => setProjectId(event.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              border: '1px solid var(--neutral-200)',
+              borderRadius: 8,
+              backgroundColor: 'white',
+              fontFamily: 'var(--font-body)',
+              fontSize: 14,
+              color: projectId ? 'var(--neutral-900)' : 'var(--neutral-500)',
+              outline: 'none',
+            }}
+          >
+            <option value="">No project access</option>
+            {projects.map(project => (
+              <option key={project.id} value={project.id}>
+                {project.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
         <Button variant="default" size="sm" disabled={!canSend} onClick={handleSend}>
@@ -391,14 +452,7 @@ function AddEditorPanel({ rosterMembers, onAdd, onClose }: {
   const [dropOpen, setDropOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
-
-  useEffect(() => {
-    if (dropOpen && triggerRef.current) {
-      const r = triggerRef.current.getBoundingClientRect()
-      setPos({ top: r.bottom + 4, left: r.left, width: r.width })
-    }
-  }, [dropOpen])
+  const pos = useDropdownAnchorPosition(dropOpen, triggerRef)
 
   useEffect(() => {
     if (!dropOpen) return
@@ -701,6 +755,9 @@ export default function TeamSettingsPage() {
   const [editorsLoading, setEditorsLoading] = useState(true)
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([])
   const [membersLoading, setMembersLoading] = useState(true)
+  const [membershipsByUser, setMembershipsByUser] = useState<Map<string, OrgMember['teamMemberships']>>(new Map())
+  const [identityByUser, setIdentityByUser] = useState<Map<string, { name: string | null; email: string | null }>>(new Map())
+  const [teamProjects, setTeamProjects] = useState<ApiProjectSummary[]>([])
 
   const [teamName, setTeamName] = useState('')
   const [teamDesc, setTeamDesc] = useState('')
@@ -746,52 +803,42 @@ export default function TeamSettingsPage() {
     }
   }, [orgId, params.teamId])
 
-  useEffect(() => {
-    const routeTeamId = params.teamId
-    if (!orgId || !routeTeamId) return
-    const currentOrgId: string = orgId
-    const teamId: string = routeTeamId
-    let cancelled = false
+  const refreshRoster = useCallback(async (showRefreshing = true) => {
+    if (!orgId || !team) return
 
-    async function loadEditors() {
+    if (showRefreshing) {
+      setRefreshing(true)
+    } else {
       setEditorsLoading(true)
-      try {
-        const rows = await listTeamEditors(currentOrgId, teamId)
-        if (!cancelled) setEditors(rows)
-      } catch (err) {
-        if (!cancelled) console.error(err)
-      }
-      if (!cancelled) setEditorsLoading(false)
-    }
-
-    void loadEditors()
-    return () => {
-      cancelled = true
-    }
-  }, [orgId, params.teamId])
-
-  // Team membership is derived from the org member list: each member carries the
-  // `team_id` they belong to. The backend exposes no team-roster endpoint, so we
-  // fetch all members once and filter by team below.
-  useEffect(() => {
-    if (!orgId) return
-    const currentOrgId: string = orgId
-    let cancelled = false
-    async function loadMembers() {
       setMembersLoading(true)
-      try {
-        const rows = await listMembers(currentOrgId)
-        if (!cancelled) setOrgMembers(rows)
-      } catch (err) {
-        if (!cancelled) console.error(err)
+    }
+
+    try {
+      const [rows, snapshot] = await Promise.all([
+        listMembers(orgId),
+        fetchTeamAccessSnapshot(orgId, [{ id: team.id, name: team.name }]),
+      ])
+      setOrgMembers(rows)
+      setEditors(snapshot.editorsByTeamId.get(team.id) ?? [])
+      setMembershipsByUser(snapshot.membershipsByUser)
+      setIdentityByUser(snapshot.identitiesByUser)
+      setTeamProjects(snapshot.projectsByTeamId.get(team.id) ?? [])
+    } catch (err) {
+      console.error(err)
+    } finally {
+      if (showRefreshing) {
+        setRefreshing(false)
+      } else {
+        setEditorsLoading(false)
+        setMembersLoading(false)
       }
-      if (!cancelled) setMembersLoading(false)
     }
-    void loadMembers()
-    return () => {
-      cancelled = true
-    }
-  }, [orgId])
+  }, [orgId, team])
+
+  useEffect(() => {
+    if (!team) return
+    void refreshRoster(false)
+  }, [team, refreshRoster])
 
   useEffect(() => {
     if (!params.teamId) return
@@ -807,25 +854,28 @@ export default function TeamSettingsPage() {
     const onVisible = () => { if (document.visibilityState === 'visible') void refreshRoster() }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [orgId, params.teamId])
+  }, [refreshRoster])
 
   const editorIds = useMemo(() => new Set(editors.map(e => e.userId)), [editors])
 
-  // Full team roster: org members assigned to this team, plus any editors not
-  // captured by `team_id` (e.g. admins/owners). Editors are surfaced first.
+  // Full team roster: active access comes from team editor and project-member
+  // grants; pending invites still come from the org members response.
   const roster = useMemo<RosterMember[]>(() => {
     const teamId = team?.id
     if (!teamId) return []
     const byId = new Map<string, RosterMember>()
     for (const m of orgMembers) {
-      if (m.teamMemberships.some(t => t.teamId === teamId)) {
+      const hasActiveAccess = membershipsByUser.get(m.id)?.some(teamMembership => teamMembership.teamId === teamId) ?? false
+      const hasPendingInvite = m.inviteStatus === 'invite_sent' && m.teamMemberships.some(t => t.teamId === teamId)
+      if (hasActiveAccess || hasPendingInvite) {
+        const identity = identityByUser.get(m.id)
         byId.set(m.id, {
           userId:   m.id,
-          name:     m.name || m.email || m.id,
-          email:    m.email || null,
+          name:     m.name || identity?.name || m.email || identity?.email || m.id,
+          email:    m.email || identity?.email || null,
           orgRole:  m.orgRole,
           isEditor: editorIds.has(m.id),
-          pending:  m.inviteStatus === 'invite_sent',
+          pending:  hasPendingInvite,
         })
       }
     }
@@ -842,28 +892,11 @@ export default function TeamSettingsPage() {
     }
     return [...byId.values()].sort((a, b) =>
       Number(b.isEditor) - Number(a.isEditor) || a.name.localeCompare(b.name))
-  }, [orgMembers, editors, editorIds, team?.id])
+  }, [orgMembers, editors, editorIds, membershipsByUser, identityByUser, team?.id])
 
   const rosterIds = useMemo(() => new Set(roster.map(m => m.userId)), [roster])
 
   const rosterLoading = editorsLoading || membersLoading
-
-  const refreshRoster = async () => {
-    if (!orgId || !params.teamId) return
-    setRefreshing(true)
-    try {
-      const [rows, editorRows] = await Promise.all([
-        listMembers(orgId),
-        listTeamEditors(orgId, params.teamId),
-      ])
-      setOrgMembers(rows)
-      setEditors(editorRows)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setRefreshing(false)
-    }
-  }
 
   const handleSave = async () => {
     if (!orgId || !team) return
@@ -907,15 +940,15 @@ export default function TeamSettingsPage() {
     if (!orgId || !team) return
     try {
       await removeTeamEditor(orgId, team.id, memberId)
-      setEditors(prev => prev.filter(e => e.userId !== memberId))
+      await refreshRoster(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove member')
     }
   }
 
-  const handleInvite = async (emails: string[], role: WorkspaceRole) => {
+  const handleInvite = async (emails: string[], role: WorkspaceRole, projectId?: string) => {
     if (!orgId || !team) return
-    await inviteTeamMembers(orgId, team.id, emails, role)
+    await inviteTeamMembers(orgId, team.id, emails, role, undefined, projectId)
     toast.success(`Invite sent to ${emails.length} email${emails.length > 1 ? 's' : ''}`)
     setInviteOpen(false)
     void refreshRoster()
@@ -1106,7 +1139,8 @@ export default function TeamSettingsPage() {
               </SettingsTableCell>
               <SettingsTableCell align="center">
                 {member.isEditor ? (
-                  // Revokes edit rights only — the member stays on the team.
+                  // Re-read the backend-backed roster after editor removal because
+                  // some members still have project access while others lose team access entirely.
                   <RedOutlineButton onClick={() => handleRemoveEditor(member.userId)}>Remove editor</RedOutlineButton>
                 ) : !member.pending && member.orgRole === 'member' ? (
                   <Button variant="secondary" size="sm" onClick={() => void handleAddEditor(member.userId)}>Make editor</Button>
@@ -1122,6 +1156,7 @@ export default function TeamSettingsPage() {
               availableRoles={availableRoles}
               orgMembers={orgMembers}
               rosterIds={rosterIds}
+              projects={teamProjects}
               onInvite={handleInvite}
               onClose={() => setInviteOpen(false)}
             />
