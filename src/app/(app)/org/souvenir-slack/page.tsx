@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { CancelOneIcon, CheckmarkCircleTwoIcon, PlusSignIcon } from '@strange-huge/icons'
+import { CancelOneIcon, CheckmarkCircleTwoIcon, DeleteTwoIcon, PlusSignIcon, QuillWriteOneIcon } from '@strange-huge/icons'
 import { useOrg } from '@/context/org-context'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
@@ -19,9 +19,11 @@ import {
 import { SlackConnectModal } from '@/components/SlackConnectModal'
 import {
   createProjectSlackChannel,
+  deleteProjectSlackChannel,
   getOrgSlackStatus,
   getProjectSlackChannel,
   removeOrgSlackInstallation,
+  renameProjectSlackChannel,
 } from '@/lib/api/slack'
 import type { SlackChannel, SlackStatus } from '@/lib/api/slack'
 import { fetchProjects } from '@/lib/api/projects'
@@ -85,6 +87,47 @@ function ChannelTypeToggle({
 
 const SLACK_COLUMNS = 'minmax(200px, 1.4fr) minmax(200px, 1.4fr) minmax(170px, 220px) 130px'
 
+function IconActionButton({
+  label,
+  onClick,
+  disabled,
+  danger,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  danger?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 30,
+        height: 30,
+        borderRadius: 8,
+        border: 'none',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        backgroundColor: 'white',
+        boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
+        color: danger ? 'var(--red-600, #dc2626)' : 'var(--neutral-600)',
+        flexShrink: 0,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
 function ProjectSlackRow({
   project,
   teamName,
@@ -93,9 +136,18 @@ function ProjectSlackRow({
   nameDraft,
   isPrivate,
   divider,
+  editing,
+  editDraft,
+  savingEdit,
+  deleting,
   onNameChange,
   onPrivacyChange,
   onCreate,
+  onEditStart,
+  onEditNameChange,
+  onEditSave,
+  onEditCancel,
+  onDelete,
 }: {
   project: SlackProject
   teamName: string
@@ -104,12 +156,22 @@ function ProjectSlackRow({
   nameDraft: string
   isPrivate: boolean
   divider: boolean
+  editing: boolean
+  editDraft: string
+  savingEdit: boolean
+  deleting: boolean
   onNameChange: (value: string) => void
   onPrivacyChange: (value: boolean) => void
   onCreate: () => void
+  onEditStart: () => void
+  onEditNameChange: (value: string) => void
+  onEditSave: () => void
+  onEditCancel: () => void
+  onDelete: () => void
 }) {
+  const busy = creating || savingEdit || deleting
   return (
-    <SettingsTableRow minHeight={72} divider={divider} style={{ opacity: creating ? 0.6 : 1 }}>
+    <SettingsTableRow minHeight={72} divider={divider} style={{ opacity: busy ? 0.6 : 1 }}>
       <SettingsTableCell>
         <div style={{ minWidth: 0 }}>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -124,18 +186,61 @@ function ProjectSlackRow({
       {channel ? (
         <>
           <SettingsTableCell>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              # {channel.channelName}
-            </p>
+            {editing ? (
+              <input
+                type="text"
+                value={editDraft}
+                disabled={savingEdit}
+                autoFocus
+                onChange={event => onEditNameChange(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' && editDraft.trim()) onEditSave()
+                  if (event.key === 'Escape') onEditCancel()
+                }}
+                placeholder="channel-name"
+                style={{
+                  width: '100%',
+                  height: 36,
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: '0 10px',
+                  backgroundColor: 'white',
+                  boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
+                  outline: 'none',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 14,
+                  color: 'var(--neutral-900)',
+                }}
+              />
+            ) : (
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                # {channel.channelName}
+              </p>
+            )}
           </SettingsTableCell>
           <SettingsTableCell>
             <Badge label={channel.isPrivate ? 'Private' : 'Public'} color={channel.isPrivate ? 'Neutral' : 'Blue'} />
           </SettingsTableCell>
           <SettingsTableCell align="end">
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--green-600, #16a34a)' }}>
-              <CheckmarkCircleTwoIcon size={18} color="var(--green-600, #16a34a)" />
-              Connected
-            </span>
+            {editing ? (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <Button variant="default" size="sm" disabled={savingEdit || !editDraft.trim()} loading={savingEdit} onClick={onEditSave}>
+                  Save
+                </Button>
+                <Button variant="outline" size="sm" disabled={savingEdit} onClick={onEditCancel}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <IconActionButton label="Rename channel" disabled={busy} onClick={onEditStart}>
+                  <QuillWriteOneIcon size={15} />
+                </IconActionButton>
+                <IconActionButton label="Delete channel" disabled={busy} danger onClick={onDelete}>
+                  <DeleteTwoIcon size={15} color="var(--red-600, #dc2626)" />
+                </IconActionButton>
+              </div>
+            )}
           </SettingsTableCell>
         </>
       ) : (
@@ -197,6 +302,10 @@ export default function SouvenirSlackPage() {
   const [privateDrafts,   setPrivateDrafts]   = useState<Record<string, boolean>>({})
   const [creatingId,      setCreatingId]      = useState<string | null>(null)
   const [removing,        setRemoving]        = useState(false)
+  const [editingId,       setEditingId]       = useState<string | null>(null)
+  const [editDraft,       setEditDraft]       = useState('')
+  const [savingEditId,    setSavingEditId]    = useState<string | null>(null)
+  const [deletingId,      setDeletingId]      = useState<string | null>(null)
 
   const isAdmin = orgRole === 'owner' || orgRole === 'admin'
   const connected = status?.connected ?? false
@@ -291,6 +400,50 @@ export default function SouvenirSlackPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to create Slack channel')
     } finally {
       setCreatingId(null)
+    }
+  }
+
+  const handleEditStart = (project: SlackProject, channel: SlackChannel) => {
+    setEditingId(project.id)
+    setEditDraft(channel.channelName)
+  }
+
+  const handleEditCancel = () => {
+    setEditingId(null)
+    setEditDraft('')
+  }
+
+  const handleEditSave = async (project: SlackProject) => {
+    if (!orgId) return
+    const name = editDraft.trim()
+    if (!name) return
+    setSavingEditId(project.id)
+    try {
+      const channel = await renameProjectSlackChannel(orgId, project.id, name)
+      setChannelsByProject(prev => ({ ...prev, [project.id]: channel }))
+      setEditingId(null)
+      setEditDraft('')
+      toast.success('Slack channel renamed')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to rename Slack channel')
+    } finally {
+      setSavingEditId(null)
+    }
+  }
+
+  const handleDeleteChannel = async (project: SlackProject) => {
+    if (!orgId || deletingId) return
+    if (!window.confirm(`Delete the Slack channel for "${project.title}"? It will be archived in Slack and unlinked from this project.`)) return
+    setDeletingId(project.id)
+    try {
+      await deleteProjectSlackChannel(orgId, project.id)
+      setChannelsByProject(prev => ({ ...prev, [project.id]: null }))
+      if (editingId === project.id) handleEditCancel()
+      toast.success('Slack channel deleted')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete Slack channel')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -396,9 +549,21 @@ export default function SouvenirSlackPage() {
                   nameDraft={nameDrafts[project.id] ?? defaultChannelName(project.title)}
                   isPrivate={privateDrafts[project.id] ?? false}
                   divider={index < projects.length - 1}
+                  editing={editingId === project.id}
+                  editDraft={editDraft}
+                  savingEdit={savingEditId === project.id}
+                  deleting={deletingId === project.id}
                   onNameChange={value => setNameDrafts(prev => ({ ...prev, [project.id]: value }))}
                   onPrivacyChange={value => setPrivateDrafts(prev => ({ ...prev, [project.id]: value }))}
                   onCreate={() => void handleCreateChannel(project)}
+                  onEditStart={() => {
+                    const ch = channelsByProject[project.id]
+                    if (ch) handleEditStart(project, ch)
+                  }}
+                  onEditNameChange={setEditDraft}
+                  onEditSave={() => void handleEditSave(project)}
+                  onEditCancel={handleEditCancel}
+                  onDelete={() => void handleDeleteChannel(project)}
                 />
               ))}
 
