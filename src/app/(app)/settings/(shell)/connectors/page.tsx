@@ -144,8 +144,8 @@ function connectedWorkspaceAccounts(entry: ConnectorCatalogEntry) {
   return (entry.accounts ?? [])
     .filter(account => account.connected && account.status === 'active')
     .map(account => ({
-      account_label: account.accountLabel,
-      account_identifier: account.accountIdentifier,
+      account_label: account.account_label,
+      account_identifier: account.account_identifier,
     }))
 }
 

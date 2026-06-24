@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { ArrowUpRightOneIcon } from '@strange-huge/icons'
+import { ConnectorRow } from '@/components/ConnectorRow'
 import { listConnectors } from '@/lib/api/connectors'
 import { getVersion, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
 import type { ConnectorCatalogEntry, ConnectorAccountOption } from '@/lib/api/connectors'
@@ -30,121 +31,25 @@ function XIcon() {
   )
 }
 
-function SpinnerIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg
-      width={size} height={size} viewBox="0 0 24 24" fill="none"
-      style={{ animation: 'conn-spin 0.8s linear infinite', flexShrink: 0 }}
-    >
-      <style>{`@keyframes conn-spin { to { transform: rotate(360deg) } }`}</style>
-      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-    </svg>
-  )
+// ── Account-grouping helpers ───────────────────────────────────────────────────
+// Workspace connectors are org-owned shared accounts (scope: 'shared_team'); a
+// single connector can expose several. Personal connectors are the viewer's own
+// linked account (scope: 'personal'). Both are surfaced through account_options;
+// we fall back to the entry's scalar fields for older catalog responses.
+
+function logoFor(entry: ConnectorCatalogEntry): string | undefined {
+  return CONNECTOR_LOGO_MAP[entry.slug] ?? entry.icon_url
 }
 
-function ChevronDownIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0 }}>
-      <path d="M2.5 3.75L5 6.25L7.5 3.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
+/** Connected, active shared-team accounts for this connector. */
+function workspaceAccountsOf(entry: ConnectorCatalogEntry): ConnectorAccountOption[] {
+  const opts = (entry.account_options ?? []).filter(
+    o => o.scope === 'shared_team' && o.connected && o.status === 'active',
   )
-}
-
-// ── Connector avatar ──────────────────────────────────────────────────────────
-
-function ConnectorAvatar({ entry, size = 26 }: { entry: ConnectorCatalogEntry; size?: number }) {
-  const localLogo = CONNECTOR_LOGO_MAP[entry.slug]
-
-  if (localLogo) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- local brand asset
-      <img src={localLogo} alt={entry.display_name} width={size} height={size} style={{ objectFit: 'contain', flexShrink: 0 }} />
-    )
-  }
-
-  if (entry.icon_url) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- dynamic connector icon URL
-      <img src={entry.icon_url} alt={entry.display_name} width={size} height={size} style={{ objectFit: 'contain', flexShrink: 0 }} />
-    )
-  }
-
-  const letter = entry.display_name.charAt(0).toUpperCase()
-  const hue    = [...entry.slug].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: 4,
-      backgroundColor: `hsl(${hue} 60% 90%)`, color: `hsl(${hue} 60% 35%)`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: size * 0.45,
-      flexShrink: 0, userSelect: 'none',
-    }}>
-      {letter}
-    </div>
-  )
-}
-
-// ── Toggle switch ─────────────────────────────────────────────────────────────
-
-function ToggleSwitch({ on, onChange, disabled }: { on: boolean; onChange: () => void; disabled?: boolean }) {
-  return (
-    <button
-      onClick={onChange}
-      disabled={disabled}
-      aria-checked={on}
-      role="switch"
-      style={{
-        position: 'relative', display: 'inline-block',
-        width: 34, height: 20, borderRadius: 20,
-        border: 'none', padding: 0, cursor: disabled ? 'not-allowed' : 'pointer', flexShrink: 0,
-        backgroundColor: on ? '#6e98cb' : 'var(--neutral-200, #d1c6bd)',
-        boxShadow: on
-          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.7)'
-          : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(106,98,93,0.3)',
-        transition: 'background-color 200ms',
-      }}
-    >
-      <span style={{
-        position: 'absolute', top: 2, left: on ? 16 : 2,
-        width: 16, height: 16, borderRadius: '50%',
-        backgroundColor: 'white',
-        boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.4)',
-        transition: 'left 200ms',
-      }} />
-    </button>
-  )
-}
-
-// ── Account options helper ────────────────────────────────────────────────────
-// Builds the list of selectable account options for a connector. Prefers the
-// server-provided account_options array; falls back to scalar fields on the entry
-// when account_options is absent (older catalog responses).
-
-function buildAccountOptions(entry: ConnectorCatalogEntry): ConnectorAccountOption[] {
-  const serverOpts = (entry.account_options ?? []).filter(
-    o => o.connected && o.status === 'active',
-  )
-  if (serverOpts.length > 0) return serverOpts
-
-  const opts: ConnectorAccountOption[] = []
-  if (entry.linked) {
-    opts.push({
-      account_ref:        'personal',
-      connector_slug:     entry.slug,
-      scope:              'personal',
-      account_label:      'Personal',
-      account_identifier: null,
-      connected:          true,
-      status:             'active',
-      team_ids:           [],
-      team_names:         [],
-      shared_account_id:  null,
-      linked_by_user_id:  null,
-      can_manage:         false,
-    })
-  }
+  if (opts.length > 0) return opts
+  // Fallback: the single workspace summary on the entry.
   if (entry.workspace_linked) {
-    opts.push({
+    return [{
       account_ref:        entry.shared_account_id ? `shared:${entry.shared_account_id}` : 'shared',
       connector_slug:     entry.slug,
       scope:              'shared_team',
@@ -157,116 +62,26 @@ function buildAccountOptions(entry: ConnectorCatalogEntry): ConnectorAccountOpti
       shared_account_id:  entry.shared_account_id,
       linked_by_user_id:  entry.workspace_linked_by,
       can_manage:         false,
-    })
+    }]
   }
-  return opts
+  return []
 }
 
-// ── Account dropdown ──────────────────────────────────────────────────────────
+/** True when the viewer has a personal (own) connection for this connector. */
+function hasPersonalAccount(entry: ConnectorCatalogEntry): boolean {
+  const opts = (entry.account_options ?? []).filter(o => o.connected && o.status === 'active')
+  if (opts.length > 0) return opts.some(o => o.scope === 'personal')
+  return entry.linked
+}
 
-function AccountDropdown({
-  options,
-  selectedRef,
-  onChange,
-  disabled,
-}: {
-  options:     ConnectorAccountOption[]
-  selectedRef: string | null
-  onChange:    (ref: string) => void
-  disabled?:   boolean
-}) {
-  const [open, setOpen] = useState(false)
-  const wrapRef = useRef<HTMLDivElement>(null)
-
-  const selected = options.find(o => o.account_ref === selectedRef) ?? options[0]
-  const label    = selected?.scope === 'personal' ? 'Personal' : 'Shared'
-
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
-
+/** A connector is usable by this agent when the viewer has any working account
+ *  for it (personal or shared) or the org has enabled it. */
+function isAvailable(entry: ConnectorCatalogEntry): boolean {
   return (
-    <div ref={wrapRef} style={{ position: 'relative', flexShrink: 0 }}>
-      {/* Trigger */}
-      <button
-        onClick={() => { if (!disabled) setOpen(o => !o) }}
-        disabled={disabled}
-        style={{
-          display:        'inline-flex',
-          alignItems:     'center',
-          gap:            4,
-          padding:        '3px 8px',
-          borderRadius:   6,
-          border:         '1px solid var(--neutral-200, #e5ddd7)',
-          backgroundColor: open ? 'var(--neutral-100, #f0ebe6)' : 'white',
-          cursor:         disabled ? 'default' : 'pointer',
-          fontFamily:     'var(--font-body)',
-          fontWeight:     500,
-          fontSize:       12,
-          lineHeight:     '18px',
-          color:          '#3b3632',
-          whiteSpace:     'nowrap',
-          transition:     'background-color 120ms',
-        }}
-      >
-        {label}
-        <ChevronDownIcon />
-      </button>
-
-      {/* Dropdown menu */}
-      {open && (
-        <div style={{
-          position:        'absolute',
-          right:           0,
-          top:             'calc(100% + 4px)',
-          zIndex:          60,
-          backgroundColor: 'white',
-          borderRadius:    10,
-          boxShadow:       '0px 4px 16px 0px rgba(38,33,30,0.14), 0px 0px 0px 1px var(--neutral-100)',
-          minWidth:        180,
-          overflow:        'hidden',
-          padding:         4,
-        }}>
-          {options.map(opt => {
-            const isSelected = opt.account_ref === (selectedRef ?? options[0]?.account_ref)
-            const optLabel   = opt.scope === 'personal' ? 'Personal' : (opt.account_label || 'Shared')
-            return (
-              <button
-                key={opt.account_ref}
-                onClick={() => { onChange(opt.account_ref); setOpen(false) }}
-                style={{
-                  display:         'flex',
-                  flexDirection:   'column',
-                  alignItems:      'flex-start',
-                  width:           '100%',
-                  padding:         '7px 10px',
-                  borderRadius:    6,
-                  border:          'none',
-                  backgroundColor: isSelected ? 'var(--neutral-50, #f7f2ed)' : 'transparent',
-                  cursor:          'pointer',
-                  textAlign:       'left',
-                  gap:             1,
-                }}
-              >
-                <span style={{ fontFamily: 'var(--font-body)', fontWeight: isSelected ? 600 : 500, fontSize: 13, color: '#3b3632' }}>
-                  {optLabel}
-                </span>
-                {opt.account_identifier && (
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, color: '#827a74' }}>
-                    {opt.account_identifier}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
+    entry.linked ||
+    entry.org_enabled === true ||
+    (entry.account_options ?? []).some(o => o.connected && o.status === 'active') ||
+    entry.workspace_linked
   )
 }
 
@@ -274,98 +89,13 @@ function AccountDropdown({
 
 function SkeletonRow() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 56, padding: '0 12px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, height: 56, padding: '0 12px' }}>
       <div style={{ width: 38, height: 38, borderRadius: 5, backgroundColor: 'var(--neutral-100)' }} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ height: 14, width: '40%', borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
         <div style={{ height: 11, width: '60%', borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
       </div>
       <div style={{ height: 20, width: 34, borderRadius: 20, backgroundColor: 'var(--neutral-100)' }} />
-    </div>
-  )
-}
-
-// ── Persona connector row ─────────────────────────────────────────────────────
-
-function PersonaConnectorRow({
-  entry,
-  enabled,
-  saving,
-  onToggle,
-  selectedAccountRef,
-  onAccountChange,
-}: {
-  entry:              ConnectorCatalogEntry
-  enabled:            boolean
-  saving:             boolean
-  onToggle:           () => void
-  selectedAccountRef: string | null
-  onAccountChange:    (ref: string) => void
-}) {
-  const accountOptions = buildAccountOptions(entry)
-  const hasChoice      = accountOptions.length > 1
-  const selectedOpt    = accountOptions.find(o => o.account_ref === selectedAccountRef) ?? accountOptions[0]
-
-  // Description line: prefer the selected account's email; fall back to connector description.
-  const descriptionText = selectedOpt?.account_identifier ?? entry.description
-
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      minHeight: 56, padding: '0 12px', borderRadius: 12,
-    }}>
-      <div style={{
-        width: 38, height: 38, backgroundColor: 'white', borderRadius: 5,
-        padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        border: '1px solid var(--neutral-100)',
-      }}>
-        <ConnectorAvatar entry={entry} size={26} />
-      </div>
-
-      <div style={{ flex: '1 0 0', minWidth: 0 }}>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {entry.display_name}
-        </p>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: '#827a74', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {descriptionText}
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        {saving && <SpinnerIcon size={12} />}
-
-        {/* Account picker — only shown when both personal and shared are available */}
-        {hasChoice && (
-          <AccountDropdown
-            options={accountOptions}
-            selectedRef={selectedAccountRef}
-            onChange={onAccountChange}
-            disabled={saving}
-          />
-        )}
-
-        {/* Static account badge when only one option exists */}
-        {!hasChoice && accountOptions.length === 1 && (
-          <span style={{
-            display:         'inline-flex',
-            alignItems:      'center',
-            padding:         '3px 8px',
-            borderRadius:    6,
-            border:          '1px solid var(--neutral-200, #e5ddd7)',
-            backgroundColor: 'var(--neutral-50, #f7f2ed)',
-            fontFamily:      'var(--font-body)',
-            fontWeight:      500,
-            fontSize:        12,
-            lineHeight:      '18px',
-            color:           '#6a625d',
-            whiteSpace:      'nowrap',
-          }}>
-            {accountOptions[0].scope === 'personal' ? 'Personal' : (accountOptions[0].account_label || 'Shared')}
-          </span>
-        )}
-
-        <ToggleSwitch on={enabled} onChange={onToggle} disabled={saving} />
-      </div>
     </div>
   )
 }
@@ -379,67 +109,6 @@ const SECTION_LABEL: React.CSSProperties = {
   lineHeight: '22px',
   color:      '#0a0a0a',
   margin:     0,
-}
-
-// ── User-removed connector tracking (per version) ─────────────────────────────
-
-function removedKey(versionId: string) {
-  return `persona_conn_removed_${versionId}`
-}
-
-function getUserRemovedSlugs(versionId: string): Set<string> {
-  if (typeof window === 'undefined') return new Set()
-  try {
-    const raw = localStorage.getItem(removedKey(versionId))
-    return raw ? new Set<string>(JSON.parse(raw) as string[]) : new Set()
-  } catch {
-    return new Set()
-  }
-}
-
-function saveUserRemovedSlug(versionId: string, slug: string) {
-  if (typeof window === 'undefined') return
-  try {
-    const s = getUserRemovedSlugs(versionId)
-    s.add(slug)
-    localStorage.setItem(removedKey(versionId), JSON.stringify([...s]))
-  } catch {}
-}
-
-function clearUserRemovedSlug(versionId: string, slug: string) {
-  if (typeof window === 'undefined') return
-  try {
-    const s = getUserRemovedSlugs(versionId)
-    s.delete(slug)
-    localStorage.setItem(removedKey(versionId), JSON.stringify([...s]))
-  } catch {}
-}
-
-// ── Account selection persistence (per version) ───────────────────────────────
-// Stores {slug → account_ref} in localStorage so the chosen account survives
-// page reloads. Keys: "personal" | "shared:{shared_account_id}".
-
-function accountsKey(versionId: string) {
-  return `persona_conn_accounts_${versionId}`
-}
-
-function getStoredAccountRefs(versionId: string): Record<string, string> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const raw = localStorage.getItem(accountsKey(versionId))
-    return raw ? (JSON.parse(raw) as Record<string, string>) : {}
-  } catch {
-    return {}
-  }
-}
-
-function storeAccountRef(versionId: string, slug: string, ref: string) {
-  if (typeof window === 'undefined') return
-  try {
-    const stored = getStoredAccountRefs(versionId)
-    stored[slug] = ref
-    localStorage.setItem(accountsKey(versionId), JSON.stringify(stored))
-  } catch {}
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -460,21 +129,25 @@ export default function ConnectorsTab({
   const { push } = useRouter()
   const { safeNavigate } = usePersonaConfigure()
 
-  const [linked,           setLinked]           = useState<ConnectorCatalogEntry[]>([])
-  const [personaSlugs,     setPersonaSlugs]     = useState<Set<string>>(new Set())
-  const [blockedSlugs,     setBlockedSlugs]     = useState<Set<string>>(new Set())
-  const [connectorAccounts, setConnectorAccounts] = useState<Record<string, string>>({})
-  const [confirmSlug,      setConfirmSlug]      = useState<string | null>(null)
-  const [showNavModal,     setShowNavModal]      = useState(false)
-  const [isSavingNav,      setIsSavingNav]      = useState(false)
-  const [loading,          setLoading]          = useState(true)
-  const [loadError,        setLoadError]        = useState('')
-  const [savingSlug,       setSavingSlug]       = useState<string | null>(null)
-  const [searchQuery,      setSearchQuery]      = useState('')
+  const [connectors,   setConnectors]   = useState<ConnectorCatalogEntry[]>([])
+  const [blockedSlugs, setBlockedSlugs] = useState<Set<string>>(new Set())
+  const [showNavModal, setShowNavModal] = useState(false)
+  const [isSavingNav,  setIsSavingNav]  = useState(false)
+  const [loading,      setLoading]      = useState(true)
+  const [loadError,    setLoadError]    = useState('')
+  const [savingSlug,   setSavingSlug]   = useState<string | null>(null)
+  const [searchQuery,  setSearchQuery]  = useState('')
 
-  // Stable ref so callbacks never force load/handleToggle recreation
+  // Stable ref so callbacks never force load/toggle recreation.
   const onChangeRef = useRef(onConnectorsChange)
   useEffect(() => { onChangeRef.current = onConnectorsChange })
+
+  // Report the current enabled/disabled split (by slug) to the parent.
+  const emitChange = useCallback((available: ConnectorCatalogEntry[], blocked: Set<string>) => {
+    const enabled  = available.filter(c => !blocked.has(c.slug)).map(c => c.slug)
+    const disabled = available.filter(c =>  blocked.has(c.slug)).map(c => c.slug)
+    onChangeRef.current?.(enabled, disabled)
+  }, [])
 
   const load = useCallback(async () => {
     if (!repoId || !versionId) { setLoading(false); return }
@@ -485,20 +158,11 @@ export default function ConnectorsTab({
         listConnectors(),
         getVersion(repoId, versionId),
       ])
-      const linkedConnectors = catalog.filter(c => c.linked || c.org_enabled === true)
-      setLinked(linkedConnectors)
-
-      const existingBlocked = new Set<string>(version.blocked_connectors ?? [])
-      const desired = new Set<string>(
-        linkedConnectors.filter(c => !existingBlocked.has(c.slug)).map(c => c.slug),
-      )
-
-      setPersonaSlugs(desired)
-      setBlockedSlugs(existingBlocked)
-      onChangeRef.current?.([...desired], [...existingBlocked])
-
-      // Load persisted account selections from localStorage
-      setConnectorAccounts(getStoredAccountRefs(versionId))
+      const available = catalog.filter(isAvailable)
+      const blocked   = new Set<string>(version.blocked_connectors ?? [])
+      setConnectors(available)
+      setBlockedSlugs(blocked)
+      emitChange(available, blocked)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load connectors'
       setLoadError(msg)
@@ -506,82 +170,42 @@ export default function ConnectorsTab({
     } finally {
       setLoading(false)
     }
-  }, [repoId, versionId])
+  }, [repoId, versionId, emitChange])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- initial connector load hydrates local UI state from the API
   useEffect(() => { void load() }, [load])
 
-  const handleAccountChange = useCallback((slug: string, ref: string) => {
-    if (!versionId) return
-    setConnectorAccounts(prev => ({ ...prev, [slug]: ref }))
-    storeAccountRef(versionId, slug, ref)
-  }, [versionId])
-
-  const handleToggle = useCallback((slug: string) => {
-    if (savingSlug || !repoId || !versionId) return
-    if (personaSlugs.has(slug)) {
-      setConfirmSlug(slug)
-    } else {
-      void doEnable(slug)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- doEnable captured below
-  }, [savingSlug, repoId, versionId, personaSlugs])
-
-  const doEnable = useCallback(async (slug: string) => {
-    if (!repoId || !versionId) return
+  // Flip the per-agent block for a connector slug. `enabled` = the new desired
+  // state (ON = unblock, OFF = block). Block is per slug, so toggling any row for
+  // a slug (personal or workspace) controls the same underlying state.
+  const setEnabled = useCallback(async (slug: string, enabled: boolean) => {
+    if (!repoId || !versionId || savingSlug) return
     setSavingSlug(slug)
-    const prevPersona  = new Set(personaSlugs)
-    const prevBlocked  = new Set(blockedSlugs)
-    const nextPersona  = new Set(personaSlugs)
-    const nextBlocked  = new Set(blockedSlugs)
-    nextPersona.add(slug)
-    nextBlocked.delete(slug)
-    clearUserRemovedSlug(versionId, slug)
-    setPersonaSlugs(nextPersona)
-    setBlockedSlugs(nextBlocked)
-    onChangeRef.current?.([...nextPersona], [...nextBlocked])
+    const prev = new Set(blockedSlugs)
+    const next = new Set(blockedSlugs)
+    if (enabled) next.delete(slug)
+    else         next.add(slug)
+    setBlockedSlugs(next)
+    emitChange(connectors, next)
+
+    const displayName = connectors.find(c => c.slug === slug)?.display_name ?? slug
+    const agentLabel  = personaName ? ` for ${personaName}` : ''
     try {
-      await unblockVersionConnector(repoId, versionId, slug)
-      const displayName = linked.find(c => c.slug === slug)?.display_name ?? slug
-      const agentLabel  = personaName ? ` for ${personaName}` : ''
-      toast.success(`${displayName} enabled${agentLabel}`)
+      if (enabled) {
+        await unblockVersionConnector(repoId, versionId, slug)
+        toast.success(`${displayName} enabled${agentLabel}`)
+      } else {
+        await setVersionBlockedConnectors(repoId, versionId, [...next])
+        toast.success(`${displayName} disabled${agentLabel}`)
+      }
     } catch (err) {
-      setPersonaSlugs(prevPersona)
-      setBlockedSlugs(prevBlocked)
-      onChangeRef.current?.([...prevPersona], [...prevBlocked])
-      toast.error(err instanceof Error ? err.message : 'Failed to enable connector')
+      setBlockedSlugs(prev)
+      emitChange(connectors, prev)
+      toast.error(err instanceof Error ? err.message : 'Failed to update connector')
     } finally {
       setSavingSlug(null)
     }
-  }, [repoId, versionId, personaSlugs, blockedSlugs, linked, personaName])
-
-  const doDisable = useCallback(async (slug: string) => {
-    setConfirmSlug(null)
-    if (!repoId || !versionId) return
-    setSavingSlug(slug)
-    const prevPersona  = new Set(personaSlugs)
-    const prevBlocked  = new Set(blockedSlugs)
-    const nextPersona  = new Set(personaSlugs)
-    const nextBlocked  = new Set(blockedSlugs)
-    nextPersona.delete(slug)
-    nextBlocked.add(slug)
-    saveUserRemovedSlug(versionId, slug)
-    setPersonaSlugs(nextPersona)
-    setBlockedSlugs(nextBlocked)
-    onChangeRef.current?.([...nextPersona], [...nextBlocked])
-    try {
-      await setVersionBlockedConnectors(repoId, versionId, [...nextBlocked])
-      const displayName = linked.find(c => c.slug === slug)?.display_name ?? slug
-      const agentLabel  = personaName ? ` for ${personaName}` : ''
-      toast.success(`${displayName} removed${agentLabel}`)
-    } catch (err) {
-      setPersonaSlugs(prevPersona)
-      setBlockedSlugs(prevBlocked)
-      onChangeRef.current?.([...prevPersona], [...prevBlocked])
-      toast.error(err instanceof Error ? err.message : 'Failed to remove connector')
-    } finally {
-      setSavingSlug(null)
-    }
-  }, [repoId, versionId, personaSlugs, blockedSlugs, linked, personaName])
+  }, [repoId, versionId, savingSlug, blockedSlugs, connectors, personaName, emitChange])
 
   const matchesSearch = useCallback((c: ConnectorCatalogEntry) => {
     if (!searchQuery.trim()) return true
@@ -593,56 +217,17 @@ export default function ConnectorsTab({
     )
   }, [searchQuery])
 
-  const enabledForPersona  = linked.filter(c => personaSlugs.has(c.slug) && matchesSearch(c))
-  const disabledForPersona = linked.filter(c => !personaSlugs.has(c.slug) && matchesSearch(c))
+  const visible = connectors.filter(matchesSearch)
+
+  // Workspace rows: one per connected shared account (a connector may have many).
+  const workspaceRows = visible.flatMap(entry =>
+    workspaceAccountsOf(entry).map(account => ({ entry, account })),
+  )
+  // Personal rows: one per connector the viewer personally linked.
+  const personalRows = visible.filter(hasPersonalAccount)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', paddingTop: 3 }}>
-
-      {/* ── Confirm-remove dialog ───────────────────────────────────────── */}
-      {confirmSlug && (() => {
-        const entry = linked.find(c => c.slug === confirmSlug)
-        const displayName = entry?.display_name ?? confirmSlug
-        return (
-          <>
-            <div
-              onClick={() => setConfirmSlug(null)}
-              style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(38,33,30,0.32)', zIndex: 50 }}
-            />
-            <div style={{
-              position:        'fixed',
-              top:             '50%',
-              left:            '50%',
-              transform:       'translate(-50%, -50%)',
-              zIndex:          51,
-              backgroundColor: 'white',
-              borderRadius:    16,
-              boxShadow:       '0px 8px 32px 0px rgba(38,33,30,0.18), 0px 0px 0px 1px var(--neutral-100)',
-              width:           400,
-              maxWidth:        'calc(100vw - 48px)',
-              padding:         24,
-              display:         'flex',
-              flexDirection:   'column',
-              gap:             16,
-            }}>
-              <div>
-                <p style={{ margin: '0 0 8px', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)' }}>
-                  Remove {displayName}?
-                </p>
-                <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)' }}>
-                  This will disable <strong>{displayName}</strong> for this agent. Are you sure you want to remove this connector access?.
-                </p>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <Button variant="outline" size="sm" onClick={() => setConfirmSlug(null)}>Cancel</Button>
-                <Button variant="danger" size="sm" onClick={() => void doDisable(confirmSlug)}>
-                  Remove
-                </Button>
-              </div>
-            </div>
-          </>
-        )
-      })()}
 
       {/* ── Manage-in-settings navigation modal ────────────────────────── */}
       {showNavModal && (
@@ -743,16 +328,12 @@ export default function ConnectorsTab({
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ height: 22, width: 220, borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
-            <div style={{ backgroundColor: 'var(--neutral-50)', borderRadius: 10 }}>
-              {Array.from({ length: 2 }).map((_, i) => <SkeletonRow key={i} />)}
-            </div>
+            <div style={{ height: 22, width: 200, borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
+            {Array.from({ length: 2 }).map((_, i) => <SkeletonRow key={i} />)}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ height: 22, width: 160, borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
-            <div style={{ backgroundColor: 'var(--neutral-50)', borderRadius: 10 }}>
-              {Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)}
-            </div>
+            {Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)}
           </div>
         </div>
       ) : loadError ? (
@@ -767,66 +348,57 @@ export default function ConnectorsTab({
             Retry
           </button>
         </div>
+      ) : connectors.length === 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '24px 16px', textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0, maxWidth: 300 }}>
+            No connectors are available yet. Connect or enable connectors in Settings to use them in this agent.
+          </p>
+          <Button variant="secondary" size="sm" onClick={() => safeNavigate('/settings/connectors')}>
+            Go to Settings
+          </Button>
+        </div>
+      ) : workspaceRows.length === 0 && personalRows.length === 0 ? (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '16px 12px' }}>
+          No connectors match &ldquo;{searchQuery}&rdquo;.
+        </p>
       ) : (
         <>
-          {/* ── Section 1: Connectors enabled for this agent ──────────────── */}
-          <section data-help-id="help-connectors-enabled" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <p style={SECTION_LABEL}>Connectors enabled for this agent</p>
-            {linked.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '24px 16px', textAlign: 'center' }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '20px', color: 'var(--neutral-400)', margin: 0, maxWidth: 300 }}>
-                  No connectors are available yet. Connect or enable connectors in Settings to use them in this agent.
-                </p>
-                <Button variant="secondary" size="sm" onClick={() => safeNavigate('/settings/connectors')}>
-                  Go to Settings
-                </Button>
-              </div>
-            ) : enabledForPersona.length === 0 ? (
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '16px 12px' }}>
-                {searchQuery
-                  ? `No enabled connectors match "${searchQuery}".`
-                  : 'All connected connectors have been disabled for this persona.'}
-              </p>
-            ) : (
-              <div style={{ backgroundColor: 'var(--neutral-50, #f7f2ed)', borderRadius: 10, overflow: 'hidden' }}>
-                {enabledForPersona.map(c => (
-                  <PersonaConnectorRow
-                    key={c.slug}
-                    entry={c}
-                    enabled
-                    saving={savingSlug === c.slug}
-                    onToggle={() => void handleToggle(c.slug)}
-                    selectedAccountRef={connectorAccounts[c.slug] ?? null}
-                    onAccountChange={ref => handleAccountChange(c.slug, ref)}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
+          {/* ── Workspace connectors — shared org accounts ──────────────────── */}
+          {workspaceRows.length > 0 && (
+            <section data-help-id="help-connectors-workspace" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <p style={{ ...SECTION_LABEL, marginBottom: 4, paddingLeft: 12 }}>Workspace connectors</p>
+              {workspaceRows.map(({ entry, account }) => (
+                <ConnectorRow
+                  key={`${entry.slug}:${account.account_ref}`}
+                  name={entry.display_name}
+                  description={entry.description}
+                  iconUrl={logoFor(entry)}
+                  status="connected-workspace"
+                  accountLabel={account.account_label}
+                  active={!blockedSlugs.has(entry.slug)}
+                  onActiveChange={enabled => void setEnabled(entry.slug, enabled)}
+                  disabled={savingSlug === entry.slug}
+                />
+              ))}
+            </section>
+          )}
 
-          {/* ── Section 2: Connectors disabled for this agent ─────────────── */}
-          {disabledForPersona.length > 0 && (
-            <section data-help-id="help-connectors-disabled" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <p style={SECTION_LABEL}>Connectors disabled for this agent</p>
-              {disabledForPersona.length === 0 && searchQuery ? (
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '16px 12px' }}>
-                  No disabled connectors match &ldquo;{searchQuery}&rdquo;.
-                </p>
-              ) : (
-                <div style={{ backgroundColor: 'var(--neutral-50, #f7f2ed)', borderRadius: 10, overflow: 'hidden' }}>
-                  {disabledForPersona.map(c => (
-                    <PersonaConnectorRow
-                      key={c.slug}
-                      entry={c}
-                      enabled={false}
-                      saving={savingSlug === c.slug}
-                      onToggle={() => void handleToggle(c.slug)}
-                      selectedAccountRef={connectorAccounts[c.slug] ?? null}
-                      onAccountChange={ref => handleAccountChange(c.slug, ref)}
-                    />
-                  ))}
-                </div>
-              )}
+          {/* ── Personal connectors — the viewer's own accounts ─────────────── */}
+          {personalRows.length > 0 && (
+            <section data-help-id="help-connectors-personal" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <p style={{ ...SECTION_LABEL, marginBottom: 4, paddingLeft: 12 }}>Personal connectors</p>
+              {personalRows.map(entry => (
+                <ConnectorRow
+                  key={entry.slug}
+                  name={entry.display_name}
+                  description={entry.description}
+                  iconUrl={logoFor(entry)}
+                  status="connected-personal"
+                  active={!blockedSlugs.has(entry.slug)}
+                  onActiveChange={enabled => void setEnabled(entry.slug, enabled)}
+                  disabled={savingSlug === entry.slug}
+                />
+              ))}
             </section>
           )}
         </>

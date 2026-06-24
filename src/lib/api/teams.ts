@@ -30,9 +30,9 @@ import type {
 import type {
   ApiKeyField,
   ConnectorTool,
-  ConnectorAccount,
   ConnectorCatalogEntry,
 } from './connectors'
+import type { OrgConnectorAccount } from './org-connectors'
 
 // ── Backend shapes (snake_case) ───────────────────────────────────────────────
 
@@ -478,7 +478,7 @@ export interface TeamConnectionEntry {
   /** User id that attached the shared account. */
   workspaceLinkedBy: string | null
   /** Available org shared accounts for this connector (picker list). */
-  accounts:          ConnectorAccount[]
+  accounts:          OrgConnectorAccount[]
   /** Current tool policies for this team connection. */
   tools:             ConnectorTool[]
 }

@@ -19,7 +19,10 @@ const SHADOW_PANEL   = '0px 0px 0px 1px var(--neutral-100)'
 
 /** not-connected → shows "Connect" + inline OAuth expand panel on click.
  *  connected-personal → shows ON/OFF badge + Switch toggle.
- *  connected-workspace → shows workspace name caption + read-only "Connected" badge. */
+ *  connected-workspace → a shared org account. When an onActiveChange handler is
+ *    given it shows the same ON/OFF badge + Switch as a personal row (pass
+ *    `disabled` for viewers who can't manage it); otherwise it falls back to a
+ *    read-only "Connected" badge. */
 export type ConnectorStatus = 'not-connected' | 'connected-personal' | 'connected-workspace'
 
 export interface ConnectorRowProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -35,10 +38,13 @@ export interface ConnectorRowProps extends React.HTMLAttributes<HTMLDivElement> 
   status?: ConnectorStatus
   /** connected-personal: whether the connector is currently active */
   active?: boolean
-  /** connected-personal: fires when the active toggle changes */
+  /** connected-personal / connected-workspace: fires when the active toggle changes */
   onActiveChange?: (active: boolean) => void
   /** connected-workspace: name of the workspace that owns this connection */
   workspaceName?: string
+  /** connected-workspace: the shared account's label, shown inline as
+   *  "{name} ({accountLabel})" — e.g. "Figma (Strange Rock)". */
+  accountLabel?: string
   /** OAuth panel heading — defaults to "Connect {name}" */
   oauthTitle?: string
   /** OAuth panel body text */
@@ -80,6 +86,7 @@ function ConnectorIcon({
       }}
     >
       {iconUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- connector logo, dynamic/local brand asset
         <img
           src={iconUrl}
           alt={iconAlt ?? (name ? `${name} logo` : 'Connector logo')}
@@ -190,6 +197,7 @@ export const ConnectorRow = React.forwardRef<HTMLDivElement, ConnectorRowProps>(
       active           = false,
       onActiveChange,
       workspaceName    = '',
+      accountLabel     = '',
       oauthTitle,
       oauthDescription = '',
       oauthCtaLabel,
@@ -263,6 +271,11 @@ export const ConnectorRow = React.forwardRef<HTMLDivElement, ConnectorRowProps>(
               }}
             >
               {name}
+              {accountLabel && (
+                <span style={{ fontWeight: 400, color: 'var(--neutral-500)' }}>
+                  {' '}({accountLabel})
+                </span>
+              )}
             </span>
             {description && (
               <span
@@ -316,21 +329,38 @@ export const ConnectorRow = React.forwardRef<HTMLDivElement, ConnectorRowProps>(
                 flexShrink: 0,
               }}
             >
-              {workspaceName && (
-                <span
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize:   'var(--font-size-caption)',
-                    fontWeight: 400,
-                    lineHeight: 'var(--line-height-caption)',
-                    color:      'var(--neutral-500)',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {workspaceName}
-                </span>
+              {/* Toggle affordance when the viewer can manage this shared account;
+                  otherwise a read-only "Connected" badge with the workspace name. */}
+              {onActiveChange ? (
+                <>
+                  <Badge
+                    label={active ? 'ON' : 'OFF'}
+                    color={active ? 'Yellow' : 'Neutral'}
+                  />
+                  <Switch
+                    checked={active}
+                    onCheckedChange={onActiveChange}
+                  />
+                </>
+              ) : (
+                <>
+                  {workspaceName && (
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontSize:   'var(--font-size-caption)',
+                        fontWeight: 400,
+                        lineHeight: 'var(--line-height-caption)',
+                        color:      'var(--neutral-500)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {workspaceName}
+                    </span>
+                  )}
+                  <Badge label="Connected" color="Neutral" />
+                </>
               )}
-              <Badge label="Connected" color="Neutral" />
             </div>
           )}
         </div>
