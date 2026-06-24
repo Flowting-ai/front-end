@@ -11,9 +11,13 @@ import {
   UserAiIcon,
 } from '@strange-huge/icons'
 import type { PinFolder } from '@/lib/api/pins'
-import { fetchPersonas, personasForTeamContext } from '@/lib/api/personas'
-import type { Persona } from '@/lib/api/personas'
+import { fetchPersonas, personasForTeamContext, usePersonaRepo } from '@/lib/api/personas'
 import { usePinboard } from '@/context/pinboard-context'
+import { useOrg } from '@/context/org-context'
+
+// Module-level session cache: original team-persona repo ID → member's copy info.
+// Shared across component instances; resets on page refresh.
+const _teamCopyCache = new Map<string, SelectedPersonaInfo>()
 
 export interface SelectedPersonaInfo {
   id:              string
@@ -80,6 +84,7 @@ export function ChatAddMenu({
   hidePinFolders,
 }: ChatAddMenuProps) {
   const { folders: contextFolders } = usePinboard()
+  const { currentUserRole } = useOrg()
   const pinFolders: PinFolder[] = contextFolders
     .filter(f => f.pinCount === undefined || f.pinCount > 0)
     .map(f => ({ id: f.id, name: f.label, pin_count: f.pinCount ?? 0 }))
@@ -89,27 +94,56 @@ export function ChatAddMenu({
   const styleMenuOpen      = openSubmenu === 'style'
   const personaMenuOpen    = openSubmenu === 'persona'
   const pinFoldersMenuOpen = openSubmenu === 'pinFolders'
-  const [personas,           setPersonas]           = useState<Persona[]>([])
+  const [personas,           setPersonas]           = useState<SelectedPersonaInfo[]>([])
   const [loadingPersonas,    setLoadingPersonas]    = useState(false)
 
   useEffect(() => {
     if (!personaMenuOpen) return
-    // fetchPersonas() has an internal 30s cache + in-flight dedup.
-    // Only show the spinner when there are no cached results yet so
-    // repeat opens don't flash "Loading…" on already-populated lists.
+    // Only show the spinner when there are no cached results yet.
     const needsLoad = personas.length === 0
     if (needsLoad) setLoadingPersonas(true)
+    // Members/editors can't use another user's persona directly — _resolve_persona enforces
+    // ownership. For team projects, transparently copy each team-shared persona into the
+    // member's own account so the chat proceeds with their copy's version ID.
+    const needsCopy = Boolean(teamId) && currentUserRole !== 'admin'
+
     fetchPersonas()
-      .then(list => setPersonas(
-        teamId
-          // Team project: agents shared to that team only.
-          ? personasForTeamContext(list, teamId)
-          // Normal chat: personal and super-link agents only — never team-shared ones.
-          : list.filter(p => p.visibility === 'private')
-      ))
+      .then(async list => {
+        if (teamId) {
+          const teamPersonas = personasForTeamContext(list, teamId)
+          if (!needsCopy) {
+            setPersonas(teamPersonas.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: p.temperature })))
+            return
+          }
+          const resolved = await Promise.all(teamPersonas.map(async p => {
+            const base: SelectedPersonaInfo = { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: p.temperature }
+            if (p.visibility !== 'team') return base
+            const cached = _teamCopyCache.get(p.id)
+            if (cached) return cached
+            try {
+              const copy = await usePersonaRepo(p.id)
+              const v = copy.published_version ?? copy.active_version
+              const info: SelectedPersonaInfo = {
+                id: copy.id,
+                name: p.name,
+                imageUrl: v?.image_url ?? p.imageUrl,
+                modelId: v?.model_id ?? p.modelId,
+                activeVersionId: copy.published_version_id ?? null,
+                systemPrompt: null,
+                temperature: v?.temperature ?? p.temperature,
+              }
+              _teamCopyCache.set(p.id, info)
+              return info
+            } catch { return base }
+          }))
+          setPersonas(resolved)
+        } else {
+          setPersonas(list.filter(p => p.visibility === 'private').map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: p.temperature })))
+        }
+      })
       .catch(() => setPersonas([]))
       .finally(() => setLoadingPersonas(false))
-  }, [personaMenuOpen, teamId]) // eslint-disable-line react-hooks/exhaustive-deps -- personas.length read only for the initial guard, not a dep
+  }, [personaMenuOpen, teamId, currentUserRole]) // eslint-disable-line react-hooks/exhaustive-deps -- personas.length read only for the initial guard, not a dep
 
   return (
     <Dropdown style={{ width: 200 }}>
@@ -172,7 +206,7 @@ export function ChatAddMenu({
                           fluid
                           selected={selectedPersonaId === p.id}
                           onClick={() => {
-                            onPersonaChange(selectedPersonaId === p.id ? null : { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null })
+                            onPersonaChange(selectedPersonaId === p.id ? null : p)
                             setOpenSubmenu(null)
                           }}
                         />
