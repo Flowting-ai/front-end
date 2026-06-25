@@ -27,6 +27,8 @@ export interface CreateCheckoutSessionRequest {
   plan: CheckoutPlan;
   /** monthly | annual. Default 'monthly'. */
   billing?: "monthly" | "annual";
+  /** Optional override for Stripe's cancel (back) button URL. */
+  cancel_url?: string;
 }
 
 export interface CreateCheckoutSessionResponse {

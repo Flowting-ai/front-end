@@ -387,7 +387,11 @@ export default function BillingPage() {
   // Team flag: live signal OR the cached snapshot — the cached value is what
   // kills the trial→teams flicker on refresh (first paint already knows).
   const isTeamAccount    = liveIsTeamAccount || (display?.isTeamAccount ?? false)
-  const canManageBilling = orgReady && (!orgId || orgRole === 'owner')
+  // Individual accounts: show billing controls as soon as the user is loaded — no
+  // org context needed. Team accounts: wait for orgReady to confirm the owner role,
+  // because without it orgRole is still null and we'd incorrectly hide the controls.
+  const canManageBilling = isHydrated && !!user &&
+    (!liveIsTeamAccount || (orgReady && orgRole === 'owner'))
   // The known individual paid tiers (drive price + feature list). 'teams' and
   // any unknown value resolve to null here.
   const individualPlan   = planType && planType in PLAN_PRICES ? planType : null

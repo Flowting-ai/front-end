@@ -113,7 +113,7 @@ export default function ChangePlanPage() {
     if (plan === currentPlan) return
     setChangingTo(plan)
     try {
-      const checkout = await createCheckout({ plan, billing: 'monthly' })
+      const checkout = await createCheckout({ plan, billing: 'monthly', cancel_url: `${window.location.origin}/settings/billing/change-plan` })
       document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
       window.location.href = checkout.checkout_url
     } catch (err) {
@@ -127,7 +127,7 @@ export default function ChangePlanPage() {
     const plan = selectedTeam.planType
     setChangingTo(plan)
     try {
-      const checkout = await createCheckout({ plan, billing: 'monthly' })
+      const checkout = await createCheckout({ plan, billing: 'monthly', cancel_url: `${window.location.origin}/settings/billing/change-plan` })
       document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
       window.location.href = checkout.checkout_url
     } catch (err) {
@@ -140,7 +140,7 @@ export default function ChangePlanPage() {
     if (changingTo) return
     setChangingTo('enterprise')
     try {
-      const checkout = await createCheckout({ plan: 'enterprise', billing: 'monthly' })
+      const checkout = await createCheckout({ plan: 'enterprise', billing: 'monthly', cancel_url: `${window.location.origin}/settings/billing/change-plan` })
       document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
       window.location.href = checkout.checkout_url
     } catch (err) {

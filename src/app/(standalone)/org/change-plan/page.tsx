@@ -7,6 +7,7 @@ import { useOrg } from '@/context/org-context'
 import { type UserPlanType } from '@/lib/api/user'
 import { createCheckout, type CheckoutPlan } from '@/lib/api/stripe'
 import { toast } from 'sonner'
+import { ContactSalesModal } from '@/components/ContactSalesModal'
 
 const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
@@ -73,9 +74,10 @@ export default function OrgChangePlanPage() {
   const router = useRouter()
   const { user } = useAuth()
   const { org, orgId, orgRole, orgReady } = useOrg()
-  const [individualIdx, setIndividualIdx] = useState(1)
-  const [teamIdx,       setTeamIdx]       = useState(1)
-  const [changingTo,    setChangingTo]    = useState<CheckoutPlan | null>(null)
+  const [individualIdx,    setIndividualIdx]    = useState(1)
+  const [teamIdx,          setTeamIdx]          = useState(1)
+  const [changingTo,       setChangingTo]       = useState<CheckoutPlan | null>(null)
+  const [contactSalesOpen, setContactSalesOpen] = useState(false)
 
   const currentPlan      = user?.planType ?? null
   const firstName        = user?.name?.split(' ')[0] ?? 'there'
@@ -207,7 +209,7 @@ export default function OrgChangePlanPage() {
       <div
         className="kaya-scrollbar"
         style={{
-          flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden',
+          minHeight: '100vh', overflowX: 'hidden',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           padding: '0 24px 48px',
           backgroundColor: '#f7f2ed',
@@ -656,7 +658,7 @@ export default function OrgChangePlanPage() {
 
                   <button
                     type="button"
-                    onClick={handleSelectEnterprise}
+                    onClick={() => { if (!changingTo && org.plan !== 'enterprise') setContactSalesOpen(true) }}
                     disabled={!!changingTo || org.plan === 'enterprise'}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
@@ -666,7 +668,7 @@ export default function OrgChangePlanPage() {
                       fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47',
                     }}
                   >
-                    {org.plan === 'enterprise' ? 'Current plan' : changingTo === 'enterprise' ? 'Redirecting…' : 'Start Enterprise'}
+                    {org.plan === 'enterprise' ? 'Current plan' : 'Contact Sales'}
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                       <path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" stroke="#524b47" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
@@ -678,6 +680,8 @@ export default function OrgChangePlanPage() {
           </div>
         </div>
       </div>
+
+      {contactSalesOpen && <ContactSalesModal onClose={() => setContactSalesOpen(false)} />}
     </>
   )
 }
