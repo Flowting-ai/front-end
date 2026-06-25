@@ -283,7 +283,7 @@ export default function BillingPage() {
     user?.roleFit === 'large_team',
   )
   const liveReady = isHydrated && !!user && billingLoaded &&
-    (!liveIsTeamAccountForGate || orgPlan !== null || orgPlanSettled)
+    (!liveIsTeamAccountForGate || orgPlan !== null || (orgPlanSettled && orgReady))
 
   const nextBillingLive = fmtDate(
     billing?.upcoming_invoice?.next_payment_date ?? user?.nextBillingDate ?? user?.currentPeriodEnd,
@@ -333,23 +333,15 @@ export default function BillingPage() {
         // user profile. Persisted so a refresh paints the right plan instantly.
         planType:         billing?.plan_type ?? user?.planType ?? null,
         isTeamAccount:    liveIsTeamAccount,
-        // Credits land on the individual account (GET /stripe/billing) for both
-        // individual and team plans — the org pool is derived from the same
-        // individual subscription and tracks multi-member consumption on top.
-        // Use billing as the source of truth for the TOTAL (avoids showing 0 when
-        // the org plan webhook hasn't landed yet — orgCreditsTotal can be 0, not
-        // null, which would otherwise swallow the billing fallback via ??).
-        // Coerce 0 → null at each step so a transient zero from the billing
-        // response (e.g. Stripe period-rollover lag, null total_credits) doesn't
-        // stop the chain short — fall through to orgCreditsTotal / user / cached
-        // snap before giving up. snap?.creditsTotal is the last-known good value.
-        //
-        // For team accounts, billing.credits reflects the owner's personal wallet
-        // (member_credit_parts returns personal plan+topup only for owners), which
-        // differs from the org pool funded by the teams subscription. Always use
-        // orgCreditsTotal first for teams; fall back to billing only for individual plans.
+        // For team accounts the org plan is the authoritative credit source.
+        // Use ?? (nullish coalescing) so a real 0 from the backend (org not yet
+        // provisioned) stays as 0 instead of falling through to the personal
+        // Stripe subscription total, which belongs to a different billing entity.
+        // Fall back to billing only when orgCreditsTotal is null (plan not loaded).
+        // For individual plans, coerce 0 → null so a Stripe period-rollover zero
+        // doesn't stop the chain before reaching the cached snap.
         creditsTotal:     liveIsTeamAccount
-          ? (orgCreditsTotal || null) ?? (billingCreditsTotal || null) ?? user?.creditsTotal ?? snap?.creditsTotal ?? 0
+          ? orgCreditsTotal ?? (billingCreditsTotal || null) ?? user?.creditsTotal ?? snap?.creditsTotal ?? 0
           : (billingCreditsTotal || null) ?? user?.creditsTotal ?? snap?.creditsTotal ?? 0,
         // Remaining and used reflect the pool after all members' consumption —
         // the org plan tracks this more accurately than the individual billing.
@@ -372,7 +364,8 @@ export default function BillingPage() {
   // Persist the snapshot whenever fresh data is available.
   useEffect(() => {
     if (liveSnap) writeCache(SNAP_KEY, liveSnap)
-  }, [liveReady, user, billing]) // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveReady, user, billing, orgPlan?.totalCredits, orgPlan?.remaining, orgPlan?.used])
 
   const display = liveSnap ?? snap
   // Gate on mount so SSR/first-paint render the skeleton (matching), then cached
