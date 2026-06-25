@@ -194,7 +194,7 @@ function UsageRow({ label, used, total, value }: { label: string; used: number; 
 export default function BillingPage() {
   const router = useRouter()
   const { user, refreshUser, isHydrated, jwtToken } = useAuth()
-  const { plan: orgPlan, orgId, orgRole, orgReady } = useOrg()
+  const { plan: orgPlan, orgId, orgRole, orgReady, roleError } = useOrg()
 
   const portalMounted = useMounted()
   // Lazy-init from the cached snapshot (runs once; SSR-safe — readCache returns
@@ -387,19 +387,23 @@ export default function BillingPage() {
   // Team flag: live signal OR the cached snapshot — the cached value is what
   // kills the trial→teams flicker on refresh (first paint already knows).
   const isTeamAccount    = liveIsTeamAccount || (display?.isTeamAccount ?? false)
-  // Individual accounts: show billing controls as soon as the user is loaded.
-  // Team accounts: need orgReady + confirmed owner role.
-  // Edge case: billing API confirms a team plan (liveIsTeamAccount) but the org
-  // discovery API returned no org (orgId is null after orgReady). This happens in
-  // devapp when the owner's profile lacks orgId and listOrganizations() comes back
-  // empty. In that state orgRole is stuck at the default 'member' even though the
-  // user is the owner. We fall back to optimistic access — the backend enforces
-  // real permissions on any action, so showing the controls is safe.
+  // Individual accounts: show controls as soon as the user loads.
+  // Team accounts: confirmed once orgReady resolves the owner role.
+  //
+  // Two resilience fallbacks (backend enforces real permissions on every action):
+  //   orgLookupFailed — billing confirmed a team plan but listOrganizations()
+  //     returned nothing (owner's profile lacks org_id AND org_members row missing
+  //     or API failed). orgRole stuck at default 'member'.
+  //   roleError — org was found (orgId set) but getOrg() threw (network/5xx).
+  //     orgRole stuck at default 'member' even though user may be owner.
+  // Both are only triggered when liveIsTeamAccount is true, so individual-plan
+  // users are unaffected.
   const orgLookupFailed = orgReady && !orgId && liveIsTeamAccount
   const canManageBilling = isHydrated && !!user && (
     !liveIsTeamAccount ||
     (orgReady && orgRole === 'owner') ||
-    orgLookupFailed
+    orgLookupFailed ||
+    (orgReady && roleError && liveIsTeamAccount)
   )
   // The known individual paid tiers (drive price + feature list). 'teams' and
   // any unknown value resolve to null here.

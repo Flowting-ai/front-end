@@ -46,6 +46,13 @@ interface OrgContextValue {
    * redirect) should wait for this so they don't act on the default 'member'.
    */
   orgReady: boolean
+  /**
+   * True when the org was found (orgId is set) but the getOrg() role fetch
+   * failed (network error, 5xx, etc.). In this state orgRole is stuck at the
+   * default 'member' even though the user may be the owner. Billing gates
+   * should treat this as "role unknown" and fall back to optimistic access.
+   */
+  roleError: boolean
 }
 
 const OrgContext = createContext<OrgContextValue | null>(null)
@@ -115,6 +122,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch org name + current user role
   const [roleResolved, setRoleResolved] = useState(false)
+  const [roleError,    setRoleError]    = useState(false)
   useEffect(() => {
     if (!orgIdResolved) return // wait until we know whether there's an org
     if (!orgId) {
@@ -122,10 +130,12 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       // entity may just not be linked on the profile); everyone else is a member.
       setOrgRole(isTeamPlan ? 'owner' : 'member')
       setCurrentUserRole(isTeamPlan ? 'admin' : 'member')
+      setRoleError(false)
       setRoleResolved(true)
       return
     }
     setRoleResolved(false)
+    setRoleError(false)
     getOrg(orgId)
       .then(data => {
         setOrgName(data.name)
@@ -135,7 +145,10 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
           data.role === 'owner' || data.role === 'admin' || isTeamPlan ? 'admin' : 'member',
         )
       })
-      .catch(console.error)
+      .catch(err => {
+        console.error(err)
+        setRoleError(true) // role is unknown — orgRole stays at default 'member'
+      })
       .finally(() => setRoleResolved(true))
   }, [orgId, orgIdResolved, isTeamPlan])
 
@@ -224,6 +237,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       activeProjectId,
       setActiveProjectId,
       orgReady: orgIdResolved && roleResolved,
+      roleError,
     }}>
       {children}
     </OrgContext.Provider>

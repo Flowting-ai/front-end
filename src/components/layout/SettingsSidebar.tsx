@@ -78,7 +78,13 @@ export function SettingsSidebar() {
   const billingSnap = (() => {
     try { const r = window?.sessionStorage?.getItem('kaya:billing:snapshot:v2'); return r ? JSON.parse(r) : null } catch { return null }
   })()
-  const isTeamUser = Boolean(orgId || user?.orgId || billingSnap?.isTeamAccount)
+  const isTeamUser = Boolean(
+    orgId ||
+    user?.orgId ||
+    user?.roleFit === 'small_team' ||
+    user?.roleFit === 'large_team' ||
+    billingSnap?.isTeamAccount
+  )
 
   const planLabel = isTeamUser
     ? (orgId ? `Teams | ${org?.name ?? 'Teams'}` : 'Teams')

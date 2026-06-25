@@ -1257,12 +1257,18 @@ function LeftSidebarImpl({
     displayRole === 'editor' ? 'Green'  :
     'Neutral'
 
-  // Fall back to the billing snapshot written by /settings/billing to detect team
-  // accounts when orgId hasn't resolved yet (e.g. owner whose profile lacks orgId).
+  // Fall back to roleFit + billing snapshot to detect team accounts when orgId
+  // hasn't resolved yet (e.g. owner whose profile lacks org_id, or org API failed).
   const billingSnap = (() => {
     try { const r = window?.sessionStorage?.getItem('kaya:billing:snapshot:v2'); return r ? JSON.parse(r) : null } catch { return null }
   })()
-  const isTeamUser = Boolean(orgId || user?.orgId || billingSnap?.isTeamAccount)
+  const isTeamUser = Boolean(
+    orgId ||
+    user?.orgId ||
+    user?.roleFit === 'small_team' ||
+    user?.roleFit === 'large_team' ||
+    billingSnap?.isTeamAccount
+  )
 
   // Teams ? "Teams | <name>" | paid ? "Pro"/"Starter"/"Power" | trial ? "Free Trial" | none ? "No Plan Selected"
   const planLabel = isTeamUser
