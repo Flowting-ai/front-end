@@ -59,13 +59,15 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
     }
   }, [state.succeeded, onClose])
 
-  // Form-level errors (server / spam / network) → toast
+  // Form-level errors (server / spam / network) → toast.
+  // @formspree/react v3: state.errors is a SubmissionErrors instance; getFormErrors()
+  // returns {code, message}[] — not strings — so we extract .message before toasting.
   useEffect(() => {
-    if (state.submitting || state.succeeded || !state.errors) return
-    const errors = state.errors as unknown as Array<{ field?: string; message: string }>
-    const formErrs = errors.filter(e => !e.field)
+    if (state.submitting || state.succeeded) return
+    const formErrs: Array<{ code: string; message: string }> =
+      (state.errors?.getFormErrors?.() as Array<{ code: string; message: string }>) ?? []
     if (formErrs.length > 0) {
-      toast.error(formErrs[0]?.message ?? 'Submission failed. Please try again.')
+      toast.error(formErrs[0].message ?? 'Submission failed. Please try again.')
     }
   }, [state.errors, state.submitting, state.succeeded])
 

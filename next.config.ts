@@ -29,6 +29,7 @@ const connectSrcParts = [
   backendWsOrigin,
   ...(auth0Domain ? [auth0Domain] : ["https://*.us.auth0.com"]),
   "https://*.mixpanel.com",
+  "https://formspree.io",
 ];
 
 if (isDev) {
