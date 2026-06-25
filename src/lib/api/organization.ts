@@ -172,19 +172,22 @@ function normalizeMember(m: MemberResponse): OrgMember {
 }
 
 function normalizePlan(p: PlanResponse): OrgPlan {
-  // Every field below is guaranteed present by planResponseSchema, so there are
-  // no `??` fallbacks: the values are exactly what the backend computed. USD
-  // figures stay in USD here; the UI converts to credits (× 1000) at the edge.
+  // Postpaid plans (enterprise) track budget via included_usage_usd / provider_usage_usd
+  // / included_usage_remaining_usd. The prepaid fields (plan_credits, total_credits,
+  // used, remaining) are always 0 for postpaid — read the right set per billing model.
+  const isPostpaid = p.billing_model === 'postpaid'
   return {
     organizationId: p.organization_id,
     planType:       p.plan_type === 'enterprise' ? 'enterprise' : 'teams',
-    billingModel:   p.billing_model === 'postpaid' ? 'postpaid' : 'prepaid',
+    billingModel:   isPostpaid ? 'postpaid' : 'prepaid',
     planCredits:    toDisplayCredits(p.plan_credits),
     topupCredits:   toDisplayCredits(p.topup_credits),
-    totalCredits:   toDisplayCredits(p.total_credits),
-    used:           toDisplayCredits(p.used),
-    remaining:      toDisplayCredits(p.remaining),
-    percentUsed:    p.percent_used,
+    totalCredits:   toDisplayCredits(isPostpaid ? p.included_usage_usd        : p.total_credits),
+    used:           toDisplayCredits(isPostpaid ? p.provider_usage_usd         : p.used),
+    remaining:      toDisplayCredits(isPostpaid ? p.included_usage_remaining_usd : p.remaining),
+    percentUsed:    isPostpaid
+      ? (p.included_usage_usd > 0 ? Math.round((p.provider_usage_usd / p.included_usage_usd) * 100) : 0)
+      : p.percent_used,
     poolStatus:     p.pool_status,
     poolCapUsd:     p.pool_cap,
     members:        p.members.map(normalizeMember),
