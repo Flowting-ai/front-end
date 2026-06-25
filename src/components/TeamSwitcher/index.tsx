@@ -44,7 +44,7 @@ export interface TeamSwitcherProps extends React.HTMLAttributes<HTMLDivElement> 
   teams:         TeamSwitcherTeam[]
   activeTeamId?: string | null
   isAdmin?:      boolean
-  /** Fires when user selects a team from dropdown */
+  /** Fires when user selects a team, null = All workspace, 'personal' = Personal Projects */
   onTeamSelect?: (teamId: string | null) => void
 }
 
@@ -116,10 +116,11 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
     const triggerRef            = useRef<HTMLButtonElement>(null)
     const panelRef              = useRef<HTMLDivElement>(null)
 
-    const activeTeam = activeTeamId === null && isAdmin
+    const isPersonal  = activeTeamId === 'personal'
+    const activeTeam  = (isPersonal || activeTeamId === null)
       ? null
       : (teams.find(t => t.id === activeTeamId) ?? teams[0])
-    const activeLabel = activeTeam?.name ?? 'All workspace'
+    const activeLabel = isPersonal ? 'Personal Projects' : (activeTeam?.name ?? 'All workspace')
 
     // Close on outside click
     useEffect(() => {
@@ -236,37 +237,68 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
                 aria-label="Switch team"
                 style={{ padding: 4, minWidth: '100%' }}
               >
-                {/* Team rows */}
-                {teams.map(team => (
+                {/* All workspace + Personal Projects */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <DropdownMenuItem
-                    key={team.id}
                     fluid
-                    label={team.name}
-                    subLabel={team.projectCount != null ? `${team.projectCount} project${team.projectCount !== 1 ? 's' : ''}` : undefined}
-                    selected={team.id === activeTeamId}
-                    icon={<TeamAvatar teamId={team.id} name={team.name} size={20} />}
-                    badge={team.role && (
-                      <Badge
-                        label={team.role.charAt(0).toUpperCase() + team.role.slice(1)}
-                        color={team.role === 'owner' || team.role === 'admin' ? 'Yellow' : team.role === 'editor' ? 'Blue' : 'Neutral'}
-                      />
-                    )}
-                    onClick={() => { onTeamSelect?.(team.id); setOpen(false) }}
+                    label="All workspace"
+                    selected={activeTeamId === null}
+                    badge={<Badge label="Teams" color="Red" />}
+                    onClick={() => { onTeamSelect?.(null); setOpen(false) }}
                   />
-                ))}
+                  <DropdownMenuItem
+                    fluid
+                    label="Personal Projects"
+                    selected={activeTeamId === 'personal'}
+                    badge={<Badge label="Individual" color="Blue" />}
+                    onClick={() => { onTeamSelect?.('personal'); setOpen(false) }}
+                  />
+                </div>
 
-                {/* Admin-only options */}
-                {isAdmin && (
-                  <>
-                    <Divider decorative style={{ margin: '4px 0', backgroundColor: 'rgba(59,54,50,0.1)' }} />
+                <Divider decorative style={{ margin: '4px 0', backgroundColor: 'rgba(59,54,50,0.1)' }} />
+
+                {/* Teams section header */}
+                <p style={{
+                  fontFamily:    'var(--font-body)',
+                  fontWeight:    500,
+                  fontSize:      11,
+                  lineHeight:    '16px',
+                  color:         'var(--neutral-400)',
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  padding:       '4px 8px 2px',
+                  margin:        0,
+                }}>
+                  Teams you are part of
+                </p>
+
+                {/* Scrollable team list — max 5 visible */}
+                <div
+                  className="kaya-scrollbar"
+                  style={{
+                    overflowY: teams.length > 5 ? 'auto' : 'visible',
+                    maxHeight: teams.length > 5 ? `${5 * 44}px` : 'none',
+                    padding:   teams.length > 5 ? '3px' : 0,
+                  }}
+                >
+                  {teams.map(team => (
                     <DropdownMenuItem
+                      key={team.id}
                       fluid
-                      label="All workspace"
-                      selected={activeTeamId === null}
-                      onClick={() => { onTeamSelect?.(null); setOpen(false) }}
+                      label={team.name}
+                      subLabel={team.projectCount != null ? `${team.projectCount} project${team.projectCount !== 1 ? 's' : ''}` : undefined}
+                      selected={team.id === activeTeamId}
+                      icon={<TeamAvatar teamId={team.id} name={team.name} size={20} />}
+                      badge={team.role && (
+                        <Badge
+                          label={team.role.charAt(0).toUpperCase() + team.role.slice(1)}
+                          color={team.role === 'owner' || team.role === 'admin' ? 'Yellow' : team.role === 'editor' ? 'Blue' : 'Neutral'}
+                        />
+                      )}
+                      onClick={() => { onTeamSelect?.(team.id); setOpen(false) }}
                     />
-                  </>
-                )}
+                  ))}
+                </div>
               </Popover>
             </motion.div>
           )}

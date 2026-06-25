@@ -1492,7 +1492,7 @@ export function Sidebar({
                           onShowAll={onShowAllRecents}
                           sectionKey={bodySection}
                           recents={recents}
-                          sectionLabel={bodySection === 'brain' ? 'Recent threads' : 'Recents'}
+                          sectionLabel={bodySection === 'brain' ? 'Recent threads' : 'Recent Chats'}
                         />
                   )}
                 </div>

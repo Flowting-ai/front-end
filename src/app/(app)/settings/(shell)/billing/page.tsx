@@ -271,8 +271,19 @@ export default function BillingPage() {
   // Don't mark ready until billing has been attempted. For team accounts also
   // wait for orgPlan — without it the credits chain bottoms out at 0
   // (user.creditsTotal is 0 for org members) and paints a wrong snapshot.
+  // Use liveIsTeamAccount (computed below) rather than earlyIsTeamAccount so
+  // the gate still fires when the team flag only becomes visible after billing
+  // loads (e.g. billing.plan_type === 'teams' while user.orgId is absent).
+  // liveIsTeamAccount is a derived const — hoisted above liveReady here.
+  const liveIsTeamAccountForGate = Boolean(
+    billing?.plan_type === 'teams' ||
+    user?.orgId ||
+    orgId ||
+    user?.roleFit === 'small_team' ||
+    user?.roleFit === 'large_team',
+  )
   const liveReady = isHydrated && !!user && billingLoaded &&
-    (!earlyIsTeamAccount || orgPlan !== null)
+    (!liveIsTeamAccountForGate || orgPlan !== null)
 
   const nextBillingLive = fmtDate(
     billing?.upcoming_invoice?.next_payment_date ?? user?.nextBillingDate ?? user?.currentPeriodEnd,
@@ -309,10 +320,10 @@ export default function BillingPage() {
     user?.roleFit === 'small_team' ||
     user?.roleFit === 'large_team',
   )
-  // planCredits + topupCredits are fixed for the billing period and don't
-  // drain with usage. orgPlan.totalCredits can reflect the remaining pool
-  // (backend sets it to the current balance), so it's only safe for remaining.
-  const orgCreditsTotal     = liveIsTeamAccount && orgPlan ? orgPlan.planCredits + orgPlan.topupCredits : null
+  // orgPlan.totalCredits = remaining + used (the full period grant, from the backend's
+  // `granted` field). planCredits + topupCredits are the drain-tracked remaining balances,
+  // not the period total — using them here would show remaining instead of the allocation.
+  const orgCreditsTotal     = liveIsTeamAccount && orgPlan ? orgPlan.totalCredits : null
   const orgCreditsRemaining = liveIsTeamAccount && orgPlan ? orgPlan.remaining : null
   const orgCreditsUsed      = liveIsTeamAccount && orgPlan ? orgPlan.used : null
 
@@ -328,7 +339,18 @@ export default function BillingPage() {
         // Use billing as the source of truth for the TOTAL (avoids showing 0 when
         // the org plan webhook hasn't landed yet — orgCreditsTotal can be 0, not
         // null, which would otherwise swallow the billing fallback via ??).
-        creditsTotal:     billingCreditsTotal     ?? orgCreditsTotal     ?? user?.creditsTotal     ?? 0,
+        // Coerce 0 → null at each step so a transient zero from the billing
+        // response (e.g. Stripe period-rollover lag, null total_credits) doesn't
+        // stop the chain short — fall through to orgCreditsTotal / user / cached
+        // snap before giving up. snap?.creditsTotal is the last-known good value.
+        //
+        // For team accounts, billing.credits reflects the owner's personal wallet
+        // (member_credit_parts returns personal plan+topup only for owners), which
+        // differs from the org pool funded by the teams subscription. Always use
+        // orgCreditsTotal first for teams; fall back to billing only for individual plans.
+        creditsTotal:     liveIsTeamAccount
+          ? (orgCreditsTotal || null) ?? (billingCreditsTotal || null) ?? user?.creditsTotal ?? snap?.creditsTotal ?? 0
+          : (billingCreditsTotal || null) ?? user?.creditsTotal ?? snap?.creditsTotal ?? 0,
         // Remaining and used reflect the pool after all members' consumption —
         // the org plan tracks this more accurately than the individual billing.
         // Fall back to billing when org plan hasn't loaded yet.

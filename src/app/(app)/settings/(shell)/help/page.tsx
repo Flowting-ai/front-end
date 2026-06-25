@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { HelpSkeleton } from '../SettingsSkeleton'
+import { ReportBugModal } from '@/components/ReportBugModal'
+import { RequestFeatureModal } from '@/components/RequestFeatureModal'
 
 // ── External link arrow icon ──────────────────────────────────────────────────
 
@@ -21,10 +23,14 @@ function ArrowUpRightIcon() {
 
 // ── Ghost button (outline, transparent) ──────────────────────────────────────
 
-function GhostButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+function GhostButton({ children, onClick, disabled }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) {
+  const [hovered, setHovered] = React.useState(false)
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => !disabled && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         display:         'inline-flex',
         alignItems:      'center',
@@ -33,16 +39,18 @@ function GhostButton({ children, onClick }: { children: React.ReactNode; onClick
         padding:         '5px 8px',
         borderRadius:    8,
         border:          'none',
-        cursor:          'pointer',
-        backgroundColor: 'transparent',
+        cursor:          disabled ? 'not-allowed' : 'pointer',
+        backgroundColor: hovered ? 'var(--neutral-100, #ede1d7)' : 'transparent',
         boxShadow:       '0px 0px 0px 1px rgba(59,54,50,0.3)',
         fontFamily:      'var(--font-body)',
         fontWeight:      500,
         fontSize:        14,
         lineHeight:      '22px',
-        color:           'var(--neutral-700)',
+        color:           disabled ? 'var(--neutral-400)' : hovered ? 'var(--neutral-900)' : 'var(--neutral-700)',
         whiteSpace:      'nowrap',
         flexShrink:      0,
+        opacity:         disabled ? 0.45 : 1,
+        transition:      'background-color 120ms, color 120ms, opacity 120ms',
       }}
     >
       {children}
@@ -57,11 +65,13 @@ function LinkRow({
   description,
   divider,
   href,
+  disabled,
 }: {
   title:       string
   description: string
   divider?:    boolean
   href?:       string
+  disabled?:   boolean
 }) {
   return (
     <div style={{
@@ -94,7 +104,10 @@ function LinkRow({
           {description}
         </p>
       </div>
-      <GhostButton onClick={() => href && window.open(href, '_blank')}>
+      <GhostButton
+        onClick={disabled ? undefined : () => href && window.open(href, '_blank')}
+        disabled={disabled}
+      >
         View <ArrowUpRightIcon />
       </GhostButton>
     </div>
@@ -156,9 +169,12 @@ function CardHeader({ title, subtitle }: { title: string; subtitle: string }) {
 
 export default function HelpPage() {
   const [mounted, setMounted] = useState(false)
+  const [reportBugOpen,     setReportBugOpen]     = useState(false)
+  const [requestFeatureOpen, setRequestFeatureOpen] = useState(false)
   useEffect(() => { setMounted(true) }, [])
   if (!mounted) return <HelpSkeleton />
   return (
+    <>
     <div
       className="kaya-scrollbar"
       style={{
@@ -216,7 +232,7 @@ export default function HelpPage() {
             flexDirection:   'column',
             gap:             12,
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
               <p style={{
                 fontFamily:   'var(--font-body)',
                 fontWeight:   500,
@@ -241,7 +257,7 @@ export default function HelpPage() {
                 We&apos;re building Souvenir with you, not just for you. Tell us what would make your experience better - we read every request.
               </p>
             </div>
-            <GhostButton>Suggest a feature</GhostButton>
+            <GhostButton onClick={() => setRequestFeatureOpen(true)}>Suggest a feature</GhostButton>
           </div>
 
           {/* Report a Bug */}
@@ -256,7 +272,7 @@ export default function HelpPage() {
             flexDirection:   'column',
             gap:             12,
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
               <p style={{
                 fontFamily:   'var(--font-body)',
                 fontWeight:   500,
@@ -281,7 +297,7 @@ export default function HelpPage() {
                 Something didn&apos;t work right? Your report helps our small team ship a better Souvenir. Please describe what happened and what you expected.
               </p>
             </div>
-            <GhostButton>Report a bug</GhostButton>
+            <GhostButton onClick={() => setReportBugOpen(true)}>Report a bug</GhostButton>
           </div>
 
         </div>
@@ -292,8 +308,8 @@ export default function HelpPage() {
             title="Help resources"
             subtitle="Guides, documentation, and direct support options."
           />
-          <LinkRow title="Help Center"         description="Guides, documentation, and direct support options."                  divider />
-          <LinkRow title="Contact Support"     description="Guides, tutorials, and FAQs for getting the most out of Souvenir"    divider />
+          <LinkRow title="Help Center"         description="Guides, documentation, and direct support options."                  divider disabled />
+          <LinkRow title="Contact Support"     description="Guides, tutorials, and FAQs for getting the most out of Souvenir"    divider disabled />
           <LinkRow title="Community Slack"   description="Connect with other Souvenir users, share workflows, get tips"   href="https://join.slack.com/t/souvenircommunity/shared_invite/zt-41rhgppbm-G7Z_dv1VJXdSL087irwKJg" divider />
           {/* <LinkRow title="What's new"          description="Changelog - see every feature release, fix, and update" /> */}
         </InfoCard>
@@ -349,5 +365,13 @@ export default function HelpPage() {
 
       </div>
     </div>
+
+    {reportBugOpen && (
+      <ReportBugModal onClose={() => setReportBugOpen(false)} />
+    )}
+    {requestFeatureOpen && (
+      <RequestFeatureModal onClose={() => setRequestFeatureOpen(false)} />
+    )}
+    </>
   )
 }

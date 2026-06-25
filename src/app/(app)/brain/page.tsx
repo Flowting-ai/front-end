@@ -1296,7 +1296,7 @@ function BrainPageInner() {
   const searchParams = useSearchParams()
   const { push, replace } = useRouter()
   const { user, logout, isAuthenticated } = useAuth()
-  const { orgId, org, currentUserRole } = useOrg()
+  const { orgId, org, currentUserRole, orgRole } = useOrg()
   // Individual credit/topup status — hard send-gate when exhausted.
   const creditStatus = useCreditStatus()
   const chatIdFromUrl = searchParams.get('id')
@@ -1311,8 +1311,8 @@ function BrainPageInner() {
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : undefined
 
-  const orgBadgeSublabel = orgId && currentUserRole
-    ? currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1)
+  const orgBadgeSublabel = orgId && orgRole
+    ? orgRole.charAt(0).toUpperCase() + orgRole.slice(1)
     : undefined
 
   // ── Sidebar collapse state — shared via localStorage with all other pages ─────

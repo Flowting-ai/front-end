@@ -49,13 +49,17 @@ export function AppLayout({
   // Only the projects listing page has no panel support at all.
   const isProjectsListPage = pathname === '/projects'
 
-  // Force-close both panels only on the projects listing page.
+  // Close the highlight panel on every page transition.
   useEffect(() => {
-    if (isProjectsListPage) {
+    closeHighlight()
+  }, [pathname, closeHighlight])
+
+  // Force-close both panels on the projects listing page and project detail pages.
+  useEffect(() => {
+    if (isProjectsListPage || isProjectPage) {
       closePinboard()
-      closeHighlight()
     }
-  }, [isProjectsListPage, closePinboard, closeHighlight])
+  }, [isProjectsListPage, isProjectPage, closePinboard])
   const isPersonaPage    = pathname.startsWith('/agents') || pathname.startsWith('/agent')
   // Persona chat pages manage their own scroll — disable the outer scrollable wrapper
   const isPersonaChatPage = /^\/agents\/[^\/]+\/chat/.test(pathname)

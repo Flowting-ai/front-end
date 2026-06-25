@@ -223,7 +223,7 @@ function RecentsSection(props: SectionProps) {
       <SidebarMenuItem
         fluid
         variant="header"
-        label="Recents"
+        label="Recent Chats"
         shown={shown}
         onShowClick={() => setShown((s) => !s)}
       />
@@ -562,14 +562,15 @@ interface TeamsSidebarContentProps {
   role: 'admin' | 'editor' | 'member'
   teams: Team[]
   activeTeamId: string | null
-  setActiveTeamId: (id: string | null) => void
+  setActiveTeamId: (id: string | null) => void  // 'personal' | teamId | null (All workspace)
 }
 
 function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId }: TeamsSidebarContentProps) {
   const { projects } = useProjects()
   const { push } = useRouter()
   const isAdmin = role === 'admin'
-  const activeTeam = activeTeamId === null && isAdmin
+  const isPersonalView = activeTeamId === 'personal'
+  const activeTeam = (isPersonalView || activeTeamId === null)
     ? null
     : (teams.find(team => team.id === activeTeamId) ?? teams[0] ?? null)
   const effectiveActiveTeamId = activeTeam?.id ?? null
@@ -591,41 +592,41 @@ function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId }: Tea
           href: isAdmin ? `/org/teams/${activeTeam.id}` : `/teams/${activeTeam.id}`,
         }
       : null
-    : isAdmin
+    : isAdmin && !isPersonalView
       ? { label: 'Manage teams', href: '/org/teams' }
       : null
 
   return (
-    <>
-      <ProjectsSection
-        label="Personal projects"
-        showNewProject={canCreatePersonalProject}
-        projectsFilter={personalProjectFilter}
-        emptyLabel="No personal projects yet"
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4 }}>
+      <TeamSwitcher
+        teams={teams.map(t => ({
+          id:           t.id,
+          name:         t.name,
+          projectCount: projects.filter(project => project.teamId === t.id).length,
+          role:         t.myRole,
+        }))}
+        activeTeamId={activeTeamId}
+        isAdmin={isAdmin}
+        onTeamSelect={setActiveTeamId}
+        style={{ width: '100%' }}
       />
-      <SidebarDivider />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4 }}>
-        <TeamSwitcher
-          teams={teams.map(t => ({
-            id:   t.id,
-            name: t.name,
-            projectCount: projects.filter(project => project.teamId === t.id).length,
-            role: t.myRole,
-          }))}
-          activeTeamId={effectiveActiveTeamId}
-          isAdmin={isAdmin}
-          onTeamSelect={setActiveTeamId}
-          style={{ width: '100%' }}
+      {manageTarget && (
+        <SidebarMenuItem
+          fluid
+          variant="default"
+          icon={<SettingsOneIcon size={20} />}
+          label={manageTarget.label}
+          onClick={() => push(manageTarget.href)}
         />
-        {manageTarget && (
-          <SidebarMenuItem
-            fluid
-            variant="default"
-            icon={<SettingsOneIcon size={20} />}
-            label={manageTarget.label}
-            onClick={() => push(manageTarget.href)}
-          />
-        )}
+      )}
+      {isPersonalView ? (
+        <ProjectsSection
+          label="Personal projects"
+          showNewProject={canCreatePersonalProject}
+          projectsFilter={personalProjectFilter}
+          emptyLabel="No personal projects yet"
+        />
+      ) : (
         <ProjectsSection
           label={teamProjectsLabel}
           showNewProject={canCreateTeamProject}
@@ -633,8 +634,8 @@ function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId }: Tea
           newProjectHref={teamNewProjectHref}
           emptyLabel={activeTeam ? `No projects in ${activeTeam.name} yet` : 'No team projects yet'}
         />
-      </div>
-    </>
+      )}
+    </div>
   )
 }
 

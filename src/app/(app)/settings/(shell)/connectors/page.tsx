@@ -17,6 +17,7 @@ import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
 import { useConnectorBrowse, CategoryFilter, Pagination } from '@/components/ConnectorBrowse'
 import { CONNECTOR_LOGO_MAP } from '@/lib/connectorLogos'
+import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { connectorCategory } from '@/lib/connectorCategories'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
@@ -1293,31 +1294,13 @@ export default function ConnectorsPage() {
           </div>
 
           {/* My / Workspace tabs */}
-          <div style={{ display: 'flex', gap: 4, paddingLeft: 4, marginBottom: 8 }}>
-            {([['my', 'My Connectors'], ['workspace', 'Workspace Connectors']] as const).map(([id, label]) => {
-              const active = activeTab === id
-              return (
-                <button
-                  key={id}
-                  onClick={() => setActiveTab(id)}
-                  style={{
-                    padding:         '6px 12px',
-                    borderRadius:    8,
-                    border:          'none',
-                    cursor:          'pointer',
-                    backgroundColor: active ? 'var(--blue-50, #eef4fd)' : 'transparent',
-                    color:           active ? 'var(--blue-700, #1d4ed8)' : 'var(--neutral-500)',
-                    fontFamily:      'var(--font-body)',
-                    fontWeight:      500,
-                    fontSize:        14,
-                    lineHeight:      '20px',
-                    whiteSpace:      'nowrap',
-                  }}
-                >
-                  {label}
-                </button>
-              )
-            })}
+          <div style={{ marginBottom: 8 }}>
+            <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'my' | 'workspace')}>
+              <TabsList>
+                <TabsTrigger value="my">My Connectors</TabsTrigger>
+                <TabsTrigger value="workspace">Workspace Connectors</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
 
           {/* Suggestions toggle */}

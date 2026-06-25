@@ -1216,7 +1216,7 @@ function ChatPageInner() {
       />
 
       {/* Chat share / visibility button — only shown when a chat is active */}
-      {activeChatId && activeChatCanManage && !chatShareOpen && (
+      {activeChatId && activeChatCanManage && !chatShareOpen && !!orgId && (
         <div style={{ position: "absolute", top: 8, right: 12, zIndex: 10 }}>
           <Tooltip content="Share" side="bottom">
             <IconButton
@@ -1317,8 +1317,9 @@ function ChatPageInner() {
                     selected={chatShareVisibility === "team"}
                     title="Team"
                     description="Editors and admins in this team can access it."
-                    onClick={() => setChatShareVisibility("team")}
-                    style={{ flex: 1 }}
+                    onClick={orgId ? () => setChatShareVisibility("team") : undefined}
+                    aria-disabled={!orgId}
+                    style={{ flex: 1, ...(!orgId && { opacity: 0.4, pointerEvents: "none", cursor: "not-allowed" }) }}
                   />
                 </div>
 

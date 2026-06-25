@@ -544,7 +544,7 @@ function RankedList({
   items,
 }: {
   title: string
-  items: Array<{ name: string; credits: string; share: string }>
+  items: Array<{ name: string; role?: string; credits: string; share: string }>
 }) {
   return (
     <PageCard>
@@ -567,9 +567,17 @@ function RankedList({
             <p style={{ width: 22, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
               {index + 1}
             </p>
-            <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-              {item.name}
-            </p>
+            <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {item.name}
+              </p>
+              {item.role && (
+                <Badge
+                  label={item.role}
+                  color={item.role === 'Admin' ? 'Purple' : 'Neutral'}
+                />
+              )}
+            </div>
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
               {item.credits}
             </p>
@@ -776,17 +784,18 @@ export default function OrgUsageAnalyticsPage() {
     .sort((a, b) => b.creditUsed - a.creditUsed)
     .map(m => ({
       name:    m.name || m.email,
+      role:    m.role === 'admin' ? 'Admin' : 'Member',
       credits: `${m.creditUsed.toLocaleString()} credits`,
-      share:   totalUsed > 0 ? `${Math.round((m.creditUsed / totalUsed) * 100)}%` : '0%',
+      share:   totalCredits > 0 ? `${Math.round((m.creditUsed / totalCredits) * 100)}%` : '0%',
     }))
 
-  // Team usage ranked
+  // Team usage ranked — from the /plan/usage API; share is % of the total credit pool.
   const teamRanked = [...teamUsage]
     .sort((a, b) => b.creditsUsed - a.creditsUsed)
     .map(t => ({
       name:    t.teamName,
       credits: `${t.creditsUsed.toLocaleString()} credits`,
-      share:   totalUsed > 0 ? `${Math.round((t.creditsUsed / totalUsed) * 100)}% of pool` : '0%',
+      share:   totalCredits > 0 ? `${Math.round((t.creditsUsed / totalCredits) * 100)}% of pool` : '0%',
     }))
 
   return (

@@ -582,7 +582,6 @@ function TeamConnectorRow({
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px',
       borderBottom: divider ? '1px solid var(--neutral-100)' : undefined,
-      opacity: isOrgLocked ? 0.55 : 1,
       transition: 'opacity 150ms',
     }}>
       <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'white', boxShadow: '0px 0px 0px 1px var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, color: 'var(--neutral-700)', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 11 }}>
@@ -599,11 +598,21 @@ function TeamConnectorRow({
           {sublabel}
         </p>
       </div>
-      <Switch
-        checked={effectivelyOn}
-        disabled={!isAdmin || isOrgLocked || busy}
-        onCheckedChange={onToggle}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <p style={{
+          fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px',
+          color: busy ? 'var(--neutral-400)' : effectivelyOn ? 'var(--neutral-900)' : 'var(--neutral-400)',
+          margin: 0, minWidth: 20, textAlign: 'right',
+          transition: 'color 150ms',
+        }}>
+          {busy ? '…' : effectivelyOn ? 'ON' : 'OFF'}
+        </p>
+        <Switch
+          checked={effectivelyOn}
+          disabled={!isAdmin || busy}
+          onCheckedChange={onToggle}
+        />
+      </div>
     </div>
   )
 }
@@ -656,8 +665,6 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
 
   async function handleToggle(entry: ConnectorCatalogEntry, checked: boolean) {
     if (!isAdmin) return
-    // Org-disabled connectors cannot be overridden at team level.
-    if (entry.org_enabled === false) return
     setBusySlug(entry.slug)
     try {
       const current = statusBySlug[entry.slug] as ConnectorRequestStatus | undefined
