@@ -1,5 +1,6 @@
 'use client'
 
+import { z } from 'zod'
 import { apiFetch, apiFetchJson, ApiError } from './client'
 import { API_BASE_URL } from '../config'
 import type { ReasoningSection } from '../reasoning'
@@ -339,6 +340,73 @@ export interface UserPromptEvent {
   options?:     UserPromptOption[]
   metadata?:    Record<string, unknown>
   respond_url?: string
+}
+
+// ── Node-recovery prompt (live user_prompt with metadata.recovery) ────────────
+// When a single DAG step fails mid-run, the backend self-diagnoses and emits a
+// user_prompt(kind='choice') whose `metadata.recovery` discriminates:
+//   • node_failed  — no fix found; options rerun / skip (non-critical) / cancel
+//   • fix_proposed — Brain has a concrete fix; options apply / different / cancel
+// The chosen value resolves the SAME blocked run via
+// respondToPrompt(prompt_id, { response: '<value>' }) — a plain string, exactly
+// like the permission/approval prompts. Mirrors
+// services/brain/node_recovery.py::recover_from_node_failure (the `metadata`
+// dicts it builds) so a schema drift surfaces here, not as a silently-dropped
+// card. The decision values are fixed by that same module.
+
+export const recoveryFixDiffSchema = z.object({
+  label:  z.string(),
+  before: z.string(),
+  after:  z.string(),
+})
+export type RecoveryFixDiff = z.infer<typeof recoveryFixDiffSchema>
+
+const recoveryNodeFailedMetaSchema = z.object({
+  recovery: z.literal('node_failed'),
+  step: z.object({
+    label:       z.string().default(''),
+    is_critical: z.boolean().default(false),
+  }),
+  error: z.string().default(''),
+})
+
+const recoveryFixProposedMetaSchema = z.object({
+  recovery:    z.literal('fix_proposed'),
+  failed_step: z.string().default(''),
+  reasoning:   z.string().default(''),
+  diffs:       z.array(recoveryFixDiffSchema).default([]),
+  error:       z.string().default(''),
+})
+
+const recoveryMetaSchema = z.discriminatedUnion('recovery', [
+  recoveryNodeFailedMetaSchema,
+  recoveryFixProposedMetaSchema,
+])
+
+export type RecoveryMeta = z.infer<typeof recoveryMetaSchema>
+
+export interface RecoveryPrompt {
+  promptId: string
+  meta:     RecoveryMeta
+}
+
+/**
+ * Parse a raw `user_prompt` SSE payload into a node-recovery prompt, or return
+ * null when it isn't one (no prompt_id, no `metadata.recovery`, or a metadata
+ * shape that doesn't validate). Routing the boundary through zod means a
+ * malformed or foreign prompt can never reach the recovery cards — it falls
+ * through to the generic clarification path instead.
+ */
+export function parseRecoveryPrompt(data: unknown): RecoveryPrompt | null {
+  if (!data || typeof data !== 'object') return null
+  const d = data as Record<string, unknown>
+  const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
+  if (!promptId) return null
+  const metaRaw = d.metadata
+  if (!metaRaw || typeof metaRaw !== 'object' || !('recovery' in metaRaw)) return null
+  const parsed = recoveryMetaSchema.safeParse(metaRaw)
+  if (!parsed.success) return null
+  return { promptId, meta: parsed.data }
 }
 
 export interface PlanProposedEvent {

@@ -22,6 +22,7 @@ import {
   LoopCancelledCard,
   LoopFailedCard,
   NodeFailureCard,
+  FixProposalCard,
   ClarificationSummary,
   ArtifactCard,
   ExternalOutputCard,
@@ -73,6 +74,8 @@ import {
   respondToPrompt,
   stopBrainChat,
   stopBrainRun,
+  parseRecoveryPrompt,
+  type RecoveryPrompt,
   type BackendPlanStep,
   type BackendPlanNode,
   type BrainContextEvent,
@@ -1460,6 +1463,16 @@ function BrainPageInner() {
   // Once a step_failed lands we show the interactive NodeFailureCard; the run's
   // trailing run_failed must NOT clobber it with the terminal LoopFailedCard.
   const enteredNodeFailedRef = useRef(false)
+  // Live backend node-recovery prompt (user_prompt with metadata.recovery). When
+  // present it drives the real NodeFailureCard / FixProposalCard whose choice
+  // resolves the SAME run, superseding the local step_failed fallback.
+  const [activeRecoveryPrompt, setActiveRecoveryPrompt] = useState<RecoveryPrompt | null>(null)
+  const [recoveryInFlight, setRecoveryInFlight] = useState(false)
+  // step_failed has landed but the recovery prompt hasn't arrived yet (the
+  // backend is running an LLM diagnosis in between, up to a few seconds). We show
+  // a non-interactive "diagnosing" note in that window so the user can't trigger
+  // the wrong fallback action while the backend is about to ask them directly.
+  const [awaitingRecovery, setAwaitingRecovery] = useState(false)
 
   // ── Counter note ───────────────────────────────────────────────────────────
   // The text of the user's most recent plan revision, surfaced in-thread while
@@ -1838,6 +1851,9 @@ function BrainPageInner() {
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
     setActiveApprovalPrompt(null)
+    setActiveRecoveryPrompt(null)
+    setRecoveryInFlight(false)
+    setAwaitingRecovery(false)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
@@ -1985,6 +2001,20 @@ function BrainPageInner() {
         const kind     = typeof d.kind === 'string' ? d.kind : ''
         const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
         if (!promptId) break
+
+        // Node-recovery prompt: a step failed and the backend is blocked waiting
+        // for the user's rerun / skip / apply-fix / cancel decision on THIS run.
+        // Route it to the recovery cards (never the clarification flow) and
+        // validate its metadata through zod before trusting it.
+        const recovery = parseRecoveryPrompt(d)
+        if (recovery) {
+          setActiveRecoveryPrompt(recovery)
+          setAwaitingRecovery(false)
+          setActiveClarification(null)
+          setSelectedClarificationOption(undefined)
+          setPhase(recovery.meta.recovery === 'fix_proposed' ? 'fix-proposed' : 'node-failed')
+          break
+        }
 
         // Parse options up front — we need the values to detect plan-approval
         // prompts and we reuse the parsed list for the clarification path.
@@ -2329,10 +2359,13 @@ function BrainPageInner() {
         const stepId = d.step_id as string
         const error  = typeof d.error === 'string' ? d.error : ''
         setStepStatuses((prev) => ({ ...prev, [stepId]: 'failed' }))
-        // Surface an interactive NodeFailureCard (Re-run / Cancel). Execution
-        // halts here; Opus narration may still follow as content events.
+        // The backend now self-diagnoses and follows up with a recovery
+        // user_prompt (metadata.recovery) that resolves THIS run — rerun / skip /
+        // apply-fix / cancel. Hold a "diagnosing" note until it arrives; the live
+        // prompt then drives the real NodeFailureCard / FixProposalCard.
         setFailedStep({ id: stepId, error })
         enteredNodeFailedRef.current = true
+        setAwaitingRecovery(true)
         setPhase('node-failed')
         break
       }
@@ -2690,6 +2723,9 @@ function BrainPageInner() {
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
     setActiveApprovalPrompt(null)
+    setActiveRecoveryPrompt(null)
+    setRecoveryInFlight(false)
+    setAwaitingRecovery(false)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
@@ -2706,7 +2742,8 @@ function BrainPageInner() {
       phase !== 'executing' &&
       phase !== 'streaming' &&
       phase !== 'paused' &&
-      phase !== 'node-failed'
+      phase !== 'node-failed' &&
+      phase !== 'fix-proposed'
     ) return
     if (activeRunAbortRef.current) return
 
@@ -2828,6 +2865,9 @@ function BrainPageInner() {
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
     setActiveApprovalPrompt(null)
+    setActiveRecoveryPrompt(null)
+    setRecoveryInFlight(false)
+    setAwaitingRecovery(false)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
@@ -3547,6 +3587,34 @@ function BrainPageInner() {
       .finally(() => setPermissionInFlight(false))
   }, [activePermissionPrompt, permissionInFlight])
 
+  // ── Node-recovery handler (user_prompt with metadata.recovery) ──────────────
+  // Resolve a failed-step recovery by POSTing the plain-string decision the
+  // backend's node_recovery.py compares against: 'rerun' | 'skip' | 'apply' |
+  // 'different' | 'cancel'. rerun/skip/apply resume execution on the SAME run;
+  // cancel/different cancel it (the stream then emits run_cancelled). The blocked
+  // generator wakes and keeps streaming into the existing consumer.
+  const handleRecoveryDecision = useCallback((decision: string) => {
+    if (!activeRecoveryPrompt || recoveryInFlight) return
+    const { promptId } = activeRecoveryPrompt
+    const ends = decision === 'cancel' || decision === 'different'
+    setRecoveryInFlight(true)
+    void respondToPrompt(promptId, { response: decision })
+      .then(() => {
+        setActiveRecoveryPrompt(null)
+        setFailedStep(null)
+        enteredNodeFailedRef.current = false
+        setPhase(ends ? 'cancelled' : 'executing')
+      })
+      .catch((e: unknown) => {
+        console.error('[Brain] recovery respond failed:', e)
+        const msg = e instanceof ApiError && e.status === 404
+          ? 'This recovery prompt expired — please re-send your message.'
+          : 'Failed to submit your decision. Please try again.'
+        toast.error(msg)
+      })
+      .finally(() => setRecoveryInFlight(false))
+  }, [activeRecoveryPrompt, recoveryInFlight])
+
   // ── Write-approval handler (event: approval_prompt) ─────────────────────────
   // Resolve a HITL write approval by POSTing a plain string ("approve" | "reject").
   // The ApprovalCard owns its own resolved-state animation; the deny reason is
@@ -3710,6 +3778,9 @@ function BrainPageInner() {
     setToolConnectPrompt(null)
     setActivePermissionPrompt(null)
     setActiveApprovalPrompt(null)
+    setActiveRecoveryPrompt(null)
+    setRecoveryInFlight(false)
+    setAwaitingRecovery(false)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
@@ -3903,6 +3974,7 @@ function BrainPageInner() {
     phase === 'streaming' ||
     phase === 'paused' ||
     phase === 'node-failed' ||
+    phase === 'fix-proposed' ||
     (phase === 'clarifying-goal' && planExecutionStarted)
   )
 
@@ -4177,9 +4249,43 @@ function BrainPageInner() {
         </Rise>
       )}
 
-      {/* NodeFailureCard — a step failed mid-execution. FE-display recovery:
-          Re-run the task or Cancel. (Per-step retry/skip needs backend.) */}
-      {phase === 'node-failed' && failedStep && (() => {
+      {/* Live node-recovery prompt (backend-driven). The user's choice resolves
+          the SAME run via respondToPrompt — rerun / skip / apply-fix / cancel —
+          so this supersedes the local step_failed fallback below. */}
+      {activeRecoveryPrompt?.meta.recovery === 'node_failed' && (
+        <Rise>
+          <NodeFailureCard
+            step={{ label: activeRecoveryPrompt.meta.step.label || 'This step', isCritical: activeRecoveryPrompt.meta.step.is_critical }}
+            errorMessage={activeRecoveryPrompt.meta.error || undefined}
+            onRerun={() => handleRecoveryDecision('rerun')}
+            onSkip={activeRecoveryPrompt.meta.step.is_critical ? undefined : () => handleRecoveryDecision('skip')}
+            onCancel={() => handleRecoveryDecision('cancel')}
+          />
+        </Rise>
+      )}
+      {activeRecoveryPrompt?.meta.recovery === 'fix_proposed' && (
+        <Rise>
+          <FixProposalCard
+            failedStep={activeRecoveryPrompt.meta.failed_step || 'This step'}
+            reasoning={activeRecoveryPrompt.meta.reasoning}
+            diffs={activeRecoveryPrompt.meta.diffs.length ? activeRecoveryPrompt.meta.diffs : undefined}
+            onApplyFix={() => handleRecoveryDecision('apply')}
+            onTryDifferent={() => handleRecoveryDecision('different')}
+            onCancel={() => handleRecoveryDecision('cancel')}
+          />
+        </Rise>
+      )}
+
+      {/* Diagnosing window: step_failed arrived, the recovery prompt hasn't yet.
+          A non-interactive note keeps the user from firing the wrong fallback
+          while the backend decides what to offer. */}
+      {phase === 'node-failed' && awaitingRecovery && !activeRecoveryPrompt && (
+        <Rise><BrainNarration text="Diagnosing the failed step…" /></Rise>
+      )}
+
+      {/* Fallback NodeFailureCard — a step failed but no live recovery prompt is
+          driving (e.g. reopened after the stream dropped). Re-runs the turn. */}
+      {phase === 'node-failed' && !activeRecoveryPrompt && !awaitingRecovery && failedStep && (() => {
         const step = planSteps.find((s) => s.id === failedStep.id)
         return (
           <Rise>
@@ -4222,7 +4328,7 @@ function BrainPageInner() {
 
       {/* Failed */}
       {phase === 'failed' && (
-        <Rise><LoopFailedCard errorDetail={streamError ?? undefined} onTryAgain={handleRestart} onRephrase={handleRestart} /></Rise>
+        <Rise><LoopFailedCard errorDetail={streamError ?? undefined} onTryAgain={handleContinue} onRephrase={handleRestart} /></Rise>
       )}
 
     </div>
@@ -4383,7 +4489,7 @@ function BrainPageInner() {
     />
   )
 
-  const brainIsStreaming = !['idle', 'complete', 'cancelled', 'failed', 'paused', 'node-failed'].includes(phase)
+  const brainIsStreaming = !['idle', 'complete', 'cancelled', 'failed', 'paused', 'node-failed', 'fix-proposed'].includes(phase)
 
   // ── ContextRail data ─────────────────────────────────────────────────────────
   // The right rail surfaces what's active for this conversation:
