@@ -7,7 +7,6 @@ import type { AccountType } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
 import { Badge } from "@/components/Badge";
 import { updateOnboarding } from "@/lib/api/user";
-import { createOrganization } from "@/lib/api/organization";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
 // ── Icons ───────────────────────────────────────────────────────────────────────
@@ -171,7 +170,6 @@ export default function OnboardingAccountTypePage() {
   const { logout, user, refreshUser } = useAuth();
   const { data, setAccountType } = useOnboarding();
   const [selected, setSelected] = useState<AccountType | null>(data.accountType);
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!user?.orgId) return
@@ -182,28 +180,14 @@ export default function OnboardingAccountTypePage() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleContinue = async () => {
-    if (!selected || submitting) return;
+    if (!selected) return;
     setAccountType(selected);
     if (selected === "individual") {
       void updateOnboarding({ role_fit: "just_me" });
       push("/onboarding/import");
       return;
     }
-    // Team branch: create the org immediately so it exists when the Stripe
-    // webhook fires after payment. The user will rename it at the workspace step.
-    setSubmitting(true);
-    try {
-      if (!user?.orgId) {
-        const orgName = data.firstName.trim()
-          ? `${data.firstName.trim()}'s workspace`
-          : "My workspace";
-        await createOrganization({ name: orgName });
-        await refreshUser();
-      }
-    } catch {
-      // Best-effort: proceed even if org creation fails (e.g. org already exists)
-    }
-    setSubmitting(false);
+    // Team branch: go straight to plans — org is created after payment succeeds.
     push("/onboarding/plans");
   };
 
@@ -215,8 +199,7 @@ export default function OnboardingAccountTypePage() {
         <OnboardingFooter
           onBack={() => push("/onboarding/hello")}
           onContinue={() => void handleContinue()}
-          continueDisabled={!selected || submitting}
-          continueLoading={submitting}
+          continueDisabled={!selected}
           leftSlot={<LogoutLink onClick={() => void logout()} />}
         />
       }

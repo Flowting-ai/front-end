@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
 import { fetchBilling } from '@/lib/api/user'
 import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
+import { createOrganization } from '@/lib/api/organization'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const TITLE = 'var(--font-title)'
@@ -104,13 +105,18 @@ function PricingConfirmationContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isFailed) return
-    // Set a short-lived bypass cookie so the OnboardingGuard doesn't redirect
-    // while the user continues through workspace → connectors → invite.
-    // onboarding_completed is marked at the end of the invite step.
     document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=600; SameSite=Lax'
-    void refreshUser()
-    void fetchBilling()
-    notifyCreditsUpdated()
+    const run = async () => {
+      // For team plans, create the org now — after payment is confirmed.
+      if (isTeamPlan && !user?.orgId) {
+        const name = ownerName ? `${ownerName}'s workspace` : 'My workspace'
+        await createOrganization({ name }).catch(() => {/* org may already exist */})
+      }
+      await refreshUser()
+      void fetchBilling()
+      notifyCreditsUpdated()
+    }
+    void run()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const iconBg  = isFailed ? C.redBg   : C.greenBg

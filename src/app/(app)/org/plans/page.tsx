@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { CancelOneIcon, PenOneIcon } from '@strange-huge/icons'
+import { ContactSalesModal } from '@/components/ContactSalesModal'
 import { Button } from '@/components/Button'
 import { CardBrandLogo, type CardBrand } from '@/components/CardBrandLogo'
 import { useOrg } from '@/context/org-context'
@@ -1357,87 +1358,6 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
       <span style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)' }}>{label}</span>
       <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)' }}>{value}</span>
     </div>
-  )
-}
-
-// ── Contact sales modal ───────────────────────────────────────────────────────
-
-function ContactSalesModal({ onClose }: { onClose: () => void }) {
-  const [email,    setEmail]    = useState('')
-  const [name,     setName]     = useState('')
-  const [company,  setCompany]  = useState('')
-  const [teamSize, setTeamSize] = useState('1-5')
-  const [message,  setMessage]  = useState('')
-  const [sending,  setSending]  = useState(false)
-
-  const handleSubmit = async () => {
-    setSending(true)
-    try {
-      // TODO: wire up real sales API / CRM endpoint
-      await new Promise<void>(r => setTimeout(r, 800))
-      toast.success("We'll be in touch within one business day.")
-      onClose()
-    } finally {
-      setSending(false)
-    }
-  }
-
-  return (
-    <ModalShell
-      title="Contact sales"
-      subtitle="Deploy the Autonomous Company Brain to your team. We'll scope seats, governance, and rollout."
-      maxWidth={738}
-      onClose={onClose}
-      footer={
-        <Button variant="default" fluid onClick={handleSubmit} loading={sending}>
-          Contact sales
-        </Button>
-      }
-      footerNote="Response within one business day."
-    >
-      <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {/* Row 1 */}
-        <div style={{ display: 'flex', gap: 12 }}>
-          <InputField label="Work email"  value={email}   onChange={setEmail}   placeholder="you@company.com" />
-          <InputField label="Full name"   value={name}    onChange={setName}    placeholder="Jane Smith" />
-        </div>
-        {/* Row 2 */}
-        <div style={{ display: 'flex', gap: 12 }}>
-          <InputField label="Company" value={company} onChange={setCompany} placeholder="Acme Inc." />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>
-              Team size
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
-              <select
-                value={teamSize}
-                onChange={e => setTeamSize(e.target.value)}
-                style={{ flex: '1 0 0', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', cursor: 'pointer' }}
-              >
-                <option value="1-5">1 – 5</option>
-                <option value="6-20">6 – 20</option>
-                <option value="21-50">21 – 50</option>
-                <option value="51-200">51 – 200</option>
-                <option value="201+">201+</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        {/* Textarea */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>
-            What are you trying to solve?
-          </p>
-          <textarea
-            value={message}
-            onChange={e => setMessage(e.target.value)}
-            placeholder="Tell us about your use case…"
-            rows={4}
-            style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'white', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
-          />
-        </div>
-      </div>
-    </ModalShell>
   )
 }
 

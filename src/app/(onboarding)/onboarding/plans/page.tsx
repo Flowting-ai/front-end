@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useOnboarding } from '@/context/onboarding-context'
 import { useAuth } from '@/context/auth-context'
 import { createCheckout } from '@/lib/api/stripe'
+import { ContactSalesModal } from '@/components/ContactSalesModal'
 
 
 const CANVAS_GRADIENT =
@@ -187,8 +188,9 @@ export default function OnboardingPlansPage() {
   const { logout } = useAuth()
   const [tierIndex, setTierIndex] = useState(0)
   const [billing,   setBilling]   = useState<Billing>('monthly')
-  const [loading,   setLoading]   = useState(false)
-  const [error,     setError]     = useState<string | null>(null)
+  const [loading,          setLoading]          = useState(false)
+  const [error,            setError]            = useState<string | null>(null)
+  const [contactSalesOpen, setContactSalesOpen] = useState(false)
 
   const tier      = TIERS[tierIndex]!
   const fillPct   = tierIndex === 0 ? 0 : Math.round((tierIndex / (TIERS.length - 1)) * 100)
@@ -212,17 +214,6 @@ export default function OnboardingPlansPage() {
     }
   }
 
-  const handleEnterprisePlan = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const { checkout_url } = await createCheckout({ plan: 'enterprise', billing: 'monthly' })
-      window.location.href = checkout_url
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
-      setLoading(false)
-    }
-  }
 
   return (
     <>
@@ -672,7 +663,7 @@ export default function OnboardingPlansPage() {
             {/* CTA */}
             <button
               type="button"
-              onClick={handleEnterprisePlan}
+              onClick={() => setContactSalesOpen(true)}
               disabled={loading}
               style={{
                 display: 'flex',
@@ -695,7 +686,7 @@ export default function OnboardingPlansPage() {
                 boxShadow: '0px 1.091px 1.091px rgba(59,54,50,0.05), 0px 1.455px 3.127px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100,#ede1d7), inset 0px -2.182px 0.364px var(--neutral-100,#ede1d7)',
               }}
             >
-              {loading ? 'Setting up…' : 'Start Enterprise'}
+              Contact Sales
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                 <path d="M2.5 8h11M9.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -704,6 +695,10 @@ export default function OnboardingPlansPage() {
 
         </div>
       </div>
+
+      {contactSalesOpen && (
+        <ContactSalesModal onClose={() => setContactSalesOpen(false)} />
+      )}
     </>
   )
 }
