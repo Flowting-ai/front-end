@@ -1257,16 +1257,23 @@ function LeftSidebarImpl({
     displayRole === 'editor' ? 'Green'  :
     'Neutral'
 
-  // Teams ? "Teams | Admin/Editor/Member" | paid ? "Pro"/"Starter"/"Power" | trial ? "Free Trial" | none ? "No Plan Selected"
-  const planLabel = orgId
-    ? `Teams | ${org?.name ?? 'Teams'}`
+  // Fall back to the billing snapshot written by /settings/billing to detect team
+  // accounts when orgId hasn't resolved yet (e.g. owner whose profile lacks orgId).
+  const billingSnap = (() => {
+    try { const r = window?.sessionStorage?.getItem('kaya:billing:snapshot:v2'); return r ? JSON.parse(r) : null } catch { return null }
+  })()
+  const isTeamUser = Boolean(orgId || user?.orgId || billingSnap?.isTeamAccount)
+
+  // Teams ? "Teams | <name>" | paid ? "Pro"/"Starter"/"Power" | trial ? "Free Trial" | none ? "No Plan Selected"
+  const planLabel = isTeamUser
+    ? (orgId ? `Teams | ${org?.name ?? 'Teams'}` : 'Teams')
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : user?.isTrial
         ? 'Free Trial'
         : 'No Plan Selected'
 
-  const planWarning = !orgId && !user?.planType && !user?.isTrial
+  const planWarning = !isTeamUser && !user?.planType && !user?.isTrial
 
   // Credits shown in the account menu, by environment (kept isolated):
   //   • Organization ? the SHARED org pool remaining (org-context / getOrgPlan)

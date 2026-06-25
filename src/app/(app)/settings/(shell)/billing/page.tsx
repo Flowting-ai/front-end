@@ -387,11 +387,20 @@ export default function BillingPage() {
   // Team flag: live signal OR the cached snapshot — the cached value is what
   // kills the trial→teams flicker on refresh (first paint already knows).
   const isTeamAccount    = liveIsTeamAccount || (display?.isTeamAccount ?? false)
-  // Individual accounts: show billing controls as soon as the user is loaded — no
-  // org context needed. Team accounts: wait for orgReady to confirm the owner role,
-  // because without it orgRole is still null and we'd incorrectly hide the controls.
-  const canManageBilling = isHydrated && !!user &&
-    (!liveIsTeamAccount || (orgReady && orgRole === 'owner'))
+  // Individual accounts: show billing controls as soon as the user is loaded.
+  // Team accounts: need orgReady + confirmed owner role.
+  // Edge case: billing API confirms a team plan (liveIsTeamAccount) but the org
+  // discovery API returned no org (orgId is null after orgReady). This happens in
+  // devapp when the owner's profile lacks orgId and listOrganizations() comes back
+  // empty. In that state orgRole is stuck at the default 'member' even though the
+  // user is the owner. We fall back to optimistic access — the backend enforces
+  // real permissions on any action, so showing the controls is safe.
+  const orgLookupFailed = orgReady && !orgId && liveIsTeamAccount
+  const canManageBilling = isHydrated && !!user && (
+    !liveIsTeamAccount ||
+    (orgReady && orgRole === 'owner') ||
+    orgLookupFailed
+  )
   // The known individual paid tiers (drive price + feature list). 'teams' and
   // any unknown value resolve to null here.
   const individualPlan   = planType && planType in PLAN_PRICES ? planType : null

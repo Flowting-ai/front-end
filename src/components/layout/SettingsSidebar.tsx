@@ -75,15 +75,20 @@ export function SettingsSidebar() {
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
     : ''
 
-  const planLabel = orgId
-    ? `Teams | ${org?.name ?? 'Teams'}`
+  const billingSnap = (() => {
+    try { const r = window?.sessionStorage?.getItem('kaya:billing:snapshot:v2'); return r ? JSON.parse(r) : null } catch { return null }
+  })()
+  const isTeamUser = Boolean(orgId || user?.orgId || billingSnap?.isTeamAccount)
+
+  const planLabel = isTeamUser
+    ? (orgId ? `Teams | ${org?.name ?? 'Teams'}` : 'Teams')
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : user?.isTrial
         ? 'Free Trial'
         : 'No Plan Selected'
 
-  const planWarning = !orgId && !user?.planType && !user?.isTrial
+  const planWarning = !isTeamUser && !user?.planType && !user?.isTrial
 
   // Org and personal balances are already normalized to display credits.
   const accountCredits = orgId
