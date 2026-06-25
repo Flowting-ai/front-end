@@ -194,7 +194,7 @@ function UsageRow({ label, used, total, value }: { label: string; used: number; 
 export default function BillingPage() {
   const router = useRouter()
   const { user, refreshUser, isHydrated, jwtToken } = useAuth()
-  const { plan: orgPlan, orgId, orgRole, orgReady, roleError } = useOrg()
+  const { plan: orgPlan, orgId, orgRole, orgReady, roleError, currentUserRole, orgPlanSettled } = useOrg()
 
   const portalMounted = useMounted()
   // Lazy-init from the cached snapshot (runs once; SSR-safe — readCache returns
@@ -283,7 +283,7 @@ export default function BillingPage() {
     user?.roleFit === 'large_team',
   )
   const liveReady = isHydrated && !!user && billingLoaded &&
-    (!liveIsTeamAccountForGate || orgPlan !== null)
+    (!liveIsTeamAccountForGate || orgPlan !== null || orgPlanSettled)
 
   const nextBillingLive = fmtDate(
     billing?.upcoming_invoice?.next_payment_date ?? user?.nextBillingDate ?? user?.currentPeriodEnd,
@@ -401,7 +401,7 @@ export default function BillingPage() {
   const orgLookupFailed = orgReady && !orgId && liveIsTeamAccount
   const canManageBilling = isHydrated && !!user && (
     !liveIsTeamAccount ||
-    (orgReady && orgRole === 'owner') ||
+    (orgReady && (orgRole === 'owner' || orgRole === 'admin' || currentUserRole === 'admin')) ||
     orgLookupFailed ||
     (orgReady && roleError && liveIsTeamAccount)
   )

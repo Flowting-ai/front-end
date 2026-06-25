@@ -53,6 +53,11 @@ interface OrgContextValue {
    * should treat this as "role unknown" and fall back to optimistic access.
    */
   roleError: boolean
+  /**
+   * True once the org plan fetch has completed (success or error). Guards the
+   * billing page's liveReady gate so a failed plan fetch doesn't block rendering.
+   */
+  orgPlanSettled: boolean
 }
 
 const OrgContext = createContext<OrgContextValue | null>(null)
@@ -110,6 +115,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   const [orgRole,          setOrgRole]          = useState<OrgRole>('member')
   const [currentUserRole,  setCurrentUserRole]  = useState<'admin' | 'editor' | 'member'>('member')
   const [plan,             setPlan]             = useState<OrgPlan | null>(null)
+  const [orgPlanSettled,   setOrgPlanSettled]   = useState(false)
   const [members,          setMembers]          = useState<OrgMember[]>([])
   const [membersLoading,   setMembersLoading]   = useState(false)
   const [planRefreshToken, setPlanRefreshToken] = useState(0)
@@ -159,11 +165,12 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   // plan's bundled members are a fallback if /members fails.
   useEffect(() => {
     if (!orgId) return
+    setOrgPlanSettled(false)
     setMembersLoading(true)
     const planP = getOrgPlan(orgId).then(p => {
       setPlan(p)
       setOrgPlanType(p.planType)
-    }).catch(console.error)
+    }).catch(console.error).finally(() => setOrgPlanSettled(true))
     const membersP = listMembers(orgId)
       .then(setMembers)
       .catch(async () => {
@@ -238,6 +245,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       setActiveProjectId,
       orgReady: orgIdResolved && roleResolved,
       roleError,
+      orgPlanSettled: !orgId || orgPlanSettled,
     }}>
       {children}
     </OrgContext.Provider>
