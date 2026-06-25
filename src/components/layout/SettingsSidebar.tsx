@@ -39,7 +39,7 @@ export function SettingsSidebar() {
   const { push } = useRouter()
   const pathname = usePathname()
   const { user, logout, isAuthenticated } = useAuth()
-  const { orgId, org, currentUserRole } = useOrg()
+  const { orgId, org, plan, currentUserRole } = useOrg()
   const { isDirty, saveRef } = useSettingsGuard()
   const portalMounted = useMounted()
   const [pendingHref,    setPendingHref]    = useState<string | null>(null)
@@ -98,7 +98,7 @@ export function SettingsSidebar() {
 
   // Org and personal balances are already normalized to display credits.
   const accountCredits = orgId
-    ? (typeof org?.creditPool?.remaining === 'number' ? org.creditPool.remaining : undefined)
+    ? (plan ? org?.creditPool?.remaining : undefined)
     : (user?.creditsRemaining ?? undefined)
 
   return (

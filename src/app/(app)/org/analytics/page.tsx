@@ -476,7 +476,8 @@ function MemberCapsTable({
       </SettingsTableHeader>
 
       {members.map(member => {
-        const usagePct = member.creditCap && member.creditCap > 0
+        const isPrivileged = member.orgRole === 'owner' || member.orgRole === 'admin'
+        const usagePct = !isPrivileged && member.creditCap && member.creditCap > 0
           ? Math.min(100, Math.round((member.allocationUsed / member.creditCap) * 100))
           : 0
         return (
@@ -512,25 +513,29 @@ function MemberCapsTable({
             </SettingsTableCell>
 
             <SettingsTableCell align="center">
-              {member.orgRole !== 'member' ? (
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-300)' }}>-</span>
+              {isPrivileged ? (
+                <Badge color="Green" label="No cap" />
               ) : member.creditCap != null ? (
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                   {member.creditCap.toLocaleString()}
                 </p>
               ) : (
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-300)' }}>No cap</span>
+                <Badge color="Yellow" label="Not Assigned" />
               )}
             </SettingsTableCell>
 
             <SettingsTableCell align="center">
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 100, flexShrink: 0 }}>
-                {usagePct > 0 ? <ProgressBar value={usagePct} /> : null}
-                <Badge
-                  color={usagePct >= 90 ? 'Red' : usagePct >= 60 ? 'Yellow' : 'Green'}
-                  label={`${usagePct}%`}
-                />
-              </div>
+              {isPrivileged ? (
+                <Badge color="Neutral" label="Not applicable" />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 100, flexShrink: 0 }}>
+                  {usagePct > 0 ? <ProgressBar value={usagePct} /> : null}
+                  <Badge
+                    color={usagePct >= 90 ? 'Red' : usagePct >= 60 ? 'Yellow' : 'Green'}
+                    label={`${usagePct}%`}
+                  />
+                </div>
+              )}
             </SettingsTableCell>
           </SettingsTableRow>
         )
@@ -745,7 +750,7 @@ function AnalyticsPageSkeleton() {
 }
 
 export default function OrgUsageAnalyticsPage() {
-  const { orgId, members, membersLoading, plan, currentUserRole } = useOrg()
+  const { orgId, members, membersLoading, plan, currentUserRole, orgReady } = useOrg()
   const [dateRange,  setDateRange]  = useState<DateRange>('7d')
   const [teamUsage,  setTeamUsage]  = useState<TeamBurn[]>([])
 
@@ -765,7 +770,7 @@ export default function OrgUsageAnalyticsPage() {
     [dateRange, totalUsed],
   )
 
-  if (membersLoading) {
+  if (!orgReady || membersLoading) {
     return (
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
         <AnalyticsPageSkeleton />

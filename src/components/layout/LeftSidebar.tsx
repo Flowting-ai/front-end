@@ -1100,7 +1100,7 @@ function LeftSidebarImpl({
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
   const { chats: projectChats, getProject } = useProjects();
-  const { orgId, org, orgRole, currentUserRole, teams, activeTeamId, setActiveTeamId } = useOrg();
+  const { orgId, org, plan, orgRole, currentUserRole, teams, activeTeamId, setActiveTeamId } = useOrg();
 
   // -- Global search ---------------------------------------------------------
   const { searchOpen, openSearch } = useSearch();
@@ -1287,7 +1287,7 @@ function LeftSidebarImpl({
   // Org and personal balances never mix; we pick the source by environment.
   // Org and personal balances are already normalized to display credits.
   const accountCredits = orgId
-    ? (typeof org?.creditPool?.remaining === "number" ? org.creditPool.remaining : undefined)
+    ? (plan ? org?.creditPool?.remaining : undefined)
     : (user?.creditsRemaining ?? undefined);
 
   const sectionProps: SectionProps = {

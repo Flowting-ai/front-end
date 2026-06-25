@@ -514,6 +514,7 @@ export default function OrgBillingPage() {
       nextBilling={nextBilling}
       monthlyPrice={tierMonthly}
       tierIdx={tierIdx}
+      currentTierIdx={currentTierIdx}
       onTierChange={setTierIdx}
       annual={annual}
       onAnnualChange={setAnnual}
@@ -815,6 +816,7 @@ function TeamsHero({
   nextBilling,
   monthlyPrice,
   tierIdx,
+  currentTierIdx,
   onTierChange,
   annual,
   onAnnualChange,
@@ -826,6 +828,7 @@ function TeamsHero({
   nextBilling:         string
   monthlyPrice:        number
   tierIdx:             number
+  currentTierIdx:      number
   onTierChange:        (i: number) => void
   annual:              boolean
   onAnnualChange:      (v: boolean) => void
@@ -882,7 +885,7 @@ function TeamsHero({
 
       {isOwner ? (
         <>
-          <TierSlider tierIdx={tierIdx} onChange={onTierChange} />
+          <TierSlider tierIdx={tierIdx} currentTierIdx={currentTierIdx} onChange={onTierChange} />
           {/* Footer */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
             <p style={{ fontFamily: 'var(--font-code)', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
@@ -1045,48 +1048,38 @@ function ProgressBar({ pct }: { pct: number }) {
 
 // ── Tier slider (interactive) ─────────────────────────────────────────────────
 
-function TierSlider({ tierIdx, onChange }: { tierIdx: number; onChange: (i: number) => void }) {
+function TierSlider({ tierIdx, currentTierIdx, onChange }: { tierIdx: number; currentTierIdx: number; onChange: (i: number) => void }) {
   const n   = TIERS.length
-  const pct = n > 1 ? (tierIdx / (n - 1)) * 100 : 0
+  const pct = n > 1 ? (currentTierIdx / (n - 1)) * 100 : 0
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, pointerEvents: 'none', userSelect: 'none', opacity: 0.5 }}>
       <div
         role="slider"
         aria-valuemin={0}
         aria-valuemax={n - 1}
-        aria-valuenow={tierIdx}
-        tabIndex={0}
-        onKeyDown={e => {
-          if (e.key === 'ArrowRight' || e.key === 'ArrowUp')   onChange(Math.min(n - 1, tierIdx + 1))
-          if (e.key === 'ArrowLeft'  || e.key === 'ArrowDown') onChange(Math.max(0, tierIdx - 1))
-        }}
-        onClick={e => {
-          const rect = e.currentTarget.getBoundingClientRect()
-          const ratio = (e.clientX - rect.left) / rect.width
-          onChange(Math.max(0, Math.min(n - 1, Math.round(ratio * (n - 1)))))
-        }}
-        style={{ position: 'relative', height: 14, display: 'flex', alignItems: 'center', cursor: 'pointer', outline: 'none' }}
+        aria-valuenow={currentTierIdx}
+        aria-disabled="true"
+        tabIndex={-1}
+        style={{ position: 'relative', height: 14, display: 'flex', alignItems: 'center', cursor: 'not-allowed', outline: 'none' }}
       >
         <div style={{ position: 'relative', height: 4, borderRadius: 2, background: 'white', width: '100%' }}>
-          <div style={{ position: 'absolute', left: 0, top: 0, height: 4, borderRadius: 2, background: 'var(--neutral-900)', width: `${pct}%` }} />
-          <div style={{ position: 'absolute', left: `calc(${pct}% - 5px)`, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: 'var(--neutral-900)', boxShadow: '0 0 0 2px white' }} />
+          <div style={{ position: 'absolute', left: 0, top: 0, height: 4, borderRadius: 2, background: 'var(--neutral-500)', width: `${pct}%` }} />
+          <div style={{ position: 'absolute', left: `calc(${pct}% - 5px)`, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: 'var(--neutral-500)', boxShadow: '0 0 0 2px white' }} />
         </div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         {TIERS.map((t, i) => (
-          <button
+          <div
             key={t.price}
-            type="button"
-            onClick={() => onChange(i)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+            style={{ padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
           >
-            <span style={{ fontFamily: 'var(--font-body)', fontWeight: i === tierIdx ? 600 : 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-900)' }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontWeight: i === currentTierIdx ? 600 : 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-900)' }}>
               ${t.price}/mo
             </span>
             <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-600)' }}>
               {(t.credits / 1000).toFixed(0)}k
             </span>
-          </button>
+          </div>
         ))}
       </div>
     </div>
