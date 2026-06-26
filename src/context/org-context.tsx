@@ -54,6 +54,13 @@ interface OrgContextValue {
    */
   roleError: boolean
   /**
+   * True when the org role was explicitly returned by the API (non-null).
+   * False when my_role came back null — the orgRole fallback may not reflect
+   * the actual role. Billing gates should treat false as "role unknown" and
+   * allow access (the backend enforces real permissions on every action).
+   */
+  orgRoleResolved: boolean
+  /**
    * True once the org plan fetch has completed (success or error). Guards the
    * billing page's liveReady gate so a failed plan fetch doesn't block rendering.
    */
@@ -113,6 +120,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   const [orgName,          setOrgName]          = useState('')
   const [orgPlanType,      setOrgPlanType]      = useState<'teams' | 'enterprise'>('teams')
   const [orgRole,          setOrgRole]          = useState<OrgRole>('member')
+  const [orgRoleResolved,  setOrgRoleResolved]  = useState(false)
   const [currentUserRole,  setCurrentUserRole]  = useState<'admin' | 'editor' | 'member'>('member')
   const [plan,             setPlan]             = useState<OrgPlan | null>(null)
   const [orgPlanSettled,   setOrgPlanSettled]   = useState(false)
@@ -135,6 +143,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       // No resolved org yet. A team-plan owner is still an org admin (the org
       // entity may just not be linked on the profile); everyone else is a member.
       setOrgRole(isTeamPlan ? 'owner' : 'member')
+      setOrgRoleResolved(isTeamPlan) // only "resolved" if we have a real signal
       setCurrentUserRole(isTeamPlan ? 'admin' : 'member')
       setRoleError(false)
       setRoleResolved(true)
@@ -146,13 +155,30 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       .then(data => {
         setOrgName(data.name)
         setOrgPlanType(data.planType)
-        setOrgRole(data.role)
+        // When my_role is null, identify the owner via owner_email / owner_user_id
+        // before falling back to isTeamPlan. owner_email is the most reliable signal
+        // and works for users who upgraded from an individual plan (roleFit ≠ team).
+        let resolvedRole: OrgRole
+        let roleDefinitive: boolean
+        if (data.role !== null) {
+          resolvedRole  = data.role
+          roleDefinitive = true
+        } else {
+          const emailMatch  = !!(data.ownerEmail  && user?.email && data.ownerEmail  === user.email)
+          const idMatch     = !!(data.ownerUserId && user?.id    && String(data.ownerUserId) === String(user.id))
+          const isOwnerMatch = emailMatch || idMatch
+          resolvedRole   = isOwnerMatch ? 'owner' : (isTeamPlan ? 'owner' : 'member')
+          roleDefinitive = isOwnerMatch // isTeamPlan alone is a guess
+        }
+        setOrgRole(resolvedRole)
+        setOrgRoleResolved(roleDefinitive)
         setCurrentUserRole(
-          data.role === 'owner' || data.role === 'admin' || isTeamPlan ? 'admin' : 'member',
+          resolvedRole === 'owner' || resolvedRole === 'admin' || isTeamPlan ? 'admin' : 'member',
         )
       })
       .catch(err => {
         console.error(err)
+        setOrgRoleResolved(false)
         setRoleError(true) // role is unknown — orgRole stays at default 'member'
       })
       .finally(() => setRoleResolved(true))
@@ -245,6 +271,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       setActiveProjectId,
       orgReady: orgIdResolved && roleResolved,
       roleError,
+      orgRoleResolved,
       orgPlanSettled: !orgId || orgPlanSettled,
     }}>
       {children}

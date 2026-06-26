@@ -30,6 +30,8 @@ interface OrganizationResponse {
   archived: boolean
   my_role: OrgRole | null
   plan_type: 'teams' | 'enterprise' | null
+  owner_user_id?: string | null
+  owner_email?: string | null
 }
 
 interface AdminBillingPermsResponse {
@@ -270,7 +272,7 @@ export async function listOrganizations(): Promise<Array<{ id: string; name: str
   }))
 }
 
-export async function getOrg(orgId: string): Promise<{ id: string; name: string; slug: string; description: string; logoUrl: string | null; role: OrgRole; planType: 'teams' | 'enterprise' }> {
+export async function getOrg(orgId: string): Promise<{ id: string; name: string; slug: string; description: string; logoUrl: string | null; role: OrgRole | null; planType: 'teams' | 'enterprise'; ownerEmail: string | null; ownerUserId: string | null }> {
   const data = await apiFetchJson<OrganizationResponse>(ORG_ENDPOINT(orgId))
   return {
     id:          data.id,
@@ -278,8 +280,10 @@ export async function getOrg(orgId: string): Promise<{ id: string; name: string;
     slug:        data.slug,
     description: data.description,
     logoUrl:     data.logo_url,
-    role:        data.my_role ?? 'member',
+    role:        data.my_role,
     planType:    data.plan_type === 'enterprise' ? 'enterprise' : 'teams',
+    ownerEmail:  data.owner_email ?? null,
+    ownerUserId: data.owner_user_id ?? null,
   }
 }
 

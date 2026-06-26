@@ -194,7 +194,7 @@ function UsageRow({ label, used, total, value }: { label: string; used: number; 
 export default function BillingPage() {
   const router = useRouter()
   const { user, refreshUser, isHydrated, jwtToken } = useAuth()
-  const { plan: orgPlan, orgId, orgRole, orgReady, roleError, currentUserRole, orgPlanSettled } = useOrg()
+  const { plan: orgPlan, orgId, orgRole, orgReady, roleError, orgRoleResolved, currentUserRole, orgPlanSettled } = useOrg()
 
   const portalMounted = useMounted()
   // Lazy-init from the cached snapshot (runs once; SSR-safe — readCache returns
@@ -383,20 +383,34 @@ export default function BillingPage() {
   // Individual accounts: show controls as soon as the user loads.
   // Team accounts: confirmed once orgReady resolves the owner role.
   //
-  // Two resilience fallbacks (backend enforces real permissions on every action):
+  // Three resilience fallbacks (backend enforces real permissions on every action):
   //   orgLookupFailed — billing confirmed a team plan but listOrganizations()
   //     returned nothing (owner's profile lacks org_id AND org_members row missing
   //     or API failed). orgRole stuck at default 'member'.
   //   roleError — org was found (orgId set) but getOrg() threw (network/5xx).
   //     orgRole stuck at default 'member' even though user may be owner.
-  // Both are only triggered when liveIsTeamAccount is true, so individual-plan
+  //   roleUnknown — org was found, getOrg() succeeded, but my_role was null so
+  //     orgRole is a guess. The owner may not have isTeamPlan set (e.g. upgraded
+  //     from an individual plan). Allow optimistic access; BE enforces.
+  // All three are only triggered when liveIsTeamAccount is true, so individual-plan
   // users are unaffected.
   const orgLookupFailed = orgReady && !orgId && liveIsTeamAccount
+  const roleUnknown = orgReady && !roleError && !!orgId && !orgRoleResolved && liveIsTeamAccount
+  // Owner-only: Change Plan and Buy Credits. Admins/members see the fallback text.
+  const isOrgOwner = isHydrated && !!user && (
+    !liveIsTeamAccount ||
+    (orgReady && orgRole === 'owner') ||
+    orgLookupFailed ||
+    (orgReady && roleError && liveIsTeamAccount) ||
+    roleUnknown
+  )
+  // Broader billing access: owner + admin can see Payment details and Invoices.
   const canManageBilling = isHydrated && !!user && (
     !liveIsTeamAccount ||
     (orgReady && (orgRole === 'owner' || orgRole === 'admin' || currentUserRole === 'admin')) ||
     orgLookupFailed ||
-    (orgReady && roleError && liveIsTeamAccount)
+    (orgReady && roleError && liveIsTeamAccount) ||
+    roleUnknown
   )
   // The known individual paid tiers (drive price + feature list). 'teams' and
   // any unknown value resolve to null here.
@@ -536,7 +550,7 @@ export default function BillingPage() {
     <>
       {cancelDialog}
       <BuyCreditsModal
-        open={canManageBilling && showBuyCreditsModal}
+        open={isOrgOwner && showBuyCreditsModal}
         onClose={() => setShowBuyCreditsModal(false)}
         billing={billing}
         onSuccess={() => { void reload() }}
@@ -636,14 +650,14 @@ export default function BillingPage() {
                 )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 12 }}>
-                  {canManageBilling ? (
+                  {isOrgOwner ? (
                     <Button variant="default" size="md" onClick={() => router.push('/settings/billing/change-plan')}>
                       Change Plan
                     </Button>
                   ) : (
                     <span style={{ ...regMuted, color: C.ink }}>Plan changes are managed by the organization owner.</span>
                   )}
-                  {!isTeamAccount && !planType && canManageBilling && billingLoaded && !billing?.credits?.trial && (
+                  {!isTeamAccount && !planType && isOrgOwner && billingLoaded && !billing?.credits?.trial && (
                     <Button variant="secondary" size="md" loading={isClaimingTrial} leftIcon={<TokenCircleIcon size={16} animated />} onClick={() => { void handleClaimTrial() }}>
                       Claim free 1,000 credits
                     </Button>
@@ -707,7 +721,7 @@ export default function BillingPage() {
                     <p style={regMuted}>Top-up packs. Unused credits roll 1 billing cycle.</p>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    {canManageBilling ? (
+                    {isOrgOwner ? (
                       <Button variant="secondary" size="md" onClick={() => setShowBuyCreditsModal(true)}>
                         Buy more Credits
                       </Button>

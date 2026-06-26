@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Suspense, useEffect } from 'react'
+import React, { Suspense, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
 import { fetchBilling } from '@/lib/api/user'
@@ -114,17 +114,18 @@ function PricingConfirmationContent() {
     : null
   const effectivePlanLabel = planLabel ?? refreshedPlanLabel
 
-  // On successful payment: mark onboarding complete, set bypass cookie, refresh user.
-  // Marking onboarding_completed here is essential for team users — they never hit
-  // the import page (the only other place that sets this flag), so without this the
-  // OnboardingGuard bounces them back to /onboarding/hello after they navigate into
-  // the app. Empty deps is intentional — refreshUser is not useCallback-memoised.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Run org creation + refresh once, after auth has hydrated so user.orgId is
+  // accurate. The ref prevents double-invocation from React StrictMode and from
+  // isHydrated flipping more than once.
+  const hasRunRef = useRef(false)
   useEffect(() => {
-    if (isFailed) return
+    if (!isHydrated || isFailed || hasRunRef.current) return
+    hasRunRef.current = true
+
     document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=600; SameSite=Lax'
     const run = async () => {
-      // For team plans, create the org now — after payment is confirmed.
+      // For team plans, create the org after payment — only if it doesn't already
+      // exist. Checking user.orgId here is reliable because isHydrated=true.
       if (isTeamPlan && !user?.orgId) {
         const name = ownerName ? `${ownerName}'s workspace` : 'My workspace'
         await createOrganization({ name }).catch(() => {/* org may already exist */})
@@ -134,7 +135,7 @@ function PricingConfirmationContent() {
       notifyCreditsUpdated()
     }
     void run()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isHydrated]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Existing user, simple upgrade → skip the onboarding confirmation screen
   // entirely. Stash the new plan for a toast and drop them back into the app.

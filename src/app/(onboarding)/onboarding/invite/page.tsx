@@ -6,7 +6,6 @@ import { useAuth } from "@/context/auth-context";
 import { useOnboarding, deriveRoleFit } from "@/context/onboarding-context";
 import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
-import { createOrganization } from "@/lib/api/organization";
 import { fetchTeams, inviteTeamMembers } from "@/lib/api/teams";
 import type { WorkspaceRole } from "@/types/teams";
 import { apiFetch } from "@/lib/api/client";
@@ -29,21 +28,8 @@ export default function OnboardingInvitePage() {
   const submitOnboarding = async () => {
     setLoading(true);
     try {
-      // Create the team's organization so the backend stamps org_id on the
-      // profile — that unlocks the Organization settings (members / teams /
-      // plans). Best-effort: a failure must NOT block onboarding completion.
-      if (data.companyName.trim().length > 0 && !user?.orgId) {
-        try {
-          await createOrganization({
-            name: data.companyName.trim(),
-            tags: data.companySize ? [data.companySize] : [],
-          });
-        } catch (orgErr) {
-          console.error("Organization creation failed", orgErr);
-        }
-      }
-
       // Send invites best-effort — failure must never block onboarding completion.
+      // Org creation is handled in pricing/confirmation — always before this page.
       const parsedEmails = emails.split(/[\n,]+/).map(e => e.trim()).filter(Boolean)
       const orgIdForInvite = user?.orgId
       if (parsedEmails.length > 0 && orgIdForInvite) {
