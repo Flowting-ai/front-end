@@ -291,6 +291,7 @@ export function ChatInterface({
 
   const messagesEndRef       = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const streamingTopMessageIdRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputWrapperRef = useRef<HTMLDivElement>(null);
   // Tracks which attachment IDs already have an active simulation interval
@@ -560,14 +561,24 @@ export function ChatInterface({
   // earlier messages while the model is generating, we must NOT force them
   // back down. atBottomRef always reflects the latest scroll position without
   // creating a dependency cycle.
-  const lastMessageContent = messages.length > 0
-    ? messages[messages.length - 1]?.content?.length ?? 0
-    : 0;
   useEffect(() => {
-    if (!isLoadingMessages && messages.length > 0 && isStreaming && atBottomRef.current) {
-      msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
+    if (!isStreaming) {
+      streamingTopMessageIdRef.current = null;
+      return;
     }
-  }, [isStreaming, messages.length, lastMessageContent, isLoadingMessages, msgVirtualizer]);
+    if (isLoadingMessages || messages.length === 0) return;
+
+    const idx = messages.findLastIndex((m) => m.role === "assistant");
+    if (idx === -1) return;
+
+    const messageId = messages[idx]?.id;
+    if (!messageId || streamingTopMessageIdRef.current === messageId) return;
+
+    streamingTopMessageIdRef.current = messageId;
+    atBottomRef.current = false;
+    setAtBottom(false);
+    msgVirtualizer.scrollToIndex(idx, { align: 'start', behavior: 'auto' });
+  }, [isStreaming, messages, isLoadingMessages, msgVirtualizer]);
 
   // Scroll-to-top for pagination + track whether user is at bottom.
   // We gate setAtBottom behind a threshold comparison against the ref value

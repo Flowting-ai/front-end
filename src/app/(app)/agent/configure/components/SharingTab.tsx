@@ -1,26 +1,12 @@
 ﻿'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { Switch } from '@/components/Switch'
 import { Button } from '@/components/Button'
 import { Checkbox } from '@/components/Checkbox'
 import { CancelOneIcon, ArrowUpRightOneIcon } from '@strange-huge/icons'
 
-// Matches TeamChip / TeamSwitcher gradient palette — must stay in sync.
-const TEAM_GRADIENTS = [
-  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',
-  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',
-  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',
-  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',
-  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',
-  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',
-]
-function getTeamGradient(name: string): string {
-  let h = 0
-  for (let i = 0; i < name.length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0
-  return TEAM_GRADIENTS[Math.abs(h) % TEAM_GRADIENTS.length]!
-}
 import { toast } from 'sonner'
 import {
   createShare,
@@ -246,28 +232,6 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
   const [savedTeamIds,      setSavedTeamIds]      = useState<string[]>([])
 
   // Team dropdown toggle
-  const [teamsDropdownOpen, setTeamsDropdownOpen] = useState(false)
-
-  // Team dropdown scroll-edge state (drives blur overlays)
-  const [atTop,    setAtTop]    = useState(true)
-  const [atBottom, setAtBottom] = useState(false)
-  const teamListRef = useRef<HTMLDivElement>(null)
-
-  const handleTeamScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget
-    setAtTop(el.scrollTop < 8)
-    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8)
-  }
-
-  // Re-evaluate atBottom whenever dropdown opens or team list changes
-  useEffect(() => {
-    if (!teamsDropdownOpen) return
-    const el = teamListRef.current
-    if (!el) return
-    setAtTop(true)
-    setAtBottom(el.scrollHeight - el.clientHeight < 8)
-  }, [teamsDropdownOpen, editableTeams.length])
-
   // ── Link share state ───────────────────────────────────────────────────────
   const [superLinkEnabled, setSuperLinkEnabled] = useState(false)
   const [linkShare, setLinkShare] = useState<PersonaShare | null>(null)
@@ -284,6 +248,8 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
 
   const currentLinkShare = linkShare?.persona_id === versionId ? linkShare : null
   const currentEmailShares = emailShares.filter(share => share.persona_id === versionId)
+  const allEditableTeamsSelected =
+    editableTeams.length > 0 && selectedTeamIds.length === editableTeams.length
 
   // Sync share-link existence to shared progress indicator
   useEffect(() => { setHasShareLink(!!currentLinkShare) }, [currentLinkShare, setHasShareLink])
@@ -528,89 +494,132 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
             label="Private"
             description="Only you can use this persona"
             selected={visibility === 'private'}
-            onClick={() => { setVisibility('private'); setTeamsDropdownOpen(false) }}
+            onClick={() => { setVisibility('private') }}
           />
 
-          {/* Team row + floating dropdown */}
-          <div style={{ position: 'relative' }}>
-            <VisibilityRow
-              label="Team"
-              description="Editors and admins in selected teams can use it."
-              selected={visibility === 'team'}
-              locked={!orgId || editableTeams.length === 0}
-              badge={!orgId ? <TeamPlanBadge /> : undefined}
-              onClick={() => setVisibility('team')}
-            />
+          {/* Team row + inline selector */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div
+              role={!orgId || editableTeams.length === 0 ? undefined : 'button'}
+              tabIndex={!orgId || editableTeams.length === 0 ? undefined : 0}
+              onClick={!orgId || editableTeams.length === 0 ? undefined : () => setVisibility('team')}
+              onKeyDown={!orgId || editableTeams.length === 0 ? undefined : e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setVisibility('team')
+                }
+              }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                gap: 14,
+                width: '100%',
+                padding: 16,
+                borderRadius: 16,
+                border: 'none',
+                cursor: !orgId || editableTeams.length === 0 ? 'default' : 'pointer',
+                textAlign: 'left',
+                backgroundColor: visibility === 'team' ? '#f5f1ea' : 'white',
+                boxShadow: visibility === 'team'
+                  ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-800)'
+                  : !orgId || editableTeams.length === 0
+                  ? '0px 0px 0px 1px var(--neutral-200)'
+                  : 'var(--shadow-surface-card)',
+                transition: 'box-shadow 150ms, background-color 150ms',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 500,
+                      fontSize: 14,
+                      lineHeight: '22px',
+                      color: !orgId || editableTeams.length === 0 ? 'var(--neutral-400)' : 'var(--neutral-800)',
+                    }}
+                  >
+                    Team
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 500,
+                      fontSize: 12,
+                      lineHeight: '16px',
+                      color: !orgId || editableTeams.length === 0 ? 'var(--neutral-500)' : 'var(--neutral-600)',
+                      maxWidth: 420,
+                    }}
+                  >
+                    Deploy this persona to selected teams.
+                  </span>
+                </div>
 
-            {/* Show/hide teams toggle — sits over the right edge of the card */}
-            {orgId && (
-              <button
-                type="button"
-                disabled={visibility !== 'team'}
-                onClick={e => { e.stopPropagation(); setTeamsDropdownOpen(o => !o) }}
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  right: 12,
-                  transform: 'translateY(-50%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  padding: '4px 10px',
-                  borderRadius: 8,
-                  border: '1px solid var(--neutral-200)',
-                  cursor: visibility !== 'team' ? 'not-allowed' : 'pointer',
-                  backgroundColor: teamsDropdownOpen && visibility === 'team' ? 'var(--neutral-100)' : 'white',
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 500,
-                  fontSize: 12,
-                  lineHeight: '16px',
-                  color: visibility !== 'team' ? 'var(--neutral-300)' : 'var(--neutral-700)',
-                  opacity: visibility !== 'team' ? 0.5 : 1,
-                  transition: 'background-color 150ms, opacity 150ms',
-                  whiteSpace: 'nowrap',
-                  zIndex: 1,
-                }}
-              >
-                {teamsDropdownOpen && visibility === 'team' ? 'Hide teams' : 'Show teams'}
-              </button>
-            )}
+                {!orgId ? (
+                  <TeamPlanBadge />
+                ) : (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '8px 12px',
+                      borderRadius: 999,
+                      border: '1px solid var(--neutral-200)',
+                      backgroundColor: 'white',
+                      color: 'var(--neutral-800)',
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 500,
+                      fontSize: 12,
+                      lineHeight: '16px',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
+                  >
+                    Select teams
+                  </span>
+                )}
+              </div>
+            </div>
 
             <AnimatePresence initial={false}>
-              {visibility === 'team' && orgId && teamsDropdownOpen && (
+              {visibility === 'team' && orgId && (
                 <m.div
-                  key="team-dropdown"
-                  initial={{ opacity: 0, scale: 0.97, y: -4 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.97, y: -4 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  key="team-panel"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
                   style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 8px)',
-                    left: 0,
-                    right: 0,
-                    zIndex: 50,
-                    backgroundColor: 'var(--popover-bg)',
+                    backgroundColor: '#f5f1ea',
                     borderRadius: 18,
-                    boxShadow: 'var(--shadow-popover)',
-                    isolation: 'isolate',
-                    overflow: 'hidden',
+                    boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.15)',
+                    padding: 24,
                   }}
                 >
-                  <div style={{ position: 'relative' }}>
-                    {/* Scrollable list */}
-                    <div
-                      ref={teamListRef}
-                      className="kaya-scrollbar"
-                      onScroll={handleTeamScroll}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <span
                       style={{
-                        display: 'flex', flexDirection: 'column', gap: 2,
-                        maxHeight: 260, overflowY: 'auto', padding: 6,
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 500,
+                        fontSize: 14,
+                        lineHeight: '22px',
+                        color: 'var(--neutral-800)',
+                      }}
+                    >
+                      Select teams
+                    </span>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
                       }}
                     >
                       {editableTeams.map(team => {
                         const checked = selectedTeamIds.includes(team.id)
-                        const gradient = getTeamGradient(team.name)
                         return (
                           <button
                             key={team.id}
@@ -621,91 +630,61 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                             style={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 10,
-                              padding: '8px 12px',
-                              height: 52,
+                              gap: 14,
+                              padding: 0,
+                              minHeight: 44,
                               borderRadius: 10,
                               border: 'none',
                               cursor: 'pointer',
                               textAlign: 'left',
                               width: '100%',
-                              backgroundColor: checked ? 'var(--neutral-50)' : 'transparent',
-                              boxShadow: checked ? '0px 0px 0px 1px var(--neutral-200)' : 'none',
-                              transition: 'background-color 150ms, box-shadow 150ms',
+                              backgroundColor: 'transparent',
                             }}
                           >
                             <span style={{ pointerEvents: 'none', flexShrink: 0 }}>
                               <Checkbox checked={checked} />
                             </span>
-                            <div
-                              aria-hidden
-                              style={{
-                                width: 24, height: 24, borderRadius: 6,
-                                background: gradient, flexShrink: 0,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontFamily: 'var(--font-title)', fontWeight: 600, fontSize: 11,
-                                color: 'white', userSelect: 'none',
-                              }}
-                            >
-                              {team.name.charAt(0).toUpperCase()}
-                            </div>
                             <div style={{ flex: '1 1 0', minWidth: 0 }}>
                               <p style={{
-                                margin: 0, fontFamily: 'var(--font-body)', fontWeight: 500,
-                                fontSize: 14, lineHeight: '20px', color: 'var(--neutral-900)',
+                                margin: 0, fontFamily: 'var(--font-body)', fontWeight: 400,
+                                fontSize: 18, lineHeight: '28px', color: 'var(--neutral-800)',
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                               }}>
                                 {team.name}
-                              </p>
-                              <p style={{
-                                margin: 0, fontFamily: 'var(--font-body)', fontWeight: 400,
-                                fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)',
-                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                visibility: team.description ? 'visible' : 'hidden',
-                              }}>
-                                {team.description || ' '}
                               </p>
                             </div>
                           </button>
                         )
                       })}
+
+                      {allEditableTeamsSelected && (
+                        <p
+                          style={{
+                            margin: '4px 0 0',
+                            fontFamily: 'var(--font-body)',
+                            fontWeight: 400,
+                            fontSize: 18,
+                            lineHeight: '28px',
+                            color: 'var(--neutral-800)',
+                          }}
+                        >
+                          All teams (workspace-wide)
+                        </p>
+                      )}
                     </div>
 
-                    {/* Top blur fade */}
-                    {[{ h: 40, b: 2 }, { h: 28, b: 3 }, { h: 18, b: 5 }, { h: 10, b: 6 }].map(({ h, b }) => (
-                      <div key={'t' + b} aria-hidden style={{
-                        position: 'absolute', top: 0, left: 0, right: 0, height: h,
-                        backdropFilter: `blur(${b}px)`, WebkitBackdropFilter: `blur(${b}px)`,
-                        maskImage: 'linear-gradient(to bottom, black 0%, transparent 100%)',
-                        WebkitMaskImage: 'linear-gradient(to bottom, black 0%, transparent 100%)',
-                        pointerEvents: 'none', zIndex: 10,
-                        opacity: atTop ? 0 : 1, transition: 'opacity 150ms ease',
-                      }} />
-                    ))}
-                    <div aria-hidden style={{
-                      position: 'absolute', top: 0, left: 0, right: 0, height: 40,
-                      background: 'linear-gradient(to bottom, var(--popover-bg) 0%, transparent 100%)',
-                      pointerEvents: 'none', zIndex: 11,
-                      opacity: atTop ? 0 : 1, transition: 'opacity 150ms ease',
-                    }} />
-
-                    {/* Bottom blur fade */}
-                    {[{ h: 40, b: 2 }, { h: 28, b: 3 }, { h: 18, b: 5 }, { h: 10, b: 6 }].map(({ h, b }) => (
-                      <div key={'bt' + b} aria-hidden style={{
-                        position: 'absolute', bottom: 0, left: 0, right: 0, height: h,
-                        backdropFilter: `blur(${b}px)`, WebkitBackdropFilter: `blur(${b}px)`,
-                        maskImage: 'linear-gradient(to top, black 0%, transparent 100%)',
-                        WebkitMaskImage: 'linear-gradient(to top, black 0%, transparent 100%)',
-                        pointerEvents: 'none', zIndex: 10,
-                        opacity: atBottom ? 0 : 1, transition: 'opacity 150ms ease',
-                      }} />
-                    ))}
-                    <div aria-hidden style={{
-                      position: 'absolute', bottom: 0, left: 0, right: 0, height: 40,
-                      background: 'linear-gradient(to top, var(--popover-bg) 0%, transparent 100%)',
-                      pointerEvents: 'none', zIndex: 11,
-                      opacity: atBottom ? 0 : 1, transition: 'opacity 150ms ease',
-                    }} />
+                    <p
+                      style={{
+                        margin: 0,
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 400,
+                        fontSize: 12,
+                        lineHeight: '16px',
+                        color: '#968f89',
+                      }}
+                    >
+                      This persona will be available to all members of the selected teams.
+                    </p>
                   </div>
                 </m.div>
               )}

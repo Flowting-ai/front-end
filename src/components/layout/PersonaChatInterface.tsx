@@ -133,6 +133,7 @@ export function PersonaChatInterface({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const streamingTopMessageIdRef = useRef<string | null>(null);
   const justCreatedChatRef = useRef(false);
   const optimisticChatIdsRef = useRef<Set<string>>(new Set());
 
@@ -351,12 +352,23 @@ export function PersonaChatInterface({
     }
   }, [isLoadingMessages, messages.length]);
 
-  const lastMsgContent = messages.length > 0 ? messages[messages.length - 1]?.content?.length ?? 0 : 0;
   useEffect(() => {
-    if (!isLoadingMessages && messages.length > 0 && isStreaming) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!isStreaming) {
+      streamingTopMessageIdRef.current = null;
+      return;
     }
-  }, [isStreaming, messages.length, lastMsgContent, isLoadingMessages]);
+    if (isLoadingMessages || messages.length === 0) return;
+
+    const message = [...messages].reverse().find((m) => m.role === "assistant");
+    if (!message || streamingTopMessageIdRef.current === message.id) return;
+
+    streamingTopMessageIdRef.current = message.id;
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-message-id="${CSS.escape(message.id)}"]`)
+        ?.scrollIntoView({ behavior: "instant", block: "start" });
+    });
+  }, [isStreaming, messages, isLoadingMessages]);
 
   // ── Patch model info onto messages that don't have it ────────────────────
   // Covers two cases:

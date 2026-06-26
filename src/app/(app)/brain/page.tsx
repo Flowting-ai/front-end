@@ -1345,6 +1345,7 @@ function BrainPageInner() {
   // ── Active turn ──────────────────────────────────────────────────────────────
 
   const [userMessage, setUserMessage]             = useState('')
+  const [activeTurnScrollKey, setActiveTurnScrollKey] = useState(0)
   const [activePlanSteps, setActivePlanSteps]     = useState<PlanStep[]>([])
   const [activePlanSummary, setActivePlanSummary] = useState('')
   const [promptId, setPromptId]                   = useState('')
@@ -1641,7 +1642,12 @@ function BrainPageInner() {
   // don't hijack scroll position when they've intentionally scrolled up to read.
 
   const threadRef       = useRef<HTMLDivElement>(null)
+  const activeTurnRef   = useRef<HTMLDivElement>(null)
   const isNearBottomRef = useRef(true)
+  const shouldFollowThreadBottom = useCallback(() => {
+    if (!isNearBottomRef.current) return false
+    return ['idle', 'complete', 'cancelled', 'failed', 'paused', 'node-failed', 'fix-proposed'].includes(phaseRef.current)
+  }, [])
 
   // Attach scroll listener once on mount to keep isNearBottomRef in sync.
   useEffect(() => {
@@ -1668,13 +1674,13 @@ function BrainPageInner() {
     const inner = el.firstElementChild
     if (!inner) return
     const ro = new ResizeObserver(() => {
-      if (isNearBottomRef.current) {
+      if (shouldFollowThreadBottom()) {
         el.scrollTop = el.scrollHeight
       }
     })
     ro.observe(inner)
     return () => ro.disconnect()
-  }, [])
+  }, [shouldFollowThreadBottom])
 
   // ── Coalesced rAF scroll — forced / explicit triggers only ────────────────────
   // ResizeObserver handles all content-height-driven scrolls above.
@@ -1691,16 +1697,25 @@ function BrainPageInner() {
       if (!el) return
       const shouldForce = scrollForceRef.current
       scrollForceRef.current = false
-      if (shouldForce || isNearBottomRef.current) {
+      if (shouldForce || shouldFollowThreadBottom()) {
         el.scrollTop = el.scrollHeight
       }
     })
-  }, [])
+  }, [shouldFollowThreadBottom])
+
+  useEffect(() => {
+    if (!activeTurnScrollKey) return
+    const raf = requestAnimationFrame(() => {
+      activeTurnRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
+      isNearBottomRef.current = false
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [activeTurnScrollKey])
 
   // Phase transitions — force-scroll only when a card needs user action.
   useEffect(() => {
     if (phase === 'idle') return
-    if (phase === 'planning' || phase === 'paused' || phase === 'complete') {
+    if (phase === 'planning' || phase === 'paused') {
       scrollToBottom(true)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2829,6 +2844,7 @@ function BrainPageInner() {
     activeRunSeqRef.current = 0
     setActivePlanId(null)
 
+    setActiveTurnScrollKey((key) => key + 1)
     setUserMessage(displayInput ?? input)
     setUserAttachments((allDisplayFiles ?? files)?.map(f => ({ file_name: f.name, file_type: f.type, file_size: f.size })) ?? [])
     setPhase('thinking')
@@ -4100,7 +4116,7 @@ function BrainPageInner() {
   }
 
   const activeTurnContent = userMessage ? (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
+    <div ref={activeTurnRef} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
 
       {/* User message bubble */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
