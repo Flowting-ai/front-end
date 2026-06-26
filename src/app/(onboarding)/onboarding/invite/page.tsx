@@ -13,6 +13,7 @@ import { apiFetch } from "@/lib/api/client";
 import { MEMORY_USER_ENDPOINT } from "@/lib/config";
 import { Dropdown, DropdownFloat } from "@/components/Dropdown";
 import { OnboardingScreen } from "../_components/onboarding-shell";
+import { toast } from "sonner";
 
 const INVITE_ROLES = ["Member", "Admin"] as const;
 type InviteRole = (typeof INVITE_ROLES)[number];
@@ -49,9 +50,15 @@ export default function OnboardingInvitePage() {
             }
             const mappedRole: WorkspaceRole = role === 'Admin' ? 'admin' : 'member'
             await inviteTeamMembers(resolvedOrgId, teams[0].id, parsedEmails, mappedRole)
+            toast.success(
+              parsedEmails.length === 1
+                ? "Invite sent"
+                : `${parsedEmails.length} invites sent`,
+            )
           }
         } catch (inviteErr) {
           console.error('Team invite failed', inviteErr)
+          toast.error("Couldn't send invites — you can add members later in Org → Members.")
         }
       }
 

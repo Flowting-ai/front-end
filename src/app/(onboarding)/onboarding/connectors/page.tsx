@@ -159,10 +159,11 @@ export default function OnboardingConnectorsPage() {
           const validSlugs = [...selected].filter(s => activeSlugs.has(s));
           if (validSlugs.length > 0) {
             await updateOrgCatalog(resolvedOrgId, validSlugs);
+            toast.success("Connectors enabled for your organization");
           }
         }
       } catch {
-        toast.error("Couldn't save connector preferences — you can enable them later in Org → Connectors.");
+        toast.error("Couldn't enable connectors — you can adjust them later in Org → Connectors.");
       }
     }
     setConnectorCount(selected.size);
