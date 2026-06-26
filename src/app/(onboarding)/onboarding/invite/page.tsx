@@ -14,7 +14,7 @@ import { MEMORY_USER_ENDPOINT } from "@/lib/config";
 import { Dropdown, DropdownFloat } from "@/components/Dropdown";
 import { OnboardingScreen } from "../_components/onboarding-shell";
 
-const INVITE_ROLES = ["Member", "Admin", "Owner"] as const;
+const INVITE_ROLES = ["Member", "Admin"] as const;
 type InviteRole = (typeof INVITE_ROLES)[number];
 
 export default function OnboardingInvitePage() {
