@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
-import { listConnectors, updateOrgCatalog } from "@/lib/api/connectors";
+import { listOrgCatalog, updateOrgCatalog } from "@/lib/api/connectors";
 import { listOrganizations } from "@/lib/api/organization";
 import { toast } from "sonner";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
@@ -152,11 +152,18 @@ export default function OnboardingConnectorsPage() {
           resolvedOrgId = orgs[0]?.id ?? null;
         }
         if (resolvedOrgId) {
-          // Filter to slugs the backend actually has active — prevents 400s when
-          // a connector in our curated list is unknown or inactive on the backend.
-          const available = await listConnectors();
-          const activeSlugs = new Set(available.map(c => c.slug));
-          const validSlugs = [...selected].filter(s => activeSlugs.has(s));
+          // Use the org catalog (not GET /connectors which is personal-only and
+          // returns empty for new accounts) to determine which slugs the backend
+          // actually knows about — prevents 400s for inactive/unknown connectors.
+          const orgCatalog = await listOrgCatalog(resolvedOrgId);
+          let validSlugs: string[];
+          if (orgCatalog.length > 0) {
+            const knownSlugs = new Set(orgCatalog.map(c => c.slug));
+            validSlugs = [...selected].filter(s => knownSlugs.has(s));
+          } else {
+            // Org catalog not yet populated — send all selected and let the backend validate.
+            validSlugs = [...selected];
+          }
           if (validSlugs.length > 0) {
             await updateOrgCatalog(resolvedOrgId, validSlugs);
             toast.success("Connectors enabled for your organization");
