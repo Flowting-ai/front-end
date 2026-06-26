@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { createContext, use, useEffect, useState } from "react";
+import { createContext, use, useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   getAuth0AccessToken,
@@ -235,14 +235,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearInMemoryAccessToken();
   };
 
-  const refreshUser = async () => {
+  // Stable reference across renders — setUser (from useState) and the module-level
+  // fetchCurrentUser/mapProfileToUser never change, so empty deps are correct.
+  // Without useCallback every AuthProvider render creates a new function reference,
+  // which destabilises any useCallback/useEffect that lists refreshUser as a dep
+  // (e.g. billing page's `reload`), causing those effects to re-run on every render
+  // and creating an infinite API-call loop when the Stripe return timers are active.
+  const refreshUser = useCallback(async () => {
     try {
       const profile = await fetchCurrentUser();
       if (profile) setUser(mapProfileToUser(profile));
     } catch (error) {
       console.error("Failed to refresh user profile", error);
     }
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const logout = async () => {
     // Pass an explicit, slash-free returnTo. The Auth0 SDK (v4) catch-all at

@@ -114,7 +114,10 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       .catch(() => { if (mounted) setResolvedOrgId(null) })
       .finally(() => { if (mounted) setOrgIdResolved(true) })
     return () => { mounted = false }
-  }, [user])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- user object is intentionally excluded;
+  // only re-run when user identity (id) or org membership (orgId) changes, not on every
+  // refreshUser() call that returns a new object reference with the same data.
+  }, [user?.id, user?.orgId])
   const orgId = resolvedOrgId
 
   const [orgName,          setOrgName]          = useState('')
