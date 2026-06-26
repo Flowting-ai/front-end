@@ -45,6 +45,10 @@ export interface OrgMember {
   allocationUsed: number
   creditCap?: number
   joinedAt?: string
+  /** Backend invite ID for pending members — used to call the revoke endpoint. */
+  inviteId?: string | null
+  /** Team ID associated with the pending invite, needed for the revoke endpoint. */
+  inviteTeamId?: string | null
 }
 
 export interface TeamMembership {

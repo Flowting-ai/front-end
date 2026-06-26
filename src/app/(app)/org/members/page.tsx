@@ -25,7 +25,7 @@ import {
 import { toast }           from 'sonner'
 import { useOrg }           from '@/context/org-context'
 import { useAuth }          from '@/context/auth-context'
-import { setMemberRole, removeMember, getOrgSettings, setMemberCap } from '@/lib/api/organization'
+import { setMemberRole, removeMember, revokeTeamInvite, getOrgSettings, setMemberCap } from '@/lib/api/organization'
 import { inviteTeamMembers, addTeamEditor, removeTeamEditor } from '@/lib/api/teams'
 import { fetchProjects, type ApiProjectSummary } from '@/lib/api/projects'
 import { fetchTeamAccessSnapshot } from '@/lib/team-access'
@@ -1207,15 +1207,20 @@ export default function OrgMembersPage() {
     }
   }
 
-  // Revoke a pending invite. Pending invites are backed by a placeholder member
-  // record keyed by user_id, so the same DELETE member endpoint cancels them.
   const handleRevokeInvite = async (id: string) => {
     const prev = members
     const invited = prev.find(m => m.id === id)
     setMembers(ms => ms.filter(m => m.id !== id))
     if (!orgId) return
     try {
-      await removeMember(orgId, id)
+      // Pending invites live in the team invite table, not the member table.
+      // Use the invite-specific DELETE endpoint; fall back to removeMember only
+      // if invite metadata is missing (e.g. optimistic row before BE refresh).
+      if (invited?.inviteId && invited.inviteTeamId) {
+        await revokeTeamInvite(orgId, invited.inviteTeamId, invited.inviteId)
+      } else {
+        await removeMember(orgId, id)
+      }
       toast.success(`Invite to ${invited?.email || 'member'} revoked`)
     } catch (err) {
       setMembers(prev)

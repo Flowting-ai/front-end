@@ -15,6 +15,7 @@ import {
   ORG_MEMBER_ENDPOINT,
   ORG_MEMBER_ROLE_ENDPOINT,
   ORG_MEMBER_CAP_ENDPOINT,
+  ORG_TEAM_INVITE_ENDPOINT,
   ORG_OVERFLOW_APPROVE_ENDPOINT,
 } from '@/lib/config'
 import type { OrgRole, OrgSettings, OrgMember, OrgPlan, OrgPlanUsage, AuditLogEntry } from '@/types/teams'
@@ -170,6 +171,8 @@ function normalizeMember(m: MemberResponse): OrgMember {
       : toDisplayCredits(m.usage_total),
     allocationUsed:  inviteStatus === 'invite_sent' ? 0 : toDisplayCredits(m.credit_used),
     creditCap:       m.credit_cap != null ? toDisplayCredits(m.credit_cap) : undefined,
+    inviteId:        m.invite_id ?? null,
+    inviteTeamId:    m.team_id   ?? null,
   }
 }
 
@@ -402,6 +405,13 @@ export async function setMemberCap(orgId: string, memberId: string, cap: number 
 
 export async function removeMember(orgId: string, memberId: string): Promise<void> {
   await apiFetch(ORG_MEMBER_ENDPOINT(orgId, memberId), { method: 'DELETE' })
+}
+
+export async function revokeTeamInvite(orgId: string, teamId: string, inviteId: string): Promise<void> {
+  const res = await apiFetch(ORG_TEAM_INVITE_ENDPOINT(orgId, teamId, inviteId), { method: 'DELETE' })
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`Failed to revoke invite: ${res.status}`)
+  }
 }
 
 // ── Overflow ──────────────────────────────────────────────────────────────────
