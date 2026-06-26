@@ -6,7 +6,8 @@ import { useAuth } from "@/context/auth-context";
 import { useOnboarding, deriveRoleFit } from "@/context/onboarding-context";
 import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
-import { fetchTeams, inviteTeamMembers } from "@/lib/api/teams";
+import { fetchTeams, inviteTeamMembers, createTeam } from "@/lib/api/teams";
+import { listOrganizations } from "@/lib/api/organization";
 import type { WorkspaceRole } from "@/types/teams";
 import { apiFetch } from "@/lib/api/client";
 import { MEMORY_USER_ENDPOINT } from "@/lib/config";
@@ -31,13 +32,23 @@ export default function OnboardingInvitePage() {
       // Send invites best-effort — failure must never block onboarding completion.
       // Org creation is handled in pricing/confirmation — always before this page.
       const parsedEmails = emails.split(/[\n,]+/).map(e => e.trim()).filter(Boolean)
-      const orgIdForInvite = user?.orgId
-      if (parsedEmails.length > 0 && orgIdForInvite) {
+      if (parsedEmails.length > 0) {
         try {
-          const teams = await fetchTeams(orgIdForInvite)
-          if (teams.length > 0) {
+          // user.orgId is often absent from /users/me — fall back to listOrganizations.
+          let resolvedOrgId = user?.orgId ?? null
+          if (!resolvedOrgId) {
+            const orgs = await listOrganizations()
+            resolvedOrgId = orgs[0]?.id ?? null
+          }
+          if (resolvedOrgId) {
+            // Get the default team; create one if the org has none yet.
+            let teams = await fetchTeams(resolvedOrgId)
+            if (teams.length === 0) {
+              const newTeam = await createTeam(resolvedOrgId, 'General')
+              teams = [newTeam]
+            }
             const mappedRole: WorkspaceRole = role === 'Admin' ? 'admin' : 'member'
-            await inviteTeamMembers(orgIdForInvite, teams[0].id, parsedEmails, mappedRole)
+            await inviteTeamMembers(resolvedOrgId, teams[0].id, parsedEmails, mappedRole)
           }
         } catch (inviteErr) {
           console.error('Team invite failed', inviteErr)

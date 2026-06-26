@@ -567,10 +567,19 @@ export default function BillingPage() {
 
           {/* ── Page header (static) ── */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ paddingLeft: 4 }}>
-              <h1 style={{ ...titleH(24), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ paddingLeft: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <h1 style={{ ...titleH(24), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
                 Usage &amp; Billing
               </h1>
+              {liveIsTeamAccount && orgReady && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: 13, lineHeight: '20px', color: C.muted }}>Your Role</span>
+                  <Badge
+                    label={orgRole === 'owner' ? 'Owner' : orgRole === 'admin' ? 'Admin' : 'Member'}
+                    color={orgRole === 'owner' ? 'Green' : orgRole === 'admin' ? 'Blue' : 'Neutral'}
+                  />
+                </div>
+              )}
             </div>
             <div style={{ padding: '4px 6px' }}>
               <p style={{ fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0 }}>

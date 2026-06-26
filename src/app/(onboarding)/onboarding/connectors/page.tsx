@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
 import { updateOrgCatalog } from "@/lib/api/connectors";
+import { listOrganizations } from "@/lib/api/organization";
 import { toast } from "sonner";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
@@ -140,9 +141,17 @@ export default function OnboardingConnectorsPage() {
 
   async function handleContinue() {
     setContinuing(true);
-    if (selected.size > 0 && user?.orgId) {
+    if (selected.size > 0) {
       try {
-        await updateOrgCatalog(user.orgId, [...selected]);
+        // user.orgId is often absent from /users/me — fall back to listOrganizations.
+        let resolvedOrgId = user?.orgId ?? null;
+        if (!resolvedOrgId) {
+          const orgs = await listOrganizations();
+          resolvedOrgId = orgs[0]?.id ?? null;
+        }
+        if (resolvedOrgId) {
+          await updateOrgCatalog(resolvedOrgId, [...selected]);
+        }
       } catch {
         toast.error("Couldn't save connector preferences — you can enable them later in Org → Connectors.");
       }
