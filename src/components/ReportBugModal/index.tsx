@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useForm, ValidationError } from '@formspree/react'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { toast } from 'sonner'
@@ -12,25 +13,14 @@ const SHADOW_PILL_ACTIVE = '0px 0px 0px 1px var(--neutral-black, #000), 0px 1.09
 
 type Severity = 'low' | 'medium' | 'high'
 
-function InputField({ label, value, onChange, placeholder, type = 'text' }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
-      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>
-        {label}
-      </p>
-      <div style={{ display: 'flex', alignItems: 'center', background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
-        <input
-          type={type}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
-          style={{ flex: '1 0 0', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', padding: '0 2px' }}
-        />
-      </div>
-    </div>
-  )
+const labelStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0,
+}
+const inputStyle: React.CSSProperties = {
+  flex: '1 0 0', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', padding: '0 2px',
+}
+const fieldErrorStyle: React.CSSProperties = {
+  display: 'block', fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: '#dc2626', marginTop: 2,
 }
 
 function SeverityPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
@@ -58,31 +48,31 @@ function SeverityPill({ label, active, onClick }: { label: string; active: boole
 
 export interface ReportBugModalProps {
   onClose: () => void
-  /** Called with form data on submit. Wire up your bug-tracker / support API here. */
-  onSubmit?: (data: { email: string; name: string; severity: Severity; description: string }) => Promise<void>
 }
 
-export function ReportBugModal({ onClose, onSubmit }: ReportBugModalProps) {
-  const [email,       setEmail]       = useState('')
-  const [name,        setName]        = useState('')
-  const [severity,    setSeverity]    = useState<Severity>('low')
-  const [description, setDescription] = useState('')
-  const [submitting,  setSubmitting]  = useState(false)
+export function ReportBugModal({ onClose }: ReportBugModalProps) {
+  const [severity, setSeverity] = useState<Severity>('low')
+  const [state, handleSubmit] = useForm('xjgjgopw')
 
-  const handleSubmit = async () => {
-    if (!email.trim())       { toast.error('Work email is required.');      return }
-    if (!description.trim()) { toast.error('Please describe what went wrong.'); return }
-    setSubmitting(true)
-    try {
-      await onSubmit?.({ email: email.trim(), name: name.trim(), severity, description: description.trim() })
+  // Success: toast + close
+  useEffect(() => {
+    if (state.succeeded) {
       toast.success("Bug reported — we'll look into it soon.")
       onClose()
-    } catch {
-      toast.error('Something went wrong. Please try again.')
-    } finally {
-      setSubmitting(false)
     }
-  }
+  }, [state.succeeded, onClose])
+
+  // Form-level errors (server / spam / network) → toast.
+  // @formspree/react v3: state.errors is a SubmissionErrors instance; getFormErrors()
+  // returns {code, message}[] — not strings — so we extract .message before toasting.
+  useEffect(() => {
+    if (state.submitting || state.succeeded) return
+    const formErrs: Array<{ code: string; message: string }> =
+      (state.errors?.getFormErrors?.() as Array<{ code: string; message: string }>) ?? []
+    if (formErrs.length > 0) {
+      toast.error(formErrs[0].message ?? 'Submission failed. Please try again.')
+    }
+  }, [state.errors, state.submitting, state.succeeded])
 
   return (
     <div
@@ -93,70 +83,90 @@ export function ReportBugModal({ onClose, onSubmit }: ReportBugModalProps) {
         className="kaya-scrollbar"
         style={{ background: 'var(--neutral-50, #f7f2ed)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto' }}
       >
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <form onSubmit={handleSubmit}>
+          <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-          {/* Header */}
-          <div style={{ padding: '12px 12px 0', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-            <p style={{ flex: '1 0 0', fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-              Report a bug
-            </p>
-            <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex', color: 'var(--neutral-700)', flexShrink: 0 }}>
-              <CancelOneIcon size={20} />
-            </button>
-          </div>
-
-          {/* Subtitle */}
-          <div style={{ padding: '0 12px 24px' }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-              Something not working right?
-            </p>
-          </div>
-
-          {/* Form container */}
-          <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-            {/* Row 1: Work email + Full name */}
-            <div style={{ display: 'flex', gap: 12 }}>
-              <InputField label="Work email" value={email} onChange={setEmail} placeholder="you@company.com" type="email" />
-              <InputField label="Full name"  value={name}  onChange={setName}  placeholder="Jane Smith" />
+            {/* Header */}
+            <div style={{ padding: '12px 12px 0', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <p style={{ flex: '1 0 0', fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+                Report a bug
+              </p>
+              <button type="button" onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex', color: 'var(--neutral-700)', flexShrink: 0 }}>
+                <CancelOneIcon size={20} />
+              </button>
             </div>
 
-            {/* What went wrong — tall textarea */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>
-                What went wrong?
+            {/* Subtitle */}
+            <div style={{ padding: '0 12px 24px' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                Something not working right?
               </p>
-              <textarea
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="Describe what happened and what you expected instead…"
-                rows={5}
-                style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'white', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
-              />
             </div>
 
-            {/* Severity pills */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', margin: 0 }}>
-                Severity
-              </p>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <SeverityPill label="Low"    active={severity === 'low'}    onClick={() => setSeverity('low')} />
-                <SeverityPill label="Medium" active={severity === 'medium'} onClick={() => setSeverity('medium')} />
-                <SeverityPill label="High"   active={severity === 'high'}   onClick={() => setSeverity('high')} />
+            {/* Form container */}
+            <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+              {/* Row 1: Work email + Full name */}
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+                  <label htmlFor="rb-email" style={labelStyle}>Work email</label>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+                    <input id="rb-email" type="email" name="email" placeholder="you@company.com" required style={inputStyle} />
+                  </div>
+                  <span style={fieldErrorStyle}>
+                    <ValidationError field="email" errors={state.errors} />
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+                  <label htmlFor="rb-name" style={labelStyle}>Full name</label>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
+                    <input id="rb-name" type="text" name="name" placeholder="Jane Smith" style={inputStyle} />
+                  </div>
+                  <span style={fieldErrorStyle}>
+                    <ValidationError field="name" errors={state.errors} />
+                  </span>
+                </div>
               </div>
+
+              {/* What went wrong — tall textarea */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label htmlFor="rb-message" style={labelStyle}>What went wrong?</label>
+                <textarea
+                  id="rb-message"
+                  name="message"
+                  placeholder="Describe what happened and what you expected instead…"
+                  rows={5}
+                  required
+                  style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none', background: 'white', borderRadius: 10, padding: '9px 12px', boxShadow: SHADOW_INPUT, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', resize: 'none' }}
+                />
+                <span style={fieldErrorStyle}>
+                  <ValidationError field="message" errors={state.errors} />
+                </span>
+              </div>
+
+              {/* Severity pills */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <p style={labelStyle}>Severity</p>
+                <input type="hidden" name="severity" value={severity} />
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <SeverityPill label="Low"    active={severity === 'low'}    onClick={() => setSeverity('low')} />
+                  <SeverityPill label="Medium" active={severity === 'medium'} onClick={() => setSeverity('medium')} />
+                  <SeverityPill label="High"   active={severity === 'high'}   onClick={() => setSeverity('high')} />
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '24px 0 12px' }}>
+              <Button variant="default" fluid type="submit" loading={state.submitting} disabled={state.submitting}>
+                Submit bug
+              </Button>
             </div>
 
           </div>
-
-          {/* Footer */}
-          <div style={{ padding: '24px 0 12px' }}>
-            <Button variant="default" fluid onClick={handleSubmit} loading={submitting} disabled={submitting}>
-              Submit bug
-            </Button>
-          </div>
-
-        </div>
+        </form>
       </div>
     </div>
   )
