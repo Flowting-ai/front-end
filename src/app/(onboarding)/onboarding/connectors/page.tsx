@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
-import { updateOrgCatalog } from "@/lib/api/connectors";
+import { listConnectors, updateOrgCatalog } from "@/lib/api/connectors";
 import { listOrganizations } from "@/lib/api/organization";
 import { toast } from "sonner";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
@@ -18,15 +18,17 @@ type ConnectorDef = {
   logoPath: string;
 };
 
+// id = backend connector slug (must match exactly what the API expects).
+// logoPath = local public asset path (independent of the slug format).
 const CONNECTORS: ConnectorDef[] = [
-  { id: "slack",              name: "Slack",         category: "Messaging",            logoPath: "/connector-logos/slack.svg"              },
-  { id: "google-sheets",      name: "Google Sheets", category: "Productivity",         logoPath: "/connector-logos/google-sheets.svg"      },
-  { id: "notion",             name: "Notion",        category: "Productivity",         logoPath: "/connector-logos/notion.svg"             },
-  { id: "stripe",             name: "Stripe",        category: "Payments",             logoPath: "/connector-logos/stripe.svg"             },
-  { id: "clickup",            name: "ClickUp",       category: "Project Management",   logoPath: "/connector-logos/clickup.svg"            },
-  { id: "google-drive",       name: "Google Drive",  category: "Storage",              logoPath: "/connector-logos/google-drive.svg"       },
-  { id: "microsoft-onedrive", name: "OneDrive",      category: "Storage",              logoPath: "/connector-logos/microsoft-onedrive.svg" },
-  { id: "dropbox",            name: "Dropbox",       category: "Storage",              logoPath: "/connector-logos/dropbox.svg"            },
+  { id: "slack",        name: "Slack",         category: "Messaging",          logoPath: "/connector-logos/slack.svg"              },
+  { id: "googlesheets", name: "Google Sheets", category: "Productivity",       logoPath: "/connector-logos/google-sheets.svg"      },
+  { id: "notion",       name: "Notion",        category: "Productivity",       logoPath: "/connector-logos/notion.svg"             },
+  { id: "stripe",       name: "Stripe",        category: "Payments",           logoPath: "/connector-logos/stripe.svg"             },
+  { id: "clickup",      name: "ClickUp",       category: "Project Management", logoPath: "/connector-logos/clickup.svg"            },
+  { id: "googledrive",  name: "Google Drive",  category: "Storage",            logoPath: "/connector-logos/google-drive.svg"       },
+  { id: "one_drive",    name: "OneDrive",      category: "Storage",            logoPath: "/connector-logos/microsoft-onedrive.svg" },
+  { id: "dropbox",      name: "Dropbox",       category: "Storage",            logoPath: "/connector-logos/dropbox.svg"            },
 ];
 
 // ── Card ────────────────────────────────────────────────────────────────────────
@@ -150,7 +152,14 @@ export default function OnboardingConnectorsPage() {
           resolvedOrgId = orgs[0]?.id ?? null;
         }
         if (resolvedOrgId) {
-          await updateOrgCatalog(resolvedOrgId, [...selected]);
+          // Filter to slugs the backend actually has active — prevents 400s when
+          // a connector in our curated list is unknown or inactive on the backend.
+          const available = await listConnectors();
+          const activeSlugs = new Set(available.map(c => c.slug));
+          const validSlugs = [...selected].filter(s => activeSlugs.has(s));
+          if (validSlugs.length > 0) {
+            await updateOrgCatalog(resolvedOrgId, validSlugs);
+          }
         }
       } catch {
         toast.error("Couldn't save connector preferences — you can enable them later in Org → Connectors.");
