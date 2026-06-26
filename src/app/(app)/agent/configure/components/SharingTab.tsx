@@ -222,7 +222,18 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
   const { orgId, teams } = useOrg()
   const editableTeams = teams.filter(team => team.canEdit)
   const maxTokenLimit = getShareTokenLimit(user?.planType)
-  const { setHasShareLink, publishedVersionId } = usePersonaConfigure()
+  const { setHasShareLink, publishedVersionId, panelsLocked } = usePersonaConfigure()
+
+  // Team visibility requires a saved version. panelsLocked is true until the user
+  // saves a version (or the agent is already published) — same gate used by the
+  // Test Chat / AI Suggestions tools. Until then, choosing Team prompts a save.
+  function handleChooseTeam() {
+    if (panelsLocked) {
+      toast.error('Save a version first to set team visibility.')
+      return
+    }
+    setVisibility('team')
+  }
 
   const [visibility,        setVisibility]        = useState<Visibility>('private')
   const [selectedTeamIds,   setSelectedTeamIds]   = useState<string[]>([])
@@ -502,11 +513,11 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
             <div
               role={!orgId || editableTeams.length === 0 ? undefined : 'button'}
               tabIndex={!orgId || editableTeams.length === 0 ? undefined : 0}
-              onClick={!orgId || editableTeams.length === 0 ? undefined : () => setVisibility('team')}
+              onClick={!orgId || editableTeams.length === 0 ? undefined : handleChooseTeam}
               onKeyDown={!orgId || editableTeams.length === 0 ? undefined : e => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  setVisibility('team')
+                  handleChooseTeam()
                 }
               }}
               style={{

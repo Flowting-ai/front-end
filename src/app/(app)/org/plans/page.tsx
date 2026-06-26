@@ -12,6 +12,8 @@ import {
   fetchBilling,
   openBillingPortal,
   chargeTopUp,
+  cancelSubscription,
+  resumeSubscription,
   type BillingInfo,
 } from '@/lib/api/stripe'
 import { getOrgSettings, setOrgPoolCap, updateOrgSettings } from '@/lib/api/organization'
@@ -330,6 +332,9 @@ export default function OrgBillingPage() {
   const [capModalOpen,      setCapModalOpen]      = useState(false)
   const [savingCap,         setSavingCap]         = useState(false)
   const [contactSalesOpen,  setContactSalesOpen]  = useState(false)
+  const [showCancelDialog,  setShowCancelDialog]  = useState(false)
+  const [isCanceling,       setIsCanceling]       = useState(false)
+  const [isResuming,        setIsResuming]        = useState(false)
 
   const [adminBillingPerms, setAdminBillingPerms] = useState<AdminBillingPerms>({
     canTopUp:         true,
@@ -433,6 +438,44 @@ export default function OrgBillingPage() {
     else toast.error('Could not open billing portal.')
   }
 
+  const reloadBilling = () => fetchBilling().then(setBilling).catch(console.error)
+
+  // Cancel / resume the organization subscription — same flow as Settings → Billing.
+  const handleCancelSubscription = async () => {
+    if (!isOwner) {
+      toast.error('Only the organization owner can manage billing.')
+      return
+    }
+    setIsCanceling(true)
+    try {
+      await cancelSubscription()
+      setShowCancelDialog(false)
+      toast.success(`Plan canceled — access continues until ${nextBilling}`)
+      await reloadBilling()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to cancel subscription')
+    } finally {
+      setIsCanceling(false)
+    }
+  }
+
+  const handleResumeSubscription = async () => {
+    if (!isOwner) {
+      toast.error('Only the organization owner can manage billing.')
+      return
+    }
+    setIsResuming(true)
+    try {
+      await resumeSubscription()
+      toast.success('Subscription resumed successfully')
+      await reloadBilling()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to resume subscription')
+    } finally {
+      setIsResuming(false)
+    }
+  }
+
   const handlePermToggle = async (key: keyof AdminBillingPerms) => {
     if (!orgId) return
     const prev = adminBillingPerms
@@ -521,6 +564,11 @@ export default function OrgBillingPage() {
       onContactSales={() => setContactSalesOpen(true)}
       onUpgrade={() => router.push('/org/change-plan')}
       onRequestPlanChange={handleRequestPlanChange}
+      cancelAtPeriodEnd={billing?.cancel_at_period_end ?? false}
+      cancelsOnLabel={nextBilling}
+      isResuming={isResuming}
+      onCancelPlan={() => setShowCancelDialog(true)}
+      onResumePlan={() => { void handleResumeSubscription() }}
     />
   )
 
@@ -674,6 +722,42 @@ export default function OrgBillingPage() {
       {contactSalesOpen && (
         <ContactSalesModal onClose={() => setContactSalesOpen(false)} />
       )}
+      {showCancelDialog && (
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+        <div
+          onClick={() => { if (!isCanceling) setShowCancelDialog(false) }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.28)',
+            backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}
+        >
+          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--neutral-white, #fff)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)',
+              boxShadow: SHADOW_MODAL, display: 'flex', flexDirection: 'column', gap: 20,
+            }}
+          >
+            <div>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
+                Cancel subscription?
+              </p>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
+                Your plan stays active until <strong style={{ color: 'var(--neutral-900)' }}>{nextBilling}</strong>. After that you lose access to paid features.
+              </p>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <Button variant="secondary" disabled={isCanceling} onClick={() => setShowCancelDialog(false)}>
+                Keep plan
+              </Button>
+              <Button variant="danger" loading={isCanceling} onClick={() => { void handleCancelSubscription() }}>
+                Yes, cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {isOwner && isEnterprise && capModalOpen && (
         <SpendCapModal
           currentCapUsd={overageCapUsd}
@@ -823,6 +907,11 @@ function TeamsHero({
   onContactSales,
   onUpgrade,
   onRequestPlanChange,
+  cancelAtPeriodEnd,
+  cancelsOnLabel,
+  isResuming,
+  onCancelPlan,
+  onResumePlan,
 }: {
   isOwner:             boolean
   nextBilling:         string
@@ -835,6 +924,11 @@ function TeamsHero({
   onContactSales:      () => void
   onUpgrade:           () => void
   onRequestPlanChange: () => void
+  cancelAtPeriodEnd:   boolean
+  cancelsOnLabel:      string
+  isResuming:          boolean
+  onCancelPlan:        () => void
+  onResumePlan:        () => void
 }) {
   const tier = TIERS[tierIdx] ?? TIERS[0]
   return (
@@ -899,7 +993,39 @@ function TeamsHero({
               </button>
             </p>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <Button variant="secondary" onClick={onContactSales}>Contact Sales Team</Button>
+              {cancelAtPeriodEnd ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)' }}>
+                    Cancels on {cancelsOnLabel}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onResumePlan}
+                    disabled={isResuming}
+                    style={{
+                      background: 'none', border: 'none', padding: 0,
+                      cursor: isResuming ? 'not-allowed' : 'pointer',
+                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
+                      color: 'var(--blue-700)', textDecoration: 'underline', opacity: isResuming ? 0.6 : 1,
+                    }}
+                  >
+                    {isResuming ? 'Resuming…' : 'Resume'}
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onCancelPlan}
+                  style={{
+                    background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
+                    color: 'var(--red-700)', textDecoration: 'underline', whiteSpace: 'nowrap',
+                  }}
+                >
+                  Cancel plan
+                </button>
+              )}
+              {/* <Button variant="secondary" onClick={onContactSales}>Contact Sales Team</Button> */}
               <Button variant="default" onClick={onUpgrade}>Upgrade plan</Button>
             </div>
           </div>

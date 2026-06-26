@@ -408,6 +408,77 @@ function SharedAgentCard({
   )
 }
 
+// ── SharedByMeCard — one card per agent the user has shared with others ───────
+
+function SharedByMeCard({
+  persona,
+  shares,
+  fallbackName,
+  onUseInChat,
+  onManage,
+}: {
+  persona:      Persona | undefined
+  shares:       PersonaShare[]
+  fallbackName: string
+  onUseInChat:  () => void
+  onManage:     () => void
+}) {
+  const activeShares = shares.filter(s => s.is_active)
+  const isActive     = activeShares.length > 0
+
+  // Aggregate credit usage across shares that carry a cap.
+  const capped       = shares.filter(s => s.credit_limit !== null)
+  const totalUsed    = capped.reduce((sum, s) => sum + s.credit_used, 0)
+  const totalLimit   = capped.reduce((sum, s) => sum + (s.credit_limit ?? 0), 0)
+
+  // Soonest upcoming expiry among active shares (else the latest seen).
+  const expiry = (isActive ? activeShares : shares)
+    .map(s => s.expires_at)
+    .sort()[isActive ? 0 : shares.length - 1]
+
+  const linkLabel = `${shares.length} link${shares.length === 1 ? '' : 's'} shared`
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <PersonaCard
+        style={{ width: '100%' }}
+        variant="default"
+        avatarSeed={persona?.activeVersionId ?? shares[0].persona_id}
+        name={persona?.name ?? shares[0].persona_name ?? fallbackName}
+        handle={persona?.handle.replace(/^@/, '') ?? ''}
+        description={persona?.description}
+        avatarUrl={persona?.imageUrl ?? undefined}
+        shared
+        tags={persona?.tags}
+        paused={persona?.isPaused}
+        onUseInChat={onUseInChat}
+        onLink={onManage}
+      />
+
+      {/* ── Share context strip ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px', flexWrap: 'wrap', rowGap: 4 }}>
+        <Badge color={isActive ? 'Green' : 'Neutral'}>{isActive ? 'Active' : 'Inactive'}</Badge>
+        <span style={{ color: 'var(--neutral-300)', fontSize: 12, flexShrink: 0 }}>·</span>
+        <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)', flexShrink: 0 }}>
+          {linkLabel}
+        </span>
+        {expiry && (
+          <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--neutral-400)', flexShrink: 0 }}>
+            {fmtExpiry(expiry)}
+          </span>
+        )}
+      </div>
+
+      {/* ── Credit bar — only when at least one share has a cap ── */}
+      {capped.length > 0 && totalLimit > 0 && (
+        <div style={{ padding: '0 4px' }}>
+          <TokenBudgetBar used={totalUsed} limit={totalLimit} size="sm" showLabel />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Delete confirmation dialog ────────────────────────────────────────────────
 
 function DeleteDialog({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }) {
@@ -552,6 +623,13 @@ export default function PersonasPage() {
   const [receivedShares,   setReceivedShares]   = useState<ReceivedShareResponse[]>([])
   const [receivedLoading,  setReceivedLoading]  = useState(false)
 
+  // Shared tab filter — "with-me" (received) vs "with-others" (the user's own shares).
+  const [sharedFilter,     setSharedFilter]     = useState<'with-me' | 'with-others'>('with-me')
+  const [sharedFilterOpen, setSharedFilterOpen] = useState(false)
+  // Shares the user created (GET /persona-shares) — drives the "with-others" view.
+  const [sentShares,       setSentShares]       = useState<PersonaShare[]>([])
+  const [sentLoading,      setSentLoading]      = useState(false)
+
   // Close the pinboard whenever the personas page is mounted.
   useEffect(() => { closePinboard() }, [closePinboard])
 
@@ -624,6 +702,18 @@ export default function PersonasPage() {
       .finally(() => setReceivedLoading(false))
   }, [activeTab, pathname])
 
+  // Fetch the user's own shares for the "with-others" view. Re-fetches whenever
+  // that filter is selected on the shared tab so the list stays fresh; personas
+  // (loaded by the main effect) supply the resolved name / handle / avatar.
+  useEffect(() => {
+    if (activeTab !== 'shared' || sharedFilter !== 'with-others') return
+    setSentLoading(true)
+    listShares()
+      .then(setSentShares)
+      .catch(console.error)
+      .finally(() => setSentLoading(false))
+  }, [activeTab, sharedFilter, pathname])
+
   // Silently load all shares + models once for the filter panel.
   // The super-links tab has its own loading effect that will overwrite shares on activation.
   useEffect(() => {
@@ -676,6 +766,20 @@ export default function PersonasPage() {
     for (const p of personas) map[p.id] = p
     return map
   }, [personas])
+
+  // "Shared with others" — group the user's own shares by the agent they belong
+  // to, so each shared agent shows once even when it has several links/emails.
+  const sharedByMeAgents = useMemo(() => {
+    const groups = new Map<string, { repoId: string; persona?: Persona; shares: PersonaShare[] }>()
+    for (const share of sentShares) {
+      const info   = versionToPersona[share.persona_id]
+      const repoId = info?.repoId ?? share.persona_id
+      const group  = groups.get(repoId) ?? { repoId, persona: personaByRepoId[repoId], shares: [] }
+      group.shares.push(share)
+      groups.set(repoId, group)
+    }
+    return Array.from(groups.values())
+  }, [sentShares, versionToPersona, personaByRepoId])
 
   // Set of persona repo IDs that have at least one active super link.
   const activeShareRepoIds = useMemo(() => {
@@ -928,7 +1032,11 @@ export default function PersonasPage() {
                 color: '#1a1916',
                 margin: 0,
               }}>
-                {activeTab === 'super-links' ? 'Super Links' : activeTab === 'shared' ? 'Shared with me' : 'Agents'}
+                {activeTab === 'super-links'
+                  ? 'Super Links'
+                  : activeTab === 'shared'
+                    ? (sharedFilter === 'with-others' ? 'Shared with others' : 'Shared with me')
+                    : 'Agents'}
               </h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {activeTab === 'super-links' && (
@@ -967,7 +1075,25 @@ export default function PersonasPage() {
                       )}
                     </Dropdown>
                   </Dropdown.Float>
-                ) : activeTab === 'shared' ? null : (
+                ) : activeTab === 'shared' ? (
+                  <Dropdown.Float
+                    open={sharedFilterOpen}
+                    onOpenChange={setSharedFilterOpen}
+                    placement="bottom-end"
+                    trigger={
+                      <Button variant="secondary" rightIcon={<ArrowDownOneIcon size={16} />}>
+                        {sharedFilter === 'with-others' ? 'Shared with others' : 'Shared with me'}
+                      </Button>
+                    }
+                  >
+                    <Dropdown style={{ minWidth: 200 }}>
+                      <Dropdown.Section>
+                        <Dropdown.Item label="Shared with me"     selected={sharedFilter === 'with-me'}     onClick={() => { setSharedFilter('with-me');     setSharedFilterOpen(false) }} fluid />
+                        <Dropdown.Item label="Shared with others" selected={sharedFilter === 'with-others'} onClick={() => { setSharedFilter('with-others'); setSharedFilterOpen(false) }} fluid />
+                      </Dropdown.Section>
+                    </Dropdown>
+                  </Dropdown.Float>
+                ) : (
                   <Button
                     variant="default"
                     leftIcon={<PlusSignIcon size={16} />}
@@ -1350,8 +1476,8 @@ export default function PersonasPage() {
 
           {/* ── Recommended for you ── (hidden) */}
 
-          {/* ── Shared tab ── */}
-          {activeTab === 'shared' && (
+          {/* ── Shared tab · Shared with me ── */}
+          {activeTab === 'shared' && sharedFilter === 'with-me' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {receivedLoading ? (
                 /* Skeleton — card (140px) + strip (~30px) + gap (8px) = ~178px per cell */
@@ -1386,6 +1512,47 @@ export default function PersonasPage() {
                       />
                     )
                   })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Shared tab · Shared with others ── */}
+          {activeTab === 'shared' && sharedFilter === 'with-others' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {sentLoading ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 314px))', justifyContent: 'center', gap: 16 }}>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ height: 140, borderRadius: 16, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
+                      <div style={{ height: 18, borderRadius: 8, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite', width: '60%' }} />
+                    </div>
+                  ))}
+                </div>
+              ) : sharedByMeAgents.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '64px 24px' }}>
+                  <p style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, textAlign: 'center' }}>
+                    You haven&apos;t shared any agents
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: '22px', color: 'var(--neutral-500)', textAlign: 'center', maxWidth: 400, margin: 0 }}>
+                    Generate a Super Link from any agent to share it with others — shared agents will show up here.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 314px))', justifyContent: 'center', gap: 16 }}>
+                  {sharedByMeAgents.map(group => (
+                    <SharedByMeCard
+                      key={group.repoId}
+                      persona={group.persona}
+                      shares={group.shares}
+                      fallbackName="Agent"
+                      onUseInChat={() => push(`/agents/${group.repoId}/chat`)}
+                      onManage={() => {
+                        const p = group.persona
+                        push(`/agent/configure/sharing?repoId=${group.repoId}${p ? `&name=${encodeURIComponent(p.name)}${p.activeVersionId ? `&versionId=${p.activeVersionId}` : ''}` : ''}`)
+                      }}
+                    />
+                  ))}
                 </div>
               )}
             </div>

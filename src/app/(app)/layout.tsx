@@ -9,6 +9,7 @@ import { ModelSelectorProvider } from "@/context/model-selector-context";
 import { PresetModelSelectorDialog } from "@/components/chat/PresetModelSelectorDialog";
 import { ProjectsProvider } from "@/context/projects-context";
 import { OnboardingGuard } from "@/components/shared/OnboardingGuard";
+import { PlanUpgradeToast } from "@/components/shared/PlanUpgradeToast";
 import { SearchProvider } from "@/context/search-context";
 import { OrgProvider } from "@/context/org-context";
 
@@ -29,6 +30,7 @@ export default function AppGroupLayout({
                   <SearchProvider>
                     <AppLayout>{children}</AppLayout>
                     <PresetModelSelectorDialog />
+                    <PlanUpgradeToast />
                   </SearchProvider>
                 </ModelSelectorProvider>
               </CompareProvider>

@@ -84,7 +84,7 @@ export default function PricingConfirmationPage() {
 function PricingConfirmationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, logout, refreshUser } = useAuth()
+  const { user, logout, refreshUser, isHydrated } = useAuth()
 
   const planParam = searchParams.get('plan') ?? ''
   const billing   = searchParams.get('billing')
@@ -96,6 +96,23 @@ function PricingConfirmationContent() {
   const billingLabel = billing === 'annual' ? 'Annual' : 'Monthly'
 
   const ownerName = user?.firstName?.trim() || user?.name?.split(' ')[0]?.trim() || ''
+
+  // ── Flow decision ────────────────────────────────────────────────────────────
+  // An already-onboarded user is upgrading, not signing up.
+  const isExistingUser = !!user?.onboardingCompleted
+  // A team/org plan with no org yet still needs the workspace-setup onboarding so
+  // we can collect workspace details — this covers both first-time team signups
+  // and an existing individual user upgrading to a team plan.
+  const needsWorkspaceSetup = isTeamPlan && !user?.orgId
+  // Simple upgrade = existing user who does NOT need workspace setup (individual→
+  // individual, or team→team where the org already exists). These go straight back
+  // into the app with a "plan upgraded" toast instead of any onboarding screen.
+  const isSimpleUpgrade = !isFailed && isExistingUser && !needsWorkspaceSetup
+  // Prefer the plan from the URL; fall back to the refreshed user plan_type.
+  const refreshedPlanLabel = user?.planType
+    ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
+    : null
+  const effectivePlanLabel = planLabel ?? refreshedPlanLabel
 
   // On successful payment: mark onboarding complete, set bypass cookie, refresh user.
   // Marking onboarding_completed here is essential for team users — they never hit
@@ -118,6 +135,32 @@ function PricingConfirmationContent() {
     }
     void run()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Existing user, simple upgrade → skip the onboarding confirmation screen
+  // entirely. Stash the new plan for a toast and drop them back into the app.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!isHydrated || !isSimpleUpgrade) return
+    try {
+      sessionStorage.setItem('souvenir_plan_upgraded', JSON.stringify({
+        plan:    effectivePlanLabel,
+        billed:  !!billing,
+        billing: billingLabel,
+      }))
+    } catch { /* sessionStorage may be unavailable */ }
+    router.replace('/chat')
+  }, [isHydrated, isSimpleUpgrade])
+
+  // Wait for auth to hydrate before deciding which flow to show — otherwise an
+  // existing user can briefly see the first-time "Continue with onboarding" CTA.
+  // Simple upgrades render the same spinner while the redirect above fires.
+  if (!isHydrated || isSimpleUpgrade) {
+    return (
+      <Shell>
+        <p style={{ fontFamily: BODY, fontSize: '14px', color: C.muted }}>Loading…</p>
+      </Shell>
+    )
+  }
 
   const iconBg  = isFailed ? C.redBg   : C.greenBg
   const heading = isFailed ? 'Payment Failed' : 'Payment Successful!'
