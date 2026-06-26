@@ -7,6 +7,8 @@ import { useOnboarding, deriveRoleFit } from "@/context/onboarding-context";
 import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
 import { createOrganization } from "@/lib/api/organization";
+import { fetchTeams, inviteTeamMembers } from "@/lib/api/teams";
+import type { WorkspaceRole } from "@/types/teams";
 import { apiFetch } from "@/lib/api/client";
 import { MEMORY_USER_ENDPOINT } from "@/lib/config";
 import { Dropdown, DropdownFloat } from "@/components/Dropdown";
@@ -17,7 +19,7 @@ type InviteRole = (typeof INVITE_ROLES)[number];
 
 export default function OnboardingInvitePage() {
   const { push } = useRouter();
-  const { refreshUser, logout } = useAuth();
+  const { refreshUser, logout, user } = useAuth();
   const { data } = useOnboarding();
   const [emails, setEmails] = useState("");
   const [role, setRole] = useState<InviteRole>("Member");
@@ -30,7 +32,7 @@ export default function OnboardingInvitePage() {
       // Create the team's organization so the backend stamps org_id on the
       // profile — that unlocks the Organization settings (members / teams /
       // plans). Best-effort: a failure must NOT block onboarding completion.
-      if (data.companyName.trim().length > 0) {
+      if (data.companyName.trim().length > 0 && !user?.orgId) {
         try {
           await createOrganization({
             name: data.companyName.trim(),
@@ -38,6 +40,21 @@ export default function OnboardingInvitePage() {
           });
         } catch (orgErr) {
           console.error("Organization creation failed", orgErr);
+        }
+      }
+
+      // Send invites best-effort — failure must never block onboarding completion.
+      const parsedEmails = emails.split(/[\n,]+/).map(e => e.trim()).filter(Boolean)
+      const orgIdForInvite = user?.orgId
+      if (parsedEmails.length > 0 && orgIdForInvite) {
+        try {
+          const teams = await fetchTeams(orgIdForInvite)
+          if (teams.length > 0) {
+            const mappedRole: WorkspaceRole = role === 'Admin' ? 'admin' : 'member'
+            await inviteTeamMembers(orgIdForInvite, teams[0].id, parsedEmails, mappedRole)
+          }
+        } catch (inviteErr) {
+          console.error('Team invite failed', inviteErr)
         }
       }
 

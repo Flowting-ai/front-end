@@ -6,7 +6,6 @@ import { useOnboarding } from "@/context/onboarding-context";
 import type { AccountType } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
 import { Badge } from "@/components/Badge";
-import { updateOnboarding } from "@/lib/api/user";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
 // ── Icons ───────────────────────────────────────────────────────────────────────
@@ -167,7 +166,7 @@ const LogoutLink = ({ onClick }: { onClick: () => void }) => (
 
 export default function OnboardingAccountTypePage() {
   const { push } = useRouter();
-  const { logout, user, refreshUser } = useAuth();
+  const { logout, user } = useAuth();
   const { data, setAccountType } = useOnboarding();
   const [selected, setSelected] = useState<AccountType | null>(data.accountType);
 
@@ -175,7 +174,6 @@ export default function OnboardingAccountTypePage() {
     if (!user?.orgId) return
     // Invited into an existing org — treat as individual, skip this page.
     setAccountType('individual')
-    void updateOnboarding({ role_fit: 'just_me' })
     push('/onboarding/import')
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -183,8 +181,7 @@ export default function OnboardingAccountTypePage() {
     if (!selected) return;
     setAccountType(selected);
     if (selected === "individual") {
-      void updateOnboarding({ role_fit: "just_me" });
-      push("/onboarding/import");
+      push("/onboarding/tone");
       return;
     }
     // Team branch: go straight to plans — org is created after payment succeeds.

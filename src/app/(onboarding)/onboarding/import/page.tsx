@@ -35,7 +35,7 @@ export default function OnboardingImportPage() {
     user?.roleFit === "large_team";
 
   useEffect(() => {
-    if (isTeamUser) push("/onboarding/plans");
+    if (isTeamUser) push("/onboarding/workspace");
   }, [isTeamUser, push]);
 
   if (isTeamUser) return null;
