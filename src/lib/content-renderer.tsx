@@ -6,18 +6,15 @@
  * ContentRenderer is the single entry-point for rendering assistant message
  * content. It splits the raw content string into typed segments
  * (markdown / table / chart / pending-in-flight) and delegates each to the
- * appropriate component.
- *
- * Replaces direct use of MarkdownRenderer in ChatMessage for both the
- * streaming (isStreaming=true) and static cases.
+ * appropriate component. Markdown segments use the full markdown pipeline so
+ * headings, nested lists, math, emphasis, and code blocks keep their structure.
  *
  * See: docs/frontend-rendering.md
  */
 
 import React from "react"
 import { parseContentSegments } from "./content-parser"
-import { LineRenderer } from "./line-renderer"
-import type { HighlightSpec } from "./markdown-utils"
+import { MarkdownRenderer, type HighlightSpec } from "./markdown-utils"
 import { XmlTable } from "@/components/chat/XmlTable"
 import { XmlChart } from "@/components/chat/XmlChart"
 import type { WebCitation } from "@/hooks/use-chat-state"
@@ -113,11 +110,10 @@ export function ContentRenderer({
 
         return (
           <React.Fragment key={i}>
-            <LineRenderer
+            <MarkdownRenderer
               content={seg.text}
               webCitations={webCitations}
               highlights={isStreaming ? undefined : highlights}
-              sourceOffset={seg.start}
             />
             {isStreaming && isLast && cursor}
           </React.Fragment>

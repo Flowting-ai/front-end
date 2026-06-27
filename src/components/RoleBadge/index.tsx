@@ -1,86 +1,215 @@
 'use client'
 
 import React from 'react'
-import { Badge } from '@/components/Badge'
-import type { BadgeColor } from '@/components/Badge'
-import { cn } from '@/lib/utils'
+import { Slot } from '@radix-ui/react-slot'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type WorkspaceRole = 'admin' | 'editor' | 'member'
+export type WorkspaceRole = 'owner' | 'admin' | 'editor' | 'member'
 export type RoleBadgeSize = 'sm' | 'md'
+// Icon set used for the role glyph. Only 'solar' ships real icons today; the
+// other modes fall back to the solar glyphs until the icon package adds them.
+export type RoleBadgeMode = 'solar' | 'chess' | 'shapes' | 'cards'
 
 export interface RoleBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  role: WorkspaceRole
-  size?: RoleBadgeSize
+  role:        WorkspaceRole
+  /** Show the role text label next to the icon. @default true */
+  showLabel?:  boolean
+  /** Icon set for the role glyph. @default 'solar' */
+  mode?:       RoleBadgeMode
+  size?:       RoleBadgeSize
+  asChild?:    boolean
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Color tokens (exact from Figma) ──────────────────────────────────────────
+
+type RoleTokens = { bg: string; text: string; shadow: string }
+
+const ROLE_TOKENS: Record<WorkspaceRole, RoleTokens> = {
+  owner: {
+    bg:   '#f7fee6',
+    text: '#456211',
+    shadow: [
+      '0px 1px 1.5px 0px rgba(17,25,1,0.2)',
+      '0px 0px 0px 1px rgba(128,183,7,0.5)',
+      'inset 0px 1px 0px 0px rgba(247,254,230,0.7)',
+      'inset 0px -1px 0px 0px rgba(128,183,7,0.1)',
+    ].join(', '),
+  },
+  admin: {
+    bg:   '#e9dfc9',
+    text: '#6d5921',
+    shadow: [
+      '0px 1px 1.5px 0px rgba(20,16,5,0.2)',
+      '0px 0px 0px 1px rgba(143,116,39,0.5)',
+      'inset 0px 1px 0px 0px rgba(250,246,235,0.7)',
+      'inset 0px -1px 0px 0px rgba(143,116,39,0.1)',
+    ].join(', '),
+  },
+  editor: {
+    bg:   '#cadcf1',
+    text: '#135487',
+    shadow: [
+      '0px 1px 1.5px 0px rgba(2,15,24,0.2)',
+      '0px 0px 0px 1px rgba(13,110,178,0.5)',
+      'inset 0px 1px 0px 0px rgba(231,244,253,0.7)',
+      'inset 0px -1px 0px 0px rgba(13,110,178,0.1)',
+    ].join(', '),
+  },
+  member: {
+    bg:   '#ded0df',
+    text: '#513853',
+    shadow: [
+      '0px 1px 1.5px 0px rgba(18,6,19,0.2)',
+      '0px 0px 0px 1px rgba(103,79,104,0.5)',
+      'inset 0px 1px 0px 0px rgba(248,236,249,0.7)',
+      'inset 0px -1px 0px 0px rgba(103,79,104,0.1)',
+    ].join(', '),
+  },
+}
 
 const ROLE_LABEL: Record<WorkspaceRole, string> = {
+  owner:  'Owner',
   admin:  'Admin',
   editor: 'Editor',
   member: 'Member',
 }
 
-function roleBadgeColor(role: WorkspaceRole): BadgeColor {
-  if (role === 'editor') return 'Blue'
-  return 'Neutral'
+// ── Solar glyphs ──────────────────────────────────────────────────────────────
+// Inlined from @strange-huge/icons (the front-end's pinned icon version doesn't
+// ship the Solar* set yet). They draw with `currentColor`, so the role text
+// colour set on the wrapping span flows through. Owner is stroke-based; the rest
+// are fill-based — matching the original icon definitions.
+
+function SolarSystemGlyph({ size = 10 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M11.422 7.37827C11.6952 7.12609 11.8318 7 12 7C12.1682 7 12.3048 7.12609 12.578 7.37827L13.0438 7.80813C13.1873 7.94051 13.259 8.0067 13.3504 8.03505C13.4419 8.0634 13.5407 8.05006 13.7383 8.0234L14.38 7.93682C14.7564 7.88602 14.9446 7.86062 15.0807 7.95492C15.2167 8.04921 15.2496 8.22783 15.3153 8.58508L15.4272 9.19402C15.4617 9.38155 15.479 9.47531 15.5355 9.54952C15.592 9.62374 15.6802 9.66836 15.8564 9.75759L16.4289 10.0474C16.7648 10.2173 16.9327 10.3023 16.9847 10.4549C17.0366 10.6075 16.9531 10.7704 16.7862 11.0963L16.5016 11.6517C16.4139 11.8227 16.3701 11.9083 16.3701 12C16.3701 12.0917 16.4139 12.1773 16.5016 12.3483L16.7862 12.9037C16.9531 13.2296 17.0366 13.3925 16.9847 13.5451C16.9327 13.6977 16.7648 13.7827 16.4289 13.9526L15.8564 14.2424C15.6802 14.3316 15.592 14.3763 15.5355 14.4505C15.479 14.5247 15.4617 14.6185 15.4272 14.806L15.3153 15.4149C15.2496 15.7722 15.2167 15.9508 15.0807 16.0451C14.9446 16.1394 14.7564 16.114 14.38 16.0632L13.7383 15.9766C13.5407 15.9499 13.4419 15.9366 13.3504 15.965C13.259 15.9933 13.1873 16.0595 13.0438 16.1919L12.578 16.6217C12.3048 16.8739 12.1682 17 12 17C11.8318 17 11.6952 16.8739 11.422 16.6217L10.9562 16.1919C10.8127 16.0595 10.741 15.9933 10.6496 15.965C10.5581 15.9366 10.4593 15.9499 10.2617 15.9766L9.62003 16.0632C9.24358 16.114 9.05536 16.1394 8.91931 16.0451C8.78327 15.9508 8.75042 15.7722 8.68473 15.4149L8.57276 14.806C8.53828 14.6185 8.52104 14.5247 8.46452 14.4505C8.408 14.3763 8.31985 14.3316 8.14355 14.2424L7.57108 13.9526C7.23523 13.7827 7.06731 13.6977 7.01534 13.5451C6.96338 13.3925 7.04686 13.2296 7.21383 12.9037L7.49844 12.3483C7.58608 12.1773 7.62991 12.0917 7.62991 12C7.62991 11.9083 7.58608 11.8227 7.49844 11.6517L7.21383 11.0963C7.04686 10.7704 6.96338 10.6075 7.01534 10.4549C7.06731 10.3023 7.23523 10.2173 7.57108 10.0474L8.14355 9.75759C8.31985 9.66836 8.408 9.62374 8.46452 9.54952C8.52104 9.47531 8.53828 9.38155 8.57276 9.19402L8.68473 8.58508C8.75042 8.22783 8.78327 8.04921 8.91931 7.95492C9.05536 7.86062 9.24358 7.88602 9.62003 7.93682L10.2617 8.0234C10.4593 8.05006 10.5581 8.0634 10.6496 8.03505C10.741 8.0067 10.8127 7.94051 10.9562 7.80813L11.422 7.37827Z" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M6.48311 3.65819C6.11715 3.25395 5.58823 3 5 3C3.89543 3 3 3.89543 3 5C3 5.58823 3.25395 6.11715 3.65819 6.48311M6.48311 3.65819C6.80434 4.01303 7 4.48366 7 5C7 6.10457 6.10457 7 5 7C4.48366 7 4.01303 6.80434 3.65819 6.48311M6.48311 3.65819C8.0644 2.6103 9.96093 2 12 2C17.5228 2 22 6.47715 22 12C22 14.0318 21.394 15.9221 20.353 17.5M3.65819 6.48311C2.6103 8.0644 2 9.96093 2 12C2 17.5228 6.47715 22 12 22C14.0391 22 15.9356 21.3897 17.5169 20.3418M17.5169 20.3418C17.8828 20.7461 18.4118 21 19 21C20.1046 21 21 20.1046 21 19C21 17.8954 20.1046 17 19 17C17.8954 17 17 17.8954 17 19C17 19.5163 17.1957 19.987 17.5169 20.3418Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function SolarRingGlyph({ size = 10 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 21.5 21.5" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M10.75 0C15.441 0 19.429 3.005 20.897 7.192C21.208 8.08 21.406 9.02 21.474 9.996C21.491 10.245 21.5 10.497 21.5 10.75C21.5 12.175 21.222 13.537 20.717 14.784C19.123 18.721 15.262 21.5 10.75 21.5C8.841 21.5 7.046 21.002 5.491 20.128C2.216 18.287 0 14.778 0 10.75C0 9.667 0.16 8.62 0.459 7.632C1.046 5.694 2.164 3.989 3.642 2.685C5.536 1.014 8.026 0 10.75 0ZM14.22 12.413C12.114 12.083 10.017 10.941 7.372 9.398C5.303 8.191 3.384 8.089 1.784 8.465C1.599 9.195 1.5 9.96 1.5 10.75C1.5 14.092 3.273 17.022 5.932 18.648C7.1 18.206 8.437 17.557 9.834 16.626C13.037 14.491 16.012 13.81 19.501 13.756C19.767 12.98 19.934 12.157 19.984 11.302C17.865 12.359 16.073 12.703 14.22 12.413ZM16.025 6.578C15.872 6.463 15.723 6.352 15.576 6.248C15.028 5.86 14.493 5.546 13.802 5.384C13.111 5.22 12.205 5.194 10.913 5.482C7.57 6.227 5.352 5.033 4.196 4.223C3.444 4.978 2.821 5.862 2.365 6.838C4.099 6.621 6.073 6.903 8.128 8.102C10.818 9.671 12.672 10.653 14.452 10.931C16.069 11.184 17.702 10.863 19.934 9.635C19.873 9.132 19.772 8.642 19.635 8.167C17.958 8.024 16.914 7.243 16.025 6.578ZM10.587 4.018C12.045 3.693 13.187 3.697 14.146 3.924C15.107 4.15 15.826 4.586 16.443 5.024C16.625 5.153 16.796 5.279 16.961 5.401C17.63 5.896 18.207 6.322 18.988 6.539C17.455 3.547 14.341 1.5 10.75 1.5C8.749 1.5 6.898 2.134 5.385 3.214C6.418 3.862 8.112 4.569 10.587 4.018ZM10.666 17.874C9.659 18.545 8.679 19.081 7.759 19.506C8.697 19.826 9.703 20 10.75 20C14.214 20 17.234 18.096 18.819 15.276C15.864 15.405 13.365 16.075 10.666 17.874ZM6.75 11.5C7.449 11.5 8.11 11.712 8.614 12.089C9.118 12.467 9.5 13.047 9.5 13.75C9.5 14.453 9.118 15.033 8.614 15.411C8.11 15.788 7.449 16 6.75 16C6.051 16 5.39 15.788 4.886 15.411C4.382 15.033 4 14.453 4 13.75C4 13.047 4.382 12.467 4.886 12.089C5.39 11.712 6.051 11.5 6.75 11.5ZM5.5 13.75C5.5 13.875 5.566 14.046 5.786 14.211C6.006 14.376 6.344 14.5 6.75 14.5C7.156 14.5 7.494 14.376 7.714 14.211C7.934 14.046 8 13.875 8 13.75C8 13.625 7.934 13.454 7.714 13.289C7.494 13.124 7.156 13 6.75 13C6.344 13 6.006 13.124 5.786 13.289C5.566 13.454 5.5 13.625 5.5 13.75Z" fill="currentColor" />
+    </svg>
+  )
+}
+
+function SolarCometGlyph({ size = 10 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 21.4999 21.4989" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M14.4929 1.74388C15.7689 0.976879 16.9629 0.424879 17.9859 0.166879C19.0239 -0.0961209 20.1449 -0.117121 20.8799 0.616879C21.4519 1.18788 21.5619 1.99888 21.4709 2.78088C21.3869 3.49388 21.1259 4.30088 20.7369 5.15788C21.2129 5.72288 21.4999 6.45288 21.4999 7.24988C21.4999 8.20088 21.0899 9.05688 20.4379 9.65188C20.4789 10.0119 20.4999 10.3789 20.4999 10.7499C20.4999 16.1339 16.1339 20.4999 10.7499 20.4999C9.42485 20.4999 8.15985 20.2349 7.00585 19.7549C6.76485 19.8999 6.52685 20.0369 6.29385 20.1649C5.13885 20.8009 4.05585 21.2439 3.12585 21.4179C2.22485 21.5859 1.26985 21.5309 0.618851 20.8819C-0.119149 20.1459 -0.0961488 19.0189 0.168851 17.9759C0.427851 16.9559 0.978851 15.7649 1.74385 14.4929C1.26485 13.3399 0.999851 12.0759 0.999851 10.7499C0.999851 5.36488 5.36485 0.999879 10.7499 0.999879C12.0749 0.999879 13.3399 1.26388 14.4929 1.74388ZM15.9329 2.64488C16.0289 2.85788 16.0239 3.11188 15.8989 3.32888C15.6909 3.68788 15.2329 3.80988 14.8739 3.60288C13.6609 2.90088 12.2529 2.49988 10.7499 2.49988C6.19285 2.49988 2.49985 6.19288 2.49985 10.7499C2.49985 13.0279 3.42185 15.0889 4.91585 16.5829C5.20885 16.8759 5.20885 17.3509 4.91585 17.6439C4.62285 17.9369 4.14785 17.9369 3.85485 17.6439C3.37585 17.1639 2.94585 16.6349 2.57385 16.0639C2.10385 16.9369 1.78485 17.7079 1.62285 18.3459C1.38385 19.2829 1.53985 19.6819 1.67885 19.8209C1.79785 19.9399 2.11385 20.0809 2.85085 19.9429C3.55985 19.8109 4.48485 19.4489 5.57085 18.8509C7.73585 17.6599 10.3919 15.6189 13.0079 13.0029C14.1339 11.8769 15.1539 10.7419 16.0479 9.63988C15.4029 9.04588 14.9999 8.19488 14.9999 7.24988C14.9999 5.45488 16.4549 3.99988 18.2499 3.99988C18.6919 3.99988 19.1139 4.08788 19.4979 4.24788C19.7709 3.59988 19.9289 3.04888 19.9809 2.60688C20.0479 2.03188 19.9239 1.78188 19.8199 1.67788C19.6809 1.53988 19.2839 1.38488 18.3529 1.62088C17.6829 1.78988 16.8629 2.13388 15.9329 2.64488ZM8.59685 18.7159C9.28285 18.9009 10.0039 18.9999 10.7499 18.9999C15.3059 18.9999 18.9999 15.3059 18.9999 10.7499C18.9999 10.6369 18.9969 10.5249 18.9929 10.4139C18.7539 10.4699 18.5049 10.4999 18.2499 10.4999C17.9469 10.4999 17.6539 10.4579 17.3769 10.3809C16.4099 11.5899 15.2979 12.8339 14.0689 14.0639C12.2259 15.9059 10.3449 17.4909 8.59685 18.7159ZM18.2499 5.49988C17.2829 5.49988 16.4999 6.28288 16.4999 7.24988C16.4999 8.21588 17.2829 8.99988 18.2499 8.99988C19.2159 8.99988 19.9999 8.21588 19.9999 7.24988C19.9999 6.28288 19.2159 5.49988 18.2499 5.49988Z" fill="currentColor" />
+    </svg>
+  )
+}
+
+function SolarOrganicGlyph({ size = 10 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 21.5 21.5" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M3.215 3.083C5.154 1.177 7.815 0 10.75 0C11.439 0 12.113 0.065 12.767 0.189C17.74 1.133 21.5 5.502 21.5 10.75C21.5 11.37 21.448 11.977 21.347 12.569C20.482 17.64 16.067 21.5 10.75 21.5C4.813 21.5 0 16.687 0 10.75C0 7.748 1.231 5.033 3.215 3.083ZM13.643 1.961C13.64 2.162 13.613 2.362 13.559 2.558C13.373 3.245 12.881 3.812 12.129 4.11C11.796 4.242 11.683 4.369 11.634 4.443C11.574 4.534 11.539 4.649 11.493 4.898C11.489 4.92 11.485 4.943 11.481 4.968C11.442 5.188 11.383 5.527 11.223 5.849C11.026 6.246 10.705 6.584 10.204 6.849C8.83 7.574 6.976 7.273 5.31 5.513C4.682 4.849 4.36 4.557 3.993 4.433C2.446 6.087 1.5 8.307 1.5 10.75C1.5 15.374 4.892 19.205 9.323 19.891C9.309 19.811 9.3 19.729 9.296 19.647C9.262 19.028 9.508 18.458 9.776 17.998C10.166 17.326 10.285 17.109 10.346 16.863C10.411 16.601 10.417 16.287 10.417 15.394C10.417 14.902 10.488 14.406 10.709 13.962C10.938 13.501 11.305 13.144 11.804 12.913C12.739 12.482 14.096 12.512 15.897 12.872C16.104 12.913 16.321 12.882 16.608 12.764C16.846 12.666 17.073 12.536 17.353 12.376C17.44 12.326 17.533 12.273 17.632 12.217C18.237 11.877 19.014 11.488 19.966 11.55C19.989 11.286 20 11.02 20 10.75C20 6.652 17.335 3.175 13.643 1.961ZM19.713 13.045C19.273 13.059 18.859 13.249 18.366 13.525C18.298 13.563 18.227 13.604 18.152 13.647C17.858 13.816 17.516 14.012 17.178 14.151C16.729 14.336 16.198 14.462 15.603 14.343C13.832 13.988 12.898 14.061 12.434 14.275C12.234 14.368 12.124 14.485 12.052 14.63C11.971 14.793 11.917 15.035 11.917 15.394V15.496C11.917 16.25 11.917 16.762 11.802 17.226C11.682 17.703 11.446 18.11 11.116 18.676C11.102 18.701 11.087 18.726 11.072 18.752C10.857 19.122 10.784 19.383 10.793 19.566C10.799 19.671 10.835 19.816 11.018 19.996C15.215 19.877 18.714 16.96 19.713 13.045ZM5.179 3.365C5.614 3.656 5.989 4.048 6.4 4.482C7.733 5.89 8.877 5.853 9.503 5.522C9.752 5.391 9.835 5.272 9.879 5.183C9.939 5.063 9.962 4.935 10.01 4.668C10.013 4.656 10.015 4.643 10.018 4.629C10.064 4.372 10.138 3.985 10.383 3.615C10.64 3.228 11.03 2.932 11.576 2.716C11.904 2.586 12.054 2.38 12.112 2.165C12.155 2.006 12.156 1.809 12.096 1.597C11.657 1.533 11.208 1.5 10.75 1.5C8.658 1.5 6.729 2.194 5.179 3.365Z" fill="currentColor" />
+    </svg>
+  )
+}
+
+function RoleGlyph({ role }: { role: WorkspaceRole }) {
+  if (role === 'owner')  return <SolarSystemGlyph />
+  if (role === 'admin')  return <SolarRingGlyph />
+  if (role === 'editor') return <SolarCometGlyph />
+  return <SolarOrganicGlyph />
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-// Wraps Badge — inherits its shadow ring, inner depth, borderRadius: 6,
-// and font scale. No new visual language invented here.
+// Solar-mode role chip — icon + optional label, role-specific colour tokens.
 
-export function RoleBadge({ role, size = 'md', className, style }: RoleBadgeProps) {
-  const isEditor = role === 'editor'
-  return (
-    <span
-      style={{
-        position:        'relative',
-        display:         'inline-flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        padding:         size === 'md' ? '3px' : '2px',
-        borderRadius:    '6px',
-        backgroundColor: isEditor ? 'var(--color-tag-Blue-bg)' : 'var(--neutral-100)',
-        boxShadow:       isEditor
-          ? 'var(--color-tag-Blue-shadow)'
-          : 'var(--color-tag-Neutral-shadow)',
-        overflow:        'clip',
-        ...style,
-      }}
-    >
-      <span
+export const RoleBadge = React.forwardRef<HTMLSpanElement, RoleBadgeProps>(
+  function RoleBadge(
+    {
+      role,
+      showLabel = true,
+      // `mode` is accepted for API parity; only the solar glyph set is shipped.
+      mode: _mode = 'solar',
+      size: _size = 'md',
+      asChild = false,
+      className,
+      style,
+      ...props
+    },
+    ref,
+  ) {
+    const Comp   = (asChild ? Slot : 'span') as React.ElementType
+    const tokens = ROLE_TOKENS[role]
+
+    return (
+      <Comp
+        ref={ref}
+        className={className}
         style={{
-          padding:    '0 2px',
-          fontFamily: 'var(--font-body)',
-          fontWeight: role === 'admin' ? 600 : 500,
-          fontSize:   'var(--font-size-caption)',
-          lineHeight: 'var(--line-height-caption)',
-          color:      isEditor ? 'var(--color-tag-Blue-text)' : 'var(--neutral-600)',
-          whiteSpace: 'nowrap',
-          position:   'relative',
+          display:    'inline-flex',
+          alignItems: 'center',
+          height:     '20px',
+          width:      showLabel ? 'auto' : '19.5px',
+          flexShrink: 0,
+          ...style,
         }}
+        {...props}
       >
-        {ROLE_LABEL[role]}
-      </span>
-      {/* Inner depth overlay — matches Badge exactly */}
-      <span
-        aria-hidden
-        style={{
-          position:      'absolute',
-          inset:         0,
-          pointerEvents: 'none',
-          borderRadius:  'inherit',
-          boxShadow:     isEditor
-            ? 'var(--color-tag-Blue-inner-shadow)'
-            : 'var(--color-tag-Neutral-inner-shadow)',
-        }}
-      />
-    </span>
-  )
-}
+        {/* Chip inner — bg, shadow, icon + optional label */}
+        <span
+          style={{
+            display:         'inline-flex',
+            alignItems:      'center',
+            justifyContent:  'center',
+            width:           showLabel ? 'auto' : '100%',
+            height:          '100%',
+            padding:         '2px',
+            borderRadius:    '6px',
+            backgroundColor: tokens.bg,
+            boxShadow:       tokens.shadow,
+            gap:             '1px',
+            color:           tokens.text,
+          }}
+        >
+          {/* Icon container — 16×16px, glyph drawn with currentColor */}
+          <span
+            style={{
+              display:        'inline-flex',
+              alignItems:     'center',
+              justifyContent: 'center',
+              width:          '16px',
+              height:         '16px',
+              flexShrink:     0,
+              padding:        '1px',
+              borderRadius:   '4px',
+              overflow:       'clip',
+            }}
+          >
+            <RoleGlyph role={role} />
+          </span>
+
+          {showLabel && (
+            <span
+              style={{
+                padding:    '0 2px',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                fontSize:   '11px',
+                lineHeight: 1,
+                color:      tokens.text,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {ROLE_LABEL[role]}
+            </span>
+          )}
+        </span>
+      </Comp>
+    )
+  },
+)
 
 RoleBadge.displayName = 'RoleBadge'
 export default RoleBadge

@@ -7,6 +7,7 @@ import { Popover } from '@/components/Popover'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { Divider } from '@/components/Divider'
 import { Badge } from '@/components/Badge'
+import { RoleBadge } from '@/components/RoleBadge'
 import { cn } from '@/lib/utils'
 
 // ── Deterministic gradient palette ───────────────────────────────────────────
@@ -196,20 +197,26 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
             </span>
           </span>
 
-          {/* Right: chevron in a Shortcut Container box */}
-          <span
-            style={{
-              display:        'flex',
-              alignItems:     'center',
-              justifyContent: 'center',
-              borderRadius:   4,
-              padding:        2,
-              flexShrink:     0,
-              background:     'linear-gradient(180deg, var(--neutral-white) 0%, var(--neutral-50) 100%)',
-              boxShadow:      '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
-            }}
-          >
-            <ArrowDownOneIcon size={16} color="var(--neutral-500)" />
+          {/* Right: role badge (active team only) + chevron — grouped, 4px gap */}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            {activeTeam?.role && (
+              <RoleBadge role={activeTeam.role} showLabel mode="solar" />
+            )}
+            {/* Chevron in a Shortcut Container box */}
+            <span
+              style={{
+                display:        'flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+                borderRadius:   4,
+                padding:        2,
+                flexShrink:     0,
+                background:     'linear-gradient(180deg, var(--neutral-white) 0%, var(--neutral-50) 100%)',
+                boxShadow:      '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
+              }}
+            >
+              <ArrowDownOneIcon size={16} color="var(--neutral-500)" />
+            </span>
           </span>
         </button>
 
@@ -290,10 +297,7 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
                       selected={team.id === activeTeamId}
                       icon={<TeamAvatar teamId={team.id} name={team.name} size={20} />}
                       badge={team.role && (
-                        <Badge
-                          label={team.role.charAt(0).toUpperCase() + team.role.slice(1)}
-                          color={team.role === 'owner' || team.role === 'admin' ? 'Yellow' : team.role === 'editor' ? 'Blue' : 'Neutral'}
-                        />
+                        <RoleBadge role={team.role} showLabel mode="solar" />
                       )}
                       onClick={() => { onTeamSelect?.(team.id); setOpen(false) }}
                     />

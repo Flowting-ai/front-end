@@ -16,12 +16,14 @@ const SHADOW_TRIGGER = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px v
 // ── Role labels & descriptions ────────────────────────────────────────────────
 
 const ROLE_LABEL: Record<WorkspaceRole, string> = {
+  owner:  'Owner',
   admin:  'Admin',
   editor: 'Editor',
   member: 'Member',
 }
 
 const ROLE_DESC: Record<WorkspaceRole, string> = {
+  owner:  'Workspace owner',
   admin:  'Full access — billing, members, settings',
   editor: 'Member + can publish personas to Team scope',
   member: 'Can chat, use personas, access team projects',

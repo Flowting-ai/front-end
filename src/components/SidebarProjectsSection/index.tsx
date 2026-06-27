@@ -1,9 +1,9 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, m } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { FolderOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
+import { ArrowDownOneIcon, FolderOneIcon } from '@strange-huge/icons'
 
 // ── Shadow token ───────────────────────────────────────────────────────────────
 
@@ -23,11 +23,11 @@ const bodyTextStyle: React.CSSProperties = {
 
 // ── Animation variants ─────────────────────────────────────────────────────────
 // Three layers so height animation and stagger orchestration never conflict:
-//   Layer 1 (heightVariants)  - animates height only
-//   Layer 2 (staggerVariants) - orchestrates staggerChildren, no visual props
-//   Layer 3 (itemVariants)    - per-item fade + downward drift
+//   Layer 1 (heightVariants)  — animates height only
+//   Layer 2 (staggerVariants) — orchestrates staggerChildren, no visual props
+//   Layer 3 (itemVariants)    — per-item fade + downward drift
 
-// Layer 1 - height clip
+// Layer 1 — height clip
 const heightVariants = {
   open: {
     height: 'auto' as const,
@@ -39,9 +39,9 @@ const heightVariants = {
   },
 }
 
-// Layer 2 - stagger orchestrator (no visual change on itself)
+// Layer 2 — stagger orchestrator (no visual change on itself)
 // Open:  delay items until AFTER height animation completes (0.22s) so items never appear while clipped
-// Close: no stagger - all items fade at once (0.12s), height shrinks after delay (0.14s)
+// Close: no stagger — all items fade at once (0.12s), height shrinks after delay (0.14s)
 const staggerVariants = {
   open: {
     transition: { staggerChildren: 0.04, delayChildren: 0.24 },
@@ -51,7 +51,7 @@ const staggerVariants = {
   },
 }
 
-// Layer 3 - per-item: fade + drift
+// Layer 3 — per-item: fade + drift
 const itemVariants = {
   open:   { opacity: 1, y: 0, transition: { duration: 0.18, ease: 'easeOut' as const } },
   closed: { opacity: 0, y: 5, transition: { duration: 0.12, ease: 'easeIn'  as const } },
@@ -59,36 +59,27 @@ const itemVariants = {
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type TriggerableIconProps = {
-  animated?: boolean
-  triggered?: boolean
-}
-
 export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Folder label */
   label?: string
   /** Whether the list starts expanded */
   defaultOpen?: boolean
-  /** Whether this project is currently active/open - shows the open icon variant without expanding the list */
+  /** Whether this project is currently active/open — shows the open icon variant without expanding the list */
   active?: boolean
-  /** Indented child items - SidebarMenuItem rows or any node */
+  /** Indented child items — SidebarMenuItem rows or any node */
   children?: React.ReactNode
-  /** Stretch to full width instead of fixed 237px - use inside Sidebar */
+  /** Stretch to full width instead of fixed 237px — use inside Sidebar */
   fluid?: boolean
-  /** Controlled expanded state - when provided, overrides internal toggle state */
+  /** Controlled expanded state — when provided, overrides internal toggle state */
   expanded?: boolean
   /** Called when the icon is clicked with the next expanded value */
   onExpandedChange?: (expanded: boolean) => void
   /**
-   * Custom icon for the header row.
+   * Custom icon for the header row. Must accept a `triggered` prop.
    * Defaults to `<FolderOneIcon size={20} />` with open/closed variant driven by state.
-   * Pass `null` to render no icon at all.
    */
-  icon?: React.ReactElement<TriggerableIconProps> | null
-  /**
-   * Optional badge rendered between the label and the expand arrow.
-   * Use for status indicators (e.g. a "Shared" pill).
-   */
+  icon?: React.ReactElement<{ triggered?: boolean }> | null
+  /** Optional status/content pill rendered before the expand arrow. */
   badge?: React.ReactNode
   /**
    * Called when the user commits a rename (Enter or blur).
@@ -101,22 +92,15 @@ export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDi
   onCancel?: () => void
 }
 
-function renderMaybeTriggeredIcon(icon: React.ReactElement<TriggerableIconProps>, triggered: boolean) {
-  if (icon.props.animated === true || icon.props.triggered !== undefined) {
-    return React.cloneElement(icon, { triggered })
-  }
-
-  return icon
-}
-
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export function SidebarProjectsSection({
+export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarProjectsSectionProps>(
+  function SidebarProjectsSection(
+    { label = 'Folder name', defaultOpen = false, active = false, expanded: expandedProp, onExpandedChange, fluid = false, icon, badge, children, className, onClick, onCommit, onCancel, ...props },
     ref,
-    label = 'Folder name', defaultOpen = false, active = false, expanded: expandedProp, onExpandedChange, fluid = false, icon, badge, children, className, onClick, onCommit, onCancel, ...props
-  }: SidebarProjectsSectionProps & { ref?: React.Ref<HTMLDivElement> }) {
-    // isExpanded - icon-driven; can be controlled via `expanded` prop
-    // active     - row-driven; controlled by parent
+  ) {
+    // isExpanded — icon-driven; can be controlled via `expanded` prop
+    // active     — row-driven; controlled by parent
     const isControlled = expandedProp !== undefined
     const [internalExpanded, setInternalExpanded] = useState(defaultOpen)
     const isExpanded = isControlled ? expandedProp! : internalExpanded
@@ -215,7 +199,7 @@ export function SidebarProjectsSection({
         style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: fluid ? '100%' : '237px' }}
         {...props}
       >
-        {/* ── Header row - clicking opens the project; icon click toggles the list ── */}
+        {/* ── Header row — clicking opens the project; icon click toggles the list ── */}
         <div
           role="button"
           tabIndex={0}
@@ -245,11 +229,19 @@ export function SidebarProjectsSection({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, minWidth: 0, flex: 1 }}>
-            {/* ── Folder icon - visual only ── */}
+            {/* ── Icon — click toggles expand/collapse ── */}
             {icon !== null && (
-              <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
+              <div
+                role="button"
+                tabIndex={isEditing ? -1 : 0}
+                aria-expanded={isExpanded}
+                aria-label={isExpanded ? 'Collapse folder' : 'Expand folder'}
+                onClick={(e) => { if (isEditing) return; e.stopPropagation(); toggle() }}
+                onKeyDown={(e) => { if (isEditing) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle() } }}
+                style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0, cursor: isEditing ? 'text' : 'pointer' }}
+              >
                 {icon
-                  ? renderMaybeTriggeredIcon(icon, isHovered)
+                  ? React.cloneElement(icon, { triggered: isHovered })
                   : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
               </div>
             )}
@@ -317,7 +309,7 @@ export function SidebarProjectsSection({
                   paddingRight:    isMarqueeing ? '48px' : undefined,
                 }}
               >
-                <m.p
+                <motion.p
                   ref={labelRef}
                   style={{
                     ...bodyTextStyle,
@@ -332,16 +324,15 @@ export function SidebarProjectsSection({
                   onAnimationComplete={() => { setIsMarqueeing(false); setMarqueeDone(true) }}
                 >
                   {label}
-                </m.p>
+                </motion.p>
               </div>
             )}
           </div>
 
-          {/* ── Badge + expand / collapse arrow ── */}
           {!isEditing && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
               {badge}
-              <m.div
+              <motion.div
                 role="button"
                 tabIndex={0}
                 aria-expanded={isExpanded}
@@ -362,21 +353,21 @@ export function SidebarProjectsSection({
                   justifyContent: 'center',
                 }}
               >
-                <ArrowDownOneIcon size={16} animated />
-              </m.div>
+                <ArrowDownOneIcon size={16} />
+              </motion.div>
             </div>
           )}
 
-          {/* Inner depth shadow - active + hover (not shown when editing) */}
+          {/* Inner depth shadow — active + hover (not shown when editing) */}
           {isActive && !isEditing && (
             <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: SHADOW_ITEM_INNER }} />
           )}
         </div>
 
-        {/* ── Expanded children - staggered per-item fade + drift ── */}
+        {/* ── Expanded children — staggered per-item fade + drift ── */}
         <AnimatePresence initial={false}>
           {isExpanded && children && (
-            <m.div
+            <motion.div
               key="content"
               initial="closed"
               animate="open"
@@ -386,23 +377,23 @@ export function SidebarProjectsSection({
               onAnimationStart={(def) => { if (def === 'closed') setExpandOverflow('hidden') }}
               onAnimationComplete={(def) => { if (def === 'open') setExpandOverflow('visible') }}
             >
-              <m.div
+              <motion.div
                 variants={staggerVariants}
                 style={{ paddingLeft: icon === null ? '6px' : '28px', display: 'flex', flexDirection: 'column', gap: '4px' }}
               >
                 {React.Children.map(children, (child, i) => (
-                  // eslint-disable-next-line react/no-array-index-as-key -- React.Children.map order is stable; no IDs on children
-                  <m.div key={i} variants={itemVariants}>
+                  <motion.div key={i} variants={itemVariants}>
                     {child}
-                  </m.div>
+                  </motion.div>
                 ))}
-              </m.div>
-            </m.div>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
     )
-}
+  },
+)
 
 SidebarProjectsSection.displayName = 'SidebarProjectsSection'
 

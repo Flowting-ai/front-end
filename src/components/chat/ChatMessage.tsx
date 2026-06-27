@@ -756,8 +756,8 @@ export function ChatMessage({
         )}
 
         {/* Message content - assistant only (user handled above) */}
-        {/* Text content always renders via ContentRenderer→LineRenderer so that
-            markdown links, bold, code, and citation chips are handled uniformly
+        {/* Text content always renders via ContentRenderer so that markdown
+            structure, links, bold, code, math, and citation chips are handled uniformly
             regardless of whether the backend also sends a text responseBlock. */}
         {message.content ? (
           <m.div

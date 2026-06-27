@@ -1,15 +1,15 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
-import { m, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
   LogoIcon,
   BubbleChatAddIcon,
   MoreHorizontalIcon,
   AbacusIcon,
+  ArrowDownOneIcon,
 } from '@strange-huge/icons'
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
@@ -24,71 +24,70 @@ const SHADOW_AVATAR         = 'var(--shadow-sidebar-item-avatar)'
 
 export type SidebarMenuItemVariant = 'default' | 'new-chat' | 'header' | 'chat-item' | 'chat-item-edit' | 'account-item'
 
-type TriggerableIconProps = {
-  animated?: boolean
-  triggered?: boolean
-}
-
 export interface SidebarMenuItemProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: SidebarMenuItemVariant
   /** Primary label text */
   label?: string
-  /** Subtitle / email - account-item only */
+  /** Subtitle / email — account-item only */
   sublabel?: string
   /**
-   * Icon for the `default` and `new-chat` variants. Overrides the default icon.
-   * For `default`: defaults to `<LogoIcon size={20} />`.
-   * For `new-chat`: defaults to `<BubbleChatAddIcon size={20} />`.
+   * Icon for the `default` variant. Must be a `@strange-huge/icons` component
+   * that accepts a `triggered` prop — it will fire when the item is hovered.
+   * Defaults to `<LogoIcon size={20} />`.
    */
-  icon?: React.ReactElement<TriggerableIconProps>
-  /** Avatar image URL - account-item only */
+  icon?: React.ReactElement<{ triggered?: boolean }>
+  /** Avatar image URL — account-item only */
   avatarSrc?: string
-  /** Shortcut badge text - default variant only, e.g. '⌘ K' */
+  /** Shortcut badge text — default variant only, e.g. '⌘ K' */
   shortcut?: string
   /**
-   * Optional badge node shown at the right of chat-item rows at rest.
-   * Hidden when the row is active (hovered/selected) so the ··· button can appear.
-   * chat-item variant only.
+   * Trailing slot — `default` variant only. Rendered at the row's right edge
+   * (pushed right by the row's `space-between`), after the `shortcut` badge if
+   * both are set. Free-form ReactNode — e.g. the "Manage Organization" row's
+   * `<Badge>4 updated</Badge>` count pill (Figma 6459:101321). Hidden when
+   * `collapsed`.
    */
+  trailing?: React.ReactNode
+  /** Back-compat alias for chat-item status pills. */
   badge?: React.ReactNode
-  /** Click handler for the "..." more button - chat-item only */
+  /** Click handler for the "..." more button — chat-item only */
   onMoreClick?: React.MouseEventHandler<HTMLButtonElement>
   /**
-   * Called when the user triggers a rename via keyboard (double Enter within 400ms) - chat-item only.
+   * Called when the user triggers a rename via keyboard (double Enter within 400ms) — chat-item only.
    * Parent should switch to chat-item-edit variant.
    */
   onRename?: () => void
   /**
-   * Called when the user commits a rename - chat-item-edit only.
+   * Called when the user commits a rename — chat-item-edit only.
    * Receives the new label value. Triggered by Enter or blur.
    */
   onCommit?: (value: string) => void
   /**
-   * Called when the user cancels a rename - chat-item-edit only.
+   * Called when the user cancels a rename — chat-item-edit only.
    * Triggered by Escape. Parent should switch back to chat-item variant.
    */
   onCancel?: () => void
-  /** Renders the sublabel in amber warning colour - account-item only */
-  sublabelWarning?: boolean
-  /** Click handler for the settings icon button - account-item only */
+  /** Click handler for the settings icon button — account-item only */
   onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>
-  /** Click handler for the "Show"/"Hide" toggle button on header hover - header only */
+  /** Renders the sublabel in warning colour — account-item only */
+  sublabelWarning?: boolean
+  /** Optional element rendered before the settings button — account-item only (used for RoleBadge) */
+  roleBadge?: React.ReactNode
+  /** Click handler for the "Show"/"Hide" toggle button on header hover — header only */
   onShowClick?: React.MouseEventHandler<HTMLButtonElement>
-  /** Controls whether the toggle reads "Hide" (true) or "Show" (false/undefined) - header only */
+  /** Controls whether the toggle reads "Hide" (true) or "Show" (false/undefined) — header only */
   shown?: boolean
-  /** Persistent selected state - default, new-chat, chat-item variants only */
+  /** Click handler for the "View all ›" button — header only. Appears on hover; always visible when viewAllAlwaysVisible is true. */
+  onViewAllClick?: React.MouseEventHandler<HTMLButtonElement>
+  /** When true, the "View all ›" button is always visible (not just on hover) — use for Recents */
+  viewAllAlwaysVisible?: boolean
+  /** Persistent selected state — default, new-chat, chat-item variants only */
   selected?: boolean
-  /** Stretch to full width instead of fixed 217px - use inside Sidebar */
+  /** Stretch to full width instead of fixed 217px — use inside Sidebar */
   fluid?: boolean
-  /** Icon-only mode for collapsed sidebar - hides labels, shortcut, and text content */
+  /** Icon-only mode for collapsed sidebar — hides labels, shortcut, and text content */
   collapsed?: boolean
-  /**
-   * Destination route. When set (and the variant is navigable, i.e. not
-   * `header`/`chat-item-edit`), the row renders as a real `<a href>` (Next
-   * Link) so the browser exposes "Open in new tab / new window", middle-click,
-   * and ⌘/Ctrl-click. Plain left-clicks still run `onClick` (client-side
-   * navigation); modifier/middle clicks fall through to native behavior.
-   */
+  /** Optional route for rows that should preserve native link behavior. */
   href?: string
 }
 
@@ -115,33 +114,30 @@ const captionTextStyle: React.CSSProperties = {
 
 const DEFAULT_ICON = <LogoIcon size={20} />
 
-function renderMaybeTriggeredIcon(icon: React.ReactElement<TriggerableIconProps>, triggered: boolean) {
-  if (icon.props.animated === true || icon.props.triggered !== undefined) {
-    return React.cloneElement(icon, { triggered })
-  }
-
-  return icon
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function SidebarMenuItem({
-      ref,
+export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemProps>(
+  function SidebarMenuItem(
+    {
       variant = 'default',
       label = 'Label',
       sublabel = 'Label',
       icon = DEFAULT_ICON,
       avatarSrc,
       shortcut,
+      trailing,
       badge,
       onMoreClick,
       onRename,
       onCommit,
       onCancel,
-      sublabelWarning = false,
       onSettingsClick,
+      sublabelWarning = false,
+      roleBadge,
       onShowClick,
       shown = false,
+      onViewAllClick,
+      viewAllAlwaysVisible = false,
       selected = false,
       fluid = false,
       collapsed = false,
@@ -153,7 +149,9 @@ export function SidebarMenuItem({
       onBlur:       externalBlur,
       onClick,
       ...props
-    }: SidebarMenuItemProps & { ref?: React.Ref<HTMLDivElement> }) {
+    },
+    ref,
+  ) {
     const [isHovered, setIsHovered] = useState(false)
     const [isFocused, setIsFocused] = useState(false)
     const isActive      = isHovered || isFocused || selected
@@ -175,15 +173,11 @@ export function SidebarMenuItem({
     const lastEnterRef = useRef<number>(0)
 
     useEffect(() => {
-      if (!isEditVariant) return
-      cancelledRef.current = false
-      const id = requestAnimationFrame(() => {
-        if (inputRef.current) {
-          inputRef.current.focus()
-          inputRef.current.select()
-        }
-      })
-      return () => cancelAnimationFrame(id)
+      if (isEditVariant && inputRef.current) {
+        inputRef.current.focus()
+        inputRef.current.select()
+        cancelledRef.current = false
+      }
     }, [isEditVariant])
 
     // ── chat-item marquee ──────────────────────────────────────────────────────
@@ -224,27 +218,14 @@ export function SidebarMenuItem({
       setIsHovered(false)
       externalMouseLeave?.(e)
     }
-    const handleItemFocus = (e: React.FocusEvent<HTMLDivElement>) => {
+    const handleFocus = (e: React.FocusEvent<HTMLDivElement>) => {
       setIsFocused(true)
       externalFocus?.(e)
     }
-    const handleItemBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
       if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsFocused(false)
       externalBlur?.(e)
     }
-    // When rendered as an anchor (href set), let modifier / middle clicks fall
-    // through to the browser (open in new tab/window). For a plain left click,
-    // run the existing onClick (router.push) and preventDefault so Next <Link>
-    // doesn't also navigate (which would double-push history).
-    const isLink = Boolean(href) && !isHeader && !isEditVariant
-    const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return
-      if (onClick) {
-        e.preventDefault()
-        onClick(e as unknown as React.MouseEvent<HTMLDivElement>)
-      }
-    }
-
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (!isHeader && (e.key === 'Enter' || e.key === ' ')) {
         e.preventDefault()
@@ -260,6 +241,15 @@ export function SidebarMenuItem({
         } else {
           onClick?.(e as unknown as React.MouseEvent<HTMLDivElement>)
         }
+      }
+    }
+
+    const isLink = Boolean(href) && !isHeader && !isEditVariant
+    const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return
+      if (onClick) {
+        e.preventDefault()
+        onClick(e as unknown as React.MouseEvent<HTMLDivElement>)
       }
     }
 
@@ -286,80 +276,99 @@ export function SidebarMenuItem({
       cursor:          isHeader ? 'default' : isEditVariant ? 'text' : 'pointer',
       transition:      isEditVariant ? undefined : 'background-color 150ms, box-shadow 150ms',
     }
-    const itemClassName = cn(!isHeader && !isEditVariant && 'kaya-sidebar-item', className)
 
-    // Render as a real <a href> (Next Link) when a destination is provided so
-    // the browser exposes "Open in new tab / new window" and honors middle /
-    // ⌘ / Ctrl clicks; otherwise a div with role="button" (legacy behavior).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const RootEl: any = isLink ? Link : 'div'
-    const rootSpecificProps = isLink
-      ? {
-          href,
-          onClick: handleAnchorClick,
-          style:   { ...containerStyle, textDecoration: 'none' },
-        }
-      : {
-          ref,
-          role:     isHeader || isEditVariant ? undefined : 'button',
-          tabIndex: isHeader || isEditVariant ? undefined : 0,
-          onClick:  isHeader ? undefined : onClick,
-          style:    containerStyle,
-        }
+    const rootProps = {
+      ref,
+      role: isHeader || isEditVariant || isLink ? undefined : 'button',
+      tabIndex: isHeader || isEditVariant ? undefined : 0,
+      'aria-pressed': (!isHeader && !isEditVariant) ? selected : undefined,
+      className: cn(!isHeader && !isEditVariant && 'kaya-sidebar-item', className),
+      style: isLink ? { ...containerStyle, textDecoration: 'none' } : containerStyle,
+      onMouseEnter: handleMouseEnter,
+      onMouseLeave: handleMouseLeave,
+      onFocus: handleFocus,
+      onBlur: handleBlur,
+      onKeyDown: handleKeyDown,
+      ...props,
+    }
 
-    return (
-      <RootEl
-        className={itemClassName}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        onFocus={handleItemFocus}
-        onBlur={handleItemBlur}
-        onKeyDown={handleKeyDown}
-        {...rootSpecificProps}
-        {...props}
-      >
+    const content = (
+      <>
 
         {/* ── Header variant ── */}
         {isHeader && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <p style={{ ...captionTextStyle, fontWeight: 'var(--font-weight-medium)' }}>
-              {label}
-            </p>
-            {onShowClick && (
+          <>
+            {/* Left: label + Show/Hide toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <p style={{ ...captionTextStyle, fontWeight: 'var(--font-weight-medium)' }}>
+                {label}
+              </p>
+              {onShowClick && (
+                <button
+                  type="button"
+                  tabIndex={0}
+                  aria-expanded={shown}
+                  aria-label={shown ? `Hide ${label}` : `Show ${label}`}
+                  onClick={(e) => { e.stopPropagation(); onShowClick(e) }}
+                  style={{
+                    fontFamily:  'var(--font-body)',
+                    fontWeight:  'var(--font-weight-medium)',
+                    fontSize:    'var(--font-size-caption)',
+                    lineHeight:  'var(--line-height-caption)',
+                    color:       'var(--sidebar-menu-item-muted)',
+                    whiteSpace:  'nowrap',
+                    background:  'none',
+                    border:      'none',
+                    padding:     0,
+                    cursor:      'pointer',
+                    flexShrink:  0,
+                    visibility:  isActive ? 'visible' : 'hidden',
+                  }}
+                >
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    <motion.span
+                      key={shown ? 'hide' : 'show'}
+                      initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                      animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+                      exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      style={{ display: 'block', transformOrigin: 'left center' }}
+                    >
+                      {shown ? 'Hide' : 'Show'}
+                    </motion.span>
+                  </AnimatePresence>
+                </button>
+              )}
+            </div>
+            {/* Right: "View all ›" — hover-only unless viewAllAlwaysVisible */}
+            {onViewAllClick && (
               <button
                 type="button"
-                tabIndex={isActive ? 0 : -1}
-                onClick={(e) => { e.stopPropagation(); e.preventDefault(); onShowClick(e) }}
+                tabIndex={0}
+                aria-label={`View all ${label}`}
+                onClick={(e) => { e.stopPropagation(); onViewAllClick(e) }}
                 style={{
-                  fontFamily:  'var(--font-body)',
-                  fontWeight:  'var(--font-weight-medium)',
-                  fontSize:    'var(--font-size-caption)',
-                  lineHeight:  'var(--line-height-caption)',
-                  color:       'var(--sidebar-menu-item-muted)',
-                  whiteSpace:  'nowrap',
+                  display:     'flex',
+                  alignItems:  'center',
+                  gap:         '2px',
                   background:  'none',
                   border:      'none',
                   padding:     0,
                   cursor:      'pointer',
                   flexShrink:  0,
-                  visibility:  isActive ? 'visible' : 'hidden',
+                  opacity:     viewAllAlwaysVisible ? 1 : (isActive ? 1 : 0),
+                  transition:  'opacity 150ms ease',
                 }}
               >
-                <AnimatePresence mode="popLayout" initial={false}>
-                  <m.span
-                    key={shown ? 'hide' : 'show'}
-                    initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-                    animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
-                    exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    style={{ display: 'block', transformOrigin: 'left center' }}
-                  >
-                    {shown ? 'Hide' : 'Show'}
-                  </m.span>
-                </AnimatePresence>
+                <p style={{ ...captionTextStyle, fontWeight: 'var(--font-weight-medium)' }}>
+                  View all
+                </p>
+                <span style={{ display: 'inline-flex', lineHeight: 0, color: 'var(--sidebar-menu-item-muted)', transform: 'rotate(-90deg)' }}>
+                  <ArrowDownOneIcon size={16} />
+                </span>
               </button>
             )}
-          </div>
+          </>
         )}
 
         {/* ── Default variant ── */}
@@ -367,11 +376,11 @@ export function SidebarMenuItem({
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
-                {renderMaybeTriggeredIcon(icon, isHovered)}
+                {React.cloneElement(icon, { triggered: isHovered })}
               </div>
               <AnimatePresence mode="popLayout" initial={false}>
                 {!collapsed && (
-                  <m.p
+                  <motion.p
                     key="label"
                     style={bodyTextStyle}
                     initial={{ opacity: 0, filter: 'blur(4px)' }}
@@ -380,14 +389,14 @@ export function SidebarMenuItem({
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   >
                     {label}
-                  </m.p>
+                  </motion.p>
                 )}
               </AnimatePresence>
             </div>
 
             <AnimatePresence mode="popLayout" initial={false}>
               {!collapsed && shortcut && (
-                <m.div
+                <motion.div
                   key="shortcut"
                   initial={{ opacity: 0, filter: 'blur(4px)' }}
                   animate={{ opacity: 1, filter: 'blur(0px)' }}
@@ -409,11 +418,20 @@ export function SidebarMenuItem({
                   <p style={{ ...captionTextStyle, fontWeight: 'var(--font-weight-medium)', color: 'var(--sidebar-menu-item-muted)' }}>
                     {shortcut}
                   </p>
-                </m.div>
+                </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Inner depth shadow - hover + selected */}
+            {/* Trailing slot — e.g. the Manage Organization "N updated" Badge.
+                Pushed to the row's right edge by space-between. Hidden when
+                collapsed. */}
+            {!collapsed && trailing && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+                {trailing}
+              </div>
+            )}
+
+            {/* Inner depth shadow — hover + selected */}
             {isActive && (
               <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: SHADOW_ITEM_INNER }} />
             )}
@@ -424,7 +442,7 @@ export function SidebarMenuItem({
         {variant === 'new-chat' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
             <div style={{ position: 'relative', flexShrink: 0, width: '20px', height: '20px' }}>
-              {/* Floating badge - visible at rest, hidden on hover/selected/collapsed */}
+              {/* Floating badge — visible at rest, hidden on hover/selected/collapsed */}
               {!collapsed && !isActive && (
                 <div
                   aria-hidden
@@ -442,12 +460,12 @@ export function SidebarMenuItem({
                 />
               )}
               <div style={{ position: 'relative', color: 'var(--sidebar-menu-item-text)', lineHeight: 0 }}>
-                {icon ?? <BubbleChatAddIcon size={20} triggered={isHovered} />}
+                <BubbleChatAddIcon size={20} triggered={isHovered} />
               </div>
             </div>
             <AnimatePresence mode="popLayout" initial={false}>
               {!collapsed && (
-                <m.p
+                <motion.p
                   key="label"
                   style={bodyTextStyle}
                   initial={{ opacity: 0, filter: 'blur(4px)' }}
@@ -456,13 +474,13 @@ export function SidebarMenuItem({
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 >
                   {label}
-                </m.p>
+                </motion.p>
               )}
             </AnimatePresence>
           </div>
         )}
 
-        {/* Inner depth shadow for new-chat - hover + selected */}
+        {/* Inner depth shadow for new-chat — hover + selected */}
         {variant === 'new-chat' && isActive && (
           <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: SHADOW_ITEM_INNER }} />
         )}
@@ -485,7 +503,7 @@ export function SidebarMenuItem({
                 paddingRight:     isMarqueeing ? '48px' : undefined,
               }}
             >
-              <m.p
+              <motion.p
                 ref={labelRef}
                 style={{
                   ...bodyTextStyle,
@@ -503,32 +521,25 @@ export function SidebarMenuItem({
                 onAnimationComplete={() => { setIsMarqueeing(false); setMarqueeDone(true) }}
               >
                 {label}
-              </m.p>
+              </motion.p>
             </div>
 
-            {/* Right group: badge (always) + more button (on hover/select).
-                Grouping them lets the layout animation drive the badge left
-                as the more button slides in from the right. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
               {badge && (
-                <m.div
-                  layout
-                  transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                  style={{ display: 'flex', alignItems: 'center' }}
-                >
+                <motion.div layout transition={{ type: 'spring', stiffness: 400, damping: 28 }} style={{ display: 'flex', alignItems: 'center' }}>
                   {badge}
-                </m.div>
+                </motion.div>
               )}
               <AnimatePresence mode="popLayout">
                 {isActive && (
-                  <m.button
+                  <motion.button
                     key="more"
                     type="button"
                     initial={{ opacity: 0, x: 6 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 6 }}
                     transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
-                    onClick={onMoreClick ? (e) => { e.stopPropagation(); e.preventDefault(); onMoreClick(e) } : undefined}
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); onMoreClick?.(e) }}
                     style={{
                       display:         'flex',
                       alignItems:      'center',
@@ -544,12 +555,12 @@ export function SidebarMenuItem({
                     }}
                   >
                     <MoreHorizontalIcon size={20} />
-                  </m.button>
+                  </motion.button>
                 )}
               </AnimatePresence>
             </div>
 
-            {/* Inner depth shadow - hover + selected */}
+            {/* Inner depth shadow — hover + selected */}
             {isActive && (
               <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: SHADOW_ITEM_INNER }} />
             )}
@@ -562,7 +573,6 @@ export function SidebarMenuItem({
             <input
               ref={inputRef}
               type="text"
-              autoFocus
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={(e) => {
@@ -615,13 +625,10 @@ export function SidebarMenuItem({
                 }}
               >
                 {avatarSrc ? (
-                  <Image
+                  <img
                     alt=""
                     src={avatarSrc}
-                    fill
-                    sizes="32px"
-                    unoptimized
-                    style={{ objectFit: 'cover', borderRadius: '9999px' }}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '9999px' }}
                   />
                 ) : (
                   <div
@@ -643,10 +650,10 @@ export function SidebarMenuItem({
                 )}
               </div>
 
-              {/* Name + sublabel - hidden when collapsed */}
+              {/* Name + sublabel — hidden when collapsed */}
               <AnimatePresence mode="popLayout" initial={false}>
                 {!collapsed && (
-                  <m.div
+                  <motion.div
                     key="user-info"
                     initial={{ opacity: 0, filter: 'blur(4px)' }}
                     animate={{ opacity: 1, filter: 'blur(0px)' }}
@@ -658,32 +665,36 @@ export function SidebarMenuItem({
                     <p style={{ ...captionTextStyle, color: sublabelWarning ? 'var(--color-tag-Yellow-text,#854d0e)' : 'var(--sidebar-menu-item-text)', fontWeight: 'var(--font-weight-regular)' }}>
                       {sublabel}
                     </p>
-                  </m.div>
+                  </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
-            {/* Inner depth shadow - hover */}
+            {/* Inner depth shadow — hover */}
             {isActive && (
               <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: SHADOW_ITEM_INNER }} />
             )}
 
-            {/* Settings button - hidden when collapsed */}
+            {/* Right cluster — Figma "Icon Container" (6408:12254): the role badge
+                and the settings (abacus) icon sit in ONE container at a 4px gap
+                with 6px outer padding, so the chip↔icon gap is just 4px — not
+                inflated by a separate button's own padding. The container is the
+                settings click target. */}
             <AnimatePresence mode="popLayout" initial={false}>
               {!collapsed && (
-                <m.button
-                  key="settings"
+                <motion.button
+                  key="account-actions"
                   type="button"
+                  aria-label="Account settings"
                   initial={{ opacity: 0, filter: 'blur(4px)' }}
                   animate={{ opacity: 1, filter: 'blur(0px)' }}
                   exit={{ opacity: 0, filter: 'blur(4px)' }}
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); onSettingsClick?.(e) }}
+                  onClick={(e) => { e.stopPropagation(); onSettingsClick?.(e) }}
                   style={{
                     display:         'flex',
                     alignItems:      'center',
-                    justifyContent:  'center',
-                    overflow:        'hidden',
+                    gap:             '4px',
                     padding:         '6px',
                     borderRadius:    '8px',
                     flexShrink:      0,
@@ -693,16 +704,59 @@ export function SidebarMenuItem({
                     color:           'var(--sidebar-menu-item-text)',
                   }}
                 >
-                  <AbacusIcon size={20} triggered={isHovered} />
-                </m.button>
+                  {roleBadge && (
+                    <span style={{ display: 'inline-flex', flexShrink: 0 }}>{roleBadge}</span>
+                  )}
+                  <span style={{ display: 'inline-flex', lineHeight: 0 }}>
+                    <AbacusIcon size={20} triggered={isHovered} />
+                  </span>
+                </motion.button>
               )}
             </AnimatePresence>
           </>
         )}
 
-      </RootEl>
+      </>
     )
-}
+
+    if (isLink) {
+      const {
+        ref: _ref,
+        role: _role,
+        tabIndex,
+        className,
+        style,
+        onMouseEnter,
+        onMouseLeave,
+        onFocus,
+        onBlur,
+        onKeyDown,
+      } = rootProps
+      return (
+        <Link
+          href={href!}
+          tabIndex={tabIndex}
+          className={className}
+          style={style}
+          onMouseEnter={onMouseEnter as unknown as React.MouseEventHandler<HTMLAnchorElement>}
+          onMouseLeave={onMouseLeave as unknown as React.MouseEventHandler<HTMLAnchorElement>}
+          onFocus={onFocus as unknown as React.FocusEventHandler<HTMLAnchorElement>}
+          onBlur={onBlur as unknown as React.FocusEventHandler<HTMLAnchorElement>}
+          onKeyDown={onKeyDown as unknown as React.KeyboardEventHandler<HTMLAnchorElement>}
+          onClick={handleAnchorClick}
+        >
+          {content}
+        </Link>
+      )
+    }
+
+    return (
+      <div onClick={isHeader ? undefined : onClick} {...rootProps}>
+        {content}
+      </div>
+    )
+  }
+)
 
 SidebarMenuItem.displayName = 'SidebarMenuItem'
 

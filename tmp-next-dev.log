@@ -1,0 +1,19 @@
+
+> front-end-new@0.1.0 predev
+> npm run load-secrets
+
+
+> front-end-new@0.1.0 load-secrets
+> node scripts/load-secrets.mjs
+
+[load-secrets] wrote 29 keys from souvenirai-frontend/development → C:\Users\kunals\front-end\.env.development.local
+
+> front-end-new@0.1.0 dev
+> next dev -p 3001
+
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://10.26.49.159:3001
+- Environments: .env.development.local, .env.local
+✓ Ready in 338ms
+[?25h

@@ -1,18 +1,18 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface SidebarMenuSkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
-   * Show an icon placeholder on the left - matches `default` variant icon slot.
+   * Show an icon placeholder on the left — matches `default` variant icon slot.
    * @default false
    */
   showIcon?: boolean
   /**
-   * Full width instead of fixed 217px - always pass inside Sidebar.
+   * Full width instead of fixed 217px — always pass inside Sidebar.
    * @default false
    */
   fluid?: boolean
@@ -20,12 +20,10 @@ export interface SidebarMenuSkeletonProps extends React.HTMLAttributes<HTMLDivEl
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function SidebarMenuSkeleton({ showIcon = false, fluid = false, className, ref, ...props }: SidebarMenuSkeletonProps & { ref?: React.Ref<HTMLDivElement> }) {
-    // Start with a fixed width on SSR; randomise only after mount to avoid hydration mismatch
-    const [width, setWidth] = useState('70%')
-    useEffect(() => {
-      setWidth(`${Math.floor(Math.random() * 38) + 50}%`)
-    }, [])
+export const SidebarMenuSkeleton = React.forwardRef<HTMLDivElement, SidebarMenuSkeletonProps>(
+  function SidebarMenuSkeleton({ showIcon = false, fluid = false, className, ...props }, ref) {
+    // Randomise text bar width (50–88%) so stacked skeletons look naturally varied
+    const width = useMemo(() => `${Math.floor(Math.random() * 38) + 50}%`, [])
 
     return (
       <div
@@ -56,7 +54,8 @@ export function SidebarMenuSkeleton({ showIcon = false, fluid = false, className
         />
       </div>
     )
-}
+  },
+)
 
 SidebarMenuSkeleton.displayName = 'SidebarMenuSkeleton'
 

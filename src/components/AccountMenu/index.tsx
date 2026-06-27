@@ -38,10 +38,17 @@ export interface AccountMenuProps {
   panelWidth?: number | string
   /** Renders the trigger in icon-only collapsed mode. Pass through when used inside a collapsible Sidebar. */
   collapsed?: boolean
+  /** Element rendered in the trigger row before the settings icon — pass the
+   *  viewer's `<RoleBadge />` so the footer trigger matches the Sidebar. */
+  roleBadge?: React.ReactNode
+  /** Show the "Upgrade Plan" item. @default true (gate to individuals in the Sidebar). */
+  showUpgradePlan?: boolean
+  /** Force-show the "Organization" item (owner/admin). Otherwise it shows whenever `onOrganization` is provided. @default false */
+  showOrganization?: boolean
   onProfile?:      () => void
   onUpgradePlan?:  () => void
   onSettings?:     () => void
-  /** When provided, an "Organization" item is shown between Settings and What's new. */
+  /** When provided (or `showOrganization`), an "Organization" item is shown between Settings and What's new. */
   onOrganization?: () => void
   onWhatsNew?:     () => void
   onHelp?:         () => void
@@ -252,6 +259,9 @@ export function AccountMenu({
   placement = 'top-start',
   panelWidth = 283,
   collapsed = false,
+  roleBadge,
+  showUpgradePlan = true,
+  showOrganization = false,
   onProfile,
   onUpgradePlan,
   onSettings,
@@ -283,6 +293,7 @@ export function AccountMenu({
       sublabel={plan ?? ''}
       sublabelWarning={planWarning}
       avatarSrc={avatarSrc}
+      roleBadge={roleBadge}
       {...(collapsed ? { collapsed: true } : { fluid: true })}
       onSettingsClick={() => { onSettings?.(); handleOpenChange(true) }}
     />
@@ -306,12 +317,14 @@ export function AccountMenu({
               fluid
               onClick={() => { onProfile?.(); close() }}
             />
-            <Dropdown.Item
-              icon={<ArrowUpRightOneIcon />}
-              label="Upgrade Plan"
-              fluid
-              onClick={() => { onUpgradePlan?.(); close() }}
-            />
+            {showUpgradePlan && (
+              <Dropdown.Item
+                icon={<ArrowUpRightOneIcon />}
+                label="Upgrade Plan"
+                fluid
+                onClick={() => { onUpgradePlan?.(); close() }}
+              />
+            )}
 
             <Divider decorative />
 
@@ -322,12 +335,12 @@ export function AccountMenu({
               fluid
               onClick={() => { onSettings?.(); close() }}
             />
-            {onOrganization && (
+            {(showOrganization || onOrganization) && (
               <Dropdown.Item
                 icon={<UserAddOneIcon animated />}
                 label="Organization"
                 fluid
-                onClick={() => { onOrganization(); close() }}
+                onClick={() => { onOrganization?.(); close() }}
               />
             )}
             <Dropdown.Item

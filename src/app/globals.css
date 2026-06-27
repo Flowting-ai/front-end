@@ -159,6 +159,23 @@
 .kaya-thinking-md p:first-child { margin-top: 0; }
 .kaya-thinking-md p:last-child  { margin-bottom: 0; }
 
+/* Chat markdown rhythm: react-markdown handles the structure, these rules keep
+   nested prose/lists from accumulating paragraph gutters inside message text. */
+.kaya-chat-markdown > :first-child { margin-top: 0 !important; }
+.kaya-chat-markdown > :last-child  { margin-bottom: 0 !important; }
+.kaya-chat-markdown li > p {
+  margin-top: 0 !important;
+  margin-bottom: 6px !important;
+}
+.kaya-chat-markdown li > p:last-child {
+  margin-bottom: 0 !important;
+}
+.kaya-chat-markdown li > ul,
+.kaya-chat-markdown li > ol {
+  margin-top: 6px !important;
+  margin-bottom: 4px !important;
+}
+
 /* ── Attachment scroll strip ─────────────────────────────────────────────── */
 /* Hide webkit scrollbar on the attachment row */
 .kds-attach-scroll::-webkit-scrollbar { display: none; }

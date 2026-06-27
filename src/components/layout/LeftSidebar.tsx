@@ -22,6 +22,8 @@ import type { Project, ProjectChat } from "@/context/projects-context";
 import { useSearch } from "@/context/search-context";
 import { useOrg } from "@/context/org-context";
 import { TeamSwitcher } from "@/components/TeamSwitcher";
+import { RoleBadge } from "@/components/RoleBadge";
+import type { WorkspaceRole } from "@/components/RoleBadge";
 import type { Team } from "@/types/teams";
 import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
@@ -1322,6 +1324,9 @@ function LeftSidebarImpl({
       // Clicking the admin tab switches the sidebar body to admin AND navigates
       // to General — always landing on General regardless of prior admin page.
       onOrganisationClick={() => push('/org/general')}
+      // "Manage <org>" row (and its collapsed-rail twin) land on the same org
+      // management entry point as the header org badge.
+      onManageOrg={() => push('/org/general')}
       // adminGroups is intentionally NOT overridden — the Sidebar's default
       // groups (Organization / Models) are the canonical content.
       // We only wire behaviour: navigate where a page exists, else "coming soon".
@@ -1366,6 +1371,9 @@ function LeftSidebarImpl({
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={collapsed}
             panelWidth={274}
+            roleBadge={orgId && displayRole ? (
+              <RoleBadge role={displayRole as WorkspaceRole} showLabel={false} mode="solar" />
+            ) : undefined}
             placement="top-start"
             onProfile={() => push("/settings/account")}
             onUpgradePlan={() => push("/settings/billing")}

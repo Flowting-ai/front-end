@@ -6,4 +6,4 @@ This version has breaking changes - APIs, conventions, and file structure may al
 
 # Design reference
 
-Before creating or changing UI, review `/home/sahil/may-day` for established design components, layouts, tokens, and interaction patterns. Reuse those patterns where they fit.
+Before creating or changing UI, review `C:\Users\kunals\may-day` for established design components, layouts, tokens, and interaction patterns. Reuse those patterns where they fit.

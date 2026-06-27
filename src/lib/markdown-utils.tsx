@@ -407,6 +407,72 @@ function normalizeMathDelimiters(content: string): string {
   return out;
 }
 
+function protectMarkdownRegions(content: string, transform: (value: string) => string): string {
+  const stash: string[] = []
+  const token = (i: number) => `\x03P${i}\x03`
+  const guarded = content.replace(/```[\s\S]*?```|`[^`\n]*`|\$\$[\s\S]*?\$\$/g, (match) => {
+    stash.push(match)
+    return token(stash.length - 1)
+  })
+
+  return transform(guarded).replace(/\x03P(\d+)\x03/g, (_, i) => stash[Number(i)] ?? '')
+}
+
+function findNextUnescapedDollar(content: string, start: number): number {
+  for (let i = start; i < content.length; i++) {
+    if (content[i] === '\n') return -1
+    if (content[i] === '$' && content[i - 1] !== '\\') return i
+  }
+  return -1
+}
+
+function isLikelyInlineMath(value: string): boolean {
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.length > 100) return false
+  if (/[;:]/.test(trimmed)) return false
+  if (/\b(?:mo|month|monthly|yr|year|yearly|day|week|user|seat|credit|token|tokens|plan|plans)\b/i.test(trimmed)) {
+    return false
+  }
+  if (/\b[a-z]{3,}\b/i.test(trimmed.replace(/\\[a-z]+/gi, ''))) return false
+  return /[=^_\\{}()+*/<>|]|\d\s*[a-z]/i.test(trimmed)
+}
+
+// Currency like "$50-150/mo ... $500+/mo" is common in generated business
+// answers. remark-math sees two dollar signs in one line as an inline math span,
+// which can turn a normal price sentence into KaTeX italics. Convert numeric
+// currency markers to an entity so they render as "$" but cannot delimit math.
+// Code, display math, and real inline math are left alone.
+function escapeCurrencyDollars(content: string): string {
+  return protectMarkdownRegions(content, (value) => {
+    let out = ''
+
+    for (let i = 0; i < value.length; i++) {
+      const char = value[i]
+      if (char !== '$' || value[i - 1] === '\\') {
+        out += char
+        continue
+      }
+
+      let next = i + 1
+      while (value[next] === ' ' || value[next] === '\t') next++
+
+      if (!/\d/.test(value[next] ?? '')) {
+        out += char
+        continue
+      }
+
+      const close = findNextUnescapedDollar(value, next + 1)
+      if (close !== -1 && isLikelyInlineMath(value.slice(next, close))) {
+        out += char
+      } else {
+        out += '&#36;'
+      }
+    }
+
+    return out
+  })
+}
+
 // LLMs sometimes generate bold text that spans a paragraph break, e.g.:
 //   "...indicates that **Gmail is not enabled\n\n**. This typically happens with **\n\nGoogle Workspace\n\n** accounts..."
 //
@@ -571,7 +637,6 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
     () => hasCitations
       ? { ...BASE_COMPONENTS, a: makeAComponent(webCitations) }
       : BASE_COMPONENTS,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [hasCitations, webCitations],
   );
 
@@ -582,10 +647,11 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
     //   normalizeInlineBoldTitles  — within-paragraph cross-line-break ** collapse
     //   fixOrphanedBold            — lone ** lines, ** before bullets, doc-level balance
     //   normalizeMathDelimiters    — LaTeX delimiter normalisation
+    //   escapeCurrencyDollars      — keep prices from being parsed as math
     //   closeOpenFences            — unclosed code fence guard
     const base = hasCitations
-      ? closeOpenFences(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(collapseInterParagraphBold(preprocessCitations(content)))))))
-      : closeOpenFences(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(collapseInterParagraphBold(content))))));
+      ? closeOpenFences(escapeCurrencyDollars(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(collapseInterParagraphBold(preprocessCitations(content))))))))
+      : closeOpenFences(escapeCurrencyDollars(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(collapseInterParagraphBold(content)))))));
     // Sanitise only when we're about to ask rehype-raw to parse HTML —
     // for pure-markdown rendering, DOMPurify's HTML-context parsing can
     // corrupt characters like `<` that appear in code blocks or math.
@@ -606,11 +672,11 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
     // rendered to HTML before rehype-raw processes the rest of the document.
     if (allowHtml) plugins.push(rehypeRaw);
     return plugins;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlights, allowHtml]);
 
   return (
     <div
+      className="kaya-chat-markdown"
       style={{
         fontFamily: "var(--font-body)",
         fontSize: "16px",

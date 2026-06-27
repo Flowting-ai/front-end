@@ -1,10 +1,10 @@
 'use client'
 
 import React from 'react'
+import { m } from 'framer-motion'
 import { LogoIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
 import type { ChipColor } from '@/components/Chip'
-import { Button } from '@/components/Button'
 
 // ── Org identity colour ───────────────────────────────────────────────────────
 // Deterministic assignment from a stable key (org id) into the KDS tag palette —
@@ -39,18 +39,14 @@ export interface OrgBadgeProps extends Omit<React.HTMLAttributes<HTMLElement>, '
   active?: boolean
   /** Click handler — interactive only. */
   onClick?: () => void
-  /**
-   * Max width (px) of the entire badge before the name is ellipsis-clipped.
-   * Includes the avatar and padding — the name portion gets whatever remains.
-   * @default 160
-   */
+  /** Max width (px) for the name before ellipsis truncation. @default 120 */
   maxNameWidth?: number
   /**
-   * Secondary label shown below the org name — interactive mode only.
-   * Typically the user's role, e.g. "Admin", "Owner".
+   * Accepted for back-compat; the co-brand chip does not render a secondary label
+   * (the role is surfaced elsewhere, e.g. the team switcher row).
    */
   sublabel?: string
-  /** Stretch the interactive button to fill its container — interactive only. */
+  /** Accepted for back-compat — the chip is content-width and does not stretch. */
   fluid?: boolean
 }
 
@@ -58,7 +54,8 @@ export interface OrgBadgeProps extends Omit<React.HTMLAttributes<HTMLElement>, '
 // A co-brand identity chip — visually a Small Chip ([org avatar] + name). Colour is
 // assigned per-org from the KDS tag palette (pickOrgColor) and drives BOTH the chip
 // and the monogram, so each org is recognisable. Avatar = uploaded logo → monogram
-// fallback. Used in the Sidebar header as the org/admin entry; reusable elsewhere.
+// fallback. The interactive variant is the same chip wrapped in a button (used in
+// the Sidebar header as the org/admin entry); reusable elsewhere.
 
 export function OrgBadge(
   {
@@ -71,9 +68,9 @@ export function OrgBadge(
     interactive = false,
     active = false,
     onClick,
-    maxNameWidth = 160,
-    sublabel,
-    fluid = false,
+    maxNameWidth = 120,
+    sublabel: _sublabel,
+    fluid: _fluid,
     className,
     ...rest
   }: OrgBadgeProps & { ref?: React.Ref<HTMLElement> },
@@ -86,9 +83,7 @@ export function OrgBadge(
   const innerShadow = `var(--color-tag-${resolved}-inner-shadow)`
 
   const monogram = orgName.trim().charAt(0).toUpperCase()
-
-  // ── Static chip avatar (16 × 16) — used in the non-interactive variant ──────
-  const chipAvatar = orgLogoSrc ? (
+  const avatar = orgLogoSrc ? (
     <img
       src={orgLogoSrc}
       alt=""
@@ -100,6 +95,8 @@ export function OrgBadge(
       style={{
         width: 16, height: 16, borderRadius: 4, flexShrink: 0,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        // Square uses the colour's dark text tone; white letter — the tag pair is
+        // designed as text-on-bg so contrast holds across all colours.
         backgroundColor: textToken,
         color: 'var(--neutral-white)',
         fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
@@ -110,60 +107,82 @@ export function OrgBadge(
     </span>
   )
 
-  // ── Static (non-interactive) — identity chip, no button semantics ────────────
+  const inner = (
+    <>
+      {avatar}
+      {/* Org name — truncates; full name in title tooltip */}
+      <span
+        title={fullName ?? orgName}
+        style={{
+          padding:      '0 2px',
+          fontFamily:   'var(--font-body)',
+          fontWeight:   'var(--font-weight-medium)',
+          fontSize:     'var(--font-size-caption)',
+          lineHeight:   'var(--line-height-caption)',
+          color:        textToken,
+          whiteSpace:   'nowrap',
+          overflow:     'hidden',
+          textOverflow: 'ellipsis',
+          // `maxWidth` is the upper cap; `minWidth: 0` lets the name shrink +
+          // ellipsize below that when the badge is in a tight flex parent.
+          minWidth:     0,
+          maxWidth:     `${maxNameWidth}px`,
+        }}
+      >
+        {orgName}
+      </span>
+      {/* Inner depth/highlight — above content */}
+      <span aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: innerShadow }} />
+    </>
+  )
+
+  const baseStyle: React.CSSProperties = {
+    position:        'relative',
+    display:         'inline-flex',
+    alignItems:      'center',
+    // Shrink-capable: in a constrained flex parent (e.g. the Sidebar header next
+    // to the wordmark) the badge shrinks and its name truncates responsively
+    // (capped at `maxNameWidth`) instead of overflowing into siblings. In an
+    // unconstrained context it stays content-width.
+    flexShrink:      1,
+    minWidth:        0,
+    padding:         '2px',
+    border:          'none',
+    borderRadius:    '6px',
+    backgroundColor: bgToken,
+    boxShadow:       shadowTok,
+  }
+
   if (!interactive) {
-    const chipInner = (
-      <>
-        {chipAvatar}
-        <span
-          title={fullName ?? orgName}
-          style={{
-            flex: '1 1 0', minWidth: 0, padding: '0 2px',
-            fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
-            fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)',
-            color: textToken, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}
-        >
-          {orgName}
-        </span>
-        <span aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: innerShadow }} />
-      </>
-    )
     return (
       <span
         ref={ref as React.Ref<HTMLSpanElement>}
         role="img"
         aria-label={`Organisation: ${orgName}`}
         className={cn(className)}
-        style={{
-          position: 'relative', display: 'inline-flex', alignItems: 'center',
-          flexShrink: 0, minWidth: 0, maxWidth: `${maxNameWidth}px`,
-          overflow: 'hidden', padding: '2px', border: 'none',
-          borderRadius: '6px', backgroundColor: bgToken, boxShadow: shadowTok,
-        }}
+        style={baseStyle}
         {...rest}
       >
-        {chipInner}
+        {inner}
       </span>
     )
   }
 
-  // ── Interactive — secondary small Button with LogoIcon + role chip ──────────
   return (
-    <Button
+    <m.button
       ref={ref as React.Ref<HTMLButtonElement>}
-      variant="secondary"
-      size="sm"
-      fluid={fluid}
-      leftIcon={<LogoIcon size={16} animated />}
-      aria-label={`Open ${fullName ?? orgName} organisation settings`}
+      type="button"
+      aria-label={`Open ${orgName} organisation`}
       aria-pressed={active}
       className={cn('kds-org-badge', className)}
       onClick={onClick}
-      {...(rest as React.ComponentPropsWithoutRef<typeof Button>)}
+      whileTap={{ scale: 0.96 }}
+      transition={{ duration: 0.1, ease: 'easeOut' }}
+      style={{ ...baseStyle, cursor: 'pointer' }}
+      {...(rest as React.ComponentPropsWithoutRef<typeof m.button>)}
     >
-      Manage Organization
-    </Button>
+      {inner}
+    </m.button>
   )
 }
 
