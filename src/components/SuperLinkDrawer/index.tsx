@@ -229,7 +229,7 @@ function DrawerSettings({
           Permanently invalidates the URL. Cannot be undone. All active sessions are terminated immediately.
         </span>
         {!showRevoke ? (
-          <Button size="sm" variant="secondary" onClick={() => setShowRevoke(true)}>
+          <Button color="red" size="sm" variant="secondary" onClick={() => setShowRevoke(true)}>
             Revoke link
           </Button>
         ) : (

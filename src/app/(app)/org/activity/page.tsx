@@ -170,8 +170,8 @@ export default function OrgActivityPage() {
           </p>
         </div>
 
-        <SettingsTable columns={ACTIVITY_COLUMNS} columnGap={0}>
-          <SettingsTableToolbar title="Activity Log" style={{ flexWrap: 'wrap' }}>
+        <SettingsTable columns={ACTIVITY_COLUMNS} columnGap={24}>
+          <SettingsTableToolbar title="Recent activity" style={{ flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 12, maxWidth: '100%' }}>
               <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
                 <InputField
@@ -189,7 +189,7 @@ export default function OrgActivityPage() {
               <select
                 value={filterAction}
                 onChange={e => setFilterAction(e.target.value)}
-                style={{ height: 36, borderRadius: 10, border: 'none', boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)', padding: '0 10px', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-700)', outline: 'none', backgroundColor: 'white', cursor: 'pointer' }}
+                style={{ height: 32, borderRadius: 8, border: 'none', boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)', padding: '0 10px', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-700)', outline: 'none', backgroundColor: 'var(--text-field-bg)', cursor: 'pointer' }}
               >
                 {actionTypes.map(t => (
                   <option key={t} value={t}>{t === 'all' ? 'All actions' : humanizeAction(t)}</option>
@@ -199,7 +199,7 @@ export default function OrgActivityPage() {
           </SettingsTableToolbar>
 
           <div style={{ overflowX: 'auto' }}>
-            <div role="table" aria-label="Activity log" style={{ minWidth: 760 }}>
+            <div role="table" aria-label="Activity log" style={{ minWidth: 820 }}>
               <SettingsTableHeader>
                 <SettingsTableHeaderCell>When</SettingsTableHeaderCell>
                 <SettingsTableHeaderCell>Actor</SettingsTableHeaderCell>

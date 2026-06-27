@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowDownOneIcon,
+  ArrowLeftOneIcon,
   ArrowRightOneIcon,
   CancelOneIcon,
   InformationCircleIcon,
@@ -1804,6 +1805,9 @@ function ConnectorDetailView({
             type="button"
             onClick={onBack}
             style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
               border: 'none',
               background: 'transparent',
               padding: 0,
@@ -1814,6 +1818,7 @@ function ConnectorDetailView({
               lineHeight: '18px',
             }}
           >
+            <ArrowLeftOneIcon size={14} />
             Back to manage connectors
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
@@ -1831,8 +1836,10 @@ function ConnectorDetailView({
           <Tabs value={filter} onValueChange={v => setFilter(v as AccountStatusFilter)}>
             <Tabs.List>
               <Tabs.Trigger value="all">
-                All
-                <Badge label={`${accounts.length}`} color="Blue" />
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  All
+                  <Badge label={`${accounts.length}`} color="Blue" />
+                </span>
               </Tabs.Trigger>
               <Tabs.Trigger value="active">Active</Tabs.Trigger>
               <Tabs.Trigger value="needs-attention">Needs attention</Tabs.Trigger>

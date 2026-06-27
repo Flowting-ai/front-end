@@ -608,7 +608,7 @@ function WorkspaceSwitcher({ teams, projects, activeTeamId, role, onTeamSelect }
       case 'connectors': push(`/teams/${teamId}?section=connectors`); break
       case 'request':    push(isAdminRole ? `/org/members` : `/teams/${teamId}?section=requests`); break
       case 'activity':   push(isAdminRole ? `/org/activity` : `/teams/${teamId}?section=activity`); break
-      case 'usage':      toast.info('Usage — coming soon', { id: 'nav' }); break
+      case 'usage':      push('/org/plans'); break
     }
     setOpen(false)
   }
@@ -651,14 +651,20 @@ interface TeamsSidebarContentProps {
 function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId }: TeamsSidebarContentProps) {
   const { projects } = useProjects()
   const { push } = useRouter()
-  const isAdmin = role === 'admin'
   const isPersonalView = activeTeamId === 'personal'
-  const activeTeam = (isPersonalView || activeTeamId === null)
+  // Match the design system's DefaultProjectItems: when no team is explicitly
+  // selected, the active team falls back to teams[0] (the same team the
+  // TeamSwitcherRow displays), so the panel and the trigger stay in sync.
+  const activeTeam = isPersonalView
     ? null
     : (teams.find(team => team.id === activeTeamId) ?? teams[0] ?? null)
   const effectiveActiveTeamId = activeTeam?.id ?? null
-  const canCreatePersonalProject = isAdmin || teams.some(team => team.canEdit)
-  const canCreateTeamProject = Boolean(activeTeam && (isAdmin || activeTeam.canEdit))
+  // Design rule (DefaultProjectItems): "New project" shows for non-members.
+  // Org admins/owners (role !== 'member') always can; a plain org member who
+  // is an editor on a team can create within a team they can edit.
+  const isAdmin = role !== 'member'
+  const showNewPersonalProject = isAdmin || teams.some(team => team.canEdit)
+  const showNewTeamProject = isAdmin || Boolean(activeTeam?.canEdit)
   const teamProjectsLabel = activeTeam ? `${activeTeam.name} projects` : 'Workspace projects'
   const teamNewProjectHref = effectiveActiveTeamId ? `/projects/new?teamId=${effectiveActiveTeamId}` : '/projects/new'
   const personalProjectFilter = useCallback((project: Project) => project.teamId === null, [])
@@ -678,14 +684,14 @@ function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId }: Tea
       {isPersonalView ? (
         <ProjectsSection
           label="Personal projects"
-          showNewProject={canCreatePersonalProject}
+          showNewProject={showNewPersonalProject}
           projectsFilter={personalProjectFilter}
           emptyLabel="No personal projects yet"
         />
       ) : (
         <ProjectsSection
           label={teamProjectsLabel}
-          showNewProject={canCreateTeamProject}
+          showNewProject={showNewTeamProject}
           projectsFilter={teamProjectFilter}
           newProjectHref={teamNewProjectHref}
           emptyLabel={activeTeam ? `No projects in ${activeTeam.name} yet` : 'No team projects yet'}
@@ -1528,6 +1534,16 @@ function BrainScheduledTasksSection({ tasks, loading }: BrainScheduledTasksSecti
 
 // -- LeftSidebar ---------------------------------------------------------------
 
+// Orgs are auto-named "<X>'s Organisation" / "<X>'s Workspace" at provisioning.
+// The badge + account row should show just the "<X>" part, not the redundant
+// possessive suffix. A real custom name (no trailing organisation/workspace
+// descriptor) is left untouched.
+function orgDisplayName(name: string | undefined | null): string | undefined {
+  if (!name) return name ?? undefined
+  const match = name.match(/^(.+?)['’]s\s+(organi[sz]ation|workspace)\s*$/i)
+  return match ? match[1]!.trim() : name
+}
+
 interface LeftSidebarProps {
   activeChatId?: string;
   onSelectChat?: (id: string) => void;
@@ -1740,7 +1756,7 @@ function LeftSidebarImpl({
 
   // Teams ? "Teams | <name>" | paid ? "Pro"/"Starter"/"Power" | trial ? "Free Trial" | none ? "No Plan Selected"
   const planLabel = isTeamUser
-    ? (orgId ? `Teams | ${org?.name ?? 'Teams'}` : 'Teams')
+    ? (orgId ? `Teams | ${orgDisplayName(org?.name) ?? 'Teams'}` : 'Teams')
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
       : user?.isTrial
@@ -1816,7 +1832,7 @@ function LeftSidebarImpl({
         const label = ADMIN_SECTION_COMING_SOON[id] ?? id
         toast.info(`${label} — coming soon`, { id: 'nav' })
       }}
-      orgName={orgId ? org.name : undefined}
+      orgName={orgId ? orgDisplayName(org.name) : undefined}
       orgId={orgId ?? undefined}
       showAdmin={Boolean(orgId) && currentUserRole === 'admin'}
       orgBadgeSublabel={orgBadgeSublabel}

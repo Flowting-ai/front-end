@@ -5,7 +5,8 @@ import { Slot } from '@radix-ui/react-slot'
 import {
   ArrowDownOneIcon,
   SettingsOneIcon,
-  PlusSignIcon,
+  TokenCircleIcon,
+  UserAddOneIcon,
   AuditTwoIcon,
   DashboardSquareOneIcon,
   LinkSixIcon,
@@ -68,13 +69,16 @@ export interface TeamSwitcherDropdownProps extends React.HTMLAttributes<HTMLDivE
 type ActionItem = { id: string; label: string; icon: React.ReactElement }
 
 const OWNER_ADMIN_ACTIONS: ActionItem[] = [
-  { id: 'manage', label: 'Team Settings', icon: <SettingsOneIcon /> },
+  { id: 'manage',   label: 'Manage',   icon: <SettingsOneIcon /> },
+  { id: 'usage',    label: 'Usage',    icon: <TokenCircleIcon /> },
+  { id: 'request',  label: 'Request',  icon: <UserAddOneIcon /> },
+  { id: 'activity', label: 'Activity', icon: <AuditTwoIcon /> },
 ]
 
 const EDITOR_ACTIONS: ActionItem[] = [
   { id: 'projects',   label: 'Projects',   icon: <DashboardSquareOneIcon /> },
   { id: 'connectors', label: 'Connectors', icon: <LinkSixIcon /> },
-  { id: 'request',    label: 'Request',    icon: <PlusSignIcon /> },
+  { id: 'request',    label: 'Request',    icon: <UserAddOneIcon /> },
   { id: 'activity',   label: 'Activity',   icon: <AuditTwoIcon /> },
 ]
 

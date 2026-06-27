@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { useAuth } from '@/context/auth-context'
 import { getShareTokenLimit } from '@/lib/plan-config'
 import { getPersonaRepo } from '@/lib/api/personas'
+import { ApiError } from '@/lib/api/client'
 import {
   createShare,
   revokeShare,
@@ -217,7 +218,8 @@ function PersonaPublishedContent() {
 
   const [personaName,    setPersonaName]    = useState(nameParam || 'Your Agent')
   const [linkShare,      setLinkShare]      = useState<PersonaShare | null>(null)
-  const [tokenLimit,     setTokenLimit]     = useState(maxTokenLimit)
+  // Blank by default — the user must enter a credit limit before generating.
+  const [tokenLimit,     setTokenLimit]     = useState<string>('')
   const [isGenerating,   setIsGenerating]   = useState(false)
   const [isRevoking,     setIsRevoking]     = useState(false)
   const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null)
@@ -233,11 +235,6 @@ function PersonaPublishedContent() {
       .catch(() => {})
   }, [repoId])
 
-  // Sync token limit default when plan resolves
-  useEffect(() => {
-    setTokenLimit(maxTokenLimit)
-  }, [maxTokenLimit])
-
   // Load existing link share on mount
   useEffect(() => {
     if (!versionId) return
@@ -252,17 +249,21 @@ function PersonaPublishedContent() {
   }, [versionId])
 
   async function handleGenerateSuperLink() {
-    if (!repoId) return
+    const limit = parseInt(tokenLimit, 10)
+    if (!repoId || !Number.isFinite(limit) || limit < 1) return
     setIsGenerating(true)
     try {
       const share = await createShare({
         persona_repo_id: repoId,
         share_type: 'link',
-        credit_limit: tokenLimit,
+        credit_limit: limit,
       })
       setLinkShare(share)
-    } catch {
-      toast.error('Failed to generate link')
+    } catch (err) {
+      // Surface the backend detail (e.g. "Persona repo not found") instead of a
+      // generic message so the real failure is visible.
+      const detail = err instanceof ApiError ? (err.rawMessage || err.message) : null
+      toast.error(detail ? `Failed to generate link: ${detail}` : 'Failed to generate link')
     } finally {
       setIsGenerating(false)
     }
@@ -508,13 +509,17 @@ function PersonaPublishedContent() {
                       }}
                     >
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         value={tokenLimit}
-                        min={1}
-                        max={maxTokenLimit}
-                        onChange={e =>
-                          setTokenLimit(Math.min(maxTokenLimit, Math.max(1, parseInt(e.target.value) || 1)))
-                        }
+                        placeholder="Enter a value"
+                        onChange={e => {
+                          const raw = e.target.value.replace(/[^0-9]/g, '')
+                          if (raw === '') { setTokenLimit(''); return }
+                          const n = parseInt(raw, 10)
+                          if (Number.isNaN(n)) return
+                          setTokenLimit(String(Math.min(maxTokenLimit, Math.max(1, n))))
+                        }}
                         style={{
                           width: 72,
                           border: 'none',
@@ -536,7 +541,7 @@ function PersonaPublishedContent() {
                     fluid
                     onClick={handleGenerateSuperLink}
                     loading={isGenerating}
-                    disabled={isGenerating}
+                    disabled={isGenerating || !tokenLimit}
                   >
                     Generate Super Link
                   </Button>
