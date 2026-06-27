@@ -298,8 +298,8 @@ export function ChatMessage({
   const contentRef = useRef<HTMLDivElement>(null);
   const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevModelKeyRef = useRef<string | undefined>(undefined);
-  const { addPin, removePinByMessage, open: openPinboard } = usePinboardActions();
-  const { addHighlight, open: openHighlightPanel, highlights } = useHighlight();
+  const { addPin, removePinByMessage, open: openPinboard, close: closePinboard } = usePinboardActions();
+  const { addHighlight, open: openHighlightPanel, close: closeHighlightPanel, highlights } = useHighlight();
 
   const messageHighlights = useMemo(
     () => highlights
@@ -460,6 +460,7 @@ export function ChatMessage({
       chatId,
       ...(tagsFromBlocks.length > 0 ? { tags: tagsFromBlocks } : {}),
     });
+    closeHighlightPanel();
     openPinboard();
   };
 
@@ -474,6 +475,7 @@ export function ChatMessage({
     const { selectedText: text, startOffset, endOffset } = selectionRange
 
     addHighlight({ text, messageId: message.id, startOffset, endOffset, chatId })
+    closePinboard()
     openHighlightPanel()
     sel.removeAllRanges()
     setSelectionOpen(false)

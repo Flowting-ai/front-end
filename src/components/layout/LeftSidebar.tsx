@@ -176,7 +176,7 @@ function RecentsList({ activeChatId, onSelectChat, chatHistory }: SectionProps) 
         }}
       >
         {Array.from({ length: 5 }).map((_, i) => (
-          <SidebarMenuSkeleton key={i} fluid />
+          <SidebarMenuSkeleton key={i} index={i} fluid />
         ))}
       </div>
     );
@@ -1003,7 +1003,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
       >
         <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
           {isLoading && Array.from({ length: 3 }).map((_, i) => (
-            <SidebarMenuSkeleton key={i} fluid />
+            <SidebarMenuSkeleton key={i} index={i} fluid />
           ))}
 
           {!isLoading && personas.length === 0 && (
@@ -1060,7 +1060,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
 
                 {/* Loading skeletons */}
                 {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
-                  <SidebarMenuSkeleton key={i} fluid />
+                  <SidebarMenuSkeleton key={i} index={i} fluid />
                 ))}
 
                 {/* Chat items */}
@@ -1275,7 +1275,7 @@ function PersonasSectionIndividual() {
           onClick={() => push(`/agents/${persona.id}/chat`)}
         />
         {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
-          <SidebarMenuSkeleton key={i} fluid />
+          <SidebarMenuSkeleton key={i} index={i} fluid />
         ))}
         {visibleChats.map(chat => (
           <PersonaChatItem
@@ -1317,7 +1317,7 @@ function PersonasSectionIndividual() {
           >
             <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
               {isLoading && Array.from({ length: 2 }).map((_, i) => (
-                <SidebarMenuSkeleton key={i} fluid />
+                <SidebarMenuSkeleton key={i} index={i} fluid />
               ))}
               {!isLoading && sharedPersonas.map(renderPersonaRow)}
             </div>
@@ -1348,7 +1348,7 @@ function PersonasSectionIndividual() {
             onClick={() => push('/agents/templates')}
           />
           {isLoading && Array.from({ length: 2 }).map((_, i) => (
-            <SidebarMenuSkeleton key={i} fluid />
+            <SidebarMenuSkeleton key={i} index={i} fluid />
           ))}
           {!isLoading && ownedPersonas.length === 0 && (
             <div style={{ padding: "8px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>
@@ -1448,7 +1448,7 @@ function RecentAgentChatsSection() {
       >
         <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
           {isLoading && Array.from({ length: 3 }).map((_, i) => (
-            <SidebarMenuSkeleton key={i} fluid />
+            <SidebarMenuSkeleton key={i} index={i} fluid />
           ))}
           {!isLoading && allChats.length === 0 && (
             <div style={{ padding: "8px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>
@@ -1506,8 +1506,8 @@ function BrainScheduledTasksSection({ tasks, loading }: BrainScheduledTasksSecti
         <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
           {loading ? (
             <>
-              <SidebarMenuSkeleton fluid />
-              <SidebarMenuSkeleton fluid />
+              <SidebarMenuSkeleton index={0} fluid />
+              <SidebarMenuSkeleton index={1} fluid />
             </>
           ) : tasks.length > 0 ? (
             tasks.map((task) => (
@@ -1876,7 +1876,7 @@ function LeftSidebarImpl({
         !user ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 0' }}>
             {Array.from({ length: 5 }).map((_, i) => (
-              <SidebarMenuSkeleton key={i} fluid />
+              <SidebarMenuSkeleton key={i} index={i} fluid />
             ))}
           </div>
         ) : isPersonaPage ? (

@@ -135,6 +135,7 @@ interface PinboardActionsContextValue {
   addPin: (pin: Omit<PinItem, "id" | "createdAt">) => void;
   removePinByMessage: (messageId: string) => void;
   open: () => void;
+  close: () => void;
 }
 
 const PinboardActionsContext = createContext<PinboardActionsContextValue | null>(null);
@@ -455,8 +456,8 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   // All three are useCallback([], []) — reference never changes, so this value
   // is created once and the context never triggers re-renders on its consumers.
   const actionsValue = useMemo(
-    () => ({ addPin, removePinByMessage, open }),
-    [addPin, removePinByMessage, open],
+    () => ({ addPin, removePinByMessage, open, close }),
+    [addPin, removePinByMessage, open, close],
   );
 
   return (

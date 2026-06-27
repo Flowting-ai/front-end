@@ -336,7 +336,7 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
       >
         <div style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {isLoading && Array.from({ length: 3 }).map((_, i) => (
-            <SidebarMenuSkeleton key={i} fluid />
+            <SidebarMenuSkeleton key={i} index={i} fluid />
           ))}
 
           {!isLoading && threads.length === 0 && emptyRow}

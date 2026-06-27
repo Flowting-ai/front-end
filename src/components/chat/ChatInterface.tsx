@@ -300,7 +300,7 @@ export function ChatInterface({
   const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
 
   // Muse framework state — consumed from context to compute algorithm for API calls
-  const { museActive, museAdvanced } = useModelSelectorContext();
+  const { museActive, museAdvanced, selectedModel: contextModel } = useModelSelectorContext();
 
   // Auth context — refreshUser for updating usage after stream completes
   const { user, refreshUser } = useAuth();
@@ -353,6 +353,33 @@ export function ChatInterface({
   } = useChatState(chatId, chatStateOptions);
 
   const messages = rawMessages ?? [];
+
+  // Seed model logo + name on assistant messages that have thinking content but no
+  // model identity. Covers project chat where model_selected may not fire or the
+  // history API doesn't return model_name — same pattern as PersonaChatInterface.
+  useEffect(() => {
+    if (!contextModel) return;
+    setMessages(prev => {
+      const needsPatch = prev.some(m => m.role === 'assistant' && m.thinking && !m.modelName && !m.modelMeta);
+      if (!needsPatch) return prev;
+      const { modelName, companyName } = contextModel;
+      const modelId = String(contextModel.modelId ?? contextModel.id ?? '');
+      return prev.map(m => {
+        if (m.role !== 'assistant' || !m.thinking || m.modelName || m.modelMeta) return m;
+        return { ...m, modelName, modelMeta: { modelId, modelName, company: companyName } };
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, contextModel]);
+
+  // Estimate how much of the model's context window is currently in use.
+  // 1 token ≈ 4 chars — good enough for the 90%+ ring trigger.
+  const contextUsedPct = useMemo(() => {
+    const limit = contextModel?.inputLimit;
+    if (!limit || limit <= 0) return undefined;
+    const totalChars = messages.reduce((sum, m) => sum + (m.content?.length ?? 0), 0);
+    return Math.min(1, totalChars / (limit * 4));
+  }, [messages, contextModel]);
 
   // ── Tab / page-reload resilience ──────────────────────────────────────────
 
@@ -1153,6 +1180,7 @@ export function ChatInterface({
             onMentionChange={hidePinActions ? undefined : handleMentionChange}
             isPinDropdownOpen={hidePinActions ? false : showPinDropdown}
             onPinNavigate={hidePinActions ? undefined : handlePinNavigate}
+            contextUsedPct={contextUsedPct}
           />
           </div>
         </div>

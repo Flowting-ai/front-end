@@ -1709,7 +1709,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                 paddingLeft:   '8px',
                 paddingRight:  '8px',
                 paddingTop:    '8px',
-                paddingBottom: '64px',
+                paddingBottom: '20px',
                 flexShrink:    0,
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>

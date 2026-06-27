@@ -16,14 +16,24 @@ export interface SidebarMenuSkeletonProps extends React.HTMLAttributes<HTMLDivEl
    * @default false
    */
   fluid?: boolean
+  /**
+   * Deterministic seed for the text bar width — avoids SSR/client hydration
+   * mismatches that occur with Math.random(). Pass the item's list index.
+   * @default 0
+   */
+  index?: number
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const SidebarMenuSkeleton = React.forwardRef<HTMLDivElement, SidebarMenuSkeletonProps>(
-  function SidebarMenuSkeleton({ showIcon = false, fluid = false, className, ...props }, ref) {
-    // Randomise text bar width (50–88%) so stacked skeletons look naturally varied
-    const width = useMemo(() => `${Math.floor(Math.random() * 38) + 50}%`, [])
+  function SidebarMenuSkeleton({ showIcon = false, fluid = false, index = 0, className, ...props }, ref) {
+    // Derive a deterministic width (50–88%) from `index` so server and client
+    // always agree — Math.random() produces different values on each side.
+    const width = useMemo(() => {
+      const pct = 50 + ((index * 37 + 17) % 38)
+      return `${pct}%`
+    }, [index])
 
     return (
       <div

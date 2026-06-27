@@ -411,9 +411,10 @@ export function DropdownFloat({
               role="menu"
               data-kds-dropdown-panel
               style={{
-                position: 'fixed',
+                position:      'fixed',
                 ...posStyle,
-                zIndex:   DROPDOWN_Z,
+                zIndex:        DROPDOWN_Z,
+                pointerEvents: 'none',
               }}
             >
               <m.div
@@ -421,7 +422,7 @@ export function DropdownFloat({
                 animate={{ opacity: 1, scaleX: 1,    scaleY: 1    }}
                 exit={{    opacity: 0, scaleX: 0.97, scaleY: 0.85, transition: { duration: 0.12, ease: [0.55, 0.085, 0.68, 0.53] } }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                style={{ transformOrigin: PLACEMENT_ORIGIN[placement] }}
+                style={{ transformOrigin: PLACEMENT_ORIGIN[placement], pointerEvents: 'auto' }}
               >
                 {children}
               </m.div>
