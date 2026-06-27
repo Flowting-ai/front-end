@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowDownOneIcon } from '@strange-huge/icons'
@@ -55,13 +55,17 @@ export const TeamSwitcherRow = React.forwardRef<HTMLDivElement, TeamSwitcherRowP
       asChild = false,
       className,
       style,
+      onMouseEnter: externalMouseEnter,
+      onMouseLeave: externalMouseLeave,
       ...props
     },
     ref,
   ) {
-    const Comp     = (asChild ? Slot : 'div') as React.ElementType
-    const gradient = getGradient(teamName)
-    const initial  = teamName.charAt(0).toUpperCase()
+    const Comp       = (asChild ? Slot : 'div') as React.ElementType
+    const gradient   = getGradient(teamName)
+    const initial    = teamName.charAt(0).toUpperCase()
+    const [hovered, setHovered] = useState(false)
+    const isActive   = hovered || isOpen
 
     return (
       <Comp
@@ -71,21 +75,23 @@ export const TeamSwitcherRow = React.forwardRef<HTMLDivElement, TeamSwitcherRowP
         tabIndex={0}
         onClick={onClick}
         onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') onClick?.() }}
+        onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => { setHovered(true); externalMouseEnter?.(e) }}
+        onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => { setHovered(false); externalMouseLeave?.(e) }}
         style={{
-          // Full-width so space-between pushes the role badge + chevron to the
-          // right edge (avatar + name hug the left). Without this the row hugs
-          // its content and the badge/chevron bunch up after the name.
-          width:          '100%',
-          boxSizing:      'border-box',
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'space-between',
-          paddingLeft:    '6px',
-          paddingRight:   '6px',
-          paddingTop:     '5px',
-          paddingBottom:  '5px',
-          borderRadius:   '10px',
-          cursor:         'pointer',
+          width:           '100%',
+          boxSizing:       'border-box',
+          display:         'flex',
+          alignItems:      'center',
+          justifyContent:  'space-between',
+          paddingLeft:     '6px',
+          paddingRight:    '6px',
+          paddingTop:      '5px',
+          paddingBottom:   '5px',
+          borderRadius:    '10px',
+          cursor:          'pointer',
+          backgroundColor: isActive ? 'var(--sidebar-menu-item-hover-bg)' : 'transparent',
+          boxShadow:       isActive ? 'var(--shadow-sidebar-item-hover)' : undefined,
+          transition:      'background-color 150ms, box-shadow 150ms',
           ...style,
         }}
         {...props}
@@ -117,30 +123,24 @@ export const TeamSwitcherRow = React.forwardRef<HTMLDivElement, TeamSwitcherRowP
 
           <span
             style={{
-              fontFamily:  'var(--font-body)',
-              fontWeight:  500,
-              fontSize:    '11px',
-              lineHeight:  1,
-              color:       'var(--neutral-500)',
-              whiteSpace:  'nowrap',
-              overflow:    'hidden',
-              textOverflow:'ellipsis',
+              fontFamily:   'var(--font-body)',
+              fontWeight:   'var(--font-weight-medium)',
+              fontSize:     'var(--font-size-body)',
+              lineHeight:   'var(--line-height-body)',
+              color:        'var(--sidebar-menu-item-text)',
+              whiteSpace:   'nowrap',
+              overflow:     'hidden',
+              textOverflow: 'ellipsis',
             }}
           >
             {teamName}
           </span>
         </div>
 
-        {/* Right: role badge + expand button — 4px gap (Figma 6419:83526) */}
+        {/* Right: role badge + expand button — 4px gap */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
           <RoleBadge role={currentUserRole} showLabel mode={roleMode} />
 
-          {/* Expand chevron — closed shows a down chevron, open shows an up
-              chevron. The icon is NOT spun 180° as an animation; the down and up
-              glyphs swap via a soft opacity + vertical dissolve (AnimatePresence),
-              so it reads as a smooth cut, never a rotation. The "up" glyph is the
-              same chevron flipped with a STATIC transform (orientation only — the
-              transition itself only touches opacity + y). */}
           <span
             style={{
               position:        'relative',
@@ -166,9 +166,6 @@ export const TeamSwitcherRow = React.forwardRef<HTMLDivElement, TeamSwitcherRowP
                 transition={{ duration: 0.13, ease: [0.16, 1, 0.3, 1] }}
                 style={{ position: 'absolute', inset: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
               >
-                {/* Rotate a wrapper span, NOT the icon: ArrowDownOneIcon clobbers
-                    its own `transform`, so a `style` transform on it is dropped.
-                    Open → flip the down chevron to point up (static orientation). */}
                 <span style={{ display: 'inline-flex', transform: isOpen ? 'rotate(180deg)' : 'none' }}>
                   <ArrowDownOneIcon size={16} />
                 </span>

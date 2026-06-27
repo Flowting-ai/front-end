@@ -6,6 +6,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { BubbleChatAddIcon, FolderAddIcon, MoreHorizontalIcon, PlusSignIcon, SettingsOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
+import { DEFAULT_ADMIN_GROUPS } from "@/components/Sidebar";
 import { AccountMenu } from "@/components/AccountMenu";
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
@@ -22,7 +23,10 @@ import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
 import type { Project, ProjectChat } from "@/context/projects-context";
 import { useSearch } from "@/context/search-context";
 import { useOrg } from "@/context/org-context";
-import { TeamSwitcher } from "@/components/TeamSwitcher";
+import { TeamSwitcherDropdown } from "@/components/TeamSwitcherDropdown";
+import type { Team as SwitcherTeam } from "@/components/TeamSwitcherDropdown";
+import { DropdownFloat } from "@/components/Dropdown";
+import { TeamSwitcherRow } from "@/components/TeamSwitcherRow";
 import { RoleBadge } from "@/components/RoleBadge";
 import type { WorkspaceRole } from "@/components/RoleBadge";
 import type { Team } from "@/types/teams";
@@ -63,6 +67,9 @@ const ADMIN_SECTION_ROUTES: Record<string, string> = {
 
 // Items with no page yet — surfaced as "coming soon" (id ? toast label).
 const ADMIN_SECTION_COMING_SOON: Record<string, string> = {};
+
+// Default admin groups without the "Company Data" section.
+const ORG_ADMIN_GROUPS = DEFAULT_ADMIN_GROUPS.filter(g => g.id !== 'company-data');
 
 const TEAM_SETTINGS_SECTIONS = new Set([
   'team-projects',
@@ -561,6 +568,79 @@ function SidebarDivider() {
   )
 }
 
+// ── WorkspaceSwitcher — TeamSwitcherRow trigger + portaled TeamSwitcherDropdown ─
+
+interface WorkspaceSwitcherProps {
+  teams: Team[]
+  projects: Project[]
+  activeTeamId: string | null
+  role: WorkspaceRole
+  onTeamSelect: (id: string | null) => void
+}
+
+function WorkspaceSwitcher({ teams, projects, activeTeamId, role, onTeamSelect }: WorkspaceSwitcherProps) {
+  const { push }    = useRouter()
+  const [open, setOpen] = useState(false)
+
+  if (teams.length === 0) return null
+
+  const isPersonal    = activeTeamId === 'personal'
+  const activeTeam    = (isPersonal || activeTeamId === null)
+    ? null
+    : (teams.find(t => t.id === activeTeamId) ?? null)
+  const displayTeam   = activeTeam ?? (isPersonal ? null : (teams[0] ?? null))
+  const triggerName   = isPersonal ? 'Personal Projects' : (displayTeam?.name ?? 'Teams')
+  const triggerTeamId = displayTeam?.id ?? 'workspace'
+  const triggerRole   = ((displayTeam?.myRole ?? role) as WorkspaceRole)
+
+  const switcherTeams: SwitcherTeam[] = teams.map(t => ({
+    id:           t.id,
+    name:         t.name,
+    projectCount: projects.filter(p => p.teamId === t.id).length,
+    userRole:     t.myRole as WorkspaceRole,
+  }))
+
+  const handleActionSelect = (teamId: string, action: string) => {
+    const isAdminRole = role === 'admin'
+    switch (action) {
+      case 'manage':     push(isAdminRole ? `/org/teams/${teamId}` : `/teams/${teamId}`); break
+      case 'projects':   push(`/teams/${teamId}?section=projects`); break
+      case 'connectors': push(`/teams/${teamId}?section=connectors`); break
+      case 'request':    push(isAdminRole ? `/org/members` : `/teams/${teamId}?section=requests`); break
+      case 'activity':   push(isAdminRole ? `/org/activity` : `/teams/${teamId}?section=activity`); break
+      case 'usage':      toast.info('Usage — coming soon', { id: 'nav' }); break
+    }
+    setOpen(false)
+  }
+
+  return (
+    <DropdownFloat
+      trigger={
+        <TeamSwitcherRow
+          teamName={triggerName}
+          teamId={triggerTeamId}
+          projectCount={activeTeam ? projects.filter(p => p.teamId === activeTeam.id).length : 0}
+          currentUserRole={triggerRole}
+          isOpen={open}
+        />
+      }
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottom-start"
+    >
+      <TeamSwitcherDropdown
+        teams={switcherTeams}
+        activeTeamId={activeTeamId ?? undefined}
+        currentUserRole={role}
+        onSelectTeam={(teamId) => { onTeamSelect(teamId); setOpen(false) }}
+        onSelectPersonal={() => { onTeamSelect('personal'); setOpen(false) }}
+        onActionSelect={handleActionSelect}
+        onManageTeams={() => { push('/org/teams'); setOpen(false) }}
+      />
+    </DropdownFloat>
+  )
+}
+
 interface TeamsSidebarContentProps {
   role: 'admin' | 'editor' | 'member'
   teams: Team[]
@@ -586,42 +666,15 @@ function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId }: Tea
     (project: Project) => project.teamId !== null && (effectiveActiveTeamId ? project.teamId === effectiveActiveTeamId : true),
     [effectiveActiveTeamId],
   )
-  const manageTarget = activeTeam
-    ? activeTeam.canEdit
-      // Admins get the full admin team-settings page; editors get the
-      // editor-scoped team page (projects / shared accounts / requests).
-      ? {
-          label: `Manage ${activeTeam.name}`,
-          href: isAdmin ? `/org/teams/${activeTeam.id}` : `/teams/${activeTeam.id}`,
-        }
-      : null
-    : isAdmin && !isPersonalView
-      ? { label: 'Manage teams', href: '/org/teams' }
-      : null
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4 }}>
-      <TeamSwitcher
-        teams={teams.map(t => ({
-          id:           t.id,
-          name:         t.name,
-          projectCount: projects.filter(project => project.teamId === t.id).length,
-          role:         t.myRole,
-        }))}
+      <WorkspaceSwitcher
+        teams={teams}
+        projects={projects}
         activeTeamId={activeTeamId}
-        isAdmin={isAdmin}
+        role={role as WorkspaceRole}
         onTeamSelect={setActiveTeamId}
-        style={{ width: '100%' }}
       />
-      {manageTarget && (
-        <SidebarMenuItem
-          fluid
-          variant="default"
-          icon={<SettingsOneIcon size={20} />}
-          label={manageTarget.label}
-          onClick={() => push(manageTarget.href)}
-        />
-      )}
       {isPersonalView ? (
         <ProjectsSection
           label="Personal projects"
@@ -977,12 +1030,16 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
               c => !c.versionId || !persona.activeVersionId || c.versionId === persona.activeVersionId,
             ) ?? []
 
+            const avatarIcon = persona.imageUrl
+              ? <img src={persona.imageUrl} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: 'var(--shadow-sidebar-item-avatar)' }} />
+              : <UserAiIcon size={20} />
+
             return (
               <SidebarProjectsSection
                 key={persona.id}
                 fluid
                 label={persona.name}
-                icon={null}
+                icon={avatarIcon}
                 active={isActive}
                 expanded={isExpanded}
                 onClick={() => push(`/agents/${persona.id}/chat`)}
@@ -1723,7 +1780,8 @@ function LeftSidebarImpl({
       onChatTabClick={isPersonaPage ? () => push("/chat") : handleNewChat}
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
       onChatboardClick={!isTeamUser ? () => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") } : undefined}
-      onManageAllThreadsClick={!isTeamUser ? () => { toast.info("Opening Brain Threads", { id: 'nav' }); push("/brain") } : undefined}
+      onManageAllThreadsClick={() => { toast.info("Opening Brain Threads", { id: 'nav' }); push("/brain") }}
+      onNewBrainThread={() => push("/brain")}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
       onPersonasClick={currentProjectTeamId
         // On team project pages: just switch the sidebar tab — don't navigate away.
@@ -1732,13 +1790,11 @@ function LeftSidebarImpl({
       }
       onNewAgentChat={() => push("/agents")}
       agentItems={
-        currentProjectTeamId
-          ? <PersonasSectionAll teamId={currentProjectTeamId} />
-          : !isTeamUser
-          ? <PersonasSectionIndividual />
-          : undefined
+        currentProjectTeamId ? <PersonasSectionAll teamId={currentProjectTeamId} />
+        : isTeamUser         ? <PersonasSectionAll />
+        :                      <PersonasSectionIndividual />
       }
-      onAllAgentsClick={!isTeamUser ? () => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") } : undefined}
+      onAllAgentsClick={() => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }}
       onBrainClick={() => { toast.info("Opening Brain", { id: 'nav' }); push("/brain") }}
       // Clicking the admin tab switches the sidebar body to admin AND navigates
       // to General — always landing on General regardless of prior admin page.
@@ -1749,7 +1805,7 @@ function LeftSidebarImpl({
       // adminGroups is intentionally NOT overridden — the Sidebar's default
       // groups (Organization / Models) are the canonical content.
       // We only wire behaviour: navigate where a page exists, else "coming soon".
-      adminGroups={isTeamSettingsPage ? teamSettingsGroups : undefined}
+      adminGroups={isTeamSettingsPage ? teamSettingsGroups : isAdminPage ? ORG_ADMIN_GROUPS : undefined}
       onAdminSectionClick={(id) => {
         if (isTeamSettingsPage && TEAM_SETTINGS_SECTIONS.has(id)) {
           push(`${pathname}?section=${id.replace('team-', '')}`)
@@ -1823,16 +1879,11 @@ function LeftSidebarImpl({
               <SidebarMenuSkeleton key={i} fluid />
             ))}
           </div>
-        ) : isPersonaPage && isTeamUser ? (
-          // Teams: persona list lives in recentItems (no agentItems slot for teams on /agents)
-          <PersonasSectionAll />
         ) : isPersonaPage ? (
-          // Individual: persona list is in agentItems; recent agent chats go here as a second layer
+          // Both accounts: persona list is in agentItems; recent agent chats go here as a second layer
           <RecentAgentChatsSection />
         ) : isProjectPage ? null : (
           // Both sections share sectionProps; StarredSection self-hides when empty.
-          // gap:'8px' on the wrapper adds space between Starred and Recents only
-          // when both are present - gap does not apply to null children.
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             <StarredSection {...sectionProps} />
             <RecentsSection {...sectionProps} />
