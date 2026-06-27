@@ -26,6 +26,7 @@ import { ChipInput } from '@/components/ChipInput'
 import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
 import { PinMarkdownRenderer } from '@/lib/pin-markdown'
+import { stripMarkdown } from '@/lib/markdown-utils'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -1001,7 +1002,7 @@ export function Pin({
                   minWidth:           0,
                 }}
               >
-                {pinTitle}
+                {stripMarkdown(pinTitle)}
               </p>
             </div>
             {/* More-options menu (Figma 3139:36280). Dropdown.Float portals

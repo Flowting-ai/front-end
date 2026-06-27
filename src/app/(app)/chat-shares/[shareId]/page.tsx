@@ -9,6 +9,7 @@ import {
   type SharedChatView,
 } from '@/lib/api/chat-shares'
 import { Button } from '@/components/Button'
+import { MarkdownRenderer } from '@/lib/markdown-utils'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 
 function SharedChatContent() {
@@ -168,19 +169,7 @@ function SharedChatContent() {
                 )}
                 {msg.output && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingRight: '10%' }}>
-                    <p
-                      style={{
-                        fontFamily: 'var(--font-body)',
-                        fontSize:   14,
-                        lineHeight: '22px',
-                        color:      'var(--neutral-800)',
-                        margin:     0,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak:  'break-word',
-                      }}
-                    >
-                      {msg.output}
-                    </p>
+                    <MarkdownRenderer content={msg.output} />
                     {msg.modelName && (
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--neutral-400)' }}>
                         {msg.modelName}

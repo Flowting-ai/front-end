@@ -506,6 +506,7 @@ function collapseInterParagraphBold(content: string): string {
   return fixed.replace(/\x02(\d+)\x02/g, (_, n) => codeBlocks[Number(n)] ?? '')
 }
 
+// this function is responsible for inline bold text if it has multipl;e in the same line.
 // When the model outputs **Title** mid-sentence with no surrounding whitespace
 // (e.g. "...for 2026.**Planning the search**I'll perform..."), insert blank lines
 // so ReactMarkdown treats it as a standalone paragraph/heading rather than inline bold.
@@ -516,10 +517,18 @@ function normalizeInlineBoldTitles(content: string): string {
     .replace(/(\*\*[^*\n]+)\n\s*(\*\*)/g, '$1$2')
     // **\ntext**  →  **text**   (newlines right after the opening marker)
     .replace(/(\*\*)\n+([^*\n]+\*\*)/g, '$1$2')
-    // Blank line BEFORE **..** when immediately preceded by a non-whitespace char
-    .replace(/([^\s\n])(\*\*[^*\n]+\*\*)/g, '$1\n\n$2')
-    // Blank line AFTER **..** when immediately followed by a letter (start of new sentence)
-    .replace(/(\*\*[^*\n]+\*\*)([A-Za-z])/g, '$1\n\n$2');
+    // Blank line BEFORE **..** when a *standalone* bold span is glued to preceding
+    // text (e.g. "for 2026.**Planning**"). The span must be a genuine opener —
+    // preceding char is non-whitespace/non-`*`, and the opening `**` is followed by
+    // a non-whitespace char. This last guard is critical: a `**` that is *preceded*
+    // by text is a closing marker, so without it a line with multiple bolds like
+    // "**Spain** — text **16.1%**" would mis-match Spain's closing `**` as an opener
+    // and inject a break inside the real bold span.
+    .replace(/([^\s\n*])(\*\*\S[^*\n]*\*\*)/g, '$1\n\n$2')
+    // Blank line AFTER **..** when a standalone bold span is glued to a following
+    // letter (e.g. "**Planning**I'll"). Same flanking guards: opening `**` followed
+    // by non-whitespace, closing `**` preceded by non-whitespace.
+    .replace(/(\*\*\S(?:[^*\n]*\S)?\*\*)([A-Za-z])/g, '$1\n\n$2');
 }
 
 // Bold markers that cross paragraph boundaries (\n\n) can never be rendered by
@@ -617,6 +626,27 @@ function fixOrphanedBold(content: string): string {
   return out
 }
 
+// Full markdown preprocessing pipeline (excluding web-citation handling and
+// HTML sanitisation). Repairs LLM bold/markdown artifacts and normalises math
+// so ReactMarkdown renders them correctly. Exported so other renderers (e.g.
+// the pin card) get identical bold-repair behaviour from a single source.
+// Pipeline (innermost runs first):
+//   collapseInterParagraphBold → repairCrossParaBold → normalizeInlineBoldTitles
+//   → fixOrphanedBold → normalizeMathDelimiters → escapeCurrencyDollars → closeOpenFences
+export function preprocessMarkdown(content: string): string {
+  return closeOpenFences(
+    escapeCurrencyDollars(
+      normalizeMathDelimiters(
+        fixOrphanedBold(
+          normalizeInlineBoldTitles(
+            repairCrossParaBold(collapseInterParagraphBold(content)),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 interface MarkdownRendererProps {
   content: string;
   webCitations?: WebCitation[];
@@ -650,8 +680,8 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
     //   escapeCurrencyDollars      — keep prices from being parsed as math
     //   closeOpenFences            — unclosed code fence guard
     const base = hasCitations
-      ? closeOpenFences(escapeCurrencyDollars(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(collapseInterParagraphBold(preprocessCitations(content))))))))
-      : closeOpenFences(escapeCurrencyDollars(normalizeMathDelimiters(fixOrphanedBold(normalizeInlineBoldTitles(repairCrossParaBold(collapseInterParagraphBold(content)))))));
+      ? preprocessMarkdown(preprocessCitations(content))
+      : preprocessMarkdown(content);
     // Sanitise only when we're about to ask rehype-raw to parse HTML —
     // for pure-markdown rendering, DOMPurify's HTML-context parsing can
     // corrupt characters like `<` that appear in code blocks or math.
@@ -748,5 +778,9 @@ export function stripMarkdown(text: unknown): string {
     .replace(/\*(.+?)\*/g, "$1")
     .replace(/`(.+?)`/g, "$1")
     .replace(/^#+\s+/gm, "")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    // Remove stray/unclosed emphasis markers left by truncated titles
+    // (e.g. "**Predictions for the 2026 FIFA World Cup (as of late").
+    .replace(/\*\*/g, "")
+    .trim();
 }
