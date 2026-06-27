@@ -16,6 +16,7 @@ import { PinMentionDropdown } from "@/components/chat/PinMentionDropdown";
 import { PinChipStrip } from "@/components/chat/PinChipStrip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
+import { emitChatCreated } from "@/hooks/use-sidebar-events";
 import { useHighlight } from "@/context/highlight-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useFileDrop } from "@/hooks/use-file-drop";
@@ -801,14 +802,16 @@ function ChatPageInner() {
     setHasMessages(true);
     setInitialPrompt(null);
     replace(`/chat?id=${chatId}`, { scroll: false });
-    addOptimistic({
+    const newChatStub = {
       id: chatId,
       can_edit: true,
       title: "New chat",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       starred: false,
-    });
+    };
+    addOptimistic(newChatStub);
+    emitChatCreated(newChatStub);
     // Register persona overlay for this chat. The backend's persona_id field
     // on /chats expects the persona's version id, not the repo id.
     if (selectedPersona?.activeVersionId) {

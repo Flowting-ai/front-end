@@ -9,6 +9,7 @@ export const PERSONA_CHAT_CREATED_EVENT = "persona:chat-created";
 const PERSONA_CHAT_TITLE_UPDATED_EVENT = "persona:chat-title-updated";
 export const BRAIN_THREAD_CREATED_EVENT = "brain:thread-created";
 export const BRAIN_THREAD_TITLE_UPDATED_EVENT = "brain:thread-title-updated";
+export const CHAT_CREATED_EVENT = "chat:created";
 
 export interface PersonaChatEventDetail {
   personaId: string;
@@ -19,6 +20,15 @@ export interface PersonaChatEventDetail {
 export interface BrainThreadEventDetail {
   chatId: string;
   title: string;
+}
+
+export interface ChatCreatedEventDetail {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  starred: boolean;
+  can_edit: boolean;
 }
 
 export function emitSidebarOpen() {
@@ -48,6 +58,12 @@ export function emitPersonaChatCreated(detail: PersonaChatEventDetail) {
 export function emitPersonaChatTitleUpdated(detail: PersonaChatEventDetail) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(PERSONA_CHAT_TITLE_UPDATED_EVENT, { detail }));
+  }
+}
+
+export function emitChatCreated(detail: ChatCreatedEventDetail) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(CHAT_CREATED_EVENT, { detail }));
   }
 }
 

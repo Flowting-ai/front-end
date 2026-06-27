@@ -217,11 +217,16 @@ const PERSONAS_CACHE_TTL = 30_000
 const _personaDetailCache = new Map<string, { data: PersonaRepoResponse; time: number }>()
 const _personaDetailInFlight = new Map<string, Promise<PersonaRepoResponse>>()
 
+export const PERSONAS_LIST_UPDATED_EVENT = 'persona:list-updated'
+
 export function bustPersonasCache(): void {
   _personasCache = null
   _personasCacheTime = 0
   _personaDetailCache.clear()
   _personaDetailInFlight.clear()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(PERSONAS_LIST_UPDATED_EVENT))
+  }
 }
 
 // Deduplicates concurrent calls: all callers that arrive while a request is

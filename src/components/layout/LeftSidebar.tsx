@@ -4,17 +4,18 @@ import React, { useCallback, useRef, useMemo, useState, useEffect, Suspense } fr
 import { m } from "framer-motion";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { FolderAddIcon, MoreHorizontalIcon, PlusSignIcon, SettingsOneIcon } from "@strange-huge/icons";
+import { BubbleChatAddIcon, FolderAddIcon, MoreHorizontalIcon, PlusSignIcon, SettingsOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
 import { AccountMenu } from "@/components/AccountMenu";
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
-import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext } from "@/lib/api/personas";
+import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { listTasks } from "@/lib/api/tasks";
 import type { ScheduledTaskListItem } from "@/lib/api/tasks";
-import type { PersonaChatEventDetail } from "@/hooks/use-sidebar-events";
+import { CHAT_CREATED_EVENT } from "@/hooks/use-sidebar-events";
+import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
 import { ChatHistoryItem } from "./ChatHistoryItem";
 import { openDeleteChatDialog } from "./AppDialogs";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
@@ -888,6 +889,17 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
     }
   }, [])
 
+  // Re-fetch the persona list whenever a publish/delete/update busts the cache
+  useEffect(() => {
+    const handleListUpdated = () => {
+      fetchPersonas()
+        .then(list => setPersonas(personasForTeamContext(list, teamId ?? null)))
+        .catch(console.error)
+    }
+    window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, handleListUpdated)
+    return () => window.removeEventListener(PERSONAS_LIST_UPDATED_EVENT, handleListUpdated)
+  }, [teamId])
+
   const handleExpand = useCallback((personaId: string, expanded: boolean) => {
     setExpandedIds(prev => {
       const next = new Set(prev)
@@ -1029,6 +1041,380 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   )
 }
 
+// -- Individual personas section — "Shared Agents" + "Your Agents" split -----
+// Fetches all personas for the user (no teamId filter) and splits by
+// sourceShareId: shared agents (accepted via Super Link) vs owned agents.
+
+function PersonasSectionIndividual() {
+  const { push }            = useRouter()
+  const pathname            = usePathname()
+  const personaSearchParams = useSearchParams()
+
+  const personaMatch    = pathname?.match(/^\/agents\/([^/]+)\/chat/)
+  const activePersonaId = personaMatch?.[1] ?? null
+  const activeChatId    = personaSearchParams.get("chatId")
+
+  const [personas,        setPersonas]        = useState<Persona[]>([])
+  const [isLoading,       setIsLoading]       = useState(true)
+  const [expandedIds,     setExpandedIds]     = useState<Set<string>>(new Set())
+  const [personaChatsMap, setPersonaChatsMap] = useState<
+    Record<string, { chats: PersonaChat[]; loaded: boolean; loading: boolean }>
+  >({})
+
+  useEffect(() => {
+    fetchPersonas()
+      .then(list => setPersonas(list))
+      .catch(console.error)
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  const loadPersonaChats = useCallback((personaId: string) => {
+    setPersonaChatsMap(prev => {
+      if (prev[personaId]?.loaded || prev[personaId]?.loading) return prev
+      return { ...prev, [personaId]: { chats: [], loaded: false, loading: true } }
+    })
+    fetchPersonaChats(personaId)
+      .then(chats =>
+        setPersonaChatsMap(prev => ({
+          ...prev,
+          [personaId]: { chats, loaded: true, loading: false },
+        }))
+      )
+      .catch(() =>
+        setPersonaChatsMap(prev => ({
+          ...prev,
+          [personaId]: { chats: [], loaded: true, loading: false },
+        }))
+      )
+  }, [])
+
+  useEffect(() => {
+    if (!activePersonaId) return
+    setExpandedIds(prev => {
+      if (prev.has(activePersonaId)) return prev
+      return new Set([...prev, activePersonaId])
+    })
+    loadPersonaChats(activePersonaId)
+  }, [activePersonaId, loadPersonaChats])
+
+  useEffect(() => {
+    const handleCreated = (e: Event) => {
+      const { personaId, chatId, title } = (e as CustomEvent<PersonaChatEventDetail>).detail
+      const newChat: PersonaChat = { id: chatId, title, created_at: new Date().toISOString() }
+      setPersonaChatsMap(prev => {
+        const existing = prev[personaId]
+        if (!existing) {
+          return { ...prev, [personaId]: { chats: [newChat], loaded: true, loading: false } }
+        }
+        if (existing.chats.some(c => c.id === chatId)) return prev
+        return { ...prev, [personaId]: { ...existing, chats: [newChat, ...existing.chats] } }
+      })
+    }
+    const handleTitleUpdated = (e: Event) => {
+      const { personaId, chatId, title } = (e as CustomEvent<PersonaChatEventDetail>).detail
+      setPersonaChatsMap(prev => {
+        const existing = prev[personaId]
+        if (!existing) return prev
+        return {
+          ...prev,
+          [personaId]: {
+            ...existing,
+            chats: existing.chats.map(c => c.id === chatId ? { ...c, title } : c),
+          },
+        }
+      })
+    }
+    window.addEventListener("persona:chat-created",       handleCreated)
+    window.addEventListener("persona:chat-title-updated", handleTitleUpdated)
+    return () => {
+      window.removeEventListener("persona:chat-created",       handleCreated)
+      window.removeEventListener("persona:chat-title-updated", handleTitleUpdated)
+    }
+  }, [])
+
+  // Re-fetch the persona list whenever a publish/delete/update busts the cache
+  useEffect(() => {
+    const handleListUpdated = () => {
+      fetchPersonas()
+        .then(list => setPersonas(list))
+        .catch(console.error)
+    }
+    window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, handleListUpdated)
+    return () => window.removeEventListener(PERSONAS_LIST_UPDATED_EVENT, handleListUpdated)
+  }, [])
+
+  const handleExpand = useCallback((personaId: string, expanded: boolean) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      expanded ? next.add(personaId) : next.delete(personaId)
+      return next
+    })
+    if (expanded) loadPersonaChats(personaId)
+  }, [loadPersonaChats])
+
+  const handleChatRename = useCallback((personaId: string, chatId: string, title: string) => {
+    setPersonaChatsMap(prev => {
+      const existing = prev[personaId]
+      if (!existing) return prev
+      return {
+        ...prev,
+        [personaId]: {
+          ...existing,
+          chats: existing.chats.map(c => c.id === chatId ? { ...c, title } : c),
+        },
+      }
+    })
+  }, [])
+
+  const handleChatDelete = useCallback((personaId: string, chatId: string) => {
+    setPersonaChatsMap(prev => {
+      const existing = prev[personaId]
+      if (!existing) return prev
+      return {
+        ...prev,
+        [personaId]: {
+          ...existing,
+          chats: existing.chats.filter(c => c.id !== chatId),
+        },
+      }
+    })
+  }, [])
+
+  const sharedPersonas = personas.filter(p => p.sourceShareId !== null)
+  const ownedPersonas  = personas.filter(p => p.sourceShareId === null)
+
+  const [shownShared, setShownShared] = useState(true)
+  const [shownOwned,  setShownOwned]  = useState(true)
+
+  const renderPersonaRow = (persona: Persona) => {
+    const isExpanded   = expandedIds.has(persona.id)
+    const isActive     = activePersonaId === persona.id
+    const chatData     = personaChatsMap[persona.id]
+    const visibleChats = chatData?.chats.filter(
+      c => !c.versionId || !persona.activeVersionId || c.versionId === persona.activeVersionId,
+    ) ?? []
+
+    const avatarIcon = persona.imageUrl
+      ? <img src={persona.imageUrl} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: 'var(--shadow-sidebar-item-avatar)' }} />
+      : <UserAiIcon size={20} />
+
+    return (
+      <SidebarProjectsSection
+        key={persona.id}
+        fluid
+        label={persona.name}
+        icon={avatarIcon}
+        active={isActive}
+        expanded={isExpanded}
+        onClick={() => push(`/agents/${persona.id}/chat`)}
+        onExpandedChange={(v) => handleExpand(persona.id, v)}
+      >
+        <SidebarMenuItem
+          fluid
+          variant="default"
+          label="New chat"
+          icon={<BubbleChatAddIcon size={20} />}
+          href={`/agents/${persona.id}/chat`}
+          onClick={() => push(`/agents/${persona.id}/chat`)}
+        />
+        {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
+          <SidebarMenuSkeleton key={i} fluid />
+        ))}
+        {visibleChats.map(chat => (
+          <PersonaChatItem
+            key={chat.id}
+            personaId={persona.id}
+            chat={chat}
+            isActive={isActive && chat.id === activeChatId}
+            onSelect={() => push(`/agents/${persona.id}/chat?chatId=${chat.id}`)}
+            onRename={(chatId, title) => handleChatRename(persona.id, chatId, title)}
+            onDelete={(chatId) => handleChatDelete(persona.id, chatId)}
+          />
+        ))}
+        {chatData?.loaded && visibleChats.length === 0 && (
+          <div style={{ padding: "4px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>
+            No chats yet
+          </div>
+        )}
+      </SidebarProjectsSection>
+    )
+  }
+
+  return (
+    <>
+      {/* Shared Agents — only rendered when loading or at least one shared agent exists */}
+      {(isLoading || sharedPersonas.length > 0) && (
+        <>
+          <SidebarMenuItem
+            fluid
+            variant="header"
+            label="Shared Agents"
+            shown={shownShared}
+            onShowClick={() => setShownShared(s => !s)}
+          />
+          <m.div
+            animate={shownShared ? 'open' : 'closed'}
+            initial={false}
+            variants={sectionHeightVariants}
+            style={{ overflow: shownShared ? 'visible' : 'hidden' }}
+          >
+            <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+              {isLoading && Array.from({ length: 2 }).map((_, i) => (
+                <SidebarMenuSkeleton key={i} fluid />
+              ))}
+              {!isLoading && sharedPersonas.map(renderPersonaRow)}
+            </div>
+          </m.div>
+        </>
+      )}
+
+      {/* Your Agents — always rendered */}
+      <SidebarMenuItem
+        fluid
+        variant="header"
+        label="Your Agents"
+        shown={shownOwned}
+        onShowClick={() => setShownOwned(s => !s)}
+      />
+      <m.div
+        animate={shownOwned ? 'open' : 'closed'}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow: shownOwned ? 'visible' : 'hidden' }}
+      >
+        <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+          <SidebarMenuItem
+            fluid
+            variant="default"
+            label="New Agent"
+            icon={<UserAddOneIcon size={20} />}
+            onClick={() => push('/agents/templates')}
+          />
+          {isLoading && Array.from({ length: 2 }).map((_, i) => (
+            <SidebarMenuSkeleton key={i} fluid />
+          ))}
+          {!isLoading && ownedPersonas.length === 0 && (
+            <div style={{ padding: "8px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>
+              No agents yet
+            </div>
+          )}
+          {!isLoading && ownedPersonas.map(renderPersonaRow)}
+        </div>
+      </m.div>
+    </>
+  )
+}
+
+// -- Recent agent chats section -----------------------------------------------
+// Fetches all agent chats across all personas and displays them chronologically.
+// Acts as a second layer: the first layer shows chats nested under each agent,
+// this layer shows all chats flat by recency regardless of which agent owns them.
+
+type AgentChat = PersonaChat & { personaId: string }
+
+function RecentAgentChatsSection() {
+  const { push }            = useRouter()
+  const pathname            = usePathname()
+  const personaSearchParams = useSearchParams()
+
+  const activePersonaId = pathname?.match(/^\/agents\/([^/]+)\/chat/)?.[1] ?? null
+  const activeChatId    = personaSearchParams.get("chatId")
+
+  const [allChats, setAllChats] = useState<AgentChat[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [shown, setShown] = useState(true)
+
+  const fetchAll = useCallback(async () => {
+    try {
+      const personas = await fetchPersonas()
+      const results  = await Promise.all(
+        personas.map(p =>
+          fetchPersonaChats(p.id).then(chats => chats.map(c => ({ ...c, personaId: p.id })))
+        )
+      )
+      const merged = results.flat().sort((a, b) => {
+        const at = a.updated_at ?? a.created_at ?? ''
+        const bt = b.updated_at ?? b.created_at ?? ''
+        return bt.localeCompare(at)
+      })
+      setAllChats(merged)
+    } catch (e) {
+      console.error(e)
+    }
+  }, [])
+
+  // Initial load with loading state
+  useEffect(() => {
+    setIsLoading(true)
+    fetchAll().finally(() => setIsLoading(false))
+  }, [fetchAll])
+
+  // Silent re-fetch on persona publish/delete/update
+  useEffect(() => {
+    window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, fetchAll)
+    return () => window.removeEventListener(PERSONAS_LIST_UPDATED_EVENT, fetchAll)
+  }, [fetchAll])
+
+  // Incremental updates for new chats and renames
+  useEffect(() => {
+    const handleCreated = (e: Event) => {
+      const { personaId, chatId, title } = (e as CustomEvent<PersonaChatEventDetail>).detail
+      const newChat: AgentChat = { id: chatId, title, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), personaId }
+      setAllChats(prev => prev.some(c => c.id === chatId) ? prev : [newChat, ...prev])
+    }
+    const handleTitleUpdated = (e: Event) => {
+      const { chatId, title } = (e as CustomEvent<PersonaChatEventDetail>).detail
+      setAllChats(prev => prev.map(c => c.id === chatId ? { ...c, title } : c))
+    }
+    window.addEventListener("persona:chat-created",       handleCreated)
+    window.addEventListener("persona:chat-title-updated", handleTitleUpdated)
+    return () => {
+      window.removeEventListener("persona:chat-created",       handleCreated)
+      window.removeEventListener("persona:chat-title-updated", handleTitleUpdated)
+    }
+  }, [])
+
+  return (
+    <>
+      <SidebarMenuItem
+        fluid
+        variant="header"
+        label="Recent agent chats"
+        shown={shown}
+        onShowClick={() => setShown(s => !s)}
+      />
+      <m.div
+        animate={shown ? 'open' : 'closed'}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow: shown ? 'visible' : 'hidden' }}
+      >
+        <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+          {isLoading && Array.from({ length: 3 }).map((_, i) => (
+            <SidebarMenuSkeleton key={i} fluid />
+          ))}
+          {!isLoading && allChats.length === 0 && (
+            <div style={{ padding: "8px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>
+              No agent chats yet
+            </div>
+          )}
+          {!isLoading && allChats.map(chat => (
+            <PersonaChatItem
+              key={chat.id}
+              personaId={chat.personaId}
+              chat={chat}
+              isActive={activePersonaId === chat.personaId && chat.id === activeChatId}
+              onSelect={() => push(`/agents/${chat.personaId}/chat?chatId=${chat.id}`)}
+              onRename={(chatId, title) => setAllChats(prev => prev.map(c => c.id === chatId ? { ...c, title } : c))}
+              onDelete={(chatId) => setAllChats(prev => prev.filter(c => c.id !== chatId))}
+            />
+          ))}
+        </div>
+      </m.div>
+    </>
+  )
+}
+
 // -- Brain Scheduled Tasks section --------------------------------------------
 // Receives pre-loaded tasks from LeftSidebarImpl so the list survives tab
 // switches without re-fetching on each brain-tab mount/unmount cycle.
@@ -1048,7 +1434,7 @@ function BrainScheduledTasksSection({ tasks, loading }: BrainScheduledTasksSecti
       <SidebarMenuItem
         fluid
         variant="header"
-        label="Scheduled Tasks"
+        label="Schedules"
         shown={shown}
         onShowClick={() => setShown((s) => !s)}
       />
@@ -1197,6 +1583,29 @@ function LeftSidebarImpl({
     [chatHistory, projectChatIdSet],
   );
 
+  // Keep a stable ref to addOptimistic so the event listener never captures a stale closure.
+  const addOptimisticRef = useRef(chatHistory.addOptimistic);
+  useEffect(() => { addOptimisticRef.current = chatHistory.addOptimistic });
+
+  // Mirror chat:created window events (fired by the chat page alongside the context
+  // addOptimistic call) so the sidebar always sees new chats immediately, even when
+  // the key-based Sidebar remount races the React context propagation.
+  useEffect(() => {
+    const handle = (e: Event) => {
+      const detail = (e as CustomEvent<ChatCreatedEventDetail>).detail;
+      addOptimisticRef.current({
+        id: detail.id,
+        title: detail.title,
+        created_at: detail.created_at,
+        updated_at: detail.updated_at,
+        starred: detail.starred,
+        can_edit: detail.can_edit,
+      });
+    };
+    window.addEventListener(CHAT_CREATED_EVENT, handle);
+    return () => window.removeEventListener(CHAT_CREATED_EVENT, handle);
+  }, []);
+
   const resolvedActiveChatId = activeChatId ?? chatSearchParams.get("id") ?? undefined;
 
   const handleCollapse = () => {
@@ -1302,16 +1711,19 @@ function LeftSidebarImpl({
     <>
     <Sidebar
       key={sidebarSectionKey}
+      recents={[]}
       defaultCollapsed={collapsedRef.current}
       defaultBodySection={computedDefaultBodySection}
       defaultSelectedItem={adminItemId}
       searchActive={searchOpen}
       onCollapse={handleCollapse}
       onNewChat={handleNewChat}
-      newChatButtonSelected={isPersonaPage ? pathname === '/agents' : undefined}
+      newChatButtonSelected={isPersonaPage ? pathname === '/agents' : isNewChatPage}
       onSearch={openSearch}
       onChatTabClick={isPersonaPage ? () => push("/chat") : handleNewChat}
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
+      onChatboardClick={!isTeamUser ? () => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") } : undefined}
+      onManageAllThreadsClick={!isTeamUser ? () => { toast.info("Opening Brain Threads", { id: 'nav' }); push("/brain") } : undefined}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
       onPersonasClick={currentProjectTeamId
         // On team project pages: just switch the sidebar tab — don't navigate away.
@@ -1319,7 +1731,14 @@ function LeftSidebarImpl({
         : () => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }
       }
       onNewAgentChat={() => push("/agents")}
-      agentItems={currentProjectTeamId ? <PersonasSectionAll teamId={currentProjectTeamId} /> : undefined}
+      agentItems={
+        currentProjectTeamId
+          ? <PersonasSectionAll teamId={currentProjectTeamId} />
+          : !isTeamUser
+          ? <PersonasSectionIndividual />
+          : undefined
+      }
+      onAllAgentsClick={!isTeamUser ? () => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") } : undefined}
       onBrainClick={() => { toast.info("Opening Brain", { id: 'nav' }); push("/brain") }}
       // Clicking the admin tab switches the sidebar body to admin AND navigates
       // to General — always landing on General regardless of prior admin page.
@@ -1394,7 +1813,7 @@ function LeftSidebarImpl({
           setActiveTeamId={setActiveTeamId}
         />
       ) : (
-        <ProjectsSection />
+        <ProjectsSection label="Personal Projects" />
       )}
       scheduledTasksItems={isBrainPage ? <BrainScheduledTasksSection tasks={brainTasks} loading={brainTasksLoading} /> : undefined}
       recentItems={
@@ -1404,8 +1823,12 @@ function LeftSidebarImpl({
               <SidebarMenuSkeleton key={i} fluid />
             ))}
           </div>
-        ) : isPersonaPage ? (
+        ) : isPersonaPage && isTeamUser ? (
+          // Teams: persona list lives in recentItems (no agentItems slot for teams on /agents)
           <PersonasSectionAll />
+        ) : isPersonaPage ? (
+          // Individual: persona list is in agentItems; recent agent chats go here as a second layer
+          <RecentAgentChatsSection />
         ) : isProjectPage ? null : (
           // Both sections share sectionProps; StarredSection self-hides when empty.
           // gap:'8px' on the wrapper adds space between Starred and Recents only

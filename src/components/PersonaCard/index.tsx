@@ -488,8 +488,8 @@ function PersonaCardInner({
     useEffect(() => {
       if (!menuOpen) return
       const close = () => setMenuOpen(false)
-      document.addEventListener('mousedown', close)
-      return () => document.removeEventListener('mousedown', close)
+      document.addEventListener('click', close)
+      return () => document.removeEventListener('click', close)
     }, [menuOpen])
 
     const handleMenuToggle = useCallback((e: React.MouseEvent) => {

@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRouter, usePathname } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
@@ -12,7 +13,9 @@ import {
   PenOneIcon,
   CancelOneIcon,
   FilterMailIcon,
+  AlertCircleIcon,
 } from '@strange-huge/icons'
+import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
@@ -479,36 +482,6 @@ function SharedByMeCard({
   )
 }
 
-// ── Delete confirmation dialog ────────────────────────────────────────────────
-
-function DeleteDialog({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} onClick={onCancel} />
-      <div style={{
-        position: 'relative',
-        background: 'var(--neutral-white)',
-        borderRadius: 16,
-        padding: 24,
-        width: 380,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 16,
-        boxShadow: '0px 20px 40px rgba(0,0,0,0.15)',
-      }}>
-        <h2 style={{ fontFamily: 'var(--font-title)', fontSize: 20, fontWeight: 400, color: 'var(--neutral-900)', margin: 0 }}>Delete Agent</h2>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600)', margin: 0 }}>
-          Are you sure you want to delete &ldquo;{name}&rdquo;? This action cannot be undone.
-        </p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <Button variant="outline" onClick={onCancel}>Cancel</Button>
-          <Button variant="danger" onClick={onConfirm}>Delete</Button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── Super Links helpers ───────────────────────────────────────────────────────
 
@@ -604,6 +577,7 @@ export default function PersonasPage() {
   const [allOpen,       setAllOpen]       = useState(false)
   const [filterOpen,    setFilterOpen]    = useState(false)
   const [deleteTarget,  setDeleteTarget]  = useState<Persona | null>(null)
+  const mounted = useMounted()
   const [allSharesForFilter, setAllSharesForFilter] = useState<PersonaShare[]>([])
   const [availableModels,    setAvailableModels]    = useState<AIModel[]>([])
   const filterSharesLoadedRef = useRef(false)
@@ -1819,15 +1793,161 @@ export default function PersonasPage() {
       />
 
       {/* ── Delete confirmation ── */}
-      {deleteTarget && (
-        <DeleteDialog
-          name={deleteTarget.name}
-          onConfirm={() => {
-            handleDelete(deleteTarget.id, deleteTarget.name)
-            setDeleteTarget(null)
-          }}
-          onCancel={() => setDeleteTarget(null)}
-        />
+      {mounted && createPortal(
+        <AnimatePresence>
+          {deleteTarget && (
+            <>
+              {/* Backdrop */}
+              <m.div
+                key="delete-agent-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                onClick={() => setDeleteTarget(null)}
+                style={{
+                  position:        'fixed',
+                  inset:           0,
+                  zIndex:          10000,
+                  backgroundColor: 'rgba(0,0,0,0.28)',
+                  backdropFilter:  'blur(2px)',
+                }}
+              />
+
+              {/* Centering wrapper */}
+              <div
+                style={{
+                  position:       'fixed',
+                  inset:          0,
+                  zIndex:         10001,
+                  display:        'flex',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  pointerEvents:  'none',
+                }}
+              >
+                <m.div
+                  key="delete-agent-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Delete agent"
+                  initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                  animate={{ opacity: 1, scale: 1,    y: 0 }}
+                  exit={{    opacity: 0, scale: 0.96, y: 8 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    pointerEvents:   'auto',
+                    backgroundColor: 'var(--neutral-white)',
+                    borderRadius:    16,
+                    boxShadow:       '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1px var(--neutral-100)',
+                    width:           480,
+                    maxWidth:        'calc(100vw - 32px)',
+                    display:         'flex',
+                    flexDirection:   'column',
+                    overflow:        'hidden',
+                  }}
+                >
+                  {/* Header */}
+                  <div
+                    style={{
+                      display:        'flex',
+                      alignItems:     'center',
+                      justifyContent: 'space-between',
+                      padding:        '20px 20px 16px',
+                      borderBottom:   '1px solid var(--neutral-100)',
+                      flexShrink:     0,
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-title)',
+                        fontWeight: 400,
+                        fontSize:   '24px',
+                        lineHeight: '32px',
+                        color:      'var(--neutral-900)',
+                        margin:     0,
+                      }}
+                    >
+                      Delete agent?
+                    </p>
+                    <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={() => setDeleteTarget(null)} />
+                  </div>
+
+                  {/* Body */}
+                  <div
+                    style={{
+                      padding:       '20px',
+                      display:       'flex',
+                      flexDirection: 'column',
+                      gap:           '12px',
+                      flexShrink:    0,
+                    }}
+                  >
+                    {/* Warning tag */}
+                    <div
+                      style={{
+                        display:         'inline-flex',
+                        alignSelf:       'flex-start',
+                        alignItems:      'center',
+                        gap:             5,
+                        padding:         '3px 8px 3px 6px',
+                        borderRadius:    6,
+                        backgroundColor: 'var(--red-400-10)',
+                        boxShadow:       '0px 0px 0px 1px rgba(238,48,48,0.22)',
+                      }}
+                    >
+                      <AlertCircleIcon size={13} color="var(--red-500)" />
+                      <span
+                        style={{
+                          fontFamily:    'var(--font-body)',
+                          fontWeight:    600,
+                          fontSize:      '11px',
+                          lineHeight:    '16px',
+                          color:         'var(--red-600)',
+                          letterSpacing: '0.02em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Warning
+                      </span>
+                    </div>
+
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 'var(--font-weight-regular)',
+                        fontSize:   'var(--font-size-body)',
+                        lineHeight: 'var(--line-height-body)',
+                        color:      'var(--neutral-700)',
+                        margin:     0,
+                      }}
+                    >
+                      <><strong>&ldquo;{deleteTarget.name}&rdquo;</strong> will be permanently deleted. This action cannot be undone.</>
+                    </p>
+                  </div>
+
+                  {/* Footer */}
+                  <div
+                    style={{
+                      display:        'flex',
+                      justifyContent: 'flex-end',
+                      alignItems:     'center',
+                      gap:            8,
+                      padding:        '12px 16px 16px',
+                      borderTop:      '1px solid var(--neutral-100)',
+                      flexShrink:     0,
+                    }}
+                  >
+                    <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+                    <Button variant="danger" onClick={() => { handleDelete(deleteTarget.id, deleteTarget.name); setDeleteTarget(null) }}>Delete</Button>
+                  </div>
+                </m.div>
+              </div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body
       )}
     </>
   )

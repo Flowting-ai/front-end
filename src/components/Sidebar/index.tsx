@@ -12,7 +12,8 @@ import {
   SidebarLeftIcon,
   MoreHorizontalIcon,
   BubbleChatIcon,
-  CalendarThreeIcon,
+  BubbleChatAddIcon,
+  CalendarFoldIcon,
   AlertTwoIcon,
   UserAddOneIcon,
   TokenCircleIcon,
@@ -345,6 +346,12 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onOrganisationClick?: () => void
   /** Called when the Schedules quick-access item in the fixed menu is clicked (Brain tab). */
   onSchedulesClick?: () => void
+  /** Called when "Chatboard" is clicked in the Chats nav strip (individual only). Only rendered when provided. */
+  onChatboardClick?: () => void
+  /** Called when "All Agents" is clicked in the Agents nav strip (individual only). When provided, replaces "New agent chat". */
+  onAllAgentsClick?: () => void
+  /** Called when "Manage All Threads" is clicked in the Brain nav strip (individual only). Only rendered when provided. */
+  onManageAllThreadsClick?: () => void
   /** Called when "See all" is clicked in the Schedules section (Brain tab). */
   onShowAllSchedules?: () => void
   /** Custom Brain section thread items — replaces default recents when Brain is active */
@@ -1006,7 +1013,11 @@ function DefaultRecentItems({ selectedItem, activeChatId, onSelect: _onSelect, o
             variants={sectionStaggerVariants}
             style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
           >
-            {recents.map(({ id }) => {
+            {recents.length === 0 ? (
+              <div style={{ padding: '8px 6px', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-400)' }}>
+                {sectionKey === 'brain' ? 'No brain threads yet' : sectionKey === 'agents' ? 'No agent chats yet' : 'No recent chats'}
+              </div>
+            ) : recents.map(({ id }) => {
               const isSelected = activeChatId != null
                 ? activeChatId === id
                 : selectedItem === id
@@ -1086,6 +1097,9 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       onAdminSectionClick,
       adminItems,
       onSchedulesClick,
+      onChatboardClick,
+      onAllAgentsClick,
+      onManageAllThreadsClick,
       onShowAllSchedules,
       brainRecentItems,
       brainScheduleItems,
@@ -1156,73 +1170,12 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       }
     }, [isCollapsed])
 
-    // ── Overlay scrollbar (custom thumb) ──────────────────────────────────────
-    // The body hides its native scrollbar (`.kaya-overlay-scroll`) so its content
-    // width always equals the pinned header's; in its place we draw a thin thumb
-    // that reserves no layout width, reveals on hover / during scroll, fades when
-    // idle, and is draggable. `top` is relative to the body scroll viewport (whose
-    // top edge is `headerH`); `THUMB_PAD` insets it from the track's top + bottom.
-    const THUMB_PAD = 4
-    const THUMB_MIN = 28
-    const [thumb, setThumb] = useState({ top: 0, height: 0, overflowing: false })
-    const [thumbVisible, setThumbVisible] = useState(false)   // pulsed true on scroll, fades after idle
-    const [bodyHover,    setBodyHover]    = useState(false)    // pointer is over the body
-    const [thumbDragging, setThumbDragging] = useState(false)
-    const thumbHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const thumbDragRef   = useRef<{ startY: number; startScroll: number } | null>(null)
-
-    const recomputeThumb = useCallback(() => {
-      const el = bodyScrollRef.current
-      if (!el) return
-      const { scrollTop, scrollHeight, clientHeight } = el
-      if (scrollHeight <= clientHeight + 1) { setThumb({ top: 0, height: 0, overflowing: false }); return }
-      const track  = Math.max(0, clientHeight - THUMB_PAD * 2)
-      const height = Math.max(THUMB_MIN, (clientHeight / scrollHeight) * track)
-      const maxTop = track - height
-      const top    = THUMB_PAD + (maxTop > 0 ? (scrollTop / (scrollHeight - clientHeight)) * maxTop : 0)
-      setThumb({ top, height, overflowing: true })
-    }, [])
-
-    const revealThumb = useCallback(() => {
-      setThumbVisible(true)
-      if (thumbHideTimer.current) clearTimeout(thumbHideTimer.current)
-      thumbHideTimer.current = setTimeout(() => setThumbVisible(false), 1100)
-    }, [])
-
-    useEffect(() => () => { if (thumbHideTimer.current) clearTimeout(thumbHideTimer.current) }, [])
-
     const handleBodyScroll = (e: React.UIEvent<HTMLDivElement>) => {
       const el = e.currentTarget
       setAtScrollTop(el.scrollTop < 34)
       setAtScrollBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8)
-      recomputeThumb()
-      revealThumb()
     }
 
-    const handleThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-      const el = bodyScrollRef.current
-      if (!el) return
-      e.preventDefault()
-      e.currentTarget.setPointerCapture(e.pointerId)
-      thumbDragRef.current = { startY: e.clientY, startScroll: el.scrollTop }
-      setThumbDragging(true)
-    }
-    const handleThumbPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-      const el   = bodyScrollRef.current
-      const drag = thumbDragRef.current
-      if (!el || !drag) return
-      const { scrollHeight, clientHeight } = el
-      const track  = Math.max(0, clientHeight - THUMB_PAD * 2)
-      const height = Math.max(THUMB_MIN, (clientHeight / scrollHeight) * track)
-      const maxTop = track - height
-      if (maxTop <= 0) return
-      el.scrollTop = drag.startScroll + ((e.clientY - drag.startY) / maxTop) * (scrollHeight - clientHeight)
-    }
-    const handleThumbPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-      thumbDragRef.current = null
-      setThumbDragging(false)
-      e.currentTarget.releasePointerCapture?.(e.pointerId)
-    }
     const [activeFolder,    setActiveFolder]    = useState<string | null>(null)
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
     const [selectedItem,    setSelectedItem]    = useState<string | null>(defaultSelectedItem ?? null)
@@ -1232,20 +1185,6 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       : defaultBodySection === 'new-chat' ? 'chats'
       : defaultBodySection ?? defaultSection
     const [bodySection, setBodySection] = useState<'chats' | 'agents' | 'brain' | 'admin'>(initialBodySection)
-
-    // Keep the overlay thumb in sync with the body's size + content. onScroll
-    // alone misses content growth (sections added/removed, fonts loading) and
-    // viewport resize, so observe the scroll viewport AND its children, and
-    // re-run when the section/collapse/header height changes.
-    useEffect(() => {
-      const el = bodyScrollRef.current
-      if (!el || isCollapsed) { setThumb({ top: 0, height: 0, overflowing: false }); return }
-      recomputeThumb()
-      const ro = new ResizeObserver(recomputeThumb)
-      ro.observe(el)
-      for (const child of Array.from(el.children)) ro.observe(child as Element)
-      return () => ro.disconnect()
-    }, [recomputeThumb, isCollapsed, bodySection, headerH])
 
     // Switch tab — clears folder/item selection so body starts fresh.
     // Entering Admin also fires onOrganisationClick (back-compat "opened org space" hook).
@@ -1479,8 +1418,9 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             )}
 
             {/* New chat / New agent chat / New thread — primary action.
-                Admin has no primary action: its body IS the org nav list. */}
-            {bodySection !== 'admin' && (
+                Admin has no primary action: its body IS the org nav list.
+                Individual agents tab: "All Agents" replaces this button when onAllAgentsClick is provided. */}
+            {bodySection !== 'admin' && !(bodySection === 'agents' && onAllAgentsClick) && (
               <SidebarMenuItem
                 {...(isCollapsed ? { collapsed: true } : { fluid: true })}
                 variant="new-chat"
@@ -1499,6 +1439,16 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                 }}
               />
             )}
+            {/* All Agents — individual Agents tab only (replaces "New agent chat"). */}
+            {bodySection === 'agents' && onAllAgentsClick && (
+              <SidebarMenuItem
+                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                variant="default"
+                icon={<UserAiIcon size={20} />}
+                label="All Agents"
+                onClick={onAllAgentsClick}
+              />
+            )}
             {/* Search — menu row (⌘K) when expanded, icon when collapsed.
                 Single global entry point; no per-section search. */}
             <SidebarMenuItem
@@ -1510,12 +1460,32 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               selected={searchActive}
               onClick={(e) => { (e.currentTarget as HTMLElement).blur(); onSearch?.() }}
             />
+            {/* Chatboard — individual Chats tab only. */}
+            {bodySection === 'chats' && onChatboardClick && (
+              <SidebarMenuItem
+                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                variant="default"
+                icon={<BubbleChatIcon size={20} />}
+                label="Chatboard"
+                onClick={onChatboardClick}
+              />
+            )}
+            {/* Manage All Threads — individual Brain tab only. */}
+            {bodySection === 'brain' && onManageAllThreadsClick && (
+              <SidebarMenuItem
+                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                variant="default"
+                icon={<BubbleChatIcon size={20} />}
+                label="Manage All Threads"
+                onClick={onManageAllThreadsClick}
+              />
+            )}
             {/* Schedules quick-access — Brain only. Visible collapsed too (icon-only). */}
             {bodySection === 'brain' && (
               <SidebarMenuItem
                 {...(isCollapsed ? { collapsed: true } : { fluid: true })}
                 variant="default"
-                icon={<CalendarThreeIcon size={20} />}
+                icon={<CalendarFoldIcon size={20} />}
                 label="Schedules"
                 onClick={onSchedulesClick}
               />
@@ -1566,7 +1536,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
 
         {/* ── Scrollable body ── */}
         {/* top: measured header height (logo + tab strip + nav strip) */}
-        <div ref={bodyScrollRef} className={isCollapsed ? undefined : 'kaya-overlay-scroll'} onScroll={handleBodyScroll} onMouseEnter={() => { setBodyHover(true); revealThumb() }} onMouseLeave={() => setBodyHover(false)} style={{
+        <div ref={bodyScrollRef} className={isCollapsed ? undefined : 'kaya-scrollbar'} onScroll={handleBodyScroll} style={{
           position:      'absolute',
           top:           headerH,
           bottom:        '68px',
@@ -1719,7 +1689,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                   {recentItems ?? (
                     bodySection === 'brain' && brainRecentItems != null
                       ? brainRecentItems
-                      : <DefaultRecentItems selectedItem={selectedItem} activeChatId={activeChatId} onSelect={onSelect} onChatClick={handleChatClick} onShowAll={onShowAllRecents} sectionKey={bodySection} recents={recents} sectionLabel={bodySection === 'brain' ? 'Recents threads' : 'Recents'} />
+                      : <DefaultRecentItems selectedItem={selectedItem} activeChatId={activeChatId} onSelect={onSelect} onChatClick={handleChatClick} onShowAll={onShowAllRecents} sectionKey={bodySection} recents={recents} sectionLabel={bodySection === 'brain' ? 'Recent brain threads' : bodySection === 'agents' ? 'Recent agent chats' : 'Recent chats'} />
                   )}
                 </div>
               </div>
@@ -1727,37 +1697,6 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           </motion.div>
 
         </div>
-
-        {/* ── Overlay scrollbar thumb — reserves no layout width (native lane is
-            hidden via `.kaya-overlay-scroll`), so the body's content column stays
-            equal to the pinned header's. Reveals on hover / during scroll, fades
-            when idle, draggable. Track spans the body viewport (headerH → 68px). ── */}
-        {!isCollapsed && thumb.overflowing && (
-          <div
-            role="scrollbar"
-            aria-orientation="vertical"
-            aria-hidden
-            onPointerDown={handleThumbPointerDown}
-            onPointerMove={handleThumbPointerMove}
-            onPointerUp={handleThumbPointerUp}
-            onMouseEnter={() => setBodyHover(true)}
-            onMouseLeave={() => setBodyHover(false)}
-            style={{
-              position:        'absolute',
-              top:             headerH + thumb.top,
-              height:          thumb.height,
-              right:           '3px',
-              width:           thumbDragging || bodyHover ? '6px' : '4px',
-              borderRadius:    '999px',
-              backgroundColor: thumbDragging ? 'var(--neutral-800-50)' : 'var(--neutral-800-30)',
-              opacity:         (bodyHover || thumbVisible || thumbDragging) ? 1 : 0,
-              transition:      'opacity 200ms ease, width 120ms ease, background-color 150ms ease',
-              cursor:          thumbDragging ? 'grabbing' : 'grab',
-              touchAction:     'none',
-              zIndex:          7,
-            }}
-          />
-        )}
 
         {/* ── Top scroll fade — blur (behind) + gradient (on top) ── */}
         {[
