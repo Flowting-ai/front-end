@@ -131,6 +131,24 @@ describe("ContentRenderer markdown formatting", () => {
     expect(html).not.toContain("**")
   })
 
+  it("strips <details>/<summary> wrappers and renders the inner markdown", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer
+        content={[
+          "<details>",
+          "**Autonomous Execution:** Role-based digital workers handle complex ops.",
+          "**Continuous Logic:** Custom agents remember client history.",
+          "</details>",
+        ].join("\n")}
+      />,
+    )
+
+    expect(html).not.toContain("details")
+    expect(html).not.toContain("&lt;")
+    expect(html).toContain("<strong>Autonomous Execution:</strong>")
+    expect(html).toContain("<strong>Continuous Logic:</strong>")
+  })
+
   it("keeps rendered highlights working across markdown elements", () => {
     const content = [
       "## Model selection by feature",

@@ -482,18 +482,32 @@ function fixHeadingSpace(content: string): string {
   );
 }
 
+// HTML rendering is off by default, so a model that wraps content in collapsible
+// tags (<details>/<summary>) makes remark treat the whole block as one raw HTML
+// node — the tags show literally and the Markdown inside (bold, line breaks) is
+// swallowed unparsed. Strip just these wrapper tags, leaving paragraph breaks so
+// the inner content renders as normal Markdown. Code regions are protected.
+function stripCollapsibleHtml(content: string): string {
+  return protectMarkdownRegions(content, (value) =>
+    value.replace(/<\/?(?:details|summary)(?:\s[^>]*)?>/gi, "\n\n"),
+  );
+}
+
 // Markdown preprocessing pipeline (excluding web-citation handling and HTML
 // sanitisation). Shared by every renderer (e.g. the pin card) so behaviour is
 // consistent. Only additive, non-destructive normalisations live here — emphasis
 // (**bold**) is deliberately left untouched, since react-markdown + remark-gfm
 // already parse it correctly and regex "repairs" corrupt valid input.
 // Innermost runs first:
-//   fixHeadingSpace → normalizeMathDelimiters → escapeCurrencyDollars → closeOpenFences
+//   stripCollapsibleHtml → fixHeadingSpace → normalizeMathDelimiters
+//   → escapeCurrencyDollars → closeOpenFences
 export function preprocessMarkdown(content: string): string {
   return closeOpenFences(
     escapeCurrencyDollars(
       normalizeMathDelimiters(
-        fixHeadingSpace(content),
+        fixHeadingSpace(
+          stripCollapsibleHtml(content),
+        ),
       ),
     ),
   );
