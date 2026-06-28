@@ -241,7 +241,9 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
                 style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0, cursor: isEditing ? 'text' : 'pointer' }}
               >
                 {icon
-                  ? React.cloneElement(icon, { triggered: isHovered })
+                  ? typeof icon.type === 'string'
+                    ? icon
+                    : React.cloneElement(icon, { triggered: isHovered })
                   : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
               </div>
             )}

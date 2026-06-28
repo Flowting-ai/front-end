@@ -5,7 +5,7 @@ import { AnimatePresence, m } from 'framer-motion'
 import { Switch } from '@/components/Switch'
 import { Button } from '@/components/Button'
 import { Checkbox } from '@/components/Checkbox'
-import { CancelOneIcon, ArrowUpRightOneIcon } from '@strange-huge/icons'
+import { CancelOneIcon, ArrowUpRightOneIcon, ArrowDownOneIcon, UserIcon, MentoringIcon } from '@strange-huge/icons'
 
 import { toast } from 'sonner'
 import {
@@ -101,72 +101,21 @@ function TeamPlanBadge() {
   )
 }
 
-// ── Visibility option row ──────────────────────────────────────────────────────
+// ── Radio dot indicator ────────────────────────────────────────────────────────
 
-function VisibilityRow({
-  label,
-  description,
-  selected,
-  locked,
-  badge,
-  onClick,
-}: {
-  label: string
-  description: string
-  selected: boolean
-  locked?: boolean
-  badge?: React.ReactNode
-  onClick: () => void
-}) {
+function RadioDot({ selected }: { selected: boolean }) {
   return (
-    <button
-      onClick={locked ? undefined : onClick}
+    <div
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        width: '100%',
-        padding: '14px 16px',
-        borderRadius: 12,
-        border: 'none',
-        cursor: locked ? 'default' : 'pointer',
-        textAlign: 'left',
-        backgroundColor: selected ? 'var(--neutral-50)' : locked ? 'var(--neutral-50)' : 'white',
-        boxShadow: selected
-          ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-800)'
-          : locked
-          ? '0px 0px 0px 1px var(--neutral-200)'
-          : 'var(--shadow-surface-card)',
-        transition: 'box-shadow 150ms, background-color 150ms',
+        width: 18,
+        height: 18,
+        borderRadius: '50%',
+        flexShrink: 0,
+        border: selected ? '5.5px solid #1a1916' : '1.5px solid var(--neutral-300)',
+        backgroundColor: 'white',
+        transition: 'border 180ms ease',
       }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: 14,
-            lineHeight: '22px',
-            color: locked ? 'var(--neutral-400)' : 'var(--neutral-800)',
-          }}
-        >
-          {label}
-        </span>
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: 12,
-            lineHeight: '16px',
-            color: locked ? 'var(--neutral-500)' : 'var(--neutral-600)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {description}
-        </span>
-      </div>
-      {badge}
-    </button>
+    />
   )
 }
 
@@ -224,23 +173,53 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
   const maxTokenLimit = getShareTokenLimit(user?.planType)
   const { setHasShareLink, publishedVersionId, panelsLocked } = usePersonaConfigure()
 
-  // Team visibility requires a saved version. panelsLocked is true until the user
-  // saves a version (or the agent is already published) — same gate used by the
-  // Test Chat / AI Suggestions tools. Until then, choosing Team prompts a save.
-  function handleChooseTeam() {
-    if (panelsLocked) {
-      toast.error('Save a version first to set team visibility.')
-      return
-    }
-    setVisibility('team')
-  }
-
   const [visibility,        setVisibility]        = useState<Visibility>('private')
   const [selectedTeamIds,   setSelectedTeamIds]   = useState<string[]>([])
   const [visibilitySaving,  setVisibilitySaving]  = useState(false)
-  // Tracks the last-saved state so the button is disabled when nothing changed.
   const [savedVisibility,   setSavedVisibility]   = useState<Visibility>('private')
   const [savedTeamIds,      setSavedTeamIds]      = useState<string[]>([])
+  const [teamsOpen,         setTeamsOpen]         = useState(false)
+
+  const visibilityChanged =
+    visibility !== savedVisibility ||
+    selectedTeamIds.slice().sort().join(',') !== savedTeamIds.slice().sort().join(',')
+
+  function handleVisibilitySelect(v: Visibility) {
+    if (v === 'team') {
+      if (panelsLocked) { toast.error('Save a version first to set team visibility.'); return }
+      if (visibility === 'team') {
+        setTeamsOpen(prev => !prev)
+      } else {
+        setVisibility('team')
+        setTeamsOpen(true)
+      }
+    } else {
+      setVisibility(v)
+      setTeamsOpen(false)
+    }
+  }
+
+  async function handleSaveVisibility() {
+    if (!repoId) { toast.error('Save the agent first.'); return }
+    if (visibility === 'team' && selectedTeamIds.length === 0) { toast.error('Select at least one team.'); return }
+    setVisibilitySaving(true)
+    try {
+      await setPersonaVisibility(
+        repoId,
+        visibility === 'private' ? 'private' : 'team',
+        visibility === 'team' ? selectedTeamIds : undefined,
+      )
+      setSavedVisibility(visibility)
+      setSavedTeamIds(selectedTeamIds)
+      bustPersonasCache()
+      onChanged?.()
+      toast.success('Visibility updated')
+    } catch (err) {
+      toast.error((err as ApiError).message ?? 'Failed to update visibility')
+    } finally {
+      setVisibilitySaving(false)
+    }
+  }
 
   // Team dropdown toggle
   // ── Link share state ───────────────────────────────────────────────────────
@@ -451,266 +430,173 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
       </h1>
 
       {/* ── Visibility ──────────────────────────────────────────────────────── */}
-      <div data-help-id="help-sharing-visibility" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <span
+      <div data-help-id="help-sharing-visibility" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 20, lineHeight: 1.4, letterSpacing: '0.07px', color: '#0a0a0a' }}>
+          Visibility
+        </span>
+
+        {/* ── 3 cards ──────────────────────────────────────────────────────── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+          {/* Private */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => handleVisibilitySelect('private')}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleVisibilitySelect('private') } }}
             style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 20,
-              lineHeight: 1.4,
-              letterSpacing: '0.07px',
-              color: '#0a0a0a',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 16px', borderRadius: 12, cursor: 'pointer', userSelect: 'none',
+              opacity: 1,
+              backgroundColor: visibility === 'private' ? '#faf9f7' : 'white',
+              boxShadow: visibility === 'private'
+                ? '0px 0px 0px 2px #1a1916'
+                : '0px 0px 0px 1px var(--neutral-200)',
+              transition: 'opacity 200ms, box-shadow 150ms, background-color 150ms',
             }}
           >
-            Visibility
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={
-              visibilitySaving ||
-              !repoId ||
-              (visibility === savedVisibility && selectedTeamIds.slice().sort().join(',') === savedTeamIds.slice().sort().join(',')) ||
-              (visibility === 'team' && (!orgId || selectedTeamIds.length === 0))
-            }
-            onClick={async () => {
-              if (!repoId) { toast.error('Save the agent first.'); return }
-              if (visibility === 'team' && selectedTeamIds.length === 0) { toast.error('Select at least one team.'); return }
-              setVisibilitySaving(true)
-              try {
-                await setPersonaVisibility(
-                  repoId,
-                  visibility === 'private' ? 'private' : 'team',
-                  visibility === 'team' ? selectedTeamIds : undefined,
-                )
-                setSavedVisibility(visibility)
-                setSavedTeamIds(selectedTeamIds)
-                bustPersonasCache()
-                onChanged?.()
-                toast.success('Visibility updated')
-              } catch (err) {
-                toast.error((err as ApiError).message ?? 'Failed to update visibility')
-              } finally {
-                setVisibilitySaving(false)
-              }
-            }}
-          >
-            {visibilitySaving ? 'Saving…' : 'Save visibility'}
-          </Button>
-        </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <UserIcon size={22} animated />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#1a1916' }}>
+                  Private
+                </span>
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)' }}>
+                  Only you can use this agent
+                </span>
+              </div>
+            </div>
+            <RadioDot selected={visibility === 'private'} />
+          </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <VisibilityRow
-            label="Private"
-            description="Only you can use this persona"
-            selected={visibility === 'private'}
-            onClick={() => { setVisibility('private') }}
-          />
-
-          {/* Team row + inline selector */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Team */}
+          <div style={{
+            borderRadius: 12, overflow: 'hidden',
+            opacity: !orgId || editableTeams.length === 0 ? 0.38 : visibility === 'team' ? 1 : 0.45,
+            backgroundColor: visibility === 'team' ? '#faf9f7' : 'white',
+            boxShadow: visibility === 'team'
+              ? '0px 0px 0px 2px #1a1916'
+              : '0px 0px 0px 1px var(--neutral-200)',
+            transition: 'opacity 200ms, box-shadow 150ms, background-color 150ms',
+          }}>
+            {/* Card header — click selects Team; if already selected, toggles the list */}
             <div
-              role={!orgId || editableTeams.length === 0 ? undefined : 'button'}
-              tabIndex={!orgId || editableTeams.length === 0 ? undefined : 0}
-              onClick={!orgId || editableTeams.length === 0 ? undefined : handleChooseTeam}
-              onKeyDown={!orgId || editableTeams.length === 0 ? undefined : e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  handleChooseTeam()
-                }
-              }}
+              role="button"
+              tabIndex={!orgId || editableTeams.length === 0 ? -1 : 0}
+              onClick={() => { if (orgId && editableTeams.length > 0) handleVisibilitySelect('team') }}
+              onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && orgId && editableTeams.length > 0) { e.preventDefault(); handleVisibilitySelect('team') } }}
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'stretch',
-                gap: 14,
-                width: '100%',
-                padding: 16,
-                borderRadius: 16,
-                border: 'none',
-                cursor: !orgId || editableTeams.length === 0 ? 'default' : 'pointer',
-                textAlign: 'left',
-                backgroundColor: visibility === 'team' ? '#f5f1ea' : 'white',
-                boxShadow: visibility === 'team'
-                  ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-800)'
-                  : !orgId || editableTeams.length === 0
-                  ? '0px 0px 0px 1px var(--neutral-200)'
-                  : 'var(--shadow-surface-card)',
-                transition: 'box-shadow 150ms, background-color 150ms',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '14px 16px', userSelect: 'none',
+                cursor: !orgId || editableTeams.length === 0 ? 'not-allowed' : 'pointer',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 500,
-                      fontSize: 14,
-                      lineHeight: '22px',
-                      color: !orgId || editableTeams.length === 0 ? 'var(--neutral-400)' : 'var(--neutral-800)',
-                    }}
-                  >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <MentoringIcon size={22} animated />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#1a1916' }}>
                     Team
                   </span>
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 500,
-                      fontSize: 12,
-                      lineHeight: '16px',
-                      color: !orgId || editableTeams.length === 0 ? 'var(--neutral-500)' : 'var(--neutral-600)',
-                      maxWidth: 420,
-                    }}
-                  >
-                    Deploy this persona to selected teams.
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)' }}>
+                    {!orgId ? 'Requires a team plan' : editableTeams.length === 0 ? 'No editable teams' : 'Deploy to selected teams'}
                   </span>
                 </div>
-
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
                 {!orgId ? (
                   <TeamPlanBadge />
-                ) : (
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '8px 12px',
-                      borderRadius: 999,
-                      border: '1px solid var(--neutral-200)',
-                      backgroundColor: 'white',
-                      color: 'var(--neutral-800)',
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 500,
-                      fontSize: 12,
-                      lineHeight: '16px',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                    }}
-                  >
-                    Select teams
-                  </span>
-                )}
+                ) : orgId && editableTeams.length > 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--neutral-500)' }}>
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', whiteSpace: 'nowrap' }}>
+                      {teamsOpen ? 'Hide teams' : 'Show teams'}
+                    </span>
+                    <div style={{
+                      transform: teamsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 220ms ease',
+                      lineHeight: 0,
+                    }}>
+                      <ArrowDownOneIcon size={16} />
+                    </div>
+                  </div>
+                ) : null}
+                <RadioDot selected={visibility === 'team'} />
               </div>
             </div>
 
+            {/* Expandable team list — closes/opens via the chevron or re-clicking the card */}
             <AnimatePresence initial={false}>
-              {visibility === 'team' && orgId && (
+              {visibility === 'team' && teamsOpen && orgId && editableTeams.length > 0 && (
                 <m.div
-                  key="team-panel"
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  style={{
-                    backgroundColor: '#f5f1ea',
-                    borderRadius: 18,
-                    boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.15)',
-                    padding: 24,
-                  }}
+                  key="team-list"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                  style={{ overflow: 'hidden' }}
                 >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-body)',
-                        fontWeight: 500,
-                        fontSize: 14,
-                        lineHeight: '22px',
-                        color: 'var(--neutral-800)',
-                      }}
-                    >
-                      Select teams
-                    </span>
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 12,
-                      }}
-                    >
+                  <div style={{
+                    padding: '4px 16px 16px',
+                    borderTop: '1px solid var(--neutral-200)',
+                    display: 'flex', flexDirection: 'column', gap: 2,
+                  }}>
+                    <div style={{ paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 2 }}>
                       {editableTeams.map(team => {
                         const checked = selectedTeamIds.includes(team.id)
+                        const toggle = () => setSelectedTeamIds(current =>
+                          checked ? current.filter(id => id !== team.id) : [...current, team.id]
+                        )
                         return (
-                          <button
+                          <div
                             key={team.id}
-                            type="button"
-                            onClick={() => setSelectedTeamIds(current =>
-                              checked ? current.filter(id => id !== team.id) : [...current, team.id]
-                            )}
+                            role="button"
+                            tabIndex={0}
+                            onClick={toggle}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
                             style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 14,
-                              padding: 0,
-                              minHeight: 44,
-                              borderRadius: 10,
-                              border: 'none',
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                              width: '100%',
-                              backgroundColor: 'transparent',
+                              display: 'flex', alignItems: 'center', gap: 10,
+                              padding: '8px 4px', borderRadius: 8, cursor: 'pointer', userSelect: 'none',
                             }}
                           >
                             <span style={{ pointerEvents: 'none', flexShrink: 0 }}>
                               <Checkbox checked={checked} />
                             </span>
-                            <div style={{ flex: '1 1 0', minWidth: 0 }}>
-                              <p style={{
-                                margin: 0, fontFamily: 'var(--font-body)', fontWeight: 400,
-                                fontSize: 18, lineHeight: '28px', color: 'var(--neutral-800)',
-                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                              }}>
-                                {team.name}
-                              </p>
-                            </div>
-                          </button>
+                            <span style={{
+                              fontFamily: 'var(--font-body)', fontWeight: 400,
+                              fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                              {team.name}
+                            </span>
+                            {allEditableTeamsSelected && editableTeams[editableTeams.length - 1]?.id === team.id && (
+                              <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--neutral-500)', flexShrink: 0 }}>
+                                All teams
+                              </span>
+                            )}
+                          </div>
                         )
                       })}
-
-                      {allEditableTeamsSelected && (
-                        <p
-                          style={{
-                            margin: '4px 0 0',
-                            fontFamily: 'var(--font-body)',
-                            fontWeight: 400,
-                            fontSize: 18,
-                            lineHeight: '28px',
-                            color: 'var(--neutral-800)',
-                          }}
-                        >
-                          All teams (workspace-wide)
-                        </p>
-                      )}
                     </div>
-
-                    <p
-                      style={{
-                        margin: 0,
-                        fontFamily: 'var(--font-body)',
-                        fontWeight: 400,
-                        fontSize: 12,
-                        lineHeight: '16px',
-                        color: '#968f89',
-                      }}
-                    >
-                      This persona will be available to all members of the selected teams.
+                    <p style={{ margin: '8px 0 0', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
+                      Selected members will have access to this agent.
                     </p>
                   </div>
                 </m.div>
               )}
             </AnimatePresence>
           </div>
-
-          <VisibilityRow
-            label="Community"
-            description="Listed publicly anyone can find and import this persona."
-            selected={visibility === 'community'}
-            locked
-            onClick={() => {}}
-          />
         </div>
 
+        {/* Save button — primary, full width, disabled until something changes */}
+        <Button
+          variant="default"
+          fluid
+          disabled={visibilitySaving || !repoId || !visibilityChanged || (visibility === 'team' && (!orgId || selectedTeamIds.length === 0))}
+          loading={visibilitySaving}
+          onClick={handleSaveVisibility}
+        >
+          {visibilitySaving ? 'Saving…' : 'Save visibility'}
+        </Button>
       </div>
 
       {/* ── Divider ─────────────────────────────────────────────────────────── */}
