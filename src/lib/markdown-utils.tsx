@@ -506,29 +506,24 @@ function collapseInterParagraphBold(content: string): string {
   return fixed.replace(/\x02(\d+)\x02/g, (_, n) => codeBlocks[Number(n)] ?? '')
 }
 
-// this function is responsible for inline bold text if it has multipl;e in the same line.
-// When the model outputs **Title** mid-sentence with no surrounding whitespace
-// (e.g. "...for 2026.**Planning the search**I'll perform..."), insert blank lines
-// so ReactMarkdown treats it as a standalone paragraph/heading rather than inline bold.
+// Repairs bold markers that an LLM split across a line break, so remark can pair
+// them. Both transforms are *marker-preserving* — they only delete the stray
+// newline between a `**` pair, never inject one.
+//
+// We deliberately do NOT try to insert blank lines around "glued" mid-sentence
+// bold titles (e.g. "for 2026.**Planning**I'll"). Such glued bold already renders
+// correctly as inline bold under CommonMark flanking rules, and any regex that
+// tries to detect it cannot reliably distinguish an opening `**` from a closing
+// one — on a line with multiple bolds like "**a**, text **b**" it mistakes the
+// closing `**` of the first span for an opener (the following `,`/word satisfies
+// the "opener" guard) and injects a break *inside* a real bold span, corrupting it.
 function normalizeInlineBoldTitles(content: string): string {
   return content
     // Collapse bold markers split across line breaks (LLM sometimes puts ** on its own line):
     // **text\n**  →  **text**   (closing marker landed on the next line)
     .replace(/(\*\*[^*\n]+)\n\s*(\*\*)/g, '$1$2')
     // **\ntext**  →  **text**   (newlines right after the opening marker)
-    .replace(/(\*\*)\n+([^*\n]+\*\*)/g, '$1$2')
-    // Blank line BEFORE **..** when a *standalone* bold span is glued to preceding
-    // text (e.g. "for 2026.**Planning**"). The span must be a genuine opener —
-    // preceding char is non-whitespace/non-`*`, and the opening `**` is followed by
-    // a non-whitespace char. This last guard is critical: a `**` that is *preceded*
-    // by text is a closing marker, so without it a line with multiple bolds like
-    // "**Spain** — text **16.1%**" would mis-match Spain's closing `**` as an opener
-    // and inject a break inside the real bold span.
-    .replace(/([^\s\n*])(\*\*\S[^*\n]*\*\*)/g, '$1\n\n$2')
-    // Blank line AFTER **..** when a standalone bold span is glued to a following
-    // letter (e.g. "**Planning**I'll"). Same flanking guards: opening `**` followed
-    // by non-whitespace, closing `**` preceded by non-whitespace.
-    .replace(/(\*\*\S(?:[^*\n]*\S)?\*\*)([A-Za-z])/g, '$1\n\n$2');
+    .replace(/(\*\*)\n+([^*\n]+\*\*)/g, '$1$2');
 }
 
 // Bold markers that cross paragraph boundaries (\n\n) can never be rendered by
@@ -626,20 +621,55 @@ function fixOrphanedBold(content: string): string {
   return out
 }
 
+// ATX headings need a space after the hashes ("###Heading" renders as literal
+// text, not an <h3>). LLMs frequently omit it. The `[A-Za-z]` guard means we
+// only insert a space when a letter follows the hashes — so "#1", "#5 goal"
+// (numbers / hashtags, not headings) are left untouched. Code regions are
+// protected so a fenced "###define" stays verbatim.
+function fixHeadingSpace(content: string): string {
+  return protectMarkdownRegions(content, (value) =>
+    value.replace(/^(#{1,6})([A-Za-z])/gm, "$1 $2"),
+  );
+}
+
+// LLMs often pad bold markers with spaces ("** note **", "**note **"). CommonMark
+// flanking rules then reject the span and both markers render as literal asterisks.
+// Trim the padding so the span renders as <strong>.
+//
+// Guards:
+//   • `(?<![A-Za-z0-9])` — the opening `**` must NOT follow an alphanumeric, so it
+//     is a real opener, not a *closer*. Without this, on "**A** plays for **B**" the
+//     regex would treat A's closing `**` + " plays for " + B's opening `**` as a span
+//     and strip the surrounding word spaces ("**A**plays for**B**").
+//   • `[A-Za-z]` inside — skips code/math like "2 ** 3 ** 2" (no letter between markers).
+//   • code/display-math regions are protected outright.
+function tightenSpacedBold(content: string): string {
+  return protectMarkdownRegions(content, (value) =>
+    value
+      .replace(/(?<![A-Za-z0-9])\*\*[ \t]+([^*\n]*?[A-Za-z][^*\n]*?)[ \t]*\*\*/g, "**$1**")
+      .replace(/(?<![A-Za-z0-9])\*\*([^*\n]*?[A-Za-z][^*\n]*?)[ \t]+\*\*/g, "**$1**"),
+  );
+}
+
 // Full markdown preprocessing pipeline (excluding web-citation handling and
 // HTML sanitisation). Repairs LLM bold/markdown artifacts and normalises math
 // so ReactMarkdown renders them correctly. Exported so other renderers (e.g.
 // the pin card) get identical bold-repair behaviour from a single source.
 // Pipeline (innermost runs first):
 //   collapseInterParagraphBold → repairCrossParaBold → normalizeInlineBoldTitles
-//   → fixOrphanedBold → normalizeMathDelimiters → escapeCurrencyDollars → closeOpenFences
+//   → tightenSpacedBold → fixOrphanedBold → fixHeadingSpace
+//   → normalizeMathDelimiters → escapeCurrencyDollars → closeOpenFences
 export function preprocessMarkdown(content: string): string {
   return closeOpenFences(
     escapeCurrencyDollars(
       normalizeMathDelimiters(
-        fixOrphanedBold(
-          normalizeInlineBoldTitles(
-            repairCrossParaBold(collapseInterParagraphBold(content)),
+        fixHeadingSpace(
+          fixOrphanedBold(
+            tightenSpacedBold(
+              normalizeInlineBoldTitles(
+                repairCrossParaBold(collapseInterParagraphBold(content)),
+              ),
+            ),
           ),
         ),
       ),
