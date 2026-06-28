@@ -29,7 +29,7 @@ import { useAuth } from "@/context/auth-context";
 import { useOrg } from "@/context/org-context";
 import { useRouter } from "next/navigation";
 import { InlineCreditNotice, type CreditNoticeStatus } from "@/components/InlineCreditNotice";
-import { CreditStatusBanner } from "@/components/CreditStatusBanner";
+import { ExhaustionBanner } from "@/components/ExhaustionBanner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import type { PinFolder } from "@/lib/api/pins";
 import type { PinMentionable } from "./PinMentionDropdown";
@@ -376,8 +376,8 @@ export function ChatInterface({
   // 1 token ≈ 4 chars — good enough for the 90%+ ring trigger.
   const contextUsedPct = useMemo(() => {
     const limit = contextModel?.inputLimit;
-    if (!limit || limit <= 0) return undefined;
     const totalChars = messages.reduce((sum, m) => sum + (m.content?.length ?? 0), 0);
+    if (!limit || limit <= 0) return Math.min(1, totalChars / (200_000 * 4));
     return Math.min(1, totalChars / (limit * 4));
   }, [messages, contextModel]);
 
@@ -1098,18 +1098,14 @@ export function ChatInterface({
           )}
         </AnimatePresence>
 
-        {/* Individual credit/topup notice — 90% warning + exhaustion */}
-        <CreditStatusBanner />
-
-        {/* Encasing container — adds a level-coloured border when a credit pool is active,
-            chat input wrapper */}
+        {/* Chat input wrapper */}
         <div
           style={{
             width:    '100%',
             maxWidth: '754px',
           }}
         >
-
+          <ExhaustionBanner>
           {/* position:relative wrapper lets PinMentionDropdown use absolute positioning */}
           <div
             ref={inputWrapperRef}
@@ -1183,6 +1179,7 @@ export function ChatInterface({
             contextUsedPct={contextUsedPct}
           />
           </div>
+          </ExhaustionBanner>
         </div>
 
         {/* Hidden file input for drag-drop fallback via onAdd */}

@@ -4,6 +4,7 @@ import React, { useCallback, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { Sidebar, type SidebarProps } from '@/components/Sidebar'
 import { ChatInput, type ChatInputProps } from '@/components/chat/ChatInput'
+import { ExhaustionBanner } from '@/components/ExhaustionBanner'
 import { BrainHome } from './BrainHome'
 import { ClarificationCard, type ClarificationCardProps } from './ClarificationCard'
 export { ClarificationCard, type ClarificationCardProps }
@@ -309,14 +310,16 @@ export function BrainShell({
                     transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                     style={{ width: '100%', maxWidth: '754px' }}
                   >
-                    <ChatInput
-                      placeholder="Tell Brain what to do"
-                      textareaLabel="Brain instruction"
-                      value={inputValue}
-                      onChange={setInputValue}
-                      onSend={handleSend}
-                      {...chatInputProps}
-                    />
+                    <ExhaustionBanner>
+                      <ChatInput
+                        placeholder="Tell Brain what to do"
+                        textareaLabel="Brain instruction"
+                        value={inputValue}
+                        onChange={setInputValue}
+                        onSend={handleSend}
+                        {...chatInputProps}
+                      />
+                    </ExhaustionBanner>
                   </m.div>
                 )}
               </AnimatePresence>

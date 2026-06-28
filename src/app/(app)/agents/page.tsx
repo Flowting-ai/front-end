@@ -19,7 +19,7 @@ import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
-import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, personasForTeamContext, type Persona } from '@/lib/api/personas'
+import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, personasForTeamContext, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
 import { useOrg } from '@/context/org-context'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import type { AIModel } from '@/types/ai-model'
@@ -612,6 +612,7 @@ export default function PersonasPage() {
   useEffect(() => {
     if (pathname !== '/agents') return
     setIsLoading(true)
+    bustPersonasCache()
     ;(async () => {
       try {
         const list = await fetchPersonas()
@@ -650,7 +651,19 @@ export default function PersonasPage() {
         setIsLoading(false)
       }
     })()
-  }, [pathname])
+  }, [pathname, activeTeamId])
+
+  // Re-fetch when another part of the app busts the personas cache (e.g. configure tab after save/delete).
+  useEffect(() => {
+    if (pathname !== '/agents') return
+    const handler = () => {
+      fetchPersonas()
+        .then(list => setPersonas(personasForTeamContext(list, activeTeamId)))
+        .catch(console.error)
+    }
+    window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, handler)
+    return () => window.removeEventListener(PERSONAS_LIST_UPDATED_EVENT, handler)
+  }, [pathname, activeTeamId])
 
   // Fetch dashboard whenever the super-links tab is active or the date range changes.
   useEffect(() => {

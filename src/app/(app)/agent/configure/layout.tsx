@@ -128,7 +128,7 @@ const ALL_CONFIGURE_LABELS = ['Instructions', 'Profile', 'Knowledge', 'Connector
 const PANEL_IDS            = new Set(PANEL_ITEMS.map(it => it.highlightId))
 
 function useHelpState(pathname: string) {
-  const { helpOpen, setHelpOpen, helpActiveId, setHelpActiveId } = usePersonaConfigure()
+  const { helpOpen, setHelpOpen, helpActiveId, setHelpActiveId, personaInfo } = usePersonaConfigure()
 
   const tabKey   = pathname.split('/configure/')[1]?.split('?')[0] ?? 'instructions'
   const tabIndex = ALL_CONFIGURE_TABS.indexOf(tabKey as typeof ALL_CONFIGURE_TABS[number])
@@ -143,6 +143,22 @@ function useHelpState(pathname: string) {
     const nd = TAB_HELP[tabKey] ?? TAB_HELP.instructions
     setHelpActiveId(nd.items[0]?.highlightId ?? `${tabKey}-item-0`)
   }, [tabKey, setHelpOpen, setHelpActiveId])
+
+  // Auto-open help on each tab for a newly wizard-created agent.
+  // Runs after the reset effect above — React 18 batches both into one commit
+  // so the final state is helpOpen = true (open wins over the false above).
+  const { repoId } = personaInfo
+  useEffect(() => {
+    if (!repoId || typeof window === 'undefined') return
+    const isNewAgent = sessionStorage.getItem(`persona_initial_version_${repoId}`) !== null
+    if (!isNewAgent) return
+    const shownKey = `persona_help_auto_${repoId}_${tabKey}`
+    if (sessionStorage.getItem(shownKey)) return
+    sessionStorage.setItem(shownKey, '1')
+    const nd = TAB_HELP[tabKey] ?? TAB_HELP.instructions
+    setHelpActiveId(nd.items[0]?.highlightId ?? `${tabKey}-item-0`)
+    setHelpOpen(true)
+  }, [tabKey, repoId, setHelpOpen, setHelpActiveId])
 
   // Scroll to highlighted element
   useEffect(() => {

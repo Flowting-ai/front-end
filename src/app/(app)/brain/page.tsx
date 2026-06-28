@@ -1507,8 +1507,14 @@ function BrainPageInner() {
 
   // ── Add-menu feature state ────────────────────────────────────────────────
 
-  const { models, selectModel } = useModelSelectorContext()
+  const { models, selectModel, selectedModel: brainSelectedModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
+
+  const brainContextUsedPct = useMemo(() => {
+    const limit = (brainSelectedModel?.inputLimit ?? 0) || 200_000
+    const totalChars = historyMessages.reduce((sum, m) => sum + m.input.length + (m.output?.length ?? 0), 0)
+    return Math.min(1, totalChars / (limit * 4))
+  }, [historyMessages, brainSelectedModel])
   const { processFiles, FILE_ACCEPT } = useFileUpload()
   const { pins: pinboardPins, isLoading: pinboardLoading } = usePinboard()
 
@@ -4662,6 +4668,7 @@ function BrainPageInner() {
       chatInputProps={{
         isStreaming: brainIsStreaming,
         disabled: brainIsStreaming || creditStatus.blocked,
+        contextUsedPct: brainContextUsedPct,
         onStop: handleStop,
         onFilePaste: (files) => setBrainAttachments((prev) => processFiles(files, prev)),
         addMenu,

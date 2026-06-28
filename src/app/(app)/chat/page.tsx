@@ -9,6 +9,7 @@ const WelcomeModal = dynamic(() => import("@/components/onboarding/WelcomeModal"
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { JoinedGreeting, JoinedTodos } from "@/components/onboarding/JoinedLanding";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { ExhaustionBanner } from "@/components/ExhaustionBanner";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
 import { InitialPrompts } from "@/components/chat/InitialPrompts";
 const ModelSwitchDialog = dynamic(() => import("@/components/chat/ModelSwitchDialog").then(m => ({ default: m.ModelSwitchDialog })), { ssr: false, loading: () => null });
@@ -1038,6 +1039,7 @@ function ChatPageInner() {
                   style={{ width: "100%", maxWidth: "640px", margin: "0 auto" }}
                   exit={{ opacity: 0, y: 36, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
+                  <ExhaustionBanner>
                   {/* Pin mention dropdown wrapper - position:relative anchor */}
                   <div ref={newChatInputWrapperRef} style={{ width: "100%", position: "relative" }}>
                     <PinMentionDropdown
@@ -1061,6 +1063,7 @@ function ChatPageInner() {
                       modelMenu={selectedPersona ? undefined : <ModelMenu />}
                       disabledModelSelector={!!selectedPersona}
                       chips={newChatChips}
+                      contextUsedPct={0}
                       disabled={creditStatus.blocked}
                       attachmentsSlot={
                         newChatMentionedPins.length > 0 ? (
@@ -1098,6 +1101,7 @@ function ChatPageInner() {
                       onPinNavigate={handleNewChatPinNavigate}
                     />
                   </div>
+                  </ExhaustionBanner>
 
                   {/* ── Action mode buttons ─────────────────────────────────── */}
                   <div

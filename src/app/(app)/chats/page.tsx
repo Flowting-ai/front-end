@@ -17,6 +17,7 @@ import { usePinboard } from '@/context/pinboard-context'
 import { addChatToProject } from '@/lib/api/projects'
 import { listSharedWithMe, forkChatShare } from '@/lib/api/chat-shares'
 import type { SharedChatItem } from '@/lib/api/chat-shares'
+import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -283,29 +284,13 @@ export default function ChatsPage() {
 
         {/* ── Tabs ─────────────────────────────────────────────────────────── */}
         {!selectionMode && (
-          <div style={{ display: 'flex', gap: 4, padding: '4px 0 12px', borderBottom: '1px solid var(--neutral-100)', marginBottom: 12 }}>
-            {(['my', 'shared'] as const).map(tab => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => handleTabChange(tab)}
-                style={{
-                  padding:         '5px 12px',
-                  borderRadius:    8,
-                  border:          'none',
-                  cursor:          'pointer',
-                  fontFamily:      'var(--font-body)',
-                  fontWeight:      activeTab === tab ? 600 : 400,
-                  fontSize:        14,
-                  lineHeight:      '22px',
-                  backgroundColor: activeTab === tab ? 'var(--neutral-100)' : 'transparent',
-                  color:           activeTab === tab ? 'var(--neutral-900)' : 'var(--neutral-500)',
-                  transition:      'background 120ms',
-                }}
-              >
-                {tab === 'my' ? 'My chats' : 'Shared with me'}
-              </button>
-            ))}
+          <div style={{ padding: '4px 0 12px', borderBottom: '1px solid var(--neutral-100)', marginBottom: 12 }}>
+            <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as 'my' | 'shared')}>
+              <TabsList>
+                <TabsTrigger value="my">My chats</TabsTrigger>
+                <TabsTrigger value="shared">Shared with me</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         )}
 
