@@ -601,6 +601,18 @@ export function ChatInterface({
     const messageId = messages[idx]?.id;
     if (!messageId || streamingTopMessageIdRef.current === messageId) return;
 
+    // Only treat the user as "scrolled away" when the content actually
+    // overflows the viewport. Otherwise (e.g. the first short reply in a new
+    // chat) there is nothing to scroll, no scroll event fires to correct the
+    // flag, and the scroll-to-bottom button lingers with nowhere to go. Don't
+    // mark this message as handled until it's scrollable, so this re-evaluates
+    // as more streamed content arrives.
+    const container = messagesContainerRef.current;
+    const isScrollable = container
+      ? container.scrollHeight - container.clientHeight > 80
+      : false;
+    if (!isScrollable) return;
+
     streamingTopMessageIdRef.current = messageId;
     atBottomRef.current = false;
     setAtBottom(false);
