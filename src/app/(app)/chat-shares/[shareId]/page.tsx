@@ -9,6 +9,7 @@ import {
   type SharedChatView,
 } from '@/lib/api/chat-shares'
 import { Button } from '@/components/Button'
+import { Badge } from '@/components/Badge'
 import { MarkdownRenderer } from '@/lib/markdown-utils'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 
@@ -84,17 +85,20 @@ function SharedChatContent() {
           gap:         24,
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        {/* Back button — isolated above header */}
+        <div>
           <Button
             variant="ghost"
             size="sm"
             leftIcon={<ArrowLeftOneIcon size={16} animated />}
             onClick={() => router.back()}
-            style={{ flexShrink: 0 }}
           >
             Back
           </Button>
+        </div>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1
               style={{
@@ -111,9 +115,16 @@ function SharedChatContent() {
             >
               {view.chatTitle}
             </h1>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)', margin: '2px 0 0' }}>
-              Shared chat · {view.mode === 'editable' ? 'You can make a copy' : 'Read only'}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)' }}>
+                Shared chat
+              </span>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)' }}>·</span>
+              {view.mode === 'editable'
+                ? <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)' }}>You can make a copy</span>
+                : <Badge label="Read only" color="Red" />
+              }
+            </div>
           </div>
           {view.mode === 'editable' && (
             <Button

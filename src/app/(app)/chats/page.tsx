@@ -18,6 +18,7 @@ import { addChatToProject } from '@/lib/api/projects'
 import { listSharedWithMe, forkChatShare } from '@/lib/api/chat-shares'
 import type { SharedChatItem } from '@/lib/api/chat-shares'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
+import { Badge } from '@/components/Badge'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -320,9 +321,16 @@ export default function ChatsPage() {
                   <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.chatTitle || 'Untitled chat'}
                   </p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0 }}>
-                    Shared by {item.sharedByName ?? 'someone'} · {item.mode === 'editable' ? 'Editable' : 'Read-only'}
-                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)' }}>
+                      Shared by <span style={{ fontWeight: 700, color: 'var(--neutral-700)' }}>{item.sharedByName ?? 'someone'}</span>
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-300)' }}>·</span>
+                    {item.mode === 'editable'
+                      ? <Badge label="Editable" color="Green" />
+                      : <Badge label="Read-only" color="Red" />
+                    }
+                  </div>
                 </div>
                 <Button
                   variant="outline"

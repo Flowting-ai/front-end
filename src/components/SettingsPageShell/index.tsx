@@ -1,4 +1,6 @@
 import React from 'react'
+import { Button } from '@/components/Button'
+import { ArrowLeftOneIcon } from '@strange-huge/icons'
 
 interface SettingsPageShellProps {
   title: string
@@ -43,27 +45,16 @@ export function SettingsPageShell({
       >
         <header style={{ paddingLeft: 4, marginBottom: 4 }}>
           {backLabel && onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: 0,
-                marginBottom: 4,
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize: 11,
-                lineHeight: '16px',
-                color: 'var(--neutral-500)',
-              }}
-            >
-              &larr; {backLabel}
-            </button>
+            <div style={{ marginBottom: 8 }}>
+              <Button
+                variant="ghost"
+                size="sm"
+                leftIcon={<ArrowLeftOneIcon size={16} animated />}
+                onClick={onBack}
+              >
+                {backLabel}
+              </Button>
+            </div>
           )}
           <h1
             style={{

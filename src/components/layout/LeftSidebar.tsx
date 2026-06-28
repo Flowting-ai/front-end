@@ -1800,7 +1800,7 @@ function LeftSidebarImpl({
       onSearch={openSearch}
       onChatTabClick={isPersonaPage ? () => push("/chat") : handleNewChat}
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
-      onChatboardClick={!isTeamUser ? () => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") } : undefined}
+      onChatboardClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
       onManageAllThreadsClick={() => { toast.info("Opening Brain Threads", { id: 'nav' }); push("/brain/threads") }}
       onNewBrainThread={() => push("/brain")}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}

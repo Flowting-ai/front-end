@@ -1317,14 +1317,14 @@ function ChatPageInner() {
                     selected={chatShareVisibility === "private"}
                     title="Private"
                     description="Only you can see this chat."
-                    onClick={() => setChatShareVisibility("private")}
+                    onClick={() => { setChatShareVisibility("private"); setShareTargetType("user"); setShareTargetId(""); }}
                     style={{ flex: 1 }}
                   />
                   <ModelFeaturedCard
                     selected={chatShareVisibility === "team"}
                     title="Team"
                     description="Editors and admins in this team can access it."
-                    onClick={orgId ? () => setChatShareVisibility("team") : undefined}
+                    onClick={orgId ? () => { setChatShareVisibility("team"); setShareTargetType("project"); setShareTargetId(""); } : undefined}
                     aria-disabled={!orgId}
                     style={{ flex: 1, ...(!orgId && { opacity: 0.4, pointerEvents: "none", cursor: "not-allowed" }) }}
                   />
@@ -1373,7 +1373,7 @@ function ChatPageInner() {
                               fluid
                               label={t.name}
                               selected={chatShareTeamId === t.id}
-                              onClick={() => { setChatShareTeamId(t.id); setShareTeamDropOpen(false); }}
+                              onClick={() => { setChatShareTeamId(t.id); setShareTargetId(""); setShareTeamDropOpen(false); }}
                             />
                           ))
                       }
@@ -1383,29 +1383,18 @@ function ChatPageInner() {
 
                 <div style={{ height: "1px", background: "var(--neutral-100)" }} />
 
-                {/* Specific share — always visible */}
+                {/* Specific share */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                   <div>
                     <p style={{ fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, color: "var(--neutral-700)", margin: 0 }}>
-                      Specific share
+                      {chatShareVisibility === "team" ? "Projects" : "Person"}
                     </p>
                     <p style={{ fontFamily: "var(--font-body)", fontSize: 12, lineHeight: "18px", color: "var(--neutral-500)", margin: "2px 0 0" }}>
-                      Add a person or publish this chat to an editable project.
+                      {chatShareVisibility === "team"
+                        ? "Select a project under this team to share the chat with."
+                        : "Share this chat directly with a specific person."}
                     </p>
                   </div>
-
-                  {/* Person / Project tab switcher — only when org members exist */}
-                  {orgId && (
-                    <Tabs
-                      value={shareTargetType}
-                      onValueChange={(v) => { setShareTargetType(v as "user" | "project"); setShareTargetId(""); }}
-                    >
-                      <TabsList size="small" fluid>
-                        <TabsTrigger value="user"><span style={{ fontSize: "16px", lineHeight: "22px" }}>Person</span></TabsTrigger>
-                        <TabsTrigger value="project"><span style={{ fontSize: "16px", lineHeight: "22px" }}>Project</span></TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                  )}
 
                   {/* Access mode dropdown */}
                   <DropdownFloat
@@ -1470,18 +1459,32 @@ function ChatPageInner() {
                       >
                         <span style={{ fontFamily: "var(--font-body)", fontSize: "14px", lineHeight: "22px", color: shareTargetId ? "var(--neutral-900)" : "var(--neutral-400)" }}>
                           {shareTargetId
-                            ? shareTargetType === "user"
-                              ? (orgMembers.find(m => m.id === shareTargetId)?.name || orgMembers.find(m => m.id === shareTargetId)?.email || "Person")
-                              : (projects.find(p => p.id === shareTargetId)?.name || "Project")
-                            : `Select ${shareTargetType === "user" ? "person" : "project"}…`}
+                            ? chatShareVisibility === "team"
+                              ? (shareableProjects.find(p => p.id === shareTargetId)?.name || "Project")
+                              : (orgMembers.find(m => m.id === shareTargetId)?.name || orgMembers.find(m => m.id === shareTargetId)?.email || "Person")
+                            : chatShareVisibility === "team" ? "Select project…" : "Select person…"}
                         </span>
                         <ArrowDownOneIcon size={16} color="var(--neutral-400)" />
                       </button>
                     }
                   >
                     <Dropdown style={{ width: "420px", padding: "3px" }} maxHeight="min(248px, calc(100dvh - 120px))">
-                      {shareTargetType === "user"
-                        ? orgMembers
+                      {chatShareVisibility === "team"
+                        ? (() => {
+                            const teamProjects = shareableProjects.filter(p => p.teamId === chatShareTeamId)
+                            return teamProjects.length === 0
+                              ? <Dropdown.Item fluid label={chatShareTeamId ? "No editable projects in this team" : "Select a team first"} disabled />
+                              : teamProjects.map(project => (
+                                  <Dropdown.Item
+                                    key={project.id}
+                                    fluid
+                                    label={project.name}
+                                    selected={shareTargetId === project.id}
+                                    onClick={() => { setShareTargetId(project.id); setShareTargetDropOpen(false); }}
+                                  />
+                                ))
+                          })()
+                        : orgMembers
                             .filter(member => member.email.toLowerCase() !== user?.email?.toLowerCase())
                             .map(member => (
                               <Dropdown.Item
@@ -1490,17 +1493,6 @@ function ChatPageInner() {
                                 label={member.name || member.email}
                                 selected={shareTargetId === member.id}
                                 onClick={() => { setShareTargetId(member.id); setShareTargetDropOpen(false); }}
-                              />
-                            ))
-                        : shareableProjects.length === 0
-                          ? <Dropdown.Item fluid label="No editable projects" disabled />
-                          : shareableProjects.map(project => (
-                              <Dropdown.Item
-                                key={project.id}
-                                fluid
-                                label={project.name}
-                                selected={shareTargetId === project.id}
-                                onClick={() => { setShareTargetId(project.id); setShareTargetDropOpen(false); }}
                               />
                             ))
                       }
