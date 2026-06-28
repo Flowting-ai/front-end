@@ -86,6 +86,51 @@ describe("ContentRenderer markdown formatting", () => {
     expect(mathHtml).not.toContain("\\$2x")
   })
 
+  it("keeps a bold title followed by a blockquote as separate blocks", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer
+        content={[
+          "Here is the rewrite.",
+          "",
+          "**Option 1 (Flows into the Slack sentence):**",
+          "> My team built Souvenir. **By unifying your organizational knowledge**, our agents live in Slack.",
+          "",
+          "**Option 2 (Added to the first sentence):**",
+          "> My team built Souvenir for modern teams **that unifies your organizational knowledge**. It runs in Slack.",
+        ].join("\n")}
+      />,
+    )
+
+    expect((html.match(/<blockquote/g) ?? []).length).toBe(2)
+    expect((html.match(/<strong/g) ?? []).length).toBeGreaterThanOrEqual(4)
+    expect(html).not.toContain("&gt; My team")
+    expect(html).toContain("Souvenir. <strong")
+    expect(html).toContain("modern teams <strong")
+  })
+
+  it("renders bold lead-in titles on their own lines without orphaned asterisks", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer
+        content={[
+          "**Heavy use of Markdown in training**",
+          "Both models were fine-tuned on high-quality responses that use proper Markdown.",
+          "",
+          "**System prompts (not visible to users)**",
+          "OpenAI and Anthropic both include hidden instructions.",
+          "",
+          "**RLHF / Preference tuning**",
+          "Human reviewers consistently rate structured answers higher.",
+        ].join("\n")}
+      />,
+    )
+
+    expect((html.match(/<strong>/g) ?? []).length).toBe(3)
+    expect(html).toContain("<strong>Heavy use of Markdown in training</strong>")
+    expect(html).toContain("<strong>System prompts (not visible to users)</strong>")
+    expect(html).toContain("<strong>RLHF / Preference tuning</strong>")
+    expect(html).not.toContain("**")
+  })
+
   it("keeps rendered highlights working across markdown elements", () => {
     const content = [
       "## Model selection by feature",

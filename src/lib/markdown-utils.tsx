@@ -473,205 +473,27 @@ function escapeCurrencyDollars(content: string): string {
   })
 }
 
-// LLMs sometimes generate bold text that spans a paragraph break, e.g.:
-//   "...indicates that **Gmail is not enabled\n\n**. This typically happens with **\n\nGoogle Workspace\n\n** accounts..."
-//
-// Standard markdown parsers (remark included) reset all inline formatting at every
-// paragraph boundary (\n\n). Any ** pair that crosses such a break is never
-// recognised as bold — both markers render as literal asterisks, corrupting the
-// rest of the document's bold state.
-//
-// Fix: find every **…** span (lazy, shortest-first) and, when the inner content
-// contains a paragraph break, collapse it to a single space so the span becomes
-// a valid single-paragraph inline-bold. Empty spans (** \n\n **) are removed.
-// Code fences and inline code spans are protected before the scan.
-function collapseInterParagraphBold(content: string): string {
-  const codeBlocks: string[] = []
-  const guarded = content.replace(/```[\s\S]*?```|`[^`\n]+`/g, m => {
-    codeBlocks.push(m)
-    return `\x02${codeBlocks.length - 1}\x02`
-  })
-
-  const fixed = guarded.replace(/\*\*([\s\S]*?)\*\*/g, (_match, inner: string, offset: number) => {
-    if (!inner.includes('\n\n')) return _match
-    const collapsed = inner.replace(/\n{2,}/g, ' ').trim()
-    if (!collapsed) return ''
-    // If the bold marker directly follows a non-whitespace character (e.g. "Gmail.**"),
-    // the collapsed paragraph break was the only separator — restore a space before **.
-    const charBefore = offset > 0 ? guarded[offset - 1] : ' '
-    const prefix = /\S/.test(charBefore) ? ' ' : ''
-    return `${prefix}**${collapsed}**`
-  })
-
-  return fixed.replace(/\x02(\d+)\x02/g, (_, n) => codeBlocks[Number(n)] ?? '')
-}
-
-// Repairs bold markers that an LLM split across a line break, so remark can pair
-// them. Both transforms are *marker-preserving* — they only delete the stray
-// newline between a `**` pair, never inject one.
-//
-// We deliberately do NOT try to insert blank lines around "glued" mid-sentence
-// bold titles (e.g. "for 2026.**Planning**I'll"). Such glued bold already renders
-// correctly as inline bold under CommonMark flanking rules, and any regex that
-// tries to detect it cannot reliably distinguish an opening `**` from a closing
-// one — on a line with multiple bolds like "**a**, text **b**" it mistakes the
-// closing `**` of the first span for an opener (the following `,`/word satisfies
-// the "opener" guard) and injects a break *inside* a real bold span, corrupting it.
-function normalizeInlineBoldTitles(content: string): string {
-  return content
-    // Collapse bold markers split across line breaks (LLM sometimes puts ** on its own line):
-    // **text\n**  →  **text**   (closing marker landed on the next line)
-    .replace(/(\*\*[^*\n]+)\n\s*(\*\*)/g, '$1$2')
-    // **\ntext**  →  **text**   (newlines right after the opening marker)
-    .replace(/(\*\*)\n+([^*\n]+\*\*)/g, '$1$2');
-}
-
-// Bold markers that cross paragraph boundaries (\n\n) can never be rendered by
-// remark — it resets bold state at every paragraph break. When the LLM splits a
-// **bold span** across paragraphs, every subsequent ** in the document may appear
-// as a literal. Fix by inspecting each paragraph independently:
-//
-//   • Odd count + trailing **     → orphaned opener with no content, remove it
-//   • Odd count + right-flanking  → orphaned closer from a prior paragraph, remove it
-//   • Odd count + left-flanking   → opener with no closer in this paragraph, close it
-//
-// This runs BEFORE normalizeInlineBoldTitles so the within-paragraph cross-line
-// patterns are handled after the paragraph-level structure is already clean.
-function repairCrossParaBold(content: string): string {
-  // Protect code regions — ** inside fences/spans must not be counted or moved.
-  const codeBlocks: string[] = []
-  const guarded = content.replace(/```[\s\S]*?```|`[^`\n]+`/g, m => {
-    codeBlocks.push(m)
-    return `\x02${codeBlocks.length - 1}\x02`
-  })
-
-  // Split on paragraph breaks, keeping the separators so we can rejoin cleanly.
-  const segments = guarded.split(/(\n{2,})/)
-
-  const fixed = segments.map(seg => {
-    // Pure-newline separators — keep verbatim.
-    if (/^\n+$/.test(seg)) return seg
-
-    const markers = [...seg.matchAll(/\*\*/g)]
-    if (markers.length % 2 === 0) return seg  // Even → balanced, nothing to do.
-
-    // ── Odd marker count: find and repair the orphan ──────────────────────────
-
-    if (markers.length === 1) {
-      const pos       = markers[0].index!
-      const charBefore = pos > 0 ? seg[pos - 1] : ''
-      const afterSlice = seg.slice(pos + 2)
-      // Trailing: ** at end of paragraph with no text after it.
-      const isTrailing = /^\s*$/.test(afterSlice)
-      // Right-flanking: non-whitespace immediately precedes ** → it's a closer.
-      const isRightFlanking = charBefore !== '' && !/[\s\n]/.test(charBefore)
-
-      if (isTrailing || isRightFlanking) {
-        // Orphaned closing marker or opener with no content → remove.
-        return seg.slice(0, pos) + afterSlice
-      }
-      // Orphaned opening marker with actual content → close the span at paragraph end.
-      return seg.trimEnd() + '**'
-    }
-
-    // Multiple markers (≥ 3), odd count — the paragraph has balanced pairs plus
-    // one stray. If the paragraph ends with **, that's the stray; strip it.
-    // Otherwise close the span at the end (covers the opener-without-closer case).
-    if (/\*\*\s*$/.test(seg)) {
-      return seg.replace(/\*\*(\s*)$/, '$1')
-    }
-    return seg.trimEnd() + '**'
-  })
-
-  let result = fixed.join('')
-  result = result.replace(/\x02(\d+)\x02/g, (_, n) => codeBlocks[Number(n)])
-  return result
-}
-
-// LLMs occasionally produce orphaned ** markers that corrupt remark's bold-tracking
-// state, causing every subsequent ** pair in the document to render as literal text
-// instead of bold. Two common patterns:
-//
-//   1. A lone ** on its own line — always orphaned because valid bold always has text
-//      between its delimiters. Removing it restores the parser's balance.
-//
-//   2. ** immediately before a list bullet ("**- item") — the model placed a closing
-//      marker at the wrong position. Removing the ** prefix lets the list parse correctly.
-//
-// After those targeted removals, recount all ** outside code spans/fences.
-// If the total is still odd (one unclosed bold remains), append a closing ** —
-// the same streaming-safe strategy used by closeOpenFences for code blocks.
-function fixOrphanedBold(content: string): string {
-  let out = content
-    // 1. Lone ** on its own line (with optional surrounding whitespace) — remove entirely.
-    .replace(/^[ \t]*\*\*[ \t]*$/gm, '')
-    // 2. ** at the start of a line immediately before a list bullet — strip the ** prefix.
-    .replace(/^(\s*)\*\*\s*(?=[-•+*]\s|\d+\.\s)/gm, '$1')
-
-  // 3. Count ** markers outside code fences and inline code spans.
-  //    Replace code regions with placeholder chars (preserving length is not required,
-  //    we only need to eliminate their ** from the count).
-  const stripped = out
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/`[^`\n]+`/g, '')
-  const count = (stripped.match(/\*\*/g) ?? []).length
-  // Odd count → unmatched bold open somewhere; close it.
-  if (count % 2 !== 0) out = out + '**'
-
-  return out
-}
-
 // ATX headings need a space after the hashes ("###Heading" renders as literal
-// text, not an <h3>). LLMs frequently omit it. The `[A-Za-z]` guard means we
-// only insert a space when a letter follows the hashes — so "#1", "#5 goal"
-// (numbers / hashtags, not headings) are left untouched. Code regions are
-// protected so a fenced "###define" stays verbatim.
+// text). The `[A-Za-z]` guard leaves "#1" / "#5 goal" (hashtags, not headings)
+// untouched. Code regions are protected so a fenced "###define" stays verbatim.
 function fixHeadingSpace(content: string): string {
   return protectMarkdownRegions(content, (value) =>
     value.replace(/^(#{1,6})([A-Za-z])/gm, "$1 $2"),
   );
 }
 
-// LLMs often pad bold markers with spaces ("** note **", "**note **"). CommonMark
-// flanking rules then reject the span and both markers render as literal asterisks.
-// Trim the padding so the span renders as <strong>.
-//
-// Guards:
-//   • `(?<![A-Za-z0-9])` — the opening `**` must NOT follow an alphanumeric, so it
-//     is a real opener, not a *closer*. Without this, on "**A** plays for **B**" the
-//     regex would treat A's closing `**` + " plays for " + B's opening `**` as a span
-//     and strip the surrounding word spaces ("**A**plays for**B**").
-//   • `[A-Za-z]` inside — skips code/math like "2 ** 3 ** 2" (no letter between markers).
-//   • code/display-math regions are protected outright.
-function tightenSpacedBold(content: string): string {
-  return protectMarkdownRegions(content, (value) =>
-    value
-      .replace(/(?<![A-Za-z0-9])\*\*[ \t]+([^*\n]*?[A-Za-z][^*\n]*?)[ \t]*\*\*/g, "**$1**")
-      .replace(/(?<![A-Za-z0-9])\*\*([^*\n]*?[A-Za-z][^*\n]*?)[ \t]+\*\*/g, "**$1**"),
-  );
-}
-
-// Full markdown preprocessing pipeline (excluding web-citation handling and
-// HTML sanitisation). Repairs LLM bold/markdown artifacts and normalises math
-// so ReactMarkdown renders them correctly. Exported so other renderers (e.g.
-// the pin card) get identical bold-repair behaviour from a single source.
-// Pipeline (innermost runs first):
-//   collapseInterParagraphBold → repairCrossParaBold → normalizeInlineBoldTitles
-//   → tightenSpacedBold → fixOrphanedBold → fixHeadingSpace
-//   → normalizeMathDelimiters → escapeCurrencyDollars → closeOpenFences
+// Markdown preprocessing pipeline (excluding web-citation handling and HTML
+// sanitisation). Shared by every renderer (e.g. the pin card) so behaviour is
+// consistent. Only additive, non-destructive normalisations live here — emphasis
+// (**bold**) is deliberately left untouched, since react-markdown + remark-gfm
+// already parse it correctly and regex "repairs" corrupt valid input.
+// Innermost runs first:
+//   fixHeadingSpace → normalizeMathDelimiters → escapeCurrencyDollars → closeOpenFences
 export function preprocessMarkdown(content: string): string {
   return closeOpenFences(
     escapeCurrencyDollars(
       normalizeMathDelimiters(
-        fixHeadingSpace(
-          fixOrphanedBold(
-            tightenSpacedBold(
-              normalizeInlineBoldTitles(
-                repairCrossParaBold(collapseInterParagraphBold(content)),
-              ),
-            ),
-          ),
-        ),
+        fixHeadingSpace(content),
       ),
     ),
   );
@@ -701,22 +523,12 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
   );
 
   const processed = useMemo(() => {
-    // Pipeline (innermost runs first):
-    //   collapseInterParagraphBold — collapse \n\n inside **…** spans so remark sees valid bold
-    //   repairCrossParaBold        — per-paragraph ** balance (paragraph-break cascade fix)
-    //   normalizeInlineBoldTitles  — within-paragraph cross-line-break ** collapse
-    //   fixOrphanedBold            — lone ** lines, ** before bullets, doc-level balance
-    //   normalizeMathDelimiters    — LaTeX delimiter normalisation
-    //   escapeCurrencyDollars      — keep prices from being parsed as math
-    //   closeOpenFences            — unclosed code fence guard
     const base = hasCitations
       ? preprocessMarkdown(preprocessCitations(content))
       : preprocessMarkdown(content);
-    // Sanitise only when we're about to ask rehype-raw to parse HTML —
-    // for pure-markdown rendering, DOMPurify's HTML-context parsing can
-    // corrupt characters like `<` that appear in code blocks or math.
-    // sanitizePreservingMath stashes math blocks before DOMPurify runs so
-    // LaTeX with <, >, or & (e.g. alignment environments) is never corrupted.
+    // Sanitise only when about to ask rehype-raw to parse HTML — for pure-markdown
+    // rendering, DOMPurify's HTML-context parsing corrupts `<` in code/math.
+    // sanitizePreservingMath stashes math blocks before DOMPurify runs.
     return allowHtml
       ? sanitizePreservingMath(base)
       : base;
