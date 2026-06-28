@@ -3,9 +3,7 @@
 import { Suspense, useState, useEffect, useId, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { useAuth } from '@/context/auth-context'
-import { Sidebar } from '@/components/Sidebar'
-import { AccountMenu } from '@/components/AccountMenu'
+import { LeftSidebar } from '@/components/layout/LeftSidebar'
 import {
   ScheduleListView,
   ScheduleDetailView,
@@ -15,7 +13,6 @@ import {
   type ScheduleDetailItem,
   type ScheduleEditData,
 } from '@/templates/Brain'
-import { BrainSidebarSections } from '../BrainSidebarSections'
 import {
   listTasks,
   getTask,
@@ -28,7 +25,6 @@ import {
 } from '@/lib/api/tasks'
 import type { ScheduleRunRecord } from '@/templates/Brain'
 import { getAllScheduleLinks, getChatForSchedule, stashPendingPrompt } from '@/lib/scheduleLinks'
-import { useSearch } from '@/context/search-context'
 
 // ── Page wrapper ──────────────────────────────────────────────────────────────
 
@@ -192,30 +188,8 @@ function listItemToDetail(item: ScheduleListItem): ScheduleDetailItem {
 // ── Inner page ────────────────────────────────────────────────────────────────
 
 function BrainSchedulesPageInner() {
-  const { push }                          = useRouter()
-  const { user, logout, isAuthenticated } = useAuth()
-  const idPrefix                          = useId()
-
-  const displayName = user
-    ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
-    : ''
-
-  const planLabel = user?.planType
-    ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
-    : undefined
-
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    typeof window !== 'undefined' ? localStorage.getItem('sidebar_collapsed') === 'true' : false,
-  )
-  const handleSidebarCollapse = useCallback(() => {
-    setSidebarCollapsed((collapsed) => {
-      const next = !collapsed
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('sidebar_collapsed', String(next))
-      }
-      return next
-    })
-  }, [])
+  const { push } = useRouter()
+  const idPrefix = useId()
 
   // ── State ──────────────────────────────────────────────────────────────────
 
@@ -226,8 +200,6 @@ function BrainSchedulesPageInner() {
   const [editModalOpen,   setEditModalOpen]   = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<ScheduleEditData | undefined>(undefined)
-
-  const { searchOpen, openSearch } = useSearch()
 
   // IDs of schedules created locally that haven't been persisted to the backend yet
   const localIdsRef = useRef<Set<string>>(new Set())
@@ -410,45 +382,7 @@ function BrainSchedulesPageInner() {
     }}>
 
       {/* ── Left sidebar ── */}
-      <Sidebar
-        defaultBodySection="brain"
-        defaultCollapsed={sidebarCollapsed}
-        onCollapse={handleSidebarCollapse}
-        recentItems={
-          <BrainSidebarSections
-            activeChatId={null}
-            onThreadClick={(id) => push(`/brain?id=${id}`)}
-          />
-        }
-        hideProjects
-        newChatLabel="New brain thread"
-        onNewChat={() => push('/brain')}
-        onBrainClick={() => push('/brain')}
-        onSearch={() => openSearch()}
-        searchActive={searchOpen}
-        onChatTabClick={() => push('/chat')}
-        onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push('/chats') }}
-        onAllBrainThreadsClick={() => push('/brain/threads')}
-        onSchedulesClick={() => push('/brain/schedules')}
-        onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push('/agents') }}
-        onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push('/projects') }}
-        accountMenu={(collapsed) => (
-          <AccountMenu
-            name={displayName || 'Account'}
-            plan={planLabel}
-            credits={user?.creditsRemaining ?? undefined}
-            avatarSrc={user?.profilePicture ?? undefined}
-            collapsed={collapsed}
-            panelWidth={274}
-            placement="top-start"
-            onProfile={() => push('/settings/account')}
-            onUpgradePlan={() => push('/settings/billing')}
-            onSettings={() => push('/settings')}
-            onHelp={() => push('/settings/help')}
-            onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
-          />
-        )}
-      />
+      <LeftSidebar />
 
       {/* ── Main content area ── */}
       <div style={{

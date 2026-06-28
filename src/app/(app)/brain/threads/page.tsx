@@ -1,14 +1,11 @@
 ﻿'use client'
 
-import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/context/auth-context'
-import { Sidebar } from '@/components/Sidebar'
-import { AccountMenu } from '@/components/AccountMenu'
+import { LeftSidebar } from '@/components/layout/LeftSidebar'
 import { ChatRow } from '@/components/ChatRow'
 import { Button } from '@/components/Button'
 import { InputField } from '@/components/InputField'
-import { BrainSidebarSections } from '../BrainSidebarSections'
 import { SearchOneIcon, PlusSignIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import {
@@ -19,7 +16,6 @@ import {
   type BrainChatListItem,
 } from '@/lib/api/brain'
 import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
-import { useSearch } from '@/context/search-context'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -50,34 +46,13 @@ export default function BrainThreadsPage() {
 // ── Inner page ────────────────────────────────────────────────────────────────
 
 function BrainThreadsPageInner() {
-  const { push }                          = useRouter()
-  const { user, logout, isAuthenticated } = useAuth()
-
-  const sidebarCollapsedRef = useRef(
-    typeof window !== 'undefined' ? localStorage.getItem('sidebar_collapsed') === 'true' : false
-  )
-  const handleSidebarCollapse = useCallback(() => {
-    sidebarCollapsedRef.current = !sidebarCollapsedRef.current
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sidebar_collapsed', String(sidebarCollapsedRef.current))
-    }
-  }, [])
-
-  const displayName = user
-    ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
-    : ''
-
-  const planLabel = user?.planType
-    ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
-    : undefined
+  const { push } = useRouter()
 
   // ── Thread list state ─────────────────────────────────────────────────────
 
   const [threads,     setThreads]     = useState<BrainChatListItem[]>([])
   const [isLoading,   setIsLoading]   = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-
-  const { searchOpen, openSearch } = useSearch()
 
   useEffect(() => {
     setIsLoading(true)
@@ -131,44 +106,7 @@ function BrainThreadsPageInner() {
     }}>
 
       {/* ── Left sidebar ── */}
-      <Sidebar
-        defaultBodySection="brain"
-        defaultCollapsed={sidebarCollapsedRef.current}
-        onCollapse={handleSidebarCollapse}
-        recentItems={
-          <BrainSidebarSections
-            activeChatId={null}
-            onThreadClick={(id) => push(`/brain?id=${id}`)}
-          />
-        }
-        hideProjects
-        newChatLabel="New brain thread"
-        onNewChat={() => push('/brain')}
-        onBrainClick={() => push('/brain')}
-        onSearch={() => openSearch()}
-        searchActive={searchOpen}
-        onChatTabClick={() => push('/chat')}
-        onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push('/chats') }}
-        onAllBrainThreadsClick={() => push('/brain/threads')}
-        onSchedulesClick={() => push('/brain/schedules')}
-        onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push('/agents') }}
-        onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push('/projects') }}
-        accountMenu={(collapsed) => (
-          <AccountMenu
-            name={displayName || 'Account'}
-            plan={planLabel}
-            credits={user?.creditsRemaining ?? undefined}
-            avatarSrc={user?.profilePicture ?? undefined}
-            collapsed={collapsed}
-            panelWidth={274}
-            placement="top-start"
-            onProfile={() => push('/settings/account')}
-            onUpgradePlan={() => push('/settings/billing')}
-            onSettings={() => push('/settings')}
-            onHelp={() => push('/settings/help')}
-            onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
-          />
-        )}      />
+      <LeftSidebar />
 
       {/* ── Main content ── */}
       <div

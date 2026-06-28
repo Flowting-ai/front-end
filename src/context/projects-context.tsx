@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { createContext, useCallback, use, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useCallback, use, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { BadgeColor } from '@/components/Badge'
 import type { PinProps, PinLabel } from '@/components/Pin'
@@ -230,6 +230,9 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const [loading,         setLoading]         = useState(true)
   const [error,           setError]           = useState<string | null>(null)
 
+  const projectsRef = useRef(projects)
+  useEffect(() => { projectsRef.current = projects }, [projects])
+
   // â”€â”€ Bootstrap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
@@ -278,7 +281,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     id: string,
     patch: Partial<Pick<Project, 'name' | 'description' | 'instructions' | 'tags'>>,
   ) => {
-    const snapshot = projects.find(p => p.id === id)
+    const snapshot = projectsRef.current.find(p => p.id === id)
 
     // optimistic
     setProjects(prev => prev.map(p =>
@@ -302,17 +305,17 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         throw err
       }
     }
-  }, [projects])
+  }, [])
 
   const deleteProject = useCallback(async (id: string) => {
-    const snapshot = projects.find(p => p.id === id)
+    const snapshot = projectsRef.current.find(p => p.id === id)
 
     // Guardrail: deletion requires edit rights. The backend `canEdit` flag is
     // false for plain members (they only ever hold view/ProjectMember grants),
     // so this blocks members from deleting a project even if a delete control
     // is somehow reachable. Editors/admins on the owning team keep their access.
     if (snapshot && !snapshot.canEdit) {
-      toast.error('You don’t have permission to delete this project.')
+      toast.error("You don't have permission to delete this project.")
       return
     }
 
@@ -327,7 +330,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       toast.error('Failed to delete project', { description: err instanceof Error ? err.message : undefined })
       throw err
     }
-  }, [projects])
+  }, [])
 
   const loadProject = useCallback(async (id: string) => {
     try {
@@ -408,7 +411,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const removeFile = useCallback(async (projectId: string, fileId: string) => {
-    const snapshot = projects.find(p => p.id === projectId)
+    const snapshot = projectsRef.current.find(p => p.id === projectId)
     const removedName = snapshot?.files.find(f => f.id === fileId)?.name
 
     // optimistic
@@ -434,7 +437,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       if (snapshot) setProjects(prev => prev.map(p => p.id === projectId ? snapshot : p))
       toast.error('Failed to remove file', { description: err instanceof Error ? err.message : undefined })
     }
-  }, [projects])
+  }, [])
 
   // â”€â”€ Chat management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

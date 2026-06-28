@@ -17,6 +17,7 @@ import { listTasks } from "@/lib/api/tasks";
 import type { ScheduledTaskListItem } from "@/lib/api/tasks";
 import { CHAT_CREATED_EVENT } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
+import { BrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
 import { ChatHistoryItem } from "./ChatHistoryItem";
 import { openDeleteChatDialog } from "./AppDialogs";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
@@ -1791,12 +1792,16 @@ function LeftSidebarImpl({
       searchActive={searchOpen}
       onCollapse={handleCollapse}
       onNewChat={handleNewChat}
-      newChatButtonSelected={isPersonaPage ? pathname === '/agents' : isNewChatPage}
+      newChatButtonSelected={
+        isPersonaPage ? pathname === '/agents'
+        : isBrainPage ? (pathname === '/brain' && !chatSearchParams.get('id'))
+        : isNewChatPage
+      }
       onSearch={openSearch}
       onChatTabClick={isPersonaPage ? () => push("/chat") : handleNewChat}
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
       onChatboardClick={!isTeamUser ? () => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") } : undefined}
-      onManageAllThreadsClick={() => { toast.info("Opening Brain Threads", { id: 'nav' }); push("/brain") }}
+      onManageAllThreadsClick={() => { toast.info("Opening Brain Threads", { id: 'nav' }); push("/brain/threads") }}
       onNewBrainThread={() => push("/brain")}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
       onPersonasClick={currentProjectTeamId
@@ -1834,7 +1839,7 @@ function LeftSidebarImpl({
       }}
       orgName={orgId ? orgDisplayName(org.name) : undefined}
       orgId={orgId ?? undefined}
-      showAdmin={Boolean(orgId) && currentUserRole === 'admin'}
+      showAdmin={Boolean(orgId) && (orgRole === 'owner' || orgRole === 'admin')}
       orgBadgeSublabel={orgBadgeSublabel}
       orgBadgeChipColor={orgBadgeChipColor}
       accountMenu={(collapsed) => {
@@ -1888,6 +1893,12 @@ function LeftSidebarImpl({
         <ProjectsSection label="Personal Projects" />
       )}
       scheduledTasksItems={isBrainPage ? <BrainScheduledTasksSection tasks={brainTasks} loading={brainTasksLoading} /> : undefined}
+      brainRecentItems={
+        <BrainSidebarSections
+          activeChatId={isBrainPage ? (chatSearchParams.get('id') ?? null) : null}
+          onThreadClick={(id) => push(`/brain?id=${id}`)}
+        />
+      }
       recentItems={
         !user ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 0' }}>
@@ -1898,7 +1909,7 @@ function LeftSidebarImpl({
         ) : isPersonaPage ? (
           // Both accounts: persona list is in agentItems; recent agent chats go here as a second layer
           <RecentAgentChatsSection />
-        ) : isProjectPage ? null : (
+        ) : isProjectPage ? null : isBrainPage ? null : (
           // Both sections share sectionProps; StarredSection self-hides when empty.
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             <StarredSection {...sectionProps} />

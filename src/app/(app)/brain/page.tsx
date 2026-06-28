@@ -4695,7 +4695,7 @@ function BrainPageInner() {
         onNewBrainThread: handleNewChat,
         onChatTabClick:         () => push('/chat'),
         onChatsClick:           () => { toast.info("Opening Chat Board", { id: 'nav' }); push('/chats') },
-        onAllBrainThreadsClick: () => push('/brain/threads'),
+        onManageAllThreadsClick: () => push('/brain/threads'),
         onSchedulesClick:       () => push('/brain/schedules'),
         onPersonasClick: () => { toast.info("Opening Agents", { id: 'nav' }); push('/agents') },
         onProjectsClick: () => { toast.info("Opening Projects", { id: 'nav' }); push('/projects') },
@@ -4704,7 +4704,7 @@ function BrainPageInner() {
         searchActive:    searchOpen,
         orgId:           orgId ?? undefined,
         orgName:         orgId ? org.name : undefined,
-        showAdmin:       Boolean(orgId) && currentUserRole === 'admin',
+        showAdmin:       Boolean(orgId) && (orgRole === 'owner' || orgRole === 'admin'),
         orgBadgeSublabel,
         onOrganisationClick: () => push('/org/general'),
         onAdminSectionClick: (id: string) => {
@@ -4749,6 +4749,7 @@ function BrainPageInner() {
               onProfile={() => push('/settings/account')}
               onUpgradePlan={() => push('/settings/billing')}
               onSettings={() => push('/settings')}
+              onOrganization={orgId ? () => push('/org/general') : undefined}
               onHelp={() => push('/settings/help')}
               onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
             />
