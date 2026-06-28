@@ -636,9 +636,21 @@ export default function OrgGeneralPage() {
   const handleSaveInstructions = async () => {
     if (!orgId) return
     setSettingsSaving(true)
+    const intended = aiInstructions || ''
     try {
-      await updateOrgSettings(orgId, { orgInstructions: aiInstructions || null })
-      toast.success('Instructions saved')
+      // The PATCH echoes back the persisted settings. Trust that — not the request —
+      // so we never show "saved" for a write the server silently dropped.
+      // Send "" (not null) to clear: the backend strips null fields from partial
+      // updates, so null never clears the column — an empty string does.
+      const updated = await updateOrgSettings(orgId, { orgInstructions: aiInstructions })
+      const persisted = updated.orgInstructions ?? ''
+      setAiInstructions(persisted)
+      if (persisted === intended) {
+        toast.success('Instructions saved')
+      } else {
+        toast.error('The server did not save your instructions. Please try again or report this.')
+        console.error('[org/general] instructions not persisted', { sent: intended, returned: persisted })
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save instructions')
     } finally {
