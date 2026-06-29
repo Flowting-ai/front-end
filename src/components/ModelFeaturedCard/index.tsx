@@ -32,6 +32,8 @@ interface Ripple {
 
 export interface ModelFeaturedCardProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'children'> {
+  /** Small label above the title (e.g. "Souvenir Muse") */
+  subtitle?: string
   /** Model name - rendered in the title font */
   title: string
   /** Short description below the title */
@@ -50,6 +52,7 @@ export interface ModelFeaturedCardProps
 
 export function ModelFeaturedCard({
     ref,
+    subtitle,
     title,
     description,
     learnMoreHref,
@@ -266,12 +269,27 @@ export function ModelFeaturedCard({
             textShadow:    isSelected ? TEXT_SHADOW_SELECTED : 'none',
           }}
         >
+          {subtitle && (
+            <p
+              style={{
+                fontFamily:    'var(--font-title)',
+                fontWeight:    400,
+                fontSize:      '13px',
+                lineHeight:    '16px',
+                color:         descColor,
+                margin:        0,
+                width:         '100%',
+              }}
+            >
+              {subtitle}
+            </p>
+          )}
           <p
             style={{
               fontFamily:  'var(--font-title)',
               fontWeight:  400,
-              fontSize:    '24px',
-              lineHeight:  '32px',
+              fontSize:    '28px',
+              lineHeight:  '34px',
               color:       titleColor,
               margin:      0,
               width:       '100%',

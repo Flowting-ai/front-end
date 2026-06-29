@@ -74,7 +74,8 @@ function FeaturedModeRow({ mode, onMuseSelect, onAdvancedSelect }: FeaturedModeR
     <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", width: "100%", flexShrink: 0 }}>
       <div style={{ flex: "1 0 0", minWidth: 0 }}>
         <ModelFeaturedCard
-          title="Muse"
+          subtitle="Souvenir Muse"
+          title="Basic"
           description="Cost-efficient routing for everyday tasks. Fast, smart, and easy on your credits."
           selected={mode === "muse"}
           onSelectedChange={(next) => { if (next) onMuseSelect() }}
@@ -82,6 +83,7 @@ function FeaturedModeRow({ mode, onMuseSelect, onAdvancedSelect }: FeaturedModeR
       </div>
       <div style={{ flex: "1 0 0", minWidth: 0 }}>
         <ModelFeaturedCard
+          subtitle="Souvenir Muse"
           title="Advanced"
           description="Top-tier models for your most demanding work. Maximum quality, no compromises."
           selected={mode === "advanced"}

@@ -1071,6 +1071,7 @@ export function ChatInput({
               border:              'none',
               outline:             'none',
               resize:              'none',
+              overflowX:           'hidden',
               overflowY:           'auto',
               overscrollBehaviorY: 'none',
               fontFamily:          'var(--font-body)',

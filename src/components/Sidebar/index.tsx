@@ -44,6 +44,7 @@ import { TeamSwitcherDropdown } from '@/components/TeamSwitcherDropdown'
 import { Dropdown } from '@/components/Dropdown'
 import { RoleBadge } from '@/components/RoleBadge'
 import type { WorkspaceRole, RoleBadgeMode } from '@/components/RoleBadge'
+import { Tooltip } from '@/components/Tooltip'
 import type { ChipColor } from '@/components/Chip'
 
 // ── Slack icon (Hugeicons "slack", stroke-rounded) ────────────────────────────
@@ -76,6 +77,21 @@ function OrgBuildingIcon({ size = 20 }: { size?: number }) {
         strokeLinejoin="round"
       />
     </svg>
+  )
+}
+
+// ── Collapsed-state nav tooltip wrapper ──────────────────────────────────────
+// Wraps children in a right-side Tooltip only when the sidebar is icon-only.
+function CollapsedTooltip({ isCollapsed, content, children }: {
+  isCollapsed: boolean
+  content: string
+  children: React.ReactElement
+}) {
+  if (!isCollapsed) return children
+  return (
+    <Tooltip content={content} side="right" delayDuration={300}>
+      <div>{children}</div>
+    </Tooltip>
   )
 }
 
@@ -1358,21 +1374,25 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             )}
 
             {/* Single stable toggle button — variant flips, no unmount/remount */}
-            <IconButton
-              variant="ghost"
-              size="sm"
-              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              icon={
-                <SidebarLeftIcon
-                  size={20}
-                  variant={isCollapsed ? 'open' : 'close'}
-                  triggered={collapseHovered}
+            <Tooltip content={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" delayDuration={300}>
+              <div>
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                  icon={
+                    <SidebarLeftIcon
+                      size={20}
+                      variant={isCollapsed ? 'open' : 'close'}
+                      triggered={collapseHovered}
+                    />
+                  }
+                  onClick={handleCollapse}
+                  onMouseEnter={() => setCollapseHovered(true)}
+                  onMouseLeave={() => setCollapseHovered(false)}
                 />
-              }
-              onClick={handleCollapse}
-              onMouseEnter={() => setCollapseHovered(true)}
-              onMouseLeave={() => setCollapseHovered(false)}
-            />
+              </div>
+            </Tooltip>
           </div>
 
           {/* ── Tab strip — 3 fluid tabs (Chats / Agents / Brain), all labels shown.
@@ -1420,6 +1440,74 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             </div>
           )}
 
+          {/* ── Collapsed-only: section-switch card (Chats / Agents / Brain).
+              Sits immediately below the collapse button, enclosed in the same
+              inset-card surface as the expanded tab strip. ── */}
+          {isCollapsed && (
+            <div style={{
+              margin:          '0 6px',
+              padding:         '4px',
+              borderRadius:    '10px',
+              backgroundColor: 'rgba(247,242,237,0.5)',
+              boxShadow:       'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
+              display:         'flex',
+              flexDirection:   'column',
+              alignItems:      'center',
+              gap:             '4px',
+            }}>
+              <Tooltip content="Chats" side="right" delayDuration={300}>
+                <div>
+                  <SidebarMenuItem
+                    collapsed
+                    variant="default"
+                    icon={<BubbleChatIcon size={20} />}
+                    label="Chats"
+                    selected={bodySection === 'chats'}
+                    onClick={() => onSelectSection('chats')}
+                  />
+                </div>
+              </Tooltip>
+              <Tooltip content="Agents" side="right" delayDuration={300}>
+                <div>
+                  <SidebarMenuItem
+                    collapsed
+                    variant="default"
+                    icon={<UserAiIcon size={20} />}
+                    label="Agents"
+                    selected={bodySection === 'agents'}
+                    onClick={() => onSelectSection('agents')}
+                  />
+                </div>
+              </Tooltip>
+              <Tooltip content="Brain" side="right" delayDuration={300}>
+                <div>
+                  <SidebarMenuItem
+                    collapsed
+                    variant="default"
+                    icon={<NeuralNetworkIcon size={20} />}
+                    label="Brain"
+                    selected={bodySection === 'brain'}
+                    onClick={() => onSelectSection('brain')}
+                  />
+                </div>
+              </Tooltip>
+              {showAdmin && (
+                <Tooltip content="Manage Organization" side="right" delayDuration={300}>
+                  <div>
+                    <SidebarMenuItem
+                      collapsed
+                      variant="default"
+                      icon={<CourtHouseIcon size={16} />}
+                      label={orgName ? `Manage ${orgName}` : 'Manage Organisation'}
+                      selected={bodySection === 'admin'}
+                      onClick={onManageOrg}
+                    />
+                  </div>
+                </Tooltip>
+              )}
+            </div>
+          )}
+
           {/* ── Nav strip — Primary action + Search ── */}
           <div style={{
             display:       'flex',
@@ -1432,131 +1520,97 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             paddingRight:  '8px',
             overflow:      'hidden',
           }}>
-            {/* Manage Organisation — collapsed rail only (the expanded row lives
-                in the tab-background card above). Owner/admin, non-admin section. */}
-            {showAdmin && bodySection !== 'admin' && isCollapsed && (
-              <SidebarMenuItem
-                collapsed
-                variant="default"
-                icon={<CourtHouseIcon size={16} />}
-                label={orgName ? `Manage ${orgName}` : 'Manage Organisation'}
-                onClick={onManageOrg}
-              />
-            )}
-
             {/* New chat / New agent chat / New thread — primary action.
                 Admin has no primary action: its body IS the org nav list.
                 Individual agents tab: "All Agents" replaces this button when onAllAgentsClick is provided. */}
             {bodySection !== 'admin' && !(bodySection === 'agents' && onAllAgentsClick) && (
-              <SidebarMenuItem
-                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                variant="new-chat"
-                label={newChatLabel ?? (
-                  bodySection === 'agents' ? 'New agent chat'
-                  : bodySection === 'brain' ? 'New thread'
-                  : 'New chat'
-                )}
-                selected={newChatButtonSelected ?? selectedItem === 'new-item'}
-                onClick={() => {
-                  setSelectedItem('new-item')
-                  setActiveFolder(null)
-                  if (bodySection === 'agents') onNewAgentChat?.()
-                  else if (bodySection === 'brain') onNewBrainThread?.()
-                  else onNewChat?.()
-                }}
-              />
+              <CollapsedTooltip
+                isCollapsed={isCollapsed}
+                content={
+                  bodySection === 'brain' ? 'New Brain Thread'
+                  : bodySection === 'agents' ? 'New Agent Chat'
+                  : 'New Chat'
+                }
+              >
+                <SidebarMenuItem
+                  {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                  variant="new-chat"
+                  label={newChatLabel ?? (
+                    bodySection === 'agents' ? 'New agent chat'
+                    : bodySection === 'brain' ? 'New thread'
+                    : 'New chat'
+                  )}
+                  selected={newChatButtonSelected ?? selectedItem === 'new-item'}
+                  onClick={() => {
+                    setSelectedItem('new-item')
+                    setActiveFolder(null)
+                    if (bodySection === 'agents') onNewAgentChat?.()
+                    else if (bodySection === 'brain') onNewBrainThread?.()
+                    else onNewChat?.()
+                  }}
+                />
+              </CollapsedTooltip>
             )}
             {/* All Agents — individual Agents tab only (replaces "New agent chat"). */}
             {bodySection === 'agents' && onAllAgentsClick && (
-              <SidebarMenuItem
-                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                variant="default"
-                icon={<UserAiIcon size={20} />}
-                label="All Agents"
-                onClick={onAllAgentsClick}
-              />
+              <CollapsedTooltip isCollapsed={isCollapsed} content="All Agents">
+                <SidebarMenuItem
+                  {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                  variant="default"
+                  icon={<UserAiIcon size={20} />}
+                  label="All Agents"
+                  onClick={onAllAgentsClick}
+                />
+              </CollapsedTooltip>
             )}
             {/* Search — menu row (⌘K) when expanded, icon when collapsed.
                 Single global entry point; no per-section search. */}
-            <SidebarMenuItem
-              {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-              variant="default"
-              icon={<SearchOneIcon size={20} />}
-              label="Search"
-              shortcut={isCollapsed ? undefined : '⌘ K'}
-              selected={searchActive}
-              onClick={(e) => { (e.currentTarget as HTMLElement).blur(); onSearch?.() }}
-            />
-            {/* Chatboard — individual Chats tab only. */}
-            {bodySection === 'chats' && onChatboardClick && (
+            <CollapsedTooltip isCollapsed={isCollapsed} content="Search">
               <SidebarMenuItem
                 {...(isCollapsed ? { collapsed: true } : { fluid: true })}
                 variant="default"
-                icon={<BubbleChatIcon size={20} />}
-                label="Chatboard"
-                onClick={onChatboardClick}
+                icon={<SearchOneIcon size={20} />}
+                label="Search"
+                shortcut={isCollapsed ? undefined : '⌘ K'}
+                selected={searchActive}
+                onClick={(e) => { (e.currentTarget as HTMLElement).blur(); onSearch?.() }}
               />
+            </CollapsedTooltip>
+            {/* Chatboard — individual Chats tab only. */}
+            {bodySection === 'chats' && onChatboardClick && (
+              <CollapsedTooltip isCollapsed={isCollapsed} content="Chatboard">
+                <SidebarMenuItem
+                  {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                  variant="default"
+                  icon={<BubbleChatIcon size={20} />}
+                  label="Chatboard"
+                  onClick={onChatboardClick}
+                />
+              </CollapsedTooltip>
             )}
             {/* All Brain Threads — Brain tab, both individual and teams. */}
             {bodySection === 'brain' && onManageAllThreadsClick && (
-              <SidebarMenuItem
-                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                variant="default"
-                icon={<BubbleChatIcon size={20} />}
-                label="All Brain Threads"
-                onClick={onManageAllThreadsClick}
-              />
+              <CollapsedTooltip isCollapsed={isCollapsed} content="All Brain Threads">
+                <SidebarMenuItem
+                  {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                  variant="default"
+                  icon={<BubbleChatIcon size={20} />}
+                  label="All Brain Threads"
+                  onClick={onManageAllThreadsClick}
+                />
+              </CollapsedTooltip>
             )}
             {/* Schedules quick-access — Brain only. Visible collapsed too (icon-only). */}
             {bodySection === 'brain' && (
-              <SidebarMenuItem
-                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                variant="default"
-                icon={<CalendarFoldIcon size={20} />}
-                label="Schedules"
-                onClick={onSchedulesClick}
-              />
-            )}
-            {/* Collapsed-only: section-switch icons (Chats / Agents / Brain) + an
-                Organisation entry (the badge isn't available collapsed). Tabs are
-                hidden in collapsed mode; these icons replace them. Org gated on showAdmin. */}
-            {isCollapsed && (
-              <>
+              <CollapsedTooltip isCollapsed={isCollapsed} content="Schedules">
                 <SidebarMenuItem
-                  collapsed
+                  {...(isCollapsed ? { collapsed: true } : { fluid: true })}
                   variant="default"
-                  icon={<BubbleChatIcon size={20} />}
-                  label="Chats"
-                  selected={bodySection === 'chats'}
-                  onClick={() => onSelectSection('chats')}
+                  icon={<CalendarFoldIcon size={20} />}
+                  label="Schedules"
+                  onClick={onSchedulesClick}
                 />
-                <SidebarMenuItem
-                  collapsed
-                  variant="default"
-                  icon={<UserAiIcon size={20} />}
-                  label="Agents"
-                  selected={bodySection === 'agents'}
-                  onClick={() => onSelectSection('agents')}
-                />
-                <SidebarMenuItem
-                  collapsed
-                  variant="default"
-                  icon={<NeuralNetworkIcon size={20} />}
-                  label="Brain"
-                  selected={bodySection === 'brain'}
-                  onClick={() => onSelectSection('brain')}
-                />
-                {showAdmin && (
-                  <SidebarMenuItem
-                    collapsed
-                    variant="default"
-                    icon={<OrgBuildingIcon size={20} />}
-                    label="Organisation"
-                    selected={bodySection === 'admin'}
-                    onClick={() => onSelectSection('admin')}
-                  />
-                )}
-              </>
+              </CollapsedTooltip>
             )}
           </div>
         </div>
@@ -1724,6 +1778,58 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           </motion.div>
 
         </div>
+
+        {/* ── Collapsed admin icon rail — absolutely positioned sibling of the body
+            scroll area so it is independent of the blurred motion.div layout.
+            The motion.div content (expanded labels) takes up invisible layout space
+            inside the body scroll div and would cause a scrollbar there; keeping the
+            icon rail here avoids that entirely. ── */}
+        {bodySection === 'admin' && isCollapsed && (
+          <div
+            className="kaya-scrollbar"
+            style={{
+              position:      'absolute',
+              top:           headerH,
+              bottom:        '68px',
+              left:          0,
+              right:         0,
+              overflowY:     'auto',
+              overflowX:     'hidden',
+              zIndex:        8,
+              display:       'flex',
+              flexDirection: 'column',
+              alignItems:    'center',
+              gap:           '4px',
+              padding:       '8px 0',
+              backgroundColor: 'var(--neutral-50)',
+            }}
+          >
+            {adminGroups.map((group, gi) => (
+              <React.Fragment key={group.id}>
+                {gi > 0 && (
+                  <div style={{ width: 24, height: 1, backgroundColor: 'var(--neutral-200)', margin: '2px 0', flexShrink: 0 }} />
+                )}
+                {group.items.map(item => (
+                  <Tooltip key={item.id} content={item.label} side="right" delayDuration={300}>
+                    <div>
+                      <SidebarMenuItem
+                        collapsed
+                        variant="default"
+                        icon={ADMIN_ITEM_ICONS[item.id] ?? <SettingsOneIcon size={20} />}
+                        label={item.label}
+                        selected={selectedItem === item.id}
+                        onClick={() => {
+                          onSelect(item.id)
+                          onAdminSectionClick?.(item.id)
+                        }}
+                      />
+                    </div>
+                  </Tooltip>
+                ))}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
 
         {/* ── Top scroll fade — blur (behind) + gradient (on top) ── */}
         {[

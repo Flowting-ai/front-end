@@ -633,6 +633,20 @@ export default function OrgGeneralPage() {
     }
   }
 
+  const handleClearInstructions = async () => {
+    if (!orgId) return
+    setSettingsSaving(true)
+    try {
+      const updated = await updateOrgSettings(orgId, { orgInstructions: '' })
+      setAiInstructions(updated.orgInstructions ?? '')
+      toast.success('Instructions cleared')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to clear instructions')
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
+
   const handleSaveInstructions = async () => {
     if (!orgId) return
     setSettingsSaving(true)
@@ -982,7 +996,15 @@ export default function OrgGeneralPage() {
                 {aiInstructions.length}/3000
               </p>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleClearInstructions}
+                disabled={!aiInstructions || settingsSaving || settingsLoading}
+              >
+                Clear
+              </Button>
               <Button
                 variant="default"
                 size="sm"

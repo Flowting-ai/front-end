@@ -35,6 +35,7 @@ interface OrgContextValue {
   teams: Team[]
   teamsLoading: boolean
   refreshTeams: () => void
+  removeTeam: (teamId: string) => void
   refreshMembers: () => void
   activeTeamId: string | null
   setActiveTeamId: (id: string | null) => void
@@ -225,6 +226,10 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     setTeamsRefreshToken(t => t + 1)
   }
 
+  function removeTeam(teamId: string) {
+    setTeams(prev => prev.filter(t => t.id !== teamId))
+  }
+
   function refreshMembers() {
     setPlanRefreshToken(t => t + 1)
   }
@@ -267,6 +272,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       teams,
       teamsLoading,
       refreshTeams,
+      removeTeam,
       refreshMembers,
       activeTeamId,
       setActiveTeamId,

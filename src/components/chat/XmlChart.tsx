@@ -202,6 +202,7 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
       gapLen: (1 - pct) * circ,
       color: PIE_COLORS_HEX[i % PIE_COLORS_HEX.length]!,
       label: sl.label,
+      value: sl.value,
     }
   })
 
@@ -229,15 +230,23 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
           {/* Center label */}
           {hoveredIdx !== null ? (
             <>
-              <text x={CX} y={CY - 6} textAnchor="middle" fill={arcs[hoveredIdx]!.color} fontSize={22} fontWeight="700" fontFamily="var(--font-body)">
+              <text x={CX} y={CY - 6} textAnchor="middle" fill={arcs[hoveredIdx]!.color} fontSize={20} fontWeight="700" fontFamily="var(--font-body)">
+                {formatNum(arcs[hoveredIdx]!.value)}
+              </text>
+              <text x={CX} y={CY + 10} textAnchor="middle" fill="#9C938B" fontSize={10} fontFamily="var(--font-body)">
                 {Math.round(arcs[hoveredIdx]!.pct * 100)}%
               </text>
-              <text x={CX} y={CY + 16} textAnchor="middle" fill="#9C938B" fontSize={10} fontFamily="var(--font-body)">
+              <text x={CX} y={CY + 23} textAnchor="middle" fill="#9C938B" fontSize={9} fontFamily="var(--font-body)">
                 {arcs[hoveredIdx]!.label.split(" ").slice(0, 2).join(" ")}
               </text>
             </>
           ) : (
-            <text x={CX} y={CY + 16} textAnchor="middle" fill="#9C938B" fontSize={10} fontFamily="var(--font-body)">total</text>
+            <>
+              <text x={CX} y={CY + 5} textAnchor="middle" fill="var(--neutral-600)" fontSize={16} fontWeight="600" fontFamily="var(--font-body)">
+                {formatNum(total)}
+              </text>
+              <text x={CX} y={CY + 20} textAnchor="middle" fill="#9C938B" fontSize={9} fontFamily="var(--font-body)">total</text>
+            </>
           )}
         </svg>
       </div>
@@ -253,7 +262,7 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
             <div style={{ width: 10, height: 10, borderRadius: 3, background: arc.color, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, color: "var(--neutral-700)", lineHeight: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{arc.label}</div>
-              <div style={{ fontSize: 12, color: "var(--neutral-400)", lineHeight: "15px" }}>{Math.round(arc.pct * 100)}%</div>
+              <div style={{ fontSize: 12, color: "var(--neutral-400)", lineHeight: "15px" }}>{formatNum(arc.value)} <span style={{ opacity: 0.6 }}>· {Math.round(arc.pct * 100)}%</span></div>
             </div>
           </m.div>
         ))}

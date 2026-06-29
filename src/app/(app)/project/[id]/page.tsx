@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { AnimatePresence, m } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Chip } from '@/components/Chip'
 import { useProjects } from '@/context/projects-context'
@@ -33,6 +33,9 @@ import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/comp
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
 import type { PinFolder } from '@/lib/api/pins'
 import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
+import { LlmIcon } from '@strange-huge/icons/llm'
+import { getModelLlmId } from '@/lib/model-icons'
+import Image from 'next/image'
 import { fetchPersonas, personasForTeamContext, usePersonaRepo } from '@/lib/api/personas'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
@@ -50,8 +53,9 @@ export default function ProjectPage() {
   const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats, loading: projectsLoading } = useProjects()
   const { pins, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const chatHistory = useChatHistoryContext()
-  const { open: openModelSelector, setPersonaActive } = useModelSelectorContext()
+  const { open: openModelSelector, setPersonaActive, museActive, museAdvanced, selectedModel, personaActive, isOpen: modelSelectorOpen } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
+  const modelLlmId = museActive ? null : getModelLlmId(selectedModel?.companyName, selectedModel?.modelName)
 
   const { orgId, caps, members, currentUserRole } = useOrg()
   const project = getProject(params.id)
@@ -389,6 +393,38 @@ export default function ProjectPage() {
       >
         <ArrowLeftOneIcon style={{ width: 20, height: 20, color: '#524b47' }} />
       </button>
+
+      {/* Model selector - top-right, same row as back button */}
+      <div style={{ position: 'absolute', top: 26, right: 16, zIndex: 10 }}>
+        <Button
+          variant="default"
+          size="sm"
+          rightIcon={<ArrowDownOneIcon />}
+          onClick={(e) => {
+            if (personaActive) {
+              toast.info('Model locked to agent', {
+                description: "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
+              })
+              return
+            }
+            openModelSelector(e.currentTarget)
+          }}
+          aria-haspopup="listbox"
+          aria-expanded={modelSelectorOpen && !personaActive}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: personaActive ? 'var(--button-default-text-disabled)' : undefined }}>
+            {(museActive || modelLlmId) && (
+              <span style={{ width: 16, height: 16, borderRadius: 4, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {museActive
+                  ? <Image src="/icons/souvenir-logo-white.svg" width={16} height={16} alt="" unoptimized style={{ display: 'block' }} />
+                  : <LlmIcon id={modelLlmId!} variant={modelLlmId === 'OpenAI' ? 'color' : 'avatar'} size={16} style={modelLlmId === 'OpenAI' ? { filter: 'brightness(0) invert(1)' } : undefined} />
+                }
+              </span>
+            )}
+            {modelButtonLabel ?? 'Souvenir AI · Muse'}
+          </span>
+        </Button>
+      </div>
 
       {/* ── Left column - fixed header + scrollable chat list ─────────── */}
       <div

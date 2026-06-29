@@ -138,7 +138,7 @@ function normalizeProject(p: ProjectResponse): ApiProject {
     ownerUserId:       p.owner_user_id,
     title:             p.title,
     description:       p.description,
-    systemInstruction: p.system_instruction,
+    systemInstruction: p.system_instruction ?? '',
     teamId:            p.team_id ?? null,
     visibility:        p.visibility,
     canEdit:           p.can_edit,

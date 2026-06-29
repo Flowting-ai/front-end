@@ -85,7 +85,8 @@ function FeaturedModeRow() {
     }}>
       <div style={{ flex: '1 0 0', minWidth: 0 }}>
         <ModelFeaturedCard
-          title="Muse"
+          subtitle="Souvenir Muse"
+          title="Basic"
           description="Cost-efficient routing for everyday tasks. Fast, smart, and easy on your credits."
           selected={mode === 'muse'}
           onSelectedChange={(next) => { if (next) setMode('muse') }}
@@ -93,6 +94,7 @@ function FeaturedModeRow() {
       </div>
       <div style={{ flex: '1 0 0', minWidth: 0 }}>
         <ModelFeaturedCard
+          subtitle="Souvenir Muse"
           title="Advanced"
           description="Top-tier models for your most demanding work. Maximum quality, no compromises."
           selected={mode === 'advanced'}

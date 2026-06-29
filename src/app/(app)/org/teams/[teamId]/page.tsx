@@ -752,7 +752,7 @@ function TeamConnectorsCard({ orgId, teamId }: { orgId: string; teamId: string }
 export default function TeamSettingsPage() {
   const params = useParams<{ teamId: string }>()
   const router = useRouter()
-  const { orgId, refreshTeams, currentUserRole, orgRole, caps } = useOrg()
+  const { orgId, refreshTeams, removeTeam, currentUserRole, orgRole, caps, activeTeamId, setActiveTeamId } = useOrg()
   // Team CRUD (archive/delete) is org admin+ only — members can never do it.
   const canManageTeam = caps.canManageOrg
 
@@ -936,7 +936,9 @@ export default function TeamSettingsPage() {
     if (!canManageTeam) { toast.error('Only an admin or owner can delete a team.'); return }
     try {
       await deleteTeam(orgId, team.id)
-      refreshTeams()
+      toast.success(`"${team.name}" was deleted successfully`)
+      if (activeTeamId === team.id) setActiveTeamId(null)
+      removeTeam(team.id)
       router.push('/org/teams')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete team')

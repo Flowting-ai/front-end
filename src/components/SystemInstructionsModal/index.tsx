@@ -5,6 +5,7 @@ import { useMounted } from '@/hooks/use-mounted'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, m } from 'framer-motion'
 import { PenOneIcon, CancelOneIcon } from '@strange-huge/icons'
+import { toast } from 'sonner'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
 
@@ -14,7 +15,7 @@ export interface SystemInstructionsModalProps {
   open:          boolean
   projectName?:  string
   value:         string
-  onSave:        (text: string) => void
+  onSave:        (text: string) => void | Promise<void>
   onClose:       () => void
   maxLength?:    number
 }
@@ -29,13 +30,14 @@ export function SystemInstructionsModal({
   onClose,
   maxLength = 2000,
 }: SystemInstructionsModalProps) {
-  const [draft,   setDraft]   = useState(value)
+  const [draft,   setDraft]   = useState(value ?? '')
+  const [saving,  setSaving]  = useState(false)
   const mounted = useMounted()
   const prevOpenRef = useRef(false)
 
   useEffect(() => {
     if (open && !prevOpenRef.current) {
-      setDraft(value)
+      setDraft(value ?? '')
     }
     prevOpenRef.current = open
   }, [open, value])
@@ -48,9 +50,31 @@ export function SystemInstructionsModal({
     return () => document.removeEventListener('keydown', onKey)
   }, [open])
 
-  function handleSave() {
-    onSave(draft.trim())
-    onClose()
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await onSave(draft.trim())
+      toast.success('System instructions saved')
+      onClose()
+    } catch {
+      // error toast already shown by the caller
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleClear() {
+    setDraft('')
+    setSaving(true)
+    try {
+      await onSave('')
+      toast.success('System instructions cleared')
+      onClose()
+    } catch {
+      // error toast already shown by the caller
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (!mounted) return null
@@ -198,6 +222,8 @@ export function SystemInstructionsModal({
                   maxLength={maxLength}
                   placeholder="e.g. Always respond in British English. Format all code in TypeScript. Be concise and avoid filler phrases..."
                   autoFocus
+                  disabled={saving}
+                  className="kaya-scrollbar"
                   style={{
                     fontFamily:   'var(--font-body)',
                     fontWeight:   'var(--font-weight-regular)',
@@ -259,8 +285,9 @@ export function SystemInstructionsModal({
                 flexShrink:     0,
               }}
             >
-              <Button variant="ghost" onClick={onClose}>Cancel</Button>
-              <Button variant="default" onClick={handleSave}>Save instructions</Button>
+              <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
+              <Button variant="secondary" onClick={handleClear} disabled={!value || saving}>Clear</Button>
+              <Button variant="default" onClick={handleSave} loading={saving}>Save instructions</Button>
             </div>
           </m.div>
         </m.div>

@@ -81,7 +81,25 @@ function PersonaAvatar({ imageUrl, name, size = 32 }: { imageUrl: string | null;
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
-function EmptyState({ persona }: { persona: Persona | null }) {
+function EmptyState({ persona, error }: { persona: Persona | null; error?: string | null }) {
+  if (error) {
+    return (
+      <div style={{ flex: "1 0 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "60px 32px", textAlign: "center" }}>
+        <div style={{ width: 48, height: 48, borderRadius: "50%", backgroundColor: "var(--color-tag-Red-bg-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <span style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "var(--color-tag-Red-text)", display: "block" }} />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 400 }}>
+          <p style={{ margin: 0, fontFamily: "var(--font-title)", fontWeight: 400, fontSize: 20, lineHeight: "28px", color: "var(--neutral-900)" }}>
+            Agent unavailable
+          </p>
+          <p style={{ margin: 0, fontFamily: "var(--font-body)", fontWeight: "var(--font-weight-regular)", fontSize: "var(--font-size-body)", lineHeight: "var(--line-height-body)", color: "var(--neutral-500)" }}>
+            {error}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!persona) {
     return (
       <div style={{ flex: "1 0 0", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -129,6 +147,11 @@ export function PersonaChatInterface({
   // Becomes true once the active version resolves (or errors) — prevents models[0]
   // being selected as a "default" while the version's model_id is still being fetched.
   const [versionsLoaded, setVersionsLoaded] = useState(false);
+  // Set when the persona fails to load (404, 409, network error, etc.).
+  const [personaLoadError, setPersonaLoadError] = useState<string | null>(null);
+  // Set when the agent's configured model is blocked/disabled — stores the display
+  // name (or ID) of the unavailable model so a notice can be shown to the user.
+  const [unavailableModelName, setUnavailableModelName] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -215,7 +238,11 @@ export function PersonaChatInterface({
         });
     }).catch(err => {
       logger.error("[PersonaChat] Failed to load persona", err);
-      if (!cancelled) setVersionsLoaded(true);
+      if (!cancelled) {
+        const msg = err instanceof Error ? err.message : "This agent isn't available.";
+        setPersonaLoadError(msg);
+        setVersionsLoaded(true);
+      }
     });
 
     return () => { cancelled = true; };
@@ -249,9 +276,10 @@ export function PersonaChatInterface({
       (m.modelId != null && String(m.modelId) !== "undefined" && String(m.modelId) === target) ||
       (m.id      != null && String(m.id)      !== "undefined" && String(m.id)      === target),
     );
-    if (byId) { selectModelRef.current(byId); return; }
+    if (byId) { setUnavailableModelName(null); selectModelRef.current(byId); return; }
 
     // Tier 2 — sessionStorage name+company cache written by the Instructions tab
+    let cachedModelName: string | undefined;
     try {
       const raw = typeof window !== "undefined"
         ? sessionStorage.getItem(`persona_model_cache_${personaId}`)
@@ -262,12 +290,15 @@ export function PersonaChatInterface({
           const byName = models.find(
             m => m.modelName === cached.modelName && m.companyName === cached.companyName,
           );
-          if (byName) { selectModelRef.current(byName); return; }
+          if (byName) { setUnavailableModelName(null); selectModelRef.current(byName); return; }
+          cachedModelName = cached.modelName;
         }
       }
     } catch { /* ignore */ }
 
-    // Tier 3 — model no longer offered; fall back to first available
+    // Tier 3 — model no longer offered (blocked/disabled); fall back to first available.
+    // Record the unavailable model's display name so a notice can be shown to the user.
+    setUnavailableModelName(cachedModelName ?? target);
     selectModelRef.current(models[0]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeVersionModelId, persona?.modelId, models, selectedModel, versionsLoaded, personaId]);
@@ -398,7 +429,7 @@ export function PersonaChatInterface({
   // resolves the sharer for this /persona/{repoId}/chats path. So the individual
   // exhaustion hard-stop must not apply when chatting with a share-funded agent.
   const shareFunded = !!persona?.sourceShareId;
-  const sendBlocked = creditStatus.blocked && !shareFunded;
+  const sendBlocked = (creditStatus.blocked && !shareFunded) || !!personaLoadError;
 
   const handleSend = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -506,7 +537,10 @@ export function PersonaChatInterface({
           )}
 
           {!isLoadingMessages && messages.length === 0 && (
-            <EmptyState persona={persona ? { ...persona, imageUrl: personaImageUrl } : null} />
+            <EmptyState
+              persona={persona ? { ...persona, imageUrl: personaImageUrl } : null}
+              error={personaLoadError}
+            />
           )}
 
           {messages.map((msg, idx) => (
@@ -542,7 +576,24 @@ export function PersonaChatInterface({
             style={{ display: "none" }}
             aria-hidden="true"
           />
-          <CreditStatusBanner suppress={shareFunded} />
+          {unavailableModelName && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 12px",
+              borderRadius: 10,
+              backgroundColor: "var(--color-tag-Yellow-bg-soft)",
+              border: "1px solid var(--color-tag-Yellow-text)",
+              marginBottom: 8,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "var(--color-tag-Yellow-text)", flexShrink: 0 }} />
+              <p style={{ flex: "1 0 0", minWidth: 0, margin: 0, fontFamily: "var(--font-body)", fontWeight: 400, fontSize: 13, lineHeight: "20px", color: "var(--color-tag-Yellow-text)" }}>
+                {`The ${unavailableModelName} model is currently disabled. This agent is using ${selectedModel?.modelName ?? "an available model"} instead.`}
+              </p>
+            </div>
+          )}
+          <CreditStatusBanner suppress={shareFunded || !!personaLoadError} />
           <ChatInput
             value={input}
             onChange={setInput}
@@ -552,7 +603,13 @@ export function PersonaChatInterface({
             hasAttachments={attachments.length > 0}
             isStreaming={isStreaming}
             disabled={isStreaming || sendBlocked}
-            placeholder={sendBlocked ? 'Credits exhausted. Buy a top-up to continue.' : `Message ${persona?.name || "persona"}…`}
+            placeholder={
+              personaLoadError
+                ? "This agent is unavailable."
+                : creditStatus.blocked && !shareFunded
+                  ? "Credits exhausted. Buy a top-up to continue."
+                  : `Message ${persona?.name || "agent"}…`
+            }
             addMenu={
               <ChatAddMenu
                 webSearchEnabled={webSearchEnabled}

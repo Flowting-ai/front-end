@@ -131,7 +131,8 @@ export function PresetModelSelector(
           {/* Figma 1115:1338 → ContentSection includes the "Pro switch" cluster
              (Advanced label + Switch) at the right of the title row. */}
           <ModelFeaturedCard
-            title="Muse"
+            subtitle="Souvenir Muse"
+            title="Basic"
             description="Cost-efficient routing for everyday tasks. Fast, smart, and easy on your credits."
             learnMoreHref="#"
           />
