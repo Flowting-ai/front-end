@@ -218,7 +218,7 @@ export function Button({
 
   const wrapperFilter = variant === 'default'
     ? SHADOW_OUTER
-    : isSubtle && isVisuallyHovered
+    : (isSubtle || isSecondary) && isVisuallyHovered
       ? SHADOW_SUBTLE_OUTER_HOVER
       : undefined
 

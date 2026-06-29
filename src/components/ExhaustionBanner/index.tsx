@@ -14,7 +14,7 @@ export function ExhaustionBanner({ children }: { children?: React.ReactNode }) {
   const { applies, level, pctUsed } = useCreditStatus()
   const router = useRouter()
 
-  if (!applies) return <>{children}</>
+  if (!applies || pctUsed < 0.9) return <>{children}</>
 
   const pct        = Math.min(1, Math.max(0, pctUsed))
   const pctDisplay = `${Math.round(pct * 100)}% used`

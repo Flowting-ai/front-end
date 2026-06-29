@@ -358,6 +358,7 @@ function WelcomeModalImpl() {
             : totalCredits;
           setUser({
             ...user,
+            isTrial: true,
             creditsTotal: totalCredits,
             creditsRemaining: remaining,
             creditsUsed: Math.round(((credits.trial?.used ?? 0)) * 1000),

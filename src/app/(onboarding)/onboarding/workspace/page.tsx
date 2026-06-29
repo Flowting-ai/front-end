@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { InputField } from "@/components/InputField";
 import { deriveRoleFit } from "@/context/onboarding-context";
 import { updateOnboarding } from "@/lib/api/user";
 import { updateOrg } from "@/lib/api/organization";
+import { Button } from "@/components/Button";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
 const SIZES: CompanySize[] = ["1-10", "11-50", "51-200", "200+"];
@@ -112,13 +113,9 @@ export default function OnboardingWorkspacePage() {
           continueDisabled={!canContinue}
           continueLoading={submitting}
           leftSlot={
-            <button
-              type="button"
-              onClick={() => void logout()}
-              style={{ background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 14, color: "#0d6eb2", textDecoration: "underline" }}
-            >
+            <Button variant="default" size="sm" onClick={() => void logout()} leftIcon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M13 3v10M6.5 10.5 3.5 8l3-2.5M3.5 8H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
               Log out
-            </button>
+            </Button>
           }
         />
       }

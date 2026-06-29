@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -7,6 +7,7 @@ import { useAuth } from "@/context/auth-context";
 import { listOrgCatalog, updateOrgCatalog } from "@/lib/api/connectors";
 import { listOrganizations } from "@/lib/api/organization";
 import { toast } from "sonner";
+import { Button } from "@/components/Button";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
 // ── Connector definitions ───────────────────────────────────────────────────────
@@ -189,13 +190,9 @@ export default function OnboardingConnectorsPage() {
           continueDisabled={continuing}
           continueLoading={continuing}
           leftSlot={
-            <button
-              type="button"
-              onClick={() => void logout()}
-              style={{ background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 14, color: "#0d6eb2", textDecoration: "underline" }}
-            >
+            <Button variant="default" size="sm" onClick={() => void logout()} leftIcon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M13 3v10M6.5 10.5 3.5 8l3-2.5M3.5 8H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
               Log out
-            </button>
+            </Button>
           }
         />
       }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -395,8 +395,8 @@ export default function OnboardingImportPage() {
       </div>
 
       {/* Log out */}
-      <Button variant="ghost" size="sm" onClick={() => void logout()}>
-        <span style={{ color: "#0d6eb2", textDecoration: "underline" }}>Log out</span>
+      <Button variant="default" size="sm" onClick={() => void logout()} leftIcon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M13 3v10M6.5 10.5 3.5 8l3-2.5M3.5 8H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
+        Log out
       </Button>
     </div>
     </div>

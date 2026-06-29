@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,7 @@ import type { OnboardingRole } from "@/context/onboarding-context";
 import { InputField } from "@/components/InputField";
 import { Dropdown, DropdownFloat } from "@/components/Dropdown";
 import { createUser, updateUser, updateOnboarding } from "@/lib/api/user";
+import { Button } from "@/components/Button";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
 const ROLES: OnboardingRole[] = [
@@ -176,11 +177,14 @@ export default function OnboardingHelloPage() {
       subtitle="Let's check a few things before we start."
       footer={
         <OnboardingFooter
-          onBack={() => void logout()}
-          backLabel="Log out"
           onContinue={() => { void handleContinue(); }}
           continueDisabled={!canContinue}
           continueLoading={isSaving}
+          leftSlot={
+            <Button variant="default" size="sm" onClick={() => void logout()} leftIcon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M13 3v10M6.5 10.5 3.5 8l3-2.5M3.5 8H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
+              Log out
+            </Button>
+          }
         />
       }
     >

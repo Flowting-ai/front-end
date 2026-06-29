@@ -1,8 +1,9 @@
-'use client'
+﻿'use client'
 
 import React, { Suspense, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
+import { Button } from '@/components/Button'
 import { fetchBilling } from '@/lib/api/user'
 import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
 import { createOrganization } from '@/lib/api/organization'
@@ -259,13 +260,9 @@ function PricingConfirmationContent() {
             </button>
           </div>
         )}
-        <button
-          type="button"
-          onClick={() => void logout()}
-          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: BODY, fontSize: '13px', color: '#0d6eb2', textDecoration: 'underline', marginTop: 4 }}
-        >
+        <Button variant="default" size="sm" onClick={() => void logout()} leftIcon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M13 3v10M6.5 10.5 3.5 8l3-2.5M3.5 8H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
           Log out
-        </button>
+        </Button>
       </div>
     </Shell>
   )

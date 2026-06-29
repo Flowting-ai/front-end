@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -6,6 +6,7 @@ import { useOnboarding } from "@/context/onboarding-context";
 import type { AccountType } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
 import { Badge } from "@/components/Badge";
+import { Button } from "@/components/Button";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 
 // ── Icons ───────────────────────────────────────────────────────────────────────
@@ -155,13 +156,14 @@ function OptionCard({
 }
 
 const LogoutLink = ({ onClick }: { onClick: () => void }) => (
-  <button
-    type="button"
+  <Button
+    variant="default"
+    size="sm"
     onClick={onClick}
-    style={{ background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 14, color: "#0d6eb2", textDecoration: "underline" }}
+    leftIcon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M13 3v10M6.5 10.5 3.5 8l3-2.5M3.5 8H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}
   >
     Log out
-  </button>
+  </Button>
 );
 
 export default function OnboardingAccountTypePage() {
@@ -180,11 +182,7 @@ export default function OnboardingAccountTypePage() {
   const handleContinue = async () => {
     if (!selected) return;
     setAccountType(selected);
-    if (selected === "individual") {
-      push("/onboarding/tone");
-      return;
-    }
-    // Team branch: go straight to plans — org is created after payment succeeds.
+    // Both paths go to plans — individual sees Starter/Pro/Power, team sees Team/Enterprise.
     push("/onboarding/plans");
   };
 
