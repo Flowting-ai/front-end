@@ -1499,11 +1499,11 @@ function ChatPageInner() {
                     </Dropdown>
                   </DropdownFloat>
 
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  {/* <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <Button variant="secondary" size="sm" loading={creatingShare} disabled={!shareTargetId || creatingShare} onClick={() => void handleCreateShare()}>
                       Share
                     </Button>
-                  </div>
+                  </div> */}
                 </div>
 
               </div>
@@ -1513,14 +1513,19 @@ function ChatPageInner() {
               {/* Footer */}
               <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px", padding: "16px 20px", flexShrink: 0 }}>
                 <Button variant="ghost" onClick={() => setChatShareOpen(false)}>Cancel</Button>
-                <Button
+                {/* <Button
                   variant="default"
                   loading={chatShareSaving}
                   disabled={chatShareSaving || (chatShareVisibility === "team" && !chatShareTeamId)}
                   onClick={() => void handleSaveChatShare()}
                 >
                   Save
+                </Button> */}
+                <Button variant="secondary" size="sm" loading={creatingShare} disabled={!shareTargetId || creatingShare} onClick={() => void handleCreateShare()}>
+                  Share
                 </Button>
+      
+                
               </div>
             </m.div>
 
