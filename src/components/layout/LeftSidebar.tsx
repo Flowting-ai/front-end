@@ -30,6 +30,7 @@ import { DropdownFloat } from "@/components/Dropdown";
 import { TeamSwitcherRow } from "@/components/TeamSwitcherRow";
 import { RoleBadge } from "@/components/RoleBadge";
 import type { WorkspaceRole } from "@/components/RoleBadge";
+import { Tooltip } from "@/components/Tooltip";
 import type { Team } from "@/types/teams";
 import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
@@ -1868,13 +1869,17 @@ function LeftSidebarImpl({
             collapsed={collapsed}
             panelWidth={274}
             roleBadge={orgId && displayRole ? (
-              <RoleBadge role={displayRole as WorkspaceRole} showLabel={false} mode="solar" />
+              <Tooltip content={orgBadgeSublabel} side="top" delayDuration={300}>
+                <span style={{ display: 'inline-flex' }}>
+                  <RoleBadge role={displayRole as WorkspaceRole} showLabel={false} mode="solar" />
+                </span>
+              </Tooltip>
             ) : undefined}
             placement="top-start"
             onProfile={() => push("/settings/account")}
             onUpgradePlan={() => push("/settings/billing")}
             onSettings={() => push("/settings")}
-            onOrganization={orgId ? () => push("/org/general") : undefined}
+            onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push("/org/general") : undefined}
             onWhatsNew={() => toast.info("What's new — coming soon!")}
             onHelp={() => push("/settings/help")}
             onLogOut={() => { if (isAuthenticated) { void logout() } else { push("/auth/login") } }}

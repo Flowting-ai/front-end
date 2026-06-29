@@ -47,6 +47,9 @@ import { ApprovalCard } from '@/components/ApprovalCard'
 import { Dropdown } from '@/components/Dropdown'
 import { Chip } from '@/components/Chip'
 import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon, ImageDownloadTwoIcon, PinIcon } from '@strange-huge/icons'
+import { RoleBadge } from '@/components/RoleBadge'
+import type { WorkspaceRole } from '@/components/RoleBadge'
+import { Tooltip } from '@/components/Tooltip'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { emitBrainThreadCreated, emitBrainThreadTitleUpdated } from '@/hooks/use-sidebar-events'
 import { fetchPersonas, getVersion } from '@/lib/api/personas'
@@ -1296,7 +1299,7 @@ function BrainPageInner() {
   const searchParams = useSearchParams()
   const { push, replace } = useRouter()
   const { user, logout, isAuthenticated } = useAuth()
-  const { orgId, org, currentUserRole, orgRole } = useOrg()
+  const { orgId, org, plan, currentUserRole, orgRole } = useOrg()
   // Individual credit/topup status — hard send-gate when exhausted.
   const creditStatus = useCreditStatus()
   const chatIdFromUrl = searchParams.get('id')
@@ -1309,7 +1312,33 @@ function BrainPageInner() {
     ? `Teams | ${org?.name ?? 'Teams'}`
     : user?.planType
       ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
-      : undefined
+      : user?.isTrial
+        ? 'Free Trial'
+        : 'No Plan Selected'
+
+  // Credits: org pool when in a team/org, personal balance for individuals.
+  // Mirrors LeftSidebar exactly — these two pools must never be mixed.
+  const accountCredits = orgId
+    ? (plan ? org?.creditPool?.remaining : undefined)
+    : (user?.creditsRemaining ?? undefined)
+
+  // Role badge — shown in account menu trigger to the left of the settings icon.
+  // Uses the same hierarchy as LeftSidebar: orgRole takes precedence for owner/admin,
+  // currentUserRole (highest team role) for editor/member.
+  const ROLE_RANK: Record<string, number> = { owner: 4, admin: 3, editor: 2, member: 1 }
+  const displayRole = (orgRole === 'owner' || orgRole === 'admin')
+    ? orgRole
+    : (currentUserRole ?? (orgId ? 'member' : undefined))
+  const roleTooltip = displayRole
+    ? displayRole.charAt(0).toUpperCase() + displayRole.slice(1)
+    : undefined
+  const roleBadge = orgId && displayRole ? (
+    <Tooltip content={roleTooltip} side="top" delayDuration={300}>
+      <span style={{ display: 'inline-flex' }}>
+        <RoleBadge role={displayRole as WorkspaceRole} showLabel={false} mode="solar" />
+      </span>
+    </Tooltip>
+  ) : undefined
 
   const orgBadgeSublabel = orgId && orgRole
     ? orgRole.charAt(0).toUpperCase() + orgRole.slice(1)
@@ -4748,15 +4777,16 @@ function BrainPageInner() {
             <AccountMenu
               name={displayName || 'Account'}
               plan={planLabel}
-              credits={user?.creditsRemaining ?? undefined}
+              credits={accountCredits}
               avatarSrc={user?.profilePicture ?? undefined}
               collapsed={collapsed}
               panelWidth={274}
+              roleBadge={roleBadge}
               placement="top-start"
               onProfile={() => push('/settings/account')}
               onUpgradePlan={() => push('/settings/billing')}
               onSettings={() => push('/settings')}
-              onOrganization={orgId ? () => push('/org/general') : undefined}
+              onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push('/org/general') : undefined}
               onHelp={() => push('/settings/help')}
               onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
             />

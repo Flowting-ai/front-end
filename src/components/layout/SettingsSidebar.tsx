@@ -16,6 +16,9 @@ import { IconButton } from '@/components/IconButton'
 import { AccountMenu } from '@/components/AccountMenu'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
+import { RoleBadge } from '@/components/RoleBadge'
+import type { WorkspaceRole } from '@/components/RoleBadge'
+import { Tooltip } from '@/components/Tooltip'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { useSettingsGuard } from '@/context/settings-guard-context'
@@ -39,7 +42,7 @@ export function SettingsSidebar() {
   const { push } = useRouter()
   const pathname = usePathname()
   const { user, logout, isAuthenticated } = useAuth()
-  const { orgId, org, plan, currentUserRole } = useOrg()
+  const { orgId, org, plan, orgRole, currentUserRole } = useOrg()
   const { isDirty, saveRef } = useSettingsGuard()
   const portalMounted = useMounted()
   const [pendingHref,    setPendingHref]    = useState<string | null>(null)
@@ -100,6 +103,21 @@ export function SettingsSidebar() {
   const accountCredits = orgId
     ? (plan ? org?.creditPool?.remaining : undefined)
     : (user?.creditsRemaining ?? undefined)
+
+  // Role badge with tooltip — mirrors LeftSidebar's displayRole hierarchy.
+  const displayRole = (orgRole === 'owner' || orgRole === 'admin')
+    ? orgRole
+    : (currentUserRole ?? (orgId ? 'member' : undefined))
+  const roleTooltip = displayRole
+    ? displayRole.charAt(0).toUpperCase() + displayRole.slice(1)
+    : undefined
+  const roleBadge = orgId && displayRole ? (
+    <Tooltip content={roleTooltip} side="top" delayDuration={300}>
+      <span style={{ display: 'inline-flex' }}>
+        <RoleBadge role={displayRole as WorkspaceRole} showLabel={false} mode="solar" />
+      </span>
+    </Tooltip>
+  ) : undefined
 
   return (
     <>
@@ -232,11 +250,12 @@ export function SettingsSidebar() {
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={false}
             panelWidth={274}
+            roleBadge={roleBadge}
             placement="top-start"
             onProfile={() => safeNavigate('/settings/account')}
             onUpgradePlan={() => safeNavigate('/settings/billing')}
             onSettings={() => safeNavigate('/settings')}
-            onOrganization={orgId ? () => safeNavigate('/org/general') : undefined}
+            onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => safeNavigate('/org/general') : undefined}
             onWhatsNew={() => toast.info("What's new — coming soon!")}
             onHelp={() => safeNavigate('/settings/help')}
             onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
