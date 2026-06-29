@@ -296,22 +296,43 @@ function OnboardingPlansContent() {
   const { data }           = useOnboarding()
   const { logout }         = useAuth()
 
-  const [billing,          setBilling]          = useState<Billing>('monthly')
+  // Extract URL params first so lazy state initializers can read them.
+  // ?plan= and ?billing= are written by handleTeamPlan into the Stripe cancel_url
+  // so the user's exact selection is restored when they hit "Back" on the Stripe page.
+  const typeParam    = searchParams.get('type')
+  const planParam    = searchParams.get('plan')
+  const billingParam = searchParams.get('billing')
+
+  // Context is the source of truth; fall back to ?type= for Stripe cancel returns
+  const isTeam = data.accountType != null ? data.accountType === 'team' : typeParam === 'team'
+
+  // Billing — lazy init restores from Stripe cancel URL if present
+  const [billing, setBilling] = useState<Billing>(() =>
+    billingParam === 'annual' ? 'annual' : 'monthly'
+  )
   const [contactSalesOpen, setContactSalesOpen] = useState(false)
 
-  // Team plan state
-  const [teamTierIndex, setTeamTierIndex] = useState(0)
+  // Team plan state — tier restored from Stripe cancel URL if present
+  const [teamTierIndex, setTeamTierIndex] = useState(() => {
+    if (planParam) {
+      const idx = TEAM_TIERS.findIndex(t => t.planType === planParam)
+      if (idx >= 0) return idx
+    }
+    return 0
+  })
   const [teamSlideDir,  setTeamSlideDir]  = useState<1 | -1>(1)
   const [teamLoading,   setTeamLoading]   = useState(false)
   const [teamError,     setTeamError]     = useState<string | null>(null)
 
-  // Individual plan state
-  const [indTierIndex, setIndTierIndex] = useState(0)
+  // Individual plan state — tier restored from Stripe cancel URL if present
+  const [indTierIndex, setIndTierIndex] = useState(() => {
+    if (planParam) {
+      const idx = INDIVIDUAL_TIERS.findIndex(t => t.planType === planParam)
+      if (idx >= 0) return idx
+    }
+    return 0
+  })
   const [indSlideDir,  setIndSlideDir]  = useState<1 | -1>(1)
-
-  // Context is the source of truth; fall back to ?type= param for Stripe cancel returns
-  const typeParam = searchParams.get('type')
-  const isTeam = data.accountType != null ? data.accountType === 'team' : typeParam === 'team'
 
   // Keep the URL in sync so the Stripe cancel_url always lands on the right variant
   useEffect(() => {
@@ -353,7 +374,7 @@ function OnboardingPlansContent() {
       const { checkout_url } = await createCheckout({
         plan:       teamTier.planType,
         billing,
-        cancel_url: `${window.location.origin}/onboarding/plans?type=team`,
+        cancel_url: `${window.location.origin}/onboarding/plans?type=team&plan=${teamTier.planType}&billing=${billing}`,
       })
       window.location.href = checkout_url
     } catch (err) {
