@@ -393,6 +393,12 @@ export function PersonaChatInterface({
 
   // Individual credit/topup status — warning banner + hard send-gate.
   const creditStatus = useCreditStatus();
+  // A Super Link agent (source_share_id set) is billed to the SHARER's credit
+  // pool, not this user's balance — the backend's require_persona_budget preflight
+  // resolves the sharer for this /persona/{repoId}/chats path. So the individual
+  // exhaustion hard-stop must not apply when chatting with a share-funded agent.
+  const shareFunded = !!persona?.sourceShareId;
+  const sendBlocked = creditStatus.blocked && !shareFunded;
 
   const handleSend = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -400,7 +406,8 @@ export function PersonaChatInterface({
 
     // Hard-stop backstop: an exhausted credit/topup user cannot send. The input is
     // already disabled and the CreditStatusBanner explains why, so block silently.
-    if (creditStatus.blocked) return;
+    // Share-funded (Super Link) agents bill the sharer, so they bypass this gate.
+    if (sendBlocked) return;
 
     const filesToSend = attachments.map(a => a.file);
 
@@ -477,7 +484,7 @@ export function PersonaChatInterface({
     } catch {
       setMessages(prev => prev.slice(0, prev.length - 2));
     }
-  }, [personaId, activeChatId, isStreaming, attachments, fetchAiResponse, creditStatus.blocked]);
+  }, [personaId, activeChatId, isStreaming, attachments, fetchAiResponse, sendBlocked]);
 
   const chatId = activeChatId ?? "";
 
@@ -535,7 +542,7 @@ export function PersonaChatInterface({
             style={{ display: "none" }}
             aria-hidden="true"
           />
-          <CreditStatusBanner />
+          <CreditStatusBanner suppress={shareFunded} />
           <ChatInput
             value={input}
             onChange={setInput}
@@ -544,8 +551,8 @@ export function PersonaChatInterface({
             onFilePaste={(files) => setAttachments((prev) => processFiles(files, prev))}
             hasAttachments={attachments.length > 0}
             isStreaming={isStreaming}
-            disabled={isStreaming || creditStatus.blocked}
-            placeholder={creditStatus.blocked ? 'Credits exhausted. Buy a top-up to continue.' : `Message ${persona?.name || "persona"}…`}
+            disabled={isStreaming || sendBlocked}
+            placeholder={sendBlocked ? 'Credits exhausted. Buy a top-up to continue.' : `Message ${persona?.name || "persona"}…`}
             addMenu={
               <ChatAddMenu
                 webSearchEnabled={webSearchEnabled}

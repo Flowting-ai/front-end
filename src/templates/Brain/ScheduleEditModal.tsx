@@ -11,6 +11,9 @@ export interface ScheduleEditData {
   name:         string
   instructions: string
   frequency:    string
+  /** IANA zone the frequency time is in. Always set by the modal on save;
+   *  optional on input since edit data carries it inside `frequency`. */
+  timezone?:    string
 }
 
 export interface ScheduleEditModalProps {
@@ -24,21 +27,53 @@ type FrequencyType = 'daily' | 'weekly'
 type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday'
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const HOURS = Array.from({ length: 24 }, (_, i) => i)
-const MINUTES = ['00', '15', '30', '45']
 
-function formatFrequency(type: FrequencyType, hour: number, minute: string, day: DayOfWeek): string {
-  const period = hour < 12 ? 'AM' : 'PM'
-  const h12    = hour % 12 === 0 ? 12 : hour % 12
-  const time   = `${h12}:${minute} ${period}`
-  if (type === 'daily') return `Daily • ${time}`
-  return `Weekly • ${day} ${time}`
+// The IANA zone the user's browser is in — used as the default selection.
+function detectTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {
+    return 'UTC'
+  }
 }
 
-// Parses a frequency string back into discrete form fields. Handles both
-// modal-generated format ("Daily • 8:00 AM") and page-generated format
-// ("Daily · 08:00", "Weekly · Monday · 14:00").
-function parseFrequency(freq: string): { type: FrequencyType; hour: number; minute: string; day: DayOfWeek } | null {
+// Full IANA zone list when the runtime supports it; otherwise the detected zone
+// is the only option (always valid). Detected zone is force-included + first.
+const TIMEZONES: string[] = (() => {
+  const detected = detectTimezone()
+  let zones: string[] = []
+  try {
+    const supported = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf
+    if (typeof supported === 'function') zones = supported('timeZone')
+  } catch { /* not supported — fall back to detected only */ }
+  if (!zones.includes(detected)) zones = [detected, ...zones]
+  return zones
+})()
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
+function formatFrequency(
+  type: FrequencyType,
+  hour: number,
+  minute: number,
+  day: DayOfWeek,
+  timezone: string,
+): string {
+  const time = `${pad(hour)}:${pad(minute)}`
+  const base = type === 'daily' ? `Daily • ${time}` : `Weekly • ${day} ${time}`
+  return timezone ? `${base} (${timezone})` : base
+}
+
+// Parses a frequency string back into discrete form fields. Handles both the
+// modal format ("Daily • 14:00 (America/Chicago)"), the page format
+// ("Daily · 08:00", "Weekly · Monday · 14:00"), and legacy 12-hour strings
+// ("Daily • 8:00 AM"). A trailing "(Zone)" is read back as the timezone.
+function parseFrequency(
+  freq: string,
+): { type: FrequencyType; hour: number; minute: number; day: DayOfWeek; timezone: string | null } | null {
+  const tzMatch   = freq.match(/\(([^)]+)\)\s*$/)
+  const timezone  = tzMatch ? tzMatch[1].trim() : null
+
   const weeklyRe = /^Weekly\s*[·•]\s*(\w+)\s*(?:[·•]\s*)?(\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i
   const wm = freq.match(weeklyRe)
   if (wm) {
@@ -46,10 +81,9 @@ function parseFrequency(freq: string): { type: FrequencyType; hour: number; minu
     const period = wm[4]?.toUpperCase()
     if (period === 'PM' && h < 12) h += 12
     if (period === 'AM' && h === 12) h = 0
-    const rawMin = wm[3]
-    const minute = MINUTES.includes(rawMin) ? rawMin : '00'
+    const minute = parseInt(wm[3], 10)
     const day    = DAYS.includes(wm[1] as DayOfWeek) ? (wm[1] as DayOfWeek) : 'Monday'
-    return { type: 'weekly', hour: h, minute, day }
+    return { type: 'weekly', hour: h, minute, day, timezone }
   }
   const dailyRe = /^Daily\s*[·•]\s*(\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i
   const dm = freq.match(dailyRe)
@@ -58,9 +92,8 @@ function parseFrequency(freq: string): { type: FrequencyType; hour: number; minu
     const period = dm[3]?.toUpperCase()
     if (period === 'PM' && h < 12) h += 12
     if (period === 'AM' && h === 12) h = 0
-    const rawMin = dm[2]
-    const minute = MINUTES.includes(rawMin) ? rawMin : '00'
-    return { type: 'daily', hour: h, minute, day: 'Monday' }
+    const minute = parseInt(dm[2], 10)
+    return { type: 'daily', hour: h, minute, day: 'Monday', timezone }
   }
   return null
 }
@@ -117,9 +150,10 @@ export function ScheduleEditModal({
   const [name,         setName]         = useState(schedule?.name ?? '')
   const [instructions, setInstructions] = useState(schedule?.instructions ?? '')
   const [freqType,     setFreqType]     = useState<FrequencyType>('daily')
-  const [hour,         setHour]         = useState(8)
-  const [minute,       setMinute]       = useState<string>('00')
+  const [hour,         setHour]         = useState('')   // 0–23, free text (placeholder "Hours")
+  const [minute,       setMinute]       = useState('')   // 0–59, free text (placeholder "Mins")
   const [day,          setDay]          = useState<DayOfWeek>('Monday')
+  const [timezone,     setTimezone]     = useState(detectTimezone())
 
   // Reset form when modal opens/schedule changes
   useEffect(() => {
@@ -129,28 +163,45 @@ export function ScheduleEditModal({
       const parsed = schedule?.frequency ? parseFrequency(schedule.frequency) : null
       if (parsed) {
         setFreqType(parsed.type)
-        setHour(parsed.hour)
-        setMinute(parsed.minute)
+        setHour(String(parsed.hour))
+        setMinute(pad(parsed.minute))
         setDay(parsed.day)
+        setTimezone(parsed.timezone ?? schedule?.timezone ?? detectTimezone())
       } else {
         setFreqType('daily')
-        setHour(8)
-        setMinute('00')
+        setHour('')
+        setMinute('')
         setDay('Monday')
+        setTimezone(schedule?.timezone ?? detectTimezone())
       }
     }
-  }, [isOpen, schedule?.name, schedule?.instructions, schedule?.frequency])
+  }, [isOpen, schedule?.name, schedule?.instructions, schedule?.frequency, schedule?.timezone])
+
+  // Keep only digits, clamp to the field's valid range (hours 0–23, mins 0–59).
+  const handleTimeChange = (raw: string, max: number, set: (v: string) => void) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 2)
+    if (digits === '') { set(''); return }
+    const n = Math.min(parseInt(digits, 10), max)
+    set(String(n))
+  }
+
+  const hourNum   = parseInt(hour, 10)
+  const minuteNum = parseInt(minute, 10)
+  const timeValid =
+    Number.isInteger(hourNum)   && hourNum   >= 0 && hourNum   <= 23 &&
+    Number.isInteger(minuteNum) && minuteNum >= 0 && minuteNum <= 59
 
   const handleSave = () => {
-    if (!name.trim()) return
+    if (!name.trim() || !timeValid) return
     onSave({
       name:         name.trim(),
       instructions: instructions.trim(),
-      frequency:    formatFrequency(freqType, hour, minute, day),
+      frequency:    formatFrequency(freqType, hourNum, minuteNum, day, timezone),
+      timezone,
     })
   }
 
-  const canSave = name.trim().length > 0
+  const canSave = name.trim().length > 0 && timeValid
 
   return (
     <AnimatePresence initial={false}>
@@ -306,23 +357,48 @@ export function ScheduleEditModal({
                 </div>
               )}
 
-              {/* Time picker */}
+              {/* Time entry — free text, interpreted in the selected timezone */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <label htmlFor="schedule-hour" style={{ ...labelStyle, margin: 0 }}>Time</label>
-                <select
+                <input
                   id="schedule-hour"
+                  type="text"
+                  inputMode="numeric"
                   value={hour}
-                  onChange={e => setHour(Number(e.target.value))}
-                  style={selectStyle}
-                >
-                  {HOURS.map(h => <option key={h} value={h}>{String(h).padStart(2,'0')}:00</option>)}
-                </select>
-                <select
+                  onChange={e => handleTimeChange(e.target.value, 23, setHour)}
+                  placeholder="Hours"
+                  aria-label="Hours (0–23)"
+                  style={{ ...inputStyle, width: 72, textAlign: 'center' }}
+                />
+                <span style={{ color: 'var(--neutral-400)', fontFamily: 'var(--font-body)' }}>:</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
                   value={minute}
-                  onChange={e => setMinute(e.target.value)}
-                  style={selectStyle}
+                  onChange={e => handleTimeChange(e.target.value, 59, setMinute)}
+                  placeholder="Mins"
+                  aria-label="Minutes (0–59)"
+                  style={{ ...inputStyle, width: 72, textAlign: 'center' }}
+                />
+                <span style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize:   'var(--font-size-caption)',
+                  color:      'var(--neutral-400)',
+                }}>
+                  24-hour
+                </span>
+              </div>
+
+              {/* Timezone picker — the zone the time above is in; sent to the backend */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label htmlFor="schedule-timezone" style={{ ...labelStyle, margin: 0 }}>Timezone</label>
+                <select
+                  id="schedule-timezone"
+                  value={timezone}
+                  onChange={e => setTimezone(e.target.value)}
+                  style={{ ...selectStyle, maxWidth: 280 }}
                 >
-                  {MINUTES.map(m => <option key={m} value={m}>:{m}</option>)}
+                  {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>)}
                 </select>
               </div>
             </div>

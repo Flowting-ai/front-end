@@ -25,6 +25,7 @@ import {
 } from '@/lib/api/tasks'
 import type { ScheduleRunRecord } from '@/templates/Brain'
 import { getAllScheduleLinks, getChatForSchedule, stashPendingPrompt } from '@/lib/scheduleLinks'
+import { ApiError } from '@/lib/api/client'
 
 // ── Page wrapper ──────────────────────────────────────────────────────────────
 
@@ -209,10 +210,19 @@ function BrainSchedulesPageInner() {
   useEffect(() => {
     listTasks()
       .then(tasks => {
+        // Be defensive: a non-array payload (error envelope, paginated wrapper)
+        // would otherwise throw in .map and surface as a generic load failure.
+        const list = Array.isArray(tasks) ? tasks : []
         const links = getAllScheduleLinks()
-        setSchedules(tasks.map(t => taskToListItem(t, links[t.id])))
+        setSchedules(list.map(t => taskToListItem(t, links[t.id])))
       })
-      .catch(() => toast.error('Failed to load schedules'))
+      .catch((err: unknown) => {
+        // Surface the real reason — the generic message hid backend/auth errors
+        // and made this undiagnosable.
+        console.error('[schedules] failed to load tasks', err)
+        const detail = err instanceof ApiError ? err.message : null
+        toast.error('Failed to load schedules', detail ? { description: detail } : undefined)
+      })
       .finally(() => setIsLoadingList(false))
   }, [])
 
@@ -268,6 +278,7 @@ function BrainSchedulesPageInner() {
         ``,
         `Updated instructions: ${data.instructions}`,
         `Updated frequency: ${data.frequency}`,
+        ...(data.timezone ? [`Timezone: ${data.timezone}`] : []),
       ].join('\n')
       stashPendingPrompt(selectedId, prompt)
       setEditModalOpen(false)
@@ -291,6 +302,7 @@ function BrainSchedulesPageInner() {
       ``,
       `Instructions: ${data.instructions}`,
       `Frequency: ${data.frequency}`,
+      ...(data.timezone ? [`Timezone: ${data.timezone}`] : []),
     ].join('\n')
     stashPendingPrompt(newId, prompt)
     setSchedules(prev => [...prev, {

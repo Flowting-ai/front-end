@@ -361,6 +361,7 @@ All events are defined and emitted via `front-end/src/hooks/use-sidebar-events.t
 | `CHAT_CREATED_EVENT` | `'chat:created'` | `chat/page.tsx` `handleChatCreated` | `LeftSidebarImpl` |
 | `BRAIN_THREAD_CREATED_EVENT` | `'brain:thread-created'` | `brain/page.tsx` | `BrainSidebarSections` |
 | `BRAIN_THREAD_TITLE_UPDATED_EVENT` | `'brain:thread-title-updated'` | `brain/page.tsx` | `BrainSidebarSections` |
+| `BRAIN_THREAD_DELETED_EVENT` | `'brain:thread-deleted'` | `BrainSidebarSections`, `brain/threads/page.tsx` (on delete) | `BrainSidebarSections`, `brain/threads/page.tsx` |
 
 ---
 

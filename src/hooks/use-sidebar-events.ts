@@ -9,6 +9,7 @@ export const PERSONA_CHAT_CREATED_EVENT = "persona:chat-created";
 const PERSONA_CHAT_TITLE_UPDATED_EVENT = "persona:chat-title-updated";
 export const BRAIN_THREAD_CREATED_EVENT = "brain:thread-created";
 export const BRAIN_THREAD_TITLE_UPDATED_EVENT = "brain:thread-title-updated";
+export const BRAIN_THREAD_DELETED_EVENT = "brain:thread-deleted";
 export const CHAT_CREATED_EVENT = "chat:created";
 
 export interface PersonaChatEventDetail {
@@ -20,6 +21,10 @@ export interface PersonaChatEventDetail {
 export interface BrainThreadEventDetail {
   chatId: string;
   title: string;
+}
+
+export interface BrainThreadDeletedEventDetail {
+  chatId: string;
 }
 
 export interface ChatCreatedEventDetail {
@@ -76,6 +81,12 @@ export function emitBrainThreadCreated(detail: BrainThreadEventDetail) {
 export function emitBrainThreadTitleUpdated(detail: BrainThreadEventDetail) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(BRAIN_THREAD_TITLE_UPDATED_EVENT, { detail }));
+  }
+}
+
+export function emitBrainThreadDeleted(detail: BrainThreadDeletedEventDetail) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(BRAIN_THREAD_DELETED_EVENT, { detail }));
   }
 }
 

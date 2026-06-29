@@ -455,10 +455,10 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               margin: 0,
             }}
           >
-            Add Knowledge to your Persona
+            Add knowledge to your Agent
           </h2>
           <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "black", margin: 0 }}>
-            Upload files or add URLs - the persona retrieves relevant content during conversations
+            Upload files - the agent retrieves relevant content during conversations
           </p>
         </div>
 
@@ -510,7 +510,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                   margin: 0,
                 }}
               >
-                Upload files or connect sources - the persona retrieves relevant content during conversations.
+                Upload your files so the agent can fetch relevant information on the fly during conversations.
               </p>
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "center", width: "100%" }}>

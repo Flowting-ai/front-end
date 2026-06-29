@@ -16,6 +16,11 @@ import {
   type BrainChatListItem,
 } from '@/lib/api/brain'
 import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
+import {
+  BRAIN_THREAD_DELETED_EVENT,
+  emitBrainThreadDeleted,
+  type BrainThreadDeletedEventDetail,
+} from '@/hooks/use-sidebar-events'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -62,6 +67,17 @@ function BrainThreadsPageInner() {
       .finally(() => setIsLoading(false))
   }, [])
 
+  // Keep the list in sync when a thread is deleted elsewhere (e.g. the sidebar),
+  // so it disappears here without a manual refresh.
+  useEffect(() => {
+    const handleDeleted = (e: Event) => {
+      const { chatId } = (e as CustomEvent<BrainThreadDeletedEventDetail>).detail
+      setThreads(prev => prev.filter(t => t.id !== chatId))
+    }
+    window.addEventListener(BRAIN_THREAD_DELETED_EVENT, handleDeleted)
+    return () => window.removeEventListener(BRAIN_THREAD_DELETED_EVENT, handleDeleted)
+  }, [])
+
   const filteredThreads = useMemo(() => {
     if (!searchQuery.trim()) return threads
     const q = searchQuery.toLowerCase()
@@ -89,7 +105,8 @@ function BrainThreadsPageInner() {
       onConfirm: async () => {
         await deleteBrainChat(id)
         setThreads(prev => prev.filter(t => t.id !== id))
-        toast.success('Thread deleted')
+        emitBrainThreadDeleted({ chatId: id })
+        toast.success('Brain chat deleted')
       },
     })
   }, [])

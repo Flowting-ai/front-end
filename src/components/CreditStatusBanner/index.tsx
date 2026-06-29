@@ -27,7 +27,7 @@ const EXHAUSTED_CFG = {
   cta:     'Buy credits',
 } as const
 
-export function CreditStatusBanner() {
+export function CreditStatusBanner({ suppress = false }: { suppress?: boolean } = {}) {
   const { level } = useCreditStatus()
   const router = useRouter()
   const [dismissedLow, setDismissedLow] = useState(false)
@@ -38,8 +38,10 @@ export function CreditStatusBanner() {
     if (level === 'normal') setDismissedLow(false)
   }, [level])
 
-  const visible =
-    level === 'exhausted' || (level === 'low' && !dismissedLow)
+  // `suppress` hides the banner entirely — e.g. when chatting with a Super Link
+  // agent billed to the sharer, where this user's own exhaustion is irrelevant.
+  const visible = !suppress &&
+    (level === 'exhausted' || (level === 'low' && !dismissedLow))
   const cfg = level === 'exhausted' ? EXHAUSTED_CFG : LOW_CFG
   const dismissible = level === 'low'
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { m } from 'framer-motion'
+import { toast } from 'sonner'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarMenuSkeleton } from '@/components/SidebarMenuSkeleton'
 import {
@@ -18,7 +19,10 @@ import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
 import {
   BRAIN_THREAD_CREATED_EVENT,
   BRAIN_THREAD_TITLE_UPDATED_EVENT,
+  BRAIN_THREAD_DELETED_EVENT,
+  emitBrainThreadDeleted,
   type BrainThreadEventDetail,
+  type BrainThreadDeletedEventDetail,
 } from '@/hooks/use-sidebar-events'
 
 // ── Dropdown styles — match ChatHistoryItem / ProjectChatItem exactly ─────────
@@ -227,11 +231,17 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
           : [{ id: chatId, chat_title: title, starred: false }, ...prev],
       )
     }
+    const handleDeleted = (e: Event) => {
+      const { chatId } = (e as CustomEvent<BrainThreadDeletedEventDetail>).detail
+      setThreads(prev => prev.filter(t => t.id !== chatId))
+    }
     window.addEventListener(BRAIN_THREAD_CREATED_EVENT, handleCreated)
     window.addEventListener(BRAIN_THREAD_TITLE_UPDATED_EVENT, handleTitleUpdated)
+    window.addEventListener(BRAIN_THREAD_DELETED_EVENT, handleDeleted)
     return () => {
       window.removeEventListener(BRAIN_THREAD_CREATED_EVENT, handleCreated)
       window.removeEventListener(BRAIN_THREAD_TITLE_UPDATED_EVENT, handleTitleUpdated)
+      window.removeEventListener(BRAIN_THREAD_DELETED_EVENT, handleDeleted)
     }
   }, [])
 
@@ -263,6 +273,8 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
       onConfirm: async () => {
         await deleteBrainChat(id)
         setThreads(prev => prev.filter(t => t.id !== id))
+        emitBrainThreadDeleted({ chatId: id })
+        toast.success('Brain chat deleted')
         if (id === activeChatId) push('/brain')
       },
     })
