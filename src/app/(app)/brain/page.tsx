@@ -3966,7 +3966,6 @@ function BrainPageInner() {
         <LoopCancelledCard
           completedSteps={turn.planSteps?.filter((s) => s.status === 'complete').length ?? 0}
           totalSteps={turn.planSteps?.length ?? 0}
-          onStartNew={handleRestart}
         />
       )}
     </m.div>
@@ -4223,30 +4222,10 @@ function BrainPageInner() {
               steps={planSteps}
               interpretation={activePlanSummary}
               onApprove={handleApprove}
-              onCounter={handleCounter}
               onCancel={handlePlanCancel}
               actionsDisabled={(!activePlanId && !promptId) || actionInFlight}
             />
           </Rise>
-          <AnimatePresence initial={false}>
-            {showCounterInput && (
-              <m.div
-                key="counter-input"
-                initial={MOUNT_INITIAL}
-                animate={MOUNT_ANIMATE}
-                exit={MOUNT_INITIAL}
-                transition={springs.fast}
-              >
-                <CounterInput
-                  value={counterText}
-                  onChange={setCounterText}
-                  onSend={handleCounterSend}
-                  onCancel={() => { setShowCounterInput(false); setCounterText('') }}
-                  disabled={(!activePlanId && !promptId) || actionInFlight}
-                />
-              </m.div>
-            )}
-          </AnimatePresence>
         </>
       )}
 
@@ -4339,7 +4318,6 @@ function BrainPageInner() {
                 ? 'Stream stopped. Any completed work remains above, but no final output was produced.'
                 : 'Stream stopped before execution began. No output was produced.'
             }
-            onStartNew={handleRestart}
           />
         </Rise>
       )}

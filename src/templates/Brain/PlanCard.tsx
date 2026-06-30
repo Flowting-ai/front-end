@@ -8,7 +8,6 @@ import {
   CheckmarkCircleTwoIcon,
   CancelCircleIcon,
   TickTwoIcon,
-  PenOneIcon,
   ArrowUpRightOneIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
@@ -639,7 +638,6 @@ export function PlanCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Button variant="ghost" size="sm" onClick={onCancel} disabled={actionsDisabled}>Cancel</Button>
           <div style={{ flex: '1 0 0' }} />
-          <Button variant="outline" size="sm" rightIcon={<PenOneIcon />} onClick={onCounter} disabled={actionsDisabled}>Counter</Button>
           <Button
             variant="default"
             size="sm"

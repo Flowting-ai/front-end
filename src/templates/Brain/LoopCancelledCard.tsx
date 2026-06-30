@@ -1,8 +1,7 @@
 'use client'
 
 import React from 'react'
-import { StopCircleIcon, ArrowRightOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { StopCircleIcon } from '@strange-huge/icons'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -10,7 +9,6 @@ export interface LoopCancelledCardProps {
   completedSteps?: number
   totalSteps?:     number
   context?:        string
-  onStartNew?:     () => void
 }
 
 // ── LoopCancelledCard ─────────────────────────────────────────────────────────
@@ -18,8 +16,7 @@ export interface LoopCancelledCardProps {
 export function LoopCancelledCard({
   completedSteps,
   totalSteps,
-  context = "No output was produced. Start a new task whenever you're ready.",
-  onStartNew,
+  context = "No output was produced.",
 }: LoopCancelledCardProps) {
   const hasProgress = completedSteps != null && totalSteps != null
 
@@ -72,18 +69,6 @@ export function LoopCancelledCard({
       }}>
         {context}
       </p>
-
-      {/* Action */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button
-          variant="ghost"
-          size="sm"
-          rightIcon={<ArrowRightOneIcon />}
-          onClick={onStartNew}
-        >
-          Start a new task
-        </Button>
-      </div>
 
     </div>
   )
