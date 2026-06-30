@@ -132,19 +132,28 @@ function CornerNotch({ side }: { side: "left" | "right" }) {
 
 // â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+const TAG_PALETTE_COMPARE: ChipColor[] = ["green", "blue", "purple", "brown", "neutral"];
+function compareTagColor(tag: string): ChipColor {
+  let h = 0;
+  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0;
+  return TAG_PALETTE_COMPARE[h % TAG_PALETTE_COMPARE.length];
+}
+
 interface CompareModel {
-  id:             string;
-  requestModelId: string | null;
-  displayName:    string;
-  company:        string;
-  modelName:      string;
-  description:    string;
-  tierLabel:      string;
-  contextLabel:   string;
-  featureLabel:   string | null;
-  companyName:    string;
-  rawModelName:   string;
-  type:           string;
+  id:              string;
+  requestModelId:  string | null;
+  displayName:     string;
+  company:         string;
+  modelName:       string;
+  description:     string;
+  tierLabel:       string;
+  contextLabel:    string;
+  featureLabel:    string | null;
+  companyName:     string;
+  rawModelName:    string;
+  type:            string;
+  tags?:           string[];
+  thinkingEfforts?: string[];
 }
 
 // â”€â”€ Model transform â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -190,9 +199,11 @@ const transformModelForCompare = (model: AIModel): CompareModel => {
     featureLabel:   type === "video" ? "Video generation"
                   : type === "image" ? "Image generation"
                   : null,
-    companyName:    company,
-    rawModelName:   modelName,
+    companyName:     company,
+    rawModelName:    modelName,
     type,
+    tags:            model.tags,
+    thinkingEfforts: model.thinkingEfforts,
   };
 };
 
@@ -679,10 +690,16 @@ function ModelCard({
       </div>
 
       {/* Badge row - stays at bottom via marginTop auto */}
-      <div style={{ position: "relative", display: "flex", alignItems: "center", paddingTop: 8, gap: 6, width: "100%", marginTop: "auto", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+      <div style={{ position: "relative", display: "flex", flexDirection: "column", paddingTop: 8, gap: 6, width: "100%", marginTop: "auto", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <Chip label={model.tierLabel}    color={tierColor} />
           <Chip label={model.contextLabel} color="red" noCapitalize />
+          {model.thinkingEfforts?.map((e) => (
+            <Chip key={`effort-${e}`} label={e} color="purple" />
+          ))}
+          {model.tags?.map((tag) => (
+            <Chip key={tag} label={tag} color={compareTagColor(tag)} />
+          ))}
         </div>
       </div>
     </div>

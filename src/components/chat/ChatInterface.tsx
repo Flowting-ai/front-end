@@ -357,20 +357,35 @@ export function ChatInterface({
   // Seed model logo + name on assistant messages that have thinking content but no
   // model identity. Covers project chat where model_selected may not fire or the
   // history API doesn't return model_name — same pattern as PersonaChatInterface.
+  // When Muse is active, contextModel is null (it is not an AIModel), so we derive
+  // the identity from museActive/museAdvanced instead.
   useEffect(() => {
-    if (!contextModel) return;
+    const isMuse = museActive && !contextModel;
+    if (!isMuse && !contextModel) return;
     setMessages(prev => {
       const needsPatch = prev.some(m => m.role === 'assistant' && m.thinking && !m.modelName && !m.modelMeta);
       if (!needsPatch) return prev;
-      const { modelName, companyName } = contextModel;
-      const modelId = String(contextModel.modelId ?? contextModel.id ?? '');
+      let modelName: string;
+      let modelId: string;
+      let company: string;
+      let complexity: string | undefined;
+      if (isMuse) {
+        complexity = museAdvanced ? 'advanced' : 'basic';
+        modelName  = museAdvanced ? 'Souvenir Muse (Advanced)' : 'Souvenir Muse (Basic)';
+        modelId    = `muse-${complexity}`;
+        company    = 'Souvenir';
+      } else {
+        modelName = contextModel!.modelName;
+        company   = contextModel!.companyName;
+        modelId   = String(contextModel!.modelId ?? contextModel!.id ?? '');
+      }
       return prev.map(m => {
         if (m.role !== 'assistant' || !m.thinking || m.modelName || m.modelMeta) return m;
-        return { ...m, modelName, modelMeta: { modelId, modelName, company: companyName } };
+        return { ...m, modelName, modelMeta: { modelId, modelName, company, ...(complexity ? { complexity } : {}) } };
       });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, contextModel]);
+  }, [messages, contextModel, museActive, museAdvanced]);
 
   // Estimate how much of the model's context window is currently in use.
   // 1 token ≈ 4 chars — good enough for the 90%+ ring trigger.

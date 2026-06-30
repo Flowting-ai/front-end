@@ -5,9 +5,176 @@ import { Search, X } from "lucide-react";
 import { AnimatePresence, m } from "framer-motion";
 import type { AIModel } from "@/types/ai-model";
 import { LlmIcon } from "@strange-huge/icons/llm";
+import { InformationCircleIcon } from "@strange-huge/icons";
 import { getModelLlmId } from "@/lib/model-icons";
-import { Badge } from "@/components/Badge";
+import { Badge, type BadgeColor } from "@/components/Badge";
+import { Tooltip } from "@/components/Tooltip";
 import { recordModelUsage } from "@/lib/model-usage";
+
+const TAG_PALETTE: BadgeColor[] = ["Green", "Blue", "Purple", "Brown", "Yellow"];
+function tagColor(tag: string): BadgeColor {
+  let h = 0;
+  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0;
+  return TAG_PALETTE[h % TAG_PALETTE.length];
+}
+
+// ── Per-item component so each row can track its own hover state ──────────────
+
+function ModelSelectorItem({
+  model,
+  isSelected,
+  onClick,
+}: {
+  model: AIModel;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const tooltipContent =
+    model.description || (model.thinkingEfforts && model.thinkingEfforts.length > 0) ? (
+      <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {model.description && <span>{model.description}</span>}
+        {model.thinkingEfforts && model.thinkingEfforts.length > 0 && (
+          <span style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+            {model.thinkingEfforts.map((effort) => (
+              <Badge key={effort} label={effort} color="Purple" />
+            ))}
+          </span>
+        )}
+      </span>
+    ) : null;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        width: "100%",
+        padding: "10px 12px",
+        borderRadius: "10px",
+        border: "none",
+        backgroundColor: isSelected ? "var(--blue-50)" : "transparent",
+        cursor: "pointer",
+        textAlign: "left",
+        transition: "background-color 100ms",
+      }}
+    >
+      {/* Avatar ↔ info icon slot */}
+      <Tooltip
+        content={tooltipContent}
+        side="right"
+        maxWidth={220}
+        disabled={!tooltipContent || !isHovered}
+      >
+        <span
+          style={{
+            position: "relative",
+            flexShrink: 0,
+            width: 24,
+            height: 24,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            lineHeight: 0,
+          }}
+        >
+          <AnimatePresence mode="popLayout" initial={false}>
+            {isHovered ? (
+              <m.span
+                key="info"
+                initial={{ scale: 0.7, opacity: 0, filter: "blur(4px)" }}
+                animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+                exit={{ scale: 0.7, opacity: 0, filter: "blur(4px)" }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--neutral-500)",
+                  lineHeight: 0,
+                }}
+              >
+                <InformationCircleIcon size={20} />
+              </m.span>
+            ) : (
+              <m.span
+                key="logo"
+                initial={{ scale: 0.7, opacity: 0, filter: "blur(4px)" }}
+                animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+                exit={{ scale: 0.7, opacity: 0, filter: "blur(4px)" }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                style={{ display: "flex", lineHeight: 0 }}
+              >
+                <LlmIcon
+                  id={getModelLlmId(model.companyName, model.modelName) ?? ""}
+                  variant="color"
+                  size={24}
+                />
+              </m.span>
+            )}
+          </AnimatePresence>
+        </span>
+      </Tooltip>
+
+      {/* Model info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontFamily: "var(--font-body)",
+            fontSize: "13px",
+            fontWeight: "var(--font-weight-medium)",
+            color: "var(--neutral-900)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {model.modelName}
+        </div>
+        {model.description && (
+          <div
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: "12px",
+              color: "var(--neutral-500)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              marginTop: "2px",
+            }}
+          >
+            {model.description}
+          </div>
+        )}
+        {model.tags && model.tags.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+            {model.tags.map((tag) => (
+              <Badge key={tag} label={tag} color={tagColor(tag)} />
+            ))}
+            {model.thinkingEfforts && model.thinkingEfforts.length > 0 &&
+              model.thinkingEfforts.map((effort) => (
+                <Badge key={`effort-${effort}`} label={effort} color="Purple" />
+              ))}
+          </div>
+        )}
+      </div>
+
+      {/* Plan badge */}
+      {model.modelType === "paid" && <Badge label="Pro" color="Blue" />}
+
+      {/* Selected check */}
+      {isSelected && (
+        <span style={{ color: "var(--blue-600)", fontSize: "16px" }}>✓</span>
+      )}
+    </button>
+  );
+}
 
 interface ModelSelectorProps {
   models: AIModel[];
@@ -196,88 +363,16 @@ export function ModelSelector({
                       selectedModel?.modelId === model.modelId;
 
                     return (
-                      <button
+                      <ModelSelectorItem
                         key={`${model.id}-${model.modelId}`}
-                        type="button"
+                        model={model}
+                        isSelected={isSelected}
                         onClick={() => {
                           recordModelUsage(model);
                           onSelect(model);
                           onOpenChange(false);
                         }}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "12px",
-                          width: "100%",
-                          padding: "10px 12px",
-                          borderRadius: "10px",
-                          border: "none",
-                          backgroundColor: isSelected
-                            ? "var(--blue-50)"
-                            : "transparent",
-                          cursor: "pointer",
-                          textAlign: "left",
-                          transition: "background-color 100ms",
-                        }}
-                      >
-                        {/* Model icon */}
-                        <span style={{ flexShrink: 0, lineHeight: 0 }}>
-                          <LlmIcon
-                            id={getModelLlmId(model.companyName, model.modelName) ?? ""}
-                            variant="color"
-                            size={24}
-                          />
-                        </span>
-
-                        {/* Model info */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontFamily: "var(--font-body)",
-                              fontSize: "13px",
-                              fontWeight: "var(--font-weight-medium)",
-                              color: "var(--neutral-900)",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {model.modelName}
-                          </div>
-                          {model.description && (
-                            <div
-                              style={{
-                                fontFamily: "var(--font-body)",
-                                fontSize: "12px",
-                                color: "var(--neutral-500)",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                marginTop: "2px",
-                              }}
-                            >
-                              {model.description}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Plan badge */}
-                        {model.modelType === "paid" && (
-                          <Badge label="Pro" color="Blue" />
-                        )}
-
-                        {/* Selected check */}
-                        {isSelected && (
-                          <span
-                            style={{
-                              color: "var(--blue-600)",
-                              fontSize: "16px",
-                            }}
-                          >
-                            ✓
-                          </span>
-                        )}
-                      </button>
+                      />
                     );
                   })}
                 </div>

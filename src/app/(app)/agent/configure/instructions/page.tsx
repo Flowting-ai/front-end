@@ -13,6 +13,7 @@ import {
   CancelOneIcon,
   QuillWriteOneIcon,
   ArrowUpRightOneIcon,
+  InformationCircleIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
@@ -44,7 +45,15 @@ import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
-import { Badge } from '@/components/Badge'
+import { Badge, type BadgeColor } from '@/components/Badge'
+import { Tooltip } from '@/components/Tooltip'
+
+const TAG_PALETTE_INST: BadgeColor[] = ['Green', 'Blue', 'Purple', 'Brown', 'Yellow']
+function instTagColor(tag: string): BadgeColor {
+  let h = 0
+  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0
+  return TAG_PALETTE_INST[h % TAG_PALETTE_INST.length]
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -160,6 +169,130 @@ function UndoRedoGroup({
         <ArrowRightOneIcon size={20} />
       </button>
     </div>
+  )
+}
+
+// ── Per-item component — each row owns its hover state ────────────────────────
+
+function ModelDropdownItem({
+  model,
+  isSelected,
+  onClick,
+  tagColorFn,
+}: {
+  model: AIModel
+  isSelected: boolean
+  onClick: () => void
+  tagColorFn: (tag: string) => BadgeColor
+}) {
+  const [isHovered, setIsHovered] = useState(false)
+
+  const tooltipContent =
+    model.description || (model.thinkingEfforts && model.thinkingEfforts.length > 0) ? (
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {model.description && <span>{model.description}</span>}
+        {model.thinkingEfforts && model.thinkingEfforts.length > 0 && (
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+            {model.thinkingEfforts.map((effort) => (
+              <Badge key={effort} label={effort} color="Purple" />
+            ))}
+          </span>
+        )}
+      </span>
+    ) : null
+
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={isSelected}
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display:         'flex',
+        alignItems:      'center',
+        gap:             8,
+        width:           '100%',
+        padding:         '8px',
+        border:          'none',
+        borderRadius:    8,
+        cursor:          'pointer',
+        backgroundColor: isSelected ? 'var(--neutral-100)' : isHovered ? 'var(--neutral-50)' : 'transparent',
+        textAlign:       'left',
+        transition:      'background-color 100ms',
+      }}
+    >
+      {/* Provider logo (static) */}
+      <span style={{ flexShrink: 0, lineHeight: 0, marginTop: 1 }}>
+        <LlmIcon id={getModelLlmId(model.companyName, model.modelName) ?? ''} variant="color" size={20} />
+      </span>
+
+      {/* Model name */}
+      <span
+        style={{
+          flex:         '1 0 0',
+          minWidth:     0,
+          fontFamily:   'var(--font-body)',
+          fontWeight:   500,
+          fontSize:     14,
+          lineHeight:   '22px',
+          color:        'var(--neutral-700)',
+          overflow:     'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace:   'nowrap',
+        }}
+      >
+        {model.modelName}
+      </span>
+
+      {/* Right: thinking efforts + tags + info icon */}
+      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: 4 }}>
+        {model.thinkingEfforts?.map((effort) => (
+          <Badge key={`effort-${effort}`} label={effort} color="Purple" />
+        ))}
+        {model.tags?.map((tag) => (
+          <Badge key={tag} label={tag} color={tagColorFn(tag)} />
+        ))}
+
+        {/* Info icon — animates in on hover, tooltip shows description */}
+        <AnimatePresence>
+          {isHovered && tooltipContent && (
+            <m.span
+              key="info-icon"
+              initial={{ opacity: 0, scale: 0.75 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{   opacity: 0, scale: 0.75 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              style={{ display: 'flex', lineHeight: 0 }}
+            >
+              <Tooltip
+                content={tooltipContent}
+                side="top"
+                maxWidth={220}
+                disabled={!isHovered}
+              >
+                <span
+                  style={{
+                    display:        'flex',
+                    alignItems:     'center',
+                    justifyContent: 'center',
+                    width:          20,
+                    height:         20,
+                    color:          'var(--neutral-400)',
+                    lineHeight:     0,
+                    cursor:         'default',
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <InformationCircleIcon size={16} />
+                </span>
+              </Tooltip>
+            </m.span>
+          )}
+        </AnimatePresence>
+      </div>
+    </button>
   )
 }
 
@@ -318,51 +451,13 @@ function ModelDropdown({
                 {providerModels.map((m) => {
                   const isSelected = !!selectedModel && (m.modelId ?? m.id) === (selectedModel.modelId ?? selectedModel.id)
                   return (
-                    <button
+                    <ModelDropdownItem
                       key={String(m.modelId ?? m.id)}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
+                      model={m}
+                      isSelected={isSelected}
                       onClick={() => onSelect(m)}
-                      style={{
-                        display:         'flex',
-                        alignItems:      'center',
-                        gap:             8,
-                        width:           '100%',
-                        padding:         '8px',
-                        border:          'none',
-                        borderRadius:    8,
-                        cursor:          'pointer',
-                        backgroundColor: isSelected ? 'var(--neutral-100)' : 'transparent',
-                        textAlign:       'left',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--neutral-50)'
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'
-                      }}
-                    >
-                      <span style={{ flexShrink: 0, lineHeight: 0 }}>
-                        <LlmIcon id={getModelLlmId(m.companyName, m.modelName) ?? ''} variant="color" size={20} />
-                      </span>
-                      <span
-                        style={{
-                          flex:         '1 0 0',
-                          minWidth:     0,
-                          fontFamily:   'var(--font-body)',
-                          fontWeight:   500,
-                          fontSize:     14,
-                          lineHeight:   '22px',
-                          color:        'var(--neutral-700)',
-                          overflow:     'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace:   'nowrap',
-                        }}
-                      >
-                        {m.modelName}
-                      </span>
-                    </button>
+                      tagColorFn={instTagColor}
+                    />
                   )
                 })}
               </div>

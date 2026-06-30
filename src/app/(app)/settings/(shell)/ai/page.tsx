@@ -33,6 +33,13 @@ function toLlmIconId(provider: string): string {
 type PlanTier = 'standard' | 'pro' | 'power'
 type BadgeColor = 'blue' | 'neutral' | 'red' | 'green' | 'brown' | 'purple'
 
+const TAG_PALETTE_AI: BadgeColor[] = ['green', 'blue', 'purple', 'brown', 'neutral']
+function aiTagColor(tag: string): BadgeColor {
+  let h = 0
+  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0
+  return TAG_PALETTE_AI[h % TAG_PALETTE_AI.length]
+}
+
 const PLAN_LABEL: Record<string, string> = {
   standard: 'Standard',
   pro:      'Pro',
@@ -312,6 +319,12 @@ function ModelCard({ model, toggling, onToggle }: ModelCardProps) {
         <MiniChip label={tierLbl} color={tierClr} />
         {ctxLbl && <MiniChip label={ctxLbl} color="red" />}
         {featLbl && <MiniChip label={featLbl} color="green" />}
+        {model.model_thinking_efforts?.map((e) => (
+          <MiniChip key={`effort-${e}`} label={e} color="purple" />
+        ))}
+        {model.model_tags?.map((tag) => (
+          <MiniChip key={tag} label={tag} color={aiTagColor(tag)} />
+        ))}
       </div>
     </div>
   )

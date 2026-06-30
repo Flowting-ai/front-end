@@ -21,6 +21,12 @@ export interface TooltipProps {
    */
   disabled?: boolean
   className?: string
+  /**
+   * When set, caps the tooltip width and allows content to wrap. Useful for
+   * model descriptions or other multi-line rich content. Without this the
+   * tooltip is single-line (whiteSpace: nowrap).
+   */
+  maxWidth?: number | string
 }
 
 // ── Animation helpers ─────────────────────────────────────────────────────────
@@ -44,6 +50,7 @@ export function Tooltip({
   delayDuration = 400,
   disabled = false,
   className,
+  maxWidth,
 }: TooltipProps) {
   const [open,    setOpen]    = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -100,11 +107,13 @@ export function Tooltip({
                 style={{
                   position:        'relative',
                   display:         'inline-flex',
-                  alignItems:      'center',
+                  alignItems:      maxWidth ? 'flex-start' : 'center',
                   justifyContent:  'center',
+                  flexDirection:   maxWidth ? 'column' : undefined,
                   overflow:        'hidden',
                   borderRadius:    '6px',
-                  padding:         '4px 6px',
+                  padding:         maxWidth ? '6px 8px' : '4px 6px',
+                  maxWidth:        maxWidth,
                   backgroundImage: 'linear-gradient(180deg, var(--tooltip-bg-from) 0%, var(--tooltip-bg-to) 100%)',
                   boxShadow:       'var(--shadow-tooltip)',
                   pointerEvents:   'none',
@@ -121,7 +130,8 @@ export function Tooltip({
                     fontSize:    'var(--font-size-caption)',
                     lineHeight:  'var(--line-height-caption)',
                     color:       'var(--tooltip-text)',
-                    whiteSpace:  'nowrap',
+                    whiteSpace:  maxWidth ? 'normal' : 'nowrap',
+                    wordBreak:   maxWidth ? 'break-word' : undefined,
                     flexShrink:  0,
                   }}
                 >

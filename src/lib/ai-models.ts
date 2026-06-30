@@ -15,6 +15,8 @@ type BackendModel = {
   model_inputs?: string[];
   model_outputs?: string[];
   blocked?: boolean;
+  model_tags?: string[];
+  model_thinking_efforts?: string[];
   id?: number | string;
   modelId?: number | string;
   companyName?: string;
@@ -84,6 +86,8 @@ const normalizeModel = (model: BackendModel): AIModel => ({
   deploymentName: model.deploymentName,
   inputModalities: model.model_inputs ?? model.inputModalities,
   outputModalities: model.model_outputs ?? model.outputModalities,
+  tags: model.model_tags,
+  thinkingEfforts: model.model_thinking_efforts,
 });
 
 export const normalizeModels = (payload: unknown): AIModel[] => {

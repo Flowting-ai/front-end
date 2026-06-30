@@ -22,6 +22,7 @@ import {
   emitPersonaChatTitleUpdated,
 } from "@/hooks/use-sidebar-events";
 import { apiFetch } from "@/lib/api/client";
+import { fetchAllModels } from "@/lib/api/models";
 import { PERSONA_CHAT_STOP_ENDPOINT } from "@/lib/config";
 import { logger } from "@/lib/logger";
 import { useCreditStatus } from "@/hooks/use-credit-status";
@@ -152,6 +153,10 @@ export function PersonaChatInterface({
   // Set when the agent's configured model is blocked/disabled — stores the display
   // name (or ID) of the unavailable model so a notice can be shown to the user.
   const [unavailableModelName, setUnavailableModelName] = useState<string | null>(null);
+  // Set when the model is specifically disabled in Settings (blocked=true) — distinct
+  // from unavailableModelName which covers models that have been retired entirely.
+  // When set, the chat input is blocked and the user is guided to fix the config.
+  const [disabledModelName, setDisabledModelName] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -276,7 +281,7 @@ export function PersonaChatInterface({
       (m.modelId != null && String(m.modelId) !== "undefined" && String(m.modelId) === target) ||
       (m.id      != null && String(m.id)      !== "undefined" && String(m.id)      === target),
     );
-    if (byId) { setUnavailableModelName(null); selectModelRef.current(byId); return; }
+    if (byId) { setUnavailableModelName(null); setDisabledModelName(null); selectModelRef.current(byId); return; }
 
     // Tier 2 — sessionStorage name+company cache written by the Instructions tab
     let cachedModelName: string | undefined;
@@ -290,16 +295,35 @@ export function PersonaChatInterface({
           const byName = models.find(
             m => m.modelName === cached.modelName && m.companyName === cached.companyName,
           );
-          if (byName) { setUnavailableModelName(null); selectModelRef.current(byName); return; }
+          if (byName) { setUnavailableModelName(null); setDisabledModelName(null); selectModelRef.current(byName); return; }
           cachedModelName = cached.modelName;
         }
       }
     } catch { /* ignore */ }
 
-    // Tier 3 — model no longer offered (blocked/disabled); fall back to first available.
-    // Record the unavailable model's display name so a notice can be shown to the user.
-    setUnavailableModelName(cachedModelName ?? target);
+    // Tier 3 — model not in the available (non-blocked) list.
+    // Check the full model list (including blocked) to distinguish between a model that the
+    // user disabled in Settings vs one that has been retired entirely. Disabled models block
+    // the chat and prompt the user to fix the config; retired models fall back silently.
+    const displayName = cachedModelName ?? target;
     selectModelRef.current(models[0]);
+    let cancelled = false;
+    void fetchAllModels().then(all => {
+      if (cancelled) return;
+      const found = all.find(m => m.model_id === target);
+      if (found?.blocked) {
+        setDisabledModelName(displayName);
+        setUnavailableModelName(null);
+      } else {
+        setUnavailableModelName(displayName);
+        setDisabledModelName(null);
+      }
+    }).catch(() => {
+      if (cancelled) return;
+      setUnavailableModelName(displayName);
+      setDisabledModelName(null);
+    });
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeVersionModelId, persona?.modelId, models, selectedModel, versionsLoaded, personaId]);
 
@@ -429,7 +453,7 @@ export function PersonaChatInterface({
   // resolves the sharer for this /persona/{repoId}/chats path. So the individual
   // exhaustion hard-stop must not apply when chatting with a share-funded agent.
   const shareFunded = !!persona?.sourceShareId;
-  const sendBlocked = (creditStatus.blocked && !shareFunded) || !!personaLoadError;
+  const sendBlocked = (creditStatus.blocked && !shareFunded) || !!personaLoadError || !!disabledModelName;
 
   const handleSend = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -576,6 +600,27 @@ export function PersonaChatInterface({
             style={{ display: "none" }}
             aria-hidden="true"
           />
+          {disabledModelName && (
+            <div style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+              padding: "10px 14px",
+              borderRadius: 10,
+              backgroundColor: "var(--color-tag-Red-bg-soft)",
+              border: "1px solid var(--color-tag-Red-text)",
+              marginBottom: 8,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "var(--color-tag-Red-text)", flexShrink: 0, marginTop: 7 }} />
+              <p style={{ flex: "1 0 0", minWidth: 0, margin: 0, fontFamily: "var(--font-body)", fontWeight: 400, fontSize: 13, lineHeight: "20px", color: "var(--color-tag-Red-text)" }}>
+                The <strong>{disabledModelName}</strong> model assigned to this agent is disabled.{" "}
+                {!persona?.sourceShareId
+                  ? (<>To continue, <a href={`/agent/configure/instructions?repoId=${personaId}`} style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}>assign an enabled model</a> in the agent configure page, or <a href="/settings/ai" style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}>enable it in Settings</a>.</>)
+                  : (<><a href="/settings/ai" style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}>Enable it in Settings</a> to continue.</>)
+                }
+              </p>
+            </div>
+          )}
           {unavailableModelName && (
             <div style={{
               display: "flex",
@@ -589,7 +634,7 @@ export function PersonaChatInterface({
             }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "var(--color-tag-Yellow-text)", flexShrink: 0 }} />
               <p style={{ flex: "1 0 0", minWidth: 0, margin: 0, fontFamily: "var(--font-body)", fontWeight: 400, fontSize: 13, lineHeight: "20px", color: "var(--color-tag-Yellow-text)" }}>
-                {`The ${unavailableModelName} model is currently disabled. This agent is using ${selectedModel?.modelName ?? "an available model"} instead.`}
+                {`The ${unavailableModelName} model is no longer available. This agent is using ${selectedModel?.modelName ?? "an available model"} instead.`}
               </p>
             </div>
           )}
@@ -606,9 +651,11 @@ export function PersonaChatInterface({
             placeholder={
               personaLoadError
                 ? "This agent is unavailable."
-                : creditStatus.blocked && !shareFunded
-                  ? "Credits exhausted. Buy a top-up to continue."
-                  : `Message ${persona?.name || "agent"}…`
+                : disabledModelName
+                  ? "Model disabled — update the agent config to continue."
+                  : creditStatus.blocked && !shareFunded
+                    ? "Credits exhausted. Buy a top-up to continue."
+                    : `Message ${persona?.name || "agent"}…`
             }
             addMenu={
               <ChatAddMenu

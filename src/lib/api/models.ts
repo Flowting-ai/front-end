@@ -23,6 +23,7 @@ export interface GetModels {
   model_plan_type:          string;
   model_description:        string;
   model_thinking_efforts?:  string[];
+  model_tags?:              string[];
 }
 
 export interface GetModelsWithStatus extends GetModels {
