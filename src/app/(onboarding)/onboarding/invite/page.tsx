@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
@@ -23,44 +23,57 @@ export default function OnboardingInvitePage() {
   const [emails, setEmails] = useState("");
   const [role, setRole] = useState<InviteRole>("Member");
   const [roleOpen, setRoleOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [continuing, setContinuing] = useState(false);
 
-  const submitOnboarding = async () => {
-    if (loading) return;
-    setLoading(true);
+  const isBusy = inviting || continuing;
+
+  // ── Send invites only ──────────────────────────────────────────────────────
+  const sendInvites = async () => {
+    const parsedEmails = emails.split(/[\n,]+/).map(e => e.trim()).filter(Boolean);
+    if (parsedEmails.length === 0) return;
+
+    // Block inviting own email
+    if (user?.email && parsedEmails.map(e => e.toLowerCase()).includes(user.email.toLowerCase())) {
+      toast.error("You can't invite yourself to the workspace.");
+      return;
+    }
+
+    setInviting(true);
     try {
-      // Send invites best-effort — failure must never block onboarding completion.
-      // Org creation is handled in pricing/confirmation — always before this page.
-      const parsedEmails = emails.split(/[\n,]+/).map(e => e.trim()).filter(Boolean)
-      if (parsedEmails.length > 0) {
-        try {
-          // user.orgId is often absent from /users/me — fall back to listOrganizations.
-          let resolvedOrgId = user?.orgId ?? null
-          if (!resolvedOrgId) {
-            const orgs = await listOrganizations()
-            resolvedOrgId = orgs[0]?.id ?? null
-          }
-          if (resolvedOrgId) {
-            // Get the default team; create one if the org has none yet.
-            let teams = await fetchTeams(resolvedOrgId)
-            if (teams.length === 0) {
-              const newTeam = await createTeam(resolvedOrgId, 'General')
-              teams = [newTeam]
-            }
-            const mappedRole: WorkspaceRole = role === 'Admin' ? 'admin' : 'member'
-            await inviteTeamMembers(resolvedOrgId, teams[0].id, parsedEmails, mappedRole)
-            toast.success(
-              parsedEmails.length === 1
-                ? "Invite sent"
-                : `${parsedEmails.length} invites sent`,
-            )
-          }
-        } catch (inviteErr) {
-          console.error('Team invite failed', inviteErr)
-          toast.error("Couldn't send invites — you can add members later in Org → Members.")
-        }
+      let resolvedOrgId = user?.orgId ?? null;
+      if (!resolvedOrgId) {
+        const orgs = await listOrganizations();
+        resolvedOrgId = orgs[0]?.id ?? null;
       }
+      if (resolvedOrgId) {
+        let teams = await fetchTeams(resolvedOrgId);
+        if (teams.length === 0) {
+          const newTeam = await createTeam(resolvedOrgId, 'General');
+          teams = [newTeam];
+        }
+        const mappedRole: WorkspaceRole = role === 'Admin' ? 'admin' : 'member';
+        await inviteTeamMembers(resolvedOrgId, teams[0].id, parsedEmails, mappedRole);
+        toast.success(
+          parsedEmails.length === 1
+            ? "Invite sent"
+            : `${parsedEmails.length} invites sent`,
+        );
+        setEmails("");
+      }
+    } catch (inviteErr) {
+      console.error('Team invite failed', inviteErr);
+      toast.error("Couldn't send invites — you can add members later in Org → Members.");
+    } finally {
+      setInviting(false);
+    }
+  };
 
+  // ── Complete onboarding and navigate to /welcome ───────────────────────────
+  const completeOnboarding = async () => {
+    if (isBusy) return;
+    setContinuing(true);
+    try {
       // Update the name only when we still have it. The onboarding context is
       // plain in-memory state, and the team flow's full-page redirect to Stripe
       // (between /plans and /confirmation) remounts the provider and wipes it —
@@ -115,9 +128,11 @@ export default function OnboardingInvitePage() {
       console.error("Team onboarding submission failed", err);
       toast.error("Something went wrong. Please try again.");
     } finally {
-      setLoading(false);
+      setContinuing(false);
     }
   };
+
+  const hasEmails = emails.trim().length > 0;
 
   const footer = (
     <div
@@ -148,7 +163,7 @@ export default function OnboardingInvitePage() {
         Know more about Role
       </button>
 
-      {/* Right: logout + skip + continue */}
+      {/* Right: logout + skip + invite + continue */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <Button variant="default" size="sm" onClick={() => void logout()} leftIcon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M13 3v10M6.5 10.5 3.5 8l3-2.5M3.5 8H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
           Log out
@@ -156,17 +171,27 @@ export default function OnboardingInvitePage() {
         <Button
           variant="outline"
           size="sm"
-          disabled={loading}
-          onClick={() => void submitOnboarding()}
+          disabled={isBusy}
+          onClick={() => void completeOnboarding()}
         >
           Skip for now
         </Button>
         <Button
+          variant="secondary"
           size="sm"
-          loading={loading}
-          onClick={() => void submitOnboarding()}
+          loading={inviting}
+          disabled={!hasEmails || isBusy}
+          onClick={() => void sendInvites()}
         >
-          Send Invite
+          Invite
+        </Button>
+        <Button
+          size="sm"
+          loading={continuing}
+          disabled={isBusy}
+          onClick={() => void completeOnboarding()}
+        >
+          Complete Onboarding
         </Button>
       </div>
     </div>

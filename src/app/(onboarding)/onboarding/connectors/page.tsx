@@ -29,7 +29,7 @@ const CONNECTORS: ConnectorDef[] = [
   { id: "clickup",      name: "ClickUp",       category: "Project Management", logoPath: "/connector-logos/clickup.svg"            },
   { id: "googledrive",  name: "Google Drive",  category: "Storage",            logoPath: "/connector-logos/google-drive.svg"       },
   { id: "one_drive",    name: "OneDrive",      category: "Storage",            logoPath: "/connector-logos/microsoft-onedrive.svg" },
-  { id: "dropbox",      name: "Dropbox",       category: "Storage",            logoPath: "/connector-logos/dropbox.svg"            },
+  { id: "gmail",        name: "Gmail",         category: "Messaging",          logoPath: "/connector-logos/gmail.svg"              },
 ];
 
 // ── Card ────────────────────────────────────────────────────────────────────────

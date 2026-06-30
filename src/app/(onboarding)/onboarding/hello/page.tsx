@@ -18,7 +18,6 @@ const ROLES: OnboardingRole[] = [
   "Engineer",
   "Operator",
   "Student / Researcher",
-  "Other",
 ];
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -117,7 +116,7 @@ function RoleSelect({
 export default function OnboardingHelloPage() {
   const { push } = useRouter();
   const { isHydrated, isAuthenticated, user, logout } = useAuth();
-  const { data, setFirstName, setLastName, setNickname, setRole, setRoleOther } = useOnboarding();
+  const { data, setFirstName, setLastName, setNickname, setRole } = useOnboarding();
   const [isSaving, setIsSaving] = useState(false);
 
   // Pre-fill name from the authenticated profile, skipping values that look like
@@ -144,8 +143,7 @@ export default function OnboardingHelloPage() {
   const canContinue =
     data.firstName.trim().length > 0 &&
     data.lastName.trim().length > 0 &&
-    data.role !== null &&
-    (data.role !== "Other" || data.roleOther.trim().length > 0);
+    data.role !== null;
 
   const handleContinue = async () => {
     if (!canContinue || isSaving) return;
@@ -210,21 +208,6 @@ export default function OnboardingHelloPage() {
           <RoleSelect value={data.role} onChange={setRole} />
         </div>
 
-        {/* Other — free-text detail, captured and sent to /memory/user on finish */}
-        {data.role === "Other" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <FieldLabel>Tell us in one line — we&apos;ll route accordingly</FieldLabel>
-            <InputField
-              label="Your role"
-              showLabel={false}
-              placeholder="e.g. Product manager at a B2B SaaS"
-              value={data.roleOther}
-              onChange={setRoleOther}
-              fluid
-              autoFocus
-            />
-          </div>
-        )}
       </div>
     </OnboardingScreen>
   );
