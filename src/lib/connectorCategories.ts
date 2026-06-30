@@ -28,6 +28,9 @@ const SLUG_CATEGORY: Record<string, ConnectorCategory> = {
   intercom: 'CRM & Sales',
   customerio: 'CRM & Sales',
   'modjo-ai': 'CRM & Sales',
+  richpanel: 'CRM & Sales',
+  'rich-panel': 'CRM & Sales',
+  rich_panel: 'CRM & Sales',
 
   // Marketing & Ads
   googleads: 'Marketing & Ads',
@@ -43,6 +46,18 @@ const SLUG_CATEGORY: Record<string, ConnectorCategory> = {
   klaviyo: 'Commerce & Payments',
   'shipstation-v2': 'Commerce & Payments',
   'triple-whale': 'Commerce & Payments',
+  quickbooks: 'Commerce & Payments',
+  'quick-books': 'Commerce & Payments',
+  quick_books: 'Commerce & Payments',
+  'intuit-quickbooks': 'Commerce & Payments',
+  intuitquickbooks: 'Commerce & Payments',
+  intuit_quickbooks: 'Commerce & Payments',
+  'zoho-books': 'Commerce & Payments',
+  zohobooks: 'Commerce & Payments',
+  zoho_books: 'Commerce & Payments',
+  shipstation: 'Commerce & Payments',
+  'ship-station': 'Commerce & Payments',
+  ship_station: 'Commerce & Payments',
 
   // Analytics & Data
   amplitude: 'Analytics & Data',
@@ -68,6 +83,9 @@ const SLUG_CATEGORY: Record<string, ConnectorCategory> = {
   googledocs: 'Documents & Files',
   googlesheets: 'Documents & Files',
   googledrive: 'Documents & Files',
+  'google-slides': 'Documents & Files',
+  googleslides: 'Documents & Files',
+  google_slides: 'Documents & Files',
   box: 'Documents & Files',
   one_drive: 'Documents & Files',
   sharepoint: 'Documents & Files',
@@ -86,6 +104,10 @@ const SLUG_CATEGORY: Record<string, ConnectorCategory> = {
   microsoft_teams: 'Communication',
   whatsapp: 'Communication',
   zoom: 'Communication',
+  twilio: 'Communication',
+  'google-meet': 'Communication',
+  googlemeet: 'Communication',
+  google_meet: 'Communication',
 
   // Scheduling
   googlecalendar: 'Scheduling',
