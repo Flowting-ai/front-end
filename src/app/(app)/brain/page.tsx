@@ -2752,6 +2752,16 @@ function BrainPageInner() {
         onClose:  () => {
           closed = true
           if (activeRunAbortRef.current === controller) activeRunAbortRef.current = null
+          if (terminalEventReceived && !streamErrored && !controller.signal.aborted) {
+            // Terminal event received, but scheduleCompletion() may have been
+            // skipped by a guard (enteredNodeFailedRef, waitingForPlanApprovalRef).
+            // If phase is still live with no pending completion timer, force it.
+            const cur = phaseRef.current
+            if ((cur === 'streaming' || cur === 'thinking') && !completeTimerRef.current) {
+              scheduleCompletion()
+            }
+            return
+          }
           if (!terminalEventReceived && !streamErrored && !controller.signal.aborted) {
             setStreamError('Brain disconnected before the run finished. Please try again.')
             setPhase('failed')
@@ -2920,7 +2930,20 @@ function BrainPageInner() {
         },
         onClose:  () => {
           abortRef.current = null
-          if (terminalEventReceived || streamErrored) return
+          if (streamErrored) return
+          if (terminalEventReceived) {
+            // Terminal signal received, but scheduleCompletion() may have been
+            // skipped by a guard (enteredNodeFailedRef, waitingForPlanApprovalRef).
+            // Only apply safety net when this stream ended naturally (not aborted
+            // by a new send, which sets controller.signal.aborted).
+            if (!controller.signal.aborted) {
+              const cur = phaseRef.current
+              if ((cur === 'streaming' || cur === 'thinking') && !completeTimerRef.current) {
+                scheduleCompletion()
+              }
+            }
+            return
+          }
           const current = phaseRef.current
           const safelyWaitingForUser = current === 'paused' || current === 'cancelled' || current === 'failed'
           if (durablePlanProposed || safelyWaitingForUser) return
@@ -2944,7 +2967,7 @@ function BrainPageInner() {
       setStreamError(msg)
       setPhase('failed')
     }
-  }, [handleNamedEvent, handleInlineEvent, replace])
+  }, [handleNamedEvent, handleInlineEvent, scheduleCompletion, replace])
 
   // ── Remap local schedule id → backend task id after stream completes ──────────
   // When a schedule is created via the modal, a local temp id is used until Brain

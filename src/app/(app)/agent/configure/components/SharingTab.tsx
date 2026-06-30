@@ -473,7 +473,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
           {/* Team */}
           <div style={{
             borderRadius: 12, overflow: 'hidden',
-            opacity: !orgId || editableTeams.length === 0 ? 0.38 : visibility === 'team' ? 1 : 0.45,
+            opacity: !orgId || editableTeams.length === 0 ? 0.38 : 1,
             backgroundColor: visibility === 'team' ? '#faf9f7' : 'white',
             boxShadow: visibility === 'team'
               ? '0px 0px 0px 2px #1a1916'

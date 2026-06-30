@@ -1332,40 +1332,6 @@ export default function ConnectorsPage() {
             </Tabs>
           </div>
 
-          {/* Suggestions toggle */}
-          <div style={{
-            border:       '1px solid var(--neutral-200)',
-            borderRadius: 16,
-            boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-            padding:      '14px 20px',
-            display:      'flex',
-            alignItems:   'center',
-            gap:          12,
-          }}>
-            <Switch checked={suggestionsOn} onCheckedChange={setSuggestionsOn} />
-            <div style={{ flex: '1 0 0', minWidth: 0 }}>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize:   14,
-                lineHeight: '22px',
-                color:      'var(--neutral-900)',
-                margin:     0,
-              }}>
-                Surface connector suggestions in chat
-              </p>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize:   14,
-                lineHeight: '22px',
-                color:      'var(--neutral-500)',
-                margin:     0,
-              }}>
-                Brain proactively suggests relevant connectors based on what you&apos;re working on
-              </p>
-            </div>
-          </div>
 
           {/* Main card */}
           <div style={{
