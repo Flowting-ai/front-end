@@ -166,7 +166,7 @@ export default function OnboardingInvitePage() {
           loading={loading}
           onClick={() => void submitOnboarding()}
         >
-          Continue
+          Send Invite
         </Button>
       </div>
     </div>

@@ -240,11 +240,26 @@ export function fetchPersonas(): Promise<Persona[]> {
   }
   if (_fetchPersonasInFlight) return _fetchPersonasInFlight
   _fetchPersonasInFlight = apiFetchJson<PersonaRepoResponse[]>(PERSONAS_ENDPOINT)
-    .then(list => {
+    .then(async list => {
       const normalized = list.map(normalizeRepo)
-      _personasCache = normalized
+      // The list endpoint omits the real deploy set (team_ids is always []) to stay
+      // cheap, so team-context filtering can't trust it. Enrich team-visibility
+      // personas from the (cached) detail endpoint, which is authoritative. An empty
+      // team_ids means "shared to no team" — never "all teams".
+      const enriched = await Promise.all(
+        normalized.map(async p => {
+          if (p.visibility !== 'team') return p
+          try {
+            const repo = await getPersonaRepoWithCache(p.id)
+            return { ...p, teamIds: repo.team_ids ?? [] }
+          } catch {
+            return p
+          }
+        }),
+      )
+      _personasCache = enriched
       _personasCacheTime = Date.now()
-      return normalized
+      return enriched
     })
     .finally(() => { _fetchPersonasInFlight = null })
   return _fetchPersonasInFlight
@@ -260,12 +275,11 @@ export function personasForTeamContext(
   teamId: string | null | undefined,
 ): Persona[] {
   if (!teamId) return personas
-  // The list endpoint never returns team_ids (always []), so when teamIds is
-  // empty we trust the visibility flag rather than dropping the persona entirely.
-  // If team_ids are ever populated by the list endpoint, the stricter check kicks in.
+  // An agent belongs to a team only if it was explicitly deployed there. teamIds
+  // is authoritative here (fetchPersonas enriches team-visibility personas from the
+  // detail endpoint), so an unassigned agent must NOT leak into every team.
   return personas.filter(p =>
-    p.visibility === 'team' &&
-    (p.teamIds.length === 0 || p.teamIds.includes(teamId))
+    p.visibility === 'team' && p.teamIds.includes(teamId)
   )
 }
 

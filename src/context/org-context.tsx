@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/context/auth-context'
 import { fetchTeams, bustTeamsCache } from '@/lib/api/teams'
 import { getOrg, getOrgPlan, listMembers, listOrganizations } from '@/lib/api/organization'
@@ -134,9 +134,36 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
 
   const [teams,        setTeams]        = useState<Team[]>([])
   const [teamsLoading, setTeamsLoading] = useState(false)
-  const [activeTeamId, setActiveTeamId] = useState<string | null>(null)
+  // activeTeamId persists across reloads (per org) so the chosen team — and the
+  // team-scoped views that key off it, like /agents — survive a refresh instead
+  // of silently resetting to "all".
+  const [activeTeamId, _setActiveTeamId] = useState<string | null>(null)
+  const restoredOrgRef = useRef<string | null>(null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   const [teamsRefreshToken, setTeamsRefreshToken] = useState(0)
+
+  const activeTeamStorageKey = (oid: string) => `flowting:activeTeam:${oid}`
+
+  const setActiveTeamId = useCallback((id: string | null) => {
+    _setActiveTeamId(id)
+    if (typeof window === 'undefined' || !orgId) return
+    try {
+      if (id) localStorage.setItem(activeTeamStorageKey(orgId), id)
+      else localStorage.removeItem(activeTeamStorageKey(orgId))
+    } catch { /* ignore quota / disabled storage */ }
+  }, [orgId])
+
+  // Restore the persisted team once per org. Runs before teams finish loading so
+  // team-scoped pages render their correct content immediately on a fresh load.
+  useEffect(() => {
+    if (!orgId || typeof window === 'undefined') return
+    if (restoredOrgRef.current === orgId) return
+    restoredOrgRef.current = orgId
+    try {
+      const saved = localStorage.getItem(activeTeamStorageKey(orgId))
+      if (saved) _setActiveTeamId(saved)
+    } catch { /* ignore */ }
+  }, [orgId])
 
   // Fetch org name + current user role
   const [roleResolved, setRoleResolved] = useState(false)
@@ -220,6 +247,13 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       .catch(console.error)
       .finally(() => setTeamsLoading(false))
   }, [orgId, teamsRefreshToken])
+
+  // Drop a persisted team that no longer exists (deleted while away). 'personal'
+  // is a valid sentinel, not a team id, so it's exempt.
+  useEffect(() => {
+    if (teamsLoading || !activeTeamId || activeTeamId === 'personal') return
+    if (!teams.some(t => t.id === activeTeamId)) setActiveTeamId(null)
+  }, [teams, teamsLoading, activeTeamId, setActiveTeamId])
 
   function refreshTeams() {
     if (orgId) bustTeamsCache(orgId)
