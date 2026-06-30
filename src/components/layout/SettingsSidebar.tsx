@@ -178,7 +178,7 @@ export function SettingsSidebar() {
           padding:       '8px 16px 16px',
         }}
       >
-        {/* My Settings section */}
+        {/* My Settings section  - Personal Settings */}
         <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -191,9 +191,9 @@ export function SettingsSidebar() {
                 margin:     0,
                 whiteSpace: 'nowrap',
               }}>
-                My Settings
+                Personal Settings
               </p>
-              <Badge label="Individual" color="Blue" />
+              {/* <Badge label="Individual" color="Blue" /> */}
             </div>
             {MY_SETTINGS_ITEMS.map(item => (
               item.disabled ? (

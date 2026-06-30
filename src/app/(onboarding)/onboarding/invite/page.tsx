@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { useOnboarding, deriveRoleFit } from "@/context/onboarding-context";
 import { Button } from "@/components/Button";
@@ -19,8 +18,7 @@ const INVITE_ROLES = ["Member", "Admin"] as const;
 type InviteRole = (typeof INVITE_ROLES)[number];
 
 export default function OnboardingInvitePage() {
-  const { push } = useRouter();
-  const { refreshUser, logout, user } = useAuth();
+  const { logout, user } = useAuth();
   const { data } = useOnboarding();
   const [emails, setEmails] = useState("");
   const [role, setRole] = useState<InviteRole>("Member");
@@ -28,6 +26,7 @@ export default function OnboardingInvitePage() {
   const [loading, setLoading] = useState(false);
 
   const submitOnboarding = async () => {
+    if (loading) return;
     setLoading(true);
     try {
       // Send invites best-effort — failure must never block onboarding completion.
@@ -62,16 +61,34 @@ export default function OnboardingInvitePage() {
         }
       }
 
-      await Promise.all([
-        updateUser({ first_name: data.firstName, last_name: data.lastName }),
-        updateOnboarding({
-          user_role: data.role ?? null,
-          role_fit: deriveRoleFit(data.accountType, data.companySize),
-          onboarding_completed: true,
-        }),
-      ]);
+      // Update the name only when we still have it. The onboarding context is
+      // plain in-memory state, and the team flow's full-page redirect to Stripe
+      // (between /plans and /confirmation) remounts the provider and wipes it —
+      // so by this step data.firstName/lastName are usually "". Sending those
+      // blanks would clobber the real name already saved at the hello step. This
+      // write is best-effort and must never block completion, so don't await it.
+      const namePayload: { first_name?: string; last_name?: string } = {};
+      if (data.firstName.trim()) namePayload.first_name = data.firstName.trim();
+      if (data.lastName.trim())  namePayload.last_name  = data.lastName.trim();
+      if (Object.keys(namePayload).length > 0) void updateUser(namePayload);
 
-      // Persist "Other" role detail as a user memory.
+      // Persisting completion is the ONLY call that gates entry to the app — the
+      // (app) OnboardingGuard and the server proxy both require it. Await just
+      // this one and verify it actually persisted; everything else is best-effort.
+      const result = await updateOnboarding({
+        user_role: data.role ?? null,
+        role_fit: deriveRoleFit(data.accountType, data.companySize),
+        onboarding_completed: true,
+      });
+
+      if (!result?.completed) {
+        // Completion didn't persist — navigating now would just bounce off the
+        // onboarding guard. Surface the failure instead of leaving the user stuck.
+        toast.error("Couldn't finish setup. Please try again.");
+        return;
+      }
+
+      // Persist "Other" role detail as a user memory (fire-and-forget).
       if (data.role === "Other" && data.roleOther.trim().length > 0) {
         void apiFetch(MEMORY_USER_ENDPOINT, {
           method: "POST",
@@ -79,15 +96,24 @@ export default function OnboardingInvitePage() {
         });
       }
 
-      await refreshUser();
-
-      const ownerParam = data.firstName.trim() ? `owner=${encodeURIComponent(data.firstName.trim())}` : '';
+      // Land on /welcome with a FULL-PAGE navigation, not router.push. A soft
+      // client transition here gets aborted: the setLoading(false) in `finally`
+      // is an urgent update that interrupts the in-flight push, so the URL never
+      // commits — the /welcome RSC is fetched but discarded and the user is left
+      // on /onboarding/invite. A hard navigation can't be interrupted, re-hydrates
+      // auth from the now-persisted onboarding state, and is gated cleanly by the
+      // proxy (which already allows /welcome once onboarding_completed=true).
+      // Prefer the persisted profile name (the onboarding context is wiped by the
+      // team flow's full-page redirect to Stripe).
+      const ownerName = (user?.firstName ?? data.firstName).trim();
+      const ownerParam = ownerName ? `owner=${encodeURIComponent(ownerName)}` : '';
       const nameParam  = data.companyName.trim() ? `name=${encodeURIComponent(data.companyName.trim())}` : '';
       const connParam  = `connectors=${data.connectorCount ?? 0}`;
       const query      = [ownerParam, nameParam, connParam].filter(Boolean).join('&');
-      push(`/welcome${query ? `?${query}` : ''}`);
+      window.location.href = `/welcome${query ? `?${query}` : ''}`;
     } catch (err) {
       console.error("Team onboarding submission failed", err);
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -166,7 +192,7 @@ export default function OnboardingInvitePage() {
             margin: 0,
           }}
         >
-          Email addresses (comma or newline separated):
+          Email addresses :
         </p>
 
         {/* Email textarea */}
@@ -182,7 +208,7 @@ export default function OnboardingInvitePage() {
           <textarea
             value={emails}
             onChange={(e) => setEmails(e.target.value)}
-            placeholder="Email addresses, comma or newline separated"
+            placeholder="Enter email addresses of your teammates (separated by commas)"
             rows={5}
             style={{
               width: "100%",

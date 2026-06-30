@@ -4,7 +4,6 @@ import { Suspense, useMemo, useState, useEffect, useRef, useCallback, type CSSPr
 import { m, AnimatePresence } from 'framer-motion'
 import { springs } from '@/lib/springs'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useSearch } from '@/context/search-context'
 import Image from 'next/image'
 import {
   BrainShell,
@@ -32,12 +31,8 @@ import {
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
 import { ReasoningContent } from '@/components/chat/ReasoningBlock'
-import { useAuth } from '@/context/auth-context'
-import { useOrg } from '@/context/org-context'
 import { useCreditStatus } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
-import { AccountMenu } from '@/components/AccountMenu'
-import { BrainSidebarSections } from './BrainSidebarSections'
 import type { Phase, PlanStep, StepStatus } from '@/templates/Brain/lib/phase'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
 import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
@@ -47,11 +42,8 @@ import { ApprovalCard } from '@/components/ApprovalCard'
 import { Dropdown } from '@/components/Dropdown'
 import { Chip } from '@/components/Chip'
 import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon, ImageDownloadTwoIcon, PinIcon } from '@strange-huge/icons'
-import { RoleBadge } from '@/components/RoleBadge'
-import type { WorkspaceRole } from '@/components/RoleBadge'
-import { Tooltip } from '@/components/Tooltip'
 import { useFileUpload } from '@/hooks/use-file-upload'
-import { emitBrainThreadCreated, emitBrainThreadTitleUpdated } from '@/hooks/use-sidebar-events'
+import { emitBrainThreadCreated, emitBrainThreadTitleUpdated, BRAIN_NEW_THREAD_EVENT } from '@/hooks/use-sidebar-events'
 import { fetchPersonas, getVersion } from '@/lib/api/personas'
 import type { PinFolder } from '@/lib/api/pins'
 import { usePinboard } from '@/context/pinboard-context'
@@ -1298,66 +1290,13 @@ function ExternalOutputBlock({ actions }: { actions: ExternalOutputAction[] }) {
 function BrainPageInner() {
   const searchParams = useSearchParams()
   const { push, replace } = useRouter()
-  const { user, logout, isAuthenticated } = useAuth()
-  const { orgId, org, plan, currentUserRole, orgRole } = useOrg()
   // Individual credit/topup status — hard send-gate when exhausted.
   const creditStatus = useCreditStatus()
   const chatIdFromUrl = searchParams.get('id')
 
-  const displayName = user
-    ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
-    : ''
-
-  const planLabel = orgId
-    ? `Teams | ${org?.name ?? 'Teams'}`
-    : user?.planType
-      ? user.planType.charAt(0).toUpperCase() + user.planType.slice(1)
-      : user?.isTrial
-        ? 'Free Trial'
-        : 'No Plan Selected'
-
-  // Credits: org pool when in a team/org, personal balance for individuals.
-  // Mirrors LeftSidebar exactly — these two pools must never be mixed.
-  const accountCredits = orgId
-    ? (plan ? org?.creditPool?.remaining : undefined)
-    : (user?.creditsRemaining ?? undefined)
-
-  // Role badge — shown in account menu trigger to the left of the settings icon.
-  // Uses the same hierarchy as LeftSidebar: orgRole takes precedence for owner/admin,
-  // currentUserRole (highest team role) for editor/member.
-  const ROLE_RANK: Record<string, number> = { owner: 4, admin: 3, editor: 2, member: 1 }
-  const displayRole = (orgRole === 'owner' || orgRole === 'admin')
-    ? orgRole
-    : (currentUserRole ?? (orgId ? 'member' : undefined))
-  const roleTooltip = displayRole
-    ? displayRole.charAt(0).toUpperCase() + displayRole.slice(1)
-    : undefined
-  const roleBadge = orgId && displayRole ? (
-    <Tooltip content={roleTooltip} side="top" delayDuration={300}>
-      <span style={{ display: 'inline-flex' }}>
-        <RoleBadge role={displayRole as WorkspaceRole} showLabel={false} mode="solar" />
-      </span>
-    </Tooltip>
-  ) : undefined
-
-  const orgBadgeSublabel = orgId && orgRole
-    ? orgRole.charAt(0).toUpperCase() + orgRole.slice(1)
-    : undefined
-
-  // ── Sidebar collapse state — shared via localStorage with all other pages ─────
-
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    typeof window !== 'undefined' ? localStorage.getItem('sidebar_collapsed') === 'true' : false,
-  )
-  const handleSidebarCollapse = useCallback(() => {
-    setSidebarCollapsed((collapsed) => {
-      const next = !collapsed
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('sidebar_collapsed', String(next))
-      }
-      return next
-    })
-  }, [])
+  // The account menu, role badge, plan label, credits, search and sidebar-collapse
+  // state all live in the shared LeftSidebar (owned by AppLayout) now — Brain renders
+  // the same sidebar instance as Chats / Agents, so none of that is duplicated here.
 
   // ── Chat identity ────────────────────────────────────────────────────────────
 
@@ -1396,9 +1335,6 @@ function BrainPageInner() {
 
   const [showCounterInput, setShowCounterInput] = useState(false)
   const [counterText, setCounterText]           = useState('')
-
-  // Global search — provided by SearchProvider in (app)/layout.tsx
-  const { searchOpen, openSearch } = useSearch()
 
   // Disables Approve/Counter/Cancel between the click and the server's reply,
   // so a double-click can't fire two POSTs against the same prompt_id (the
@@ -3850,6 +3786,14 @@ function BrainPageInner() {
     if (chatIdFromUrl) push('/brain')
   }, [chatIdFromUrl, push])
 
+  // The "New thread" button lives in the shared LeftSidebar (AppLayout) now, so it
+  // can't call handleNewChat directly — it emits an event we run the reset from.
+  useEffect(() => {
+    const handle = () => handleNewChat()
+    window.addEventListener(BRAIN_NEW_THREAD_EVENT, handle)
+    return () => window.removeEventListener(BRAIN_NEW_THREAD_EVENT, handle)
+  }, [handleNewChat])
+
   // ── Thread: history from server (reload path) ─────────────────────────────────
 
   const historyElements = historyMessages.map((msg) => {
@@ -4711,87 +4655,6 @@ function BrainPageInner() {
             onAttachmentsChange={setBrainAttachments}
           />
         ),
-      }}
-      sidebarProps={{
-        defaultBodySection: 'brain',
-        hideProjects:       true,
-        defaultCollapsed:   sidebarCollapsed,
-        onCollapse:         handleSidebarCollapse,
-        recentItems: (
-          <BrainSidebarSections
-            activeChatId={chatId}
-            onThreadClick={(id) => { replace(`/brain?id=${id}`) }}
-          />
-        ),
-        newChatLabel:    'New brain thread',
-        onNewChat:       handleNewChat,
-        // The sidebar is in the 'brain' section, so its New button fires
-        // onNewBrainThread — wire it to the same handler that starts a fresh
-        // brain thread (without this, the button is a no-op).
-        onNewBrainThread: handleNewChat,
-        onChatTabClick:         () => push('/chat'),
-        onChatsClick:           () => { toast.info("Opening Chat Board", { id: 'nav' }); push('/chats') },
-        onManageAllThreadsClick: () => push('/brain/threads'),
-        onSchedulesClick:       () => push('/brain/schedules'),
-        onPersonasClick: () => { toast.info("Opening Agents", { id: 'nav' }); push('/agents') },
-        onProjectsClick: () => { toast.info("Opening Projects", { id: 'nav' }); push('/projects') },
-        onBrainClick:    () => push('/brain'),
-        onSearch:        openSearch,
-        searchActive:    searchOpen,
-        orgId:           orgId ?? undefined,
-        orgName:         orgId ? org.name : undefined,
-        showAdmin:       Boolean(orgId) && (orgRole === 'owner' || orgRole === 'admin'),
-        orgBadgeSublabel,
-        onOrganisationClick: () => push('/org/general'),
-        onAdminSectionClick: (id: string) => {
-          const routes: Record<string, string> = {
-            general:           '/org/general',
-            members:           '/org/members',
-            teams:             '/org/teams',
-            'plans-usage':     '/org/plans',
-            connectors:        '/settings/connectors',
-            'model-providers': '/settings/ai',
-          }
-          const href = routes[id]
-          if (href) { push(href); return }
-          const coming: Record<string, string> = { folders: 'Folders', websites: 'Websites', triggers: 'Triggers' }
-          toast.info(`${coming[id] ?? id} — coming soon`, { id: 'nav' })
-        },
-        accountMenu: (collapsed) => {
-          if (!user) {
-            return collapsed ? (
-              <div style={{ padding: '12px 8px', display: 'flex', justifyContent: 'center' }}>
-                <div className="kaya-skeleton" style={{ width: 32, height: 32, borderRadius: 8 }} />
-              </div>
-            ) : (
-              <div style={{ padding: '8px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div className="kaya-skeleton" style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0 }} />
-                <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <div className="kaya-skeleton" style={{ height: 14, width: '60%', borderRadius: 4 }} />
-                  <div className="kaya-skeleton" style={{ height: 11, width: '42%', borderRadius: 4 }} />
-                </div>
-              </div>
-            )
-          }
-          return (
-            <AccountMenu
-              name={displayName || 'Account'}
-              plan={planLabel}
-              credits={accountCredits}
-              avatarSrc={user?.profilePicture ?? undefined}
-              collapsed={collapsed}
-              panelWidth={274}
-              roleBadge={roleBadge}
-              placement="top-start"
-              onProfile={() => push('/settings/account')}
-              onUpgradePlan={() => push('/settings/billing')}
-              onSettings={() => push('/settings')}
-              onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push('/org/general') : undefined}
-              onHelp={() => push('/settings/help')}
-              onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
-            />
-          )
-        },
       }}
     >
       {chatIdFromUrl || hasContent ? (

@@ -208,18 +208,43 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}): Pro
   const response = await doFetch(path, options);
 
   if (response.status === 401 && typeof window !== "undefined") {
-    const refreshedToken = await getAuth0AccessToken();
-    if (refreshedToken) {
-      const retryResponse = await doFetch(path, options);
-      if (retryResponse.status !== 401) {
-        return retryResponse;
+    // Try to recover the session with a fresh token. A single failed refresh is
+    // often transient — e.g. a token-rotation race when several calls refresh at
+    // once right after a full-page redirect back from Stripe checkout (the
+    // in-memory token is wiped by the reload, so every call re-mints at once).
+    // Make a couple of bounded attempts, pausing between them to let a concurrent
+    // refresh settle the session cookie, before concluding the session is dead.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const refreshedToken = await getAuth0AccessToken();
+      if (refreshedToken) {
+        const retryResponse = await doFetch(path, options);
+        if (retryResponse.status !== 401) {
+          return retryResponse;
+        }
       }
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
-    // Token refresh failed - session is truly expired.
-    console.error("[apiFetch] session expired (401)");
-    toast.error("Session expired", { description: "Signing you out…" });
-    window.dispatchEvent(new Event("auth:session-expired"));
+    // Never tear down the session while the user is in the onboarding / checkout
+    // flow. A spurious sign-out here — e.g. right after a successful payment on
+    // the pricing confirmation screen — is far more damaging than one failed
+    // call: it drops the user out mid-signup, and because team onboarding hasn't
+    // persisted its progress yet, they resume at the wrong step. The page's own
+    // logic already tolerates a failed call, and the next call / the proactive
+    // 30s refresh recovers the token, so return the 401 and let onboarding carry
+    // on rather than dispatching auth:session-expired.
+    const currentPath = window.location.pathname;
+    const inOnboardingOrCheckout =
+      currentPath.startsWith("/onboarding") ||
+      currentPath.includes("/billing/confirmation");
+    if (inOnboardingOrCheckout) {
+      console.warn("[apiFetch] 401 during onboarding/checkout — not signing out");
+    } else {
+      // Token refresh failed - session is truly expired.
+      console.error("[apiFetch] session expired (401)");
+      toast.error("Session expired", { description: "Signing you out…" });
+      window.dispatchEvent(new Event("auth:session-expired"));
+    }
   }
 
   return response;

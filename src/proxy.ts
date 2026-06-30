@@ -18,6 +18,26 @@ let hasLoggedOnboardingFetchFailure = false;
 
 const ONBOARDING_ENDPOINT_PATH = "/users/me";
 
+/**
+ * True when the account already holds an active team subscription. The team
+ * onboarding flow takes payment (at /onboarding/plans → Stripe) *before* it
+ * persists `role_fit` (only written when the workspace form is submitted), so a
+ * paid-but-unfinished team user has an active "teams"/"enterprise" subscription
+ * with no `role_fit` yet. Mirrors the backend's own "already subscribed" guard
+ * (services/stripe/service.py), which keys off plan_type + active status.
+ */
+function hasActiveTeamSubscription(root: Record<string, unknown>): boolean {
+  const plan =
+    root.plan && typeof root.plan === "object"
+      ? (root.plan as Record<string, unknown>)
+      : root;
+  const planType =
+    typeof plan.plan_type === "string" ? plan.plan_type : null;
+  const status =
+    typeof plan.subscription_status === "string" ? plan.subscription_status : null;
+  return (planType === "teams" || planType === "enterprise") && status === "active";
+}
+
 function determineNextOnboardingPath(root: Record<string, unknown>): string {
   const onboarding =
     root.onboarding && typeof root.onboarding === "object"
@@ -43,7 +63,15 @@ function determineNextOnboardingPath(root: Record<string, unknown>): string {
   // Resume keys off the backend fields each step writes; both branches finish
   // on the import step.
   if (!filled("user_role", "userRole")) return "/onboarding/hello";
-  if (!filled("role_fit", "roleFit")) return "/onboarding/account-type";
+  if (!filled("role_fit", "roleFit")) {
+    // A team account that has already paid but not yet submitted the workspace
+    // form has no `role_fit` persisted. Sending it back to account-type pushes it
+    // into the plans page again, where re-running checkout hits the backend's
+    // "already subscribed" guard — a dead end. Resume at the workspace step,
+    // which persists `role_fit` and finishes team setup, instead.
+    if (hasActiveTeamSubscription(root)) return "/onboarding/workspace";
+    return "/onboarding/account-type";
+  }
   return "/onboarding/import";
 }
 
@@ -190,6 +218,12 @@ export default async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    // Exclude framework internals AND any path with a file extension (the
+    // `.*\..*` alternative). Static assets under public/ — connector-logos,
+    // persona-avatars, icons, *.svg/*.png/*.mjs — must NOT pass through the
+    // onboarding/auth gate; otherwise an <img> request gets a 302 to /auth/login
+    // (or the next onboarding step) instead of the file, rendering as a broken
+    // image. App/API/auth routes have no dot in the path, so they still match.
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\..*).*)",
   ],
 };

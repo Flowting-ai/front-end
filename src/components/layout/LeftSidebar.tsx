@@ -15,7 +15,7 @@ import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat,
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { listTasks } from "@/lib/api/tasks";
 import type { ScheduledTaskListItem } from "@/lib/api/tasks";
-import { CHAT_CREATED_EVENT } from "@/hooks/use-sidebar-events";
+import { CHAT_CREATED_EVENT, emitBrainNewThread } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
 import { BrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
 import { ChatHistoryItem } from "./ChatHistoryItem";
@@ -1803,7 +1803,10 @@ function LeftSidebarImpl({
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
       onChatboardClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
       onManageAllThreadsClick={() => { toast.info("Opening Brain Threads", { id: 'nav' }); push("/brain/threads") }}
-      onNewBrainThread={() => push("/brain")}
+      // On a brain page the brain page owns the imperative new-thread reset
+      // (URL navigation alone is unsafe — see handleNewChat in brain/page). Emit
+      // the event it listens for; fall back to navigation from anywhere else.
+      onNewBrainThread={() => { if (isBrainPage) emitBrainNewThread(); else push("/brain") }}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
       onPersonasClick={currentProjectTeamId
         // On team project pages: just switch the sidebar tab — don't navigate away.

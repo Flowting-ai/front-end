@@ -2,7 +2,6 @@
 
 import React, { useCallback, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
-import { Sidebar, type SidebarProps } from '@/components/Sidebar'
 import { ChatInput, type ChatInputProps } from '@/components/chat/ChatInput'
 import { ExhaustionBanner } from '@/components/ExhaustionBanner'
 import { BrainHome } from './BrainHome'
@@ -115,8 +114,6 @@ export interface BrainShellProps {
   disclaimer?: string
   /** Starting phase — used by Storybook to jump to a specific state. @default 'idle' */
   defaultPhase?: Phase
-  /** Props forwarded to the left Sidebar. */
-  sidebarProps?: Partial<SidebarProps>
   /** Props forwarded to the ChatInput. */
   chatInputProps?: Partial<ChatInputProps>
   /**
@@ -155,7 +152,6 @@ export function BrainShell({
   children,
   disclaimer        = 'Brain can make mistakes. Review important outputs.',
   defaultPhase      = 'idle',
-  sidebarProps,
   chatInputProps,
   clarificationProps,
   onSend,
@@ -200,17 +196,19 @@ export function BrainShell({
   }
 
   return (
+    /* The left Sidebar is owned by the app shell (AppLayout → LeftSidebar) so it
+       stays the SAME instance across Chats / Agents / Brain. BrainShell only
+       renders the center column + ContextRail and fills the space the shell
+       gives it. */
     <div style={{
       position:        'relative',
       display:         'flex',
       alignItems:      'stretch',
-      width:           '100%',
+      flex:            '1 0 0',
+      minWidth:        0,
       height:          '100svh',
       backgroundColor: 'var(--neutral-white)',
     }}>
-
-      {/* ── Left — Sidebar in Brain mode ── */}
-      <Sidebar {...sidebarProps} />
 
       {/* ── Center — main Brain container ── */}
       {/* Matches ChatBoard center: neutral-50 bg, 10px vertical padding, flex col */}

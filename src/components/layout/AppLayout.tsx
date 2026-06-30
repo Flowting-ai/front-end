@@ -71,8 +71,8 @@ export function AppLayout({
   // Brain pages use BrainShell which supplies its own full-screen layout (sidebar + center + context rail).
   const isBrainPage = pathname.startsWith('/brain')
 
-  // Settings and Brain pages manage their own layout — bypass global chrome.
-  if (isSettingsPage || isBrainPage) {
+  // Settings pages manage their own full layout — bypass global chrome entirely.
+  if (isSettingsPage) {
     return (
       <div
         style={{
@@ -83,6 +83,33 @@ export function AppLayout({
           backgroundColor: 'var(--neutral-white)',
         }}
       >
+        {children}
+        <AppDialogs />
+      </div>
+    )
+  }
+
+  // Brain pages render the SAME shared LeftSidebar as Chats / Agents (one instance,
+  // no duplicate). BrainShell supplies its own center column + ContextRail, so we
+  // skip the standard TopBar / glass-card center wrapper here.
+  if (isBrainPage) {
+    return (
+      <div
+        style={{
+          display:         'flex',
+          alignItems:      'stretch',
+          width:           '100%',
+          height:          '100svh',
+          backgroundColor: 'var(--neutral-white)',
+        }}
+      >
+        <Suspense fallback={null}>
+          <LeftSidebar
+            activeChatId={activeChatId}
+            onSelectChat={onSelectChat}
+            onNewChat={onNewChat}
+          />
+        </Suspense>
         {children}
         <AppDialogs />
       </div>

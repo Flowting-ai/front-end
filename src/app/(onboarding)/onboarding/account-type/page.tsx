@@ -7,27 +7,9 @@ import type { AccountType } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { StickyNote02Icon, OfficeChairIcon } from "@hugeicons/core-free-icons";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
-
-// ── Icons ───────────────────────────────────────────────────────────────────────
-function PersonIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M5 19.5c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function TeamIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="9" cy="8.5" r="3" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M3.5 19c0-3.2 2.7-4.8 5.5-4.8s5.5 1.6 5.5 4.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M16 5.5a3 3 0 010 6M17.5 19c0-2.6-1-4.2-2.8-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 // ── Option card ─────────────────────────────────────────────────────────────────
 interface OptionConfig {
@@ -47,7 +29,7 @@ const OPTIONS: OptionConfig[] = [
     value: "individual",
     title: "Just me",
     description: "A personal space, tuned to how you work — and it remembers across every chat.",
-    icon: <PersonIcon />,
+    icon: <HugeiconsIcon icon={StickyNote02Icon} size={24} strokeWidth={1.6} />,
     iconBg: "#ffbfb6",
     iconRing: "rgba(159,38,35,0.5)",
     iconColor: "#9f2623",
@@ -58,7 +40,7 @@ const OPTIONS: OptionConfig[] = [
     value: "team",
     title: "Set up a team",
     description: "A shared workspace — one credit pool, shared knowledge, and the teammates you invite.",
-    icon: <TeamIcon />,
+    icon: <HugeiconsIcon icon={OfficeChairIcon} size={24} strokeWidth={1.6} />,
     iconBg: "#cadcf1",
     iconRing: "rgba(13,110,178,0.5)",
     iconColor: "#135487",

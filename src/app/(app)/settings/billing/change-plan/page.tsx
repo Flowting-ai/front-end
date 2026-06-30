@@ -494,7 +494,7 @@ export default function ChangePlanPage() {
                       Souvenir Slack Manager
                     </p>
                     <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 11, lineHeight: '19px', color: '#6a625d', margin: 0 }}>
-                      One bot in Slack & Microsoft Teams. The entire AI workforce, accessible by @-mention.
+                      Bot in Slack. The entire AI workforce, accessible by @-mention.
                     </p>
                   </div>
                 </div>

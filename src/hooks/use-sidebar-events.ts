@@ -8,6 +8,10 @@ const SIDEBAR_NEW_CHAT_EVENT = "sidebar:new-chat";
 export const PERSONA_CHAT_CREATED_EVENT = "persona:chat-created";
 const PERSONA_CHAT_TITLE_UPDATED_EVENT = "persona:chat-title-updated";
 export const BRAIN_THREAD_CREATED_EVENT = "brain:thread-created";
+// Fired by the shared LeftSidebar's "New thread" button while on a brain page.
+// The brain page listens and runs its imperative new-thread reset (the reset
+// can't be driven by URL navigation alone — see handleNewChat in brain/page).
+export const BRAIN_NEW_THREAD_EVENT = "brain:new-thread";
 export const BRAIN_THREAD_TITLE_UPDATED_EVENT = "brain:thread-title-updated";
 export const BRAIN_THREAD_DELETED_EVENT = "brain:thread-deleted";
 export const CHAT_CREATED_EVENT = "chat:created";
@@ -69,6 +73,12 @@ export function emitPersonaChatTitleUpdated(detail: PersonaChatEventDetail) {
 export function emitChatCreated(detail: ChatCreatedEventDetail) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(CHAT_CREATED_EVENT, { detail }));
+  }
+}
+
+export function emitBrainNewThread() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(BRAIN_NEW_THREAD_EVENT));
   }
 }
 

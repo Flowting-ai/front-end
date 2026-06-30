@@ -467,7 +467,7 @@ function OnboardingPlansContent() {
                   <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-600,#6a625d)' }}>Team-exclusive</span>
                   <div>
                     <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '22px', color: 'black', margin: 0 }}>Souvenir Slack Manager</p>
-                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '15px', color: 'var(--neutral-600,#6a625d)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>One bot in Slack &amp; Microsoft Teams, by @-mention.</p>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '15px', color: 'var(--neutral-600,#6a625d)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Bot in Slack, by @-mention.</p>
                   </div>
                 </div>
               </div>
