@@ -24,6 +24,13 @@ const secretName = boot.AWS_SECRET_NAME || process.env.AWS_SECRET_NAME;
 const accessKeyId = boot.AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
 const secretAccessKey = boot.AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
 
+// On Vercel the environment variables are injected directly by the platform —
+// the AWS fetch is only needed for local development. Skip gracefully.
+if (process.env.VERCEL) {
+  console.log("[load-secrets] running on Vercel — skipping AWS fetch (env vars are platform-injected)");
+  process.exit(0);
+}
+
 if (!secretName || !accessKeyId || !secretAccessKey) {
   console.error("[load-secrets] missing AWS bootstrap (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SECRET_NAME) in .env.local");
   process.exit(1);
