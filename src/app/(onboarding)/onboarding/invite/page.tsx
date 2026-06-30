@@ -132,7 +132,15 @@ export default function OnboardingInvitePage() {
     }
   };
 
-  const hasEmails = emails.trim().length > 0;
+  const parsedEmails = emails.split(/[\n,]+/).map(e => e.trim()).filter(Boolean);
+  const parsedEmailCount = parsedEmails.length;
+  const hasEmails = parsedEmailCount > 0;
+  const inviteButtonLabel =
+    parsedEmailCount === 0
+      ? "Send Invite"
+      : parsedEmailCount === 1
+        ? "Send Invite to 1 person"
+        : `Send Invite to ${parsedEmailCount} people`;
 
   const footer = (
     <div
@@ -175,15 +183,6 @@ export default function OnboardingInvitePage() {
           onClick={() => void completeOnboarding()}
         >
           Skip for now
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          loading={inviting}
-          disabled={!hasEmails || isBusy}
-          onClick={() => void sendInvites()}
-        >
-          Invite
         </Button>
         <Button
           size="sm"
@@ -251,7 +250,7 @@ export default function OnboardingInvitePage() {
           />
         </div>
 
-        {/* Role selector */}
+        {/* Role selector + Send Invite button row */}
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
           <p
             style={{
@@ -266,69 +265,82 @@ export default function OnboardingInvitePage() {
             Role
           </p>
 
-          <DropdownFloat
-            open={roleOpen}
-            onOpenChange={setRoleOpen}
-            placement="bottom-start"
-            offset={4}
-            trigger={
-              <button
-                type="button"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 8,
-                  padding: "7px 10px",
-                  borderRadius: 10,
-                  border: "none",
-                  backgroundColor: "white",
-                  boxShadow:
-                    "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100, #ede1d7)",
-                  cursor: "pointer",
-                  outline: "none",
-                  width: "100%",
-                  maxWidth: 300,
-                }}
-              >
-                <span
+          <div style={{ display: "flex", alignItems: "stretch", gap: 8 }}>
+            <DropdownFloat
+              open={roleOpen}
+              onOpenChange={setRoleOpen}
+              placement="bottom-start"
+              offset={4}
+              trigger={
+                <button
+                  type="button"
                   style={{
-                    fontFamily: "var(--font-body)",
-                    fontWeight: 400,
-                    fontSize: 14,
-                    lineHeight: "22px",
-                    color: "var(--neutral-600, #6a625d)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    padding: "7px 10px",
+                    borderRadius: 10,
+                    border: "none",
+                    backgroundColor: "white",
+                    boxShadow:
+                      "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100, #ede1d7)",
+                    cursor: "pointer",
+                    outline: "none",
+                    width: 200,
+                    flexShrink: 0,
                   }}
                 >
-                  {role === "Member" ? "Member (default)" : role}
-                </span>
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden>
-                  <path
-                    d="M5 8l5 5 5-5"
-                    stroke="var(--neutral-400, #9c938b)"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                  <span
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontWeight: 400,
+                      fontSize: 14,
+                      lineHeight: "22px",
+                      color: "var(--neutral-600, #6a625d)",
+                    }}
+                  >
+                    {role === "Member" ? "Member (default)" : role}
+                  </span>
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden>
+                    <path
+                      d="M5 8l5 5 5-5"
+                      stroke="var(--neutral-400, #9c938b)"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              }
+            >
+              <Dropdown style={{ width: 200 }}>
+                {INVITE_ROLES.map((r) => (
+                  <Dropdown.Item
+                    key={r}
+                    fluid
+                    label={r}
+                    selected={r === role}
+                    onClick={() => {
+                      setRole(r);
+                      setRoleOpen(false);
+                    }}
                   />
-                </svg>
-              </button>
-            }
-          >
-            <Dropdown style={{ width: 300 }}>
-              {INVITE_ROLES.map((r) => (
-                <Dropdown.Item
-                  key={r}
-                  fluid
-                  label={r}
-                  selected={r === role}
-                  onClick={() => {
-                    setRole(r);
-                    setRoleOpen(false);
-                  }}
-                />
-              ))}
-            </Dropdown>
-          </DropdownFloat>
+                ))}
+              </Dropdown>
+            </DropdownFloat>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={inviting}
+              disabled={!hasEmails || isBusy}
+              onClick={() => void sendInvites()}
+              style={{ flex: 1 }}
+            >
+              {inviteButtonLabel}
+            </Button>
+          </div>
 
           <p
             style={{
