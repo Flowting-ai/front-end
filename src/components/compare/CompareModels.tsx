@@ -1375,6 +1375,16 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                             <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
                               {model.displayName}
                             </div>
+                            {((model.tags && model.tags.length > 0) || (model.thinkingEfforts && model.thinkingEfforts.length > 0)) && (
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2 }}>
+                                {model.thinkingEfforts?.map((e) => (
+                                  <Chip key={`effort-${e}`} label={e} color="purple" />
+                                ))}
+                                {model.tags?.map((tag) => (
+                                  <Chip key={tag} label={tag} color={compareTagColor(tag)} />
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <button
@@ -1907,6 +1917,16 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                           <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
                             {model.company}/{model.modelName}
                           </div>
+                          {((model.tags && model.tags.length > 0) || (model.thinkingEfforts && model.thinkingEfforts.length > 0)) && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2 }}>
+                              {model.thinkingEfforts?.map((e) => (
+                                <Chip key={`effort-${e}`} label={e} color="purple" />
+                              ))}
+                              {model.tags?.map((tag) => (
+                                <Chip key={tag} label={tag} color={compareTagColor(tag)} />
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
