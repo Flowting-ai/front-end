@@ -83,7 +83,7 @@ export function TokenBudgetBar({ ref, used, limit, size = 'sm', showLabel = fals
               {Math.round(pct * 100)}% used
             </span>
             <span style={{ color: 'var(--neutral-500)' }}>
-              {fmtK(used)} / {fmtK(limit)} tok
+              {fmtK(used)} / {fmtK(limit)} credits
             </span>
           </div>
         )}

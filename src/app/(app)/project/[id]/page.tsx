@@ -215,13 +215,18 @@ export default function ProjectPage() {
   }
 
   function handleSendChat(text: string) {
-    if (!text.trim()) return
+    if (!text.trim() && !newChatAttachments.length) return
     if (selectedPersona) {
       sessionStorage.setItem('project-chat-pending-persona', JSON.stringify(selectedPersona))
     } else {
       sessionStorage.removeItem('project-chat-pending-persona')
     }
-    push(`/project/${projectId}/chat/new?q=${encodeURIComponent(text.trim())}`)
+    if (newChatAttachments.length > 0) {
+      ;(window as any).__pendingProjectChatFiles = newChatAttachments.map(a => a.file)
+      setNewChatAttachments([])
+    }
+    const q = text.trim()
+    push(`/project/${projectId}/chat/new` + (q ? `?q=${encodeURIComponent(q)}` : ''))
     setChatInputValue('')
   }
 
@@ -568,6 +573,7 @@ export default function ProjectPage() {
               onChange={setChatInputValue}
               onSend={handleSendChat}
               onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
+              hasAttachments={newChatAttachments.length > 0}
               modelName={modelButtonLabel}
               onModelClick={selectedPersona ? undefined : handleModelClick}
               modelMenu={selectedPersona ? undefined : <ModelMenu />}

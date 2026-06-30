@@ -1814,11 +1814,7 @@ function LeftSidebarImpl({
       // the event it listens for; fall back to navigation from anywhere else.
       onNewBrainThread={() => { if (isBrainPage) emitBrainNewThread(); else push("/brain") }}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
-      onPersonasClick={currentProjectTeamId
-        // On team project pages: just switch the sidebar tab — don't navigate away.
-        ? undefined
-        : () => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }
-      }
+      onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }}
       onNewAgentChat={() => push("/agents")}
       agentItems={
         currentProjectTeamId ? <PersonasSectionAll teamId={currentProjectTeamId} />

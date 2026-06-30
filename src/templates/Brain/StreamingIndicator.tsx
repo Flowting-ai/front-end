@@ -87,7 +87,7 @@ export function StreamingIndicator({ phase }: StreamingIndicatorProps) {
   }, [phase, messages.length])
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', position: 'relative' }}>
       {/* Icon */}
       <div style={{ flexShrink: 0, lineHeight: 0 }}>
         {PHASE_ICON[phase]}

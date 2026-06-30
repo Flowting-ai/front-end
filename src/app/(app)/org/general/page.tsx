@@ -1253,62 +1253,6 @@ export default function OrgGeneralPage() {
           </Card>
         )}
 
-        {/* ── Danger Zone card ── */}
-        <div style={{
-          border:       '1px solid var(--red-400, #f87171)',
-          borderRadius: 16,
-          boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-          overflow:     'hidden',
-        }}>
-          <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px 12px' }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--red-500, #ef4444)', margin: 0 }}>
-              Danger Zone
-            </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-              Actions here are permanent and cannot be undone.
-            </p>
-          </div>
-
-          {/* Delete organization — org admin+ only; hidden from members. */}
-          {canDeleteOrg && (
-          <div style={{ padding: '12px 24px' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24 }}>
-              <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                  Delete organization
-                </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: '0 0 8px' }}>
-                  Permanently delete this organization and all its data.
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <TextInput
-                    value={deleteOrgInput}
-                    onChange={setDeleteOrgInput}
-                    placeholder={`Type "${workspaceName}" to confirm`}
-                    style={{ width: 280 }}
-                  />
-                  <button
-                    type="button"
-                    disabled={deleteOrgInput !== workspaceName || deletingOrg}
-                    onClick={handleDeleteOrg}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      padding: '5px 12px', borderRadius: 8, border: 'none',
-                      cursor: deleteOrgInput !== workspaceName ? 'default' : 'pointer',
-                      backgroundColor: 'white', opacity: deleteOrgInput !== workspaceName ? 0.5 : 1,
-                      boxShadow: '0px 1px 1.5px 0px rgba(24,2,2,0.05), 0px 1px 2px 0px rgba(24,2,2,0.15), 0px 0px 0px 1px var(--red-200, #fecaca)',
-                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
-                      color: 'var(--red-700, #b91c1c)',
-                    }}
-                  >
-                    {deletingOrg ? 'Deleting…' : 'Delete organization'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          )}
-        </div>
 
       </div>
     </div>

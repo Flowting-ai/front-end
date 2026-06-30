@@ -249,7 +249,16 @@ function ProjectChatPageInner() {
   const [webSearchEnabled,   setWebSearchEnabled]   = useState(false)
   const [newChatAttachments, setNewChatAttachments] = useState<PendingAttachment[]>([])
   const [addMenuFiles,       setAddMenuFiles]       = useState<File[]>([])
-  const [initialFiles,       setInitialFiles]       = useState<File[]>([])
+  const [initialFiles,       setInitialFiles]       = useState<File[]>(() => {
+    // Synchronously read files carried over from the project overview page.
+    // Only applies when there is an initial prompt (text+files navigation);
+    // files-only navigation is handled by the useEffect below.
+    if (typeof window === 'undefined') return []
+    const files = (window as any).__pendingProjectChatFiles as File[] | undefined
+    if (!files || !files.length || !qParam) return []
+    delete (window as any).__pendingProjectChatFiles
+    return files
+  })
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null)
   const [selectedStyleId,    setSelectedStyleId]    = useState<string | null>(null)
   const [styleChipOpen,      setStyleChipOpen]      = useState(false)
@@ -343,6 +352,17 @@ function ProjectChatPageInner() {
       e.target.value = ''
     }
   }
+
+  // Files-only navigation from the project overview page (no ?q= param):
+  // the lazy initialiser above skips window files when qParam is absent, so
+  // we pick them up here and show them as pre-loaded chips in the new-chat input.
+  useEffect(() => {
+    const files = (window as any).__pendingProjectChatFiles as File[] | undefined
+    if (!files || !files.length) return
+    delete (window as any).__pendingProjectChatFiles
+    setNewChatAttachments(prev => processFiles(files, prev))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Model selector ────────────────────────────────────────────────────────
 
@@ -570,7 +590,7 @@ function ProjectChatPageInner() {
   // ── Send ──────────────────────────────────────────────────────────────────
 
   const handleSend = (value: string) => {
-    if (!value.trim()) return
+    if (!value.trim() && !newChatAttachments.length) return
     setInitialFiles(newChatAttachments.map(a => a.file))
     setNewChatAttachments([])
     setMentionedPins([])
@@ -706,6 +726,7 @@ function ProjectChatPageInner() {
                       onChange={setNewChatInput}
                       onSend={handleSend}
                       onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
+                      hasAttachments={newChatAttachments.length > 0}
                       modelName={modelButtonLabel}
                       onModelClick={selectedPersona ? undefined : handleModelClick}
                       addMenu={addMenu}
@@ -784,6 +805,9 @@ function ProjectChatPageInner() {
             <ChatInterface
               chatId={activeChatId}
               onChatCreated={(newChatId) => {
+                // Clear initialPrompt so ChatInterface's addMenuFiles absorb effect
+                // is no longer blocked for subsequent file uploads in this session.
+                setInitialPrompt(null)
                 // Persist settings immediately so the load effect reads the right value.
                 saveProjectChatSettings(newChatId, { webSearch: webSearchEnabled, persona: selectedPersona })
                 // Update local state immediately so markChatAsOptimistic + chatId

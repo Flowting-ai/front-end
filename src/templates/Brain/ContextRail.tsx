@@ -237,7 +237,7 @@ export function ContextRail({ data, onClose }: ContextRailProps) {
       {/* ── Persona section ── */}
       {persona && (
         <>
-          <SectionHeader label="Persona" />
+          <SectionHeader label="Agent" />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 16px 14px' }}>
             <div style={{
               position:        'relative',

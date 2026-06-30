@@ -486,7 +486,7 @@ function RightSidebarImpl() {
             style={{
               position:        "fixed",
               inset:           0,
-              zIndex:          20,
+              zIndex:          9999,
               display:         "flex",
               alignItems:      "center",
               justifyContent:  "center",
@@ -524,7 +524,7 @@ function RightSidebarImpl() {
                   onClick={() => { setShowDeleteConfirmModal(false); setDeleteFolderTarget(null) }}
                 />
               </div>
-              <div style={{ padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: 16, }}>
                 <p style={{ margin: 0, fontFamily: "var(--font-body)", fontWeight: 400, fontSize: 14, lineHeight: "20px", color: "var(--neutral-600)" }}>
                   {deleteFolderTarget
                     ? `"${deleteFolderTarget.label}" will be deleted, but your pins will still be available in All Pins.`

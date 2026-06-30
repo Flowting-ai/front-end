@@ -15,45 +15,6 @@ export interface ScheduleListViewProps {
   onCreateNew?:       () => void
 }
 
-// ── Suggestion chips ──────────────────────────────────────────────────────────
-
-const SCHEDULE_SUGGESTIONS = [
-  'Morning briefing — key updates across tools',
-  'Weekly summary — projects and open tasks',
-  'Daily competitor pulse',
-  'End-of-week retrospective',
-]
-
-function SuggestionChip({ label, onClick }: { label: string; onClick?: () => void }) {
-  const [hovered, setHovered] = React.useState(false)
-  return (
-    <button
-      type="button"
-      className="brain-card-action"
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        padding:         '6px 12px',
-        borderRadius:    999,
-        border:          '1px solid var(--neutral-200)',
-        backgroundColor: hovered ? 'var(--neutral-100)' : 'var(--neutral-white)',
-        cursor:          'pointer',
-        transition:      'background-color 0.12s ease, border-color 0.12s ease',
-        fontFamily:      'var(--font-body)',
-        fontSize:        'var(--font-size-caption)',
-        lineHeight:      'var(--line-height-caption)',
-        color:           'var(--neutral-600)',
-        textAlign:       'left',
-      }}
-    >
-      {label}
-    </button>
-  )
-}
-
 // ── Empty state ───────────────────────────────────────────────────────────────
 
 function EmptyState({ onCreateNew }: { onCreateNew?: () => void }) {
@@ -178,23 +139,6 @@ export function ScheduleListView({
                 onClick={onScheduleClick}
               />
             ))}
-          </div>
-
-          {/* Ideas / suggestions */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-caption)',
-              fontWeight: 'var(--font-weight-medium)',
-              color:      'var(--neutral-400)',
-            }}>
-              More ideas
-            </span>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {SCHEDULE_SUGGESTIONS.map(s => (
-                <SuggestionChip key={s} label={s} onClick={onCreateNew} />
-              ))}
-            </div>
           </div>
         </>
       )}
