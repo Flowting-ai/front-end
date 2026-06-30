@@ -210,7 +210,7 @@ interface XmlTableProps {
   animate?: boolean
 }
 
-export function XmlTable({ xml, animate = true }: XmlTableProps) {
+export function XmlTable({ xml, animate = false }: XmlTableProps) {
   const data = useMemo(() => parseTableXml(xml) ?? "error", [xml])
   const [mounted, setMounted] = useState(false)
 

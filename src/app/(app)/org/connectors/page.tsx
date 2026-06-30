@@ -2199,6 +2199,7 @@ function MemberBrowseView({
 
 function OrgConnectorsPageContent() {
   const { org, orgReady, currentUserRole, teams, teamsLoading } = useOrg()
+  const activeTeams = teams.filter(t => !t.archived)
   const router = useRouter()
   const params = useSearchParams()
   const initialSearch = params.get('q') ?? ''
@@ -2249,7 +2250,7 @@ function OrgConnectorsPageContent() {
     try {
       const [personal, teamIndex] = await Promise.all([
         listPersonalRequests(org.id),
-        teams.length > 0 ? loadTeamRequestIndex(org.id, teams) : Promise.resolve<TeamRequestIndex>({}),
+        activeTeams.length > 0 ? loadTeamRequestIndex(org.id, activeTeams) : Promise.resolve<TeamRequestIndex>({}),
       ])
       setPersonalRequests(personal)
       setTeamRequests(teamIndex)
@@ -2295,7 +2296,7 @@ function OrgConnectorsPageContent() {
       <ConnectorDetailView
         connector={detailConnector}
         orgId={org.id}
-        teams={teams}
+        teams={activeTeams}
         onBack={() => setDetailConnector(null)}
         onChanged={loadPageData}
       />
@@ -2317,7 +2318,7 @@ function OrgConnectorsPageContent() {
           <MemberBrowseView
             orgId={org.id}
             connectors={connectors}
-            teams={teams}
+            teams={activeTeams}
             initialSearch={initialSearch}
             onRequested={loadPageData}
           />
@@ -2369,7 +2370,7 @@ function OrgConnectorsPageContent() {
           <PermissionsTab
             orgId={org.id}
             connectors={connectors}
-            teams={teams}
+            teams={activeTeams}
             personalRequests={personalRequests}
             teamRequests={teamRequests}
             loading={permissionsLoading && !permissionsLoaded}

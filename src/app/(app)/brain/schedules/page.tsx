@@ -3,7 +3,6 @@
 import { Suspense, useState, useEffect, useId, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { LeftSidebar } from '@/components/layout/LeftSidebar'
 import {
   ScheduleListView,
   ScheduleDetailView,
@@ -26,6 +25,7 @@ import {
 import type { ScheduleRunRecord } from '@/templates/Brain'
 import { getAllScheduleLinks, getChatForSchedule, stashPendingPrompt } from '@/lib/scheduleLinks'
 import { ApiError } from '@/lib/api/client'
+import { BRAIN_NEW_THREAD_EVENT } from '@/hooks/use-sidebar-events'
 
 // ── Page wrapper ──────────────────────────────────────────────────────────────
 
@@ -204,6 +204,16 @@ function BrainSchedulesPageInner() {
 
   // IDs of schedules created locally that haven't been persisted to the backend yet
   const localIdsRef = useRef<Set<string>>(new Set())
+
+  // ── New-thread button from sidebar ─────────────────────────────────────────
+  // The sidebar emits BRAIN_NEW_THREAD_EVENT for all /brain/* pages. Only
+  // brain/page.tsx listens for it normally; here we navigate to /brain so a
+  // new thread actually opens.
+  useEffect(() => {
+    const handler = () => push('/brain')
+    window.addEventListener(BRAIN_NEW_THREAD_EVENT, handler)
+    return () => window.removeEventListener(BRAIN_NEW_THREAD_EVENT, handler)
+  }, [push])
 
   // ── Load task list on mount ────────────────────────────────────────────────
 
@@ -385,18 +395,7 @@ function BrainSchedulesPageInner() {
   const detailToShow      = selectedDetail ?? (selectedListItem ? listItemToDetail(selectedListItem) : null)
 
   return (
-    <div style={{
-      display:         'flex',
-      alignItems:      'stretch',
-      width:           '100%',
-      height:          '100svh',
-      backgroundColor: 'var(--neutral-white)',
-    }}>
-
-      {/* ── Left sidebar ── */}
-      <LeftSidebar />
-
-      {/* ── Main content area ── */}
+    <>
       <div style={{
         position:        'relative',
         flex:            '1 0 0',
@@ -476,7 +475,7 @@ function BrainSchedulesPageInner() {
           onClose={() => setDeleteModalOpen(false)}
         />
       )}
-    </div>
+    </>
   )
 }
 

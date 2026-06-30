@@ -169,7 +169,7 @@ function UsageBar({ percent }: { percent: number }) {
 export default function SharingTab({ repoId, versionId, onChanged }: SharingTabProps) {
   const { user } = useAuth()
   const { orgId, teams } = useOrg()
-  const editableTeams = teams.filter(team => team.canEdit)
+  const editableTeams = teams.filter(team => !team.archived && team.canEdit)
   const maxTokenLimit = getShareTokenLimit(user?.planType)
   const { setHasShareLink, publishedVersionId, panelsLocked } = usePersonaConfigure()
 

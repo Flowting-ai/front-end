@@ -2,7 +2,6 @@
 
 import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { LeftSidebar } from '@/components/layout/LeftSidebar'
 import { ChatRow } from '@/components/ChatRow'
 import { Button } from '@/components/Button'
 import { InputField } from '@/components/InputField'
@@ -17,6 +16,7 @@ import {
 } from '@/lib/api/brain'
 import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
 import {
+  BRAIN_NEW_THREAD_EVENT,
   BRAIN_THREAD_DELETED_EVENT,
   emitBrainThreadDeleted,
   type BrainThreadDeletedEventDetail,
@@ -67,6 +67,13 @@ function BrainThreadsPageInner() {
       .finally(() => setIsLoading(false))
   }, [])
 
+  // Navigate to /brain when sidebar "New thread" button fires the event.
+  useEffect(() => {
+    const handler = () => push('/brain')
+    window.addEventListener(BRAIN_NEW_THREAD_EVENT, handler)
+    return () => window.removeEventListener(BRAIN_NEW_THREAD_EVENT, handler)
+  }, [push])
+
   // Keep the list in sync when a thread is deleted elsewhere (e.g. the sidebar),
   // so it disappears here without a manual refresh.
   useEffect(() => {
@@ -114,18 +121,6 @@ function BrainThreadsPageInner() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{
-      display:         'flex',
-      alignItems:      'stretch',
-      width:           '100%',
-      height:          '100svh',
-      backgroundColor: 'var(--neutral-white)',
-    }}>
-
-      {/* ── Left sidebar ── */}
-      <LeftSidebar />
-
-      {/* ── Main content ── */}
       <div
         className="kaya-scrollbar"
         style={{
@@ -242,6 +237,5 @@ function BrainThreadsPageInner() {
 
         </div>
       </div>
-    </div>
   )
 }

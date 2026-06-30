@@ -1697,7 +1697,7 @@ export const BlockSequenceRenderer = React.memo(function BlockSequenceRenderer({
             </StructuredResponseWrapper>
           );
 
-        if (block.kind === "table")           return wrap((d) => <AnimatedTable       data={block.data} onComplete={d} animate={!isDone} />);
+        if (block.kind === "table")           return wrap((d) => <AnimatedTable       data={block.data} onComplete={d} animate={false} />);
         if (block.kind === "bar-chart")        return wrap((d) => <AnimatedBarChart    data={block.data} onComplete={d} animate={!isDone} />);
         if (block.kind === "steps")            return wrap((d) => <AnimatedSteps       data={block.data} onComplete={d} animate={!isDone} />);
         if (block.kind === "code")             return wrap((d) => <AnimatedCodeBlock   data={block.data} onComplete={d} animate={!isDone} />);

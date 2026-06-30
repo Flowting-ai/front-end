@@ -328,7 +328,7 @@
 }
 .kds-context-rail[data-open="true"] {
   flex-basis: var(--context-rail-width);
-  transition-duration: var(--panel-open-dur);
+  transition-duration: 0s;
 }
 .kds-context-rail[data-open="false"] {
   flex-basis: 0;

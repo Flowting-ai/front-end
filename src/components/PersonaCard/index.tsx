@@ -734,14 +734,26 @@ function PersonaCardInner({
                                   />
                                 )}
                               </Dropdown.Section>
-                              <Dropdown.Section fluid divider>
-                                <Dropdown.Item
-                                  label="Delete"
-                                  variant="danger"
-                                  fluid
-                                  onClick={() => { setMenuOpen(false); onMenuDelete?.() }}
-                                />
-                              </Dropdown.Section>
+                              {onMenuDuplicate && (
+                                <Dropdown.Section fluid divider>
+                                  <Dropdown.Item
+                                    label="Copy & Edit"
+                                    icon={<CopyOneIcon />}
+                                    fluid
+                                    onClick={() => { setMenuOpen(false); onMenuDuplicate() }}
+                                  />
+                                </Dropdown.Section>
+                              )}
+                              {onMenuDelete && (
+                                <Dropdown.Section fluid divider>
+                                  <Dropdown.Item
+                                    label="Delete"
+                                    variant="danger"
+                                    fluid
+                                    onClick={() => { setMenuOpen(false); onMenuDelete() }}
+                                  />
+                                </Dropdown.Section>
+                              )}
                             </Dropdown>
                           </m.div>
                         </>

@@ -21,10 +21,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { setProjectVisibility } from '@/lib/api/projects'
 import { setChatVisibility, listChats } from '@/lib/api/chat'
 import { listSharedWithMe, forkChatShare, type SharedChatItem } from '@/lib/api/chat-shares'
-import { fetchTeams } from '@/lib/api/teams'
 import { useOrg } from '@/context/org-context'
 import { AlertCircleIcon } from '@strange-huge/icons'
-import type { Team } from '@/types/teams'
 import type { Chat } from '@/types/chat'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { SystemInstructionsModal } from '@/components/SystemInstructionsModal'
@@ -36,7 +34,7 @@ import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
 import Image from 'next/image'
-import { fetchPersonas, personasForTeamContext, usePersonaRepo } from '@/lib/api/personas'
+import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped } from '@/lib/api/personas'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
 import { FloatingMenu } from '@/components/FloatingMenu'
@@ -57,7 +55,7 @@ export default function ProjectPage() {
   const modelButtonLabel = useModelButtonLabel()
   const modelLlmId = museActive ? null : getModelLlmId(selectedModel?.companyName, selectedModel?.modelName)
 
-  const { orgId, caps, members, currentUserRole } = useOrg()
+  const { orgId, caps, members, currentUserRole, teams: orgTeams } = useOrg()
   const project = getProject(params.id)
   const chats   = getChats(params.id)
 
@@ -88,7 +86,6 @@ export default function ProjectPage() {
   const [pendingFiles,     setPendingFiles]     = useState<File[]>([])
   const [projectLoading,   setProjectLoading]   = useState(true)
   const [shareOpen,        setShareOpen]        = useState(false)
-  const [teams,            setTeams]            = useState<Team[]>([])
   const [shareTeamId,      setShareTeamId]      = useState('')
   const [shareVisibility,  setShareVisibility]  = useState<'private' | 'team'>('private')
   const [sharingSaving,    setSharingSaving]    = useState(false)
@@ -125,7 +122,7 @@ export default function ProjectPage() {
         const cached = teamPersonaCopyCache.current.get(p.id)
         if (cached) return cached
         try {
-          const copy = await usePersonaRepo(p.id)
+          const copy = await usePersonaRepoDeduped(p.id)
           const v = copy.published_version ?? copy.active_version
           const info: SelectedPersonaInfo = {
             id: copy.id,
@@ -150,13 +147,6 @@ export default function ProjectPage() {
       .finally(() => { if (!cancelled) setLoadingChipPersonas(false) })
     return () => { cancelled = true }
   }, [personaChipOpen, project?.teamId, currentUserRole])
-
-  // Team name for the header chip — only team projects need it.
-  useEffect(() => {
-    if (orgId && project?.teamId && teams.length === 0) {
-      fetchTeams(orgId).then(setTeams).catch(() => {})
-    }
-  }, [orgId, project?.teamId, teams.length])
 
   // Team projects source their chat list from the global /chats endpoint
   // (which carries visibility/team_id/pins_count), filtered to this project.
@@ -239,9 +229,6 @@ export default function ProjectPage() {
     setShareVisibility(project?.teamId ? 'team' : 'private')
     setShareTeamId(project?.teamId ?? '')
     setShareOpen(true)
-    if (orgId && teams.length === 0) {
-      fetchTeams(orgId).then(setTeams).catch(console.error)
-    }
   }
 
   async function handleSaveVisibility() {
@@ -288,7 +275,7 @@ export default function ProjectPage() {
     }
   }
 
-  const projectTeam = project.teamId ? teams.find(t => t.id === project.teamId) : undefined
+  const projectTeam = project.teamId ? orgTeams.find(t => t.id === project.teamId) : undefined
   const ownerName   = members.find(m => m.id === project.ownerUserId)?.name
   // Publish CTA gate — editor+ on this team (owner/admin resolve true). Members
   // (and editors whose grants aren't loaded yet) get no publish affordance.
@@ -1014,7 +1001,7 @@ export default function ProjectPage() {
                 style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)', border: '1px solid var(--neutral-200)', borderRadius: 8, padding: '8px 12px', backgroundColor: 'white', width: '100%' }}
               >
                 <option value="">Select team…</option>
-                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                {orgTeams.filter(t => !t.archived).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             )}
 

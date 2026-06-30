@@ -987,8 +987,9 @@ export default function OrgMembersPage() {
     async function syncMembers() {
       let next = orgMembers.map(member => ({ ...member, role: displayRoleFor(member) }))
 
-      if (orgId && teams.length > 0) {
-        const { membershipsByUser } = await fetchTeamAccessSnapshot(orgId, teams)
+      const activeTeams = teams.filter(t => !t.archived)
+      if (orgId && activeTeams.length > 0) {
+        const { membershipsByUser } = await fetchTeamAccessSnapshot(orgId, activeTeams)
         next = next.map(member => {
           const accessMemberships = membershipsByUser.get(member.id) ?? []
           const teamMemberships = member.orgRole === 'owner' || member.orgRole === 'admin'
@@ -1109,7 +1110,7 @@ export default function OrgMembersPage() {
           ...chosen,
         ]
       } else if (prevMember.teamMemberships.length === 0) {
-        targetMemberships = teams.map(team => ({ teamId: team.id, teamName: team.name, isTeamOwner: true }))
+        targetMemberships = teams.filter(t => !t.archived).map(team => ({ teamId: team.id, teamName: team.name, isTeamOwner: true }))
       }
       if (targetMemberships.length === 0) {
         toast.error('Create a team before assigning a team editor')
@@ -1163,7 +1164,7 @@ export default function OrgMembersPage() {
 
   // Promotion/demotion to editor first asks which team to assign (guardrail).
   const handleRequestEditor = (memberId: string, memberName: string) => {
-    if (teams.length === 0) {
+    if (teams.filter(t => !t.archived).length === 0) {
       toast.error('Create a team before assigning a team editor')
       return
     }
@@ -1254,7 +1255,7 @@ export default function OrgMembersPage() {
       }
     }
 
-    const teamId = selectedTeamId ?? teams[0]?.id
+    const teamId = selectedTeamId ?? teams.find(t => !t.archived)?.id
     if (!teamId) {
       toast.error('Create a team first before inviting members')
       return
@@ -1411,7 +1412,7 @@ export default function OrgMembersPage() {
         onInvite={handleInvite}
         workspaceName={org.name}
         loading={inviteLoading}
-        teams={teams.map(team => ({ id: team.id, name: team.name }))}
+        teams={teams.filter(t => !t.archived).map(team => ({ id: team.id, name: team.name }))}
         projects={projects.flatMap(project => (
           project.teamId
             ? [{ id: project.id, title: project.title, teamId: project.teamId }]
@@ -1423,7 +1424,7 @@ export default function OrgMembersPage() {
       {editorTarget && (
         <AssignEditorTeamModal
           memberName={editorTarget.memberName}
-          teams={teams.map(team => ({ id: team.id, name: team.name }))}
+          teams={teams.filter(t => !t.archived).map(team => ({ id: team.id, name: team.name }))}
           onCancel={() => setEditorTarget(null)}
           onConfirm={(teamIds) => {
             const { memberId } = editorTarget

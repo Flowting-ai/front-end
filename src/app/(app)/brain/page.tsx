@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { Suspense, useMemo, useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
+import { Suspense, useMemo, useState, useEffect, useLayoutEffect, useRef, useCallback, type CSSProperties } from 'react'
 import { m, AnimatePresence } from 'framer-motion'
 import { springs } from '@/lib/springs'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -1466,7 +1466,7 @@ function BrainPageInner() {
   // user input in local state, so re-fetching messages would render it twice.
   const skipNextHistoryLoadRef = useRef(false)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     phaseRef.current = phase
   }, [phase])
 

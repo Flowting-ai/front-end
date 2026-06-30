@@ -18,7 +18,7 @@ function NewProjectPageInner() {
   const [description,  setDescription]   = useState('')
   const [loading,      setLoading]        = useState(false)
   const [teamId,       setTeamId]         = useState('')
-  const editableTeams = useMemo(() => teams.filter(team => team.canEdit), [teams])
+  const editableTeams = useMemo(() => teams.filter(team => !team.archived && team.canEdit), [teams])
   const canCreateTeamProject = Boolean(orgId && editableTeams.length > 0)
   const requestedTeamId = searchParams.get('teamId') ?? ''
 

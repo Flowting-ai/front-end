@@ -11,7 +11,7 @@ import {
   UserAiIcon,
 } from '@strange-huge/icons'
 import type { PinFolder } from '@/lib/api/pins'
-import { fetchPersonas, personasForTeamContext, usePersonaRepo } from '@/lib/api/personas'
+import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped } from '@/lib/api/personas'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
 
@@ -121,7 +121,7 @@ export function ChatAddMenu({
             const cached = _teamCopyCache.get(p.id)
             if (cached) return cached
             try {
-              const copy = await usePersonaRepo(p.id)
+              const copy = await usePersonaRepoDeduped(p.id)
               const v = copy.published_version ?? copy.active_version
               const info: SelectedPersonaInfo = {
                 id: copy.id,

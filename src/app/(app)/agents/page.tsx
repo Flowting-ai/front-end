@@ -19,8 +19,7 @@ import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
-import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, personasForTeamContext, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
-import { useOrg } from '@/context/org-context'
+import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, usePersonaRepoDeduped, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import type { AIModel } from '@/types/ai-model'
 import { fetchDashboard, listShares, listReceived, revokeShare, type PersonaShare, type ReceivedShareResponse, type ShareDashboardResponse } from '@/lib/api/persona-shares'
@@ -37,6 +36,7 @@ import { StatCard } from '@/components/StatCard'
 import { Sparkline } from '@/components/Sparkline'
 import { DateRangePill } from '@/components/DateRangePill'
 import { usePinboard } from '@/context/pinboard-context'
+import { useOrg } from '@/context/org-context'
 import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -561,7 +561,8 @@ export default function PersonasPage() {
   const { push } = useRouter()
   const pathname = usePathname()
   const { close: closePinboard } = usePinboard()
-  const { activeTeamId } = useOrg()
+  const { currentUserRole } = useOrg()
+
 
   const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')
   const [personas,     setPersonas]     = useState<Persona[]>([])
@@ -616,7 +617,7 @@ export default function PersonasPage() {
     ;(async () => {
       try {
         const list = await fetchPersonas()
-        setPersonas(personasForTeamContext(list, activeTeamId))
+        setPersonas(list)
 
         // Build tag/avatar overrides from sessionStorage (current-session edits) with
         // localStorage as cross-session fallback for tags. Only non-empty values are stored
@@ -651,19 +652,19 @@ export default function PersonasPage() {
         setIsLoading(false)
       }
     })()
-  }, [pathname, activeTeamId])
+  }, [pathname])
 
   // Re-fetch when another part of the app busts the personas cache (e.g. configure tab after save/delete).
   useEffect(() => {
     if (pathname !== '/agents') return
     const handler = () => {
       fetchPersonas()
-        .then(list => setPersonas(personasForTeamContext(list, activeTeamId)))
+        .then(list => setPersonas(list))
         .catch(console.error)
     }
     window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, handler)
     return () => window.removeEventListener(PERSONAS_LIST_UPDATED_EVENT, handler)
-  }, [pathname, activeTeamId])
+  }, [pathname])
 
   // Fetch dashboard whenever the super-links tab is active or the date range changes.
   useEffect(() => {
@@ -673,7 +674,7 @@ export default function PersonasPage() {
     Promise.all([fetchDashboard(slDays), fetchPersonas()])
       .then(([dash, allPersonas]) => {
         setDashboard(dash)
-        setPersonas(personasForTeamContext(allPersonas, activeTeamId))
+        setPersonas(allPersonas)
       })
       .catch(console.error)
       .finally(() => setSharesLoading(false))
@@ -916,6 +917,18 @@ export default function PersonasPage() {
     } catch (err) {
       console.error('Failed to delete persona:', err)
       toast.error('Failed to delete agent. Please try again.')
+    }
+  }
+
+  async function handleCopyAndEdit(persona: Persona) {
+    const toastId = toast.loading(`Copying "${persona.name}"…`)
+    try {
+      const copy = await usePersonaRepoDeduped(persona.id)
+      toast.dismiss(toastId)
+      push(`/agent/configure/instructions?repoId=${copy.id}&name=${encodeURIComponent(persona.name)}`)
+    } catch {
+      toast.dismiss(toastId)
+      toast.error('Failed to copy agent. Please try again.')
     }
   }
 
@@ -1434,24 +1447,33 @@ export default function PersonasPage() {
                           avatarUrl={draftAvatarMap[persona.id] ?? persona.imageUrl ?? undefined}
                           tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
-                          shared={persona.sourceShareId !== null}
-                          // Badge-row data to match the may-day reference variants:
-                          // model badge, Superlink (when an active link exists),
-                          // and Private/Team visibility.
+                          shared={persona.sourceShareId !== null || (persona.visibility === 'team' && currentUserRole !== 'admin')}
                           modelVisible={Boolean(resolveModelName(persona.modelId))}
                           modelName={resolveModelName(persona.modelId) ?? undefined}
                           superlink={activeShareRepoIds.has(persona.id)}
                           visibility={visibilityForPersona[persona.id] === 'team' ? 'team' : visibilityForPersona[persona.id] === 'private' ? 'private' : undefined}
-                          onEdit={persona.sourceShareId === null ? () => { toast.success(`Editing "${persona.name}"`); push(`/agent/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined}
-                          onLink={persona.sourceShareId === null ? () => { toast.info('Opening sharing settings…'); push(`/agent/configure/sharing?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}${persona.activeVersionId ? `&versionId=${persona.activeVersionId}` : ''}`) } : undefined}
-                          onUseInChat={() => push(`/agents/${persona.id}/chat`)}
-                          onResume={persona.sourceShareId === null ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined}
-                          onMenuEdit={persona.sourceShareId === null ? () => { toast.success(`Editing "${persona.name}"`); push(`/agent/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined}
-                          onMenuShare={persona.sourceShareId === null ? () => { toast.info('Opening sharing settings…'); push(`/agent/configure/sharing?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}${persona.activeVersionId ? `&versionId=${persona.activeVersionId}` : ''}`) } : undefined}
-                          // Only offer pause once published (has a live version);
-                          // resume stays available for any already-paused agent.
-                          onMenuPauseToggle={persona.sourceShareId === null && (persona.activeVersionId !== null || persona.isPaused) ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined}
-                          onMenuDelete={() => setDeleteTarget(persona)}
+                          {...(() => {
+                            // Team-shared originals (admin-owned, visible to members via team) —
+                            // members cannot edit/delete/share the original; they copy it first.
+                            const isTeamShared = persona.visibility === 'team' && currentUserRole !== 'admin'
+                            if (isTeamShared) return {
+                              onEdit:            () => void handleCopyAndEdit(persona),
+                              onUseInChat:       () => push(`/agents/${persona.id}/chat`),
+                              onMenuDuplicate:   () => void handleCopyAndEdit(persona),
+                            }
+                            // Owned personas (private copies or admin's own team agents)
+                            const isOwned = persona.sourceShareId === null
+                            return {
+                              onEdit:            isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(`/agent/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined,
+                              onLink:            isOwned ? () => { toast.info('Opening sharing settings…'); push(`/agent/configure/sharing?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}${persona.activeVersionId ? `&versionId=${persona.activeVersionId}` : ''}`) } : undefined,
+                              onUseInChat:       () => push(`/agents/${persona.id}/chat`),
+                              onResume:          isOwned ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
+                              onMenuEdit:        isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(`/agent/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined,
+                              onMenuShare:       isOwned ? () => { toast.info('Opening sharing settings…'); push(`/agent/configure/sharing?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}${persona.activeVersionId ? `&versionId=${persona.activeVersionId}` : ''}`) } : undefined,
+                              onMenuPauseToggle: isOwned && (persona.activeVersionId !== null || persona.isPaused) ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
+                              onMenuDelete:      () => setDeleteTarget(persona),
+                            }
+                          })()}
                         />
                       ))}
                     </div>

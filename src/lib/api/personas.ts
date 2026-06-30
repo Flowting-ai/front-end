@@ -354,6 +354,41 @@ export async function usePersonaRepo(repoId: string): Promise<PersonaRepoRespons
   return repo;
 }
 
+const COPY_MAP_LS_KEY = 'persona_copy_map'
+
+/**
+ * Like usePersonaRepo but deduplicates across sessions via localStorage.
+ * Checks if the caller already has a copy of `repoId`; only POSTs /use when
+ * no valid copy exists. Prevents unbounded copy accumulation when the
+ * session-scoped caches in AddMenu / project page are cleared on refresh.
+ */
+export async function usePersonaRepoDeduped(repoId: string): Promise<PersonaRepoResponse> {
+  if (typeof window !== 'undefined') {
+    try {
+      const map: Record<string, string> = JSON.parse(localStorage.getItem(COPY_MAP_LS_KEY) ?? '{}')
+      const existingId = map[repoId]
+      if (existingId) {
+        try {
+          const existing = await getPersonaRepoWithCache(existingId)
+          return existing
+        } catch {
+          delete map[repoId]
+          localStorage.setItem(COPY_MAP_LS_KEY, JSON.stringify(map))
+        }
+      }
+    } catch { /* ignore parse/quota errors */ }
+  }
+  const copy = await usePersonaRepo(repoId)
+  if (typeof window !== 'undefined') {
+    try {
+      const map: Record<string, string> = JSON.parse(localStorage.getItem(COPY_MAP_LS_KEY) ?? '{}')
+      map[repoId] = copy.id
+      localStorage.setItem(COPY_MAP_LS_KEY, JSON.stringify(map))
+    } catch { /* ignore quota errors */ }
+  }
+  return copy
+}
+
 export async function deletePersona(repoId: string): Promise<void> {
   // apiFetch returns non-2xx responses as-is (it doesn't throw), so we must check
   // res.ok ourselves — otherwise a failed delete would look successful and the

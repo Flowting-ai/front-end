@@ -721,7 +721,7 @@ function ChatPageInner() {
     : undefined;
   const activeChatCanManage = activeChatRecord?.can_edit === true;
   const activeChatReadOnly = activeChatRecord?.can_edit === false;
-  const editableTeams = orgTeams.filter(team => team.canEdit);
+  const editableTeams = orgTeams.filter(team => !team.archived && team.canEdit);
   const shareableProjects = projects.filter(project => project.canEdit);
 
   async function handleCopyReadableChat() {
