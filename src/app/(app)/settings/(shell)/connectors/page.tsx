@@ -740,34 +740,63 @@ function useConnectFlow(
         pollAbortRef.current = new AbortController()
         const { signal } = pollAbortRef.current
 
-        // Detect the user closing the popup without completing auth.
-        // When closed, abort polling immediately instead of waiting for the 120s timeout.
+        // We can't tell from the browser whether a closed popup means the user
+        // cancelled or finished. With Pipedream the hosted connect page often
+        // stays open on a "success" screen that the user closes by hand, and
+        // the backend needs a moment to register the account after the OAuth
+        // callback. So a closed popup is NOT treated as a cancellation: we abort
+        // the long poll and run a short final check against the backend. Only if
+        // it still isn't linked do we report the connection as cancelled.
+        let settled = false
+
+        const finishConnected = (activeEntry: ConnectorCatalogEntry) => {
+          if (settled || abortedRef.current) return
+          settled = true
+          popup?.close()
+          setState('idle')
+          toast.success(`${entry.display_name} connected`)
+          onConnected(activeEntry)
+        }
+
         const closedCheck = setInterval(() => {
-          if (popup?.closed) {
-            clearInterval(closedCheck)
-            pollAbortRef.current?.abort()
-            if (!abortedRef.current) {
+          if (!popup?.closed || settled) return
+          clearInterval(closedCheck)
+          if (abortedRef.current) return
+          // Stop the long poll and verify with a short grace-window poll so a
+          // just-completed connection has time to surface on the backend.
+          pollAbortRef.current?.abort()
+          pollAbortRef.current = new AbortController()
+          pollConnectorUntilActive(entry.slug, {
+            signal:            pollAbortRef.current.signal,
+            initialIntervalMs: 1_000,
+            maxIntervalMs:     2_000,
+            timeoutMs:         12_000,
+          })
+            .then(finishConnected)
+            .catch((err: unknown) => {
+              if (settled || abortedRef.current) return
+              settled = true
+              // Aborted by unmount/reconnect — stay silent.
+              if (err instanceof DOMException && err.name === 'AbortError') return
               setState('idle')
               toast.info(`${entry.display_name} connection cancelled`)
-            }
-          }
+            })
         }, 1_000)
 
         return pollConnectorUntilActive(entry.slug, { signal })
           .then((activeEntry) => {
             clearInterval(closedCheck)
-            if (!activeEntry || abortedRef.current) return
-            popup?.close()
-            setState('idle')
-            toast.success(`${entry.display_name} connected`)
-            onConnected(activeEntry)
+            if (!activeEntry) return
+            finishConnected(activeEntry)
           })
           .catch((err: unknown) => {
             clearInterval(closedCheck)
-            if (abortedRef.current) return
-            // User closed the popup — not an error, just silently reset
+            // The popup-close handler aborted us and is running the final
+            // check; let it decide the outcome.
+            if (settled || abortedRef.current) return
             if (err instanceof DOMException && err.name === 'AbortError') return
             popup?.close()
+            settled = true
             setState('error')
             let msg = err instanceof Error ? err.message : 'Connection failed'
             // For 5xx, prefer the verbatim backend detail (e.g. "Multiple connected
