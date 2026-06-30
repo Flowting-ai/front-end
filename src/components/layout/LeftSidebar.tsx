@@ -584,18 +584,23 @@ function WorkspaceSwitcher({ teams, projects, activeTeamId, role, onTeamSelect }
   const { push }    = useRouter()
   const [open, setOpen] = useState(false)
 
-  if (teams.length === 0) return null
+  // Only show active (non-archived) teams — mirrors the /org/teams page filter.
+  // Archived teams have archived=true set via PATCH and may still appear in the
+  // API response until their deleted_at is set by a subsequent hard-delete.
+  const activeTeams = teams.filter(t => !t.archived)
+
+  if (activeTeams.length === 0) return null
 
   const isPersonal    = activeTeamId === 'personal'
   const activeTeam    = (isPersonal || activeTeamId === null)
     ? null
-    : (teams.find(t => t.id === activeTeamId) ?? null)
-  const displayTeam   = activeTeam ?? (isPersonal ? null : (teams[0] ?? null))
+    : (activeTeams.find(t => t.id === activeTeamId) ?? null)
+  const displayTeam   = activeTeam ?? (isPersonal ? null : (activeTeams[0] ?? null))
   const triggerName   = isPersonal ? 'Personal Projects' : (displayTeam?.name ?? 'Teams')
   const triggerTeamId = displayTeam?.id ?? 'workspace'
   const triggerRole   = ((displayTeam?.myRole ?? role) as WorkspaceRole)
 
-  const switcherTeams: SwitcherTeam[] = teams.map(t => ({
+  const switcherTeams: SwitcherTeam[] = activeTeams.map(t => ({
     id:           t.id,
     name:         t.name,
     projectCount: projects.filter(p => p.teamId === t.id).length,
@@ -654,18 +659,19 @@ function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId }: Tea
   const { projects } = useProjects()
   const { push } = useRouter()
   const isPersonalView = activeTeamId === 'personal'
+  const nonArchivedTeams = teams.filter(t => !t.archived)
   // Match the design system's DefaultProjectItems: when no team is explicitly
-  // selected, the active team falls back to teams[0] (the same team the
-  // TeamSwitcherRow displays), so the panel and the trigger stay in sync.
+  // selected, the active team falls back to the first active team (the same
+  // team WorkspaceSwitcher displays), so the panel and the trigger stay in sync.
   const activeTeam = isPersonalView
     ? null
-    : (teams.find(team => team.id === activeTeamId) ?? teams[0] ?? null)
+    : (nonArchivedTeams.find(team => team.id === activeTeamId) ?? nonArchivedTeams[0] ?? null)
   const effectiveActiveTeamId = activeTeam?.id ?? null
   // Design rule (DefaultProjectItems): "New project" shows for non-members.
   // Org admins/owners (role !== 'member') always can; a plain org member who
   // is an editor on a team can create within a team they can edit.
   const isAdmin = role !== 'member'
-  const showNewPersonalProject = isAdmin || teams.some(team => team.canEdit)
+  const showNewPersonalProject = isAdmin || nonArchivedTeams.some(team => team.canEdit)
   const showNewTeamProject = isAdmin || Boolean(activeTeam?.canEdit)
   const teamProjectsLabel = activeTeam ? `${activeTeam.name} projects` : 'Workspace projects'
   const teamNewProjectHref = effectiveActiveTeamId ? `/projects/new?teamId=${effectiveActiveTeamId}` : '/projects/new'

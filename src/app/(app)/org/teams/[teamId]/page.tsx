@@ -939,6 +939,7 @@ export default function TeamSettingsPage() {
       toast.success(`"${team.name}" was deleted successfully`)
       if (activeTeamId === team.id) setActiveTeamId(null)
       removeTeam(team.id)
+      refreshTeams()
       router.push('/org/teams')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete team')
