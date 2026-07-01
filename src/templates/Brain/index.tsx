@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { ChatInput, type ChatInputProps } from '@/components/chat/ChatInput'
 import { ExhaustionBanner } from '@/components/ExhaustionBanner'
@@ -163,6 +163,16 @@ export function BrainShell({
   const normalizedInitialInputValue = initialInputValue ?? ''
   const normalizedInitialInputKey = `${initialInputKey ?? ''}:${normalizedInitialInputValue}`
   const [optimisticPhase, setOptimisticPhase] = useState<{ basePhase: Phase; phase: Phase } | null>(null)
+  // When the consumer resets defaultPhase back to 'idle' (new thread / clear),
+  // clear the stale optimistic 'user-sent' state so BrainHome renders correctly.
+  const prevDefaultPhaseRef = useRef(defaultPhase)
+  useLayoutEffect(() => {
+    const prev = prevDefaultPhaseRef.current
+    prevDefaultPhaseRef.current = defaultPhase
+    if (defaultPhase === 'idle' && prev !== 'idle') {
+      setOptimisticPhase(null)
+    }
+  }, [defaultPhase])
   const [inputState, setInputState] = useState({
     initialKey:   normalizedInitialInputKey,
     value:        normalizedInitialInputValue,
