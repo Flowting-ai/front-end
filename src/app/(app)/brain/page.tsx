@@ -25,6 +25,8 @@ import {
   ClarificationSummary,
   ArtifactCard,
   ExternalOutputCard,
+  StuckCard,
+  LoopRecord,
   type ClarificationSummaryItem,
   type PersonaSelectionItem,
 } from '@/templates/Brain'
@@ -1434,6 +1436,8 @@ function BrainPageInner() {
   // resolves the SAME run, superseding the local step_failed fallback.
   const [activeRecoveryPrompt, setActiveRecoveryPrompt] = useState<RecoveryPrompt | null>(null)
   const [recoveryInFlight, setRecoveryInFlight] = useState(false)
+  const [activeStuckPrompt, setActiveStuckPrompt]   = useState<{ promptId: string; reason: string; suggestion?: string } | null>(null)
+  const [stuckInFlight, setStuckInFlight]           = useState(false)
   // step_failed has landed but the recovery prompt hasn't arrived yet (the
   // backend is running an LLM diagnosis in between, up to a few seconds). We show
   // a non-interactive "diagnosing" note in that window so the user can't trigger
@@ -1840,6 +1844,8 @@ function BrainPageInner() {
     setActiveRecoveryPrompt(null)
     setRecoveryInFlight(false)
     setAwaitingRecovery(false)
+    setActiveStuckPrompt(null)
+    setStuckInFlight(false)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
@@ -2169,7 +2175,7 @@ function BrainPageInner() {
         setSelectedClarificationOption(undefined)
         setClarificationInFlight(false)
         clarificationTextRef.current = ''
-        setPhase('clarifying-goal')
+        setPhase(questions[0]?.entity === 'pin' ? 'confirming-pins' : 'clarifying-goal')
         break
       }
 
@@ -2245,6 +2251,11 @@ function BrainPageInner() {
 
       case 'run_summarizing': {
         setPhase('streaming')
+        break
+      }
+
+      case 'souvenir_started': {
+        setPhase('souvenir')
         break
       }
 
@@ -2511,6 +2522,17 @@ function BrainPageInner() {
         break
       }
 
+      case 'stuck_prompt': {
+        const promptId   = typeof d.prompt_id  === 'string' ? d.prompt_id  : ''
+        const reason     = typeof d.reason     === 'string' ? d.reason     : 'The agent is stuck and needs your help.'
+        const suggestion = typeof d.suggestion === 'string' ? d.suggestion : undefined
+        if (!promptId) break
+        setActiveStuckPrompt({ promptId, reason, suggestion })
+        setStuckInFlight(false)
+        setPhase('stuck')
+        break
+      }
+
       default:
         break
     }
@@ -2712,6 +2734,8 @@ function BrainPageInner() {
     setActiveRecoveryPrompt(null)
     setRecoveryInFlight(false)
     setAwaitingRecovery(false)
+    setActiveStuckPrompt(null)
+    setStuckInFlight(false)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
@@ -3645,6 +3669,43 @@ function BrainPageInner() {
       .finally(() => setApprovalInFlight(false))
   }, [activeApprovalPrompt, approvalInFlight])
 
+  // ── Stuck handlers (event: stuck_prompt) ──────────────────────────────────────
+
+  const handleStuckContext = useCallback((text: string) => {
+    if (!activeStuckPrompt || stuckInFlight) return
+    const { promptId } = activeStuckPrompt
+    setStuckInFlight(true)
+    void respondToPrompt(promptId, { response: { context: text } })
+      .then(() => {
+        setActiveStuckPrompt(null)
+        setPhase('thinking')
+      })
+      .catch((e: unknown) => {
+        console.error('[Brain] stuck respond failed:', e)
+        const msg = e instanceof ApiError && e.status === 404
+          ? 'This prompt expired — please re-send your message.'
+          : 'Failed to submit context. Please try again.'
+        toast.error(msg)
+      })
+      .finally(() => setStuckInFlight(false))
+  }, [activeStuckPrompt, stuckInFlight])
+
+  const handleStuckCancel = useCallback(() => {
+    if (!activeStuckPrompt || stuckInFlight) return
+    const { promptId } = activeStuckPrompt
+    setStuckInFlight(true)
+    void respondToPrompt(promptId, { response: { decision: 'cancel' } })
+      .then(() => {
+        setActiveStuckPrompt(null)
+        setPhase('cancelled')
+      })
+      .catch((e: unknown) => {
+        console.error('[Brain] stuck cancel failed:', e)
+        toast.error('Failed to cancel. Please try again.')
+      })
+      .finally(() => setStuckInFlight(false))
+  }, [activeStuckPrompt, stuckInFlight])
+
   // ── Stop ──────────────────────────────────────────────────────────────────────
 
   const handleStop = useCallback(() => {
@@ -3791,6 +3852,8 @@ function BrainPageInner() {
     setActiveRecoveryPrompt(null)
     setRecoveryInFlight(false)
     setAwaitingRecovery(false)
+    setActiveStuckPrompt(null)
+    setStuckInFlight(false)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
@@ -3819,7 +3882,7 @@ function BrainPageInner() {
 
   // ── Thread: history from server (reload path) ─────────────────────────────────
 
-  const historyElements = historyMessages.map((msg) => {
+  const historyElements = historyMessages.map((msg, msgIndex) => {
     const planSteps = msg.plan ? mapHistoryPlanSteps(msg.plan) : []
     const allAttachments = msg.attachments ?? []
     const images       = allAttachments.filter((a) => a.mime_type?.startsWith('image/'))
@@ -3891,11 +3954,24 @@ function BrainPageInner() {
           />
         )}
         {planSteps.length > 0 && (
-          <LoopHistoryCard
-            steps={planSteps}
-            summary={msg.plan?.plan_json?.summary}
-            completedAt={msg.created_at ? new Date(msg.created_at) : undefined}
-          />
+          msg.plan && !msg.output ? (
+            <LoopRecord
+              loopIndex={msgIndex + 1}
+              query={cleanInput}
+              timestamp={msg.created_at
+                ? (() => { const d = new Date(msg.created_at); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) })()
+                : ''}
+              status="complete"
+              steps={planSteps}
+              needsInput
+            />
+          ) : (
+            <LoopHistoryCard
+              steps={planSteps}
+              summary={msg.plan?.plan_json?.summary}
+              completedAt={msg.created_at ? new Date(msg.created_at) : undefined}
+            />
+          )
         )}
         {historyToolItems.length > 0 && <ActivityFeed items={historyToolItems} />}
         {images.length > 0 && <MessageImages images={images} />}
@@ -4184,9 +4260,16 @@ function BrainPageInner() {
         <ActivityBlock steps={planSteps} interpretation={activePlanSummary} />
       )}
 
-      {/* Complete header sits above the transcript */}
+      {/* Complete header sits above the transcript; plan recap is nested as
+          children so BrainResultHeader collapses it into a toggle. */}
       {phase === 'complete' && (
-        <Rise><BrainResultHeader summary={activePlanSummary || 'Analysis complete'} /></Rise>
+        <Rise>
+          <BrainResultHeader summary={activePlanSummary || 'Analysis complete'}>
+            {planSteps.length > 0 && (
+              <LoopHistoryCard steps={planSteps} completedAt={completedAt ?? undefined} />
+            )}
+          </BrainResultHeader>
+        </Rise>
       )}
 
       {/* ── Ordered transcript ──────────────────────────────────────────────
@@ -4233,6 +4316,7 @@ function BrainPageInner() {
           (or tools) are still arriving. */}
       {phase === 'thinking'  && <StreamingIndicator phase="thinking" />}
       {phase === 'streaming' && <StreamingIndicator phase="streaming" />}
+      {phase === 'souvenir'  && <StreamingIndicator phase="souvenir" />}
 
       {/* PauseCard */}
       {phase === 'paused' && (
@@ -4296,9 +4380,16 @@ function BrainPageInner() {
         )
       })()}
 
-      {/* Completed plan recap, below the transcript */}
-      {phase === 'complete' && planSteps.length > 0 && (
-        <Rise><LoopHistoryCard steps={planSteps} completedAt={completedAt ?? undefined} /></Rise>
+      {/* Stuck: agent needs more context to proceed */}
+      {phase === 'stuck' && activeStuckPrompt && (
+        <Rise>
+          <StuckCard
+            reason={activeStuckPrompt.reason}
+            suggestion={activeStuckPrompt.suggestion}
+            onProvideContext={stuckInFlight ? undefined : handleStuckContext}
+            onCancel={stuckInFlight ? undefined : handleStuckCancel}
+          />
+        </Rise>
       )}
 
       {/* External writes recap ("Done in the world") — sits at the very end of
