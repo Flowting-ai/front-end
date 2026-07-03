@@ -376,17 +376,17 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
             {/* Team-picker dropdown — floats over the card; the trigger itself
                carries the "Shared to N teams" label, the card above keeps "Team". */}
             {visibility === 'team' && orgId && editableTeams.length > 0 && (
-              <div style={{ position: 'absolute', left: 12, right: 12, bottom: 12 }}>
+              <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', maxWidth: 'calc(100% - 24px)' }}>
                 <Dropdown.Float
                   open={teamsOpen}
                   onOpenChange={setTeamsOpen}
-                  placement="bottom-start"
+                  placement="bottom-end"
                   trigger={
                     <button
                       type="button"
                       style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-                        width: '100%', padding: '6px 8px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6,
+                        maxWidth: '100%', padding: '6px 8px', borderRadius: 8, border: 'none', cursor: 'pointer',
                         backgroundColor: 'rgba(255,255,255,0.12)',
                         boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.25)',
                         fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px',
