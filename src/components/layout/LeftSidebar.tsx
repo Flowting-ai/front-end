@@ -36,12 +36,57 @@ import { Badge } from "@/components/Badge";
 import { toast } from "sonner";
 import type { SidebarAdminGroup } from "@/components/Sidebar";
 import type { ChipColor } from "@/components/Chip";
+import { SIDEBAR_COLLAPSED_KEY, personaProfileKey } from "@/lib/storage-keys";
+import {
+  PROJECT_ROUTE,
+  PROJECT_CHAT_ROUTE,
+  PROJECTS_ROUTE,
+  PROJECTS_NEW_ROUTE,
+  ORG_TEAM_ROUTE,
+  TEAM_ROUTE,
+  ORG_MEMBERS_ROUTE,
+  ORG_ACTIVITY_ROUTE,
+  ORG_PLANS_ROUTE,
+  ORG_TEAMS_ROUTE,
+  ORG_GENERAL_ROUTE,
+  AGENT_CHAT_ROUTE,
+  AGENT_CONFIGURE_INSTRUCTIONS_ROUTE,
+  AGENTS_ROUTE,
+  AGENTS_TEMPLATES_ROUTE,
+  BRAIN_ROUTE,
+  BRAIN_THREADS_ROUTE,
+  BRAIN_SCHEDULES_ROUTE,
+  CHAT_ROUTE,
+  CHATS_ROUTE,
+  SETTINGS_ROUTE,
+  SETTINGS_ACCOUNT_ROUTE,
+  SETTINGS_BILLING_ROUTE,
+  SETTINGS_HELP_ROUTE,
+  AUTH_LOGIN_ROUTE,
+} from "@/lib/routes";
 
 // -- Collapse state persistence ------------------------------------------------
 
 function readCollapsed(): boolean {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem("sidebar_collapsed") === "true";
+  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+}
+
+// -- Draft avatar fallback ------------------------------------------------------
+// Draft agents' active version often has no persisted image_url yet — the
+// configure flow stashes the in-progress avatar in sessionStorage (same key the
+// /agents grid reads) before it's reflected in the fetched persona record.
+function personaAvatarUrl(persona: Persona): string | null {
+  if (persona.imageUrl) return persona.imageUrl;
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(personaProfileKey(persona.id));
+    const draft = JSON.parse(raw ?? "null") as Record<string, unknown> | null;
+    const draftAvatar = draft?.avatarUrl;
+    return typeof draftAvatar === "string" && draftAvatar ? draftAvatar : null;
+  } catch {
+    return null;
+  }
 }
 
 // -- Organization admin nav ----------------------------------------------------
@@ -409,7 +454,7 @@ function ProjectsSection({
   label = "Projects",
   showNewProject = true,
   projectsFilter,
-  newProjectHref = "/projects/new",
+  newProjectHref = PROJECTS_NEW_ROUTE,
   emptyLabel = "No projects yet",
 }: ProjectsSectionProps) {
   const { push }    = useRouter()
@@ -437,7 +482,7 @@ function ProjectsSection({
 
   // Auto-expand the project whose route is active (only expands, never collapses).
   React.useEffect(() => {
-    const active = projects.find(p => pathname.startsWith(`/project/${p.id}`))
+    const active = projects.find(p => pathname.startsWith(PROJECT_ROUTE(p.id)))
     if (!active) return
     setExpandedIds(prev => {
       if (prev.has(active.id)) return prev
@@ -498,7 +543,7 @@ function ProjectsSection({
 
           {visibleProjects.map(project => {
             const chats     = getChats(project.id)
-            const isActive  = pathname.startsWith(`/project/${project.id}`)
+            const isActive  = pathname.startsWith(PROJECT_ROUTE(project.id))
             const isExpanded = expandedIds.has(project.id)
 
             return (
@@ -508,7 +553,7 @@ function ProjectsSection({
                 label={project.name}
                 active={isActive}
                 expanded={isExpanded}
-                onClick={() => push(`/project/${project.id}`)}
+                onClick={() => push(PROJECT_ROUTE(project.id))}
                 onExpandedChange={(v) => toggleExpand(project.id, v)}
               >
                 {chats.length > 0 && (
@@ -517,9 +562,9 @@ function ProjectsSection({
                     <ProjectChatItem
                       key={chat.id}
                       chat={chat}
-                      isActive={pathname === `/project/${project.id}/chat/${chat.id}`}
-                      href={`/project/${project.id}/chat/${chat.id}`}
-                      onSelect={() => push(`/project/${project.id}/chat/${chat.id}`)}
+                      isActive={pathname === PROJECT_CHAT_ROUTE(project.id, chat.id)}
+                      href={PROJECT_CHAT_ROUTE(project.id, chat.id)}
+                      onSelect={() => push(PROJECT_CHAT_ROUTE(project.id, chat.id))}
                       onRename={async (chatId, title) => {
                         renameChat(project.id, chatId, title)
                         await chatHistory.rename(chatId, title)
@@ -533,9 +578,9 @@ function ProjectsSection({
                       variant="default"
                       icon={<MoreHorizontalIcon size={20} animated />}
                       label="View all Project Chats"
-                      selected={pathname === `/project/${project.id}`}
-                      href={`/project/${project.id}`}
-                      onClick={() => push(`/project/${project.id}`)}
+                      selected={pathname === PROJECT_ROUTE(project.id)}
+                      href={PROJECT_ROUTE(project.id)}
+                      onClick={() => push(PROJECT_ROUTE(project.id))}
                     />
                   )}
                 </>
@@ -550,8 +595,8 @@ function ProjectsSection({
               variant="default"
               icon={<MoreHorizontalIcon size={20} animated />}
               label="See all projects"
-              href="/projects"
-              onClick={() => push("/projects")}
+              href={PROJECTS_ROUTE}
+              onClick={() => push(PROJECTS_ROUTE)}
             />
           )}
         </div>
@@ -610,12 +655,12 @@ function WorkspaceSwitcher({ teams, projects, activeTeamId, role, onTeamSelect }
   const handleActionSelect = (teamId: string, action: string) => {
     const isAdminRole = role === 'admin'
     switch (action) {
-      case 'manage':     push(isAdminRole ? `/org/teams/${teamId}` : `/teams/${teamId}`); break
-      case 'projects':   push(`/teams/${teamId}?section=projects`); break
-      case 'connectors': push(`/teams/${teamId}?section=connectors`); break
-      case 'request':    push(isAdminRole ? `/org/members` : `/teams/${teamId}?section=requests`); break
-      case 'activity':   push(isAdminRole ? `/org/activity` : `/teams/${teamId}?section=activity`); break
-      case 'usage':      push('/org/plans'); break
+      case 'manage':     push(isAdminRole ? ORG_TEAM_ROUTE(teamId) : TEAM_ROUTE(teamId)); break
+      case 'projects':   push(`${TEAM_ROUTE(teamId)}?section=projects`); break
+      case 'connectors': push(`${TEAM_ROUTE(teamId)}?section=connectors`); break
+      case 'request':    push(isAdminRole ? ORG_MEMBERS_ROUTE : `${TEAM_ROUTE(teamId)}?section=requests`); break
+      case 'activity':   push(isAdminRole ? ORG_ACTIVITY_ROUTE : `${TEAM_ROUTE(teamId)}?section=activity`); break
+      case 'usage':      push(ORG_PLANS_ROUTE); break
     }
     setOpen(false)
   }
@@ -642,7 +687,7 @@ function WorkspaceSwitcher({ teams, projects, activeTeamId, role, onTeamSelect }
         onSelectTeam={(teamId) => { onTeamSelect(teamId); setOpen(false) }}
         onSelectPersonal={() => { onTeamSelect('personal'); setOpen(false) }}
         onActionSelect={handleActionSelect}
-        onManageTeams={() => { push('/org/teams'); setOpen(false) }}
+        onManageTeams={() => { push(ORG_TEAMS_ROUTE); setOpen(false) }}
       />
     </DropdownFloat>
   )
@@ -1036,6 +1081,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
           {personas.map(persona => {
             const isExpanded = expandedIds.has(persona.id)
             const isActive   = activePersonaId === persona.id
+            const isDraft    = persona.status === 'draft'
             const chatData   = personaChatsMap[persona.id]
             // Only show chats that belong to the persona's currently active version.
             // Chats without a versionId (optimistically created this session or
@@ -1044,8 +1090,9 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
               c => !c.versionId || !persona.activeVersionId || c.versionId === persona.activeVersionId,
             ) ?? []
 
-            const avatarIcon = persona.imageUrl
-              ? <img src={persona.imageUrl} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: 'var(--shadow-sidebar-item-avatar)' }} />
+            const avatarUrl  = personaAvatarUrl(persona)
+            const avatarIcon = avatarUrl
+              ? <img src={avatarUrl} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: 'var(--shadow-sidebar-item-avatar)' }} />
               : <UserAiIcon size={20} />
 
             return (
@@ -1055,53 +1102,62 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
                 label={persona.name}
                 icon={avatarIcon}
                 active={isActive}
-                expanded={isExpanded}
-                onClick={() => push(`/agents/${persona.id}/chat`)}
-                onExpandedChange={(v) => handleExpand(persona.id, v)}
-                badge={persona.sourceShareId !== null ? (
+                expanded={isDraft ? false : isExpanded}
+                onClick={() => isDraft
+                  ? push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name }))
+                  : handleExpand(persona.id, !isExpanded)}
+                onExpandedChange={(v) => { if (!isDraft) handleExpand(persona.id, v) }}
+                showExpandArrow={!isDraft}
+                badge={isDraft ? (
+                  <Badge color="Yellow" label="Draft" />
+                ) : persona.sourceShareId !== null ? (
                   <Badge color="Blue" label="Shared" />
                 ) : undefined}
               >
-                {/* New chat button */}
-                <SidebarMenuItem
-                  fluid
-                  variant="default"
-                  label="New chat"
-                  icon={<PlusSignIcon size={20} />}
-                  href={`/agents/${persona.id}/chat`}
-                  onClick={() => push(`/agents/${persona.id}/chat`)}
-                />
+                {!isDraft && (
+                  <>
+                    {/* New chat button */}
+                    <SidebarMenuItem
+                      fluid
+                      variant="default"
+                      label="New chat"
+                      icon={<PlusSignIcon size={20} />}
+                      href={`/agents/${persona.id}/chat`}
+                      onClick={() => push(AGENT_CHAT_ROUTE(persona.id))}
+                    />
 
-                {/* Loading skeletons */}
-                {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
-                  <SidebarMenuSkeleton key={i} index={i} fluid />
-                ))}
+                    {/* Loading skeletons */}
+                    {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
+                      <SidebarMenuSkeleton key={i} index={i} fluid />
+                    ))}
 
-                {/* Chat items */}
-                {visibleChats.map(chat => (
-                  <PersonaChatItem
-                    key={chat.id}
-                    personaId={persona.id}
-                    chat={chat}
-                    isActive={isActive && chat.id === activeChatId}
-                    onSelect={() => push(`/agents/${persona.id}/chat?chatId=${chat.id}`)}
-                    onRename={(chatId, title) => handleChatRename(persona.id, chatId, title)}
-                    onDelete={(chatId) => handleChatDelete(persona.id, chatId)}
-                  />
-                ))}
+                    {/* Chat items */}
+                    {visibleChats.map(chat => (
+                      <PersonaChatItem
+                        key={chat.id}
+                        personaId={persona.id}
+                        chat={chat}
+                        isActive={isActive && chat.id === activeChatId}
+                        onSelect={() => push(`${AGENT_CHAT_ROUTE(persona.id)}?chatId=${chat.id}`)}
+                        onRename={(chatId, title) => handleChatRename(persona.id, chatId, title)}
+                        onDelete={(chatId) => handleChatDelete(persona.id, chatId)}
+                      />
+                    ))}
 
-                {/* Empty state */}
-                {chatData?.loaded && visibleChats.length === 0 && (
-                  <div
-                    style={{
-                      padding:    "4px 6px",
-                      fontFamily: "var(--font-body)",
-                      fontSize:   "var(--font-size-caption)",
-                      color:      "var(--neutral-400)",
-                    }}
-                  >
-                    No chats yet
-                  </div>
+                    {/* Empty state */}
+                    {chatData?.loaded && visibleChats.length === 0 && (
+                      <div
+                        style={{
+                          padding:    "4px 6px",
+                          fontFamily: "var(--font-body)",
+                          fontSize:   "var(--font-size-caption)",
+                          color:      "var(--neutral-400)",
+                        }}
+                      >
+                        No chats yet
+                      </div>
+                    )}
+                  </>
                 )}
               </SidebarProjectsSection>
             )
@@ -1260,13 +1316,15 @@ function PersonasSectionIndividual() {
   const renderPersonaRow = (persona: Persona) => {
     const isExpanded   = expandedIds.has(persona.id)
     const isActive     = activePersonaId === persona.id
+    const isDraft      = persona.status === 'draft'
     const chatData     = personaChatsMap[persona.id]
     const visibleChats = chatData?.chats.filter(
       c => !c.versionId || !persona.activeVersionId || c.versionId === persona.activeVersionId,
     ) ?? []
 
-    const avatarIcon = persona.imageUrl
-      ? <img src={persona.imageUrl} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: 'var(--shadow-sidebar-item-avatar)' }} />
+    const avatarUrl  = personaAvatarUrl(persona)
+    const avatarIcon = avatarUrl
+      ? <img src={avatarUrl} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: 'var(--shadow-sidebar-item-avatar)' }} />
       : <UserAiIcon size={20} />
 
     return (
@@ -1276,36 +1334,44 @@ function PersonasSectionIndividual() {
         label={persona.name}
         icon={avatarIcon}
         active={isActive}
-        expanded={isExpanded}
-        onClick={() => push(`/agents/${persona.id}/chat`)}
-        onExpandedChange={(v) => handleExpand(persona.id, v)}
+        expanded={isDraft ? false : isExpanded}
+        onClick={() => isDraft
+          ? push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name }))
+          : handleExpand(persona.id, !isExpanded)}
+        onExpandedChange={(v) => { if (!isDraft) handleExpand(persona.id, v) }}
+        showExpandArrow={!isDraft}
+        badge={isDraft ? <Badge color="Yellow" label="Draft" /> : undefined}
       >
-        <SidebarMenuItem
-          fluid
-          variant="default"
-          label="New chat"
-          icon={<BubbleChatAddIcon size={20} />}
-          href={`/agents/${persona.id}/chat`}
-          onClick={() => push(`/agents/${persona.id}/chat`)}
-        />
-        {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
-          <SidebarMenuSkeleton key={i} index={i} fluid />
-        ))}
-        {visibleChats.map(chat => (
-          <PersonaChatItem
-            key={chat.id}
-            personaId={persona.id}
-            chat={chat}
-            isActive={isActive && chat.id === activeChatId}
-            onSelect={() => push(`/agents/${persona.id}/chat?chatId=${chat.id}`)}
-            onRename={(chatId, title) => handleChatRename(persona.id, chatId, title)}
-            onDelete={(chatId) => handleChatDelete(persona.id, chatId)}
-          />
-        ))}
-        {chatData?.loaded && visibleChats.length === 0 && (
-          <div style={{ padding: "4px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>
-            No chats yet
-          </div>
+        {!isDraft && (
+          <>
+            <SidebarMenuItem
+              fluid
+              variant="default"
+              label="New chat"
+              icon={<BubbleChatAddIcon size={20} />}
+              href={`/agents/${persona.id}/chat`}
+              onClick={() => push(AGENT_CHAT_ROUTE(persona.id))}
+            />
+            {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
+              <SidebarMenuSkeleton key={i} index={i} fluid />
+            ))}
+            {visibleChats.map(chat => (
+              <PersonaChatItem
+                key={chat.id}
+                personaId={persona.id}
+                chat={chat}
+                isActive={isActive && chat.id === activeChatId}
+                onSelect={() => push(`${AGENT_CHAT_ROUTE(persona.id)}?chatId=${chat.id}`)}
+                onRename={(chatId, title) => handleChatRename(persona.id, chatId, title)}
+                onDelete={(chatId) => handleChatDelete(persona.id, chatId)}
+              />
+            ))}
+            {chatData?.loaded && visibleChats.length === 0 && (
+              <div style={{ padding: "4px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>
+                No chats yet
+              </div>
+            )}
+          </>
         )}
       </SidebarProjectsSection>
     )
@@ -1359,7 +1425,7 @@ function PersonasSectionIndividual() {
             variant="default"
             label="New Agent"
             icon={<UserAddOneIcon size={20} />}
-            onClick={() => push('/agents/templates')}
+            onClick={() => push(AGENTS_TEMPLATES_ROUTE)}
           />
           {isLoading && Array.from({ length: 2 }).map((_, i) => (
             <SidebarMenuSkeleton key={i} index={i} fluid />
@@ -1475,7 +1541,7 @@ function RecentAgentChatsSection() {
               personaId={chat.personaId}
               chat={chat}
               isActive={activePersonaId === chat.personaId && chat.id === activeChatId}
-              onSelect={() => push(`/agents/${chat.personaId}/chat?chatId=${chat.id}`)}
+              onSelect={() => push(`${AGENT_CHAT_ROUTE(chat.personaId)}?chatId=${chat.id}`)}
               onRename={(chatId, title) => setAllChats(prev => prev.map(c => c.id === chatId ? { ...c, title } : c))}
               onDelete={(chatId) => setAllChats(prev => prev.filter(c => c.id !== chatId))}
             />
@@ -1530,7 +1596,7 @@ function BrainScheduledTasksSection({ tasks, loading }: BrainScheduledTasksSecti
                 fluid
                 variant="chat-item"
                 label={task.title}
-                onClick={() => push("/brain/schedules")}
+                onClick={() => push(BRAIN_SCHEDULES_ROUTE)}
               />
             ))
           ) : null}
@@ -1585,7 +1651,7 @@ function LeftSidebarImpl({
   const currentProjectTeamId = currentProject?.teamId ?? null
   const isAdminPage   = pathname?.startsWith("/org") ?? false;
   const isTeamSettingsPage = pathname?.startsWith("/teams/") ?? false;
-  const isNewChatPage = pathname === '/chat' && !chatSearchParams.get('id');
+  const isNewChatPage = pathname === CHAT_ROUTE && !chatSearchParams.get('id');
   const routeTeamId = isTeamSettingsPage ? pathname?.split('/')[2] : undefined
   const routeTeam = teams.find(team => team.id === routeTeamId)
   const requestedTeamSection = `team-${chatSearchParams.get('section') ?? 'projects'}`
@@ -1692,16 +1758,16 @@ function LeftSidebarImpl({
   const handleCollapse = () => {
     collapsedRef.current = !collapsedRef.current;
     if (typeof window !== "undefined") {
-      localStorage.setItem("sidebar_collapsed", String(collapsedRef.current));
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsedRef.current));
     }
   };
 
   const handleNewChat = () => {
     if (isPersonaPage) {
-      push("/agents");
+      push(AGENTS_ROUTE);
       return;
     }
-    const isAlreadyOnNewChat = pathname === "/chat" && !new URLSearchParams(window.location.search).get("id");
+    const isAlreadyOnNewChat = pathname === CHAT_ROUTE && !new URLSearchParams(window.location.search).get("id");
     if (isAlreadyOnNewChat) {
       toast.info("Already on new chat");
       return;
@@ -1710,7 +1776,7 @@ function LeftSidebarImpl({
     if (onNewChat) {
       onNewChat();
     } else {
-      push("/chat");
+      push(CHAT_ROUTE);
     }
   };
 
@@ -1718,7 +1784,7 @@ function LeftSidebarImpl({
     if (onSelectChat) {
       onSelectChat(id);
     } else {
-      push(`/chat?id=${id}`);
+      push(`${CHAT_ROUTE}?id=${id}`);
     }
   };
 
@@ -1800,35 +1866,35 @@ function LeftSidebarImpl({
       onCollapse={handleCollapse}
       onNewChat={handleNewChat}
       newChatButtonSelected={
-        isPersonaPage ? pathname === '/agents'
-        : isBrainPage ? (pathname === '/brain' && !chatSearchParams.get('id'))
+        isPersonaPage ? pathname === AGENTS_ROUTE
+        : isBrainPage ? (pathname === BRAIN_ROUTE && !chatSearchParams.get('id'))
         : isNewChatPage
       }
       onSearch={openSearch}
-      onChatTabClick={isPersonaPage ? () => push("/chat") : handleNewChat}
-      onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
-      onChatboardClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push("/chats") }}
-      onManageAllThreadsClick={() => { toast.info("Opening Brain Threads", { id: 'nav' }); push("/brain/threads") }}
+      onChatTabClick={isPersonaPage ? () => push(CHAT_ROUTE) : handleNewChat}
+      onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push(CHATS_ROUTE) }}
+      onChatboardClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push(CHATS_ROUTE) }}
+      onManageAllThreadsClick={() => { toast.info("Opening Brain Threads", { id: 'nav' }); push(BRAIN_THREADS_ROUTE) }}
       // On a brain page the brain page owns the imperative new-thread reset
       // (URL navigation alone is unsafe — see handleNewChat in brain/page). Emit
       // the event it listens for; fall back to navigation from anywhere else.
-      onNewBrainThread={() => { if (isBrainPage) emitBrainNewThread(); else push("/brain") }}
-      onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push("/projects") }}
-      onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }}
-      onNewAgentChat={() => push("/agents")}
+      onNewBrainThread={() => { if (isBrainPage) emitBrainNewThread(); else push(BRAIN_ROUTE) }}
+      onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push(PROJECTS_ROUTE) }}
+      onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push(AGENTS_ROUTE) }}
+      onNewAgentChat={() => push(AGENTS_ROUTE)}
       agentItems={
         currentProjectTeamId ? <PersonasSectionAll teamId={currentProjectTeamId} />
         : isTeamUser         ? <PersonasSectionAll />
         :                      <PersonasSectionIndividual />
       }
-      onAllAgentsClick={() => { toast.info("Opening Agents", { id: 'nav' }); push("/agents") }}
-      onBrainClick={() => { toast.info("Opening Brain", { id: 'nav' }); push("/brain") }}
+      onAllAgentsClick={() => { toast.info("Opening Agents", { id: 'nav' }); push(AGENTS_ROUTE) }}
+      onBrainClick={() => { toast.info("Opening Brain", { id: 'nav' }); push(BRAIN_ROUTE) }}
       // Clicking the admin tab switches the sidebar body to admin AND navigates
       // to General — always landing on General regardless of prior admin page.
-      onOrganisationClick={() => push('/org/general')}
+      onOrganisationClick={() => push(ORG_GENERAL_ROUTE)}
       // "Manage <org>" row (and its collapsed-rail twin) land on the same org
       // management entry point as the header org badge.
-      onManageOrg={() => push('/org/general')}
+      onManageOrg={() => push(ORG_GENERAL_ROUTE)}
       // adminGroups is intentionally NOT overridden — the Sidebar's default
       // groups (Organization / Models) are the canonical content.
       // We only wire behaviour: navigate where a page exists, else "coming soon".
@@ -1881,17 +1947,17 @@ function LeftSidebarImpl({
               </Tooltip>
             ) : undefined}
             placement="top-start"
-            onProfile={() => push("/settings/account")}
-            onUpgradePlan={() => push("/settings/billing")}
-            onSettings={() => push("/settings")}
-            onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push("/org/general") : undefined}
+            onProfile={() => push(SETTINGS_ACCOUNT_ROUTE)}
+            onUpgradePlan={() => push(SETTINGS_BILLING_ROUTE)}
+            onSettings={() => push(SETTINGS_ROUTE)}
+            onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push(ORG_GENERAL_ROUTE) : undefined}
             onWhatsNew={() => toast.info("What's new — coming soon!")}
-            onHelp={() => push("/settings/help")}
-            onLogOut={() => { if (isAuthenticated) { void logout() } else { push("/auth/login") } }}
+            onHelp={() => push(SETTINGS_HELP_ROUTE)}
+            onLogOut={() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } }}
           />
         )
       }}
-      onSchedulesClick={() => { toast.info("Opening Schedules", { id: 'nav' }); push("/brain/schedules") }}
+      onSchedulesClick={() => { toast.info("Opening Schedules", { id: 'nav' }); push(BRAIN_SCHEDULES_ROUTE) }}
       projectItems={orgId ? (
         <TeamsSidebarContent
           role={currentUserRole}
@@ -1906,7 +1972,7 @@ function LeftSidebarImpl({
       brainRecentItems={
         <BrainSidebarSections
           activeChatId={isBrainPage ? (chatSearchParams.get('id') ?? null) : null}
-          onThreadClick={(id) => push(`/brain?id=${id}`)}
+          onThreadClick={(id) => push(`${BRAIN_ROUTE}?id=${id}`)}
         />
       }
       recentItems={

@@ -8,6 +8,7 @@ import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
 import { toast } from "sonner";
 import type { OnboardingTone } from "@/context/onboarding-context";
+import { ONBOARDING_IMPORT_ROUTE, ONBOARDING_ACCOUNT_TYPE_ROUTE } from "@/lib/routes";
 
 const TONES: Array<{ id: OnboardingTone; subtitle: string; symbol: string }> = [
   { id: "Direct", subtitle: "Skip the preamble. Just the answer.", symbol: "◇◇" },
@@ -153,7 +154,7 @@ export default function OnboardingTonePage() {
         });
       }
 
-      push("/onboarding/import");
+      push(ONBOARDING_IMPORT_ROUTE);
     } catch (err) {
       console.error("Onboarding submission failed", err);
       toast.error("Something went wrong — please try again.");
@@ -232,7 +233,7 @@ export default function OnboardingTonePage() {
 
       {/* Nav buttons */}
       <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-        <Button variant="secondary" size="sm" onClick={() => push("/onboarding/account-type")}>
+        <Button variant="secondary" size="sm" onClick={() => push(ONBOARDING_ACCOUNT_TYPE_ROUTE)}>
           Back
         </Button>
         <Button

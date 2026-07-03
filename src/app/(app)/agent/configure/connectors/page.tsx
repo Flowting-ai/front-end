@@ -16,6 +16,14 @@ import ConnectorsTab from '@/app/(app)/agent/configure/components/ConnectorsTab'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
 import { derivePublicationState } from '@/lib/persona-version-logic'
+import { AttributeTocRail, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
+
+// Toggling any connector (workspace or personal) marks the same shared
+// 'connectors' field touched — no per-connector or per-section granularity
+// is tracked, so this is a single row rather than one per section.
+const CONNECTORS_TOC_ITEMS: AttributeTocItem[] = [
+  { id: 'connectors', label: 'Connectors', anchor: 'help-connectors-workspace' },
+]
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -39,7 +47,8 @@ function PersonaConfigureConnectorsContent() {
   const versionIdParam = searchParams.get('versionId') ?? ''
   const [versionId, setVersionId] = useState(versionIdParam)
 
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen, publishedVersionId, markPublished, registerAutoSave, tabDirtyFlags, setTabDirty } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen, publishedVersionId, markPublished, registerAutoSave, tabDirtyFlags, setTabDirty, changesTrackerOpen, touchedFieldsByTab } = usePersonaConfigure()
+  const connectorsTouchedFields = touchedFieldsByTab.connectors
   const [isSaving,           setIsSaving]           = useState(false)
   const [showInfo,           setShowInfo]           = useState(false)
   const [isPublishing,       setIsPublishing]       = useState(false)
@@ -319,6 +328,10 @@ function PersonaConfigureConnectorsContent() {
           {/* Spacer below nav */}
           <div style={{ height: 35, flexShrink: 0 }} />
         </div>
+
+        {changesTrackerOpen && !anyPanelOpen && (
+          <AttributeTocRail items={CONNECTORS_TOC_ITEMS} touchedFields={connectorsTouchedFields} />
+        )}
 
         {/* ── Scrollable content area ────────────────────────────────────────── */}
         <div

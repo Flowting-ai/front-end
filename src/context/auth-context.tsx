@@ -19,6 +19,7 @@ import { fetchCurrentUser } from "@/lib/api/user";
 import { formatCredits } from "@/lib/plan-config";
 import { creditsFromUsage, creditsFromBilling } from "@/lib/credits";
 import { normalizePct } from "@/lib/utils/format-utils";
+import { AUTH_LOGIN_ROUTE, AUTH_LOGOUT_ROUTE } from "@/lib/routes";
 
 export interface AuthUser {
   id?: string | number | null;
@@ -257,8 +258,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // rejects as a non-allowlisted logout URL — so the IdP logout silently fails
     // and the browser bounces back with the session intact. Targeting
     // /auth/login (an allowlisted logout URL) makes logout reliable everywhere.
-    const returnTo = `${window.location.origin}/auth/login`;
-    window.location.href = `/auth/logout?returnTo=${encodeURIComponent(returnTo)}`;
+    const returnTo = `${window.location.origin}${AUTH_LOGIN_ROUTE}`;
+    window.location.href = AUTH_LOGOUT_ROUTE(returnTo);
   };
 
   // Listen for session-expired events

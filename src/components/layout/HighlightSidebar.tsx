@@ -9,6 +9,7 @@ import { toast } from '@/components/Toast'
 import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
 import { sortHighlightsBySourcePosition } from '@/lib/highlight-order'
+import { CHAT_ROUTE } from '@/lib/routes'
 
 function useCurrentChatId(): string | undefined {
   const pathname = usePathname()
@@ -128,7 +129,7 @@ function HighlightSidebarImpl() {
       // The filterMode effect skips loadForChat for the current chat because
       // pendingJumpRef is non-null at that point, avoiding a stale API call.
       if (filterMode === 'all') setFilterMode('this-chat')
-      push(`/chat?id=${h.chatId}`)
+      push(`${CHAT_ROUTE}?id=${h.chatId}`)
       return
     }
 

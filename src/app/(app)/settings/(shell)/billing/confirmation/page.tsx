@@ -7,6 +7,7 @@ import { useOrg } from '@/context/org-context'
 import { fetchBilling } from '@/lib/api/user'
 import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
 import { Button } from '@/components/Button'
+import { SETTINGS_BILLING_ROUTE, CHAT_ROUTE } from '@/lib/routes'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const TITLE = 'var(--font-title)'
@@ -128,10 +129,10 @@ function BillingConfirmationContent() {
 
         {/* CTAs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 320 }}>
-          <Button fluid onClick={() => router.push('/settings/billing')}>
+          <Button fluid onClick={() => router.push(SETTINGS_BILLING_ROUTE)}>
             Go to usage &amp; billing
           </Button>
-          <Button variant="ghost" fluid onClick={() => router.push('/chat')}>
+          <Button variant="ghost" fluid onClick={() => router.push(CHAT_ROUTE)}>
             Go to Dashboard
           </Button>
         </div>

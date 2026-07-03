@@ -12,6 +12,7 @@ import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { MarkdownRenderer } from '@/lib/markdown-utils'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
+import { CHAT_ROUTE } from '@/lib/routes'
 
 function SharedChatContent() {
   const params   = useParams()
@@ -37,7 +38,7 @@ function SharedChatContent() {
     setForking(true)
     try {
       const { chatId } = await forkChatShare(shareId)
-      router.push(`/chat?id=${chatId}`)
+      router.push(`${CHAT_ROUTE}?id=${chatId}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to copy chat')
     } finally {

@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth0 } from "@/lib/auth0";
 import { userMeRootAllowsMainApp } from "@/lib/onboarding-access";
+import {
+  ORG_GENERAL_ROUTE,
+  AUTH_LOGIN_ROUTE,
+  ONBOARDING_PRICING_ROUTE,
+  ONBOARDING_BASE_ROUTE,
+  ONBOARDING_TEAM_BASE_ROUTE,
+  SETTINGS_BILLING_CONFIRMATION_ROUTE,
+  TEAM_INVITE_BASE_ROUTE,
+  ROOT_ROUTE,
+} from "@/lib/routes";
 
 type OnboardingGate = {
   allowsMainApp: boolean;
@@ -129,7 +139,7 @@ export default async function proxy(request: NextRequest) {
   // handling so stale client links and logged-out bookmarks cannot preserve
   // /org/security as a post-login return path.
   if (pathname === "/org/security" || pathname.startsWith("/org/security/")) {
-    return NextResponse.redirect(new URL("/org/general", request.url));
+    return NextResponse.redirect(new URL(ORG_GENERAL_ROUTE, request.url));
   }
 
   // Auth0 handles its own routes - never block /auth/*. The v4 SDK middleware
@@ -159,26 +169,26 @@ export default async function proxy(request: NextRequest) {
   const onboarding = onboardingResult.data;
   const hasOnboarded = onboarding?.allowsMainApp === true;
   const hasKnownOnboardingState = onboarding !== null;
-  const isPricingPage = pathname.startsWith("/onboarding/pricing");
+  const isPricingPage = pathname.startsWith(ONBOARDING_PRICING_ROUTE);
   // The team-invite onboarding flow lives under /onboarding/team/<inviteId>. An
   // already-onboarded user can still be invited into a new team, so they must be
   // allowed into this flow rather than bounced to "/" like the rest of onboarding.
-  const isTeamInviteOnboarding = pathname.startsWith("/onboarding/team");
+  const isTeamInviteOnboarding = pathname.startsWith(ONBOARDING_TEAM_BASE_ROUTE);
 
   if (onboardingResult.requiresReauth) {
-    const loginUrl = new URL("/auth/login", request.url);
+    const loginUrl = new URL(AUTH_LOGIN_ROUTE, request.url);
     loginUrl.searchParams.set("returnTo", pathname);
     return Response.redirect(loginUrl);
   }
 
   // Completed onboarding - block re-entry into onboarding flow (except the
   // pricing return page and the team-invite flow, which onboarded users may use).
-  if (pathname.startsWith("/onboarding/") && hasOnboarded && !isPricingPage && !isTeamInviteOnboarding) {
-    return Response.redirect(new URL("/", request.url));
+  if (pathname.startsWith(`${ONBOARDING_BASE_ROUTE}/`) && hasOnboarded && !isPricingPage && !isTeamInviteOnboarding) {
+    return Response.redirect(new URL(ROOT_ROUTE, request.url));
   }
 
   // Onboarding pages - pass through Auth0 for authenticated users
-  if (pathname.startsWith("/onboarding/")) {
+  if (pathname.startsWith(`${ONBOARDING_BASE_ROUTE}/`)) {
     return await auth0.middleware(request);
   }
 
@@ -186,13 +196,13 @@ export default async function proxy(request: NextRequest) {
   const justCompletedCheckout = cookies.includes("souvenir_checkout_complete=1");
 
   // Never block access to the billing confirmation page (post-checkout return from Stripe)
-  const isBillingConfirmation = pathname.startsWith("/settings/billing/confirmation");
+  const isBillingConfirmation = pathname.startsWith(SETTINGS_BILLING_CONFIRMATION_ROUTE);
 
   // An invited user may still be un-onboarded when they land on their invite
   // link (e.g. a brand-new signup arriving via ?returnTo=/team-invite/<id>).
   // Let them reach the accept page instead of bouncing them into onboarding —
   // otherwise the invitation popup never renders.
-  const isTeamInvite = pathname.startsWith("/team-invite");
+  const isTeamInvite = pathname.startsWith(TEAM_INVITE_BASE_ROUTE);
 
   if (session && hasKnownOnboardingState && !hasOnboarded && !justCompletedCheckout && !isBillingConfirmation && !isTeamInvite && !isTeamInviteOnboarding) {
     return Response.redirect(new URL(onboarding!.nextPath, request.url));
@@ -208,8 +218,8 @@ export default async function proxy(request: NextRequest) {
   }
 
   if (!session) {
-    const loginUrl = new URL("/auth/login", request.url);
-    loginUrl.searchParams.set("returnTo", pathname || "/");
+    const loginUrl = new URL(AUTH_LOGIN_ROUTE, request.url);
+    loginUrl.searchParams.set("returnTo", pathname || ROOT_ROUTE);
     return Response.redirect(loginUrl);
   }
 

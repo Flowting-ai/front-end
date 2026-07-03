@@ -3,6 +3,7 @@
 import React from 'react'
 import * as SliderPrimitive from '@radix-ui/react-slider'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/Tooltip'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -175,49 +176,35 @@ export function Slider({
           </div>
         )}
 
-        {current.map((_, i) => (
-          // eslint-disable-next-line react/no-array-index-as-key -- slider thumbs are positionally stable by definition
-          <SliderPrimitive.Thumb key={i}
-            aria-label={props['aria-label'] ?? 'Value'}
-            className="kds-slider-thumb"
-            style={{
-              display:         'block',
-              width:           THUMB_SIZE,
-              height:          THUMB_SIZE,
-              borderRadius:    '50%',
-              backgroundColor: 'var(--neutral-white)',
-              border:          '1.5px solid var(--neutral-700)',
-              boxShadow:       'var(--shadow-button-secondary-outer)',
-              cursor:          disabled ? 'not-allowed' : 'grab',
-              outline:         'none',
-              position:        'relative',
-            }}
-          >
-            {showValue && (
-              <span
-                aria-hidden
-                style={{
-                  position:        'absolute',
-                  left:            '50%',
-                  bottom:          'calc(100% + 6px)',
-                  transform:       'translateX(-50%)',
-                  padding:         '2px 6px',
-                  borderRadius:    6,
-                  backgroundColor: 'var(--neutral-900)',
-                  color:           'var(--neutral-white)',
-                  fontFamily:      'var(--font-body)',
-                  fontSize:        'var(--font-size-caption)',
-                  fontWeight:      'var(--font-weight-medium)',
-                  lineHeight:      1,
-                  whiteSpace:      'nowrap',
-                  pointerEvents:   'none',
-                }}
-              >
-                {valuePrefix}{format(current[i])}
-              </span>
-            )}
-          </SliderPrimitive.Thumb>
-        ))}
+        {current.map((_, i) => {
+          const thumb = (
+            <SliderPrimitive.Thumb
+              aria-label={props['aria-label'] ?? 'Value'}
+              className="kds-slider-thumb"
+              style={{
+                display:         'block',
+                width:           THUMB_SIZE,
+                height:          THUMB_SIZE,
+                borderRadius:    '50%',
+                backgroundColor: 'var(--neutral-white)',
+                border:          '1.5px solid var(--neutral-700)',
+                boxShadow:       'var(--shadow-button-secondary-outer)',
+                cursor:          disabled ? 'not-allowed' : 'grab',
+                outline:         'none',
+              }}
+            />
+          )
+          if (!showValue) {
+            // eslint-disable-next-line react/no-array-index-as-key -- slider thumbs are positionally stable by definition
+            return <React.Fragment key={i}>{thumb}</React.Fragment>
+          }
+          return (
+            // eslint-disable-next-line react/no-array-index-as-key -- slider thumbs are positionally stable by definition
+            <Tooltip key={i} content={`${valuePrefix}${format(current[i])}`} side="top" sideOffset={8} open>
+              {thumb}
+            </Tooltip>
+          )
+        })}
       </SliderPrimitive.Root>
     </div>
   )

@@ -11,6 +11,7 @@ import {
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
 import { fetchModelsWithCache } from '@/lib/ai-models'
+import { AGENTS_ROUTE, ROOT_ROUTE } from '@/lib/routes'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ function ShareAcceptContent() {
       toast.success(`"${result.name}" added to your agents`)
       // Received agents are read-only — go to the agents list, not the edit page
       setTimeout(() => {
-        push('/agents')
+        push(AGENTS_ROUTE)
       }, 1200)
     } catch (err) {
       if (err instanceof ApiError) {
@@ -172,7 +173,7 @@ function ShareAcceptContent() {
           </div>
         </div>
         <div style={footerStyle}>
-          <Button variant="outline" size="md" onClick={() => push('/')}>
+          <Button variant="outline" size="md" onClick={() => push(ROOT_ROUTE)}>
             Go home
           </Button>
         </div>
@@ -371,7 +372,7 @@ function ShareAcceptContent() {
 
       {/* Footer actions */}
       <div style={footerStyle}>
-        <Button variant="outline" size="md" onClick={() => push('/')}>
+        <Button variant="outline" size="md" onClick={() => push(ROOT_ROUTE)}>
           Decline
         </Button>
         <Button

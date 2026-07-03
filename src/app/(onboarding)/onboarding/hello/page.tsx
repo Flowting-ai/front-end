@@ -10,6 +10,7 @@ import { Dropdown, DropdownFloat } from "@/components/Dropdown";
 import { createUser, updateUser, updateOnboarding } from "@/lib/api/user";
 import { Button } from "@/components/Button";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
+import { AUTH_LOGIN_ROUTE, ONBOARDING_ACCOUNT_TYPE_ROUTE } from "@/lib/routes";
 
 const ROLES: OnboardingRole[] = [
   "Founder",
@@ -134,7 +135,7 @@ export default function OnboardingHelloPage() {
   // Auth state is client-side, so redirect unauthenticated users from the client.
   useEffect(() => {
     if (!isHydrated) return;
-    if (!isAuthenticated) { window.location.href = "/auth/login"; return; }
+    if (!isAuthenticated) { window.location.href = AUTH_LOGIN_ROUTE; return; }
     // Upsert the backend user record (POST /users/create). Idempotent — safe to
     // call on every page load. Ensures PATCH /users/me succeeds on the first visit.
     void createUser();
@@ -162,7 +163,7 @@ export default function OnboardingHelloPage() {
     } finally {
       setIsSaving(false);
     }
-    push("/onboarding/account-type");
+    push(ONBOARDING_ACCOUNT_TYPE_ROUTE);
   };
 
   if (!isHydrated) return null;

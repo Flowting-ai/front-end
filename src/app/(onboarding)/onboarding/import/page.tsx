@@ -8,6 +8,7 @@ import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
 import { apiFetch } from "@/lib/api/client";
 import { MEMORY_USER_ENDPOINT } from "@/lib/config";
+import { ONBOARDING_WORKSPACE_ROUTE, CHAT_ROUTE } from "@/lib/routes";
 
 const UNIVERSAL_PROMPT = `Based on everything you know about me - past conversations, saved memories, any standing instructions or preferences I've set - write a single paragraph (no headers, no bullets, no markdown) that briefs another AI assistant on how to work with me effectively. Cover:
 
@@ -35,7 +36,7 @@ export default function OnboardingImportPage() {
     user?.roleFit === "large_team";
 
   useEffect(() => {
-    if (isTeamUser) push("/onboarding/workspace");
+    if (isTeamUser) push(ONBOARDING_WORKSPACE_ROUTE);
   }, [isTeamUser, push]);
 
   if (isTeamUser) return null;
@@ -83,7 +84,7 @@ export default function OnboardingImportPage() {
       }
 
       await refreshUser();
-      push("/chat?welcome=1");
+      push(`${CHAT_ROUTE}?welcome=1`);
     } catch (err) {
       console.error("Onboarding submission failed", err);
     } finally {

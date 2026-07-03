@@ -566,6 +566,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
   return (
     <div
       {...dragHandlers}
+      data-help-id="help-knowledge-upload"
       style={{ position: "relative", display: "flex", flexDirection: "column", gap: 24, width: "100%", paddingTop: 3 }}
     >
       <DropOverlay visible={isDraggingOver} />

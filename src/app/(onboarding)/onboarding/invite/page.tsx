@@ -12,6 +12,7 @@ import { apiFetch } from "@/lib/api/client";
 import { MEMORY_USER_ENDPOINT } from "@/lib/config";
 import { Dropdown, DropdownFloat } from "@/components/Dropdown";
 import { OnboardingScreen } from "../_components/onboarding-shell";
+import { WELCOME_ROUTE } from "@/lib/routes";
 import { toast } from "sonner";
 
 const INVITE_ROLES = ["Member", "Admin"] as const;
@@ -123,7 +124,7 @@ export default function OnboardingInvitePage() {
       const nameParam  = data.companyName.trim() ? `name=${encodeURIComponent(data.companyName.trim())}` : '';
       const connParam  = `connectors=${data.connectorCount ?? 0}`;
       const query      = [ownerParam, nameParam, connParam].filter(Boolean).join('&');
-      window.location.href = `/welcome${query ? `?${query}` : ''}`;
+      window.location.href = `${WELCOME_ROUTE}${query ? `?${query}` : ''}`;
     } catch (err) {
       console.error("Team onboarding submission failed", err);
       toast.error("Something went wrong. Please try again.");

@@ -1,11 +1,12 @@
 ﻿'use client'
 
 import React, { useState, useEffect } from 'react'
-import { AnimatePresence, m } from 'framer-motion'
 import { Switch } from '@/components/Switch'
 import { Button } from '@/components/Button'
 import { Checkbox } from '@/components/Checkbox'
-import { CancelOneIcon, ArrowUpRightOneIcon, ArrowDownOneIcon, UserIcon, MentoringIcon } from '@strange-huge/icons'
+import { CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
+import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
+import { Dropdown } from '@/components/Dropdown'
 
 import { toast } from 'sonner'
 import {
@@ -21,6 +22,7 @@ import { useOrg } from '@/context/org-context'
 import { getShareTokenLimit } from '@/lib/plan-config'
 import { canonicalShareUrl } from '@/lib/share-url'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
+import { ATTRIBUTE_HEADER_STYLE } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -33,90 +35,6 @@ export interface SharingTabProps {
   versionId?: string
   hasTeamsPlan?: boolean
   onChanged?: () => void
-}
-
-// ── Team plan badge ────────────────────────────────────────────────────────────
-
-function TeamPlanBadge() {
-  return (
-    <div
-      style={{
-        position: 'relative',
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: 2,
-        borderRadius: 6,
-        boxShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5)',
-        flexShrink: 0,
-      }}
-    >
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundColor: '#cadcf1',
-          borderRadius: 6,
-          pointerEvents: 'none',
-        }}
-      />
-      <span
-        style={{
-          position: 'relative',
-          fontFamily: 'var(--font-body)',
-          fontWeight: 500,
-          fontSize: 12,
-          lineHeight: '16px',
-          color: '#135487',
-          whiteSpace: 'nowrap',
-          padding: '0 2px',
-        }}
-      >
-        Team plan
-      </span>
-      <div
-        style={{
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 4,
-          borderRadius: 8,
-        }}
-      >
-        <ArrowUpRightOneIcon size={20} color="#135487" />
-      </div>
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: 'inherit',
-          boxShadow:
-            'inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)',
-          pointerEvents: 'none',
-        }}
-      />
-    </div>
-  )
-}
-
-// ── Radio dot indicator ────────────────────────────────────────────────────────
-
-function RadioDot({ selected }: { selected: boolean }) {
-  return (
-    <div
-      style={{
-        width: 18,
-        height: 18,
-        borderRadius: '50%',
-        flexShrink: 0,
-        border: selected ? '5.5px solid #1a1916' : '1.5px solid var(--neutral-300)',
-        backgroundColor: 'white',
-        transition: 'border 180ms ease',
-      }}
-    />
-  )
 }
 
 // ── Token usage progress bar ───────────────────────────────────────────────────
@@ -171,7 +89,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
   const { orgId, teams } = useOrg()
   const editableTeams = teams.filter(team => !team.archived && team.canEdit)
   const maxTokenLimit = getShareTokenLimit(user?.planType)
-  const { setHasShareLink, publishedVersionId, panelsLocked } = usePersonaConfigure()
+  const { setHasShareLink, publishedVersionId, panelsLocked, markFieldTouched, resetTouchedFields } = usePersonaConfigure()
 
   const [visibility,        setVisibility]        = useState<Visibility>('private')
   const [selectedTeamIds,   setSelectedTeamIds]   = useState<string[]>([])
@@ -185,18 +103,10 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
     selectedTeamIds.slice().sort().join(',') !== savedTeamIds.slice().sort().join(',')
 
   function handleVisibilitySelect(v: Visibility) {
-    if (v === 'team') {
-      if (panelsLocked) { toast.error('Save a version first to set team visibility.'); return }
-      if (visibility === 'team') {
-        setTeamsOpen(prev => !prev)
-      } else {
-        setVisibility('team')
-        setTeamsOpen(true)
-      }
-    } else {
-      setVisibility(v)
-      setTeamsOpen(false)
-    }
+    if (v === 'team' && panelsLocked) { toast.error('Save a version first to set team visibility.'); return }
+    setVisibility(v)
+    if (v !== 'team') setTeamsOpen(false)
+    markFieldTouched('sharing', 'visibility')
   }
 
   async function handleSaveVisibility() {
@@ -212,6 +122,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
       setSavedVisibility(visibility)
       setSavedTeamIds(selectedTeamIds)
       bustPersonasCache()
+      resetTouchedFields('sharing', 'visibility')
       onChanged?.()
       toast.success('Visibility updated')
     } catch (err) {
@@ -313,6 +224,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
         return
       }
       setLinkShare(share)
+      resetTouchedFields('sharing', 'superlink')
       onChanged?.()
       toast.success('Share link generated')
     } catch (err) {
@@ -330,6 +242,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
       await revokeShare(currentLinkShare.id)
       setLinkShare(null)
       setSuperLinkEnabled(false)
+      resetTouchedFields('sharing', 'superlink')
       onChanged?.()
       toast.success('Share link revoked')
     } catch (err) {
@@ -376,6 +289,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
       }
       setEmailShares(prev => [...prev, share])
       setEmailInput('')
+      resetTouchedFields('sharing', 'email')
       onChanged?.()
       toast.success(`Invite sent to ${email}`)
     } catch (err) {
@@ -390,6 +304,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
     try {
       await revokeShare(id)
       setEmailShares(prev => prev.filter(s => s.id !== id))
+      resetTouchedFields('sharing', 'email')
       onChanged?.()
       toast.success('Invite revoked')
     } catch (err) {
@@ -432,120 +347,73 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
       {/* ── Visibility ──────────────────────────────────────────────────────── */}
       <div data-help-id="help-sharing-visibility" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 20, lineHeight: 1.4, letterSpacing: '0.07px', color: '#0a0a0a' }}>
+        <span style={ATTRIBUTE_HEADER_STYLE}>
           Visibility
         </span>
 
-        {/* ── 3 cards ──────────────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-
-          {/* Private */}
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => handleVisibilitySelect('private')}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleVisibilitySelect('private') } }}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '14px 16px', borderRadius: 12, cursor: 'pointer', userSelect: 'none',
-              opacity: 1,
-              backgroundColor: visibility === 'private' ? '#faf9f7' : 'white',
-              boxShadow: visibility === 'private'
-                ? '0px 0px 0px 2px #1a1916'
-                : '0px 0px 0px 1px var(--neutral-200)',
-              transition: 'opacity 200ms, box-shadow 150ms, background-color 150ms',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <UserIcon size={22} animated />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#1a1916' }}>
-                  Private
-                </span>
-                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)' }}>
-                  Only you can use this agent
-                </span>
-              </div>
-            </div>
-            <RadioDot selected={visibility === 'private'} />
+        {/* ── 2 cards, same radio-pair pattern as the Muse/Advanced featured cards ── */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', width: '100%' }}>
+          <div style={{ flex: '1 0 0', minWidth: 0 }}>
+            <ModelFeaturedCard
+              title="Private"
+              description="Only you can use this agent"
+              selected={visibility === 'private'}
+              onSelectedChange={next => { if (next) handleVisibilitySelect('private') }}
+            />
           </div>
-
-          {/* Team */}
-          <div style={{
-            borderRadius: 12, overflow: 'hidden',
-            opacity: !orgId || editableTeams.length === 0 ? 0.38 : 1,
-            backgroundColor: visibility === 'team' ? '#faf9f7' : 'white',
-            boxShadow: visibility === 'team'
-              ? '0px 0px 0px 2px #1a1916'
-              : '0px 0px 0px 1px var(--neutral-200)',
-            transition: 'opacity 200ms, box-shadow 150ms, background-color 150ms',
-          }}>
-            {/* Card header — click selects Team; if already selected, toggles the list */}
-            <div
-              role="button"
-              tabIndex={!orgId || editableTeams.length === 0 ? -1 : 0}
-              onClick={() => { if (orgId && editableTeams.length > 0) handleVisibilitySelect('team') }}
-              onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && orgId && editableTeams.length > 0) { e.preventDefault(); handleVisibilitySelect('team') } }}
+          <div style={{ flex: '1 0 0', minWidth: 0, position: 'relative' }}>
+            <ModelFeaturedCard
+              title="Team"
+              description={!orgId ? 'Requires a team plan' : editableTeams.length === 0 ? 'No editable teams' : 'Deploy to selected teams'}
+              selected={visibility === 'team'}
+              onSelectedChange={next => { if (next && orgId && editableTeams.length > 0) handleVisibilitySelect('team') }}
               style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '14px 16px', userSelect: 'none',
-                cursor: !orgId || editableTeams.length === 0 ? 'not-allowed' : 'pointer',
+                opacity: !orgId || editableTeams.length === 0 ? 0.45 : 1,
+                cursor:  !orgId || editableTeams.length === 0 ? 'not-allowed' : 'pointer',
               }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <MentoringIcon size={22} animated />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#1a1916' }}>
-                    Team
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)' }}>
-                    {!orgId ? 'Requires a team plan' : editableTeams.length === 0 ? 'No editable teams' : 'Deploy to selected teams'}
-                  </span>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                {!orgId ? (
-                  <TeamPlanBadge />
-                ) : orgId && editableTeams.length > 0 ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--neutral-500)' }}>
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', whiteSpace: 'nowrap' }}>
-                      {teamsOpen ? 'Hide teams' : 'Show teams'}
-                    </span>
-                    <div style={{
-                      transform: teamsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                      transition: 'transform 220ms ease',
-                      lineHeight: 0,
-                    }}>
-                      <ArrowDownOneIcon size={16} />
-                    </div>
-                  </div>
-                ) : null}
-                <RadioDot selected={visibility === 'team'} />
-              </div>
-            </div>
+            />
 
-            {/* Expandable team list — closes/opens via the chevron or re-clicking the card */}
-            <AnimatePresence initial={false}>
-              {visibility === 'team' && teamsOpen && orgId && editableTeams.length > 0 && (
-                <m.div
-                  key="team-list"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-                  style={{ overflow: 'hidden' }}
+            {/* Team-picker dropdown — floats over the card; the trigger itself
+               carries the "Shared to N teams" label, the card above keeps "Team". */}
+            {visibility === 'team' && orgId && editableTeams.length > 0 && (
+              <div style={{ position: 'absolute', left: 12, right: 12, bottom: 12 }}>
+                <Dropdown.Float
+                  open={teamsOpen}
+                  onOpenChange={setTeamsOpen}
+                  placement="bottom-start"
+                  trigger={
+                    <button
+                      type="button"
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+                        width: '100%', padding: '6px 8px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                        backgroundColor: 'rgba(255,255,255,0.12)',
+                        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.25)',
+                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px',
+                        color: 'var(--neutral-50)',
+                      }}
+                    >
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {selectedTeamIds.length > 0
+                          ? `Shared to ${selectedTeamIds.length} team${selectedTeamIds.length === 1 ? '' : 's'}`
+                          : 'Select teams'}
+                      </span>
+                      <div style={{ flexShrink: 0, lineHeight: 0, transform: teamsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}>
+                        <ArrowDownOneIcon size={14} />
+                      </div>
+                    </button>
+                  }
                 >
-                  <div style={{
-                    padding: '4px 16px 16px',
-                    borderTop: '1px solid var(--neutral-200)',
-                    display: 'flex', flexDirection: 'column', gap: 2,
-                  }}>
-                    <div style={{ paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Dropdown size="md">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 4 }}>
                       {editableTeams.map(team => {
                         const checked = selectedTeamIds.includes(team.id)
-                        const toggle = () => setSelectedTeamIds(current =>
-                          checked ? current.filter(id => id !== team.id) : [...current, team.id]
-                        )
+                        const toggle = () => {
+                          setSelectedTeamIds(current =>
+                            checked ? current.filter(id => id !== team.id) : [...current, team.id]
+                          )
+                          markFieldTouched('sharing', 'visibility')
+                        }
                         return (
                           <div
                             key={team.id}
@@ -555,7 +423,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
                             style={{
                               display: 'flex', alignItems: 'center', gap: 10,
-                              padding: '8px 4px', borderRadius: 8, cursor: 'pointer', userSelect: 'none',
+                              padding: '8px', borderRadius: 8, cursor: 'pointer', userSelect: 'none',
                             }}
                           >
                             <span style={{ pointerEvents: 'none', flexShrink: 0 }}>
@@ -577,13 +445,13 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                         )
                       })}
                     </div>
-                    <p style={{ margin: '8px 0 0', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
+                    <p style={{ margin: '4px 8px 8px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
                       Selected members will have access to this agent.
                     </p>
-                  </div>
-                </m.div>
-              )}
-            </AnimatePresence>
+                  </Dropdown>
+                </Dropdown.Float>
+              </div>
+            )}
           </div>
         </div>
 
@@ -608,16 +476,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
         {/* Toggle header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: 14,
-                lineHeight: 1.5,
-                letterSpacing: '0.07px',
-                color: '#0a0a0a',
-              }}
-            >
+            <span style={ATTRIBUTE_HEADER_STYLE}>
               Super Link
             </span>
             <span
@@ -635,7 +494,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
           </div>
           <Switch
             checked={superLinkEnabled}
-            onCheckedChange={setSuperLinkEnabled}
+            onCheckedChange={v => { setSuperLinkEnabled(v); markFieldTouched('sharing', 'superlink') }}
             disabled={isGenerating || isRevoking}
           />
         </div>
@@ -732,15 +591,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                   justifyContent: 'space-between',
                 }}
               >
-                <span
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 400,
-                    fontSize: 14,
-                    lineHeight: '22px',
-                    color: 'var(--neutral-700)',
-                  }}
-                >
+                <span style={ATTRIBUTE_HEADER_STYLE}>
                   Credit limit
                 </span>
                 <div
@@ -758,7 +609,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                     value={tokenLimit}
                     min={1}
                     max={maxTokenLimit}
-                    onChange={e => setTokenLimit(Math.min(maxTokenLimit, Math.max(1, parseInt(e.target.value) || 1)))}
+                    onChange={e => { setTokenLimit(Math.min(maxTokenLimit, Math.max(1, parseInt(e.target.value) || 1))); markFieldTouched('sharing', 'superlink') }}
                     style={{
                       width: 96,
                       border: 'none',
@@ -805,14 +656,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
       <div data-help-id="help-sharing-email" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 14,
-              lineHeight: 1.5,
-              letterSpacing: '0.07px',
-              color: '#0a0a0a',
-            }}
+            style={ATTRIBUTE_HEADER_STYLE}
           >
             Email Invite
           </span>
@@ -855,7 +699,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
               <input
                 type="email"
                 value={emailInput}
-                onChange={e => setEmailInput(e.target.value)}
+                onChange={e => { setEmailInput(e.target.value); markFieldTouched('sharing', 'email') }}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleSendEmailInvite() } }}
                 placeholder="colleague@company.com"
                 style={{
@@ -891,7 +735,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
               value={emailTokenLimit}
               min={1}
               max={maxTokenLimit}
-              onChange={e => setEmailTokenLimit(Math.min(maxTokenLimit, Math.max(1, parseInt(e.target.value) || 1)))}
+              onChange={e => { setEmailTokenLimit(Math.min(maxTokenLimit, Math.max(1, parseInt(e.target.value) || 1))); markFieldTouched('sharing', 'email') }}
               style={{
                 width: 80,
                 border: 'none',

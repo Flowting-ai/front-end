@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CancelOneIcon } from '@strange-huge/icons'
 import CancelCreationModal from './CancelCreationModal'
+import { AGENTS_ROUTE } from '@/lib/routes'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -100,7 +101,7 @@ export function WizardShell({ steps, children }: WizardShellProps) {
             try { sessionStorage.removeItem('persona_wizard_draft') } catch { /* ignore */ }
             try { sessionStorage.removeItem('persona_wizard_starter') } catch { /* ignore */ }
             try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
-            push('/agents')
+            push(AGENTS_ROUTE)
           }}
           onKeep={() => setCancelOpen(false)}
         />

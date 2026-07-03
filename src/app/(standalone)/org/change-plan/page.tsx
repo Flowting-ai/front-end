@@ -8,6 +8,7 @@ import { type UserPlanType } from '@/lib/api/user'
 import { createCheckout, type CheckoutPlan } from '@/lib/api/stripe'
 import { toast } from 'sonner'
 import { ContactSalesModal } from '@/components/ContactSalesModal'
+import { ORG_PLANS_ROUTE } from '@/lib/routes'
 
 const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
@@ -105,7 +106,7 @@ export default function OrgChangePlanPage() {
 
   useEffect(() => {
     if (orgReady && orgRole !== 'owner') {
-      router.replace('/org/plans')
+      router.replace(ORG_PLANS_ROUTE)
     }
   }, [orgReady, orgRole, router])
 
@@ -223,7 +224,7 @@ export default function OrgChangePlanPage() {
         }}>
           <button
             type="button"
-            onClick={() => router.push('/org/plans')}
+            onClick={() => router.push(ORG_PLANS_ROUTE)}
             style={{
               display:         'inline-flex',
               alignItems:      'center',

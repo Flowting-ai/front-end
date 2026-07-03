@@ -6,6 +6,7 @@ import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 import { TEMPLATE_PRESETS } from '../../_data/template-presets'
+import { AGENTS_BASICS_TONE_ROUTE, AGENTS_BASICS_PURPOSE_ROUTE } from '@/lib/routes'
 
 // ── Session-storage key (shared across wizard pages) ─────────────────────────
 
@@ -53,7 +54,7 @@ function NamePageContent() {
   function handleContinue() {
     if (!name.trim()) return
     saveName()
-    push(`/agents/basics/tone${buildQuery()}`)
+    push(`${AGENTS_BASICS_TONE_ROUTE}${buildQuery()}`)
   }
 
   const handle = name.trim() ? `@${toHandle(name)}01` : ''
@@ -129,7 +130,7 @@ function NamePageContent() {
               onClick={() => {
                 saveName()
                 try { sessionStorage.setItem('persona_wizard_going_back', '1') } catch { /* ignore */ }
-                push(`/agents/basics/purpose${buildQuery()}`)
+                push(`${AGENTS_BASICS_PURPOSE_ROUTE}${buildQuery()}`)
               }}
             >
               Back

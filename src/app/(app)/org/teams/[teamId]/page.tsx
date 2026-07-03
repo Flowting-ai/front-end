@@ -50,6 +50,7 @@ import type { ApiProjectSummary } from '@/lib/api/projects'
 import { listMembers } from '@/lib/api/organization'
 import { fetchPersonas, personasForTeamContext, type Persona } from '@/lib/api/personas'
 import { fetchTeamAccessSnapshot } from '@/lib/team-access'
+import { ORG_TEAMS_ROUTE } from '@/lib/routes'
 import type { Team, TeamEditor, OrgMember, OrgRole, WorkspaceRole } from '@/types/teams'
 import { toast } from 'sonner'
 
@@ -925,7 +926,7 @@ export default function TeamSettingsPage() {
     try {
       await archiveTeam(orgId, team.id)
       refreshTeams()
-      router.push('/org/teams')
+      router.push(ORG_TEAMS_ROUTE)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to archive team')
     }
@@ -940,7 +941,7 @@ export default function TeamSettingsPage() {
       if (activeTeamId === team.id) setActiveTeamId(null)
       removeTeam(team.id)
       refreshTeams()
-      router.push('/org/teams')
+      router.push(ORG_TEAMS_ROUTE)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete team')
     }
@@ -1078,7 +1079,7 @@ export default function TeamSettingsPage() {
       title={team.name}
       description="Manage this team name, members, and settings."
       backLabel="All teams"
-      onBack={() => router.push('/org/teams')}
+      onBack={() => router.push(ORG_TEAMS_ROUTE)}
     >
       <Card>
           <CardHeader title="Team identity" />

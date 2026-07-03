@@ -15,6 +15,7 @@ import {
   ArrowShrinkTwoIcon,
   ArrowLeftOneIcon,
   ArrowRightOneIcon,
+  StickyNoteTwoIcon,
 } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
@@ -24,6 +25,8 @@ import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 import { Badge } from '@/components/Badge'
 import { InformationCircleIcon } from '@strange-huge/icons'
 import { ChatInput } from '@/components/ChatInput'
+import { SIDEBAR_COLLAPSED_KEY } from '@/lib/storage-keys'
+import { AGENT_CONFIGURE_TAB_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
 import { ChatAddMenu } from '@/components/chat/AddMenu'
 import { AttachmentManager } from '@/components/chat/AttachmentManager'
 import { ConnectPromptCard, PermissionPromptCard } from '@/components/chat/ConnectorPrompts'
@@ -174,7 +177,7 @@ function PersonaHelpButton() {
   // LeftSidebar persists state in localStorage and listens for Ctrl+B on document.
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const isCollapsed = () => localStorage.getItem('sidebar_collapsed') === 'true'
+    const isCollapsed = () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'
 
     if (helpOpen) {
       setActiveInfoTab('main')
@@ -346,7 +349,7 @@ function PersonaPanelIsland() {
   return (
     /* Outer div owns the absolute position + translateY so Framer Motion
        doesn't conflict with the centering transform on the m.div below. */
-    <div style={{ position: 'absolute', right: 74, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+    <div style={{ position: 'absolute', right: 82, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
     <AnimatePresence>
       <m.div
         key={`panel-island-${tabKey}`}
@@ -489,7 +492,7 @@ function ConfigureProgress() {
 // ── Floating menu ─────────────────────────────────────────────────────────────
 
 function PersonaFloatingMenu() {
-  const { testChatOpen, toggleTestChat, aiSuggestOpen, toggleAiSuggest, versionsOpen, toggleVersions, panelsLocked } = usePersonaConfigure()
+  const { testChatOpen, toggleTestChat, aiSuggestOpen, toggleAiSuggest, versionsOpen, toggleVersions, panelsLocked, changesTrackerOpen, toggleChangesTracker } = usePersonaConfigure()
   const lockedTooltip = 'Save a version first to enable'
   return (
     <FloatingMenu aria-label="Configure actions">
@@ -515,6 +518,13 @@ function PersonaFloatingMenu() {
         active={versionsOpen}
         onClick={toggleVersions}
         data-help-id="help-versions"
+      />
+      <FloatingMenuItem
+        icon={<StickyNoteTwoIcon size={20} animated />}
+        label="Track Changes"
+        active={changesTrackerOpen}
+        onClick={toggleChangesTracker}
+        data-help-id="help-changes-tracker"
       />
     </FloatingMenu>
   )
@@ -991,14 +1001,14 @@ function ConfigureStepNav() {
   // agent (repoId/name/versionId) regardless of how the user reached this step.
   const goToStep = (tab: string) => {
     const search = typeof window !== 'undefined' ? window.location.search : ''
-    push(`/agent/configure/${tab}${search}`)
+    push(AGENT_CONFIGURE_TAB_ROUTE(tab) + search)
   }
 
-  const handleBack = () => (prevTab ? goToStep(prevTab) : push('/agents'))
+  const handleBack = () => (prevTab ? goToStep(prevTab) : push(AGENTS_ROUTE))
   const handleContinue = () => {
     // Instructions tab owns its own validation + autosave — delegate to it.
     if (tabKey === 'instructions') { invokeTabContinue(); return }
-    nextTab ? goToStep(nextTab) : push('/agents')
+    nextTab ? goToStep(nextTab) : push(AGENTS_ROUTE)
   }
 
   return (
@@ -1079,7 +1089,7 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
         <div style={{ flex: '1 0 0', minHeight: 0, position: 'relative' }}>
           {children}
           {/* Floating action menu — right-centre */}
-          <div data-panel-container style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+          <div data-panel-container style={{ position: 'absolute', right: 24, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
             <PersonaFloatingMenu />
           </div>
         </div>

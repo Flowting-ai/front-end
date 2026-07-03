@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { ApiError } from '@/lib/api/client'
 import { linkSlackIdentity, disconnectSlackIdentity } from '@/lib/api/slack'
+import { ROOT_ROUTE } from '@/lib/routes'
 
 type PageState = 'linking' | 'linked' | 'missing' | 'error' | 'disconnected'
 
@@ -108,7 +109,7 @@ function SlackLinkContent() {
           <Button variant="outline" size="sm" loading={busy} onClick={handleDisconnect}>
             Disconnect
           </Button>
-          <Button variant="default" size="sm" onClick={() => push('/')}>
+          <Button variant="default" size="sm" onClick={() => push(ROOT_ROUTE)}>
             Go to Souvenir
           </Button>
         </div>
@@ -121,7 +122,7 @@ function SlackLinkContent() {
       <div style={cardStyle}>
         <h1 style={titleStyle}>Slack disconnected</h1>
         <p style={bodyStyle}>Your Slack identity is no longer linked. Run `/connect` in Slack to relink anytime.</p>
-        <Button variant="default" size="sm" onClick={() => push('/')}>
+        <Button variant="default" size="sm" onClick={() => push(ROOT_ROUTE)}>
           Go to Souvenir
         </Button>
       </div>
@@ -137,7 +138,7 @@ function SlackLinkContent() {
           ? 'This page expects a connect link from Slack. Run `/connect` in Slack to get one.'
           : errorMsg}
       </p>
-      <Button variant="default" size="sm" onClick={() => push('/')}>
+      <Button variant="default" size="sm" onClick={() => push(ROOT_ROUTE)}>
         Go to Souvenir
       </Button>
     </div>

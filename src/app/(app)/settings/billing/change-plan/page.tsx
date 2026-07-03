@@ -7,6 +7,7 @@ import { useOrg } from '@/context/org-context'
 import { type UserPlanType } from '@/lib/api/user'
 import { createCheckout, type CheckoutPlan } from '@/lib/api/stripe'
 import { toast } from 'sonner'
+import { SETTINGS_BILLING_ROUTE } from '@/lib/routes'
 
 const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
@@ -103,7 +104,7 @@ export default function ChangePlanPage() {
 
   useEffect(() => {
     if (orgReady && orgId && orgRole !== 'owner') {
-      router.replace('/settings/billing')
+      router.replace(SETTINGS_BILLING_ROUTE)
     }
   }, [orgId, orgReady, orgRole, router])
 
@@ -221,7 +222,7 @@ export default function ChangePlanPage() {
         }}>
           <button
             type="button"
-            onClick={() => router.push('/settings/billing')}
+            onClick={() => router.push(SETTINGS_BILLING_ROUTE)}
             style={{
               display:         'inline-flex',
               alignItems:      'center',

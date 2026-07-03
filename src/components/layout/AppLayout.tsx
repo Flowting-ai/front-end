@@ -12,6 +12,17 @@ import { usePinboard } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
 import { useOrg } from "@/context/org-context";
 import { WorkspaceStatusBanner, type TokenStatus } from "@/components/WorkspaceStatusBanner";
+import {
+  ORG_PLANS_ROUTE,
+  PROJECT_BASE_ROUTE,
+  PROJECTS_ROUTE,
+  AGENTS_ROUTE,
+  AGENT_BASE_ROUTE,
+  SETTINGS_ROUTE,
+  ORG_BASE_ROUTE,
+  TEAMS_BASE_ROUTE,
+  BRAIN_ROUTE,
+} from "@/lib/routes";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -42,12 +53,12 @@ export function AppLayout({
   const workspaceBannerStatus = (plan?.poolStatus && WORKSPACE_BANNER_STATUSES.has(plan.poolStatus))
     ? plan.poolStatus as TokenStatus
     : null
-  const isAnyProjectPage = pathname.startsWith('/project')
+  const isAnyProjectPage = pathname.startsWith(PROJECT_BASE_ROUTE)
   // Suppress FloatingPanel on project listing / detail pages, but NOT on
   // project chat pages - those use the same global FloatingPanel as regular chats.
   const isProjectPage    = isAnyProjectPage && !pathname.includes('/chat/')
   // Only the projects listing page has no panel support at all.
-  const isProjectsListPage = pathname === '/projects'
+  const isProjectsListPage = pathname === PROJECTS_ROUTE
 
   // Close the highlight panel on every page transition.
   useEffect(() => {
@@ -60,16 +71,16 @@ export function AppLayout({
       closePinboard()
     }
   }, [isProjectsListPage, isProjectPage, closePinboard])
-  const isPersonaPage    = pathname.startsWith('/agents') || pathname.startsWith('/agent')
+  const isPersonaPage    = pathname.startsWith(AGENTS_ROUTE) || pathname.startsWith(AGENT_BASE_ROUTE)
   // Persona chat pages manage their own scroll — disable the outer scrollable wrapper
   const isPersonaChatPage = /^\/agents\/[^\/]+\/chat/.test(pathname)
-  const isSettingsPage = pathname.startsWith('/settings')
-  const isAdminPage    = pathname.startsWith('/org')
+  const isSettingsPage = pathname.startsWith(SETTINGS_ROUTE)
+  const isAdminPage    = pathname.startsWith(ORG_BASE_ROUTE)
   // The editor team page (/teams/[teamId]) is a settings-style page, not a chat
   // surface — strip the TopBar/model-selector and floating chat tools like /org.
-  const isTeamPage     = pathname.startsWith('/teams')
+  const isTeamPage     = pathname.startsWith(TEAMS_BASE_ROUTE)
   // Brain pages use BrainShell which supplies its own full-screen layout (sidebar + center + context rail).
-  const isBrainPage = pathname.startsWith('/brain')
+  const isBrainPage = pathname.startsWith(BRAIN_ROUTE)
 
   // Settings pages manage their own full layout — bypass global chrome entirely.
   if (isSettingsPage) {
@@ -150,7 +161,7 @@ export function AppLayout({
           <WorkspaceStatusBanner
             tokenStatus={workspaceBannerStatus}
             isAdmin={currentUserRole === 'admin'}
-            onAdminAction={() => router.push('/org/plans')}
+            onAdminAction={() => router.push(ORG_PLANS_ROUTE)}
           />
         )}
 

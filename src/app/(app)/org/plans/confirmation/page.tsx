@@ -7,6 +7,7 @@ import { useOrg } from '@/context/org-context'
 import { fetchBilling } from '@/lib/api/stripe'
 import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
 import { Button } from '@/components/Button'
+import { ORG_PLANS_ROUTE, CHAT_ROUTE } from '@/lib/routes'
 
 const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
@@ -120,10 +121,10 @@ function OrgBillingConfirmationContent() {
 
         {/* CTAs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 320 }}>
-          <Button fluid onClick={() => router.push('/org/plans')}>
+          <Button fluid onClick={() => router.push(ORG_PLANS_ROUTE)}>
             Go to Plans &amp; Usage
           </Button>
-          <Button variant="ghost" fluid onClick={() => router.push('/chat')}>
+          <Button variant="ghost" fluid onClick={() => router.push(CHAT_ROUTE)}>
             Go to Dashboard
           </Button>
         </div>

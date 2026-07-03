@@ -26,6 +26,7 @@ import type { ScheduleRunRecord } from '@/templates/Brain'
 import { getAllScheduleLinks, getChatForSchedule, stashPendingPrompt } from '@/lib/scheduleLinks'
 import { ApiError } from '@/lib/api/client'
 import { BRAIN_NEW_THREAD_EVENT } from '@/hooks/use-sidebar-events'
+import { BRAIN_ROUTE } from '@/lib/routes'
 
 // ── Page wrapper ──────────────────────────────────────────────────────────────
 
@@ -210,7 +211,7 @@ function BrainSchedulesPageInner() {
   // brain/page.tsx listens for it normally; here we navigate to /brain so a
   // new thread actually opens.
   useEffect(() => {
-    const handler = () => push('/brain')
+    const handler = () => push(BRAIN_ROUTE)
     window.addEventListener(BRAIN_NEW_THREAD_EVENT, handler)
     return () => window.removeEventListener(BRAIN_NEW_THREAD_EVENT, handler)
   }, [push])
@@ -294,9 +295,9 @@ function BrainSchedulesPageInner() {
       setEditModalOpen(false)
       setEditingSchedule(undefined)
       if (linkedChatId) {
-        push(`/brain?id=${linkedChatId}&fromSchedule=${encodeURIComponent(selectedId)}`)
+        push(`${BRAIN_ROUTE}?id=${linkedChatId}&fromSchedule=${encodeURIComponent(selectedId)}`)
       } else {
-        push(`/brain?fromSchedule=${encodeURIComponent(selectedId)}`)
+        push(`${BRAIN_ROUTE}?fromSchedule=${encodeURIComponent(selectedId)}`)
       }
       return
     }
@@ -324,7 +325,7 @@ function BrainSchedulesPageInner() {
     }])
     setEditModalOpen(false)
     setEditingSchedule(undefined)
-    push(`/brain?fromSchedule=${encodeURIComponent(newId)}`)
+    push(`${BRAIN_ROUTE}?fromSchedule=${encodeURIComponent(newId)}`)
   }, [editingSchedule, selectedId, selectedDetail, idPrefix, push])
 
   // ── Delete (DELETE /tasks/{id}; local-only items just drop from state) ────
@@ -443,7 +444,7 @@ function BrainSchedulesPageInner() {
                   onDelete={() => setDeleteModalOpen(true)}
                   onRunNow={handleRunNow}
                   onToggleActive={handleToggleActive}
-                  onOpenChat={(chatId) => push(`/brain?id=${chatId}`)}
+                  onOpenChat={(chatId) => push(`${BRAIN_ROUTE}?id=${chatId}`)}
                 />
               ) : isLoadingList ? (
                 <SchedulesLoadingState />

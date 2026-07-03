@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE } from "@/lib/routes";
 
 // Settings home — redirects to personal settings.
 // Org settings now live at /org/* (main app sidebar admin section).
@@ -13,10 +14,10 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!isHydrated) return;
     if (!isAuthenticated) {
-      window.location.href = "/auth/login";
+      window.location.href = AUTH_LOGIN_ROUTE;
       return;
     }
-    replace("/settings/account");
+    replace(SETTINGS_ACCOUNT_ROUTE);
   }, [isHydrated, isAuthenticated, replace]);
 
   return null;

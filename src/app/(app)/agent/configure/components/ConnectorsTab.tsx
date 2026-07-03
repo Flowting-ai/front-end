@@ -11,6 +11,8 @@ import { getVersion, setVersionBlockedConnectors, unblockVersionConnector } from
 import type { ConnectorCatalogEntry, ConnectorAccountOption } from '@/lib/api/connectors'
 import { CONNECTOR_LOGO_MAP } from '@/lib/connectorLogos'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
+import { SETTINGS_CONNECTORS_ROUTE } from '@/lib/routes'
+import { ATTRIBUTE_HEADER_STYLE } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -102,14 +104,7 @@ function SkeletonRow() {
 
 // ── Section label ─────────────────────────────────────────────────────────────
 
-const SECTION_LABEL: React.CSSProperties = {
-  fontFamily: 'var(--font-body)',
-  fontWeight: 500,
-  fontSize:   14,
-  lineHeight: '22px',
-  color:      '#0a0a0a',
-  margin:     0,
-}
+const SECTION_LABEL: React.CSSProperties = { ...ATTRIBUTE_HEADER_STYLE, margin: 0 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -127,7 +122,7 @@ export default function ConnectorsTab({
   onSaveVersion?:      () => Promise<void>
 }) {
   const { push } = useRouter()
-  const { safeNavigate } = usePersonaConfigure()
+  const { safeNavigate, markFieldTouched, resetTouchedFields } = usePersonaConfigure()
 
   const [connectors,   setConnectors]   = useState<ConnectorCatalogEntry[]>([])
   const [blockedSlugs, setBlockedSlugs] = useState<Set<string>>(new Set())
@@ -187,6 +182,7 @@ export default function ConnectorsTab({
     else         next.add(slug)
     setBlockedSlugs(next)
     emitChange(connectors, next)
+    markFieldTouched('connectors', 'connectors')
 
     const displayName = connectors.find(c => c.slug === slug)?.display_name ?? slug
     const agentLabel  = personaName ? ` for ${personaName}` : ''
@@ -204,8 +200,11 @@ export default function ConnectorsTab({
       toast.error(err instanceof Error ? err.message : 'Failed to update connector')
     } finally {
       setSavingSlug(null)
+      // Toggles persist immediately (not batched into Save Version) — the
+      // attempt is over either way, so clear the touched dot now.
+      resetTouchedFields('connectors')
     }
-  }, [repoId, versionId, savingSlug, blockedSlugs, connectors, personaName, emitChange])
+  }, [repoId, versionId, savingSlug, blockedSlugs, connectors, personaName, emitChange, markFieldTouched, resetTouchedFields])
 
   const matchesSearch = useCallback((c: ConnectorCatalogEntry) => {
     if (!searchQuery.trim()) return true
@@ -277,7 +276,7 @@ export default function ConnectorsTab({
                   setIsSavingNav(true)
                   try {
                     await onSaveVersion?.()
-                    push('/settings/connectors')
+                    push(SETTINGS_CONNECTORS_ROUTE)
                   } catch {
                     // onSaveVersion shows its own error toast; stay in modal
                   } finally {

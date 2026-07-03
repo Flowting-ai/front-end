@@ -11,6 +11,8 @@ import { personaStarter, createPersonaRepo } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
 import { pickTemplateAvatar } from '@/lib/persona-template-avatars'
+import { personaProfileKey } from '@/lib/storage-keys'
+import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENTS_BASICS_NAME_ROUTE } from '@/lib/routes'
 
 // ── Session-storage key ────────────────────────────────────────────────────
 
@@ -249,7 +251,7 @@ function TonePageContent() {
     try {
       const existingRepo = JSON.parse(sessionStorage.getItem('persona_wizard_repo') ?? 'null') as { repoId?: string; versionId?: string } | null
       if (existingRepo?.repoId && existingRepo?.versionId) {
-        push(`/agent/configure/instructions?repoId=${existingRepo.repoId}&versionId=${existingRepo.versionId}`)
+        push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(existingRepo.repoId, { versionId: existingRepo.versionId }))
         return
       }
     } catch { /* ignore */ }
@@ -319,7 +321,7 @@ function TonePageContent() {
       // Seed profile draft (avatar + wizard data) so profile tab shows correct data immediately
       const avatarPath = pickTemplateAvatar()
       try {
-        sessionStorage.setItem(`persona_profile_${newRepoId}`, JSON.stringify({
+        sessionStorage.setItem(personaProfileKey(newRepoId), JSON.stringify({
           avatarUrl:          avatarPath,
           personaName:        effectiveName || undefined,
           personaDescription: wizardPurpose || undefined,
@@ -330,7 +332,7 @@ function TonePageContent() {
       // Clean up wizard draft now that the repo exists
       try { sessionStorage.removeItem('persona_wizard_draft') } catch { /* ignore */ }
 
-      push(`/agent/configure/instructions?repoId=${newRepoId}&versionId=${newVersionId}`)
+      push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(newRepoId, { versionId: newVersionId }))
     } catch (err) {
       console.error('[TonePage] agent creation error:', err)
       toast.error('Failed to create agent. Please try again.')
@@ -391,7 +393,7 @@ function TonePageContent() {
                     sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ ...existing, tone: selectedTone }))
                   } catch { /* ignore */ }
                 }
-                push(`/agents/basics/name${buildQuery()}`)
+                push(`${AGENTS_BASICS_NAME_ROUTE}${buildQuery()}`)
               }}
             >
               Back

@@ -9,15 +9,24 @@ import {
   ArrowRightOneIcon,
   ArrowDownOneIcon,
   AtomOneIcon,
+  AtomTwoIcon,
   PlusSignIcon,
   CancelOneIcon,
   QuillWriteOneIcon,
   ArrowUpRightOneIcon,
-  InformationCircleIcon,
+  SearchOneIcon,
+  SourceCodeSquareIcon,
+  AiVisionRecognitionIcon,
+  ImageTwoIcon,
+  AudioWaveOneIcon,
+  GlobalSearchIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
+import { InputField } from '@/components/InputField'
+import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
+import { ModelSelectItem } from '@/components/ModelSelectItem'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
 import ExampleConversationModal from '@/app/(app)/agent/configure/components/ExampleConversationModal'
 import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModal'
@@ -44,16 +53,23 @@ import type { AIModel } from '@/types/ai-model'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
+import { personaProfileKey } from '@/lib/storage-keys'
+import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
 import { setVersionTags } from '@/lib/version-tags'
-import { Badge, type BadgeColor } from '@/components/Badge'
-import { Tooltip } from '@/components/Tooltip'
+import { Badge } from '@/components/Badge'
+import { Slider } from '@/components/Slider'
+import { AttributeTocRail, ATTRIBUTE_HEADER_STYLE, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
 
-const TAG_PALETTE_INST: BadgeColor[] = ['Green', 'Blue', 'Purple', 'Brown', 'Yellow']
-function instTagColor(tag: string): BadgeColor {
-  let h = 0
-  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0
-  return TAG_PALETTE_INST[h % TAG_PALETTE_INST.length]
-}
+// ── Table-of-contents rail items for this tab ─────────────────────────────────
+// Rail component itself + ATTRIBUTE_HEADER_STYLE are shared across all 5
+// configure tabs — see components/AttributeTrackerRail.tsx.
+
+const INSTRUCTIONS_TOC_ITEMS: AttributeTocItem[] = [
+  { id: 'model',       label: 'Model',        anchor: 'help-model' },
+  { id: 'instruction', label: 'Instructions', anchor: 'help-instruction' },
+  { id: 'temperature', label: 'Creativity',   anchor: 'help-temperature' },
+  { id: 'examples',    label: 'Examples',     anchor: 'help-examples' },
+]
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -172,133 +188,53 @@ function UndoRedoGroup({
   )
 }
 
-// ── Per-item component — each row owns its hover state ────────────────────────
+// ── Model row helpers — mirror PresetModelSelectorDialog's real filtering/
+// capability logic so this picker reads as the same design-system component,
+// minus the Muse/Advanced cards and category tabs (not applicable to picking
+// one fixed model for an agent).
 
-function ModelDropdownItem({
-  model,
-  isSelected,
-  onClick,
-  tagColorFn,
-}: {
-  model: AIModel
-  isSelected: boolean
-  onClick: () => void
-  tagColorFn: (tag: string) => BadgeColor
-}) {
-  const [isHovered, setIsHovered] = useState(false)
+function modelCapabilityIcons(model: AIModel): React.ReactNode {
+  const inputs  = model.inputModalities  ?? []
+  const outputs = model.outputModalities ?? []
+  const icons: React.ReactNode[] = []
+  if (inputs.some(v => v === 'image' || v === 'vision')) icons.push(<AiVisionRecognitionIcon key="vision" size={16} />)
+  if (outputs.some(v => v === 'image')) icons.push(<ImageTwoIcon key="image" size={16} />)
+  if (inputs.some(v => v === 'audio') || outputs.some(v => v === 'audio')) icons.push(<AudioWaveOneIcon key="audio" size={16} />)
+  if (outputs.some(v => v === 'code')) icons.push(<SourceCodeSquareIcon key="code" size={16} />)
+  if (inputs.some(v => v === 'web' || v === 'search')) icons.push(<GlobalSearchIcon key="search" size={16} />)
+  return icons.length > 0 ? <>{icons}</> : undefined
+}
 
-  const tooltipContent =
-    model.description || (model.thinkingEfforts && model.thinkingEfforts.length > 0) ? (
-      <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {model.description && <span>{model.description}</span>}
-        {model.thinkingEfforts && model.thinkingEfforts.length > 0 && (
-          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-            {model.thinkingEfforts.map((effort) => (
-              <Badge key={effort} label={effort} color="Purple" />
-            ))}
-          </span>
-        )}
-      </span>
-    ) : null
-
+function modelInfoContent(model: AIModel): React.ReactNode {
+  if (!model.description && !(model.thinkingEfforts && model.thinkingEfforts.length > 0)) return null
   return (
-    <button
-      type="button"
-      role="option"
-      aria-selected={isSelected}
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        display:         'flex',
-        alignItems:      'center',
-        gap:             8,
-        width:           '100%',
-        padding:         '8px',
-        border:          'none',
-        borderRadius:    8,
-        cursor:          'pointer',
-        backgroundColor: isSelected ? 'var(--neutral-100)' : isHovered ? 'var(--neutral-50)' : 'transparent',
-        textAlign:       'left',
-        transition:      'background-color 100ms',
-      }}
-    >
-      {/* Provider logo (static) */}
-      <span style={{ flexShrink: 0, lineHeight: 0, marginTop: 1 }}>
-        <LlmIcon id={getModelLlmId(model.companyName, model.modelName) ?? ''} variant="color" size={20} />
-      </span>
-
-      {/* Model name */}
-      <span
-        style={{
-          flex:         '1 0 0',
-          minWidth:     0,
-          fontFamily:   'var(--font-body)',
-          fontWeight:   500,
-          fontSize:     14,
-          lineHeight:   '22px',
-          color:        'var(--neutral-700)',
-          overflow:     'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace:   'nowrap',
-        }}
-      >
-        {model.modelName}
-      </span>
-
-      {/* Right: thinking efforts + tags + info icon */}
-      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: 4 }}>
-        {model.thinkingEfforts?.map((effort) => (
-          <Badge key={`effort-${effort}`} label={effort} color="Purple" />
-        ))}
-        {model.tags?.map((tag) => (
-          <Badge key={tag} label={tag} color={tagColorFn(tag)} />
-        ))}
-
-        {/* Info icon — animates in on hover, tooltip shows description */}
-        <AnimatePresence>
-          {isHovered && tooltipContent && (
-            <m.span
-              key="info-icon"
-              initial={{ opacity: 0, scale: 0.75 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{   opacity: 0, scale: 0.75 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              style={{ display: 'flex', lineHeight: 0 }}
-            >
-              <Tooltip
-                content={tooltipContent}
-                side="top"
-                maxWidth={220}
-                disabled={!isHovered}
-              >
-                <span
-                  style={{
-                    display:        'flex',
-                    alignItems:     'center',
-                    justifyContent: 'center',
-                    width:          20,
-                    height:         20,
-                    color:          'var(--neutral-400)',
-                    lineHeight:     0,
-                    cursor:         'default',
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <InformationCircleIcon size={16} />
-                </span>
-              </Tooltip>
-            </m.span>
-          )}
-        </AnimatePresence>
-      </div>
-    </button>
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {model.description && <span>{model.description}</span>}
+      {model.thinkingEfforts && model.thinkingEfforts.length > 0 && (
+        <span style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+          {model.thinkingEfforts.map((effort) => (
+            <Badge key={effort} label={effort} color="Purple" />
+          ))}
+        </span>
+      )}
+    </span>
   )
+}
+
+const MODEL_PICKER_CAPTION_STYLE: React.CSSProperties = {
+  fontFamily: 'var(--font-body)',
+  fontWeight: 'var(--font-weight-medium)',
+  fontSize:   'var(--font-size-caption)',
+  lineHeight: 'var(--line-height-caption)',
+  color:      'var(--neutral-500)',
+  whiteSpace: 'nowrap',
 }
 
 // ── Inline anchored model dropdown ───────────────────────────────────────────
 // The chat-style ModelSelector renders a centered modal — wrong for this page,
 // where the dropdown must drop under its trigger and span the trigger's width.
+// Panel content mirrors ModelSelector/PresetModelSelectorDialog (search + tier
+// + provider tabs, ModelSelectItem rows).
 
 function ModelDropdown({
   models,
@@ -314,6 +250,10 @@ function ModelDropdown({
   onSelect:      (model: AIModel) => void
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const [search,   setSearch]   = useState('')
+  const [provider, setProvider] = useState('all')
+  const [atTop,    setAtTop]    = useState(true)
+  const [atBottom, setAtBottom] = useState(false)
 
   // Close on outside click + Escape
   const closeDropdown = useEffectEvent((v: boolean) => onOpenChange(v))
@@ -333,147 +273,214 @@ function ModelDropdown({
     }
   }, [open])
 
-  const grouped = models.reduce<Record<string, AIModel[]>>((acc, m) => {
-    const k = m.companyName || 'Other'
-    if (!acc[k]) acc[k] = []
-    acc[k].push(m)
-    return acc
-  }, {})
+  // Sorted company list (most models first) — same derivation as ModelSelector.
+  const companies = React.useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const m of models) counts[m.companyName] = (counts[m.companyName] ?? 0) + 1
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c]) => c)
+  }, [models])
+
+  const filtered = models.filter(m => {
+    if (provider !== 'all' && m.companyName !== provider) return false
+    if (search) {
+      const q = search.toLowerCase()
+      if (!m.modelName.toLowerCase().includes(q) && !m.companyName.toLowerCase().includes(q)) return false
+    }
+    return true
+  })
+
+  // Clump models by company, most-populous company first (same order as the
+  // provider tabs), so switching tabs doesn't reshuffle groups already seen.
+  const groupedFiltered = React.useMemo(() => {
+    const byCompany = new Map<string, AIModel[]>()
+    for (const m of filtered) {
+      const list = byCompany.get(m.companyName)
+      if (list) list.push(m)
+      else byCompany.set(m.companyName, [m])
+    }
+    return companies
+      .filter(c => byCompany.has(c))
+      .map(c => ({ company: c, items: byCompany.get(c)! }))
+  }, [filtered, companies])
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    setAtTop(el.scrollTop < 34)
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8)
+  }
 
   return (
     <div
       ref={containerRef}
       style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}
     >
-      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#0a0a0a' }}>
+      <span style={ATTRIBUTE_HEADER_STYLE}>
         Model
       </span>
-      <button
+      <Button
         type="button"
+        variant="secondary"
+        fluid
         onClick={() => onOpenChange(!open)}
-        aria-haspopup="listbox"
+        aria-haspopup="dialog"
         aria-expanded={open}
-        style={{
-          display:         'flex',
-          alignItems:      'center',
-          gap:             8,
-          padding:         '8px 12px',
-          border:          '1px solid var(--neutral-200)',
-          borderRadius:    6,
-          backgroundColor: 'transparent',
-          cursor:          'pointer',
-          width:           '100%',
-          textAlign:       'left',
-          transition:      'border-color 150ms',
-        }}
-      >
-        <span style={{ flexShrink: 0, lineHeight: 0 }}>
-          {selectedModel ? (
+        leftIcon={
+          selectedModel ? (
             <LlmIcon
               id={getModelLlmId(selectedModel.companyName, selectedModel.modelName) ?? ''}
               variant="color"
-              size={20}
+              size={16}
             />
           ) : (
-            <AtomOneIcon size={20} color="var(--neutral-700)" />
-          )}
-        </span>
-        <span
-          style={{
-            flex:         '1 0 0',
-            minWidth:     0,
-            fontFamily:   'var(--font-body)',
-            fontWeight:   500,
-            fontSize:     14,
-            lineHeight:   '22px',
-            color:        'var(--neutral-700)',
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}
-        >
-          {selectedModel?.modelName ?? 'Select model'}
-        </span>
-        <ArrowDownOneIcon
-          size={20}
-          color="var(--neutral-700)"
-          style={{
-            flexShrink: 0,
-            transform:  open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 150ms',
-          }}
-        />
-      </button>
+            <AtomOneIcon size={16} />
+          )
+        }
+        rightIcon={
+          <ArrowDownOneIcon
+            size={16}
+            style={{
+              transform:  open ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 150ms',
+            }}
+          />
+        }
+      >
+        {selectedModel?.modelName ?? 'Select model'}
+      </Button>
 
       <AnimatePresence>
         {open && (
           <m.div
-            role="listbox"
+            role="dialog"
+            aria-modal
             aria-label="Select model"
             initial={{ opacity: 0, scaleY: 0.85, y: -4 }}
             animate={{ opacity: 1, scaleY: 1,    y:  0 }}
             exit={{    opacity: 0, scaleY: 0.9,  y: -4, transition: { duration: 0.1 } }}
             transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-            className="kaya-scrollbar"
             style={{
               position:        'absolute',
               top:             'calc(100% + 4px)',
               left:            0,
               right:           0,
               zIndex:          50,
-              maxHeight:       320,
-              overflowY:       'auto',
-              backgroundColor: 'var(--neutral-white)',
-              border:          '1px solid var(--neutral-200)',
-              borderRadius:    12,
-              padding:         4,
-              boxShadow:
-                '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15)',
+              backgroundColor: 'var(--popover-bg)',
+              borderRadius:    18,
+              boxShadow:       'var(--shadow-popover)',
               transformOrigin: 'top center',
+              overflow:        'hidden',
+              isolation:       'isolate',
             }}
           >
-            {Object.entries(grouped).map(([provider, providerModels]) => (
-              <div key={provider} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <div
-                  style={{
-                    padding:    '8px 8px 4px',
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 500,
-                    fontSize: 12,
-                    lineHeight: '16px',
-                    color:      'var(--neutral-500)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  {provider}
-                </div>
-                {providerModels.map((m) => {
-                  const isSelected = !!selectedModel && (m.modelId ?? m.id) === (selectedModel.modelId ?? selectedModel.id)
-                  return (
-                    <ModelDropdownItem
-                      key={String(m.modelId ?? m.id)}
-                      model={m}
-                      isSelected={isSelected}
-                      onClick={() => onSelect(m)}
-                      tagColorFn={instTagColor}
+            <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 16, height: 380, maxHeight: 380 }}>
+
+              {/* Search */}
+              <div style={{ display: 'flex', width: '100%', flexShrink: 0 }}>
+                <InputField
+                  size="small"
+                  showLabel={false}
+                  label="Search models"
+                  showSubtitle={false}
+                  leftIcon={<SearchOneIcon size={16} />}
+                  rightIcon={search ? (
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Clear search"
+                      icon={<CancelOneIcon size={12} />}
+                      onClick={() => setSearch('')}
                     />
-                  )
-                })}
+                  ) : undefined}
+                  placeholder="Look up your model…"
+                  value={search}
+                  onChange={setSearch}
+                  fluid
+                />
               </div>
-            ))}
-            {models.length === 0 && (
-              <div
-                style={{
-                  padding:    12,
-                  fontFamily: 'var(--font-body)',
-                  fontSize:   14,
-                  color:      'var(--neutral-500)',
-                }}
-              >
-                No models available
+
+              {/* Provider tabs */}
+              {companies.length > 0 && (
+                <div style={{ flexShrink: 0 }}>
+                  <Tabs value={provider} onValueChange={setProvider}>
+                    <TabsList size="small" scrollable>
+                      <TabsTrigger value="all" icon={<AtomTwoIcon size={16} />}>All</TabsTrigger>
+                      {companies.map(company => {
+                        const rep   = models.find(m => m.companyName === company)
+                        const llmId = rep ? (getModelLlmId(rep.companyName, rep.modelName) ?? '') : ''
+                        return (
+                          <TabsTrigger
+                            key={company}
+                            value={company}
+                            icon={llmId ? <LlmIcon id={llmId} variant="color" size={16} /> : undefined}
+                          >
+                            {company}
+                          </TabsTrigger>
+                        )
+                      })}
+                    </TabsList>
+                  </Tabs>
+                </div>
+              )}
+
+              {/* Model list */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: '1 0 0', minHeight: 0, width: '100%' }}>
+                {filtered.length > 0 ? (
+                  <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ position: 'relative', flex: '1 0 0', minHeight: 0 }}>
+                      <div
+                        className="kaya-scrollbar"
+                        onScroll={handleScroll}
+                        style={{ position: 'absolute', inset: 0, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: 2, paddingRight: 8 }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginRight: -6 }}>
+                          {groupedFiltered.map(({ company, items }) => (
+                            <div key={company} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              <div style={{ ...MODEL_PICKER_CAPTION_STYLE, padding: '2px 8px 2px 34px' }}>
+                                {company}
+                              </div>
+                              {items.map(m => {
+                                const isSelected = !!selectedModel && (m.modelId ?? m.id) === (selectedModel.modelId ?? selectedModel.id)
+                                return (
+                                  <ModelSelectItem
+                                    key={String(m.modelId ?? m.id)}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-pressed={isSelected}
+                                    llm={getModelLlmId(m.companyName, m.modelName) ?? undefined}
+                                    label={m.modelName}
+                                    icons={modelCapabilityIcons(m)}
+                                    info={modelInfoContent(m)}
+                                    selected={isSelected}
+                                    onClick={() => onSelect(m)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(m) } }}
+                                  />
+                                )
+                              })}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Top fade: progressive blur + color */}
+                      {[{ height: 40, blur: 2 }, { height: 28, blur: 3 }, { height: 18, blur: 5 }, { height: 10, blur: 6 }].map(({ height, blur }) => (
+                        <div key={`top-${blur}`} aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height, backdropFilter: `blur(${blur}px)`, WebkitBackdropFilter: `blur(${blur}px)`, maskImage: 'linear-gradient(to bottom, black 0%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, transparent 100%)', pointerEvents: 'none', zIndex: 10, opacity: atTop ? 0 : 1, transition: 'opacity 150ms ease' }} />
+                      ))}
+                      <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, background: 'linear-gradient(to bottom, white 0%, transparent 100%)', pointerEvents: 'none', zIndex: 11, opacity: atTop ? 0 : 1, transition: 'opacity 150ms ease' }} />
+
+                      {/* Bottom fade: progressive blur + color */}
+                      {[{ height: 40, blur: 2 }, { height: 28, blur: 3 }, { height: 18, blur: 5 }, { height: 10, blur: 6 }].map(({ height, blur }) => (
+                        <div key={`bottom-${blur}`} aria-hidden style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height, backdropFilter: `blur(${blur}px)`, WebkitBackdropFilter: `blur(${blur}px)`, maskImage: 'linear-gradient(to top, black 0%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to top, black 0%, transparent 100%)', pointerEvents: 'none', zIndex: 10, opacity: atBottom ? 0 : 1, transition: 'opacity 150ms ease' }} />
+                      ))}
+                      <div aria-hidden style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 40, background: 'linear-gradient(to top, white 0%, transparent 100%)', pointerEvents: 'none', zIndex: 11, opacity: atBottom ? 0 : 1, transition: 'opacity 150ms ease' }} />
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '1 0 0', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-500)' }}>
+                    {search ? `No models matching "${search}"` : 'No models available'}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </m.div>
         )}
       </AnimatePresence>
@@ -570,8 +577,8 @@ function readProfileAvatar(repoId: string): string | null {
   if (typeof window === 'undefined') return null
   try {
     const raw =
-      sessionStorage.getItem(`persona_profile_${repoId}`) ??
-      sessionStorage.getItem('persona_profile_new')
+      sessionStorage.getItem(personaProfileKey(repoId)) ??
+      sessionStorage.getItem(personaProfileKey(''))
     const draft = JSON.parse(raw ?? 'null') as Record<string, unknown> | null
     const url = draft?.avatarUrl
     return typeof url === 'string' ? url : null
@@ -625,7 +632,7 @@ function PersonaConfigureInstructionsContent() {
   const [profileTags, setProfileTags] = useState<string[]>(() => {
     if (typeof window === 'undefined') return []
     try {
-      const raw = sessionStorage.getItem(`persona_profile_${repoIdParam}`) ?? sessionStorage.getItem('persona_profile_new')
+      const raw = sessionStorage.getItem(personaProfileKey(repoIdParam)) ?? sessionStorage.getItem(personaProfileKey(''))
       const draft = JSON.parse(raw ?? 'null') as Record<string, unknown> | null
       return Array.isArray(draft?.personaTags) ? (draft!.personaTags as string[]) : []
     } catch { return [] }
@@ -640,7 +647,19 @@ function PersonaConfigureInstructionsContent() {
   const [showInfo,      setShowInfo]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
 
-  const { anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag, setPendingChangeTags, refreshVersions, versions, setNeedsRepublish, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setOnPublishAndLeave, registerAutoSave, registerContinueHandler, setVersionsOpen, publishedVersionId, markPublished, tabDirtyFlags, setTabDirty } = usePersonaConfigure()
+  const {
+    anyPanelOpen, updatePersonaInfo, registerVersionRestoreCallback, pendingChangeTags, addPendingChangeTag,
+    setPendingChangeTags, refreshVersions, versions, setNeedsRepublish, safeNavigate: ctxSafeNavigate,
+    safeBack: ctxSafeBack, setOnPublishAndLeave, registerAutoSave, registerContinueHandler, setVersionsOpen,
+    publishedVersionId, markPublished, tabDirtyFlags, setTabDirty, changesTrackerOpen,
+    // Per-attribute "touched this session" flags for the table-of-contents rail — lives in
+    // shared context (not local state) so it survives navigating to another tab and back;
+    // lights up the moment a field is edited, clears only on an explicit save/publish.
+    touchedFieldsByTab, markFieldTouched, resetTouchedFields,
+  } = usePersonaConfigure()
+  const touchedFields = touchedFieldsByTab.instructions
+  const markTouched = useCallback((field: string) => markFieldTouched('instructions', field), [markFieldTouched])
+  const resetInstructionsTouched = useCallback(() => resetTouchedFields('instructions'), [resetTouchedFields])
 
   const [exampleConvOpen, setExampleConvOpen] = useState(false)
   const [exampleConvExpanded, setExampleConvExpanded] = useState(false)
@@ -798,12 +817,12 @@ function PersonaConfigureInstructionsContent() {
         try {
           const wizardRepo = JSON.parse(sessionStorage.getItem('persona_wizard_repo') ?? 'null') as { repoId?: string; versionId?: string } | null
           if (wizardRepo?.repoId && wizardRepo?.versionId) {
-            push(`/agent/configure/instructions?repoId=${wizardRepo.repoId}&versionId=${wizardRepo.versionId}`)
+            push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(wizardRepo.repoId, { versionId: wizardRepo.versionId }))
             return
           }
         } catch { /* ignore */ }
         // Nothing to load — send back to wizard start
-        push('/agents')
+        push(AGENTS_ROUTE)
         return
       }
     } catch (err) {
@@ -958,6 +977,7 @@ function PersonaConfigureInstructionsContent() {
       }
 
       savedSnapshotRef.current = { instruction, modelId, temperature }
+      resetInstructionsTouched()
       setVersionTags(savedVersionId, pendingChangeTags)
       setPendingChangeTags([])
       bustPersonasCache()
@@ -1042,6 +1062,7 @@ function PersonaConfigureInstructionsContent() {
           })
           if (updated.image_url) setImageUrl(updated.image_url)
           savedSnapshotRef.current = { instruction, modelId, temperature }
+          resetInstructionsTouched()
           setVersionTags(versionId, pendingChangeTags)
           setPendingChangeTags([])
         }
@@ -1119,7 +1140,7 @@ function PersonaConfigureInstructionsContent() {
   useEffect(() => {
     if (!repoId || typeof window === 'undefined') return
     try {
-      const raw = sessionStorage.getItem(`persona_profile_${repoId}`)
+      const raw = sessionStorage.getItem(personaProfileKey(repoId))
       const draft = JSON.parse(raw ?? 'null') as Record<string, unknown> | null
       if (Array.isArray(draft?.personaTags)) setProfileTags(draft!.personaTags as string[])
     } catch { /* ignore */ }
@@ -1179,11 +1200,13 @@ function PersonaConfigureInstructionsContent() {
     lines.push('</example>')
     const block = lines.join('\n')
     setInstruction(instruction ? `${instruction}\n\n${block}` : block)
+    markTouched('examples')
   }
   const handleRemoveConversation = (id: string) => {
     const conv = exampleConversations.find(c => c.id === id)
     if (conv) setInstruction(removeExampleBlock(instruction, conv.userSays, conv.personaReplies))
     setExampleConversations(prev => prev.filter(c => c.id !== id))
+    markTouched('examples')
   }
 
   // Auto-save on tab switch — updates the current version in place (never forks).
@@ -1470,6 +1493,10 @@ function PersonaConfigureInstructionsContent() {
           <div style={{ height: 35, flexShrink: 0 }} />
         </div>
 
+        {!isInitialising && changesTrackerOpen && !anyPanelOpen && (
+          <AttributeTocRail items={INSTRUCTIONS_TOC_ITEMS} touchedFields={touchedFields} />
+        )}
+
         {/* ── Scrollable content area ────────────────────────────────────────── */}
         {isInitialising ? (
           <div style={{ flex: '1 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1545,57 +1572,67 @@ function PersonaConfigureInstructionsContent() {
                   selectedModel={selectedModel}
                   open={modelSelectorOpen}
                   onOpenChange={setModelSelectorOpen}
-                  onSelect={(m) => { setSelectedModel(m); setModelSelectorOpen(false) }}
+                  onSelect={(m) => { setSelectedModel(m); setModelSelectorOpen(false); markTouched('model') }}
                 />
               </div>
 
               {/* ── System instruction ────────────────────────────────────────── */}
-              <EnhancePromptField
-                data-help-id="help-instruction"
-                value={instruction}
-                onChange={setInstruction}
-                footerLeft={
-                  <UndoRedoGroup
-                    canUndo={canUndo}
-                    canRedo={canRedo}
-                    onUndo={undoInstruction}
-                    onRedo={redoInstruction}
-                  />
-                }
-              />
+              <div data-help-id="help-instruction" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span style={ATTRIBUTE_HEADER_STYLE}>System Instruction</span>
+                <EnhancePromptField
+                  label={null}
+                  value={instruction}
+                  onChange={(v) => { setInstruction(v); markTouched('instruction') }}
+                  footerLeft={
+                    <UndoRedoGroup
+                      canUndo={canUndo}
+                      canRedo={canRedo}
+                      onUndo={undoInstruction}
+                      onRedo={redoInstruction}
+                    />
+                  }
+                />
+              </div>
 
               {/* ── Temperature slider ────────────────────────────────────────── */}
               <div data-help-id="help-temperature" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#0a0a0a' }}>
-                    Creativity level (Temperature)
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#0a0a0a' }}>
-                    {getTemperatureLabel(temperature)}
-                  </span>
-                </div>
-                <div style={{ position: 'relative', height: 4, borderRadius: 2, backgroundColor: 'white', cursor: 'pointer' }}>
-                  <div aria-hidden style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${temperature * 100}%`, backgroundColor: 'var(--blue-600)', borderRadius: 2, pointerEvents: 'none' }} />
-                  <input
-                    type="range"
+                <span style={ATTRIBUTE_HEADER_STYLE}>
+                  Creativity Level (Temperature)
+                </span>
+                {/* Same idle container treatment as System Instruction: white bg, 18px radius. */}
+                <div
+                  style={{
+                    display:         'flex',
+                    flexDirection:   'column',
+                    gap:             12,
+                    // Extra top padding reserves room for the drag-value tooltip above the thumb.
+                    padding:         '28px 16px 16px',
+                    borderRadius:    18,
+                    border:          '1px solid #E5E5E5',
+                    backgroundColor: '#FFFFFF',
+                  }}
+                >
+                  <Slider
+                    value={[temperature]}
+                    onValueChange={([v]) => { setTemperature(v); markTouched('temperature') }}
                     min={0}
                     max={1}
                     step={0.01}
-                    value={temperature}
-                    onChange={e => setTemperature(parseFloat(e.target.value))}
+                    showValue
+                    valueFormat={getTemperatureLabel}
+                    fillColor="var(--blue-600)"
                     aria-label="Creativity level"
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', margin: 0 }}
                   />
-                  <div aria-hidden style={{ position: 'absolute', top: '50%', left: `${temperature * 100}%`, transform: 'translate(-50%, -50%)', width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--blue-600)', pointerEvents: 'none' }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-800)' }}>0 (Precise &amp; consistent)</span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-700)' }}>(Creative &amp; varied) 1</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-800)' }}>0 (Precise &amp; consistent)</span>
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-700)' }}>(Creative &amp; varied) 1</span>
+                  </div>
                 </div>
               </div>
 
               {/* ── Example conversations ─────────────────────────────────────── */}
               <div data-help-id="help-examples" style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+                <span style={ATTRIBUTE_HEADER_STYLE}>Example Conversations (Optional)</span>
                 <button
                   type="button"
                   onClick={() => setExampleConvExpanded(v => !v)}
@@ -1605,12 +1642,13 @@ function PersonaConfigureInstructionsContent() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '8px 12px',
+                    padding: '8px 16px',
                     height: 64,
                     width: '100%',
-                    border: '1px solid var(--neutral-200)',
-                    borderRadius: 6,
-                    backgroundColor: 'transparent',
+                    // Same idle container treatment as System Instruction: white bg, 18px radius.
+                    border: '1px solid #E5E5E5',
+                    borderRadius: 18,
+                    backgroundColor: '#FFFFFF',
                     cursor: 'pointer',
                     textAlign: 'left',
                   }}
@@ -1618,17 +1656,19 @@ function PersonaConfigureInstructionsContent() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 0 0', minWidth: 0 }}>
                     <span
                       style={{
-                        fontFamily: 'var(--font-body)',
-                        fontWeight: 500,
-                        fontSize: 14,
-                        lineHeight: '22px',
-                        color: '#0a0a0a',
-                        overflow: 'hidden',
+                        fontFamily:   'var(--font-body)',
+                        fontWeight:   500,
+                        fontSize:     14,
+                        lineHeight:   '22px',
+                        color:        '#0a0a0a',
+                        overflow:     'hidden',
                         textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                        whiteSpace:   'nowrap',
                       }}
                     >
-                      Example conversations ( optional )
+                      {exampleConversations.length > 0
+                        ? `${exampleConversations.length} example${exampleConversations.length === 1 ? '' : 's'} added`
+                        : 'Add example conversation'}
                     </span>
                     {exampleConversations.length > 0 && (
                       <Badge color="Neutral" label={String(exampleConversations.length)} />
@@ -1706,7 +1746,7 @@ function PersonaConfigureInstructionsContent() {
           onClose={() => setRepublishModalOpen(false)}
           onDone={() => {
             setRepublishModalOpen(false)
-            push('/agents')
+            push(AGENTS_ROUTE)
           }}
         />
       )}

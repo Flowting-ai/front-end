@@ -13,6 +13,7 @@ import { ArrowDownOneIcon, PenOneIcon } from "@strange-huge/icons";
 import { getPersona } from "@/lib/api/personas";
 import type { Persona } from "@/lib/api/personas";
 import { fetchModelsWithCache } from "@/lib/ai-models";
+import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE } from "@/lib/routes";
 import type { AIModel } from "@/types/ai-model";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -284,9 +285,7 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
                 size="sm"
                 leftIcon={<PenOneIcon animated />}
                 onClick={() =>
-                  router.push(
-                    `/agent/configure/instructions?repoId=${personaId}&name=${encodeURIComponent(persona.name)}`,
-                  )
+                  router.push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(personaId!, { name: persona.name }))
                 }
               >
                 Edit

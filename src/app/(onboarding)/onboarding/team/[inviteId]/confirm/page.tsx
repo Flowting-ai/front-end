@@ -15,6 +15,7 @@ import {
   inviteRoleLabel,
   inviteTargetName,
 } from "../_components/invite-ui";
+import { CHAT_ROUTE } from "@/lib/routes";
 
 // ── Screen 4 — "You're joining {team}" (confirmation) ───────────────────────────
 // Final orientation step. Membership + onboarding were already committed on
@@ -64,7 +65,7 @@ export default function TeamInviteConfirmPage() {
         status={status === "ready" ? "loading" : status}
         errorMsg={errorMsg}
         onRetry={refetch}
-        onHome={() => push("/chat")}
+        onHome={() => push(CHAT_ROUTE)}
       />
     );
   }
@@ -79,7 +80,7 @@ export default function TeamInviteConfirmPage() {
   const handleEnter = () => {
     // Membership + onboarding were already committed on screen 1; just enter.
     toast.success(`You've joined ${target}`);
-    push(`/chat?joined=${encodeURIComponent(target)}`);
+    push(`${CHAT_ROUTE}?joined=${encodeURIComponent(target)}`);
   };
 
   return (

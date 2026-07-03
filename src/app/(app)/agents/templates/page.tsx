@@ -22,6 +22,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_TEMPLATE } from '../_components/WizardShell'
+import { AGENTS_BASICS_PURPOSE_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
 
 // ── Template categories ───────────────────────────────────────────────────────
 
@@ -68,7 +69,7 @@ export default function PersonaTemplatesPage() {
     // Starting fresh — clear any previously created wizard repo so a new one is made.
     try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
     const q = name ? `?template=${encodeURIComponent(name)}` : ''
-    push(`/agents/basics/purpose${q}`)
+    push(`${AGENTS_BASICS_PURPOSE_ROUTE}${q}`)
   }
 
   return (
@@ -117,7 +118,7 @@ export default function PersonaTemplatesPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => push('/agents/basics/purpose')}
+              onClick={() => push(AGENTS_BASICS_PURPOSE_ROUTE)}
             >
               Start blank
             </Button>
@@ -172,7 +173,7 @@ export default function PersonaTemplatesPage() {
             variant="outline"
             size="sm"
             leftIcon={<ArrowLeftOneIcon size={16} />}
-            onClick={() => push('/agents')}
+            onClick={() => push(AGENTS_ROUTE)}
           >
             Library
           </Button>

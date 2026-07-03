@@ -18,6 +18,7 @@ import {
 import { useOrg } from '@/context/org-context'
 import { createTeam } from '@/lib/api/teams'
 import type { Team } from '@/types/teams'
+import { ORG_TEAM_ROUTE } from '@/lib/routes'
 
 const SLIDE = { duration: 0.28, ease: [0.4, 0, 0.2, 1] as const }
 
@@ -319,7 +320,7 @@ export default function OrgTeamsPage() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => router.push(`/org/teams/${team.id}`)}
+                  onClick={() => router.push(ORG_TEAM_ROUTE(team.id))}
                 >
                   Team settings
                 </Button>

@@ -8,6 +8,21 @@ import { useProjects } from "@/context/projects-context";
 import { usePinboard } from "@/context/pinboard-context";
 import { fetchPersonas } from "@/lib/api/personas";
 import type { Persona } from "@/lib/api/personas";
+import {
+  CHAT_ROUTE,
+  CHATS_ROUTE,
+  PROJECTS_ROUTE,
+  AGENTS_ROUTE,
+  BRAIN_ROUTE,
+  BRAIN_SCHEDULES_ROUTE,
+  SETTINGS_ACCOUNT_ROUTE,
+  SETTINGS_BILLING_ROUTE,
+  SETTINGS_AI_ROUTE,
+  SETTINGS_CONNECTORS_ROUTE,
+  SETTINGS_HELP_ROUTE,
+  PROJECT_ROUTE,
+  AGENT_CHAT_ROUTE,
+} from "@/lib/routes";
 
 // ── Navigable destinations ────────────────────────────────────────────────────
 
@@ -20,16 +35,16 @@ interface NavPage {
 }
 
 const NAV_PAGES: NavPage[] = [
-  { id: "page-chats",      title: "Chat Board",      subtitle: "All chats",   route: "/chats",               keywords: "chats history conversations board recents" },
-  { id: "page-projects",   title: "Projects",        subtitle: "Workspaces",  route: "/projects",            keywords: "projects folders workspaces" },
-  { id: "page-personas",   title: "Agents",          subtitle: "AI agents",   route: "/agents",              keywords: "personas agents assistants bots ai" },
-  { id: "page-brain",      title: "Brain",           subtitle: "Knowledge",   route: "/brain",               keywords: "brain knowledge agent memory context" },
-  { id: "page-schedules",  title: "Schedules",       subtitle: "Brain",       route: "/brain/schedules",     keywords: "schedules scheduled tasks automation cron jobs brain" },
-  { id: "page-account",    title: "Account",         subtitle: "Settings",    route: "/settings/account",    keywords: "account profile settings me user" },
-  { id: "page-billing",    title: "Usage & Billing", subtitle: "Settings",    route: "/settings/billing",    keywords: "billing usage payment subscription invoice plan credits cost" },
-  { id: "page-ai",         title: "AI & Models",     subtitle: "Settings",    route: "/settings/ai",         keywords: "ai models llm settings default model" },
-  { id: "page-connectors", title: "Connectors",      subtitle: "Settings",    route: "/settings/connectors", keywords: "connectors integrations tools apps mcp" },
-  { id: "page-help",       title: "Help & Legal",    subtitle: "Settings",    route: "/settings/help",       keywords: "help legal support docs terms privacy faq" },
+  { id: "page-chats",      title: "Chat Board",      subtitle: "All chats",   route: CHATS_ROUTE,               keywords: "chats history conversations board recents" },
+  { id: "page-projects",   title: "Projects",        subtitle: "Workspaces",  route: PROJECTS_ROUTE,            keywords: "projects folders workspaces" },
+  { id: "page-personas",   title: "Agents",          subtitle: "AI agents",   route: AGENTS_ROUTE,              keywords: "personas agents assistants bots ai" },
+  { id: "page-brain",      title: "Brain",           subtitle: "Knowledge",   route: BRAIN_ROUTE,               keywords: "brain knowledge agent memory context" },
+  { id: "page-schedules",  title: "Schedules",       subtitle: "Brain",       route: BRAIN_SCHEDULES_ROUTE,     keywords: "schedules scheduled tasks automation cron jobs brain" },
+  { id: "page-account",    title: "Account",         subtitle: "Settings",    route: SETTINGS_ACCOUNT_ROUTE,    keywords: "account profile settings me user" },
+  { id: "page-billing",    title: "Usage & Billing", subtitle: "Settings",    route: SETTINGS_BILLING_ROUTE,    keywords: "billing usage payment subscription invoice plan credits cost" },
+  { id: "page-ai",         title: "AI & Models",     subtitle: "Settings",    route: SETTINGS_AI_ROUTE,         keywords: "ai models llm settings default model" },
+  { id: "page-connectors", title: "Connectors",      subtitle: "Settings",    route: SETTINGS_CONNECTORS_ROUTE, keywords: "connectors integrations tools apps mcp" },
+  { id: "page-help",       title: "Help & Legal",    subtitle: "Settings",    route: SETTINGS_HELP_ROUTE,       keywords: "help legal support docs terms privacy faq" },
 ];
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -150,12 +165,12 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   const handleSelect = useCallback((result: SearchResult) => {
     setSearchOpen(false);
     switch (result.type) {
-      case 'chat':    push(`/chat?id=${result.id}`);     break;
-      case 'project': push(`/project/${result.id}`);     break;
-      case 'persona': push(`/agents/${result.id}/chat`); break;
+      case 'chat':    push(`${CHAT_ROUTE}?id=${result.id}`); break;
+      case 'project': push(PROJECT_ROUTE(result.id));        break;
+      case 'persona': push(AGENT_CHAT_ROUTE(result.id));     break;
       case 'pin': {
         const pin = pins.find(p => p.id === result.id);
-        if (pin?.chatId) { push(`/chat?id=${pin.chatId}`); openPinboardForChat(pin.chatId); }
+        if (pin?.chatId) { push(`${CHAT_ROUTE}?id=${pin.chatId}`); openPinboardForChat(pin.chatId); }
         else openPinboard();
         break;
       }

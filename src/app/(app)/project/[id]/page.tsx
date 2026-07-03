@@ -22,6 +22,7 @@ import { setProjectVisibility } from '@/lib/api/projects'
 import { setChatVisibility, listChats } from '@/lib/api/chat'
 import { listSharedWithMe, forkChatShare, type SharedChatItem } from '@/lib/api/chat-shares'
 import { useOrg } from '@/context/org-context'
+import { PROJECT_CHAT_NEW_ROUTE, PROJECT_CHAT_ROUTE, PROJECTS_ROUTE, CHAT_SHARE_ROUTE } from '@/lib/routes'
 import { AlertCircleIcon } from '@strange-huge/icons'
 import type { Chat } from '@/types/chat'
 import { EditProjectModal } from '@/components/EditProjectModal'
@@ -226,7 +227,7 @@ export default function ProjectPage() {
       setNewChatAttachments([])
     }
     const q = text.trim()
-    push(`/project/${projectId}/chat/new` + (q ? `?q=${encodeURIComponent(q)}` : ''))
+    push(PROJECT_CHAT_NEW_ROUTE(projectId) + (q ? `?q=${encodeURIComponent(q)}` : ''))
     setChatInputValue('')
   }
 
@@ -301,7 +302,7 @@ export default function ProjectPage() {
         canPublish={canPublishChat}
         published={chat.visibility === 'team'}
         onPublishToggle={(next) => void handlePublishToggle(chat.id, next)}
-        onChatClick={() => push(`/project/${projectId}/chat/${chat.id}`)}
+        onChatClick={() => push(PROJECT_CHAT_ROUTE(projectId, chat.id))}
         onPinsClick={() => togglePinboard()}
         onRename={chat.can_edit ? (newTitle) => {
           void chatHistory.rename(chat.id, newTitle)
@@ -325,7 +326,7 @@ export default function ProjectPage() {
         title={chat.title}
         timestamp="Just now"
         pinCount={pins.filter(p => p.chatId === chat.id).length}
-        onChatClick={() => push(`/project/${projectId}/chat/${chat.id}`)}
+        onChatClick={() => push(PROJECT_CHAT_ROUTE(projectId, chat.id))}
         onPinsClick={() => togglePinboard()}
         onRename={chat.canEdit ? (newTitle) => {
           renameChat(projectId, chat.id, newTitle)
@@ -366,7 +367,7 @@ export default function ProjectPage() {
 
       {/* Back button - anchored in the TopBar zone, top-left */}
       <button
-        onClick={() => push('/projects')}
+        onClick={() => push(PROJECTS_ROUTE)}
         style={{
           position:     'absolute',
           top:          26,
@@ -499,7 +500,7 @@ export default function ProjectPage() {
                       <Dropdown.Item
                         label="Delete"
                         variant="danger"
-                        onClick={() => { setMenuOpen(false); deleteProject(projectId).then(() => push('/projects')) }}
+                        onClick={() => { setMenuOpen(false); deleteProject(projectId).then(() => push(PROJECTS_ROUTE)) }}
                         fluid
                       />
                     </Dropdown.Section>
@@ -768,7 +769,7 @@ export default function ProjectPage() {
                             timestamp="View only"
                             author={item.sharedByName ?? undefined}
                             pinCount={0}
-                            onChatClick={() => push(`/chat-shares/${item.shareId}`)}
+                            onChatClick={() => push(CHAT_SHARE_ROUTE(item.shareId))}
                           />
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, padding: '6px 16px 10px', marginTop: -2 }}>
                             <AlertCircleIcon size={14} color="var(--neutral-400)" style={{ flexShrink: 0, marginTop: 1 }} />

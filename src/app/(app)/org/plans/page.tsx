@@ -18,6 +18,7 @@ import {
 } from '@/lib/api/stripe'
 import { getOrgSettings, setOrgPoolCap, updateOrgSettings } from '@/lib/api/organization'
 import type { AdminBillingPerms, OrgPlan } from '@/types/teams'
+import { ORG_CHANGE_PLAN_ROUTE, ORG_MEMBERS_ROUTE } from '@/lib/routes'
 
 /*
  * Settings → Organization → Billing ("Plans & Usage")
@@ -562,7 +563,7 @@ export default function OrgBillingPage() {
       annual={annual}
       onAnnualChange={setAnnual}
       onContactSales={() => setContactSalesOpen(true)}
-      onUpgrade={() => router.push('/org/change-plan')}
+      onUpgrade={() => router.push(ORG_CHANGE_PLAN_ROUTE)}
       onRequestPlanChange={handleRequestPlanChange}
       cancelAtPeriodEnd={billing?.cancel_at_period_end ?? false}
       cancelsOnLabel={nextBilling}
@@ -627,7 +628,7 @@ export default function OrgBillingPage() {
                 </p>
                 {canSeeCredits && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button variant="secondary" onClick={() => router.push('/org/members')}>Manage caps</Button>
+                    <Button variant="secondary" onClick={() => router.push(ORG_MEMBERS_ROUTE)}>Manage caps</Button>
                   </div>
                 )}
               </div>

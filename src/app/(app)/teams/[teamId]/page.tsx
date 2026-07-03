@@ -37,6 +37,7 @@ import {
 import { fetchProjects, createProjectApi, type ApiProjectSummary } from '@/lib/api/projects'
 import { listAudit } from '@/lib/api/organization'
 import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
+import { CHAT_ROUTE } from '@/lib/routes'
 import type { Team, AuditLogEntry } from '@/types/teams'
 
 type TeamTab = 'projects' | 'connectors' | 'requests' | 'activity'
@@ -527,12 +528,12 @@ function TeamEditorPageContent() {
 
   useEffect(() => {
     if (!orgReady) return
-    if (!orgId) { router.replace('/chat'); return }
+    if (!orgId) { router.replace(CHAT_ROUTE); return }
     let cancelled = false
     getTeam(orgId, teamId)
       .then(async t => {
         if (cancelled) return
-        if (!t.canEdit) { setDenied(true); router.replace('/chat'); return }
+        if (!t.canEdit) { setDenied(true); router.replace(CHAT_ROUTE); return }
         setTeam(t)
         const isAdmin = currentUserRole === 'admin'
         if (isAdmin) {
@@ -543,7 +544,7 @@ function TeamEditorPageContent() {
           setCanLink(Boolean(mine?.canLinkAccounts))
         }
       })
-      .catch(() => { if (!cancelled) { setDenied(true); router.replace('/chat') } })
+      .catch(() => { if (!cancelled) { setDenied(true); router.replace(CHAT_ROUTE) } })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [orgId, orgReady, teamId, currentUserRole, user?.email, router])
@@ -556,7 +557,7 @@ function TeamEditorPageContent() {
       title={team.name}
       description={team.description || "Manage this team's projects, connectors, requests, and activity."}
       backLabel="Back to chat"
-      onBack={() => router.push('/chat')}
+      onBack={() => router.push(CHAT_ROUTE)}
     >
       {section === 'projects' && (
         <ProjectsTab teamId={teamId} userId={String(user?.id ?? '')} />

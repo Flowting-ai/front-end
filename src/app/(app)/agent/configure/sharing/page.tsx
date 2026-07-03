@@ -16,6 +16,13 @@ import SharingTab from '@/app/(app)/agent/configure/components/SharingTab'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
 import { derivePublicationState } from '@/lib/persona-version-logic'
+import { AttributeTocRail, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
+
+const SHARING_TOC_ITEMS: AttributeTocItem[] = [
+  { id: 'visibility', label: 'Visibility', anchor: 'help-sharing-visibility' },
+  { id: 'superlink',  label: 'Super Link', anchor: 'help-sharing-superlink' },
+  { id: 'email',      label: 'Email Invite', anchor: 'help-sharing-email' },
+]
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -44,7 +51,8 @@ function PersonaConfigureSharingContent() {
   const [showInfo,           setShowInfo]           = useState(false)
   const [isPublishing,       setIsPublishing]       = useState(false)
 
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen, publishedVersionId, markPublished, registerAutoSave, tabDirtyFlags, setTabDirty } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate, safeBack, setVersionsOpen, publishedVersionId, markPublished, registerAutoSave, tabDirtyFlags, setTabDirty, changesTrackerOpen, touchedFieldsByTab } = usePersonaConfigure()
+  const sharingTouchedFields = touchedFieldsByTab.sharing
 
   useEffect(() => {
     if (!repoId) return
@@ -304,6 +312,10 @@ function PersonaConfigureSharingContent() {
           {/* Spacer below nav */}
           <div style={{ height: 35, flexShrink: 0 }} />
         </div>
+
+        {changesTrackerOpen && !anyPanelOpen && (
+          <AttributeTocRail items={SHARING_TOC_ITEMS} touchedFields={sharingTouchedFields} />
+        )}
 
         {/* ── Scrollable content area ────────────────────────────────────────── */}
         <div

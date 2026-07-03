@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import NextImage from "next/image";
 import { X, Plus } from "lucide-react";
+import { ATTRIBUTE_HEADER_STYLE } from "@/app/(app)/agent/configure/components/AttributeTrackerRail";
 
 async function compressImage(file: File, maxW: number, maxH: number, quality: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -137,8 +138,8 @@ export default function ProfileTab({
     <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%" }}>
 
       {/* Avatar */}
-      <div data-help-id="help-profile-avatar" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47", margin: 0 }}>Avatar</p>
+      <div data-help-id="help-profile-avatar" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 12px" }}>
+        <p style={{ ...ATTRIBUTE_HEADER_STYLE, margin: 0 }}>Avatar</p>
         <div
           onDragEnter={(e) => { e.preventDefault(); dragCounter.current++; setIsDragOver(true) }}
           onDragLeave={() => { dragCounter.current--; if (dragCounter.current === 0) setIsDragOver(false) }}
@@ -197,8 +198,8 @@ export default function ProfileTab({
       </div>
 
       {/* Name */}
-      <div data-help-id="help-profile-name" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px" }}>
-        <label htmlFor="profile-persona-name" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Name</label>
+      <div data-help-id="help-profile-name" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 12px" }}>
+        <label htmlFor="profile-persona-name" style={ATTRIBUTE_HEADER_STYLE}>Name</label>
         <div
           style={{
             backgroundColor: "white",
@@ -230,8 +231,8 @@ export default function ProfileTab({
       </div>
 
       {/* Handle — auto-generated from name by the backend, not directly editable */}
-      <div data-help-id="help-profile-handle" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px" }}>
-        <label htmlFor="profile-persona-handle" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Handle</label>
+      <div data-help-id="help-profile-handle" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 12px" }}>
+        <label htmlFor="profile-persona-handle" style={ATTRIBUTE_HEADER_STYLE}>Handle</label>
         <div
           style={{
             backgroundColor: "var(--neutral-50)",
@@ -268,8 +269,8 @@ export default function ProfileTab({
       </div>
 
       {/* Description */}
-      <div data-help-id="help-profile-description" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px", position: "relative" }}>
-        <label htmlFor="profile-persona-desc" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Description</label>
+      <div data-help-id="help-profile-description" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 12px", position: "relative" }}>
+        <label htmlFor="profile-persona-desc" style={ATTRIBUTE_HEADER_STYLE}>Description</label>
         <div
           style={{
             backgroundColor: "white",
@@ -316,8 +317,8 @@ export default function ProfileTab({
       </div>
 
       {/* Tags */}
-      <div data-help-id="help-profile-tags" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47", margin: 0 }}>Tags</p>
+      <div data-help-id="help-profile-tags" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 12px" }}>
+        <p style={{ ...ATTRIBUTE_HEADER_STYLE, margin: 0 }}>Tags</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", padding: "8px 6px" }}>
           {personaTags.map((tag, idx) => {
             const color = getTagColor(idx);

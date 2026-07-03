@@ -9,6 +9,7 @@ import { listOrganizations } from "@/lib/api/organization";
 import { toast } from "sonner";
 import { Button } from "@/components/Button";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
+import { ONBOARDING_INVITE_ROUTE, ONBOARDING_WORKSPACE_ROUTE } from "@/lib/routes";
 
 // ── Connector definitions ───────────────────────────────────────────────────────
 
@@ -175,7 +176,7 @@ export default function OnboardingConnectorsPage() {
       }
     }
     setConnectorCount(selected.size);
-    push("/onboarding/invite");
+    push(ONBOARDING_INVITE_ROUTE);
   }
 
   return (
@@ -185,7 +186,7 @@ export default function OnboardingConnectorsPage() {
       width={653}
       footer={
         <OnboardingFooter
-          onBack={() => push("/onboarding/workspace")}
+          onBack={() => push(ONBOARDING_WORKSPACE_ROUTE)}
           onContinue={() => void handleContinue()}
           continueDisabled={continuing}
           continueLoading={continuing}

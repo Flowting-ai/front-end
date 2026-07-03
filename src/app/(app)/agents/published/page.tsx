@@ -18,6 +18,7 @@ import {
   type PersonaShare,
 } from '@/lib/api/persona-shares'
 import { canonicalShareUrl } from '@/lib/share-url'
+import { AGENTS_ROUTE, AGENT_CHAT_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -320,7 +321,7 @@ function PersonaPublishedContent() {
               size="md"
               icon={<ArrowLeftOneIcon size={20} />}
               aria-label="Back to library"
-              onClick={() => push('/agents')}
+              onClick={() => push(AGENTS_ROUTE)}
             />
           </div>
           <div style={{ height: 8, flexShrink: 0 }} />
@@ -554,7 +555,7 @@ function PersonaPublishedContent() {
                   variant="secondary"
                   size="sm"
                   style={{ width: 242, justifyContent: 'center' }}
-                  onClick={() => push(`/agents/${repoId}/chat`)}
+                  onClick={() => push(AGENT_CHAT_ROUTE(repoId))}
                 >
                   Use this agent
                 </Button>
@@ -562,7 +563,7 @@ function PersonaPublishedContent() {
 
               {/* Back to library */}
               <button
-                onClick={() => push('/agents')}
+                onClick={() => push(AGENTS_ROUTE)}
                 style={{
                   width: 242,
                   padding: '6px 10px',
@@ -583,7 +584,7 @@ function PersonaPublishedContent() {
               {/* Configure sharing shortcut — visible when no super link yet */}
               {!linkShare && repoId && versionId && (
                 <button
-                  onClick={() => push(`/agent/configure/sharing?repoId=${repoId}&versionId=${versionId}`)}
+                  onClick={() => push(AGENT_CONFIGURE_SHARING_ROUTE(repoId, { versionId }))}
                   style={{
                     background: 'none',
                     border: 'none',

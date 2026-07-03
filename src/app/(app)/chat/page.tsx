@@ -57,6 +57,7 @@ import {
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
 import type { PinFolder } from "@/lib/api/pins";
+import { CHAT_ROUTE } from "@/lib/routes";
 
 // ── Mentioned-pin state type ──────────────────────────────────────────────────
 
@@ -737,7 +738,7 @@ function ChatPageInner() {
         starred: false,
         can_edit: true,
       });
-      replace(`/chat?id=${copy.chatId}`, { scroll: false });
+      replace(`${CHAT_ROUTE}?id=${copy.chatId}`, { scroll: false });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to copy chat");
     } finally {
@@ -802,7 +803,7 @@ function ChatPageInner() {
     setActiveChatId(chatId);
     setHasMessages(true);
     setInitialPrompt(null);
-    replace(`/chat?id=${chatId}`, { scroll: false });
+    replace(`${CHAT_ROUTE}?id=${chatId}`, { scroll: false });
     const newChatStub = {
       id: chatId,
       can_edit: true,

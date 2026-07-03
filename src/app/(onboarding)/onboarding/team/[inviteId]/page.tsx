@@ -20,6 +20,7 @@ import {
   inviteRoleLabel,
   inviteTargetName,
 } from "./_components/invite-ui";
+import { CHAT_ROUTE, ONBOARDING_TEAM_CONFIRM_ROUTE, ONBOARDING_TEAM_JOIN_ROUTE } from "@/lib/routes";
 
 // ── Screen 1 — "You're invited to {team}" ───────────────────────────────────────
 // First step after the invitee logs in. Overview of what they're joining, bound
@@ -41,7 +42,7 @@ export default function TeamInviteWelcomePage() {
         status={status === "ready" ? "loading" : status}
         errorMsg={errorMsg}
         onRetry={refetch}
-        onHome={() => push("/chat")}
+        onHome={() => push(CHAT_ROUTE)}
       />
     );
   }
@@ -61,9 +62,9 @@ export default function TeamInviteWelcomePage() {
       await updateOnboarding({ onboarding_completed: true });
       await refreshUser();
       if (wasAlreadyOnboarded) {
-        push(`/onboarding/team/${invite.inviteId}/confirm`);
+        push(ONBOARDING_TEAM_CONFIRM_ROUTE(invite.inviteId));
       } else {
-        push(`/onboarding/team/${invite.inviteId}/join`);
+        push(ONBOARDING_TEAM_JOIN_ROUTE(invite.inviteId));
       }
     } catch (err) {
       setSubmitting(false);

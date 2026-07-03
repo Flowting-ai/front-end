@@ -16,6 +16,7 @@ import { EditProjectModal } from '@/components/EditProjectModal'
 import { useMounted } from '@/hooks/use-mounted'
 import type { Project } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
+import { PROJECT_ROUTE } from '@/lib/routes'
 
 type SortKey = 'recent' | 'alphabetical' | 'active'
 
@@ -322,7 +323,7 @@ export default function ProjectsPage() {
                 tags={project.tags}
                 updatedAt={formatUpdated(project.updatedAt)}
                 chatCount={project.chatCount}
-                onClick={() => push(`/project/${project.id}`)}
+                onClick={() => push(PROJECT_ROUTE(project.id))}
                 onEdit={project.canEdit ? () => setEditTarget(project) : undefined}
                 onArchive={project.canEdit ? () => {/* archive flow - backlog */} : undefined}
                 onDelete={project.canEdit ? () => handleDelete(project) : undefined}

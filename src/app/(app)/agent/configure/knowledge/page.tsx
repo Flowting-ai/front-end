@@ -22,10 +22,16 @@ import {
   type PersonaVersionResponse,
 } from '@/lib/api/personas'
 import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModal'
+import { AGENTS_ROUTE } from '@/lib/routes'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
 import { derivePublicationState } from '@/lib/persona-version-logic'
 import { parseServerDate } from '@/lib/utils/format-utils'
+import { AttributeTocRail, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
+
+const KNOWLEDGE_TOC_ITEMS: AttributeTocItem[] = [
+  { id: 'files', label: 'Files', anchor: 'help-knowledge-upload' },
+]
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -107,7 +113,8 @@ function PersonaConfigureKnowledgeContent() {
   const versionId = searchParams.get('versionId') ?? ''
   const personaName = searchParams.get('name') ?? ''
 
-  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setKnowledgeFileCount, setVersionsOpen, publishedVersionId, markPublished, registerAutoSave, tabDirtyFlags, setTabDirty } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, setKnowledgeFileCount, setVersionsOpen, publishedVersionId, markPublished, registerAutoSave, tabDirtyFlags, setTabDirty, changesTrackerOpen, touchedFieldsByTab, markFieldTouched, resetTouchedFields } = usePersonaConfigure()
+  const knowledgeTouchedFields = touchedFieldsByTab.knowledge
 
   const [isSaving,             setIsSaving]             = useState(false)
   const [showInfo,             setShowInfo]             = useState(false)
@@ -204,6 +211,8 @@ function PersonaConfigureKnowledgeContent() {
 
   async function uploadFiles(rawFiles: File[]) {
     if (!repoId || !versionId) return
+    // Lights the rail dot for the round-trip; cleared once the upload(s) resolve below.
+    markFieldTouched('knowledge', 'files')
 
     // Record file sizes and create blob preview URLs before uploading
     rawFiles.forEach(f => {
@@ -307,6 +316,9 @@ function PersonaConfigureKnowledgeContent() {
       }
     })
     if (anyUploaded) { setIsDirty(true); addPendingChangeTag('Knowledge') }
+    // Files persist to the backend immediately (not batched into Save Version) —
+    // the upload attempt is over either way, so clear the touched dot now.
+    resetTouchedFields('knowledge')
   }
 
   // ── Preview a file ─────────────────────────────────────────────────────────
@@ -349,6 +361,7 @@ function PersonaConfigureKnowledgeContent() {
     const file = files.find(f => f.id === id)
     if (!file) return
 
+    markFieldTouched('knowledge', 'files')
     try {
       await deleteDocument(repoId, versionId, id)
       setFiles(prev => prev.filter(f => f.id !== id))
@@ -358,6 +371,9 @@ function PersonaConfigureKnowledgeContent() {
     } catch (err) {
       console.error('[KnowledgePage] delete error:', err)
       toast.error(`Failed to remove "${file.name}"`)
+    } finally {
+      // Deletes persist immediately (not batched into Save Version) — clear either way.
+      resetTouchedFields('knowledge')
     }
   }
 
@@ -615,6 +631,10 @@ function PersonaConfigureKnowledgeContent() {
         <div style={{ height: 35, flexShrink: 0 }} />
       </div>
 
+      {changesTrackerOpen && !anyPanelOpen && (
+        <AttributeTocRail items={KNOWLEDGE_TOC_ITEMS} touchedFields={knowledgeTouchedFields} />
+      )}
+
       {/* ── Scrollable content area ────────────────────────────────────────── */}
       <div
         className="kaya-scrollbar"
@@ -643,7 +663,7 @@ function PersonaConfigureKnowledgeContent() {
           personaName={personaName || 'Agent'}
           superLinkActive={false}
           onClose={() => setRepublishModalOpen(false)}
-          onDone={() => { setRepublishModalOpen(false); push('/agents') }}
+          onDone={() => { setRepublishModalOpen(false); push(AGENTS_ROUTE) }}
         />
       )}
     </div>

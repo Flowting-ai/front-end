@@ -11,6 +11,7 @@ import { updateOnboarding } from "@/lib/api/user";
 import { updateOrg } from "@/lib/api/organization";
 import { Button } from "@/components/Button";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
+import { ONBOARDING_CONNECTORS_ROUTE, ONBOARDING_ACCOUNT_TYPE_ROUTE } from "@/lib/routes";
 
 const SIZES: CompanySize[] = ["1-10", "11-50", "51-200", "200+"];
 
@@ -98,7 +99,7 @@ export default function OnboardingWorkspacePage() {
     } catch {
       // Non-fatal: proceed even if the org rename fails
     }
-    push("/onboarding/connectors");
+    push(ONBOARDING_CONNECTORS_ROUTE);
   };
 
   return (
@@ -108,7 +109,7 @@ export default function OnboardingWorkspacePage() {
       width={653}
       footer={
         <OnboardingFooter
-          onBack={() => push("/onboarding/account-type")}
+          onBack={() => push(ONBOARDING_ACCOUNT_TYPE_ROUTE)}
           onContinue={() => void handleContinue()}
           continueDisabled={!canContinue}
           continueLoading={submitting}

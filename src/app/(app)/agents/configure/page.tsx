@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { AGENT_CONFIGURE_INSTRUCTIONS_BASE_ROUTE } from '@/lib/routes'
 
 export default async function PersonasConfigurePage({
   searchParams,
@@ -11,5 +12,5 @@ export default async function PersonasConfigurePage({
       Array.isArray(v) ? v.map(val => [k, val]) : v !== undefined ? [[k, v]] : []
     )
   ).toString()
-  redirect(`/agent/configure/instructions${qs ? `?${qs}` : ''}`)
+  redirect(`${AGENT_CONFIGURE_INSTRUCTIONS_BASE_ROUTE}${qs ? `?${qs}` : ''}`)
 }

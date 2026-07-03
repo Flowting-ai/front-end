@@ -24,17 +24,18 @@ import { useOrg } from '@/context/org-context'
 import { useSettingsGuard } from '@/context/settings-guard-context'
 import { useMounted } from '@/hooks/use-mounted'
 import { toast } from 'sonner'
+import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_BILLING_ROUTE, SETTINGS_AI_ROUTE, SETTINGS_CONNECTORS_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
 
 const MY_SETTINGS_ITEMS = [
-  { id: 'account',       label: 'Account',         href: '/settings/account',       icon: <UserAiIcon        size={20} />, disabled: false },
-  { id: 'billing',       label: 'Usage & Billing',  href: '/settings/billing',       icon: <AbacusIcon        size={20} />, disabled: false },
+  { id: 'account',       label: 'Account',         href: SETTINGS_ACCOUNT_ROUTE,    icon: <UserAiIcon        size={20} />, disabled: false },
+  { id: 'billing',       label: 'Usage & Billing',  href: SETTINGS_BILLING_ROUTE,    icon: <AbacusIcon        size={20} />, disabled: false },
   // { id: 'files',         label: 'Files & Data',     href: '/settings/files',         icon: <FolderLibraryIcon size={20} />, disabled: true  },
-  { id: 'ai',            label: 'AI & Models',      href: '/settings/ai',            icon: <NeuralNetworkIcon size={20} />, disabled: false },
+  { id: 'ai',            label: 'AI & Models',      href: SETTINGS_AI_ROUTE,         icon: <NeuralNetworkIcon size={20} />, disabled: false },
   // { id: 'notifications', label: 'Notifications',    href: '/settings/notifications', icon: <BubbleChatIcon    size={20} />, disabled: true  },
   // { id: 'preferences',   label: 'Preference',       href: '/settings/preferences',   icon: <FolderOneIcon     size={20} />, disabled: true  },
   // { id: 'security',      label: 'Security',         href: '/settings/security',      icon: <FolderOneIcon     size={20} />, disabled: true  },
-  { id: 'connectors',    label: 'Connectors',       href: '/settings/connectors',    icon: <LinkSixIcon       size={20} />, disabled: false },
-  { id: 'help',          label: 'Help & Legal',     href: '/settings/help',          icon: <FolderOneIcon     size={20} variant="static" />, disabled: false },
+  { id: 'connectors',    label: 'Connectors',       href: SETTINGS_CONNECTORS_ROUTE, icon: <LinkSixIcon       size={20} />, disabled: false },
+  { id: 'help',          label: 'Help & Legal',     href: SETTINGS_HELP_ROUTE,       icon: <FolderOneIcon     size={20} variant="static" />, disabled: false },
 ]
 
 
@@ -145,7 +146,7 @@ export function SettingsSidebar() {
           size="sm"
           aria-label="Go back"
           icon={<ArrowLeftOneIcon size={20} />}
-          onClick={() => safeNavigate('/chat')}
+          onClick={() => safeNavigate(CHAT_ROUTE)}
         />
         <p style={{
           fontFamily:   'var(--font-title)',
@@ -252,13 +253,13 @@ export function SettingsSidebar() {
             panelWidth={274}
             roleBadge={roleBadge}
             placement="top-start"
-            onProfile={() => safeNavigate('/settings/account')}
-            onUpgradePlan={() => safeNavigate('/settings/billing')}
-            onSettings={() => safeNavigate('/settings')}
-            onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => safeNavigate('/org/general') : undefined}
+            onProfile={() => safeNavigate(SETTINGS_ACCOUNT_ROUTE)}
+            onUpgradePlan={() => safeNavigate(SETTINGS_BILLING_ROUTE)}
+            onSettings={() => safeNavigate(SETTINGS_ROUTE)}
+            onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => safeNavigate(ORG_GENERAL_ROUTE) : undefined}
             onWhatsNew={() => toast.info("What's new — coming soon!")}
-            onHelp={() => safeNavigate('/settings/help')}
-            onLogOut={() => { if (isAuthenticated) { void logout() } else { push('/auth/login') } }}
+            onHelp={() => safeNavigate(SETTINGS_HELP_ROUTE)}
+            onLogOut={() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } }}
           />
         )}
       </div>

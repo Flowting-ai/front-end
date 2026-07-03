@@ -10,6 +10,7 @@ import { Button } from "@/components/Button";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { StickyNote02Icon, OfficeChairIcon } from "@hugeicons/core-free-icons";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
+import { ONBOARDING_IMPORT_ROUTE, ONBOARDING_PLANS_ROUTE, ONBOARDING_HELLO_ROUTE } from "@/lib/routes";
 
 // ── Option card ─────────────────────────────────────────────────────────────────
 interface OptionConfig {
@@ -158,14 +159,14 @@ export default function OnboardingAccountTypePage() {
     if (!user?.orgId) return
     // Invited into an existing org — treat as individual, skip this page.
     setAccountType('individual')
-    push('/onboarding/import')
+    push(ONBOARDING_IMPORT_ROUTE)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleContinue = async () => {
     if (!selected) return;
     setAccountType(selected);
     // Both paths go to plans — individual sees Starter/Pro/Power, team sees Team/Enterprise.
-    push("/onboarding/plans");
+    push(ONBOARDING_PLANS_ROUTE);
   };
 
   return (
@@ -174,7 +175,7 @@ export default function OnboardingAccountTypePage() {
       subtitle="We'll tailor your setup to match. You can add or join a team later — nothing's locked in."
       footer={
         <OnboardingFooter
-          onBack={() => push("/onboarding/hello")}
+          onBack={() => push(ONBOARDING_HELLO_ROUTE)}
           onContinue={() => void handleContinue()}
           continueDisabled={!selected}
           leftSlot={<LogoutLink onClick={() => void logout()} />}

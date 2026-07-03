@@ -81,6 +81,8 @@ export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDi
   icon?: React.ReactElement<{ triggered?: boolean }> | null
   /** Optional status/content pill rendered before the expand arrow. */
   badge?: React.ReactNode
+  /** Whether to render the expand/collapse arrow — hide for rows with no expandable content. Defaults to true. */
+  showExpandArrow?: boolean
   /**
    * Called when the user commits a rename (Enter or blur).
    * Receives the new label. Parent should update the label prop.
@@ -96,7 +98,7 @@ export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDi
 
 export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarProjectsSectionProps>(
   function SidebarProjectsSection(
-    { label = 'Folder name', defaultOpen = false, active = false, expanded: expandedProp, onExpandedChange, fluid = false, icon, badge, children, className, onClick, onCommit, onCancel, ...props },
+    { label = 'Folder name', defaultOpen = false, active = false, expanded: expandedProp, onExpandedChange, fluid = false, icon, badge, showExpandArrow = true, children, className, onClick, onCommit, onCancel, ...props },
     ref,
   ) {
     // isExpanded — icon-driven; can be controlled via `expanded` prop
@@ -236,9 +238,9 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
                 tabIndex={isEditing ? -1 : 0}
                 aria-expanded={isExpanded}
                 aria-label={isExpanded ? 'Collapse folder' : 'Expand folder'}
-                onClick={(e) => { if (isEditing) return; e.stopPropagation(); toggle() }}
-                onKeyDown={(e) => { if (isEditing) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle() } }}
-                style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0, cursor: isEditing ? 'text' : 'pointer' }}
+                onClick={(e) => { if (isEditing || !showExpandArrow) return; e.stopPropagation(); toggle() }}
+                onKeyDown={(e) => { if (isEditing || !showExpandArrow) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle() } }}
+                style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0, cursor: isEditing ? 'text' : (showExpandArrow ? 'pointer' : 'default') }}
               >
                 {icon
                   ? typeof icon.type === 'string'
@@ -334,29 +336,31 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
           {!isEditing && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
               {badge}
-              <motion.div
-                role="button"
-                tabIndex={0}
-                aria-expanded={isExpanded}
-                aria-label={isExpanded ? 'Collapse' : 'Expand'}
-                onClick={(e) => { e.stopPropagation(); toggle() }}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle() } }}
-                animate={{ rotate: isExpanded ? 0 : -90 }}
-                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                style={{
-                  flexShrink:     0,
-                  lineHeight:     0,
-                  cursor:         'pointer',
-                  color:          'var(--sidebar-menu-item-text)',
-                  opacity:        isActive ? 0.7 : 0,
-                  transition:     'opacity 150ms',
-                  display:        'flex',
-                  alignItems:     'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <ArrowDownOneIcon size={16} />
-              </motion.div>
+              {showExpandArrow && (
+                <motion.div
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                  onClick={(e) => { e.stopPropagation(); toggle() }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle() } }}
+                  animate={{ rotate: isExpanded ? 0 : -90 }}
+                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                  style={{
+                    flexShrink:     0,
+                    lineHeight:     0,
+                    cursor:         'pointer',
+                    color:          'var(--sidebar-menu-item-text)',
+                    opacity:        isActive ? 0.7 : 0,
+                    transition:     'opacity 150ms',
+                    display:        'flex',
+                    alignItems:     'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <ArrowDownOneIcon size={16} />
+                </motion.div>
+              )}
             </div>
           )}
 

@@ -6,6 +6,7 @@ import { useCreditStatus } from '@/hooks/use-credit-status'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { TokenCircleIcon } from '@strange-huge/icons'
+import { SETTINGS_BILLING_ROUTE } from '@/lib/routes'
 
 // Wraps the ChatInput with an orange container and a credit status row when
 // individual credits apply. Renders children directly when not applicable.
@@ -67,7 +68,7 @@ export function ExhaustionBanner({ children }: { children?: React.ReactNode }) {
           <Button
             size="sm"
             variant={level === 'normal' ? 'outline' : 'default'}
-            onClick={() => router.push('/settings/billing')}
+            onClick={() => router.push(SETTINGS_BILLING_ROUTE)}
           >
             <span className="text-xs">Top up</span>
           </Button>

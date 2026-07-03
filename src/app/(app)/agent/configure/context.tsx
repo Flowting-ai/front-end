@@ -33,8 +33,11 @@ import { useFileUpload } from '@/hooks/use-file-upload'
 import type { PinFolder } from '@/lib/api/pins'
 import type { PendingAttachment } from '@/components/chat/AttachmentManager'
 import type { ActivityItem } from '@/hooks/use-chat-state'
+import { AGENT_CHAT_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE } from '@/lib/routes'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+export type ConfigureTabKey = 'instructions' | 'profile' | 'knowledge' | 'connectors' | 'sharing'
 
 export type GuideMsg = {
   id: string
@@ -120,11 +123,23 @@ interface PersonaConfigureContextValue {
   versionsOpen: boolean
   anyPanelOpen: boolean
   panelsLocked: boolean
+  // Track-changes rail — independent of the exclusive test-chat/AI-suggest/versions
+  // panel group above; shared across all 5 configure tabs.
+  changesTrackerOpen: boolean
+  // Per-attribute "touched this session" flags for each tab's track-changes rail,
+  // keyed by tab. Lives here (not local state in each tab's page.tsx) because
+  // navigating to another tab and back unmounts/remounts that page — this context
+  // persists across tab switches within /agent/configure/*, so the dots only
+  // clear on that tab's explicit save, not on tab-switch autosave.
+  touchedFieldsByTab: Record<ConfigureTabKey, Set<string>>
 
   // Toggles
   toggleTestChat: () => void
   toggleAiSuggest: () => void
   toggleVersions: () => void
+  toggleChangesTracker: () => void
+  markFieldTouched: (tab: ConfigureTabKey, field: string) => void
+  resetTouchedFields: (tab: ConfigureTabKey, field?: string) => void
   setTestChatOpen: React.Dispatch<React.SetStateAction<boolean>>
   setTestChatExpanded: React.Dispatch<React.SetStateAction<boolean>>
   setGuideExpanded: React.Dispatch<React.SetStateAction<boolean>>
@@ -250,7 +265,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
 
         // Received personas are read-only — redirect away from all configure tabs
         if (version.source_share_id) {
-          push(`/agents/${repoId}/chat`)
+          push(AGENT_CHAT_ROUTE(repoId))
           return
         }
 
@@ -376,7 +391,39 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   const [aiSuggestOpen,    setAiSuggestOpen]     = useState(false)
   const [guideExpanded,    setGuideExpanded]     = useState(false)
   const [versionsOpen,     _setVersionsOpen]     = useState(false)
+  // Defaults on — user must explicitly turn it off. Auto-suppressed (not toggled
+  // off) while the test-chat/AI-suggest/versions panel group is open; reappears
+  // on its own once all three close, since this preference is untouched by that.
+  const [changesTrackerOpen, setChangesTrackerOpen] = useState(true)
+  const [touchedFieldsByTab, setTouchedFieldsByTab] = useState<Record<ConfigureTabKey, Set<string>>>({
+    instructions: new Set(),
+    profile:      new Set(),
+    knowledge:    new Set(),
+    connectors:   new Set(),
+    sharing:      new Set(),
+  })
   const anyPanelOpen = testChatOpen || aiSuggestOpen || versionsOpen
+
+  const markFieldTouched = useCallback((tab: ConfigureTabKey, field: string) => {
+    setTouchedFieldsByTab(prev => {
+      const current = prev[tab]
+      if (current.has(field)) return prev
+      return { ...prev, [tab]: new Set(current).add(field) }
+    })
+  }, [])
+
+  // Omit `field` to clear every touched flag for the tab (e.g. after a whole-tab
+  // save); pass `field` to clear just that one (e.g. Sharing's Visibility save
+  // shouldn't clear its independent Super Link / Email Invite touched flags).
+  const resetTouchedFields = useCallback((tab: ConfigureTabKey, field?: string) => {
+    setTouchedFieldsByTab(prev => {
+      if (!field) return { ...prev, [tab]: new Set() }
+      if (!prev[tab].has(field)) return prev
+      const next = new Set(prev[tab])
+      next.delete(field)
+      return { ...prev, [tab]: next }
+    })
+  }, [])
 
   // Wrapped setter: opening versions always closes test-chat and AI-suggest first
   // so at most one panel is visible at any time (including after Save Version).
@@ -405,6 +452,10 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
 
   const toggleVersions = useCallback(() => {
     _setVersionsOpen(prev => { const next = !prev; if (next) { setTestChatOpen(false); setAiSuggestOpen(false) }; return next })
+  }, [])
+
+  const toggleChangesTracker = useCallback(() => {
+    setChangesTrackerOpen(prev => !prev)
   }, [])
 
   // ── Guide state ─────────────────────────────────────────────────────────────
@@ -800,7 +851,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
       } else {
         // Not on Instructions tab — navigate there so the editor picks up the restore
         toast.success('Version restored — it is now the working version')
-        push(`/agent/configure/instructions?repoId=${repoId}&versionId=${targetId}`)
+        push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(repoId, { versionId: targetId }))
       }
     } catch {
       toast.error('Failed to restore version')
@@ -852,10 +903,15 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     versionsOpen,
     anyPanelOpen,
     panelsLocked,
+    changesTrackerOpen,
+    touchedFieldsByTab,
 
     toggleTestChat,
     toggleAiSuggest,
     toggleVersions,
+    toggleChangesTracker,
+    markFieldTouched,
+    resetTouchedFields,
     setTestChatOpen,
     setTestChatExpanded,
     setGuideExpanded,

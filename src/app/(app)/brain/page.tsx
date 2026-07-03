@@ -3,6 +3,7 @@
 import { Suspense, useMemo, useState, useEffect, useLayoutEffect, useRef, useCallback, type CSSProperties } from 'react'
 import { m, AnimatePresence } from 'framer-motion'
 import { springs } from '@/lib/springs'
+import { BRAIN_ROUTE } from '@/lib/routes'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import {
@@ -2927,7 +2928,7 @@ function BrainPageInner() {
               setPendingRemapId(fromScheduleId)
             }
           }
-          replace(`/brain?id=${resolvedChatId}`, { scroll: false })
+          replace(`${BRAIN_ROUTE}?id=${resolvedChatId}`, { scroll: false })
         } else {
           // Backend forgot to set X-Chat-Id (e.g., a misconfigured proxy
           // stripping the header). The stream will still play, but the chat
@@ -3869,7 +3870,7 @@ function BrainPageInner() {
 
     // Drop the chat id from the URL when present so a refresh stays on a fresh
     // thread. State is already wiped above, so the effect re-running is harmless.
-    if (chatIdFromUrl) push('/brain')
+    if (chatIdFromUrl) push(BRAIN_ROUTE)
   }, [chatIdFromUrl, push])
 
   // The "New thread" button lives in the shared LeftSidebar (AppLayout) now, so it

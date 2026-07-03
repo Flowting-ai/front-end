@@ -22,6 +22,7 @@ import { startTrial } from '@/lib/api/stripe'
 import { TokenCircleIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { Badge } from '@/components/Badge'
+import { SETTINGS_BILLING_CHANGE_PLAN_ROUTE } from '@/lib/routes'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // Kaya design system. Besley (serif) for headings + regular body; Geist for
@@ -660,7 +661,7 @@ export default function BillingPage() {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 12 }}>
                   {isOrgOwner ? (
-                    <Button variant="default" size="md" onClick={() => router.push('/settings/billing/change-plan')}>
+                    <Button variant="default" size="md" onClick={() => router.push(SETTINGS_BILLING_CHANGE_PLAN_ROUTE)}>
                       Change Plan
                     </Button>
                   ) : (

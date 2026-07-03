@@ -9,6 +9,7 @@ import { createCheckout } from '@/lib/api/stripe'
 import { ContactSalesModal } from '@/components/ContactSalesModal'
 import { Button } from '@/components/Button'
 import { InformationCircleIcon } from '@strange-huge/icons'
+import { ONBOARDING_TONE_ROUTE, ONBOARDING_ACCOUNT_TYPE_ROUTE, ONBOARDING_PLANS_ROUTE } from '@/lib/routes'
 
 const CANVAS_GRADIENT =
   'linear-gradient(180deg, var(--neutral-50,#f7f2ed) 3.76%, var(--neutral-100,#ede1d7) 75%, var(--neutral-200,#d1c6bd) 116.79%)'
@@ -338,7 +339,7 @@ function OnboardingPlansContent() {
   useEffect(() => {
     const type = isTeam ? 'team' : 'individual'
     if (typeParam !== type) {
-      replace(`/onboarding/plans?type=${type}`)
+      replace(`${ONBOARDING_PLANS_ROUTE}?type=${type}`)
     }
   }, [isTeam]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -384,7 +385,7 @@ function OnboardingPlansContent() {
   }
 
   const handleIndividualPlan = () => {
-    push('/onboarding/tone')
+    push(ONBOARDING_TONE_ROUTE)
   }
 
   return (
@@ -430,7 +431,7 @@ function OnboardingPlansContent() {
 
         {/* Top bar */}
         <div style={{ width: '100%', maxWidth: 1060, display: 'flex', alignItems: 'center', justifyContent: 'space-evenly' }}>
-          <Button variant="outline" size="sm" onClick={() => push('/onboarding/account-type')} leftIcon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
+          <Button variant="outline" size="sm" onClick={() => push(ONBOARDING_ACCOUNT_TYPE_ROUTE)} leftIcon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
             Back
           </Button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

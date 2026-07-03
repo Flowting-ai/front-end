@@ -6,6 +6,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { X } from "lucide-react";
 import { ArrowDownOneIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
+import { ORG_PLANS_ROUTE } from "@/lib/routes";
 import { ChatMessageMemo } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CitationsPanel } from "./CitationsPanel";
@@ -1119,7 +1120,7 @@ export function ChatInterface({
               key={creditNoticeStatus}
               status={creditNoticeStatus}
               isAdmin={orgRole === 'admin'}
-              onAdminAction={() => router.push('/org/plans')}
+              onAdminAction={() => router.push(ORG_PLANS_ROUTE)}
               onDismiss={() => setDismissedCreditStatus(creditNoticeStatus)}
             />
           )}

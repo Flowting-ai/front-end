@@ -7,6 +7,7 @@ import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
 import { SlackConnectModal } from "@/components/SlackConnectModal";
 import { toast } from "sonner";
+import { CHAT_ROUTE, ORG_MEMBERS_ROUTE, ORG_TEAMS_ROUTE, PROJECTS_NEW_ROUTE, ORG_CONNECTORS_ROUTE, ORG_SOUVENIR_SLACK_ROUTE } from "@/lib/routes";
 
 // ── Icons (monochrome line icons, inherit currentColor) ──────────────────────────
 
@@ -70,7 +71,7 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <CheckCircleIcon />,
     bg: "var(--neutral-50, #f7f2ed)",
     titleWeight: 500,
-    route: "/org/members",
+    route: ORG_MEMBERS_ROUTE,
     toastMessage: "Opening team members — add teammates, no per-seat cost.",
   },
   {
@@ -80,7 +81,7 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <ShapesIcon />,
     bg: "var(--neutral-white, #fff)",
     titleWeight: 500,
-    route: "/org/teams",
+    route: ORG_TEAMS_ROUTE,
     toastMessage: "Opening teams — create a dedicated workspace for your team.",
   },
   {
@@ -90,7 +91,7 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <FolderIcon />,
     bg: "var(--neutral-white, #fff)",
     titleWeight: 500,
-    route: "/projects/new",
+    route: PROJECTS_NEW_ROUTE,
     toastMessage: "Opening projects — set up a shared space for your work.",
   },
   {
@@ -100,7 +101,7 @@ const ACTION_CARDS: ActionCard[] = [
     icon: <SlackLogo />,
     bg: "var(--neutral-white, #fff)",
     titleWeight: 600,
-    route: "/org/connectors?q=slack",
+    route: `${ORG_CONNECTORS_ROUTE}?q=slack`,
     toastMessage: "Opening connectors — link your Slack channels to give Brain context.",
   },
 ];
@@ -303,7 +304,7 @@ function TeamWelcomeContent() {
 
           {/* Primary action */}
           <div style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
-            <Button size="sm" onClick={() => { toast.success("Welcome to your workspace!"); router.push("/chat") }}>
+            <Button size="sm" onClick={() => { toast.success("Welcome to your workspace!"); router.push(CHAT_ROUTE) }}>
               Open my workspace
             </Button>
           </div>
@@ -313,7 +314,7 @@ function TeamWelcomeContent() {
       <SlackConnectModal
         isOpen={slackModalOpen}
         onClose={() => setSlackModalOpen(false)}
-        onConnected={() => { router.push("/org/souvenir-slack") }}
+        onConnected={() => { router.push(ORG_SOUVENIR_SLACK_ROUTE) }}
       />
     </>
   );

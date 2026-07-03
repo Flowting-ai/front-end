@@ -7,6 +7,7 @@ import { Button } from "@/components/Button";
 import { m, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/lib/api/client";
 import { STRIPE_TRIAL_ENDPOINT } from "@/lib/config";
+import { SETTINGS_BILLING_CHANGE_PLAN_ROUTE } from "@/lib/routes";
 
 // ── Shared styles ──────────────────────────────────────────────────────────────
 
@@ -382,7 +383,7 @@ function WelcomeModalImpl() {
   const handleBuySubscription = useCallback(() => {
     localStorage.setItem(WELCOME_ACK_KEY, "1");
     setVisible(false);
-    router.push("/settings/billing/change-plan");
+    router.push(SETTINGS_BILLING_CHANGE_PLAN_ROUTE);
   }, [router]);
 
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "there";

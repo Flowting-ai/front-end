@@ -14,6 +14,7 @@ import {
   InvitedBy,
   inviteTargetName,
 } from "../_components/invite-ui";
+import { CHAT_ROUTE, ONBOARDING_TEAM_PROFILE_ROUTE } from "@/lib/routes";
 
 // ── Screen 2 — "Join {team}" ────────────────────────────────────────────────────
 // Focused join card: quick-setup framing, the inviter, and the projects. Advances
@@ -30,7 +31,7 @@ export default function TeamInviteJoinPage() {
         status={status === "ready" ? "loading" : status}
         errorMsg={errorMsg}
         onRetry={refetch}
-        onHome={() => push("/chat")}
+        onHome={() => push(CHAT_ROUTE)}
       />
     );
   }
@@ -53,7 +54,7 @@ export default function TeamInviteJoinPage() {
 
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
           <InvitedBy invite={invite} />
-          <Button size="md" onClick={() => push(`/onboarding/team/${params.inviteId}/profile`)}>
+          <Button size="md" onClick={() => push(ONBOARDING_TEAM_PROFILE_ROUTE(params.inviteId))}>
             Continue
           </Button>
         </div>

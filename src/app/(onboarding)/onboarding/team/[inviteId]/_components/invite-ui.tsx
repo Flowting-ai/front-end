@@ -4,6 +4,7 @@ import React from "react";
 import { Button } from "@/components/Button";
 import type { InvitedMember, InvitedProject, TeamInviteOnboarding } from "@/types/teams";
 import type { InviteLoadStatus } from "@/context/team-invite-onboarding-context";
+import { ROOT_ROUTE } from "@/lib/routes";
 
 // ── Shared building blocks for the team-invite onboarding card screens ──────────
 // Screens 1 (invite), 2 (join) and 4 (confirm) are centred white cards on the
@@ -425,7 +426,7 @@ export function InviteStateScreen({
     window.close();
     setTimeout(() => {
       if (onHome) onHome();
-      else window.location.href = "/";
+      else window.location.href = ROOT_ROUTE;
     }, 150);
   };
 

@@ -8,6 +8,7 @@ import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { useOrg } from '@/context/org-context'
+import { PROJECT_ROUTE } from '@/lib/routes'
 
 function NewProjectPageInner() {
   const { push, back }                    = useRouter()
@@ -41,7 +42,7 @@ function NewProjectPageInner() {
     setLoading(true)
     try {
       const project = await createProject(name.trim(), description.trim(), teamId || undefined)
-      push(`/project/${project.id}`)
+      push(PROJECT_ROUTE(project.id))
     } catch (err) {
       toast.error('Failed to create project', { description: err instanceof Error ? err.message : undefined })
       setLoading(false)

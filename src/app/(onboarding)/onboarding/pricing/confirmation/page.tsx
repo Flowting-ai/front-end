@@ -7,6 +7,7 @@ import { Button } from '@/components/Button'
 import { fetchBilling } from '@/lib/api/user'
 import { notifyCreditsUpdated } from '@/hooks/use-credit-status'
 import { createOrganization } from '@/lib/api/organization'
+import { CHAT_ROUTE, ONBOARDING_WORKSPACE_ROUTE, ONBOARDING_IMPORT_ROUTE } from '@/lib/routes'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const TITLE = 'var(--font-title)'
@@ -150,7 +151,7 @@ function PricingConfirmationContent() {
         billing: billingLabel,
       }))
     } catch { /* sessionStorage may be unavailable */ }
-    router.replace('/chat')
+    router.replace(CHAT_ROUTE)
   }, [isHydrated, isSimpleUpgrade])
 
   // Wait for auth to hydrate before deciding which flow to show — otherwise an
@@ -243,7 +244,7 @@ function PricingConfirmationContent() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
             <button
               type="button"
-              onClick={() => router.push('/onboarding/workspace')}
+              onClick={() => router.push(ONBOARDING_WORKSPACE_ROUTE)}
               style={primaryBtn}
             >
               Continue with onboarding
@@ -253,7 +254,7 @@ function PricingConfirmationContent() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
             <button
               type="button"
-              onClick={() => router.push('/onboarding/import')}
+              onClick={() => router.push(ONBOARDING_IMPORT_ROUTE)}
               style={primaryBtn}
             >
               Continue with onboarding

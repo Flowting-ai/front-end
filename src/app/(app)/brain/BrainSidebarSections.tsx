@@ -24,6 +24,7 @@ import {
   type BrainThreadEventDetail,
   type BrainThreadDeletedEventDetail,
 } from '@/hooks/use-sidebar-events'
+import { BRAIN_ROUTE } from '@/lib/routes'
 
 // ── Dropdown styles — match ChatHistoryItem / ProjectChatItem exactly ─────────
 
@@ -275,7 +276,7 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
         setThreads(prev => prev.filter(t => t.id !== id))
         emitBrainThreadDeleted({ chatId: id })
         toast.success('Brain chat deleted')
-        if (id === activeChatId) push('/brain')
+        if (id === activeChatId) push(BRAIN_ROUTE)
       },
     })
   }

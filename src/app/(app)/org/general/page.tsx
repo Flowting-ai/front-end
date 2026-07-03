@@ -13,6 +13,7 @@ import { getOrg, updateOrg, getOrgSettings, updateOrgSettings, deleteOrg, transf
 import type { OrgMember } from '@/types/teams'
 import { listSlackChannels, setSlackChannelMapping } from '@/lib/api/slack'
 import type { SlackChannel } from '@/lib/api/slack'
+import { CHAT_ROUTE } from '@/lib/routes'
 
 // ── Text input ────────────────────────────────────────────────────────────────
 
@@ -588,7 +589,7 @@ export default function OrgGeneralPage() {
     try {
       await deleteOrg(orgId, deleteOrgInput)
       toast.success('Organization deleted')
-      router.push('/chat')
+      router.push(CHAT_ROUTE)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete organization')
     } finally {

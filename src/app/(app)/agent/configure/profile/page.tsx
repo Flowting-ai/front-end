@@ -20,6 +20,16 @@ import {
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
 import { derivePublicationState } from '@/lib/persona-version-logic'
+import { personaTagsKey, personaProfileKey } from '@/lib/storage-keys'
+import { AGENTS_ROUTE } from '@/lib/routes'
+import { AttributeTocRail, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
+
+const PROFILE_TOC_ITEMS: AttributeTocItem[] = [
+  { id: 'avatar',      label: 'Avatar',      anchor: 'help-profile-avatar' },
+  { id: 'name',        label: 'Name',        anchor: 'help-profile-name' },
+  { id: 'description', label: 'Description', anchor: 'help-profile-description' },
+  { id: 'tags',        label: 'Tags',        anchor: 'help-profile-tags' },
+]
 
 function dataUrlToFile(dataUrl: string, filename: string): File {
   const [header, data] = dataUrl.split(',')
@@ -48,7 +58,7 @@ function PersonaConfigureProfileContent() {
   const versionId  = searchParams.get('versionId') ?? ''
 
   // Session-storage key scoped to this persona (or 'new' while creating)
-  const PROFILE_KEY = `persona_profile_${repoId || 'new'}`
+  const PROFILE_KEY = personaProfileKey(repoId)
 
   // Helper: read saved draft (runs synchronously — client only)
   function loadDraft() {
@@ -57,7 +67,8 @@ function PersonaConfigureProfileContent() {
     catch { return null }
   }
 
-  const { anyPanelOpen, updatePersonaInfo, personaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, registerAutoSave, setVersionsOpen, publishedVersionId, markPublished, tabDirtyFlags, setTabDirty } = usePersonaConfigure()
+  const { anyPanelOpen, updatePersonaInfo, personaInfo, addPendingChangeTag, pendingChangeTags, setPendingChangeTags, refreshVersions, safeNavigate: ctxSafeNavigate, safeBack: ctxSafeBack, registerAutoSave, setVersionsOpen, publishedVersionId, markPublished, tabDirtyFlags, setTabDirty, changesTrackerOpen, touchedFieldsByTab, markFieldTouched, resetTouchedFields } = usePersonaConfigure()
+  const profileTouchedFields = touchedFieldsByTab.profile
 
   const [isSaving,             setIsSaving]             = useState(false)
   const [showInfo,             setShowInfo]             = useState(false)
@@ -179,9 +190,9 @@ function PersonaConfigureProfileContent() {
       // An empty array explicitly removes the key so stale data never lingers.
       if (repoId) {
         if (personaTags.length > 0) {
-          localStorage.setItem(`persona_tags_${repoId}`, JSON.stringify(personaTags))
+          localStorage.setItem(personaTagsKey(repoId), JSON.stringify(personaTags))
         } else {
-          localStorage.removeItem(`persona_tags_${repoId}`)
+          localStorage.removeItem(personaTagsKey(repoId))
         }
       }
     } catch { /* storage quota exceeded — ignore */ }
@@ -235,6 +246,7 @@ function PersonaConfigureProfileContent() {
       })
       isDirtyRef.current = false
       setIsDirty(false)
+      resetTouchedFields('profile')
       setVersionTags(versionId, pendingChangeTags)
       setPendingChangeTags([])
       bustPersonasCache()
@@ -273,6 +285,7 @@ function PersonaConfigureProfileContent() {
         })
         isDirtyRef.current = false
         setIsDirty(false)
+        resetTouchedFields('profile')
         setVersionTags(versionId, pendingChangeTags)
         setPendingChangeTags([])
       }
@@ -526,6 +539,10 @@ function PersonaConfigureProfileContent() {
         <div style={{ height: 35, flexShrink: 0 }} />
       </div>
 
+      {changesTrackerOpen && !anyPanelOpen && (
+        <AttributeTocRail items={PROFILE_TOC_ITEMS} touchedFields={profileTouchedFields} />
+      )}
+
       {/* ── Scrollable profile form ─────────────────────────────────────────────── */}
       <div
         className="kaya-scrollbar"
@@ -551,15 +568,15 @@ function PersonaConfigureProfileContent() {
         >
           <ProfileTab
             avatarUrl={avatarUrl}
-            onAvatarChange={v => { setAvatarUrl(v); markDirty() }}
+            onAvatarChange={v => { setAvatarUrl(v); markDirty(); markFieldTouched('profile', 'avatar') }}
             personaName={personaName}
-            onPersonaNameChange={v => { setPersonaName(v); markDirty() }}
+            onPersonaNameChange={v => { setPersonaName(v); markDirty(); markFieldTouched('profile', 'name') }}
             personaHandle={personaHandle}
             onPersonaHandleChange={v => { setPersonaHandle(v); markDirty() }}
             personaDescription={personaDescription}
-            onPersonaDescriptionChange={v => { setPersonaDescription(v); markDirty() }}
+            onPersonaDescriptionChange={v => { setPersonaDescription(v); markDirty(); markFieldTouched('profile', 'description') }}
             personaTags={personaTags}
-            onPersonaTagsChange={v => { setPersonaTags(v); markDirty() }}
+            onPersonaTagsChange={v => { setPersonaTags(v); markDirty(); markFieldTouched('profile', 'tags') }}
           />
           <div style={{ height: 24, flexShrink: 0 }} />
         </div>
@@ -570,7 +587,7 @@ function PersonaConfigureProfileContent() {
           personaName={personaName || 'Persona'}
           superLinkActive={false}
           onClose={() => setRepublishModalOpen(false)}
-          onDone={() => { setRepublishModalOpen(false); push('/agents') }}
+          onDone={() => { setRepublishModalOpen(false); push(AGENTS_ROUTE) }}
         />
       )}
     </div>

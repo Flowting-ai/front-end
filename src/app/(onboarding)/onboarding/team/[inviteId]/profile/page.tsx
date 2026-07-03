@@ -10,6 +10,7 @@ import { Dropdown, DropdownFloat } from "@/components/Dropdown";
 import { createUser, updateUser, updateOnboarding } from "@/lib/api/user";
 import { OnboardingScreen, OnboardingFooter } from "../../../_components/onboarding-shell";
 import { InviteStateScreen } from "../_components/invite-ui";
+import { CHAT_ROUTE, AUTH_LOGIN_ROUTE, ONBOARDING_TEAM_CONFIRM_ROUTE, ONBOARDING_TEAM_JOIN_ROUTE } from "@/lib/routes";
 
 // ── Screen 3 — profile (name + role) ────────────────────────────────────────────
 // Used in two modes:
@@ -142,13 +143,13 @@ export default function TeamInviteProfilePage() {
   );
 
   useEffect(() => {
-    if (hasCompleteProfile) push("/chat");
+    if (hasCompleteProfile) push(CHAT_ROUTE);
   }, [hasCompleteProfile, push]);
 
   // Ensure the backend user record exists so the PATCH calls succeed.
   useEffect(() => {
     if (!isHydrated) return;
-    if (!isAuthenticated) { window.location.href = "/auth/login"; return; }
+    if (!isAuthenticated) { window.location.href = AUTH_LOGIN_ROUTE; return; }
     void createUser();
   }, [isHydrated, isAuthenticated]);
 
@@ -159,7 +160,7 @@ export default function TeamInviteProfilePage() {
         status="loading"
         errorMsg=""
         onRetry={refetch}
-        onHome={() => push("/chat")}
+        onHome={() => push(CHAT_ROUTE)}
       />
     );
   }
@@ -182,7 +183,7 @@ export default function TeamInviteProfilePage() {
     } finally {
       setIsSaving(false);
     }
-    push(isStandalone ? "/chat" : `/onboarding/team/${params.inviteId}/confirm`);
+    push(isStandalone ? CHAT_ROUTE : ONBOARDING_TEAM_CONFIRM_ROUTE(params.inviteId));
   };
 
   const greetingName = firstValue.trim() || user?.firstName || "there";
@@ -193,7 +194,7 @@ export default function TeamInviteProfilePage() {
       subtitle="Let's check a few things before we start."
       footer={
         <OnboardingFooter
-          onBack={() => push(isStandalone ? "/chat" : `/onboarding/team/${params.inviteId}/join`)}
+          onBack={() => push(isStandalone ? CHAT_ROUTE : ONBOARDING_TEAM_JOIN_ROUTE(params.inviteId))}
           onContinue={() => { void handleContinue(); }}
           continueDisabled={!canContinue}
           continueLoading={isSaving}

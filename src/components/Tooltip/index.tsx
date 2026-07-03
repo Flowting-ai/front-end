@@ -20,6 +20,13 @@ export interface TooltipProps {
    * is never remounted.
    */
   disabled?: boolean
+  /**
+   * Controlled open state — overrides the normal hover/focus-driven behavior.
+   * Pass `true` to force the tooltip permanently visible (e.g. a value badge
+   * that tracks a slider thumb) or `false` to force it closed. Omit for the
+   * default hover/focus tooltip behavior.
+   */
+  open?: boolean
   className?: string
   /**
    * When set, caps the tooltip width and allows content to wrap. Useful for
@@ -49,18 +56,21 @@ export function Tooltip({
   sideOffset = 8,
   delayDuration = 400,
   disabled = false,
+  open: openProp,
   className,
   maxWidth,
 }: TooltipProps) {
-  const [open,    setOpen]    = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const [entered, setEntered] = useState(false)
+  const isControlled = openProp !== undefined
+  const [internalOpen, setInternalOpen] = useState(false)
+  const [mounted,       setMounted]     = useState(false)
+  const [entered,       setEntered]     = useState(false)
   const rafRef = useRef<number>(0)
 
   useEffect(() => {
-    if (disabled) setOpen(false)
+    if (disabled) setInternalOpen(false)
   }, [disabled])
 
+  const open = isControlled ? openProp : internalOpen
   const effectiveOpen = disabled ? false : open
 
   useEffect(() => {
@@ -87,7 +97,7 @@ export function Tooltip({
 
   return (
     <TooltipPrimitive.Provider delayDuration={delayDuration}>
-      <TooltipPrimitive.Root open={effectiveOpen} onOpenChange={disabled ? undefined : setOpen}>
+      <TooltipPrimitive.Root open={effectiveOpen} onOpenChange={disabled || isControlled ? undefined : setInternalOpen}>
         <TooltipPrimitive.Trigger asChild>
           {children}
         </TooltipPrimitive.Trigger>

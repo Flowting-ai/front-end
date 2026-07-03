@@ -11,6 +11,7 @@ import { Pinboard, type PinboardPin } from "@/components/Pinboard"
 import { PinboardSkeleton } from "@/components/PinboardSkeleton"
 import type { PinboardExpandedFolder } from "@/components/PinboardExpanded"
 import { exportSinglePin, exportPins } from "@/lib/export-pins"
+import { CHAT_ROUTE } from "@/lib/routes"
 import { createPinFolder, validateFolderName, movePinToFolder, renamePinFolder, deletePinFolder } from "@/lib/api/pins"
 import { Button } from "@/components/Button"
 import { IconButton } from "@/components/IconButton"
@@ -344,7 +345,7 @@ function RightSidebarImpl() {
             if (!p?.chatId) return
             const params = new URLSearchParams({ id: p.chatId })
             if (p.messageId) params.set('msg', p.messageId)
-            router.push(`/chat?${params.toString()}`)
+            router.push(`${CHAT_ROUTE}?${params.toString()}`)
           },
           onSaveComment: (text: string) => updatePinComment(pinId, text),
         })

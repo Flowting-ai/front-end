@@ -17,6 +17,7 @@ import { usePinboard } from '@/context/pinboard-context'
 import { addChatToProject } from '@/lib/api/projects'
 import { listSharedWithMe, forkChatShare } from '@/lib/api/chat-shares'
 import type { SharedChatItem } from '@/lib/api/chat-shares'
+import { CHAT_ROUTE, CHAT_SHARE_ROUTE } from '@/lib/routes'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Badge } from '@/components/Badge'
 
@@ -109,11 +110,11 @@ export default function ChatsPage() {
   // ── Actions ───────────────────────────────────────────────────────────────────
 
   const handleNewChat = useCallback(() => {
-    push('/chat')
+    push(CHAT_ROUTE)
   }, [push])
 
   const handleOpenChat = useCallback((chatId: string) => {
-    push(`/chat?id=${chatId}`)
+    push(`${CHAT_ROUTE}?id=${chatId}`)
   }, [push])
 
   const handleDelete = useCallback(async () => {
@@ -178,7 +179,7 @@ export default function ChatsPage() {
     try {
       const { chatId } = await forkChatShare(shareId)
       toast.success('Chat copied to your history')
-      push(`/chat?id=${chatId}`)
+      push(`${CHAT_ROUTE}?id=${chatId}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to copy chat')
     } finally {
@@ -188,7 +189,7 @@ export default function ChatsPage() {
 
   const handleOpenShared = useCallback(async (item: SharedChatItem) => {
     if (item.mode === 'read_only') {
-      push(`/chat-shares/${item.shareId}`)
+      push(CHAT_SHARE_ROUTE(item.shareId))
       return
     }
     await handleFork(item.shareId)

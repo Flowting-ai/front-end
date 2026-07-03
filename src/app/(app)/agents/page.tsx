@@ -27,6 +27,8 @@ import type { SuperLinkDrawerSession } from '@/components/SuperLinkDrawer'
 import { Badge } from '@/components/Badge'
 import { TokenBudgetBar } from '@/components/TokenBudgetBar'
 import { canonicalShareUrl } from '@/lib/share-url'
+import { personaTagsKey, personaProfileKey } from '@/lib/storage-keys'
+import { AGENTS_TEMPLATES_ROUTE, AGENT_CHAT_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
 import Tabs from '@/components/Tabs'
 import { PersonaCard } from '@/components/PersonaCard'
 import { SuperLinkRow, type SuperLinkStatus } from '@/components/SuperLinkRow'
@@ -626,7 +628,7 @@ export default function PersonasPage() {
         const tagOverrides:         Record<string, string[]> = {}
         for (const p of list) {
           try {
-            const raw = sessionStorage.getItem(`persona_profile_${p.id}`)
+            const raw = sessionStorage.getItem(personaProfileKey(p.id))
             const draft = JSON.parse(raw ?? 'null') as Record<string, unknown> | null
             const draftAvatar = draft?.avatarUrl as string | undefined
             let   draftTags   = draft?.personaTags as string[] | undefined
@@ -634,7 +636,7 @@ export default function PersonasPage() {
             // which the profile tab also writes on every tag change.
             if (!Array.isArray(draftTags) || draftTags.length === 0) {
               try {
-                const lsRaw = localStorage.getItem(`persona_tags_${p.id}`)
+                const lsRaw = localStorage.getItem(personaTagsKey(p.id))
                 const lsTags = JSON.parse(lsRaw ?? 'null') as string[] | null
                 if (Array.isArray(lsTags) && lsTags.length > 0) draftTags = lsTags
               } catch { /* ignore */ }
@@ -925,7 +927,7 @@ export default function PersonasPage() {
     try {
       const copy = await usePersonaRepoDeduped(persona.id)
       toast.dismiss(toastId)
-      push(`/agent/configure/instructions?repoId=${copy.id}&name=${encodeURIComponent(persona.name)}`)
+      push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(copy.id, { name: persona.name }))
     } catch {
       toast.dismiss(toastId)
       toast.error('Failed to copy agent. Please try again.')
@@ -1066,7 +1068,7 @@ export default function PersonasPage() {
                               label={p.name}
                               onClick={() => {
                                 setHeaderGenOpen(false)
-                                push(`/agent/configure/sharing?repoId=${p.id}&name=${encodeURIComponent(p.name)}${p.activeVersionId ? `&versionId=${p.activeVersionId}` : ''}`)
+                                push(AGENT_CONFIGURE_SHARING_ROUTE(p.id, { name: p.name, versionId: p.activeVersionId }))
                               }}
                               fluid
                             />
@@ -1097,7 +1099,7 @@ export default function PersonasPage() {
                   <Button
                     variant="default"
                     leftIcon={<PlusSignIcon size={16} />}
-                    onClick={() => push('/agents/templates')}
+                    onClick={() => push(AGENTS_TEMPLATES_ROUTE)}
                   >
                     New agent
                   </Button>
@@ -1399,7 +1401,7 @@ export default function PersonasPage() {
                         Agents are your custom AI configurations - define behavior, connect knowledge, and share via link.
                       </p>
                     </div>
-                    <Button variant="default" onClick={() => push('/agents/templates')}>
+                    <Button variant="default" onClick={() => push(AGENTS_TEMPLATES_ROUTE)}>
                       Create your first agent
                     </Button>
                   </div>
@@ -1458,18 +1460,18 @@ export default function PersonasPage() {
                             const isTeamShared = persona.visibility === 'team' && currentUserRole !== 'admin'
                             if (isTeamShared) return {
                               onEdit:            () => void handleCopyAndEdit(persona),
-                              onUseInChat:       () => push(`/agents/${persona.id}/chat`),
+                              onUseInChat:       () => push(AGENT_CHAT_ROUTE(persona.id)),
                               onMenuDuplicate:   () => void handleCopyAndEdit(persona),
                             }
                             // Owned personas (private copies or admin's own team agents)
                             const isOwned = persona.sourceShareId === null
                             return {
-                              onEdit:            isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(`/agent/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined,
-                              onLink:            isOwned ? () => { toast.info('Opening sharing settings…'); push(`/agent/configure/sharing?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}${persona.activeVersionId ? `&versionId=${persona.activeVersionId}` : ''}`) } : undefined,
-                              onUseInChat:       () => push(`/agents/${persona.id}/chat`),
+                              onEdit:            isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name })) } : undefined,
+                              onLink:            isOwned ? () => { toast.info('Opening sharing settings…'); push(AGENT_CONFIGURE_SHARING_ROUTE(persona.id, { name: persona.name, versionId: persona.activeVersionId })) } : undefined,
+                              onUseInChat:       () => push(AGENT_CHAT_ROUTE(persona.id)),
                               onResume:          isOwned ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
-                              onMenuEdit:        isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(`/agent/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) } : undefined,
-                              onMenuShare:       isOwned ? () => { toast.info('Opening sharing settings…'); push(`/agent/configure/sharing?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}${persona.activeVersionId ? `&versionId=${persona.activeVersionId}` : ''}`) } : undefined,
+                              onMenuEdit:        isOwned ? () => { toast.success(`Editing "${persona.name}"`); push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name })) } : undefined,
+                              onMenuShare:       isOwned ? () => { toast.info('Opening sharing settings…'); push(AGENT_CONFIGURE_SHARING_ROUTE(persona.id, { name: persona.name, versionId: persona.activeVersionId })) } : undefined,
                               onMenuPauseToggle: isOwned && (persona.activeVersionId !== null || persona.isPaused) ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
                               onMenuDelete:      () => setDeleteTarget(persona),
                             }
@@ -1516,7 +1518,7 @@ export default function PersonasPage() {
                         key={share.share_id}
                         share={share}
                         persona={persona}
-                        onUseInChat={() => push(`/agents/${share.persona_repo_id}/chat`)}
+                        onUseInChat={() => push(AGENT_CHAT_ROUTE(share.persona_repo_id))}
                         onDelete={() => persona && setDeleteTarget(persona)}
                       />
                     )
@@ -1555,10 +1557,10 @@ export default function PersonasPage() {
                       persona={group.persona}
                       shares={group.shares}
                       fallbackName="Agent"
-                      onUseInChat={() => push(`/agents/${group.repoId}/chat`)}
+                      onUseInChat={() => push(AGENT_CHAT_ROUTE(group.repoId))}
                       onManage={() => {
                         const p = group.persona
-                        push(`/agent/configure/sharing?repoId=${group.repoId}${p ? `&name=${encodeURIComponent(p.name)}${p.activeVersionId ? `&versionId=${p.activeVersionId}` : ''}` : ''}`)
+                        push(AGENT_CONFIGURE_SHARING_ROUTE(group.repoId, p ? { name: p.name, versionId: p.activeVersionId } : undefined))
                       }}
                     />
                   ))}
@@ -1739,7 +1741,7 @@ export default function PersonasPage() {
                                   label={p.name}
                                   onClick={() => {
                                     setPanelGenOpen(false)
-                                    push(`/agent/configure/sharing?repoId=${p.id}&name=${encodeURIComponent(p.name)}${p.activeVersionId ? `&versionId=${p.activeVersionId}` : ''}`)
+                                    push(AGENT_CONFIGURE_SHARING_ROUTE(p.id, { name: p.name, versionId: p.activeVersionId }))
                                   }}
                                   fluid
                                 />
@@ -1792,7 +1794,7 @@ export default function PersonasPage() {
                             onClick={() => setSelectedShareId(prev => prev === share.id ? null : share.id)}
                             onConfigure={repoId ? (e) => {
                               e.stopPropagation()
-                              push(`/agent/configure/sharing?repoId=${repoId}&name=${encodeURIComponent(name)}&versionId=${share.persona_id}`)
+                              push(AGENT_CONFIGURE_SHARING_ROUTE(repoId, { name, versionId: share.persona_id }))
                             } : undefined}
                           />
                         )

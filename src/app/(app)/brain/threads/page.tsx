@@ -21,6 +21,7 @@ import {
   emitBrainThreadDeleted,
   type BrainThreadDeletedEventDetail,
 } from '@/hooks/use-sidebar-events'
+import { BRAIN_ROUTE } from '@/lib/routes'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ function BrainThreadsPageInner() {
 
   // Navigate to /brain when sidebar "New thread" button fires the event.
   useEffect(() => {
-    const handler = () => push('/brain')
+    const handler = () => push(BRAIN_ROUTE)
     window.addEventListener(BRAIN_NEW_THREAD_EVENT, handler)
     return () => window.removeEventListener(BRAIN_NEW_THREAD_EVENT, handler)
   }, [push])
@@ -161,7 +162,7 @@ function BrainThreadsPageInner() {
             <Button
               variant="default"
               leftIcon={<PlusSignIcon animated />}
-              onClick={() => push('/brain')}
+              onClick={() => push(BRAIN_ROUTE)}
             >
               New brain thread
             </Button>
@@ -224,7 +225,7 @@ function BrainThreadsPageInner() {
                     title={thread.chat_title || 'Untitled'}
                     timestamp={formatTimestamp(thread.updated_at ?? thread.created_at)}
                     starred={thread.starred}
-                    onClick={() => push(`/brain?id=${thread.id}`)}
+                    onClick={() => push(`${BRAIN_ROUTE}?id=${thread.id}`)}
                     onRename={(title) => handleRename(thread.id, title)}
                     onStar={() => handleStar(thread.id)}
                     onDelete={() => handleDelete(thread.id, thread.chat_title)}
