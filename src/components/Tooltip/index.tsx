@@ -34,6 +34,21 @@ export interface TooltipProps {
    * tooltip is single-line (whiteSpace: nowrap).
    */
   maxWidth?: number | string
+  /**
+   * Render to `document.body` (default) so the tooltip escapes ancestor
+   * `overflow`/clipping — the right choice for virtually all hover tooltips.
+   * Pass `false` to keep the content in its natural DOM position instead —
+   * use this for a persistent, non-hover badge that must stay below other
+   * same-page chrome (e.g. a footer) regardless of z-index, since a portaled
+   * node competes at the document root and no local z-index can out-rank it.
+   */
+  portal?: boolean
+  /**
+   * Stacking order for the floating content. Defaults to 9999 (above nearly
+   * everything) — appropriate when `portal` is true. When `portal` is false,
+   * pass a value that makes sense within the local stacking context instead.
+   */
+  zIndex?: number
 }
 
 // ── Animation helpers ─────────────────────────────────────────────────────────
@@ -59,6 +74,8 @@ export function Tooltip({
   open: openProp,
   className,
   maxWidth,
+  portal = true,
+  zIndex = 9999,
 }: TooltipProps) {
   const isControlled = openProp !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
@@ -95,6 +112,64 @@ export function Tooltip({
   const translateX = entered ? 0 : slideOffset.x
   const translateY = entered ? 0 : slideOffset.y
 
+  const tooltipContent = (
+    <TooltipPrimitive.Content
+      side={side}
+      sideOffset={sideOffset}
+      forceMount
+      style={{ outline: 'none', pointerEvents: 'none', zIndex }}
+    >
+      <div
+        className={cn(className)}
+        onTransitionEnd={() => { if (!effectiveOpen) setMounted(false) }}
+        style={{
+          position:        'relative',
+          display:         'inline-flex',
+          alignItems:      maxWidth ? 'flex-start' : 'center',
+          justifyContent:  'center',
+          flexDirection:   maxWidth ? 'column' : undefined,
+          overflow:        'hidden',
+          borderRadius:    '6px',
+          padding:         maxWidth ? '6px 8px' : '4px 6px',
+          maxWidth:        maxWidth,
+          backgroundImage: 'linear-gradient(180deg, var(--tooltip-bg-from) 0%, var(--tooltip-bg-to) 100%)',
+          boxShadow:       'var(--shadow-tooltip)',
+          pointerEvents:   'none',
+          opacity:          entered ? 1 : 0,
+          transform:        `translate(${translateX}px, ${translateY}px)`,
+          transition:       'opacity 150ms, transform 150ms cubic-bezier(0.16,1,0.3,1)',
+        }}
+      >
+        <span
+          style={{
+            position:    'relative',
+            fontFamily:  'var(--font-body)',
+            fontWeight:  'var(--font-weight-medium)',
+            fontSize:    'var(--font-size-caption)',
+            lineHeight:  'var(--line-height-caption)',
+            color:       'var(--tooltip-text)',
+            whiteSpace:  maxWidth ? 'normal' : 'nowrap',
+            wordBreak:   maxWidth ? 'break-word' : undefined,
+            flexShrink:  0,
+          }}
+        >
+          {content}
+        </span>
+
+        <div
+          aria-hidden
+          style={{
+            position:      'absolute',
+            inset:         0,
+            pointerEvents: 'none',
+            borderRadius:  'inherit',
+            boxShadow:     'var(--shadow-tooltip-inner)',
+          }}
+        />
+      </div>
+    </TooltipPrimitive.Content>
+  )
+
   return (
     <TooltipPrimitive.Provider delayDuration={delayDuration}>
       <TooltipPrimitive.Root open={effectiveOpen} onOpenChange={disabled || isControlled ? undefined : setInternalOpen}>
@@ -102,66 +177,9 @@ export function Tooltip({
           {children}
         </TooltipPrimitive.Trigger>
 
-        {mounted && (
-          <TooltipPrimitive.Portal forceMount>
-            <TooltipPrimitive.Content
-              side={side}
-              sideOffset={sideOffset}
-              forceMount
-              className="z-[9999]"
-              style={{ outline: 'none', pointerEvents: 'none' }}
-            >
-              <div
-                className={cn(className)}
-                onTransitionEnd={() => { if (!effectiveOpen) setMounted(false) }}
-                style={{
-                  position:        'relative',
-                  display:         'inline-flex',
-                  alignItems:      maxWidth ? 'flex-start' : 'center',
-                  justifyContent:  'center',
-                  flexDirection:   maxWidth ? 'column' : undefined,
-                  overflow:        'hidden',
-                  borderRadius:    '6px',
-                  padding:         maxWidth ? '6px 8px' : '4px 6px',
-                  maxWidth:        maxWidth,
-                  backgroundImage: 'linear-gradient(180deg, var(--tooltip-bg-from) 0%, var(--tooltip-bg-to) 100%)',
-                  boxShadow:       'var(--shadow-tooltip)',
-                  pointerEvents:   'none',
-                  opacity:          entered ? 1 : 0,
-                  transform:        `translate(${translateX}px, ${translateY}px)`,
-                  transition:       'opacity 150ms, transform 150ms cubic-bezier(0.16,1,0.3,1)',
-                }}
-              >
-                <span
-                  style={{
-                    position:    'relative',
-                    fontFamily:  'var(--font-body)',
-                    fontWeight:  'var(--font-weight-medium)',
-                    fontSize:    'var(--font-size-caption)',
-                    lineHeight:  'var(--line-height-caption)',
-                    color:       'var(--tooltip-text)',
-                    whiteSpace:  maxWidth ? 'normal' : 'nowrap',
-                    wordBreak:   maxWidth ? 'break-word' : undefined,
-                    flexShrink:  0,
-                  }}
-                >
-                  {content}
-                </span>
-
-                <div
-                  aria-hidden
-                  style={{
-                    position:      'absolute',
-                    inset:         0,
-                    pointerEvents: 'none',
-                    borderRadius:  'inherit',
-                    boxShadow:     'var(--shadow-tooltip-inner)',
-                  }}
-                />
-              </div>
-            </TooltipPrimitive.Content>
-          </TooltipPrimitive.Portal>
-        )}
+        {mounted && (portal
+          ? <TooltipPrimitive.Portal forceMount>{tooltipContent}</TooltipPrimitive.Portal>
+          : tooltipContent)}
       </TooltipPrimitive.Root>
     </TooltipPrimitive.Provider>
   )

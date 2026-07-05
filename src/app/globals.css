@@ -154,6 +154,20 @@
   animation: kaya-model-pulse 1.5s ease-in-out infinite;
 }
 
+/* ── Required-field warning blink ─────────────────────────────────────────── */
+/* A ring that fades in/out around a control with a missing required value
+   (e.g. no model selected yet) — distinct from kaya-model-pulse above, which
+   is an opacity fade for "in progress", not a "needs attention" warning. */
+@keyframes kaya-warning-blink {
+  0%, 100% { box-shadow: 0 0 0 3px transparent; }
+  50%      { box-shadow: 0 0 0 3px var(--red-400); }
+}
+
+.kaya-warning-blink {
+  border-radius: 10px;
+  animation: kaya-warning-blink 1.4s ease-in-out infinite;
+}
+
 /* Thinking-block markdown - strip first/last paragraph gutters so the
    indicator bar aligns flush with the visible text bounds */
 .kaya-thinking-md p:first-child { margin-top: 0; }

@@ -215,9 +215,9 @@ function InfoCardBody({ options, selected, onSelect }: {
             display:         'flex',
             flexDirection:   'column',
             gap:             6,
-            backgroundColor: 'rgba(110,152,203,0.08)',
+            backgroundColor: 'rgba(13,110,178,0.08)',
             borderRadius:    10,
-            border:          '1px solid rgba(110,152,203,0.18)',
+            border:          '1px solid rgba(13,110,178,0.18)',
           }}
         >
           {/* Number badge + label row */}
@@ -230,17 +230,17 @@ function InfoCardBody({ options, selected, onSelect }: {
               display:         'flex',
               alignItems:      'center',
               justifyContent:  'center',
-              backgroundColor: '#6e98cb',
-              boxShadow:       '0 0 0 1px rgba(110,152,203,0.5)',
+              backgroundColor: 'var(--blue-600)',
+              boxShadow:       '0 0 0 1px rgba(13,110,178,0.5)',
             }}>
               <span style={{
                 fontFamily: 'var(--font-body)',
-                fontWeight: 600,
+                fontWeight: 'var(--font-weight-semibold)',
                 fontSize:   11,
                 lineHeight: '11px',
                 display:    'block',
                 textAlign:  'center',
-                color:      'white',
+                color:      'var(--neutral-white)',
                 userSelect: 'none',
               }}>
                 {currentIdx + 1}
@@ -248,10 +248,10 @@ function InfoCardBody({ options, selected, onSelect }: {
             </div>
             <span style={{
               fontFamily: 'var(--font-body)',
-              fontWeight: 600,
+              fontWeight: 'var(--font-weight-semibold)',
               fontSize:   13,
               lineHeight: '18px',
-              color:      '#3b6fa8',
+              color:      'var(--blue-700)',
             }}>
               {opt?.label}
             </span>
@@ -259,7 +259,7 @@ function InfoCardBody({ options, selected, onSelect }: {
           {opt?.description && (
             <span style={{
               fontFamily: 'var(--font-body)',
-              fontWeight: 400,
+              fontWeight: 'var(--font-weight-regular)',
               fontSize:   12,
               lineHeight: '17px',
               color:      'var(--neutral-700)',
@@ -290,7 +290,7 @@ function InfoCardBody({ options, selected, onSelect }: {
                 border:          'none',
                 padding:         0,
                 cursor:          'pointer',
-                backgroundColor: i === currentIdx ? '#6e98cb' : 'var(--neutral-300)',
+                backgroundColor: i === currentIdx ? 'var(--blue-600)' : 'var(--neutral-300)',
                 transition:      'width 220ms ease, background-color 220ms ease',
               }}
             />
@@ -436,7 +436,7 @@ export function QuestionCard(
               // right side filled only when we've moved past this tab.
               const leftFilled  = i > 0 && i <= tabProgress.currentIndex
               const rightFilled = i < tabProgress.tabs.length - 1 && i < tabProgress.currentIndex
-              const BLUE = '#6e98cb'
+              const BLUE = 'var(--blue-600)'
 
               return (
                 <div key={tab} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
@@ -455,21 +455,21 @@ export function QuestionCard(
                       display:         'flex',
                       alignItems:      'center',
                       justifyContent:  'center',
-                      backgroundColor: isCurrent ? BLUE : isPast ? 'rgba(110,152,203,0.14)' : 'var(--neutral-50)',
+                      backgroundColor: isCurrent ? BLUE : isPast ? 'rgba(13,110,178,0.14)' : 'var(--neutral-50)',
                       boxShadow:       isCurrent
-                        ? `0 0 0 4px rgba(110,152,203,0.18)`
+                        ? `0 0 0 4px rgba(13,110,178,0.18)`
                         : isPast
-                          ? `0 0 0 1.5px rgba(110,152,203,0.45)`
+                          ? `0 0 0 1.5px rgba(13,110,178,0.45)`
                           : `0 0 0 1.5px var(--neutral-200)`,
                       transition: 'all 250ms ease',
                     }}>
                       <span style={{
                         fontFamily:  'var(--font-body)',
-                        fontWeight:  isCurrent ? 700 : 500,
+                        fontWeight:  isCurrent ? 700 : 'var(--font-weight-medium)',
                         fontSize:    11,
                         lineHeight:  '11px',
                         display:     'block',
-                        color:       isCurrent ? 'white' : isPast ? BLUE : 'var(--neutral-400)',
+                        color:       isCurrent ? 'var(--neutral-white)' : isPast ? BLUE : 'var(--neutral-400)',
                         userSelect:  'none',
                         transition:  'color 250ms',
                         textAlign:   'center',
@@ -487,8 +487,8 @@ export function QuestionCard(
                     fontFamily: 'var(--font-body)',
                     fontSize:   10,
                     lineHeight: '14px',
-                    fontWeight: isCurrent ? 600 : 400,
-                    color:      isCurrent ? BLUE : isPast ? 'rgba(110,152,203,0.7)' : 'var(--neutral-400)',
+                    fontWeight: isCurrent ? 'var(--font-weight-semibold)' : 'var(--font-weight-regular)',
+                    color:      isCurrent ? BLUE : isPast ? 'rgba(13,110,178,0.7)' : 'var(--neutral-400)',
                     textAlign:  'center',
                     whiteSpace: 'nowrap',
                     transition: 'color 250ms',

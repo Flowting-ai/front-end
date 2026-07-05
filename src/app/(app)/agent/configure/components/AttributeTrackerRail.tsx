@@ -1,6 +1,10 @@
 'use client'
 
 import React, { useState } from 'react'
+import { AnimatePresence, m } from 'framer-motion'
+import { InformationCircleIcon } from '@strange-huge/icons'
+import { IconButton } from '@/components/IconButton'
+import { Tooltip } from '@/components/Tooltip'
 
 // ── Attribute section headers ─────────────────────────────────────────────────
 // Shared style for the label above each editable field across all 5 configure
@@ -121,11 +125,18 @@ function AttributeTocRow({
 export function AttributeTocRail({
   items,
   touchedFields,
+  open,
 }: {
   items:         AttributeTocItem[]
   touchedFields: Set<string>
+  /** Controls mount/unmount with the same enter/exit motion as PersonaPanelIsland/Dropdown.Float. */
+  open:          boolean
 }) {
   return (
+    // Outer wrapper owns the static position + the translateY(-50%) centering.
+    // Framer-motion's own transform (x/scale below) must stay on a NESTED
+    // element — animating it on this element would overwrite translateY and
+    // the rail would lose its vertical centering the moment it animates.
     <div
       style={{
         position:  'absolute',
@@ -136,36 +147,75 @@ export function AttributeTocRail({
         width:     184,
       }}
     >
-      {/* Same 3-layer composition as FloatingMenu: outer shadow on the card,
-         a white background layer, then an inner shadow overlay on top. */}
-      <div
-        aria-label="Section navigation"
-        style={{
-          position:      'relative',
-          display:       'flex',
-          flexDirection: 'column',
-          gap:           4,
-          padding:       6,
-          borderRadius:  12,
-          overflow:      'clip',
-          boxShadow:     'var(--shadow-floating-menu-outer)',
-        }}
-      >
-        <div aria-hidden style={{ position: 'absolute', inset: 0, backgroundColor: 'var(--neutral-white)', pointerEvents: 'none' }} />
+      <AnimatePresence>
+        {open && (
+          <m.div
+            key="attribute-toc-rail"
+            initial={{ opacity: 0, x: -8, scale: 0.97 }}
+            animate={{ opacity: 1, x: 0,  scale: 1 }}
+            exit={{    opacity: 0, x: -8, scale: 0.97, transition: { duration: 0.12, ease: 'easeIn' } }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {/* Same 3-layer composition as FloatingMenu: outer shadow on the card,
+               a white background layer, then an inner shadow overlay on top. */}
+            <div
+              aria-label="Section navigation"
+              style={{
+                position:      'relative',
+                display:       'flex',
+                flexDirection: 'column',
+                gap:           4,
+                padding:       6,
+                borderRadius:  12,
+                overflow:      'clip',
+                boxShadow:     'var(--shadow-floating-menu-outer)',
+              }}
+            >
+              <div aria-hidden style={{ position: 'absolute', inset: 0, backgroundColor: 'var(--neutral-white)', pointerEvents: 'none' }} />
 
-        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {items.map(item => (
-            <AttributeTocRow
-              key={item.id}
-              label={item.label}
-              touched={touchedFields.has(item.id)}
-              onClick={() => scrollToConfigureSection(item.anchor)}
-            />
-          ))}
-        </div>
+              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, padding: '2px 2px 2px 6px' }}>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 'var(--font-weight-semibold)',
+                      fontSize:   13,
+                      lineHeight: '18px',
+                      color:      'var(--neutral-900)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Page Contents
+                  </span>
+                  <Tooltip
+                    content="Shows which fields you've edited since your last save. Dots light up as you make changes and clear once you save."
+                    side="top"
+                    maxWidth={200}
+                  >
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      aria-label="What is Track Changes?"
+                      icon={<InformationCircleIcon size={14} />}
+                    />
+                  </Tooltip>
+                </div>
 
-        <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'var(--shadow-floating-menu-inner)', pointerEvents: 'none' }} />
-      </div>
+                {items.map(item => (
+                  <AttributeTocRow
+                    key={item.id}
+                    label={item.label}
+                    touched={touchedFields.has(item.id)}
+                    onClick={() => scrollToConfigureSection(item.anchor)}
+                  />
+                ))}
+              </div>
+
+              <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'var(--shadow-floating-menu-inner)', pointerEvents: 'none' }} />
+            </div>
+          </m.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

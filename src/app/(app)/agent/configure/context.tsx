@@ -138,6 +138,7 @@ interface PersonaConfigureContextValue {
   toggleAiSuggest: () => void
   toggleVersions: () => void
   toggleChangesTracker: () => void
+  setChangesTrackerOpen: React.Dispatch<React.SetStateAction<boolean>>
   markFieldTouched: (tab: ConfigureTabKey, field: string) => void
   resetTouchedFields: (tab: ConfigureTabKey, field?: string) => void
   setTestChatOpen: React.Dispatch<React.SetStateAction<boolean>>
@@ -910,6 +911,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     toggleAiSuggest,
     toggleVersions,
     toggleChangesTracker,
+    setChangesTrackerOpen,
     markFieldTouched,
     resetTouchedFields,
     setTestChatOpen,

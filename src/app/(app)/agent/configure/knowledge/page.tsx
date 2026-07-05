@@ -30,7 +30,7 @@ import { parseServerDate } from '@/lib/utils/format-utils'
 import { AttributeTocRail, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
 
 const KNOWLEDGE_TOC_ITEMS: AttributeTocItem[] = [
-  { id: 'files', label: 'Files', anchor: 'help-knowledge-upload' },
+  { id: 'files', label: 'Upload files', anchor: 'help-knowledge-upload' },
 ]
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -631,9 +631,11 @@ function PersonaConfigureKnowledgeContent() {
         <div style={{ height: 35, flexShrink: 0 }} />
       </div>
 
-      {changesTrackerOpen && !anyPanelOpen && (
-        <AttributeTocRail items={KNOWLEDGE_TOC_ITEMS} touchedFields={knowledgeTouchedFields} />
-      )}
+      <AttributeTocRail
+        items={KNOWLEDGE_TOC_ITEMS}
+        touchedFields={knowledgeTouchedFields}
+        open={changesTrackerOpen && !anyPanelOpen}
+      />
 
       {/* ── Scrollable content area ────────────────────────────────────────── */}
       <div

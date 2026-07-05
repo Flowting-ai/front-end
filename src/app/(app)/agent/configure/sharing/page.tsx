@@ -313,9 +313,11 @@ function PersonaConfigureSharingContent() {
           <div style={{ height: 35, flexShrink: 0 }} />
         </div>
 
-        {changesTrackerOpen && !anyPanelOpen && (
-          <AttributeTocRail items={SHARING_TOC_ITEMS} touchedFields={sharingTouchedFields} />
-        )}
+        <AttributeTocRail
+          items={SHARING_TOC_ITEMS}
+          touchedFields={sharingTouchedFields}
+          open={changesTrackerOpen && !anyPanelOpen}
+        />
 
         {/* ── Scrollable content area ────────────────────────────────────────── */}
         <div

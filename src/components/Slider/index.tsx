@@ -3,7 +3,6 @@
 import React from 'react'
 import * as SliderPrimitive from '@radix-ui/react-slider'
 import { cn } from '@/lib/utils'
-import { Tooltip } from '@/components/Tooltip'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -176,35 +175,75 @@ export function Slider({
           </div>
         )}
 
-        {current.map((_, i) => {
-          const thumb = (
-            <SliderPrimitive.Thumb
-              aria-label={props['aria-label'] ?? 'Value'}
-              className="kds-slider-thumb"
-              style={{
-                display:         'block',
-                width:           THUMB_SIZE,
-                height:          THUMB_SIZE,
-                borderRadius:    '50%',
-                backgroundColor: 'var(--neutral-white)',
-                border:          '1.5px solid var(--neutral-700)',
-                boxShadow:       'var(--shadow-button-secondary-outer)',
-                cursor:          disabled ? 'not-allowed' : 'grab',
-                outline:         'none',
-              }}
-            />
-          )
-          if (!showValue) {
-            // eslint-disable-next-line react/no-array-index-as-key -- slider thumbs are positionally stable by definition
-            return <React.Fragment key={i}>{thumb}</React.Fragment>
-          }
-          return (
-            // eslint-disable-next-line react/no-array-index-as-key -- slider thumbs are positionally stable by definition
-            <Tooltip key={i} content={`${valuePrefix}${format(current[i])}`} side="top" sideOffset={8} open>
-              {thumb}
-            </Tooltip>
-          )
-        })}
+        {current.map((_, i) => (
+          // eslint-disable-next-line react/no-array-index-as-key -- slider thumbs are positionally stable by definition
+          <SliderPrimitive.Thumb key={i}
+            aria-label={props['aria-label'] ?? 'Value'}
+            className="kds-slider-thumb"
+            style={{
+              display:         'block',
+              width:           THUMB_SIZE,
+              height:          THUMB_SIZE,
+              borderRadius:    '50%',
+              backgroundColor: 'var(--neutral-white)',
+              border:          '1.5px solid var(--neutral-700)',
+              boxShadow:       'var(--shadow-button-secondary-outer)',
+              cursor:          disabled ? 'not-allowed' : 'grab',
+              outline:         'none',
+              position:        'relative',
+            }}
+          >
+            {/* Local, non-portaled, non-fixed badge — deliberately NOT the shared
+               Tooltip component. That one renders via Radix's floating-ui, which
+               forces `position: fixed`, escaping this element's normal stacking
+               order no matter how low its z-index is set. A plain absolutely-
+               positioned span here just paints in normal DOM order relative to
+               real ancestors (e.g. below the configure footer), guaranteed. */}
+            {showValue && (
+              <span
+                aria-hidden
+                style={{
+                  position:        'absolute',
+                  left:            '50%',
+                  bottom:          'calc(100% + 8px)',
+                  transform:       'translateX(-50%)',
+                  display:         'inline-flex',
+                  alignItems:      'center',
+                  padding:         '4px 6px',
+                  borderRadius:    6,
+                  backgroundImage: 'linear-gradient(180deg, var(--tooltip-bg-from) 0%, var(--tooltip-bg-to) 100%)',
+                  boxShadow:       'var(--shadow-tooltip)',
+                  whiteSpace:      'nowrap',
+                  pointerEvents:   'none',
+                }}
+              >
+                <span
+                  style={{
+                    position:   'relative',
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 'var(--font-weight-medium)',
+                    fontSize:   'var(--font-size-caption)',
+                    lineHeight: 'var(--line-height-caption)',
+                    color:      'var(--tooltip-text)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {valuePrefix}{format(current[i])}
+                </span>
+                <span
+                  aria-hidden
+                  style={{
+                    position:      'absolute',
+                    inset:         0,
+                    borderRadius:  'inherit',
+                    boxShadow:     'var(--shadow-tooltip-inner)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              </span>
+            )}
+          </SliderPrimitive.Thumb>
+        ))}
       </SliderPrimitive.Root>
     </div>
   )

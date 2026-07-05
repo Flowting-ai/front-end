@@ -63,6 +63,7 @@ const PANEL_ITEMS: HelpItem[] = [
   { heading: 'Test Chat',      description: 'Open a live chat to test your agent before publishing. See exactly how it responds to real questions in real time.',           highlightId: 'help-test-chat'      },
   { heading: 'AI Suggestions', description: 'Ask AI for tips on improving your agent instruction, tone, or coverage. The AI reads your current draft before advising.',   highlightId: 'help-ai-suggestions' },
   { heading: 'Versions',       description: 'Browse all saved versions of this agent and restore any previous state with one click. Versions are created via Save Version.', highlightId: 'help-versions'       },
+  { heading: 'Track Changes',  description: 'Shows which fields on this tab you’ve edited since your last save. Dots light up as you make changes and clear once you save.', highlightId: 'help-changes-tracker' },
 ]
 
 const TAB_HELP: Record<string, { title: string; items: HelpItem[] }> = {
@@ -167,7 +168,7 @@ function useHelpState(pathname: string) {
 function PersonaHelpButton() {
   const pathname = usePathname()
   const { helpOpen, setHelpOpen, helpActiveId, setHelpActiveId, tabKey, tabIndex, helpData, tabItemIds, isPanelActive, titleBadge } = useHelpState(pathname)
-  const { setTestChatOpen, setAiSuggestOpen, setVersionsOpen } = usePersonaConfigure()
+  const { setTestChatOpen, setAiSuggestOpen, setVersionsOpen, changesTrackerOpen, toggleChangesTracker, setChangesTrackerOpen } = usePersonaConfigure()
 
   const [activeInfoTab, setActiveInfoTab] = useState<'main' | 'panels'>('main')
   // Remembers whether the sidebar was open when help opened so we can restore it on close.
@@ -197,6 +198,10 @@ function PersonaHelpButton() {
     setTestChatOpen(id === 'help-test-chat')
     setAiSuggestOpen(id === 'help-ai-suggestions')
     setVersionsOpen(id === 'help-versions')
+    // Track Changes isn't part of the exclusive panel group — selecting it just
+    // ensures its preference is on (it's auto-suppressed while another panel is
+    // open, so closing the other three above is what actually reveals it).
+    if (id === 'help-changes-tracker') setChangesTrackerOpen(true)
   }
 
   function handleTabChange(tab: string) {
@@ -305,31 +310,29 @@ function PersonaHelpButton() {
       </AnimatePresence>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <span style={{ backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderRadius: 10, display: 'inline-flex' }}>
-          <IconButton
-            variant="outline"
-            size="md"
-            aria-label={helpOpen ? 'Close help' : `Help — ${helpData.title}`}
-            aria-expanded={helpOpen}
-            icon={<InformationCircleIcon size={20} animated />}
-            onClick={() => setHelpOpen(!helpOpen)}
-          />
+        <span style={{ backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderRadius: 10, display: 'inline-flex', gap: 8 }}>
+          <Tooltip content={helpOpen ? 'Close help' : `Help — ${helpData.title}`} side="top">
+            <IconButton
+              variant={helpOpen ? 'default' : 'outline'}
+              size="md"
+              aria-label={helpOpen ? 'Close help' : `Help — ${helpData.title}`}
+              aria-expanded={helpOpen}
+              icon={<InformationCircleIcon size={20} animated />}
+              onClick={() => setHelpOpen(!helpOpen)}
+            />
+          </Tooltip>
+          <Tooltip content="Track changes" side="top">
+            <IconButton
+              variant={changesTrackerOpen ? 'default' : 'outline'}
+              size="md"
+              aria-label="Track changes"
+              aria-pressed={changesTrackerOpen}
+              icon={<StickyNoteTwoIcon size={20} animated />}
+              onClick={toggleChangesTracker}
+              data-help-id="help-changes-tracker"
+            />
+          </Tooltip>
         </span>
-        {!helpOpen && (
-          <span
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 12,
-              fontWeight: 500,
-              color: 'var(--neutral-500, #827a74)',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-            onClick={() => setHelpOpen(true)}
-          >
-            Click here to know what&apos;s happening in this page
-          </span>
-        )}
       </div>
     </div>
   )
@@ -492,7 +495,7 @@ function ConfigureProgress() {
 // ── Floating menu ─────────────────────────────────────────────────────────────
 
 function PersonaFloatingMenu() {
-  const { testChatOpen, toggleTestChat, aiSuggestOpen, toggleAiSuggest, versionsOpen, toggleVersions, panelsLocked, changesTrackerOpen, toggleChangesTracker } = usePersonaConfigure()
+  const { testChatOpen, toggleTestChat, aiSuggestOpen, toggleAiSuggest, versionsOpen, toggleVersions, panelsLocked } = usePersonaConfigure()
   const lockedTooltip = 'Save a version first to enable'
   return (
     <FloatingMenu aria-label="Configure actions">
@@ -518,13 +521,6 @@ function PersonaFloatingMenu() {
         active={versionsOpen}
         onClick={toggleVersions}
         data-help-id="help-versions"
-      />
-      <FloatingMenuItem
-        icon={<StickyNoteTwoIcon size={20} animated />}
-        label="Track Changes"
-        active={changesTrackerOpen}
-        onClick={toggleChangesTracker}
-        data-help-id="help-changes-tracker"
       />
     </FloatingMenu>
   )
@@ -1093,8 +1089,11 @@ function PersonaConfigureShell({ children }: { children: React.ReactNode }) {
             <PersonaFloatingMenu />
           </div>
         </div>
-        {/* Footer: info button left · back/continue centre · right reserved */}
-        <div style={{ flexShrink: 0, height: 56, display: 'flex', alignItems: 'center', borderTop: '1px solid var(--neutral-200)', paddingLeft: 12, paddingRight: 12 }}>
+        {/* Footer: info button left · back/continue centre · right reserved.
+           position + zIndex so it reliably paints above in-page floating decorations
+           (e.g. the Instructions tab's always-on slider value badge) that live earlier
+           in the DOM but would otherwise compete at the same stacking level. */}
+        <div style={{ position: 'relative', zIndex: 50, flexShrink: 0, height: 56, display: 'flex', alignItems: 'center', borderTop: '1px solid var(--neutral-200)', paddingLeft: 12, paddingRight: 12 }}>
           <div style={{ flex: '1 0 0', display: 'flex', alignItems: 'center' }}>
             <PersonaHelpButton />
           </div>

@@ -167,8 +167,12 @@ function PersonaConfigureProfileContent() {
       .finally(() => {
         isInitializedRef.current = true
         setIsInitialized(true)
-        // Must run after isInitializedRef = true so markDirty's own guard passes.
-        if (shouldMarkDirtyForTags) markDirty()
+        // Reconcile wizard-seeded tags that never made it to the backend silently —
+        // this is a background sync the app is doing on the user's behalf, not an
+        // edit they made, so it must never flip the tab to "unsaved changes."
+        if (shouldMarkDirtyForTags && versionId) {
+          updateVersion({ repoId, versionId, persona_tags: localTagsAtMount }).catch(() => {})
+        }
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repoId])
@@ -539,9 +543,11 @@ function PersonaConfigureProfileContent() {
         <div style={{ height: 35, flexShrink: 0 }} />
       </div>
 
-      {changesTrackerOpen && !anyPanelOpen && (
-        <AttributeTocRail items={PROFILE_TOC_ITEMS} touchedFields={profileTouchedFields} />
-      )}
+      <AttributeTocRail
+        items={PROFILE_TOC_ITEMS}
+        touchedFields={profileTouchedFields}
+        open={changesTrackerOpen && !anyPanelOpen}
+      />
 
       {/* ── Scrollable profile form ─────────────────────────────────────────────── */}
       <div

@@ -118,7 +118,12 @@ export default function ConnectorsTab({
   repoId?:             string
   versionId?:          string
   personaName?:        string
-  onConnectorsChange?: (enabled: string[], disabled: string[]) => void
+  /**
+   * Fires with the current enabled/disabled slug split. `isInitial` is true only
+   * for the one-time report right after the catalog/version load resolves — that's
+   * hydration, not a user edit, so callers must skip marking the tab dirty then.
+   */
+  onConnectorsChange?: (enabled: string[], disabled: string[], isInitial: boolean) => void
   onSaveVersion?:      () => Promise<void>
 }) {
   const { push } = useRouter()
@@ -138,10 +143,10 @@ export default function ConnectorsTab({
   useEffect(() => { onChangeRef.current = onConnectorsChange })
 
   // Report the current enabled/disabled split (by slug) to the parent.
-  const emitChange = useCallback((available: ConnectorCatalogEntry[], blocked: Set<string>) => {
+  const emitChange = useCallback((available: ConnectorCatalogEntry[], blocked: Set<string>, isInitial = false) => {
     const enabled  = available.filter(c => !blocked.has(c.slug)).map(c => c.slug)
     const disabled = available.filter(c =>  blocked.has(c.slug)).map(c => c.slug)
-    onChangeRef.current?.(enabled, disabled)
+    onChangeRef.current?.(enabled, disabled, isInitial)
   }, [])
 
   const load = useCallback(async () => {
@@ -157,7 +162,7 @@ export default function ConnectorsTab({
       const blocked   = new Set<string>(version.blocked_connectors ?? [])
       setConnectors(available)
       setBlockedSlugs(blocked)
-      emitChange(available, blocked)
+      emitChange(available, blocked, true)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load connectors'
       setLoadError(msg)

@@ -329,9 +329,11 @@ function PersonaConfigureConnectorsContent() {
           <div style={{ height: 35, flexShrink: 0 }} />
         </div>
 
-        {changesTrackerOpen && !anyPanelOpen && (
-          <AttributeTocRail items={CONNECTORS_TOC_ITEMS} touchedFields={connectorsTouchedFields} />
-        )}
+        <AttributeTocRail
+          items={CONNECTORS_TOC_ITEMS}
+          touchedFields={connectorsTouchedFields}
+          open={changesTrackerOpen && !anyPanelOpen}
+        />
 
         {/* ── Scrollable content area ────────────────────────────────────────── */}
         <div
@@ -360,8 +362,11 @@ function PersonaConfigureConnectorsContent() {
               repoId={repoId || undefined}
               versionId={versionId || undefined}
               personaName={personaName || undefined}
-              onConnectorsChange={(enabled, disabled) => {
+              onConnectorsChange={(enabled, disabled, isInitial) => {
                 updatePersonaInfo({ connectorSlugs: enabled, disabledConnectorSlugs: disabled })
+                // The initial report right after load is hydration, not a user edit —
+                // marking dirty here would flip the tab orange just from visiting it.
+                if (isInitial) return
                 addPendingChangeTag('Connectors')
                 setTabDirty('Connectors', true)
               }}

@@ -314,16 +314,31 @@ function ModelDropdown({
       ref={containerRef}
       style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}
     >
-      <span style={ATTRIBUTE_HEADER_STYLE}>
-        Model
-      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={ATTRIBUTE_HEADER_STYLE}>
+          Model
+        </span>
+        {!selectedModel && (
+          <Badge
+            label="Required"
+            color="Red"
+            className="animate-pulse"
+          />
+        )}
+      </div>
       <Button
         type="button"
         variant="secondary"
         fluid
+        // Note: `className` targets Button's inner element, which has
+        // `overflow: hidden` and would clip an outward box-shadow ring — the
+        // animation must go on `style` instead, which Button applies to the
+        // OUTER wrapper span (no overflow clipping there).
+        style={!selectedModel ? { animation: 'kaya-warning-blink 1.4s ease-in-out infinite' } : undefined}
         onClick={() => onOpenChange(!open)}
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-invalid={!selectedModel}
         leftIcon={
           selectedModel ? (
             <LlmIcon
@@ -1493,9 +1508,11 @@ function PersonaConfigureInstructionsContent() {
           <div style={{ height: 35, flexShrink: 0 }} />
         </div>
 
-        {!isInitialising && changesTrackerOpen && !anyPanelOpen && (
-          <AttributeTocRail items={INSTRUCTIONS_TOC_ITEMS} touchedFields={touchedFields} />
-        )}
+        <AttributeTocRail
+          items={INSTRUCTIONS_TOC_ITEMS}
+          touchedFields={touchedFields}
+          open={!isInitialising && changesTrackerOpen && !anyPanelOpen}
+        />
 
         {/* ── Scrollable content area ────────────────────────────────────────── */}
         {isInitialising ? (
