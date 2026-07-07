@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { Suspense, useMemo, useState, useEffect, useLayoutEffect, useRef, useCallback, type CSSProperties } from 'react'
+import { Suspense, useMemo, useState, useEffect, useLayoutEffect, useRef, useCallback, Fragment, type CSSProperties } from 'react'
 import { m, AnimatePresence } from 'framer-motion'
 import { springs } from '@/lib/springs'
 import { BRAIN_ROUTE } from '@/lib/routes'
@@ -90,6 +90,7 @@ import {
   type BrainStreamOpts,
 } from '@/lib/api/brain'
 import { ApiError } from '@/lib/api/client'
+import { registerStream, completeStream, getStreamCompletion } from '@/lib/stream-registry'
 import { isExtractable, extractText, stripDocumentBlocks } from '@/lib/brain-file-extract'
 import { linkScheduleToChat, consumePendingPrompt, remapScheduleLink } from '@/lib/scheduleLinks'
 import { listTasks } from '@/lib/api/tasks'
@@ -528,12 +529,27 @@ function filenameFromS3Key(key: string): string {
   return segment && segment.length > 0 ? segment : 'Generated file'
 }
 
+// Route through the /api/download proxy: it streams the file server-side with
+// Content-Disposition: attachment, so the browser always saves it instead of
+// navigating to the raw (often CORS-blocked) presigned S3 URL.
+function downloadArtifact(url: string, filename: string) {
+  const a = document.createElement('a')
+  a.href = `/api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
+  a.download = filename
+  a.target = '_blank'
+  a.rel = 'noopener noreferrer'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+}
+
 // ── User attachment metadata (file info kept after upload for display) ────────
 
 interface UserAttachment {
   file_name: string
   file_type: string
   file_size: number
+  url?:      string
 }
 
 // isExtractable / extractText are imported from @/lib/brain-file-extract.
@@ -545,7 +561,7 @@ function AttachmentChips({ attachments }: { attachments: UserAttachment[] }) {
       {attachments.map((att, i) => {
         const ext = att.file_name.split('.').pop()?.toUpperCase() ?? 'FILE'
         const isImage = att.file_type.startsWith('image/')
-        return (
+        const chip = (
           <div
             key={i}
             style={{
@@ -595,6 +611,13 @@ function AttachmentChips({ attachments }: { attachments: UserAttachment[] }) {
               {ext}
             </span>
           </div>
+        )
+        return att.url ? (
+          <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', flexShrink: 0 }}>
+            {chip}
+          </a>
+        ) : (
+          <Fragment key={i}>{chip}</Fragment>
         )
       })}
     </div>
@@ -1799,8 +1822,20 @@ function BrainPageInner() {
       skipNextResetRef.current = false
       return
     }
-    abortRef.current?.abort()
-    activeRunAbortRef.current?.abort()
+    // Detach from the previous thread's in-flight request(s) WITHOUT aborting
+    // them — they keep running and persisting to the backend in the
+    // background, the same way the main chat surface leaves a background
+    // stream running across navigation. Nulling these refs BEFORE the phase/
+    // activePlanId resets below matters: the plan-execution effect's cleanup
+    // (which those resets trigger, since they're in its dep array) checks
+    // `activeRunAbortRef.current === controller` before aborting, so clearing
+    // the ref here first makes that check false and the backgrounded run is
+    // left alone. The isForActiveThread() guards inside runBrainStream and
+    // that effect stop the backgrounded run's events/errors from being
+    // applied to whichever thread is now on screen, and the stream registry
+    // (registerStream/completeStream) lets reopening this thread later wait
+    // for it to finish instead of showing a stale snapshot.
+    abortRef.current = null
     activeRunAbortRef.current = null
     activeRunSeqRef.current = 0
     setActivePlanId(null)
@@ -1872,8 +1907,11 @@ function BrainPageInner() {
       return
     }
 
-    void getBrainMessages(chatIdFromUrl)
+    let cancelled = false
+
+    const loadHistory = () => getBrainMessages(chatIdFromUrl)
       .then(async (messages) => {
+        if (cancelled) return
         const latestWithPlan = [...messages].reverse().find((m) => m.plan)
         const latestPlan = latestWithPlan?.plan ?? null
         const restorableStatuses = new Set(['proposed', 'queued', 'running', 'summarizing'])
@@ -1916,11 +1954,28 @@ function BrainPageInner() {
         if (synth?.persona) {
           synth.persona = await resolveContextPersonaFromId(synth.persona, personas)
         }
-        if (synth) setLiveContext(synth)
+        if (!cancelled && synth) setLiveContext(synth)
       })
       .catch(() => {
-        setHistoryLoaded(true)
+        if (!cancelled) setHistoryLoaded(true)
       })
+
+    // If a background stream/run is still active for this thread (the user
+    // navigated away mid-generation and is now reopening it), wait for it to
+    // finish before loading — otherwise this would show a stale, still-in-
+    // progress snapshot instead of the finished result. Capped at 90s so a
+    // hung run never blocks the UI indefinitely.
+    const pendingStream = getStreamCompletion(chatIdFromUrl)
+    if (pendingStream) {
+      const streamTimeout = new Promise<void>((resolve) => setTimeout(resolve, 90_000))
+      void Promise.race([pendingStream, streamTimeout]).then(() => {
+        if (!cancelled) void loadHistory()
+      })
+    } else {
+      void loadHistory()
+    }
+
+    return () => { cancelled = true }
   }, [chatIdFromUrl])
 
   // ── Derived plan steps (base + live step statuses) ───────────────────────────
@@ -2381,6 +2436,35 @@ function BrainPageInner() {
         if (activeRunAbortRef.current) {
           activeRunAbortRef.current = null
         }
+
+        // The backend echoes uploaded files back in `file_attachments` (origin
+        // "uploaded"/"user") once persisted, with the real storage URL. Backfill
+        // it onto userAttachments so the chip becomes clickable/downloadable —
+        // mirrors the equivalent patch-back in use-streaming-chat.ts.
+        const rawAtts = Array.isArray(d.file_attachments)
+          ? (d.file_attachments as Array<Record<string, unknown>>)
+          : []
+        const uploadedAtts = rawAtts.flatMap((a) => {
+          if (a.origin !== 'uploaded' && a.origin !== 'user') return []
+          const url = (
+            typeof a.file_link === 'string' ? a.file_link :
+            typeof a.url       === 'string' ? a.url :
+            typeof a.link      === 'string' ? a.link : ''
+          ).trim()
+          if (!url) return []
+          const rawName = typeof a.file_name === 'string' ? a.file_name
+            : typeof a.name === 'string' ? a.name : undefined
+          return [{ filename: rawName?.trim(), url }]
+        })
+        if (uploadedAtts.length > 0) {
+          setUserAttachments((prev) => prev.map((att, idx) => {
+            const match = uploadedAtts.find((u) => u.filename === att.file_name)
+            if (match) return { ...att, url: match.url }
+            if (!att.url && uploadedAtts[idx]) return { ...att, url: uploadedAtts[idx].url }
+            return att
+          }))
+        }
+
         // A failed step owns the terminal UI (NodeFailureCard). The run still
         // emits message_saved as it tears down — don't let it schedule the
         // success transition and flip the failure card to 'complete'.
@@ -2758,6 +2842,14 @@ function BrainPageInner() {
     ) return
     if (activeRunAbortRef.current) return
 
+    // Snapshot which thread this run belongs to. Deliberately read via closure
+    // instead of added to the dep array below — if the user navigates to a
+    // different thread while this run is executing, it must keep referring to
+    // the thread it started for, not whatever's now on screen.
+    const owningChatId = chatId
+    const isForActiveThread = () => !owningChatId || chatIdRef.current === owningChatId
+    if (owningChatId) registerStream(owningChatId)
+
     const controller = new AbortController()
     activeRunAbortRef.current = controller
     let closed = false
@@ -2768,15 +2860,19 @@ function BrainPageInner() {
       .then((response) => consumeBrainStream(response, {
         onNamed:  (name, data) => {
           if (isTerminalBrainEvent(name)) terminalEventReceived = true
+          if (!isForActiveThread()) return
           handleNamedEvent(name, data)
         },
         onInline: (data) => {
           if (isFinalInlineDone(data)) terminalEventReceived = true
+          if (!isForActiveThread()) return
           handleInlineEvent(data)
         },
         onClose:  () => {
           closed = true
           if (activeRunAbortRef.current === controller) activeRunAbortRef.current = null
+          completeStream(owningChatId)
+          if (!isForActiveThread()) return
           if (terminalEventReceived && !streamErrored && !controller.signal.aborted) {
             // Terminal event received, but scheduleCompletion() may have been
             // skipped by a guard (enteredNodeFailedRef, waitingForPlanApprovalRef).
@@ -2795,13 +2891,16 @@ function BrainPageInner() {
         onError:  (e) => {
           if (e.name === 'AbortError') return
           streamErrored = true
+          if (!isForActiveThread()) return
           console.error('[Brain] run stream error:', e)
           setStreamError(e.message || 'Brain run connection lost. Reopen this chat to reconnect.')
           setPhase('failed')
         },
       }))
       .catch((e) => {
+        completeStream(owningChatId)
         if ((e as Error)?.name === 'AbortError') return
+        if (!isForActiveThread()) return
         console.error('[Brain] run subscribe failed:', e)
         setStreamError((e as Error)?.message || 'Failed to subscribe to Brain run.')
         setPhase('failed')
@@ -2813,7 +2912,7 @@ function BrainPageInner() {
         activeRunAbortRef.current = null
       }
     }
-  }, [activePlanId, phase, handleNamedEvent, handleInlineEvent])
+  }, [activePlanId, phase, chatId, handleNamedEvent, handleInlineEvent])
 
   // ── Stream runner ─────────────────────────────────────────────────────────────
 
@@ -2900,9 +2999,17 @@ function BrainPageInner() {
     const controller = new AbortController()
     abortRef.current = controller
 
+    // Identity of the thread this call belongs to. Resolves to the real id
+    // once known (immediately for an existing chat; after the create response
+    // for a brand-new one). While falsy (the tiny window before a new chat's
+    // id comes back), treat the run as always-active — there's no other
+    // thread it could conflict with yet.
+    let resolvedChatId = existingChatId
+    const isForActiveThread = () => !resolvedChatId || chatIdRef.current === resolvedChatId
+    if (resolvedChatId) registerStream(resolvedChatId)
+
     try {
       let response: Response
-      let resolvedChatId = existingChatId
 
       const streamOpts: BrainStreamOpts = {
         ...contextOpts,
@@ -2913,6 +3020,7 @@ function BrainPageInner() {
         resolvedChatId = result.chatId
         response = result.stream
         if (resolvedChatId) {
+          registerStream(resolvedChatId)
           skipNextResetRef.current = true
           skipNextHistoryLoadRef.current = true
           setChatId(resolvedChatId)
@@ -2947,14 +3055,21 @@ function BrainPageInner() {
         onNamed:  (name, data) => {
           if (name === 'plan_proposed') durablePlanProposed = true
           if (isTerminalBrainEvent(name)) terminalEventReceived = true
+          // Navigated to a different thread — let the background run keep
+          // going (it's still persisting to the backend), but stop applying
+          // its events to whatever thread is now on screen.
+          if (!isForActiveThread()) return
           handleNamedEvent(name, data)
         },
         onInline: (data) => {
           if (isFinalInlineDone(data)) terminalEventReceived = true
+          if (!isForActiveThread()) return
           handleInlineEvent(data)
         },
         onClose:  () => {
-          abortRef.current = null
+          if (abortRef.current === controller) abortRef.current = null
+          completeStream(resolvedChatId)
+          if (!isForActiveThread()) return
           if (streamErrored) return
           if (terminalEventReceived) {
             // Terminal signal received, but scheduleCompletion() may have been
@@ -2971,7 +3086,7 @@ function BrainPageInner() {
           }
           const current = phaseRef.current
           const safelyWaitingForUser = current === 'paused' || current === 'cancelled' || current === 'failed'
-          if (durablePlanProposed || safelyWaitingForUser) return
+          if (durablePlanProposed || safelyWaitingForUser || controller.signal.aborted) return
           setStreamError('Brain stopped responding before the run finished. Please try again.')
           setPhase('failed')
         },
@@ -2980,13 +3095,16 @@ function BrainPageInner() {
           // already transitioned phase to 'paused', so don't override.
           if (e.name === 'AbortError') return
           streamErrored = true
+          if (!isForActiveThread()) return
           console.error('[Brain] stream error:', e)
           setStreamError(e.message || 'Connection lost. Please try again.')
           setPhase('failed')
         },
       })
     } catch (e) {
+      completeStream(resolvedChatId)
       if ((e as Error)?.name === 'AbortError') return
+      if (!isForActiveThread()) return
       console.error('[Brain] stream failed:', e)
       const msg = (e as Error)?.message ?? 'Something went wrong. Please try again.'
       setStreamError(msg)
@@ -3171,23 +3289,34 @@ function BrainPageInner() {
     if (activePlanId) {
       const controller = new AbortController()
       abortRef.current = controller
+      // Same background-safe pattern as runBrainStream: if the user navigates
+      // away before this revision finishes, keep it running but stop applying
+      // its events/errors to whatever thread is now on screen.
+      const owningChatId = chatId
+      const isForActiveThread = () => !owningChatId || chatIdRef.current === owningChatId
+      if (owningChatId) registerStream(owningChatId)
       void counterBrainPlan(activePlanId, revision, controller.signal)
         .then((response) => consumeBrainStream(response, {
-          onNamed: handleNamedEvent,
-          onInline: handleInlineEvent,
-          onClose: () => {},
+          onNamed: (name, data) => { if (isForActiveThread()) handleNamedEvent(name, data) },
+          onInline: (data) => { if (isForActiveThread()) handleInlineEvent(data) },
+          onClose: () => {
+            if (abortRef.current === controller) abortRef.current = null
+            completeStream(owningChatId)
+          },
           onError: (e) => {
             if (e.name === 'AbortError') return
             throw e
           },
         }))
         .catch((e: unknown) => {
+          completeStream(owningChatId)
           if ((e as Error)?.name === 'AbortError') return
+          if (!isForActiveThread()) return
           console.error('[Brain] counter failed:', e)
           setStreamError(explainPromptError(e, 'counter'))
           setPhase('failed')
         })
-        .finally(() => setActionInFlight(false))
+        .finally(() => { if (isForActiveThread()) setActionInFlight(false) })
       return
     }
 
@@ -3201,7 +3330,7 @@ function BrainPageInner() {
       })
       .finally(() => setActionInFlight(false))
   }, [
-    activePlanId, promptId, actionInFlight, counterText,
+    activePlanId, promptId, actionInFlight, counterText, chatId,
     handleNamedEvent, handleInlineEvent,
   ])
 
@@ -3986,7 +4115,7 @@ function BrainPageInner() {
                 key={f.id}
                 title={filenameFromS3Key(f.s3_key)}
                 meta={mimeLabel(f.mime_type)}
-                onClick={() => window.open(f.url, '_blank', 'noopener')}
+                onClick={() => downloadArtifact(f.url, filenameFromS3Key(f.s3_key))}
               />
             ))}
           </div>
@@ -4031,7 +4160,7 @@ function BrainPageInner() {
               key={f.url}
               title={f.filename}
               meta={mimeLabel(f.mime_type)}
-              onClick={() => window.open(f.url, '_blank', 'noopener')}
+              onClick={() => downloadArtifact(f.url, f.filename)}
             />
           ))}
         </div>
@@ -4150,7 +4279,7 @@ function BrainPageInner() {
             key={item.id}
             title={item.data.filename}
             meta={mimeLabel(item.data.mime_type)}
-            onClick={() => window.open(item.data.url, '_blank', 'noopener')}
+            onClick={() => downloadArtifact(item.data.url, item.data.filename)}
           />
         )
       case 'image':

@@ -674,6 +674,7 @@ function WorkspaceSwitcher({ teams, projects, activeTeamId, role, onTeamSelect }
           projectCount={activeTeam ? projects.filter(p => p.teamId === activeTeam.id).length : 0}
           currentUserRole={triggerRole}
           isOpen={open}
+          isPersonal={isPersonal}
         />
       }
       open={open}

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Suspense, useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { X } from 'lucide-react'
 import { ChatInterface }                                   from '@/components/chat/ChatInterface'
@@ -11,6 +11,7 @@ import { AttachmentManager, type PendingAttachment }       from '@/components/ch
 import { InitialPrompts }                                  from '@/components/chat/InitialPrompts'
 import { ModelSwitchDialog }                               from '@/components/chat/ModelSwitchDialog'
 import { PinMentionDropdown }                              from '@/components/chat/PinMentionDropdown'
+import { ChatShareOverlay }                                from '@/components/chat/ChatShareOverlay'
 import { useModelSelectorContext }                         from '@/context/model-selector-context'
 import { useProjects }                                     from '@/context/projects-context'
 import { useOrg }                                          from '@/context/org-context'
@@ -37,6 +38,7 @@ import {
 } from '@strange-huge/icons'
 import type { AIModel }      from '@/types/ai-model'
 import type { PinFolder } from '@/lib/api/pins'
+import { CHAT_ROUTE } from '@/lib/routes'
 
 // ── Mentioned-pin state type ──────────────────────────────────────────────────
 
@@ -185,6 +187,7 @@ function ProjectChatPageInner() {
   const params       = useParams<{ id: string; chatId: string }>()
   const searchParams  = useSearchParams()
   const qParam        = searchParams.get('q')
+  const { push }      = useRouter()
 
   const {
     loading: projectsContextLoading,
@@ -224,6 +227,13 @@ function ProjectChatPageInner() {
   const [activeChatId, setActiveChatId] = useState<string | undefined>(
     params.chatId !== 'new' ? params.chatId : undefined
   )
+
+  // Looked up by activeChatId (not the stale params.chatId) so this stays correct
+  // for a chat just created this session — window.history.replaceState updates
+  // activeChatId locally without Next.js re-resolving params.chatId.
+  const activeChatRecord    = activeChatId ? chats.find(c => c.id === activeChatId) : undefined
+  const activeChatCanManage = activeChatRecord?.canEdit === true
+  const activeChatReadOnly  = activeChatRecord?.canEdit === false
 
   useEffect(() => {
     setChatsLoading(true)
@@ -846,10 +856,18 @@ function ProjectChatPageInner() {
               selectedPersonaId={selectedPersona?.activeVersionId ?? null}
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
+              readOnly={activeChatReadOnly}
             />
           </m.div>
         )}
       </AnimatePresence>
+
+      <ChatShareOverlay
+        chatId={activeChatId}
+        canManage={activeChatCanManage}
+        readOnly={activeChatReadOnly}
+        onCopied={(copy) => push(`${CHAT_ROUTE}?id=${copy.chatId}`)}
+      />
 
       <ModelSwitchDialog
         isOpen={!!pendingModelSwitch}

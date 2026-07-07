@@ -24,6 +24,7 @@ import {
 import { apiFetch } from "@/lib/api/client";
 import { fetchAllModels } from "@/lib/api/models";
 import { PERSONA_CHAT_STOP_ENDPOINT } from "@/lib/config";
+import { getStreamCompletion } from "@/lib/stream-registry";
 import { logger } from "@/lib/logger";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import { CreditStatusBanner } from "@/components/CreditStatusBanner";
@@ -350,7 +351,7 @@ export function PersonaChatInterface({
     setIsLoadingMessages(true);
     setMessages([]);
 
-    fetchPersonaChatMessages(personaId, initialChatId)
+    const loadHistory = () => fetchPersonaChatMessages(personaId, initialChatId)
       .then(msgs => {
         if (cancelled) return;
         // Snapshot model at callback time — selectedModelRef is always current,
@@ -393,8 +394,34 @@ export function PersonaChatInterface({
       .catch(err => logger.error("[PersonaChat] Failed to load messages", err))
       .finally(() => { if (!cancelled) setIsLoadingMessages(false); });
 
+    // If a background stream is still running for this chat (the user navigated
+    // away while it was generating), wait for it to finish before reloading from
+    // the API so the complete response is shown instead of a partial/stale one.
+    const pendingStream = getStreamCompletion(initialChatId);
+    if (pendingStream) {
+      // Cap the wait at 90s so a hung stream never blocks the UI indefinitely.
+      const streamTimeout = new Promise<void>((resolve) => setTimeout(resolve, 90_000));
+      void Promise.race([pendingStream, streamTimeout]).then(() => {
+        if (!cancelled) void loadHistory();
+      });
+    } else {
+      void loadHistory();
+    }
+
     return () => { cancelled = true; };
   }, [personaId, initialChatId]);
+
+  // Warn before a full page reload/close while a stream is active so the user
+  // doesn't accidentally lose a response that's still being generated.
+  useEffect(() => {
+    if (!isStreaming) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isStreaming]);
 
   // ── Scroll management ─────────────────────────────────────────────────────
 

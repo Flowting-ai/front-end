@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowDownOneIcon } from '@strange-huge/icons'
+import { ArrowDownOneIcon, FolderOneIcon } from '@strange-huge/icons'
 import { RoleBadge } from '@/components/RoleBadge'
 import type { WorkspaceRole, RoleBadgeMode } from '@/components/RoleBadge'
 
@@ -36,6 +36,8 @@ export interface TeamSwitcherRowProps extends React.HTMLAttributes<HTMLDivElemen
   currentUserRole:  WorkspaceRole
   roleMode?:        RoleBadgeMode
   isOpen?:          boolean
+  /** True when this row represents Personal Projects rather than a team — shows a folder icon instead of the gradient avatar */
+  isPersonal?:      boolean
   onClick?:         () => void
   asChild?:         boolean
 }
@@ -51,6 +53,7 @@ export const TeamSwitcherRow = React.forwardRef<HTMLDivElement, TeamSwitcherRowP
       currentUserRole,
       roleMode = 'solar',
       isOpen = false,
+      isPersonal = false,
       onClick,
       asChild = false,
       className,
@@ -98,28 +101,45 @@ export const TeamSwitcherRow = React.forwardRef<HTMLDivElement, TeamSwitcherRowP
       >
         {/* Left: avatar + team name */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-          {/* 20×20 gradient avatar */}
-          <span
-            aria-hidden
-            style={{
-              display:        'inline-flex',
-              alignItems:     'center',
-              justifyContent: 'center',
-              width:          '20px',
-              height:         '20px',
-              borderRadius:   '3px',
-              background:     gradient,
-              flexShrink:     0,
-              fontFamily:     'var(--font-title)',
-              fontWeight:     500,
-              fontSize:       '11px',
-              lineHeight:     1,
-              color:          'var(--neutral-white)',
-              boxShadow:      'inset 0px 4px 4px rgba(0,0,0,0.25), inset 0px -1px 0.4px rgba(18,60,95,0.65)',
-            }}
-          >
-            {initial}
-          </span>
+          {/* 20×20 avatar — folder icon for Personal Projects, gradient initial for teams */}
+          {isPersonal ? (
+            <span
+              aria-hidden
+              style={{
+                display:        'inline-flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+                width:          '20px',
+                height:         '20px',
+                flexShrink:     0,
+                color:          'var(--sidebar-menu-item-text)',
+              }}
+            >
+              <FolderOneIcon size={20} />
+            </span>
+          ) : (
+            <span
+              aria-hidden
+              style={{
+                display:        'inline-flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+                width:          '20px',
+                height:         '20px',
+                borderRadius:   '3px',
+                background:     gradient,
+                flexShrink:     0,
+                fontFamily:     'var(--font-title)',
+                fontWeight:     500,
+                fontSize:       '11px',
+                lineHeight:     1,
+                color:          'var(--neutral-white)',
+                boxShadow:      'inset 0px 4px 4px rgba(0,0,0,0.25), inset 0px -1px 0.4px rgba(18,60,95,0.65)',
+              }}
+            >
+              {initial}
+            </span>
+          )}
 
           <span
             style={{
