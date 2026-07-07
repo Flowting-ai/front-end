@@ -317,7 +317,7 @@ function TeamPermissionsTable({
         </div>
       </SettingsTableToolbar>
 
-      <div style={{ overflowX: 'auto' }}>
+      <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
         <div role="table" aria-label={`${team.name} permissions`} style={{ minWidth: 420 }}>
           <SettingsTableHeader>
             <SettingsTableHeaderCell>Action</SettingsTableHeaderCell>
@@ -743,7 +743,7 @@ function CatalogTab({
         <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
+      <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
         <div role="table" aria-label="Connector catalog" style={{ minWidth: 760 }}>
           <SettingsTableHeader>
             <SettingsTableHeaderCell>Connector</SettingsTableHeaderCell>

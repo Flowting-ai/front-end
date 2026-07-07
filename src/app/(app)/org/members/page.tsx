@@ -447,7 +447,7 @@ function AssignEditorTeamModal({
         </div>
 
         {/* Team options */}
-        <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
+        <div className="kaya-scrollbar" style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
           {teams.map(team => {
             const active = selected.includes(team.id)
             return (
@@ -594,7 +594,7 @@ function MembersTable({
         </div>
       </SettingsTableToolbar>
 
-      <div style={{ overflowX: 'auto' }}>
+      <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
         <div role="table" aria-label="Workspace members" style={{ minWidth: 900 }}>
           <SettingsTableHeader>
             <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
@@ -940,7 +940,7 @@ function CreditCapsSection({ members, isAdmin, onAssignCredits }: {
   return (
     <SettingsTable columns={CREDIT_CAP_COLUMNS} columnGap={0}>
       <SettingsTableToolbar title="Per-member credit caps" />
-      <div style={{ overflowX: 'auto' }}>
+      <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
         <div role="table" aria-label="Per-member credit caps" style={{ minWidth: 810 }}>
           <SettingsTableHeader>
             <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>

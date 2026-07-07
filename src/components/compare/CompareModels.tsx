@@ -425,7 +425,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
         try {
           const html = katex.renderToString(mathContent, { throwOnError: false, displayMode: true });
           // eslint-disable-next-line react/no-danger -- KaTeX output is library-generated and sanitized
-          nodes.push(<div key={`${keyPrefix}-math-${index}`} className="my-2 overflow-x-auto" dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }} />);
+          nodes.push(<div key={`${keyPrefix}-math-${index}`} className="my-2 overflow-x-auto kaya-scrollbar" dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }} />);
           continue;
         } catch { /* fall through */ }
       }
@@ -460,7 +460,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
       while (index < lines.length && isTableRow(lines[index])) { bodyRows.push(parseTableRow(lines[index])); index++; }
       const tk = `${keyPrefix}-table-${nodes.length}`;
       nodes.push(
-        <div key={tk} className="overflow-x-auto rounded-lg border border-[#EDE1D7] my-2">
+        <div key={tk} className="overflow-x-auto kaya-scrollbar rounded-lg border border-[#EDE1D7] my-2">
           <table className="w-full border-collapse text-sm">
             <thead className="bg-[#F7F2ED] text-[#524B47]">
               <tr>{headerCells.map((cell, ci) => (
@@ -551,7 +551,7 @@ const CodeBlock = ({ code, language }: { code: string; language?: string }) => {
           {copied ? "Copied!" : "Copy"}
         </button>
       </div>
-      <pre className="m-0 p-3 overflow-x-auto bg-[#F7F2ED]/50 text-sm">
+      <pre className="m-0 p-3 overflow-x-auto kaya-scrollbar bg-[#F7F2ED]/50 text-sm">
         <code ref={codeRef} className={language ? `language-${language}` : ""}>{code}</code>
       </pre>
     </div>

@@ -148,6 +148,7 @@ export function renderBlockMath(
     return (
       <div
         key={elementKey}
+        className="kaya-scrollbar"
         style={{ margin: "8px 0", overflowX: "auto" }}
         // eslint-disable-next-line react/no-danger -- KaTeX output is library-generated and sanitized
         dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }}

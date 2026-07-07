@@ -132,6 +132,7 @@ function renderKatexBlock(
     return (
       <div
         key={key}
+        className="kaya-scrollbar"
         style={{ margin: "10px 0", overflowX: "auto", textAlign: "center" }}
       >
         {/* eslint-disable-next-line react/no-danger -- KaTeX output is library-generated and sanitized */}
@@ -1176,7 +1177,7 @@ function AnimatedCodeBlock({ data, onComplete, animate = true }: { data: CodeDat
             </AnimatePresence>
           </m.button>
         </div>
-        <pre style={{ margin: 0, padding: "14px 16px", fontSize: 13, lineHeight: "20px", fontFamily: "var(--font-code, monospace)", overflowX: "auto" }}>
+        <pre className="kaya-scrollbar" style={{ margin: 0, padding: "14px 16px", fontSize: 13, lineHeight: "20px", fontFamily: "var(--font-code, monospace)", overflowX: "auto" }}>
           {visibleLines.map((line, i) => (
             // eslint-disable-next-line react/no-array-index-as-key
             <m.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.08 }}

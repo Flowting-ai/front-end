@@ -262,7 +262,7 @@ export function BrainHome({
   const isPowerUser  = hasDigest || hasSchedules
 
   return (
-    <div style={{
+    <div className="kaya-scrollbar" style={{
       flex:          1,
       display:       'flex',
       flexDirection: 'column',

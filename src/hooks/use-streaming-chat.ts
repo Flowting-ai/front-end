@@ -210,6 +210,9 @@ export function useStreamingChat({
     // Maps toolName → activityId so tool_progress events can find the activity
     // created by the preceding tool_executing event.
     const toolCallIdByName = new Map<string, string>()
+    // Tool names that errored — tool_complete still fires right after tool_error,
+    // so this stops it from clobbering the "error" status back to "done".
+    const erroredToolNames = new Set<string>()
 
     try {
       // ── POST to Next.js proxy ─────────────────────────────────────────────
@@ -974,12 +977,44 @@ export function useStreamingChat({
           if (eventName === "tool_complete" || parsed.type === "tool_complete") {
             // Tool finished - schema: {content (tool name), label, tool_call: {name, tool_call_id, result, duration_s}}
             const toolCall = parsed.tool_call as Record<string, unknown> | undefined
-            const toolCallId = asString(toolCall?.tool_call_id)
             const label = asString(parsed.label)
             const durationS = typeof toolCall?.duration_s === "number" ? toolCall.duration_s : undefined
-            // Clean up the name→id mapping
             const toolName = asString(toolCall?.name) ?? asString(parsed.content)
-            if (toolName) toolCallIdByName.delete(toolName)
+            // Fall back to the id registered by tool_executing when the provider streamed no tool_call id
+            const toolCallId = asString(toolCall?.tool_call_id) ?? (toolName ? toolCallIdByName.get(toolName) : undefined)
+            const hadError = toolName ? erroredToolNames.has(toolName) : false
+            if (toolName) {
+              toolCallIdByName.delete(toolName)
+              erroredToolNames.delete(toolName)
+            }
+
+            if (toolCallId && !hadError) {
+              const msgId = loadingMessageIdRef.current
+              if (msgId) {
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== msgId) return msg
+                    return {
+                      ...msg,
+                      activities: (msg.activities ?? []).map((a) =>
+                        a.id === toolCallId
+                          ? { ...a, status: "done" as const, durationS, ...(label ? { label, detail: label } : {}) }
+                          : a,
+                      ),
+                    }
+                  }),
+                )
+              }
+            }
+            continue
+          }
+
+          if (eventName === "tool_error" || parsed.type === "tool_error") {
+            // Tool handler raised - schema: {content (tool name), error}
+            const toolName = asString(parsed.content)
+            const errorMessage = asString(parsed.error) ?? "Tool failed"
+            const toolCallId = toolName ? toolCallIdByName.get(toolName) : undefined
+            if (toolName) erroredToolNames.add(toolName)
 
             if (toolCallId) {
               const msgId = loadingMessageIdRef.current
@@ -991,7 +1026,7 @@ export function useStreamingChat({
                       ...msg,
                       activities: (msg.activities ?? []).map((a) =>
                         a.id === toolCallId
-                          ? { ...a, status: "done" as const, durationS, ...(label ? { label, detail: label } : {}) }
+                          ? { ...a, status: "error" as const, detail: errorMessage }
                           : a,
                       ),
                     }

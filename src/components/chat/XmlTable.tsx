@@ -226,7 +226,7 @@ export function XmlTable({ xml, animate = false }: XmlTableProps) {
 
   if (!data || data === "error") {
     return (
-      <pre style={{ fontSize: 12, color: "var(--neutral-500)", overflowX: "auto", margin: "12px 0", padding: "10px 14px", background: "var(--neutral-800-05)", borderRadius: 8, border: "1px solid var(--neutral-100)", whiteSpace: "pre-wrap", wordBreak: "break-all", fontFamily: "var(--font-code)" }}>
+      <pre className="kaya-scrollbar" style={{ fontSize: 12, color: "var(--neutral-500)", overflowX: "auto", margin: "12px 0", padding: "10px 14px", background: "var(--neutral-800-05)", borderRadius: 8, border: "1px solid var(--neutral-100)", whiteSpace: "pre-wrap", wordBreak: "break-all", fontFamily: "var(--font-code)" }}>
         {xml}
       </pre>
     )

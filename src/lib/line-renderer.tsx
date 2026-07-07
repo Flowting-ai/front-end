@@ -39,6 +39,7 @@ function renderKatex(math: string, display: boolean, key: string): React.ReactNo
         key={key}
         data-highlight-atomic="math"
         data-highlight-text={math}
+        className={display ? "kaya-scrollbar" : undefined}
         style={{ display: display ? "block" : "inline-block", margin: display ? "8px 0" : "0 2px", overflowX: display ? "auto" : undefined }}
         dangerouslySetInnerHTML={{ __html: html }}
       />

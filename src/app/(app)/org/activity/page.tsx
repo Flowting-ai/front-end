@@ -198,7 +198,7 @@ export default function OrgActivityPage() {
             </div>
           </SettingsTableToolbar>
 
-          <div style={{ overflowX: 'auto' }}>
+          <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
             <div role="table" aria-label="Activity log" style={{ minWidth: 820 }}>
               <SettingsTableHeader>
                 <SettingsTableHeaderCell>When</SettingsTableHeaderCell>

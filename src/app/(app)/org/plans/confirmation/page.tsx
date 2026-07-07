@@ -64,7 +64,7 @@ function OrgBillingConfirmationContent() {
       : 'Your subscription is active. Your workspace is ready.'
 
   return (
-    <div style={{
+    <div className="kaya-scrollbar" style={{
       width: '100%',
       height: '100%',
       display: 'flex',

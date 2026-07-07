@@ -241,6 +241,7 @@ function TeamWelcomeContent() {
       {/* Welcome content — also fixed, z-index above the overlay, so the cards and
           button remain fully interactive while everything else is blocked. */}
       <div
+        className="kaya-scrollbar"
         style={{
           position: "fixed",
           inset: 0,

@@ -18,6 +18,7 @@ import { useOrg }                                          from '@/context/org-c
 import { useFileUpload }                                   from '@/hooks/use-file-upload'
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
 import { usePinboard, type PinItem }                       from '@/context/pinboard-context'
+import { useHighlight }                                    from '@/context/highlight-context'
 import type { PinMentionable }                             from '@/components/chat/PinMentionDropdown'
 import { fetchPersonas, personasForTeamContext, getVersion, usePersonaRepo } from '@/lib/api/personas'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
@@ -234,6 +235,16 @@ function ProjectChatPageInner() {
   const activeChatRecord    = activeChatId ? chats.find(c => c.id === activeChatId) : undefined
   const activeChatCanManage = activeChatRecord?.canEdit === true
   const activeChatReadOnly  = activeChatRecord?.canEdit === false
+
+  // Load highlights whenever the active project chat changes — mirrors the
+  // main chat page's effect on chatIdFromUrl. Without this, the shared
+  // HighlightProvider keeps whichever other chat's highlights were loaded
+  // last, so returning to this chat renders zero highlight marks even
+  // though the highlights themselves still exist server-side.
+  const { loadForChat: loadHighlightsForChat } = useHighlight()
+  useEffect(() => {
+    if (activeChatId) loadHighlightsForChat(activeChatId)
+  }, [activeChatId, loadHighlightsForChat])
 
   useEffect(() => {
     setChatsLoading(true)

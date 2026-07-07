@@ -518,7 +518,7 @@ export default function SouvenirSlackPage() {
       ) : (
         <SettingsTable columns={SLACK_COLUMNS} columnGap={0}>
           <SettingsTableToolbar title="Project channels" />
-          <div style={{ overflowX: 'auto' }}>
+          <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
             <div role="table" aria-label="Slack project channels" style={{ minWidth: 760 }}>
               <SettingsTableHeader>
                 <SettingsTableHeaderCell>Project</SettingsTableHeaderCell>

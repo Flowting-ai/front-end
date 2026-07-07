@@ -203,6 +203,7 @@ export function JumpTimestampGutter({
       <div
         ref={listRef}
         onScroll={handleScroll}
+        className="kaya-scrollbar"
         style={{
           display:        'flex',
           flexDirection:  'column',

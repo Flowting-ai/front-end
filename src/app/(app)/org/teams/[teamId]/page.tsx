@@ -325,7 +325,7 @@ function InvitePanel({ availableRoles, orgMembers, rosterIds, projects, onInvite
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0, transition: { duration: 0.12 } }}
               >
-                <Popover variant="dropdown" style={{ width: '100%', maxHeight: 220, overflowY: 'auto' }}>
+                <Popover variant="dropdown" className="kaya-scrollbar" style={{ width: '100%', maxHeight: 220, overflowY: 'auto' }}>
                   {eligible.map(m => (
                     <DropdownMenuItem
                       key={m.id}

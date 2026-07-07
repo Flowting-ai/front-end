@@ -20,6 +20,7 @@ const pinComponents: Components = {
     if (match || value.includes("\n")) {
       return (
         <pre
+          className="kaya-scrollbar"
           style={{
             margin: "4px 0",
             padding: "6px 8px",

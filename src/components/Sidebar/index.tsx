@@ -1409,7 +1409,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                 display:       'flex',
                 flexDirection: 'column',
                 gap:           '4px',
-                ...(showAdmin && bodySection !== 'admin' ? {
+                ...(showAdmin ? {
                   padding:         '4px',
                   borderRadius:    '12px',
                   backgroundColor: 'rgba(247,242,237,0.5)',
@@ -1426,13 +1426,14 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                     <TabsTrigger value="brain"  icon={<NeuralNetworkIcon size={16} />}>Brain</TabsTrigger>
                   </TabsList>
                 </Tabs>
-                {showAdmin && bodySection !== 'admin' && (
+                {showAdmin && (
                   <SidebarMenuItem
                     fluid
                     variant="default"
                     icon={<CourtHouseIcon size={16} />}
                     label={orgName ? `Manage ${orgName}` : 'Manage Organisation'}
                     trailing={orgUpdateCount ? <Badge color="Neutral" label={`${orgUpdateCount} updated`} /> : undefined}
+                    selected={bodySection === 'admin'}
                     onClick={onManageOrg}
                   />
                 )}
