@@ -2,13 +2,14 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { AnimatePresence, m } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserIcon, InformationCircleIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Chip } from '@/components/Chip'
+import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
 import { useProjects } from '@/context/projects-context'
 import { usePinboard } from '@/context/pinboard-context'
+import { useProjectPanel } from '@/context/project-panel-context'
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useModelSelectorContext } from '@/context/model-selector-context'
 import { useFileUpload } from '@/hooks/use-file-upload'
@@ -40,17 +41,35 @@ import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
 import { FloatingMenu } from '@/components/FloatingMenu'
 import { FloatingMenuItem } from '@/components/FloatingMenuItem'
+import { Tooltip } from '@/components/Tooltip'
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 // Team-project chat tabs (private projects render a flat list instead).
-type TeamTab = 'your-chats' | 'publish' | 'shared' | 'view-only'
+// 4 distinct, independently-filterable tabs in one row; a single info
+// button right after them explains what each of the four covers.
+type TeamTab = 'personal' | 'publish' | 'shared' | 'view-only'
+
+const tabsRowStyle: React.CSSProperties = {
+  display:    'flex',
+  alignItems: 'center',
+  gap:        8,
+  padding:    '0 4px',
+}
+
+// Divider between each line in the "about these tabs" tooltip — light on the
+// tooltip's dark neutral-700→900 background (see semantic.css --tooltip-bg-*).
+const tooltipDividerStyle: React.CSSProperties = {
+  height:          1,
+  backgroundColor: 'rgba(255,255,255,0.15)',
+}
 
 export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
   const { push }  = useRouter()
-  const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats, loading: projectsLoading } = useProjects()
+  const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats, addChat, loading: projectsLoading } = useProjects()
   const { pins, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
+  const { setPanel: setProjectPanel } = useProjectPanel()
   const chatHistory = useChatHistoryContext()
   const { open: openModelSelector, setPersonaActive, museActive, museAdvanced, selectedModel, personaActive, isOpen: modelSelectorOpen } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
@@ -89,8 +108,9 @@ export default function ProjectPage() {
   const [shareOpen,        setShareOpen]        = useState(false)
   const [shareTeamId,      setShareTeamId]      = useState('')
   const [shareVisibility,  setShareVisibility]  = useState<'private' | 'team'>('private')
+  const [shareTeamsOpen,   setShareTeamsOpen]   = useState(false)
   const [sharingSaving,    setSharingSaving]    = useState(false)
-  const [activeTab,        setActiveTab]        = useState<TeamTab>('your-chats')
+  const [activeTab,        setActiveTab]        = useState<TeamTab>('personal')
   const [teamChats,        setTeamChats]        = useState<Chat[]>([])
   const [sharedItems,      setSharedItems]      = useState<SharedChatItem[]>([])
   const [sharedLoading,    setSharedLoading]    = useState(false)
@@ -193,6 +213,94 @@ export default function ProjectPage() {
     setPersonaActive(!!selectedPersona)
   }, [selectedPersona, setPersonaActive])
 
+  // Hand the Instructions/Files/Team panel to AppLayout's shared slot so it
+  // renders as its own flex sibling (like Pinboard) instead of living inside
+  // this page's own rounded content border. Cleared on close and on unmount
+  // so it never lingers after navigating away.
+  useEffect(() => {
+    if (!project || (!panelOpen && !teamPanelOpen)) {
+      setProjectPanel(null)
+      return
+    }
+    if (panelOpen) {
+      setProjectPanel({
+        title:   'Instructions & Files',
+        onClose: () => setPanelOpen(false),
+        content: (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-regular)',
+                fontSize:   12,
+                lineHeight: '16px',
+                color:      'var(--neutral-500)',
+                margin:     '-6px 0 0',
+              }}
+            >
+              Instructions are included as part of the context for every chat in this project.
+            </p>
+            <ProjectInstructionsPanel
+              value={project.instructions}
+              onSave={project.canEdit ? (text) => updateProject(project.id, { instructions: text }) : undefined}
+              onOpenEditor={project.canEdit ? () => setInstructionsOpen(true) : undefined}
+            />
+            <ProjectFilesPanel
+              files={project.files}
+              pendingFiles={pendingFiles}
+              usedBytes={project.files.reduce((s, f) => s + f.sizeBytes, 0)}
+              totalBytes={100 * 1024 * 1024}
+              onUpload={project.canEdit ? async (fileList) => {
+                const files = Array.from(fileList)
+                setPendingFiles(files)
+                try {
+                  await uploadFiles(project.id, files)
+                  toast.success(files.length === 1 ? 'File uploaded' : `${files.length} files uploaded`)
+                } catch {
+                  // errors already toasted by the context
+                } finally {
+                  setPendingFiles([])
+                }
+              } : undefined}
+              onRemove={project.canEdit ? (fileId) => removeFile(project.id, fileId) : undefined}
+            />
+          </div>
+        ),
+      })
+      return
+    }
+    if (teamPanelOpen && project.teamId) {
+      setProjectPanel({
+        title:   'Team',
+        onClose: () => setTeamPanelOpen(false),
+        content: (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-regular)',
+                fontSize:   12,
+                lineHeight: '16px',
+                color:      'var(--neutral-500)',
+                margin:     '-6px 0 0',
+              }}
+            >
+              Everyone on this project&apos;s team, and the agents shared with it.
+            </p>
+            <ProjectTeamPanel
+              teamId={project.teamId}
+              projectId={project.id}
+              ownerUserId={project.ownerUserId}
+              canEdit={project.canEdit}
+            />
+          </div>
+        ),
+      })
+    }
+  }, [project, panelOpen, teamPanelOpen, pendingFiles, setProjectPanel, updateProject, uploadFiles, removeFile])
+
+  useEffect(() => () => setProjectPanel(null), [setProjectPanel])
+
   if (!project) {
     if (projectsLoading || projectLoading) {
       return (
@@ -234,6 +342,7 @@ export default function ProjectPage() {
   function handleOpenShare() {
     setShareVisibility(project?.teamId ? 'team' : 'private')
     setShareTeamId(project?.teamId ?? '')
+    setShareTeamsOpen(false)
     setShareOpen(true)
   }
 
@@ -265,17 +374,35 @@ export default function ProjectPage() {
     }
   }
 
-  // Fork a chat shared with me into my workspace, then open it. If a fork
-  // already exists, jump straight to it instead of creating a duplicate.
-  async function handleOpenShared(item: SharedChatItem) {
-    if (item.forkedChatId) { push(`/chat/${item.forkedChatId}`); return }
+  // Fork a chat shared with me into my own workspace. If a fork already
+  // exists, reuse it instead of creating a duplicate — forkChatShare itself
+  // is idempotent per share+user, so this is safe to call repeatedly.
+  // forkChatShare hands back a bare, project-less chat, so it must be linked
+  // into this project (addChat) — otherwise the chat page's local chats-list
+  // lookup can't find it and renders "Chat not found." It's also pushed into
+  // `teamChats` directly so the "Personal" tab on *this* page updates without
+  // waiting on a refetch — addChat only reaches the sidebar/other pages via
+  // the shared projects context.
+  async function copySharedChat(item: SharedChatItem, opts: { navigate: boolean }) {
+    if (item.forkedChatId) {
+      addChat(projectId, item.forkedChatId, item.chatTitle)
+      if (opts.navigate) push(PROJECT_CHAT_ROUTE(projectId, item.forkedChatId))
+      else toast.success('Chat copied to your personal chats')
+      return
+    }
     setForkingShareId(item.shareId)
     try {
       const { chatId } = await forkChatShare(item.shareId)
-      toast.success('Chat forked to your workspace')
-      push(`/chat/${chatId}`)
+      const now = new Date().toISOString()
+      addChat(projectId, chatId, item.chatTitle)
+      setTeamChats(prev => [
+        { id: chatId, can_edit: true, visibility: 'private', title: item.chatTitle, created_at: now, updated_at: now, starred: false, project_id: projectId },
+        ...prev.filter(c => c.id !== chatId),
+      ])
+      toast.success(opts.navigate ? 'Chat forked to your workspace' : 'Chat copied to your personal chats')
+      if (opts.navigate) push(PROJECT_CHAT_ROUTE(projectId, chatId))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to fork chat')
+      toast.error(err instanceof Error ? err.message : 'Failed to copy chat')
     } finally {
       setForkingShareId(null)
     }
@@ -287,11 +414,23 @@ export default function ProjectPage() {
   // (and editors whose grants aren't loaded yet) get no publish affordance.
   const canPublishChat = !!project.teamId && caps.canPublishToTeam(project.teamId)
 
+  // "Personal" is everything in this project you can see via the normal chat
+  // list — your own chats AND published-to-team ones (blue badge marks which).
+  // "Published to team" is just the filtered subset of the same list.
+  const personalChats  = teamChats
   const publishedChats = teamChats.filter(c => c.visibility === 'team')
-  const sharedEditable = sharedItems.filter(i => i.mode === 'editable')
-  const sharedReadOnly = sharedItems.filter(i => i.mode === 'read_only')
+  // Most-recently-shared first — createdAt is the only recency signal the
+  // shared-with-me API gives us, so make the ordering explicit rather than
+  // leaning on the backend's own default sort.
+  const sharedItemsSorted = [...sharedItems].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  )
+  // "Shared with you" is every share targeting this project, editable and
+  // view-only alike (red badge marks the view-only ones). "View only" is
+  // just the filtered subset of the same list.
+  const sharedReadOnly = sharedItemsSorted.filter(i => i.mode === 'read_only')
 
-  // A chat row for the team-project tabs (Your chats / Publish to team).
+  // A chat row for the team-project tab (Personal / Published to team).
   function teamChatRow(chat: Chat) {
     return (
       <ProjectChatRow
@@ -313,6 +452,40 @@ export default function ProjectPage() {
           setTeamChats(prev => prev.filter(c => c.id !== chat.id))
         } : undefined}
       />
+    )
+  }
+
+  // A row for the "Shared with you" / "View only" tabs. Editable shares open
+  // (forking first if needed) on click, and offer "Create a copy" from the
+  // ⋮ menu to duplicate into Personal without leaving this page. View-only
+  // shares open the read-only viewer instead and get no menu at all.
+  function sharedChatRow(item: SharedChatItem) {
+    const readOnly = item.mode === 'read_only'
+    return (
+      <div key={item.shareId} style={{ display: 'flex', flexDirection: 'column' }}>
+        <ProjectChatRow
+          title={item.chatTitle}
+          timestamp={readOnly ? '' : (item.forkedChatId ? 'Forked · editable' : 'Editable')}
+          author={item.sharedByName ?? undefined}
+          pinCount={0}
+          readOnly={readOnly}
+          onChatClick={() => {
+            if (readOnly) { push(CHAT_SHARE_ROUTE(item.shareId)); return }
+            if (forkingShareId !== item.shareId) void copySharedChat(item, { navigate: true })
+          }}
+          onCreateCopy={readOnly ? undefined : () => {
+            if (forkingShareId !== item.shareId) void copySharedChat(item, { navigate: false })
+          }}
+        />
+        {readOnly && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, padding: '6px 16px 10px', marginTop: -2 }}>
+            <AlertCircleIcon size={14} color="var(--neutral-400)" style={{ flexShrink: 0, marginTop: 1 }} />
+            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
+              This is a copy of the chat between Souvenir and {item.sharedByName ?? 'a teammate'}. Content may include unverified information. Shared snapshot may not contain all attachments.
+            </span>
+          </div>
+        )}
+      </div>
     )
   }
 
@@ -690,7 +863,7 @@ export default function ProjectPage() {
             />
           </div>
 
-          {/* Chat list — 4-tab layout on team projects, flat list on private */}
+          {/* Chat list — 4 tabs on team projects (grouped in 2 labeled pairs), flat list on private */}
           {project.teamId ? (
             <div style={{ width: '100%', maxWidth: '679px', flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               <Tabs
@@ -698,87 +871,90 @@ export default function ProjectPage() {
                 onValueChange={(v: string) => setActiveTab(v as TeamTab)}
                 style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0 }}
               >
-                <TabsList size="small">
-                  <TabsTrigger value="your-chats">Your chats</TabsTrigger>
-                  <TabsTrigger value="publish">
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      Publish to team
-                      {publishedChats.length > 0 && (
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          minWidth: 16, height: 16, borderRadius: 8, padding: '0 4px',
-                          backgroundColor: 'var(--blue-100)', fontFamily: 'var(--font-body)',
-                          fontWeight: 600, fontSize: 9, color: 'var(--blue-700)', flexShrink: 0,
-                        }}>
-                          {publishedChats.length}
-                        </span>
-                      )}
-                    </span>
-                  </TabsTrigger>
-                  <TabsTrigger value="shared">Shared with you</TabsTrigger>
-                  <TabsTrigger value="view-only">View only</TabsTrigger>
-                </TabsList>
+                {/* All 4 tabs in one row; the info button explains what each covers. */}
+                <div style={tabsRowStyle}>
+                  <TabsList>
+                    <TabsTrigger value="personal">Personal</TabsTrigger>
+                    <TabsTrigger value="publish">
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        Published to team
+                        {publishedChats.length > 0 && (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            minWidth: 16, height: 16, borderRadius: 8, padding: '0 4px',
+                            backgroundColor: 'var(--blue-100)', fontFamily: 'var(--font-body)',
+                            fontWeight: 600, fontSize: 9, color: 'var(--blue-700)', flexShrink: 0,
+                          }}>
+                            {publishedChats.length}
+                          </span>
+                        )}
+                      </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="shared">Shared with you</TabsTrigger>
+                    <TabsTrigger value="view-only">View only</TabsTrigger>
+                  </TabsList>
 
-                {/* Your chats — all my chats in this project */}
-                <TabsContent value="your-chats" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
+                  <Tooltip
+                    side="left"
+                    maxWidth={280}
+                    content={
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div><b>Personal</b> — your own chats here, plus what&apos;s published to the team.</div>
+                        <div style={tooltipDividerStyle} />
+                        <div><b>Published to team</b> — just the chats published to the team.</div>
+                        <div style={tooltipDividerStyle} />
+                        <div><b>Shared with you</b> — chats teammates shared directly, editable and view-only.</div>
+                        <div style={tooltipDividerStyle} />
+                        <div><b>View only</b> — just the view-only shares; you can copy, not edit.</div>
+                      </div>
+                    }
+                  >
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      icon={<InformationCircleIcon size={18} />}
+                      aria-label="About these tabs"
+                    />
+                  </Tooltip>
+                </div>
+
+                {/* Personal — everything in this project you can see: your own
+                    chats plus published-to-team ones (blue "Published" badge). */}
+                <TabsContent value="personal" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3 }}>
-                    {teamChats.length === 0 ? <ProjectChatEmptyRow /> : teamChats.map(teamChatRow)}
+                    {personalChats.length === 0 ? <ProjectChatEmptyRow /> : personalChats.map(teamChatRow)}
                   </div>
                 </TabsContent>
 
-                {/* Publish to team — my chats published to the team */}
+                {/* Published to team — the published-only subset, visible to and manageable by editor+ */}
                 <TabsContent value="publish" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3 }}>
                     {publishedChats.length === 0 ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 4px', color: 'var(--neutral-500)' }}>
                         <AlertCircleIcon size={16} />
                         <span style={{ fontFamily: 'var(--font-body)', fontSize: 14 }}>
-                          {canPublishChat ? 'Hover a chat under “Your chats” to publish it to the team.' : 'No chats have been published to the team yet.'}
+                          {canPublishChat ? 'Hover a chat under “Personal” to publish it to the team.' : 'No chats have been published to the team yet.'}
                         </span>
                       </div>
                     ) : publishedChats.map(teamChatRow)}
                   </div>
                 </TabsContent>
 
-                {/* Shared with you — editable shares; click to fork into your workspace */}
+                {/* Shared with you — editable AND view-only shares (red "View only"
+                    badge marks the latter); click an editable one to fork it. */}
                 <TabsContent value="shared" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3 }}>
-                    {sharedNotice(sharedEditable, 'No chats have been shared with you in this project yet.') ?? (
-                      sharedEditable.map(item => (
-                        <ProjectChatRow
-                          key={item.shareId}
-                          title={item.chatTitle}
-                          timestamp={item.forkedChatId ? 'Forked · editable' : 'Editable'}
-                          author={item.sharedByName ?? undefined}
-                          pinCount={0}
-                          onChatClick={() => { if (forkingShareId !== item.shareId) void handleOpenShared(item) }}
-                        />
-                      ))
+                    {sharedNotice(sharedItemsSorted, 'No chats have been shared with you in this project yet.') ?? (
+                      sharedItemsSorted.map(sharedChatRow)
                     )}
                   </div>
                 </TabsContent>
 
-                {/* View only — read-only snapshots; open the shared view, no forking */}
+                {/* View only — the view-only-only subset; open the shared view, no forking */}
                 <TabsContent value="view-only" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3 }}>
                     {sharedNotice(sharedReadOnly, 'No view-only chats in this project yet.') ?? (
-                      sharedReadOnly.map(item => (
-                        <div key={item.shareId} style={{ display: 'flex', flexDirection: 'column' }}>
-                          <ProjectChatRow
-                            title={item.chatTitle}
-                            timestamp="View only"
-                            author={item.sharedByName ?? undefined}
-                            pinCount={0}
-                            onChatClick={() => push(CHAT_SHARE_ROUTE(item.shareId))}
-                          />
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, padding: '6px 16px 10px', marginTop: -2 }}>
-                            <AlertCircleIcon size={14} color="var(--neutral-400)" style={{ flexShrink: 0, marginTop: 1 }} />
-                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
-                              This is a copy of the chat between Souvenir and {item.sharedByName ?? 'a teammate'}. Content may include unverified information. Shared snapshot may not contain all attachments.
-                            </span>
-                          </div>
-                        </div>
-                      ))
+                      sharedReadOnly.map(sharedChatRow)
                     )}
                   </div>
                 </TabsContent>
@@ -795,15 +971,18 @@ export default function ProjectPage() {
         </div>
       </div>
 
-      {/* ── Floating menu - tracks the right panel ───────────────────── */}
+      {/* ── Floating menu ─────────────────────────────────────────────── */}
+      {/* The panel itself now renders as its own flex sibling in AppLayout
+          (see project-panel-context) — same as Pinboard — so, like
+          FloatingPanel's own toolbar, this never needs to shift for it: the
+          rounded container already shrinks on its own when the sibling opens. */}
       <div
         style={{
           position:   'absolute',
           top:        '50%',
-          right:      (panelOpen || teamPanelOpen) ? 366 : 16,
+          right:      16,
           transform:  'translateY(-50%)',
           zIndex:     20,
-          transition: 'right 380ms cubic-bezier(0.4,0,0.2,1)',
         }}
       >
         <FloatingMenu aria-label="Project tools">
@@ -848,65 +1027,6 @@ export default function ProjectPage() {
         </FloatingMenu>
       </div>
 
-      {/* ── Right panel - toggled by the floating menu ────────────────── */}
-      <AnimatePresence>
-        {(panelOpen || teamPanelOpen) && (
-          <m.div
-            key="project-panel"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 356, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
-            className="kaya-scrollbar"
-            style={{
-              flexShrink: 0,
-              height:     '100%',
-              overflowY:  'auto',
-              overflowX:  'hidden',
-              boxSizing:  'border-box',
-            }}
-          >
-            <div style={{ width: 356, padding: '87px 24px 24px', boxSizing: 'border-box' }}>
-              {panelOpen && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <ProjectInstructionsPanel
-                    value={project.instructions}
-                    onSave={project.canEdit ? (text) => updateProject(projectId, { instructions: text }) : undefined}
-                    onOpenEditor={project.canEdit ? () => setInstructionsOpen(true) : undefined}
-                  />
-                  <ProjectFilesPanel
-                    files={project.files}
-                    pendingFiles={pendingFiles}
-                    usedBytes={project.files.reduce((s, f) => s + f.sizeBytes, 0)}
-                    totalBytes={100 * 1024 * 1024}
-                    onUpload={project.canEdit ? async (fileList) => {
-                      const files = Array.from(fileList)
-                      setPendingFiles(files)
-                      try {
-                        await uploadFiles(projectId, files)
-                        toast.success(files.length === 1 ? 'File uploaded' : `${files.length} files uploaded`)
-                      } catch {
-                        // errors already toasted by the context
-                      } finally {
-                        setPendingFiles([])
-                      }
-                    } : undefined}
-                    onRemove={project.canEdit ? (fileId) => removeFile(projectId, fileId) : undefined}
-                  />
-                </div>
-              )}
-              {teamPanelOpen && project.teamId && (
-                <ProjectTeamPanel
-                  teamId={project.teamId}
-                  projectId={projectId}
-                  ownerUserId={project.ownerUserId}
-                  canEdit={project.canEdit}
-                />
-              )}
-            </div>
-          </m.div>
-        )}
-      </AnimatePresence>
 
       {/* ── Modals ───────────────────────────────────────────────────── */}
       {project.canEdit && <EditProjectModal
@@ -960,57 +1080,105 @@ export default function ProjectPage() {
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {(['private', 'team'] as const).map(v => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setShareVisibility(v)}
-                  style={{
-                    display:         'flex',
-                    alignItems:      'center',
-                    gap:             10,
-                    padding:         '10px 14px',
-                    borderRadius:    10,
-                    border:          'none',
-                    cursor:          'pointer',
-                    backgroundColor: 'white',
-                    textAlign:       'left',
-                    width:           '100%',
-                    boxShadow:       shareVisibility === v
-                      ? '0px 0px 0px 2px var(--blue-500, #4a83bf)'
-                      : '0px 0px 0px 1px var(--neutral-200)',
-                  }}
-                >
-                  <span style={{
-                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
-                    border: `2px solid ${shareVisibility === v ? '#0a7aff' : 'var(--neutral-300)'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {shareVisibility === v && <span style={{ width: 9, height: 9, borderRadius: '50%', backgroundColor: '#0a7aff' }} />}
-                  </span>
-                  <div>
-                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-900)', margin: 0 }}>
-                      {v === 'private' ? 'Private' : 'Team'}
-                    </p>
-                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)', margin: 0 }}>
-                      {v === 'private' ? 'Only you can see this project.' : 'Team editors and assigned project members can access it.'}
-                    </p>
+            {(() => {
+              const shareableTeams = orgTeams.filter(t => !t.archived)
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', width: '100%' }}>
+                    <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                      <ModelFeaturedCard
+                        title="Private"
+                        description="Only you can see this project."
+                        selected={shareVisibility === 'private'}
+                        onSelectedChange={next => { if (next) setShareVisibility('private') }}
+                        style={{ height: '100%', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                      <ModelFeaturedCard
+                        title="Team"
+                        description={shareableTeams.length === 0 ? 'No teams available' : 'Team editors and assigned members can access it.'}
+                        selected={shareVisibility === 'team'}
+                        onSelectedChange={next => { if (next && shareableTeams.length > 0) setShareVisibility('team') }}
+                        style={{
+                          height:    '100%',
+                          boxSizing: 'border-box',
+                          opacity:   shareableTeams.length === 0 ? 0.45 : 1,
+                          cursor:    shareableTeams.length === 0 ? 'not-allowed' : 'pointer',
+                        }}
+                      />
+                    </div>
                   </div>
-                </button>
-              ))}
-            </div>
 
-            {shareVisibility === 'team' && (
-              <select
-                value={shareTeamId}
-                onChange={e => setShareTeamId(e.target.value)}
-                style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)', border: '1px solid var(--neutral-200)', borderRadius: 8, padding: '8px 12px', backgroundColor: 'white', width: '100%' }}
-              >
-                <option value="">Select team…</option>
-                {orgTeams.filter(t => !t.archived).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            )}
+                  {/* Team picker — its own row below the cards, not stacked on
+                      top of the "Team" button, so the two controls stay
+                      isolated: one picks the visibility, the other the team. */}
+                  {shareVisibility === 'team' && shareableTeams.length > 0 && (
+                    <Dropdown.Float
+                      open={shareTeamsOpen}
+                      onOpenChange={setShareTeamsOpen}
+                      placement="bottom-start"
+                      trigger={
+                        <button
+                          type="button"
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+                            width: '100%', padding: '10px 12px', borderRadius: 8,
+                            border: '1px solid var(--neutral-200)', cursor: 'pointer',
+                            backgroundColor: 'white',
+                            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '20px',
+                            color: shareTeamId ? 'var(--neutral-900)' : 'var(--neutral-500)',
+                          }}
+                        >
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {shareTeamId ? (shareableTeams.find(t => t.id === shareTeamId)?.name ?? 'Select team') : 'Select team'}
+                          </span>
+                          <div style={{ flexShrink: 0, lineHeight: 0, transform: shareTeamsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}>
+                            <ArrowDownOneIcon size={14} />
+                          </div>
+                        </button>
+                      }
+                    >
+                      <Dropdown size="md">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 4 }}>
+                          {shareableTeams.map(team => {
+                            const isSelected = team.id === shareTeamId
+                            const select = () => { setShareTeamId(team.id); setShareTeamsOpen(false) }
+                            return (
+                              <div
+                                key={team.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={select}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select() } }}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: 10,
+                                  padding: '8px', borderRadius: 8, cursor: 'pointer', userSelect: 'none',
+                                  backgroundColor: isSelected ? 'var(--neutral-100)' : 'transparent',
+                                }}
+                              >
+                                <span style={{
+                                  flex: '1 0 0', minWidth: 0,
+                                  fontFamily: 'var(--font-body)', fontWeight: isSelected ? 600 : 400,
+                                  fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)',
+                                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                }}>
+                                  {team.name}
+                                </span>
+                                {isSelected && <TickTwoIcon size={16} color="var(--blue-600, #0a7aff)" />}
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <p style={{ margin: '4px 8px 8px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
+                          The selected team&apos;s editors and assigned project members will have access.
+                        </p>
+                      </Dropdown>
+                    </Dropdown.Float>
+                  )}
+                </div>
+              )
+            })()}
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4 }}>
               <Button variant="outline" size="sm" onClick={() => setShareOpen(false)}>Cancel</Button>

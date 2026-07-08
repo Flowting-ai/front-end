@@ -8,6 +8,7 @@ import { CompareProvider } from "@/context/compare-context";
 import { ModelSelectorProvider } from "@/context/model-selector-context";
 import { PresetModelSelectorDialog } from "@/components/chat/PresetModelSelectorDialog";
 import { ProjectsProvider } from "@/context/projects-context";
+import { ProjectPanelProvider } from "@/context/project-panel-context";
 import { OnboardingGuard } from "@/components/shared/OnboardingGuard";
 import { PlanUpgradeToast } from "@/components/shared/PlanUpgradeToast";
 import { SearchProvider } from "@/context/search-context";
@@ -28,7 +29,9 @@ export default function AppGroupLayout({
               <CompareProvider>
                 <ModelSelectorProvider>
                   <SearchProvider>
-                    <AppLayout>{children}</AppLayout>
+                    <ProjectPanelProvider>
+                      <AppLayout>{children}</AppLayout>
+                    </ProjectPanelProvider>
                     <PresetModelSelectorDialog />
                     <PlanUpgradeToast />
                   </SearchProvider>

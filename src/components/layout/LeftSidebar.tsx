@@ -542,7 +542,12 @@ function ProjectsSection({
           )}
 
           {visibleProjects.map(project => {
-            const chats     = getChats(project.id)
+            // Only chats the user can actually edit belong in this fully-
+            // interactive tree (rename/delete, opens the real chat page).
+            // A chat merely visible here via another member's project
+            // activity — or a read-only share — isn't "yours"; it's surfaced
+            // properly through the project page's own tabs instead.
+            const chats     = getChats(project.id).filter(c => c.canEdit !== false)
             const isActive  = pathname.startsWith(PROJECT_ROUTE(project.id))
             const isExpanded = expandedIds.has(project.id)
 
@@ -737,6 +742,7 @@ function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId }: Tea
       />
       {isPersonalView ? (
         <ProjectsSection
+          key="personal"
           label="Personal projects"
           showNewProject={showNewPersonalProject}
           projectsFilter={personalProjectFilter}
@@ -744,6 +750,11 @@ function TeamsSidebarContent({ role, teams, activeTeamId, setActiveTeamId }: Tea
         />
       ) : (
         <ProjectsSection
+          // Remounts on every team switch (rather than reusing the same instance
+          // across the personal ↔ team ternary) so `expandedIds` — lazily
+          // initialized once from whichever project list first rendered — resets
+          // and re-expands correctly for the newly-selected team.
+          key={effectiveActiveTeamId ?? 'team'}
           label={teamProjectsLabel}
           showNewProject={showNewTeamProject}
           projectsFilter={teamProjectFilter}
@@ -1642,7 +1653,11 @@ function LeftSidebarImpl({
   const { searchOpen, openSearch } = useSearch();
 
   const isPersonaPage = pathname?.startsWith("/agents") || pathname?.startsWith("/agent");
-  const isProjectPage = pathname?.startsWith("/project") ?? false;
+  // Trailing slash matters: bare "/project" also prefix-matches "/projects"
+  // and "/projects/new" (the listing pages), which must NOT be treated as a
+  // project detail page here (unlike AppLayout's own, intentionally broader
+  // isAnyProjectPage check).
+  const isProjectPage = pathname?.startsWith("/project/") ?? false;
   const isBrainPage   = pathname?.startsWith("/brain") ?? false;
 
   // Detect team project context: extract the project id from the path and look
@@ -1726,10 +1741,20 @@ function LeftSidebarImpl({
     () => new Set(projectChats.map(c => c.id)),
     [projectChats],
   );
-  const filteredChatHistory = useMemo(
-    () => ({ ...chatHistory, chats: chatHistory.chats.filter(c => !projectChatIdSet.has(c.id)) }),
-    [chatHistory, projectChatIdSet],
-  );
+  // Mirror the Projects section's personal/team split (see TeamsSidebarContent's
+  // personalProjectFilter/teamProjectFilter): Recent Chats must reflect whichever
+  // workspace the team switcher currently points at, everywhere it's shown — not
+  // just on pages that happen to refetch. `activeTeamId` stays `null` when there's
+  // no org (or nothing selected yet), in which case nothing is filtered out.
+  const filteredChatHistory = useMemo(() => {
+    const withoutProjectChats = chatHistory.chats.filter(c => !projectChatIdSet.has(c.id));
+    const chats = activeTeamId === 'personal'
+      ? withoutProjectChats.filter(c => !c.team_id)
+      : activeTeamId
+        ? withoutProjectChats.filter(c => c.team_id === activeTeamId)
+        : withoutProjectChats;
+    return { ...chatHistory, chats };
+  }, [chatHistory, projectChatIdSet, activeTeamId]);
 
   // Keep a stable ref to addOptimistic so the event listener never captures a stale closure.
   const addOptimisticRef = useRef(chatHistory.addOptimistic);
@@ -1986,8 +2011,11 @@ function LeftSidebarImpl({
         ) : isPersonaPage ? (
           // Both accounts: persona list is in agentItems; recent agent chats go here as a second layer
           <RecentAgentChatsSection />
-        ) : isProjectPage ? null : isBrainPage ? null : (
+        ) : isBrainPage ? null : (
           // Both sections share sectionProps; StarredSection self-hides when empty.
+          // Rendered on every other page — including project pages, whose own
+          // "projects" body-section tab is separate from this "chats" one — so
+          // Recent Chats is never silently hidden behind a disconnected placeholder.
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             <StarredSection {...sectionProps} />
             <RecentsSection {...sectionProps} />

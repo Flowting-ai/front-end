@@ -51,6 +51,8 @@ export interface Team {
 
 export interface TeamSwitcherDropdownProps extends React.HTMLAttributes<HTMLDivElement> {
   teams:             Team[]
+  /** The workspace switcher's current selection — a team id, or the literal
+   *  `'personal'` — so this menu can highlight which row is already active. */
   activeTeamId?:     string
   /** Org-level role. Gates the "All Teams" / "Teams" section label. Each
    *  team's own `userRole` drives its badge + action flyout. */
@@ -99,6 +101,7 @@ function TeamRow({
   isOpen,
   roleMode,
   hasActions,
+  selected = false,
   onSelect,
   ...props
 }: {
@@ -106,10 +109,12 @@ function TeamRow({
   isOpen:     boolean
   roleMode:   RoleBadgeMode
   hasActions: boolean
+  /** This is the workspace switcher's current selection — persistent highlight, same treatment as hover (mirrors Dropdown.Item's own `selected`). */
+  selected?:  boolean
   onSelect?:  () => void
 } & React.HTMLAttributes<HTMLDivElement>) {
   const [hovered, setHovered] = useState(false)
-  const isActive = hovered || isOpen
+  const isActive = hovered || isOpen || selected
 
   return (
     <div
@@ -243,7 +248,7 @@ export const TeamSwitcherDropdown = React.forwardRef<HTMLDivElement, TeamSwitche
   function TeamSwitcherDropdown(
     {
       teams,
-      activeTeamId: _activeTeamId,
+      activeTeamId,
       currentUserRole,
       roleMode = 'solar',
       onSelectTeam,
@@ -284,6 +289,7 @@ export const TeamSwitcherDropdown = React.forwardRef<HTMLDivElement, TeamSwitche
               icon={<FolderOneIcon />}
               label="Personal projects"
               subLabel="View all your personal projects"
+              selected={activeTeamId === 'personal'}
               onClick={onSelectPersonal}
             />
           </Dropdown.Section>
@@ -302,6 +308,7 @@ export const TeamSwitcherDropdown = React.forwardRef<HTMLDivElement, TeamSwitche
                     isOpen={isOpen}
                     roleMode={roleMode}
                     hasActions={hasActions}
+                    selected={team.id === activeTeamId}
                     onSelect={() => onSelectTeam?.(team.id)}
                   />
                 )

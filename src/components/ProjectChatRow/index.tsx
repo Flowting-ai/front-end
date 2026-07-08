@@ -5,6 +5,7 @@ import { MoreVerticalIcon, PinIcon, PlusSignIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
+import { Badge } from '@/components/Badge'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -15,6 +16,8 @@ export interface ProjectChatRowProps {
   active?:          boolean
   /** Author attribution, appended to the timestamp line (team shared/view-only rows). */
   author?:          string
+  /** Read-only shared chat (the "View only" tab) — shows a "View only" badge and never renders the ⋮ menu, regardless of onRename/onDelete. */
+  readOnly?:        boolean
   /** Team projects only: show the per-chat "Publish to team" affordance (editor+). */
   canPublish?:      boolean
   /** Whether this chat is currently published to the team. */
@@ -25,6 +28,8 @@ export interface ProjectChatRowProps {
   onPinsClick?:     (e: React.MouseEvent) => void
   onRename?:        (newTitle: string) => void
   onDelete?:        () => void
+  /** Editable shared chat, not yet owned — shows "Create a copy" instead of Rename/Delete. */
+  onCreateCopy?:    () => void
 }
 
 // Per-chat publish flow — mirrors the design's YourChatRow state machine.
@@ -68,7 +73,7 @@ export function ProjectChatEmptyRow() {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function ProjectChatRow(
-  { title, timestamp, pinCount, active, author, canPublish, published, onPublishToggle, onChatClick, onPinsClick, onRename, onDelete, ref }: ProjectChatRowProps & { ref?: React.Ref<HTMLDivElement> },
+  { title, timestamp, pinCount, active, author, readOnly, canPublish, published, onPublishToggle, onChatClick, onPinsClick, onRename, onDelete, onCreateCopy, ref }: ProjectChatRowProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
     const [hovered,   setHovered]   = useState(false)
     const [menuOpen,  setMenuOpen]  = useState(false)
@@ -114,7 +119,7 @@ export function ProjectChatRow(
     // ⋮ menu only visible on hover/menu-open, and only when there's an action
     // to offer (read-only shared/view-only rows pass no handlers).
     const showMoreMenu = hovered || menuOpen
-    const hasMenu = !!onRename || !!onDelete || (!!canPublish && isPublished)
+    const hasMenu = !readOnly && (!!onRename || !!onDelete || !!onCreateCopy || (!!canPublish && isPublished))
     // Pin badge uses warm hover style when the row is active or hovered
     const showPinAction = hovered || menuOpen || !!active
 
@@ -202,27 +207,8 @@ export function ProjectChatRow(
               >
                 {title}
               </p>
-              {isPublished && (
-                <span
-                  style={{
-                    display:         'inline-flex',
-                    alignItems:      'center',
-                    padding:         '2px 4px',
-                    borderRadius:    6,
-                    backgroundColor: 'var(--blue-100)',
-                    boxShadow:       '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5)',
-                    fontFamily:      'var(--font-body)',
-                    fontWeight:      500,
-                    fontSize:        11,
-                    lineHeight:      '16px',
-                    color:           'var(--blue-700)',
-                    whiteSpace:      'nowrap',
-                    flexShrink:      0,
-                  }}
-                >
-                  Published
-                </span>
-              )}
+              {isPublished && <Badge color="Blue" label="Published" style={{ flexShrink: 0 }} />}
+              {readOnly && <Badge color="Red" label="View only" style={{ flexShrink: 0 }} />}
             </div>
           )}
           <p
@@ -238,7 +224,7 @@ export function ProjectChatRow(
               margin:       0,
             }}
           >
-            {timestamp}{author ? ` · ${author}` : ''}
+            {[timestamp, author].filter(Boolean).join(' · ')}
           </p>
         </div>
 
@@ -317,11 +303,13 @@ export function ProjectChatRow(
             >
               <Dropdown size="sm">
                 <Dropdown.Section fluid>
-                  <Dropdown.Item
-                    label="Rename"
-                    onClick={() => { setMenuOpen(false); setIsEditing(true) }}
-                    fluid
-                  />
+                  {onRename && (
+                    <Dropdown.Item
+                      label="Rename"
+                      onClick={() => { setMenuOpen(false); setIsEditing(true) }}
+                      fluid
+                    />
+                  )}
                   {canPublish && isPublished && (
                     <Dropdown.Item
                       label="Unpublish from team"
@@ -329,22 +317,32 @@ export function ProjectChatRow(
                       fluid
                     />
                   )}
-                  <Dropdown.Item
-                    label="Delete"
-                    variant="danger"
-                    onClick={() => { setMenuOpen(false); onDelete?.() }}
-                    fluid
-                  />
+                  {onCreateCopy && (
+                    <Dropdown.Item
+                      label="Create a copy"
+                      onClick={() => { setMenuOpen(false); onCreateCopy() }}
+                      fluid
+                    />
+                  )}
+                  {onDelete && (
+                    <Dropdown.Item
+                      label="Delete"
+                      variant="danger"
+                      onClick={() => { setMenuOpen(false); onDelete() }}
+                      fluid
+                    />
+                  )}
                 </Dropdown.Section>
               </Dropdown>
             </Dropdown.Float>
           </div>
         )}
 
-        {/* + Publish — editor+ only, hidden once published or while confirming */}
+        {/* + Publish — editor+ only, hidden once published or while confirming.
+            Always visible (not hover-gated) — it's the primary action on this row. */}
         {!isEditing && !isConfirming && canPublish && !isPublished && (
           <div
-            style={{ display: 'flex', alignItems: 'center', opacity: showMoreMenu ? 1 : 0, transition: 'opacity 120ms ease', flexShrink: 0 }}
+            style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
             <Button

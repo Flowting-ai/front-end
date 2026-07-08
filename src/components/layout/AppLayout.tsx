@@ -2,14 +2,19 @@
 
 import { Suspense, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { m } from "framer-motion";
+import { CancelOneIcon } from "@strange-huge/icons";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
 import { HighlightSidebar } from "./HighlightSidebar";
 import { TopBar } from "./TopBar";
 import { AppDialogs } from "./AppDialogs";
 import { FloatingPanel } from "./FloatingPanel";
+import { IconButton } from "@/components/IconButton";
+import { Tooltip } from "@/components/Tooltip";
 import { usePinboard } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
+import { useProjectPanel } from "@/context/project-panel-context";
 import { useOrg } from "@/context/org-context";
 import { WorkspaceStatusBanner, type TokenStatus } from "@/components/WorkspaceStatusBanner";
 import {
@@ -249,6 +254,11 @@ export function AppLayout({
         </div>
       </div>
 
+      {/* ── Project panel (Instructions/Files/Team) - same treatment as Pinboard ── */}
+      <Suspense fallback={null}>
+        <ProjectPanelSidebar />
+      </Suspense>
+
       {/* ── Right sidebar (Pinboard) ── */}
       <Suspense fallback={null}>
         <RightSidebar />
@@ -262,5 +272,90 @@ export function AppLayout({
       {/* ── Global dialogs ── */}
       <AppDialogs />
     </div>
+  );
+}
+
+// A full-height flex sibling next to RightSidebar (Pinboard) rather than a
+// panel squeezed inside the page's own rounded content border. The project
+// page hands its Instructions/Files/Team JSX to the shared context; this
+// provides the animated shell plus the same neutral-50 background + titled
+// header/close-button chrome as Pinboard (see PinboardHeader), so the two
+// side panels read as one consistent system.
+function ProjectPanelSidebar() {
+  const { panel, isOpen } = useProjectPanel();
+
+  return (
+    <m.div
+      animate={isOpen ? { width: 356, opacity: 1 } : { width: 0, opacity: 0 }}
+      initial={{ width: 0, opacity: 0 }}
+      transition={{ type: "spring", stiffness: 260, damping: 32, mass: 0.9 }}
+      style={{
+        height:        "100%",
+        flexShrink:    0,
+        overflow:      "hidden",
+        pointerEvents: isOpen ? undefined : "none",
+      }}
+      aria-hidden={!isOpen || undefined}
+    >
+      <div
+        style={{
+          width:          356,
+          height:         "100%",
+          flexShrink:     0,
+          display:        "flex",
+          flexDirection:  "column",
+          background:     "var(--neutral-50)",
+          boxSizing:      "border-box",
+        }}
+      >
+        {/* ── Header - title + close, matches PinboardHeader's shape ── */}
+        <div
+          style={{
+            display:        "flex",
+            alignItems:     "center",
+            justifyContent: "space-between",
+            gap:            8,
+            minHeight:      58,
+            padding:        "22px 16px 0 24px",
+            flexShrink:     0,
+          }}
+        >
+          <p
+            style={{
+              margin:     0,
+              fontFamily: "var(--font-title)",
+              fontWeight: "var(--font-weight-regular)",
+              fontSize:   "var(--font-size-heading)",
+              lineHeight: "var(--line-height-heading)",
+              color:      "var(--neutral-700)",
+              whiteSpace: "nowrap",
+              overflow:   "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {panel?.title}
+          </p>
+          <Tooltip content={`Close ${panel?.title ?? "panel"}`}>
+            <IconButton
+              variant="ghost"
+              size="sm"
+              icon={<CancelOneIcon size={20} />}
+              aria-label={`Close ${panel?.title ?? "panel"}`}
+              onClick={panel?.onClose}
+            />
+          </Tooltip>
+        </div>
+
+        {/* ── Content ── */}
+        <div
+          className="kaya-scrollbar"
+          style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overflowX: "hidden", boxSizing: "border-box" }}
+        >
+          <div style={{ padding: "14px 24px 24px", boxSizing: "border-box" }}>
+            {panel?.content}
+          </div>
+        </div>
+      </div>
+    </m.div>
   );
 }
