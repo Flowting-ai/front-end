@@ -1741,20 +1741,15 @@ function LeftSidebarImpl({
     () => new Set(projectChats.map(c => c.id)),
     [projectChats],
   );
-  // Mirror the Projects section's personal/team split (see TeamsSidebarContent's
-  // personalProjectFilter/teamProjectFilter): Recent Chats must reflect whichever
-  // workspace the team switcher currently points at, everywhere it's shown — not
-  // just on pages that happen to refetch. `activeTeamId` stays `null` when there's
-  // no org (or nothing selected yet), in which case nothing is filtered out.
+  // Recent Chats is a personal, cross-workspace list: it always shows the
+  // user's own recent chats regardless of which team/personal context the
+  // team switcher currently points at (unlike Projects, which does split by
+  // workspace). Only project-linked chats are excluded, since those already
+  // surface inside the Projects section.
   const filteredChatHistory = useMemo(() => {
-    const withoutProjectChats = chatHistory.chats.filter(c => !projectChatIdSet.has(c.id));
-    const chats = activeTeamId === 'personal'
-      ? withoutProjectChats.filter(c => !c.team_id)
-      : activeTeamId
-        ? withoutProjectChats.filter(c => c.team_id === activeTeamId)
-        : withoutProjectChats;
+    const chats = chatHistory.chats.filter(c => !projectChatIdSet.has(c.id));
     return { ...chatHistory, chats };
-  }, [chatHistory, projectChatIdSet, activeTeamId]);
+  }, [chatHistory, projectChatIdSet]);
 
   // Keep a stable ref to addOptimistic so the event listener never captures a stale closure.
   const addOptimisticRef = useRef(chatHistory.addOptimistic);

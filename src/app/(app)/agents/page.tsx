@@ -565,7 +565,6 @@ export default function PersonasPage() {
   const { close: closePinboard } = usePinboard()
   const { currentUserRole } = useOrg()
 
-
   const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')
   const [personas,     setPersonas]     = useState<Persona[]>([])
   const [draftAvatarMap,   setDraftAvatarMap]   = useState<Record<string, string>>({})
