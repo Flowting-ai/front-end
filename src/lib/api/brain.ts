@@ -554,11 +554,11 @@ export interface BrainSSECallbacks {
  * on user prompts, but during model thinking and tool execution it can fall
  * silent for tens of seconds — extended-thinking turns, slow tools, and large
  * document processing (multi-page PDFs / DOCX with extracted text injected as
- * document blocks) all produce zero events for extended periods. Five minutes
+ * document blocks) all produce zero events for extended periods. This value
  * matches the server-side proxy's maxDuration and covers realistic worst-case
  * scenarios while still catching a truly wedged backend.
  */
-const STREAM_IDLE_TIMEOUT_MS = 300_000
+const STREAM_IDLE_TIMEOUT_MS = 800_000
 
 /**
  * Reads a Brain SSE response body until the stream closes.

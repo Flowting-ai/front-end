@@ -47,7 +47,7 @@ import type { ConnectorRequestStatus } from '@/lib/api/teams'
 import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 import { connectorLogoSrc } from '@/lib/connectorLogos'
 import type { ApiProjectSummary } from '@/lib/api/projects'
-import { listMembers } from '@/lib/api/organization'
+import { listMembers, getOrgSettings } from '@/lib/api/organization'
 import { fetchPersonas, personasForTeamContext, type Persona } from '@/lib/api/personas'
 import { fetchTeamAccessSnapshot } from '@/lib/team-access'
 import { ORG_TEAMS_ROUTE } from '@/lib/routes'
@@ -775,6 +775,14 @@ export default function TeamSettingsPage() {
   const [addEditorOpen, setAddEditorOpen] = useState(false)
   const [deleteInput, setDeleteInput] = useState('')
   const [refreshing, setRefreshing] = useState(false)
+  const [allowedDomains, setAllowedDomains] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!orgId) return
+    getOrgSettings(orgId)
+      .then(s => setAllowedDomains(s.allowedEmailDomains ?? []))
+      .catch(() => { /* non-fatal — open invite if settings unavailable */ })
+  }, [orgId])
 
   const availableRoles: WorkspaceRole[] = orgRole === 'owner'
     ? ['admin', 'editor', 'member']
@@ -959,6 +967,19 @@ export default function TeamSettingsPage() {
 
   const handleInvite = async (emails: string[], role: WorkspaceRole, projectId?: string) => {
     if (!orgId || !team) return
+
+    if (allowedDomains.length > 0) {
+      const disallowed = emails.filter(email => {
+        const domain = email.trim().split('@')[1]?.toLowerCase() ?? ''
+        return !allowedDomains.includes(domain)
+      })
+      if (disallowed.length > 0) {
+        // Thrown (not toasted here) so InvitePanel's handleSend catch block
+        // surfaces it and keeps the panel open instead of treating this as success.
+        throw new Error(`Email domain not allowed. Invites are restricted to: ${allowedDomains.join(', ')}`)
+      }
+    }
+
     await inviteTeamMembers(orgId, team.id, emails, role, undefined, projectId)
     toast.success(`Invite sent to ${emails.length} email${emails.length > 1 ? 's' : ''}`)
     setInviteOpen(false)

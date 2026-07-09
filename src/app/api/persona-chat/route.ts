@@ -4,7 +4,8 @@ import { logger } from "@/lib/logger"
 import { forwardGeoHeaders } from "@/lib/geo-headers"
 
 export const dynamic = "force-dynamic"
-export const maxDuration = 300
+// Matches the /api/chat proxy's ceiling — see that file for the Vercel Fluid-compute rationale.
+export const maxDuration = 800
 
 const BACKEND_BASE = (process.env.SERVER_URL ?? "").replace(/\/+$/, "")
 
