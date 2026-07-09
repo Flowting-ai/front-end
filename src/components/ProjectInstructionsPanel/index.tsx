@@ -167,29 +167,31 @@ export function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOp
             Add instructions to steer this project towards the right direction…
           </p>
         ) : (
-          <div
-            {...(value.length >= 400 ? { className: 'kaya-scrollbar' } : {})}
+          // Clamped to 5 *rendered* lines regardless of character count — a
+          // character-length threshold (the old `value.length >= 400` scroll
+          // gate) is fooled by many short lines (e.g. one letter per line),
+          // which rack up rendered height without ever reaching 400 chars.
+          // line-clamp counts actual lines (wraps and explicit "\n" alike),
+          // so it can't be gamed that way.
+          <p
             style={{
-              overflowY:           value.length >= 400 ? 'auto'    : 'visible',
-              maxHeight:           value.length >= 400 ? '240px'   : 'none',
-              overscrollBehaviorY: 'contain',
+              fontFamily:        'var(--font-body)',
+              fontWeight:        'var(--font-weight-regular)',
+              fontSize:          '14px',
+              lineHeight:        '22px',
+              color:             '#1a1714',
+              margin:            0,
+              whiteSpace:        'pre-wrap',
+              wordBreak:         'break-word',
+              display:           '-webkit-box',
+              WebkitBoxOrient:   'vertical',
+              WebkitLineClamp:   5,
+              overflow:          'hidden',
+              textOverflow:      'ellipsis',
             }}
           >
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 'var(--font-weight-regular)',
-                fontSize:   '14px',
-                lineHeight: '22px',
-                color:      '#1a1714',
-                margin:     0,
-                whiteSpace: 'pre-wrap',
-                wordBreak:  'break-word',
-              }}
-            >
-              {value}
-            </p>
-          </div>
+            {value}
+          </p>
         )}
       </div>
     )

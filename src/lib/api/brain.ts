@@ -2,7 +2,7 @@
 
 import { z } from 'zod'
 import { apiFetch, apiFetchJson, ApiError } from './client'
-import { API_BASE_URL } from '../config'
+import { API_BASE_URL, directUpload, shouldUseDirectBackend } from '../config'
 import type { ReasoningSection } from '../reasoning'
 
 // ── Endpoint helpers ──────────────────────────────────────────────────────────
@@ -696,7 +696,12 @@ function buildTextBody(
   return { body: params, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
 }
 
-/** Build a FormData body for the /api/brain-chat server-side proxy. */
+/**
+ * Build a FormData body for a file-carrying brain turn. Used both for the
+ * /api/brain-chat proxy fallback (local dev) and for the direct-to-backend
+ * request on deployed origins — `chatId` is a no-op extra field in the direct
+ * case (the URL already encodes it) but harmless for FastAPI to receive.
+ */
 function buildFileBody(
   input:   string,
   chatId:  string | null,
@@ -726,13 +731,20 @@ export async function startBrainChat(
   let response: Response
 
   if (opts.files?.length) {
-    // Route through the server-side proxy so FastAPI receives a complete
-    // multipart body (content-length included) rather than a chunked stream.
-    response = await apiFetch('/api/brain-chat', {
-      method: 'POST',
-      body:   buildFileBody(input, null, opts),
-      signal,
-    })
+    // /api/brain-chat is a Vercel serverless function capped at a 4.5MB request
+    // body (FUNCTION_PAYLOAD_TOO_LARGE → 413). On deployed origins, skip it and
+    // POST the multipart body straight to the backend — the browser sends a
+    // real Content-Length for File-backed FormData, so the chunked-body issue
+    // that motivated the proxy (see buildFileBody's docstring) doesn't apply
+    // here. Same pattern as persona/project uploads (see directUpload).
+    response = await apiFetch(
+      shouldUseDirectBackend() ? directUpload(BRAIN_CREATE) : '/api/brain-chat',
+      {
+        method: 'POST',
+        body:   buildFileBody(input, null, opts),
+        signal,
+      },
+    )
   } else {
     const { body, headers } = buildTextBody(input, opts)
     response = await apiFetch(BRAIN_CREATE, { method: 'POST', body, headers, signal })
@@ -762,11 +774,15 @@ export async function continueBrainChat(
   let response: Response
 
   if (opts.files?.length) {
-    response = await apiFetch('/api/brain-chat', {
-      method: 'POST',
-      body:   buildFileBody(input, chatId, opts),
-      signal,
-    })
+    // See startBrainChat above — same 4.5MB proxy cap, same direct-to-backend bypass.
+    response = await apiFetch(
+      shouldUseDirectBackend() ? directUpload(BRAIN_STREAM(chatId)) : '/api/brain-chat',
+      {
+        method: 'POST',
+        body:   buildFileBody(input, chatId, opts),
+        signal,
+      },
+    )
   } else {
     const { body, headers } = buildTextBody(input, opts)
     response = await apiFetch(BRAIN_STREAM(chatId), { method: 'POST', body, headers, signal })

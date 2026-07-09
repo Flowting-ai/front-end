@@ -4819,6 +4819,8 @@ function BrainPageInner() {
       threadRef={threadRef}
       initialInputValue={inputSeed.value || undefined}
       initialInputKey={inputSeed.key}
+      onFilesDropped={(files) => setBrainAttachments((prev) => processFiles(files, prev))}
+      dropDisabled={brainIsStreaming || creditStatus.blocked}
       clarificationProps={activeClarification && !activePersonaPrompt && !activePinPrompt ? {
         // The backend's `title` is usually a generic preamble. The actual
         // model-generated question lives in `description`. Prefer the

@@ -46,6 +46,23 @@ export const directUpload = (endpoint: string): string => {
   return `${SERVER_ORIGIN}${endpoint.slice(API_BASE_URL.length)}`;
 };
 
+/**
+ * True when a multipart request should skip the same-origin Next.js proxy
+ * and go straight to the backend (see `directUpload` above). Callers that
+ * build their own absolute backend URL (bespoke proxies like /api/chat,
+ * /api/brain-chat rather than the generic /api/backend/[...path] rewrite)
+ * use this to decide whether to bypass their proxy entirely.
+ */
+export const shouldUseDirectBackend = (): boolean => {
+  if (!SERVER_ORIGIN) return false;
+  if (typeof window === "undefined") return false;
+  return !isLocalHost(window.location.hostname);
+};
+
+/** Absolute backend origin (no trailing slash), or "" if unset. Only meaningful
+ *  together with `shouldUseDirectBackend()` — see `directUpload` for why. */
+export const BACKEND_ORIGIN = SERVER_ORIGIN;
+
 // ── Health ────────────────────────────────────────────────────────────────────
 export const HEALTH_ENDPOINT = withBase("/health");
 

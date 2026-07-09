@@ -28,6 +28,7 @@ import {
   type PersonaActivityItem,
 } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
+import { friendlyModelError } from '@/lib/model-error'
 import { stableKey } from '@/hooks/use-model-selection'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import type { PinFolder } from '@/lib/api/pins'
@@ -509,6 +510,10 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
         setGuideIsStreaming(false)
       },
       onError: (err) => {
+        // `err` here is already humanized by personas.ts before reaching this
+        // callback — don't re-run friendlyModelError, it would flatten a
+        // specific message (e.g. "model is unresponsive") into the generic
+        // fallback since the friendly text itself matches no raw pattern.
         setGuideMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, text: `⚠ ${err}`, isStreaming: false } : m))
         guideStreamingRef.current = false
         setGuideIsStreaming(false)
@@ -529,7 +534,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
         callbacks,
       )
     } catch (err) {
-      callbacks.onError?.((err as Error).message ?? 'Failed to get suggestions')
+      callbacks.onError?.(friendlyModelError((err as Error).message ?? 'Failed to get suggestions'))
     }
   }, [])
 
@@ -617,6 +622,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
     const callbacks: PersonaChatStreamCallbacks = {
       onChunk: (delta) => setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, text: m.text + delta } : m)),
       onDone:  ()      => { setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, isStreaming: false } : m)); chatStreamingRef.current = false; setIsStreaming(false) },
+      // `err` is already humanized by personas.ts before reaching this callback.
       onError: (err)   => { setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, text: `⚠ ${err}`, isStreaming: false } : m)); chatStreamingRef.current = false; setIsStreaming(false) },
       onConnectPrompt:    (prompt) => setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, connectPrompts:    [...(m.connectPrompts    ?? []), prompt] } : m)),
       onPermissionPrompt: (prompt) => setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, permissionPrompts: [...(m.permissionPrompts ?? []), prompt] } : m)),
@@ -640,7 +646,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
         },
       )
     } catch (err) {
-      callbacks.onError?.((err as Error).message ?? 'Failed to send message')
+      callbacks.onError?.(friendlyModelError((err as Error).message ?? 'Failed to send message'))
     }
   }, [])
 

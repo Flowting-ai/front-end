@@ -270,8 +270,24 @@ export async function setProjectVisibility(
 ): Promise<void> {
   const body: Record<string, unknown> = { visibility }
   if (visibility === 'team' && teamId) body.teamId = teamId
-  await apiFetch(PROJECT_VISIBILITY_ENDPOINT(projectId), {
+  const res = await apiFetch(PROJECT_VISIBILITY_ENDPOINT(projectId), {
     method: 'PATCH',
     body:   JSON.stringify(body),
   })
+  // The endpoint returns 204 No Content on success, so this can't use
+  // apiFetchJson (its success path unconditionally calls response.json(),
+  // which throws on an empty body) — check res.ok manually instead. Without
+  // this, a rejected change (e.g. the 403 a non-owner gets from
+  // set_resource_visibility) resolved silently and the caller reported
+  // success even though the project's visibility never changed.
+  if (!res.ok) {
+    let message = `Failed to update visibility (${res.status})`
+    try {
+      const data = await res.clone().json() as { detail?: string }
+      if (typeof data.detail === 'string') message = data.detail
+    } catch {
+      // non-JSON error body - keep the default message
+    }
+    throw new ApiError(res.status, 'set_visibility_failed', message)
+  }
 }

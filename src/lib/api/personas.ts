@@ -2,6 +2,7 @@
 
 import { apiFetch, apiFetchJson } from "./client";
 import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
+import { friendlyModelError } from "@/lib/model-error";
 import {
   PERSONAS_ENDPOINT,
   PERSONA_DETAIL_ENDPOINT,
@@ -1213,7 +1214,7 @@ async function readPersonaSSEStream(
               break
             }
             case "error":
-              callbacks.onError?.(str(parsed.error) || "Stream error");
+              callbacks.onError?.(friendlyModelError(str(parsed.error)));
               return;
           }
         }
@@ -1223,7 +1224,7 @@ async function readPersonaSSEStream(
     if (!doneSeen) callbacks.onDone?.();
   } catch (err) {
     if ((err as Error).name !== "AbortError") {
-      callbacks.onError?.((err as Error).message ?? "Stream read error");
+      callbacks.onError?.(friendlyModelError((err as Error).message ?? "Stream read error"));
     } else if (!doneSeen) {
       // Abort clears the stream without an error event — still need to
       // finalise the message so the streaming lock is released.
@@ -1264,7 +1265,7 @@ export async function testVersionStream(
     });
   } catch (err) {
     if ((err as Error).name !== "AbortError") {
-      callbacks.onError?.((err as Error).message ?? "Failed to test persona");
+      callbacks.onError?.(friendlyModelError((err as Error).message ?? "Failed to test persona"));
     } else {
       // Request aborted before connecting — finalise so the streaming lock is released.
       callbacks.onDone?.();
@@ -1273,12 +1274,12 @@ export async function testVersionStream(
   }
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    callbacks.onError?.(text || `HTTP ${response.status}`);
+    callbacks.onError?.(friendlyModelError(text || `HTTP ${response.status}`, response.status));
     return () => controller.abort();
   }
   const reader = response.body?.getReader();
   if (!reader) {
-    callbacks.onError?.("No response body");
+    callbacks.onError?.(friendlyModelError("No response body"));
     return () => controller.abort();
   }
   readPersonaSSEStream(reader, callbacks);
@@ -1314,20 +1315,20 @@ export async function createAndStreamPersonaChat(
     });
   } catch (err) {
     if ((err as Error).name !== "AbortError") {
-      callbacks.onError?.((err as Error).message ?? "Failed to create persona chat");
+      callbacks.onError?.(friendlyModelError((err as Error).message ?? "Failed to create persona chat"));
     }
     return () => controller.abort();
   }
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    callbacks.onError?.(text || `HTTP ${response.status}`);
+    callbacks.onError?.(friendlyModelError(text || `HTTP ${response.status}`, response.status));
     return () => controller.abort();
   }
   const chatId = response.headers.get("X-Chat-Id");
   if (chatId) callbacks.onChatId?.(chatId);
   const reader = response.body?.getReader();
   if (!reader) {
-    callbacks.onError?.("No response body");
+    callbacks.onError?.(friendlyModelError("No response body"));
     return () => controller.abort();
   }
   readPersonaSSEStream(reader, callbacks);
@@ -1384,7 +1385,7 @@ export async function guidePersonaStream(
     });
   } catch (err) {
     if ((err as Error).name !== "AbortError") {
-      callbacks.onError?.((err as Error).message ?? "Failed to get AI suggestions");
+      callbacks.onError?.(friendlyModelError((err as Error).message ?? "Failed to get AI suggestions"));
     }
     return () => controller.abort();
   }
@@ -1405,13 +1406,13 @@ export async function guidePersonaStream(
       callbacks.onError?.("The AI model for this persona is unavailable. Please select a different model in the Instructions tab and save.");
       return () => controller.abort();
     }
-    callbacks.onError?.(errorText || `HTTP ${response.status}`);
+    callbacks.onError?.(friendlyModelError(errorText || `HTTP ${response.status}`, response.status));
     return () => controller.abort();
   }
 
   const reader = response.body?.getReader();
   if (!reader) {
-    callbacks.onError?.("No response body");
+    callbacks.onError?.(friendlyModelError("No response body"));
     return () => controller.abort();
   }
   readPersonaSSEStream(reader, callbacks);
@@ -1447,18 +1448,18 @@ export async function streamPersonaMessage(
     });
   } catch (err) {
     if ((err as Error).name !== "AbortError") {
-      callbacks.onError?.((err as Error).message ?? "Failed to stream message");
+      callbacks.onError?.(friendlyModelError((err as Error).message ?? "Failed to stream message"));
     }
     return () => controller.abort();
   }
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    callbacks.onError?.(text || `HTTP ${response.status}`);
+    callbacks.onError?.(friendlyModelError(text || `HTTP ${response.status}`, response.status));
     return () => controller.abort();
   }
   const reader = response.body?.getReader();
   if (!reader) {
-    callbacks.onError?.("No response body");
+    callbacks.onError?.(friendlyModelError("No response body"));
     return () => controller.abort();
   }
   readPersonaSSEStream(reader, callbacks);

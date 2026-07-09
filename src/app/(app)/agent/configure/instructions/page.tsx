@@ -15,11 +15,6 @@ import {
   QuillWriteOneIcon,
   ArrowUpRightOneIcon,
   SearchOneIcon,
-  SourceCodeSquareIcon,
-  AiVisionRecognitionIcon,
-  ImageTwoIcon,
-  AudioWaveOneIcon,
-  GlobalSearchIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
@@ -56,7 +51,7 @@ import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { personaProfileKey } from '@/lib/storage-keys'
 import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
 import { setVersionTags } from '@/lib/version-tags'
-import { Badge } from '@/components/Badge'
+import { Badge, type BadgeColor } from '@/components/Badge'
 import { Slider } from '@/components/Slider'
 import { AttributeTocRail, ATTRIBUTE_HEADER_STYLE, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
 
@@ -193,16 +188,25 @@ function UndoRedoGroup({
 // minus the Muse/Advanced cards and category tabs (not applicable to picking
 // one fixed model for an agent).
 
-function modelCapabilityIcons(model: AIModel): React.ReactNode {
-  const inputs  = model.inputModalities  ?? []
-  const outputs = model.outputModalities ?? []
-  const icons: React.ReactNode[] = []
-  if (inputs.some(v => v === 'image' || v === 'vision')) icons.push(<AiVisionRecognitionIcon key="vision" size={16} />)
-  if (outputs.some(v => v === 'image')) icons.push(<ImageTwoIcon key="image" size={16} />)
-  if (inputs.some(v => v === 'audio') || outputs.some(v => v === 'audio')) icons.push(<AudioWaveOneIcon key="audio" size={16} />)
-  if (outputs.some(v => v === 'code')) icons.push(<SourceCodeSquareIcon key="code" size={16} />)
-  if (inputs.some(v => v === 'web' || v === 'search')) icons.push(<GlobalSearchIcon key="search" size={16} />)
-  return icons.length > 0 ? <>{icons}</> : undefined
+// Deterministic tag → Badge color, same hash as ModelSelector.tsx's local
+// tagColor (not exported there, so duplicated here rather than forcing a
+// shared-utils extraction for a 4-line pure function).
+const TAG_PALETTE: BadgeColor[] = ['Green', 'Blue', 'Purple', 'Brown', 'Yellow']
+function tagColor(tag: string): BadgeColor {
+  let h = 0
+  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0
+  return TAG_PALETTE[h % TAG_PALETTE.length]
+}
+
+function modelTagBadges(model: AIModel): React.ReactNode {
+  if (!model.tags || model.tags.length === 0) return undefined
+  return (
+    <>
+      {model.tags.map(tag => (
+        <Badge key={tag} label={tag} color={tagColor(tag)} />
+      ))}
+    </>
+  )
 }
 
 function modelInfoContent(model: AIModel): React.ReactNode {
@@ -463,8 +467,9 @@ function ModelDropdown({
                                     aria-pressed={isSelected}
                                     llm={getModelLlmId(m.companyName, m.modelName) ?? undefined}
                                     label={m.modelName}
-                                    icons={modelCapabilityIcons(m)}
+                                    icons={modelTagBadges(m)}
                                     info={modelInfoContent(m)}
+                                    alwaysShowInfo
                                     selected={isSelected}
                                     onClick={() => onSelect(m)}
                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(m) } }}

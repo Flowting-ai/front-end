@@ -1,13 +1,16 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserIcon, InformationCircleIcon, TickTwoIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserIcon, InformationCircleIcon, TickTwoIcon, CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Chip } from '@/components/Chip'
+import { Badge } from '@/components/Badge'
 import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
 import { useProjects } from '@/context/projects-context'
+import { useAuth } from '@/context/auth-context'
 import { usePinboard } from '@/context/pinboard-context'
 import { useProjectPanel } from '@/context/project-panel-context'
 import { useChatHistoryContext } from '@/context/chat-history-context'
@@ -76,8 +79,14 @@ export default function ProjectPage() {
   const modelLlmId = museActive ? null : getModelLlmId(selectedModel?.companyName, selectedModel?.modelName)
 
   const { orgId, caps, members, currentUserRole, teams: orgTeams } = useOrg()
+  const { user } = useAuth()
   const project = getProject(params.id)
   const chats   = getChats(params.id)
+  // Only the project's original creator may take it back to Private — the
+  // backend's set_resource_visibility rejects the PATCH with a 403 for
+  // anyone else (a team editor/admin managing a teammate's project, say).
+  // Hiding the option for non-owners avoids surfacing that 403 at all.
+  const isProjectOwner = !!project && !!user?.id && String(project.ownerUserId) === String(user.id)
 
   useEffect(() => {
     setProjectLoading(true)
@@ -344,6 +353,13 @@ export default function ProjectPage() {
     setShareTeamId(project?.teamId ?? '')
     setShareTeamsOpen(false)
     setShareOpen(true)
+  }
+
+  // Dismiss without saving — X button, Cancel button, and clicking the
+  // backdrop all count as "cancelled" and should say so.
+  function handleCancelShare() {
+    setShareOpen(false)
+    toast.info('Visibility change cancelled')
   }
 
   async function handleSaveVisibility() {
@@ -1046,12 +1062,21 @@ export default function ProjectPage() {
         onClose={() => setInstructionsOpen(false)}
       />}
 
-      {/* ── Project share / visibility modal ─────────────────────────── */}
-      {shareOpen && (
+      {/* ── Project share / visibility modal ─────────────────────────────
+          Portaled to document.body: AppLayout's rounded content container
+          sets `isolation: isolate` for its own z-index scoping, which traps
+          any z-index set on a descendant — including a `position: fixed`
+          one — inside that local stacking context. Since the Instructions/
+          Team panel and Pinboard render as siblings OUTSIDE that container
+          (see project-panel-context / RightSidebar), nothing rendered
+          in-place here could ever paint above them, no matter how high the
+          z-index. Portaling escapes the trap the same way EditProjectModal/
+          SystemInstructionsModal already do. */}
+      {shareOpen && typeof document !== 'undefined' && createPortal(
         <>
           <div
-            onClick={() => setShareOpen(false)}
-            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(18,12,8,0.4)', backdropFilter: 'blur(2px)', zIndex: 50 }}
+            onClick={handleCancelShare}
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(18,12,8,0.4)', backdropFilter: 'blur(2px)', zIndex: 100 }}
           />
           <div
             style={{
@@ -1059,7 +1084,7 @@ export default function ProjectPage() {
               top:             '50%',
               left:            '50%',
               transform:       'translate(-50%, -50%)',
-              zIndex:          51,
+              zIndex:          101,
               width:           480,
               maxWidth:        'calc(100vw - 48px)',
               borderRadius:    16,
@@ -1071,128 +1096,175 @@ export default function ProjectPage() {
               gap:             16,
             }}
           >
-            <div>
-              <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: '0 0 4px' }}>
-                Share project
-              </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
-                Control who can access this project.
-              </p>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: '0 0 4px' }}>
+                  Share project
+                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
+                  Control who can access this project.
+                </p>
+              </div>
+              <IconButton
+                variant="ghost"
+                size="xs"
+                icon={<CancelOneIcon />}
+                aria-label="Close"
+                onClick={handleCancelShare}
+              />
+            </div>
+
+            {/* Reflects the project's actual saved visibility (project.teamId),
+                not the in-progress card selection below — it must not change
+                on every click, only once a save actually goes through. */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)' }}>
+                Currently
+              </span>
+              {!project.teamId ? (
+                <Badge color="Neutral" label="Private" />
+              ) : (
+                <Badge
+                  color="Blue"
+                  label={orgTeams.find(t => t.id === project.teamId)?.name ?? 'Unknown team'}
+                />
+              )}
             </div>
 
             {(() => {
               const shareableTeams = orgTeams.filter(t => !t.archived)
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', width: '100%' }}>
-                    <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                  {/* Private / Team — stacked, not side by side, each boxed in
+                      its own matching border so the two options read as equal
+                      peers. Private only shows for the project's actual
+                      creator — anyone else managing a team project can't take
+                      it private (the backend would 403 that PATCH). */}
+                  {isProjectOwner && (
+                    <div style={{ padding: 8, borderRadius: 16, border: '1px solid var(--neutral-200)' }}>
                       <ModelFeaturedCard
                         title="Private"
                         description="Only you can see this project."
                         selected={shareVisibility === 'private'}
                         onSelectedChange={next => { if (next) setShareVisibility('private') }}
-                        style={{ height: '100%', boxSizing: 'border-box' }}
                       />
                     </div>
-                    <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                      <ModelFeaturedCard
-                        title="Team"
-                        description={shareableTeams.length === 0 ? 'No teams available' : 'Team editors and assigned members can access it.'}
-                        selected={shareVisibility === 'team'}
-                        onSelectedChange={next => { if (next && shareableTeams.length > 0) setShareVisibility('team') }}
-                        style={{
-                          height:    '100%',
-                          boxSizing: 'border-box',
-                          opacity:   shareableTeams.length === 0 ? 0.45 : 1,
-                          cursor:    shareableTeams.length === 0 ? 'not-allowed' : 'pointer',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Team picker — its own row below the cards, not stacked on
-                      top of the "Team" button, so the two controls stay
-                      isolated: one picks the visibility, the other the team. */}
-                  {shareVisibility === 'team' && shareableTeams.length > 0 && (
-                    <Dropdown.Float
-                      open={shareTeamsOpen}
-                      onOpenChange={setShareTeamsOpen}
-                      placement="bottom-start"
-                      trigger={
-                        <button
-                          type="button"
-                          style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-                            width: '100%', padding: '10px 12px', borderRadius: 8,
-                            border: '1px solid var(--neutral-200)', cursor: 'pointer',
-                            backgroundColor: 'white',
-                            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '20px',
-                            color: shareTeamId ? 'var(--neutral-900)' : 'var(--neutral-500)',
-                          }}
-                        >
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {shareTeamId ? (shareableTeams.find(t => t.id === shareTeamId)?.name ?? 'Select team') : 'Select team'}
-                          </span>
-                          <div style={{ flexShrink: 0, lineHeight: 0, transform: shareTeamsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}>
-                            <ArrowDownOneIcon size={14} />
-                          </div>
-                        </button>
-                      }
-                    >
-                      <Dropdown size="md">
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 4 }}>
-                          {shareableTeams.map(team => {
-                            const isSelected = team.id === shareTeamId
-                            const select = () => { setShareTeamId(team.id); setShareTeamsOpen(false) }
-                            return (
-                              <div
-                                key={team.id}
-                                role="button"
-                                tabIndex={0}
-                                onClick={select}
-                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select() } }}
-                                style={{
-                                  display: 'flex', alignItems: 'center', gap: 10,
-                                  padding: '8px', borderRadius: 8, cursor: 'pointer', userSelect: 'none',
-                                  backgroundColor: isSelected ? 'var(--neutral-100)' : 'transparent',
-                                }}
-                              >
-                                <span style={{
-                                  flex: '1 0 0', minWidth: 0,
-                                  fontFamily: 'var(--font-body)', fontWeight: isSelected ? 600 : 400,
-                                  fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)',
-                                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                }}>
-                                  {team.name}
-                                </span>
-                                {isSelected && <TickTwoIcon size={16} color="var(--blue-600, #0a7aff)" />}
-                              </div>
-                            )
-                          })}
-                        </div>
-                        <p style={{ margin: '4px 8px 8px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
-                          The selected team&apos;s editors and assigned project members will have access.
-                        </p>
-                      </Dropdown>
-                    </Dropdown.Float>
                   )}
+
+                  {/* Team card + its team-picker share one bordered box, so the
+                      "pick a team" control reads as belonging to the Team
+                      option rather than as a separate, unrelated control. */}
+                  <div
+                    style={{
+                      display:       'flex',
+                      flexDirection: 'column',
+                      gap:           8,
+                      padding:       8,
+                      borderRadius:  16,
+                      border:        '1px solid var(--neutral-200)',
+                    }}
+                  >
+                    <ModelFeaturedCard
+                      title="Team"
+                      description={shareableTeams.length === 0 ? 'No teams available' : 'Team editors and assigned members can access it.'}
+                      selected={shareVisibility === 'team'}
+                      onSelectedChange={next => { if (next && shareableTeams.length > 0) setShareVisibility('team') }}
+                      style={{
+                        opacity: shareableTeams.length === 0 ? 0.45 : 1,
+                        cursor:  shareableTeams.length === 0 ? 'not-allowed' : 'pointer',
+                      }}
+                    />
+
+                    {shareVisibility === 'team' && shareableTeams.length > 0 && (
+                      <Dropdown.Float
+                        open={shareTeamsOpen}
+                        onOpenChange={setShareTeamsOpen}
+                        placement="right-start"
+                        trigger={
+                          <button
+                            type="button"
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+                              width: '100%', padding: '10px 12px', borderRadius: 8,
+                              border: '1px solid var(--neutral-200)', cursor: 'pointer',
+                              backgroundColor: 'white',
+                              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '20px',
+                              color: shareTeamId ? 'var(--neutral-900)' : 'var(--neutral-500)',
+                            }}
+                          >
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {shareTeamId ? (shareableTeams.find(t => t.id === shareTeamId)?.name ?? 'Select team') : 'Select team'}
+                            </span>
+                            <div style={{ flexShrink: 0, lineHeight: 0, transform: shareTeamsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}>
+                              <ArrowDownOneIcon size={14} />
+                            </div>
+                          </button>
+                        }
+                      >
+                        <Dropdown size="md">
+                          <div
+                            className={shareableTeams.length > 5 ? 'kaya-scrollbar' : undefined}
+                            style={{
+                              display: 'flex', flexDirection: 'column', gap: 2, padding: 4,
+                              // Row height (22px line + 16px padding) × 5 + 4 gaps — scrolls beyond that.
+                              maxHeight: shareableTeams.length > 5 ? 198 : undefined,
+                              overflowY: shareableTeams.length > 5 ? 'auto' : undefined,
+                            }}
+                          >
+                            {shareableTeams.map(team => {
+                              const isSelected = team.id === shareTeamId
+                              const select = () => { setShareTeamId(team.id); setShareTeamsOpen(false) }
+                              return (
+                                <div
+                                  key={team.id}
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={select}
+                                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select() } }}
+                                  style={{
+                                    display: 'flex', alignItems: 'center', gap: 10,
+                                    padding: '8px', borderRadius: 8, cursor: 'pointer', userSelect: 'none',
+                                    backgroundColor: isSelected ? 'var(--neutral-100)' : 'transparent',
+                                  }}
+                                >
+                                  <span style={{
+                                    flex: '1 0 0', minWidth: 0,
+                                    fontFamily: 'var(--font-body)', fontWeight: isSelected ? 600 : 400,
+                                    fontSize: 14, lineHeight: '22px', color: 'var(--neutral-800)',
+                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                  }}>
+                                    {team.name}
+                                  </span>
+                                  {isSelected && <TickTwoIcon size={16} color="var(--blue-600, #0a7aff)" />}
+                                </div>
+                              )
+                            })}
+                          </div>
+                          <p style={{ margin: '4px 8px 8px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
+                            The selected team&apos;s editors and assigned project members will have access.
+                          </p>
+                        </Dropdown>
+                      </Dropdown.Float>
+                    )}
+                  </div>
                 </div>
               )
             })()}
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4 }}>
-              <Button variant="outline" size="sm" onClick={() => setShareOpen(false)}>Cancel</Button>
+              <Button variant="outline" size="sm" onClick={handleCancelShare}>Cancel</Button>
               <Button
                 variant="default"
                 size="sm"
-                disabled={sharingSaving || (shareVisibility === 'team' && !shareTeamId)}
+                disabled={sharingSaving || (shareVisibility === 'team' && !shareTeamId) || (shareVisibility === 'private' && !isProjectOwner)}
                 onClick={() => void handleSaveVisibility()}
               >
                 {sharingSaving ? 'Saving…' : 'Save'}
               </Button>
             </div>
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   )

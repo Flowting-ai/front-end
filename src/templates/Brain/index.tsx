@@ -2,8 +2,10 @@
 
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
+import { Upload } from 'lucide-react'
 import { ChatInput, type ChatInputProps } from '@/components/chat/ChatInput'
 import { ExhaustionBanner } from '@/components/ExhaustionBanner'
+import { useFileDrop } from '@/hooks/use-file-drop'
 import { BrainHome } from './BrainHome'
 import { ClarificationCard, type ClarificationCardProps } from './ClarificationCard'
 export { ClarificationCard, type ClarificationCardProps }
@@ -131,6 +133,11 @@ export interface BrainShellProps {
   initialInputValue?: string
   /** Changes when the same initialInputValue should be applied again. */
   initialInputKey?: string | number
+  /** Called with dropped files when the user drags files onto the thread/input area.
+   *  Omit to leave drag-and-drop disabled (e.g. Storybook). */
+  onFilesDropped?: (files: File[]) => void
+  /** Suppresses drag-and-drop, e.g. while streaming or credit-blocked. */
+  dropDisabled?: boolean
 }
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
@@ -159,6 +166,8 @@ export function BrainShell({
   threadRef,
   initialInputValue,
   initialInputKey,
+  onFilesDropped,
+  dropDisabled,
 }: BrainShellProps) {
   const normalizedInitialInputValue = initialInputValue ?? ''
   const normalizedInitialInputKey = `${initialInputKey ?? ''}:${normalizedInitialInputValue}`
@@ -189,6 +198,12 @@ export function BrainShell({
   const contextRailOpen = (CONTEXT_RAIL_PHASES.has(phase) || hasAnyContext(contextRailData)) && !userClosed
   const isIdle          = phase === 'idle'
   const isClarifying    = phase === 'clarifying-goal' && clarificationProps != null
+
+  // File drop (drag-and-drop into the thread/input area) — mirrors ChatInterface.
+  const { isDragging } = useFileDrop({
+    onFiles: (files) => onFilesDropped?.(files),
+    disabled: dropDisabled || !onFilesDropped,
+  })
 
   const handleSend = (value: string) => {
     if (!value.trim()) return
@@ -247,6 +262,34 @@ export function BrainShell({
             backgroundColor: 'var(--color-surface-glass)',
             isolation:       'isolate',
         }}>
+
+          {/* Drag overlay */}
+          {isDragging && (
+            <div
+              style={{
+                position:        'absolute',
+                inset:           0,
+                zIndex:          40,
+                display:         'flex',
+                alignItems:      'center',
+                justifyContent:  'center',
+                backgroundColor: 'rgba(255,255,255,0.9)',
+                border:          '2px dashed var(--blue-400)',
+                borderRadius:    '16px',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--blue-600)' }}>
+                <Upload size={32} />
+                <span style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize:   'var(--font-size-body-md)',
+                  fontWeight: 'var(--font-weight-medium)',
+                }}>
+                  Drop files here
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Content area — no horizontal padding; thread slot + bottom area each own theirs */}
           <div style={{

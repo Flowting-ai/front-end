@@ -13,6 +13,7 @@ import { CitationChip } from "@/components/chat/ResponseBlocks";
 import type { Components } from "react-markdown";
 import type { Pluggable } from "unified";
 import type { WebCitation } from "@/hooks/use-chat-state";
+import { stripResponseInterruptedMarker } from "@/lib/model-error";
 
 const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins: Pluggable[] = [rehypeKatex];
@@ -499,14 +500,16 @@ function stripCollapsibleHtml(content: string): string {
 // (**bold**) is deliberately left untouched, since react-markdown + remark-gfm
 // already parse it correctly and regex "repairs" corrupt valid input.
 // Innermost runs first:
-//   stripCollapsibleHtml → fixHeadingSpace → normalizeMathDelimiters
-//   → escapeCurrencyDollars → closeOpenFences
+//   stripResponseInterruptedMarker → stripCollapsibleHtml → fixHeadingSpace
+//   → normalizeMathDelimiters → escapeCurrencyDollars → closeOpenFences
 export function preprocessMarkdown(content: string): string {
   return closeOpenFences(
     escapeCurrencyDollars(
       normalizeMathDelimiters(
         fixHeadingSpace(
-          stripCollapsibleHtml(content),
+          stripCollapsibleHtml(
+            stripResponseInterruptedMarker(content),
+          ),
         ),
       ),
     ),

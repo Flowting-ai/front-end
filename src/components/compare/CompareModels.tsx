@@ -9,6 +9,7 @@ import { Sparkles, ExternalLink, Mail, X } from "lucide-react";
 import { LlmIcon } from "@strange-huge/icons/llm";
 import { AtomTwoIcon, FilterMailIcon, PinIcon, TickTwoIcon, SearchOneIcon, ArrowLeftOneIcon, CancelOneIcon, ArrowExpandOneIcon, ArrowShrinkTwoIcon, ArrowUpTwoIcon, MicTwoIcon, StopCircleIcon } from "@strange-huge/icons";
 import { Button } from "@/components/Button";
+import { friendlyModelError } from "@/lib/model-error";
 import { IconButton } from "@/components/IconButton";
 import { AudioWaveDisplay } from "@/components/shared/AudioWaveDisplay";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
@@ -1047,7 +1048,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
           }
           case "error": {
             const errText = typeof payload.error === "string" ? payload.error : "Unknown error";
-            streamingResponses[modelIdStr] = `Error: ${errText}`;
+            streamingResponses[modelIdStr] = friendlyModelError(errText);
             setTestResponses({ ...streamingResponses });
             setStreamingModels((prev) => { const n = new Set(prev); n.delete(modelIdStr); return n; });
             break;

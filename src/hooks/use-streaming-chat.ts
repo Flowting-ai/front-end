@@ -3,9 +3,16 @@
 import { useRef } from "react"
 import { extractThinkingContent } from "@/lib/parsers/content-parser"
 import { mergeStreamingText } from "@/lib/streaming"
-import { friendlyApiError } from "@/lib/api/client"
 import { apiFetch } from "@/lib/api/client"
-import { CHAT_STOP_ENDPOINT } from "@/lib/config"
+import { friendlyModelError, MODEL_UNRESPONSIVE_MESSAGE } from "@/lib/model-error"
+import {
+  CHAT_STOP_ENDPOINT,
+  CHATS_CREATE_ENDPOINT,
+  CHAT_STREAM_ENDPOINT,
+  directUpload,
+  shouldUseDirectBackend,
+} from "@/lib/config"
+import { ensureFreshToken } from "@/lib/jwt-utils"
 import { logger } from "@/lib/logger"
 import type { UIMessage } from "@/hooks/use-chat-state"
 import { registerStream, completeStream } from "@/lib/stream-registry"
@@ -215,22 +222,52 @@ export function useStreamingChat({
     const erroredToolNames = new Set<string>()
 
     try {
-      // ── POST to Next.js proxy ─────────────────────────────────────────────
+      // ── Resolve transport: proxy vs direct-to-backend ─────────────────────
+      // /api/chat is a Vercel serverless function with a hard 4.5MB request-body
+      // cap (FUNCTION_PAYLOAD_TOO_LARGE → 413). A file attachment can easily
+      // exceed that, so file-carrying requests on the default endpoint bypass
+      // the proxy and go straight to the backend — same pattern already used
+      // for persona/project uploads (see directUpload in lib/config.ts). Text-only
+      // sends, and any caller using a non-default endpoint (e.g. persona chat),
+      // keep using their proxy unchanged.
+      const isExistingChat = Boolean(chatId && !chatId.startsWith("temp-"))
+      const useDirectBackend =
+        endpoint === "/api/chat" && (options?.files?.length ?? 0) > 0 && shouldUseDirectBackend()
+      const directToken = useDirectBackend ? await ensureFreshToken() : null
+      const resolvedEndpoint = useDirectBackend
+        ? directUpload(isExistingChat ? CHAT_STREAM_ENDPOINT(chatId!) : CHATS_CREATE_ENDPOINT)
+        : endpoint
 
       const fd = new FormData()
       fd.append("input", input)
-      if (chatId) fd.append("chatId", chatId)
-      if (modelId !== null && modelId !== undefined) fd.append("modelId", String(modelId))
-      if (options?.algorithm) fd.append("algorithm", options.algorithm)
-      if (options?.webSearch) fd.append("webSearch", "true")
-      if (options?.enableReasoning) fd.append("enable_thinking", "true")
-      if (options?.pinIds && options.pinIds.length > 0) fd.append("pinIds", JSON.stringify(options.pinIds))
-      if (options?.personaId) fd.append("personaId", options.personaId)
-      if (options?.systemPrompt) fd.append("systemPrompt", options.systemPrompt)
-      if (options?.temperature != null) fd.append("temperature", String(options.temperature))
-      if (options?.toneId) fd.append("toneId", options.toneId)
-      options?.connectorSlugs?.forEach((s) => fd.append("connectorSlugs", s))
-      if (options?.replaceMessageId) fd.append("replaceMessageId", options.replaceMessageId)
+      if (useDirectBackend) {
+        // Backend-native field names — this request skips /api/chat entirely,
+        // so nothing renames these camelCase → snake_case on the way through.
+        if (modelId !== null && modelId !== undefined) fd.append("model_id", String(modelId))
+        if (options?.algorithm) fd.append("algorithm", options.algorithm)
+        if (options?.webSearch) fd.append("web_search", "true")
+        if (options?.pinIds && options.pinIds.length > 0) fd.append("pin_ids", JSON.stringify(options.pinIds))
+        if (options?.personaId) fd.append("persona_id", options.personaId)
+        if (options?.systemPrompt) fd.append("system_prompt", options.systemPrompt)
+        if (options?.temperature != null) fd.append("temperature", String(options.temperature))
+        if (options?.toneId) fd.append("tone_id", options.toneId)
+        if (options?.replaceMessageId && isExistingChat) fd.append("replace_message_id", options.replaceMessageId)
+        // Note: enableReasoning/connectorSlugs aren't forwarded here — /api/chat
+        // doesn't read them either today, so this preserves existing behavior.
+      } else {
+        if (chatId) fd.append("chatId", chatId)
+        if (modelId !== null && modelId !== undefined) fd.append("modelId", String(modelId))
+        if (options?.algorithm) fd.append("algorithm", options.algorithm)
+        if (options?.webSearch) fd.append("webSearch", "true")
+        if (options?.enableReasoning) fd.append("enable_thinking", "true")
+        if (options?.pinIds && options.pinIds.length > 0) fd.append("pinIds", JSON.stringify(options.pinIds))
+        if (options?.personaId) fd.append("personaId", options.personaId)
+        if (options?.systemPrompt) fd.append("systemPrompt", options.systemPrompt)
+        if (options?.temperature != null) fd.append("temperature", String(options.temperature))
+        if (options?.toneId) fd.append("toneId", options.toneId)
+        options?.connectorSlugs?.forEach((s) => fd.append("connectorSlugs", s))
+        if (options?.replaceMessageId) fd.append("replaceMessageId", options.replaceMessageId)
+      }
       options?.files?.forEach((f) => fd.append("files", f))
 
       let buffer = ""
@@ -1238,7 +1275,7 @@ export function useStreamingChat({
             queueUpdate(
               {
                 content:
-                  visibleText || (finalReasoning || receivedImages ? "" : "API didn't respond"),
+                  visibleText || (finalReasoning || receivedImages ? "" : MODEL_UNRESPONSIVE_MESSAGE),
                 thinking: finalReasoning || undefined,
                 isThinkingInProgress: false,
                 isLoading: false,
@@ -1284,7 +1321,7 @@ export function useStreamingChat({
             } else {
               queueUpdate(
                 {
-                  content: friendlyApiError(rawError),
+                  content: friendlyModelError(rawError),
                   isThinkingInProgress: false,
                   isLoading: false,
                 },
@@ -1305,11 +1342,17 @@ export function useStreamingChat({
         const xhr = new XMLHttpRequest()
         xhrRef.current = xhr
 
-        xhr.open("POST", endpoint)
+        xhr.open("POST", resolvedEndpoint)
+        if (useDirectBackend) {
+          // Talking straight to the backend origin — carry credentials and the
+          // bearer token the proxy would otherwise have attached server-side.
+          xhr.withCredentials = true
+          if (directToken) xhr.setRequestHeader("Authorization", `Bearer ${directToken}`)
+        }
 
         // Forward the user's timezone/locale so the backend resolves "today" in
         // their zone, not UTC. This XHR path bypasses apiClient, so set them
-        // here; the proxy route passes them through to the backend's extract_geo.
+        // here; the proxy route (or the backend directly) reads them via extract_geo.
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
         if (tz) xhr.setRequestHeader("X-User-Timezone", tz)
         if (navigator.language) xhr.setRequestHeader("X-User-Locale", navigator.language)
@@ -1354,7 +1397,7 @@ export function useStreamingChat({
             headersHandled = true
             if (xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)) {
               reject(new Error(
-                friendlyApiError(xhr.responseText || `Request failed with status ${xhr.status}`, xhr.status),
+                friendlyModelError(xhr.responseText || `Request failed with status ${xhr.status}`, xhr.status),
               ))
               return
             }
@@ -1379,7 +1422,7 @@ export function useStreamingChat({
             // Flush any incomplete SSE event still in the buffer
             if (buffer.trim()) processSSEText("\n\n")
             if (xhr.status === 0 && !stopRequestedRef.current) {
-              reject(new Error(friendlyApiError("", 503)))
+              reject(new Error(friendlyModelError("", 503)))
             } else {
               resolve()
             }
@@ -1395,7 +1438,7 @@ export function useStreamingChat({
 
         xhr.onerror = () => {
           xhrRef.current = null
-          reject(new Error(friendlyApiError("", 503)))
+          reject(new Error(friendlyModelError("", 503)))
         }
 
         xhr.send(fd)
@@ -1464,7 +1507,7 @@ export function useStreamingChat({
       setStreamState?.("error")
       queueUpdate(
         {
-          content: friendlyApiError(rawMsg),
+          content: friendlyModelError(rawMsg),
           isThinkingInProgress: false,
           isLoading: false,
         },

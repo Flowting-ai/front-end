@@ -24,7 +24,7 @@ type KnowledgeTabProps = {
   onPreviewFile?: (file: KnowledgeFile) => void;
 };
 
-const FILE_LIMIT = 10;
+// No cap on file count — only the combined 300 MB knowledge-base size limit applies.
 const SIZE_LIMIT_MB = 300;
 const FILE_SIZE_LIMIT_MB = 30;
 
@@ -348,12 +348,29 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
     const unique = valid.filter(f => !files.some(existing => existing.name === f.name));
     if (unique.length === 0) return;
 
+    // Combined 300 MB knowledge-base size limit — the only cap on this upload
+    // now that file count is unbounded. Admit files in order until the
+    // remaining budget runs out; reject the rest individually.
+    const remainingMB = SIZE_LIMIT_MB - totalSizeMB;
+    const withinBudget: File[] = [];
+    let runningMB = 0;
+    for (const f of unique) {
+      const fileMB = f.size / (1024 * 1024);
+      if (runningMB + fileMB <= remainingMB) {
+        withinBudget.push(f);
+        runningMB += fileMB;
+      } else {
+        toast.error(`"${f.name}" would exceed the ${SIZE_LIMIT_MB} MB knowledge base limit.`);
+      }
+    }
+    if (withinBudget.length === 0) return;
+
     if (onRawFilesSelected) {
-      onRawFilesSelected(unique);
+      onRawFilesSelected(withinBudget);
       return;
     }
     // Fallback: optimistic local state only
-    const newFiles: KnowledgeFile[] = unique.map(file => {
+    const newFiles: KnowledgeFile[] = withinBudget.map(file => {
       const ext = file.name.split(".").pop()?.toUpperCase() ?? "FILE";
       const bytes = file.size
       const sizeStr = bytes < 0.1 * 1024 * 1024
@@ -553,7 +570,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               color: "#6a625d",
             }}
           >
-            <span>0 / {FILE_LIMIT} files</span>
+            <span>0 files</span>
             <span>0 MB / {SIZE_LIMIT_MB} MB</span>
           </div>
         </div>
@@ -796,7 +813,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
             color: "#6a625d",
           }}
         >
-          <span>{docCount} {docCount === 1 ? "document" : "documents"}{linkCount > 0 ? ` · ${linkCount} ${linkCount === 1 ? "link" : "links"}` : ""} / {FILE_LIMIT} max</span>
+          <span>{docCount} {docCount === 1 ? "document" : "documents"}{linkCount > 0 ? ` · ${linkCount} ${linkCount === 1 ? "link" : "links"}` : ""}</span>
           <span>{totalSizeMB < 1 ? `${(totalSizeMB * 1024).toFixed(0)} KB` : `${totalSizeMB.toFixed(1)} MB`} / {SIZE_LIMIT_MB} MB</span>
         </div>
       )}

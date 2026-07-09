@@ -38,6 +38,24 @@ if (isDev) {
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+
+  // Next.js 16's proxy (formerly middleware) auto-buffers/clones every
+  // request body it sees so both proxy and the route handler can read it —
+  // capped at 10MB by default. front-end/src/proxy.ts's matcher covers
+  // /api/chat (no file extension in the path), so a chat message with an
+  // attached file over ~10MB was silently truncated mid-multipart-body by
+  // the proxy layer itself — Next.js never rejects the oversized request,
+  // it just hands the route handler a truncated body, whose
+  // request.formData() call then throws on the corrupt/incomplete multipart
+  // data. That's the "Bad Request: invalid form data" 400 from
+  // src/app/api/chat/route.ts. Raised to match this app's own client-side
+  // attachment ceiling (FILE_CONSTRAINTS in use-file-upload.ts: 30MB × up to
+  // 10 files/message) so the proxy layer never truncates anything the
+  // upload UI itself already allowed through.
+  experimental: {
+    proxyClientMaxBodySize: '320mb',
+  },
+
   ...(hasDesignSystemSibling
     ? {
         turbopack: {
