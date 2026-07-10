@@ -38,6 +38,21 @@ export function getTopUsedModels(allModels: AIModel[], n = 5): AIModel[] {
     .slice(0, n);
 }
 
+/**
+ * Stable-sorts `models` by this browser's recorded usage count, most-used
+ * first. Models with no recorded usage keep their relative order at the end
+ * (Array.prototype.sort is stable, so ties never reshuffle).
+ */
+export function sortModelsByUsage(models: AIModel[]): AIModel[] {
+  if (typeof window === "undefined") return models;
+  const countsRaw = localStorage.getItem(USAGE_COUNTS_KEY);
+  if (!countsRaw) return models;
+  const counts: Record<string, number> = JSON.parse(countsRaw);
+  return [...models].sort(
+    (a, b) => (counts[modelKey(b)] ?? 0) - (counts[modelKey(a)] ?? 0),
+  );
+}
+
 export function getRecentModels(allModels: AIModel[], n = 5): AIModel[] {
   if (typeof window === "undefined") return [];
   const recentsRaw = localStorage.getItem(RECENT_MODELS_KEY);

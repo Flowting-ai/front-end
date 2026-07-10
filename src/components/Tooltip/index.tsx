@@ -1,17 +1,25 @@
 'use client'
 
-import React, { useEffect, useRef, useState, type ReactNode } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import { cn } from '@/lib/utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export type TooltipSide = 'top' | 'right' | 'bottom' | 'left'
+export type TooltipAlign = 'start' | 'center' | 'end'
 
 export interface TooltipProps {
   content: ReactNode
   children: React.ReactElement
   side?: TooltipSide
+  /**
+   * Alignment of the tooltip along `side`. Defaults to `center`. Use `end`
+   * to pin the tooltip's trailing edge to the trigger's trailing edge so
+   * growing content expands toward the leading edge (e.g. to the left in
+   * LTR) instead of overflowing past it.
+   */
+  align?: TooltipAlign
   sideOffset?: number
   delayDuration?: number
   /**
@@ -35,6 +43,14 @@ export interface TooltipProps {
    */
   maxWidth?: number | string
   /**
+   * When set, caps the tooltip height. Instead of scrolling, content that
+   * would exceed this height causes the tooltip to widen (up to a sane cap)
+   * so wrapped text needs fewer lines — no scrollbar ever appears. Pair with
+   * `align="end"` so the added width grows toward the trigger's leading edge
+   * instead of overflowing past its trailing edge.
+   */
+  maxHeight?: number
+  /**
    * Render to `document.body` (default) so the tooltip escapes ancestor
    * `overflow`/clipping — the right choice for virtually all hover tooltips.
    * Pass `false` to keep the content in its natural DOM position instead —
@@ -50,6 +66,10 @@ export interface TooltipProps {
    */
   zIndex?: number
 }
+
+// Absolute ceiling for the auto-widen behavior below — no tooltip should ever
+// grow past this regardless of `maxWidth` or viewport size.
+const ABSOLUTE_WIDTH_CAP = 600
 
 // ── Animation helpers ─────────────────────────────────────────────────────────
 
@@ -68,12 +88,14 @@ export function Tooltip({
   content,
   children,
   side = 'top',
+  align = 'center',
   sideOffset = 8,
   delayDuration = 400,
   disabled = false,
   open: openProp,
   className,
   maxWidth,
+  maxHeight,
   portal = true,
   zIndex = 9999,
 }: TooltipProps) {
@@ -82,6 +104,7 @@ export function Tooltip({
   const [mounted,       setMounted]     = useState(false)
   const [entered,       setEntered]     = useState(false)
   const rafRef = useRef<number>(0)
+  const contentBoxRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (disabled) setInternalOpen(false)
@@ -107,19 +130,51 @@ export function Tooltip({
     return () => cancelAnimationFrame(rafRef.current)
   }, [effectiveOpen])
 
+  // Widen instead of scrolling: measure the rendered box against `maxHeight`
+  // and, if it overflows, grow the width in steps (re-measuring each step)
+  // until the wrapped text fits or a sane cap is hit. Runs imperatively via
+  // direct style writes so it settles within one paint — no render loop.
+  useLayoutEffect(() => {
+    if (!maxHeight || !mounted) return
+    const el = contentBoxRef.current
+    if (!el) return
+    const rawBaseWidth = typeof maxWidth === 'number' ? maxWidth : (maxWidth ? el.getBoundingClientRect().width : 200)
+    const baseWidth = Math.min(rawBaseWidth, ABSOLUTE_WIDTH_CAP)
+    const viewportCap = typeof window !== 'undefined' ? window.innerWidth - 48 : baseWidth * 2.5
+    const hardCap = Math.min(baseWidth * 2.5, viewportCap, ABSOLUTE_WIDTH_CAP)
+
+    let width = baseWidth
+    el.style.width = `${width}px`
+    while (el.scrollHeight > maxHeight && width < hardCap) {
+      width = Math.min(width + 24, hardCap)
+      el.style.width = `${width}px`
+    }
+  }, [mounted, content, maxWidth, maxHeight])
+
   const slideOffset = getSlideOffset(side)
 
   const translateX = entered ? 0 : slideOffset.x
   const translateY = entered ? 0 : slideOffset.y
 
+  // CSS-level ceiling — authoritative regardless of the JS auto-widen effect
+  // above, so the box can never render past ABSOLUTE_WIDTH_CAP even if a
+  // caller passes a larger `maxWidth` (e.g. a wide dropdown's own width).
+  // When `maxHeight` drives auto-widen, this is the only width constraint —
+  // the JS effect sets the actual `width` under this ceiling.
+  const cssMaxWidth = maxHeight
+    ? ABSOLUTE_WIDTH_CAP
+    : (typeof maxWidth === 'number' ? Math.min(maxWidth, ABSOLUTE_WIDTH_CAP) : maxWidth)
+
   const tooltipContent = (
     <TooltipPrimitive.Content
       side={side}
+      align={align}
       sideOffset={sideOffset}
       forceMount
       style={{ outline: 'none', pointerEvents: 'none', zIndex }}
     >
       <div
+        ref={contentBoxRef}
         className={cn(className)}
         onTransitionEnd={() => { if (!effectiveOpen) setMounted(false) }}
         style={{
@@ -131,7 +186,8 @@ export function Tooltip({
           overflow:        'hidden',
           borderRadius:    '6px',
           padding:         maxWidth ? '6px 8px' : '4px 6px',
-          maxWidth:        maxWidth,
+          maxWidth:        cssMaxWidth,
+          maxHeight:       maxHeight,
           backgroundImage: 'linear-gradient(180deg, var(--tooltip-bg-from) 0%, var(--tooltip-bg-to) 100%)',
           boxShadow:       'var(--shadow-tooltip)',
           pointerEvents:   'none',

@@ -85,6 +85,12 @@ export interface ModelSelectItemProps extends React.HTMLAttributes<HTMLDivElemen
    * else this component is already used.
    */
   alwaysShowInfo?: boolean
+  /**
+   * Max width of the `info` tooltip. Defaults to 280 (the original fixed
+   * value). Pass the host dropdown/panel's rendered width to make the
+   * tooltip match it instead.
+   */
+  infoMaxWidth?: number | string
   /** Persistent selected / active state */
   selected?: boolean
   /** Render as a child element (Radix Slot) - lets you compose with Select.Item, etc. */
@@ -120,6 +126,7 @@ export function ModelSelectItem({
     onBookmarkClick,
     info,
     alwaysShowInfo = false,
+    infoMaxWidth = 280,
     selected   = false,
     asChild    = false,
     className,
@@ -238,7 +245,7 @@ export function ModelSelectItem({
                   <Tooltip
                     content={info ?? null}
                     side="top"
-                    maxWidth={280}
+                    maxWidth={infoMaxWidth}
                     disabled={!info || !isHovered}
                   >
                     <span
@@ -317,7 +324,7 @@ export function ModelSelectItem({
         {/* ── Persistent info button (alwaysShowInfo mode) - visible at rest,
              not hover-gated like the avatar↔info-circle crossfade above. ── */}
         {alwaysShowInfo && info && (
-          <Tooltip content={info} side="top" maxWidth={280}>
+          <Tooltip content={info} side="top" align="end" maxWidth={infoMaxWidth} maxHeight={300}>
             <IconButton
               size="xs"
               variant="ghost"

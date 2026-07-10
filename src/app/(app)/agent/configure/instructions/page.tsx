@@ -44,6 +44,7 @@ import {
 } from '@/lib/persona-version-logic'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
+import { recordModelUsage, sortModelsByUsage } from '@/lib/model-usage'
 import type { AIModel } from '@/types/ai-model'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
@@ -52,6 +53,7 @@ import { personaProfileKey } from '@/lib/storage-keys'
 import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
 import { setVersionTags } from '@/lib/version-tags'
 import { Badge, type BadgeColor } from '@/components/Badge'
+import { Divider } from '@/components/Divider'
 import { Slider } from '@/components/Slider'
 import { AttributeTocRail, ATTRIBUTE_HEADER_STYLE, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
 
@@ -209,17 +211,57 @@ function modelTagBadges(model: AIModel): React.ReactNode {
   )
 }
 
-function modelInfoContent(model: AIModel): React.ReactNode {
-  if (!model.description && !(model.thinkingEfforts && model.thinkingEfforts.length > 0)) return null
+// The tooltip renders on the dark gradient background (--tooltip-bg-from/to),
+// unlike MODEL_PICKER_CAPTION_STYLE's dropdown-panel captions below — headers
+// and empty-state copy here dim the light --tooltip-text color via opacity
+// instead of using a light-mode neutral shade that would read low-contrast.
+const TOOLTIP_SECTION_HEADER_STYLE: React.CSSProperties = {
+  fontFamily: 'var(--font-body)',
+  fontWeight: 'var(--font-weight-medium)',
+  fontSize:   'var(--font-size-caption)',
+  lineHeight: 'var(--line-height-caption)',
+  color:      'var(--tooltip-text)',
+  opacity:    0.6,
+}
+
+const TOOLTIP_EMPTY_TEXT_STYLE: React.CSSProperties = {
+  color:      'var(--tooltip-text)',
+  opacity:    0.6,
+  fontStyle:  'italic',
+}
+
+function modelInfoSection(header: string, emptyText: string, content: React.ReactNode | null): React.ReactNode {
   return (
     <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {model.description && <span>{model.description}</span>}
-      {model.thinkingEfforts && model.thinkingEfforts.length > 0 && (
-        <span style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-          {model.thinkingEfforts.map((effort) => (
-            <Badge key={effort} label={effort} color="Purple" />
-          ))}
-        </span>
+      <span style={TOOLTIP_SECTION_HEADER_STYLE}>{header}</span>
+      {content ?? <span style={TOOLTIP_EMPTY_TEXT_STYLE}>{emptyText}</span>}
+    </span>
+  )
+}
+
+function modelInfoContent(model: AIModel): React.ReactNode {
+  const hasEfforts = !!(model.thinkingEfforts && model.thinkingEfforts.length > 0)
+
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {modelInfoSection(
+        'Description',
+        'No information on this model yet.',
+        model.description ? <span>{model.description}</span> : null,
+      )}
+
+      <Divider decorative />
+
+      {modelInfoSection(
+        'Reasoning effort',
+        'No reasoning effort levels for this model yet.',
+        hasEfforts ? (
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+            {model.thinkingEfforts!.map((effort) => (
+              <Badge key={effort} label={effort} color="Purple" />
+            ))}
+          </span>
+        ) : null,
       )}
     </span>
   )
@@ -258,6 +300,19 @@ function ModelDropdown({
   const [provider, setProvider] = useState('all')
   const [atTop,    setAtTop]    = useState(true)
   const [atBottom, setAtBottom] = useState(false)
+  // Tracks the dropdown's own rendered width so each row's info tooltip can
+  // be capped to match it, rather than an arbitrary fixed pixel value.
+  const [dropdownWidth, setDropdownWidth] = useState(280)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const update = () => setDropdownWidth(el.getBoundingClientRect().width)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   // Close on outside click + Escape
   const closeDropdown = useEffectEvent((v: boolean) => onOpenChange(v))
@@ -295,6 +350,8 @@ function ModelDropdown({
 
   // Clump models by company, most-populous company first (same order as the
   // provider tabs), so switching tabs doesn't reshuffle groups already seen.
+  // Within each company, this browser's most-used models float to the top —
+  // models never picked here or in chat keep their original relative order.
   const groupedFiltered = React.useMemo(() => {
     const byCompany = new Map<string, AIModel[]>()
     for (const m of filtered) {
@@ -304,7 +361,7 @@ function ModelDropdown({
     }
     return companies
       .filter(c => byCompany.has(c))
-      .map(c => ({ company: c, items: byCompany.get(c)! }))
+      .map(c => ({ company: c, items: sortModelsByUsage(byCompany.get(c)!) }))
   }, [filtered, companies])
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -470,6 +527,7 @@ function ModelDropdown({
                                     icons={modelTagBadges(m)}
                                     info={modelInfoContent(m)}
                                     alwaysShowInfo
+                                    infoMaxWidth={dropdownWidth}
                                     selected={isSelected}
                                     onClick={() => onSelect(m)}
                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(m) } }}
@@ -1594,7 +1652,7 @@ function PersonaConfigureInstructionsContent() {
                   selectedModel={selectedModel}
                   open={modelSelectorOpen}
                   onOpenChange={setModelSelectorOpen}
-                  onSelect={(m) => { setSelectedModel(m); setModelSelectorOpen(false); markTouched('model') }}
+                  onSelect={(m) => { setSelectedModel(m); setModelSelectorOpen(false); markTouched('model'); recordModelUsage(m) }}
                 />
               </div>
 
