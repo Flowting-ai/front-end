@@ -6,7 +6,7 @@ import { AnimatePresence, m } from 'framer-motion'
 import { BookmarkTwoIcon, BookmarkTwoSolidIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { IconButton } from '@/components/IconButton'
-import { Tooltip } from '@/components/Tooltip'
+import { Tooltip, type TooltipSide } from '@/components/Tooltip'
 import { ModelSelectorContext } from '@/components/ModelSelector'
 import { cn } from '@/lib/utils'
 
@@ -91,6 +91,12 @@ export interface ModelSelectItemProps extends React.HTMLAttributes<HTMLDivElemen
    * tooltip match it instead.
    */
   infoMaxWidth?: number | string
+  /**
+   * Side the `info` tooltip opens on, relative to its trigger. Defaults to
+   * `"top"`. Pass `"right"` for lists where the row's own width is tight or
+   * a top-anchored tooltip would collide with sticky headers above the list.
+   */
+  infoSide?: TooltipSide
   /** Persistent selected / active state */
   selected?: boolean
   /** Render as a child element (Radix Slot) - lets you compose with Select.Item, etc. */
@@ -127,6 +133,7 @@ export function ModelSelectItem({
     info,
     alwaysShowInfo = false,
     infoMaxWidth = 280,
+    infoSide = 'top',
     selected   = false,
     asChild    = false,
     className,
@@ -137,6 +144,13 @@ export function ModelSelectItem({
   }: ModelSelectItemProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [isHovered, setIsHovered] = useState(false)
     const isActive = isHovered || selected
+
+    // Tracks hover on the small avatar/info-circle slot specifically, as
+    // opposed to `isHovered` (whole-row hover, which drives the active-state
+    // highlight and the avatar→info-circle crossfade). The tooltip should
+    // only open once the user is hovering that icon itself, not anywhere on
+    // the row - see where this drives the wrapping `<Tooltip>`'s `open` prop.
+    const [isIconHovered, setIsIconHovered] = useState(false)
 
     // When mounted inside a ModelSelector showing the Favorites category,
     // suppress the per-row bookmark - the list itself IS the favorites set.
@@ -178,7 +192,13 @@ export function ModelSelectItem({
 
     const Comp = asChild ? Slot : 'div'
 
-    return (
+    // In the default (non-alwaysShowInfo) mode, the tooltip's trigger is the
+    // whole row rather than the small avatar/info-circle slot, so it anchors
+    // to the row's edge (e.g. `infoSide="right"` → right end of the item)
+    // instead of popping out next to that icon on the row's left side.
+    const hasRowTooltip = !!info && !alwaysShowInfo
+
+    const rowElement = (
       <Comp
         ref={ref}
         className={cn('kds-model-select-item', className)}
@@ -205,6 +225,7 @@ export function ModelSelectItem({
         }}
         onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
           setIsHovered(false)
+          setIsIconHovered(false)
           externalLeave?.(e)
         }}
         {...props}
@@ -231,72 +252,61 @@ export function ModelSelectItem({
                 // of swapping in here on hover.
                 resolvedImage
               ) : (
-                <>
-                  {/*
-                    Hover swaps avatar → info-circle via popLayout cross-fade.
-                    The Tooltip wraps the entire 22×22 slot once and stays mounted -
-                    if it conditionally wrapped only the "info" branch, framer's
-                    popLayout projection would mis-track positions across the
-                    key-swap and the avatar would slide in from the right instead
-                    of crossfading in place. Tooltip is `disabled` whenever no
-                    info content is provided OR the row isn't hovered, so the
-                    tooltip only opens while the info-circle is visible.
-                  */}
-                  <Tooltip
-                    content={info ?? null}
-                    side="top"
-                    maxWidth={infoMaxWidth}
-                    disabled={!info || !isHovered}
-                  >
-                    <span
-                      style={{
-                        display:        'flex',
-                        alignItems:     'center',
-                        justifyContent: 'center',
-                        width:          '100%',
-                        height:         '100%',
-                        lineHeight:     0,
-                      }}
-                    >
-                      <AnimatePresence mode="popLayout" initial={false}>
-                        {isHovered ? (
-                          <m.span
-                            key="info"
-                            initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-                            animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
-                            exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                            style={{
-                              display:        'flex',
-                              alignItems:     'center',
-                              justifyContent: 'center',
-                              lineHeight:     0,
-                              color:          'var(--model-select-item-icon)',
-                            }}
-                          >
-                            <InformationCircleIcon size={20} />
-                          </m.span>
-                        ) : (
-                          <m.span
-                            key="image"
-                            initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-                            animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
-                            exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                            style={{
-                              display:        'flex',
-                              alignItems:     'center',
-                              justifyContent: 'center',
-                              lineHeight:     0,
-                            }}
-                          >
-                            {resolvedImage}
-                          </m.span>
-                        )}
-                      </AnimatePresence>
-                    </span>
-                  </Tooltip>
-                </>
+                // Hover swaps avatar → info-circle via popLayout cross-fade.
+                // The wrapping `<Tooltip>` (around `rowElement` below) anchors
+                // to the whole row so it opens from the row's edge rather than
+                // from this small icon, but it only OPENS once the user is
+                // hovering this icon specifically (`isIconHovered`) - hence the
+                // dedicated mouse handlers here, distinct from the row's own.
+                <span
+                  onMouseEnter={() => setIsIconHovered(true)}
+                  onMouseLeave={() => setIsIconHovered(false)}
+                  style={{
+                    display:        'flex',
+                    alignItems:     'center',
+                    justifyContent: 'center',
+                    width:          '100%',
+                    height:         '100%',
+                    lineHeight:     0,
+                  }}
+                >
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    {isHovered ? (
+                      <m.span
+                        key="info"
+                        initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                        animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+                        exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        style={{
+                          display:        'flex',
+                          alignItems:     'center',
+                          justifyContent: 'center',
+                          lineHeight:     0,
+                          color:          'var(--model-select-item-icon)',
+                        }}
+                      >
+                        <InformationCircleIcon size={20} />
+                      </m.span>
+                    ) : (
+                      <m.span
+                        key="image"
+                        initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                        animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+                        exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        style={{
+                          display:        'flex',
+                          alignItems:     'center',
+                          justifyContent: 'center',
+                          lineHeight:     0,
+                        }}
+                      >
+                        {resolvedImage}
+                      </m.span>
+                    )}
+                  </AnimatePresence>
+                </span>
               )}
             </div>
           )}
@@ -324,7 +334,7 @@ export function ModelSelectItem({
         {/* ── Persistent info button (alwaysShowInfo mode) - visible at rest,
              not hover-gated like the avatar↔info-circle crossfade above. ── */}
         {alwaysShowInfo && info && (
-          <Tooltip content={info} side="top" align="end" maxWidth={infoMaxWidth} maxHeight={300}>
+          <Tooltip content={info} side={infoSide} align="end" maxWidth={infoMaxWidth} maxHeight={300}>
             <IconButton
               size="xs"
               variant="ghost"
@@ -434,6 +444,18 @@ export function ModelSelectItem({
         )}
       </Comp>
     )
+
+    return hasRowTooltip ? (
+      <Tooltip
+        content={info}
+        side={infoSide}
+        align="center"
+        maxWidth={infoMaxWidth}
+        open={isIconHovered}
+      >
+        {rowElement}
+      </Tooltip>
+    ) : rowElement
 }
 
 ModelSelectItem.displayName = 'ModelSelectItem'

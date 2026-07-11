@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PlusSignIcon } from '@strange-huge/icons'
+import { PlusSignIcon, SettingsOneIcon } from '@strange-huge/icons'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
+import { Badge, type BadgeColor } from '@/components/Badge'
 import { InputField } from '@/components/InputField'
 import {
   SettingsTable,
@@ -17,6 +18,7 @@ import {
 } from '@/components/SettingsTable'
 import { useOrg } from '@/context/org-context'
 import { createTeam } from '@/lib/api/teams'
+import { fetchTeamAccessSnapshot } from '@/lib/team-access'
 import type { Team } from '@/types/teams'
 import { ORG_TEAM_ROUTE } from '@/lib/routes'
 
@@ -81,37 +83,106 @@ function CreateTeamForm({
 const TEAM_COLUMNS = '177px 178px 178px 177px 178px 178px'
 const TEAM_COLUMN_GAP = 0
 
+// Deterministic gradient palette — kept in sync with TeamSwitcher/index.tsx's
+// getTeamGradient/TeamAvatar so a team keeps the same color/icon everywhere.
+const TEAM_GRADIENTS = [
+  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',  // teal-blue
+  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',  // purple
+  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',  // orange
+  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',  // green
+  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',  // red-brown
+  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',  // blue
+]
+
+function getTeamGradient(teamId: string): string {
+  let hash = 0
+  for (let i = 0; i < teamId.length; i++) {
+    hash = ((hash << 5) - hash) + teamId.charCodeAt(i)
+    hash |= 0
+  }
+  return TEAM_GRADIENTS[Math.abs(hash) % TEAM_GRADIENTS.length]!
+}
+
+function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string; size?: number }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        position:     'relative',
+        display:      'inline-flex',
+        width:        size,
+        height:       size,
+        borderRadius: 4,
+        background:   getTeamGradient(teamId),
+        flexShrink:   0,
+        overflow:     'hidden',
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          position:      'absolute',
+          inset:         0,
+          borderRadius:  4,
+          pointerEvents: 'none',
+          boxShadow:     'inset 0px 4px 4px 0px rgba(0,0,0,0.25), inset 0px -1px 0.4px 0px rgba(18,60,95,0.65)',
+        }}
+      />
+      <span
+        style={{
+          position:       'absolute',
+          inset:          0,
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+          fontFamily:     'var(--font-title)',
+          fontWeight:     500,
+          fontSize:       Math.round(size * 0.55),
+          lineHeight:     1,
+          color:          'var(--neutral-white)',
+          userSelect:     'none',
+        }}
+      >
+        {name.charAt(0).toUpperCase()}
+      </span>
+    </span>
+  )
+}
+
 function TeamNameCell({ team }: { team: Team }) {
   return (
-    <div style={{ minWidth: 0 }}>
-      <p style={{
-        fontFamily:   'var(--font-body)',
-        fontWeight:   500,
-        fontSize:     14,
-        lineHeight:   '22px',
-        color:        'var(--neutral-900)',
-        margin:       0,
-        overflow:     'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace:   'nowrap',
-      }}>
-        {team.name}
-      </p>
-      {team.description && (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+      <TeamAvatar teamId={team.id} name={team.name} size={36} />
+      <div style={{ minWidth: 0 }}>
         <p style={{
           fontFamily:   'var(--font-body)',
-          fontWeight:   400,
-          fontSize:     11,
-          lineHeight:   '16px',
-          color:        'var(--neutral-500)',
+          fontWeight:   500,
+          fontSize:     14,
+          lineHeight:   '22px',
+          color:        'var(--neutral-900)',
           margin:       0,
           overflow:     'hidden',
           textOverflow: 'ellipsis',
           whiteSpace:   'nowrap',
         }}>
-          {team.description}
+          {team.name}
         </p>
-      )}
+        {team.description && (
+          <p style={{
+            fontFamily:   'var(--font-body)',
+            fontWeight:   400,
+            fontSize:     11,
+            lineHeight:   '16px',
+            color:        'var(--neutral-500)',
+            margin:       0,
+            overflow:     'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace:   'nowrap',
+          }}>
+            {team.description}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -134,6 +205,15 @@ function TextPill({ children }: { children: React.ReactNode }) {
       {children}
     </span>
   )
+}
+
+// Editors/Members count cell: a "—" pill while loading, a "None" badge at
+// zero, else the count in a colored badge — same Blue/Purple family RoleBadge
+// uses for editor/member elsewhere, so the color language stays consistent.
+function CountCell({ loading, count, noun, color }: { loading: boolean; count: number; noun: string; color: BadgeColor }) {
+  if (loading) return <TextPill>—</TextPill>
+  if (count === 0) return <Badge color="Neutral" label="None" />
+  return <Badge color={color} label={`${count} ${noun}${count === 1 ? '' : 's'}`} />
 }
 
 function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: string | number; height: number; radius?: number }) {
@@ -176,18 +256,25 @@ function TeamsPageSkeleton() {
           <div style={{ display: 'grid', gridTemplateColumns: TEAM_COLUMNS, columnGap: TEAM_COLUMN_GAP, alignItems: 'center', padding: '6px 24px 16px', borderBottom: '1px solid var(--neutral-100)', minHeight: 44 }}>
             <SkeletonBlock width={40} height={13} radius={4} />
             <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
-            <div /><div /><div /><div />
+            <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={50} height={13} radius={4} /></div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={60} height={13} radius={4} /></div>
+            <div /><div />
           </div>
 
           {/* Skeleton rows */}
           {[0, 1, 2].map(i => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: TEAM_COLUMNS, columnGap: TEAM_COLUMN_GAP, alignItems: 'center', minHeight: 72, padding: '0 24px', borderBottom: '1px solid var(--neutral-100)' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <SkeletonBlock width={120} height={14} radius={4} />
-                <SkeletonBlock width={80} height={11} radius={4} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <SkeletonBlock width={36} height={36} radius={4} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <SkeletonBlock width={120} height={14} radius={4} />
+                  <SkeletonBlock width={80} height={11} radius={4} />
+                </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
-              <div /><div /><div />
+              <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
+              <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
+              <div />
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={110} height={32} radius={8} /></div>
             </div>
           ))}
@@ -205,8 +292,40 @@ export default function OrgTeamsPage() {
 
   const [creating, setCreating] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [editorCounts, setEditorCounts] = useState<Record<string, number>>({})
+  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({})
+  const [countsLoading, setCountsLoading] = useState(true)
 
   const activeTeams = teams.filter(t => !t.archived)
+
+  // Team list/editor endpoints don't return member/editor counts, so they're
+  // derived the same way the members page builds per-team rosters: editors +
+  // project members, deduped per user per team. A membership's isTeamOwner
+  // flag is what distinguishes an editor from a plain member.
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCounts() {
+      if (!orgId || activeTeams.length === 0) {
+        if (!cancelled) { setEditorCounts({}); setMemberCounts({}); setCountsLoading(false) }
+        return
+      }
+      setCountsLoading(true)
+      const { membershipsByUser } = await fetchTeamAccessSnapshot(orgId, activeTeams)
+      const editors: Record<string, number> = {}
+      const members: Record<string, number> = {}
+      for (const memberships of membershipsByUser.values()) {
+        for (const membership of memberships) {
+          const bucket = membership.isTeamOwner ? editors : members
+          bucket[membership.teamId] = (bucket[membership.teamId] ?? 0) + 1
+        }
+      }
+      if (!cancelled) { setEditorCounts(editors); setMemberCounts(members); setCountsLoading(false) }
+    }
+
+    void loadCounts()
+    return () => { cancelled = true }
+  }, [orgId, teams])
 
   if (teamsLoading) {
     return (
@@ -285,10 +404,10 @@ export default function OrgTeamsPage() {
           >
             <SettingsTableHeaderCell>Team</SettingsTableHeaderCell>
             <SettingsTableHeaderCell align="center">Created</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="center">Editors</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="center">Members</SettingsTableHeaderCell>
             <SettingsTableHeaderCell>{null}</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell>{null}</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell>{null}</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell>{null}</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="end">Actions</SettingsTableHeaderCell>
           </SettingsTableHeader>
 
           {!teamsLoading && activeTeams.length === 0 && !creating && (
@@ -313,13 +432,18 @@ export default function OrgTeamsPage() {
               <SettingsTableCell align="center">
                 <TextPill>{new Date(team.createdAt).toLocaleDateString()}</TextPill>
               </SettingsTableCell>
-              <SettingsTableCell>{null}</SettingsTableCell>
-              <SettingsTableCell>{null}</SettingsTableCell>
+              <SettingsTableCell align="center">
+                <CountCell loading={countsLoading} count={editorCounts[team.id] ?? 0} noun="editor" color="Blue" />
+              </SettingsTableCell>
+              <SettingsTableCell align="center">
+                <CountCell loading={countsLoading} count={memberCounts[team.id] ?? 0} noun="member" color="Purple" />
+              </SettingsTableCell>
               <SettingsTableCell>{null}</SettingsTableCell>
               <SettingsTableCell align="end">
                 <Button
                   variant="secondary"
                   size="sm"
+                  leftIcon={<SettingsOneIcon animated />}
                   onClick={() => router.push(ORG_TEAM_ROUTE(team.id))}
                 >
                   Team settings

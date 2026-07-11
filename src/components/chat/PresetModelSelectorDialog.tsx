@@ -27,6 +27,8 @@ import { ModelSelectItem } from "@/components/ModelSelectItem";
 import { ModelFeaturedCard } from "@/components/ModelFeaturedCard";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
 import { InputField } from "@/components/InputField";
+import { Badge, type BadgeColor } from "@/components/Badge";
+import { Divider } from "@/components/Divider";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -55,6 +57,90 @@ const CAPTION_STYLE: React.CSSProperties = {
   color: "var(--neutral-500)",
   whiteSpace: "nowrap",
 };
+
+// ── Model row hover tooltip — mirrors the Instructions tab's model picker
+// (app/(app)/agent/configure/instructions/page.tsx) so tags / reasoning
+// effort / description read the same way in both surfaces.
+
+// Deterministic tag → Badge color, same hash as the Instructions tab's
+// local tagColor (not exported there, so duplicated here rather than
+// forcing a shared-utils extraction for a 4-line pure function).
+const TAG_PALETTE: BadgeColor[] = ["Green", "Blue", "Purple", "Brown", "Yellow"];
+function tagColor(tag: string): BadgeColor {
+  let h = 0;
+  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0;
+  return TAG_PALETTE[h % TAG_PALETTE.length];
+}
+
+// The tooltip renders on the dark gradient background (--tooltip-bg-from/to),
+// so headers and empty-state copy dim the light --tooltip-text color via
+// opacity instead of a light-mode neutral shade that would read low-contrast.
+const TOOLTIP_SECTION_HEADER_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-body)",
+  fontWeight: "var(--font-weight-medium)",
+  fontSize: "var(--font-size-caption)",
+  lineHeight: "var(--line-height-caption)",
+  color: "var(--tooltip-text)",
+  opacity: 0.6,
+};
+
+const TOOLTIP_EMPTY_TEXT_STYLE: React.CSSProperties = {
+  color: "var(--tooltip-text)",
+  opacity: 0.6,
+  fontStyle: "italic",
+};
+
+function modelInfoSection(header: string, emptyText: string, content: React.ReactNode | null): React.ReactNode {
+  return (
+    <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={TOOLTIP_SECTION_HEADER_STYLE}>{header}</span>
+      {content ?? <span style={TOOLTIP_EMPTY_TEXT_STYLE}>{emptyText}</span>}
+    </span>
+  );
+}
+
+function modelInfoContent(model: AIModel): React.ReactNode {
+  const hasTags = !!(model.tags && model.tags.length > 0);
+  const hasEfforts = !!(model.thinkingEfforts && model.thinkingEfforts.length > 0);
+
+  return (
+    <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {modelInfoSection(
+        "Tags",
+        "No tags for this model yet.",
+        hasTags ? (
+          <span style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+            {model.tags!.map((tag) => (
+              <Badge key={tag} label={tag} color={tagColor(tag)} />
+            ))}
+          </span>
+        ) : null,
+      )}
+
+      <Divider decorative />
+
+      {modelInfoSection(
+        "Description",
+        "No information on this model yet.",
+        model.description ? <span>{model.description}</span> : null,
+      )}
+
+      <Divider decorative />
+
+      {modelInfoSection(
+        "Reasoning effort",
+        "No reasoning effort levels for this model yet.",
+        hasEfforts ? (
+          <span style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+            {model.thinkingEfforts!.map((effort) => (
+              <Badge key={effort} label={effort} color="Purple" />
+            ))}
+          </span>
+        ) : null,
+      )}
+    </span>
+  );
+}
 
 // ── Featured mode row (Muse / Advanced) ──────────────────────────────────────
 // Two ModelFeaturedCards side-by-side, behaving as a radio pair.
@@ -121,6 +207,21 @@ function PresetModelSelectorContent({
   const [provider, setProvider] = useState("all");
   const [atTop, setAtTop] = useState(true);
   const [atBottom, setAtBottom] = useState(false);
+  // Tracks the panel's own rendered width so each row's info tooltip can be
+  // capped to match it (the dialog's width can shrink below DROPDOWN_WIDTH
+  // via its `calc(100vw - 32px)` clamp on narrow viewports).
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [dropdownWidth, setDropdownWidth] = useState(DROPDOWN_WIDTH);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setDropdownWidth(el.getBoundingClientRect().width);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Derive sorted company list (most models first) — same logic as CompareModels
   const companies = React.useMemo(() => {
@@ -185,7 +286,7 @@ function PresetModelSelectorContent({
   });
 
   return (
-    <div style={{ padding: "8px" }}>
+    <div ref={containerRef} style={{ padding: "8px" }}>
       {/* Inner container */}
       <div
         style={{
@@ -359,6 +460,9 @@ function PresetModelSelectorContent({
                           aria-pressed={isSelected}
                           llm={getModelLlmId(model.companyName, model.modelName) ?? undefined}
                           label={model.modelName}
+                          info={modelInfoContent(model)}
+                          infoSide="right"
+                          infoMaxWidth={dropdownWidth}
                           selected={isSelected}
                           onClick={() => onSelect(model)}
                           onKeyDown={(e) => {

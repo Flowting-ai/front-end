@@ -19,6 +19,13 @@ export interface RoleBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   mode?:       RoleBadgeMode
   size?:       RoleBadgeSize
   asChild?:    boolean
+  /**
+   * When provided, the chip renders as a native <button> with a trailing
+   * chevron drawn inside it (same role color), so the badge itself becomes
+   * the click target for an inline role-change dropdown — no separate
+   * button/icon needed next to it.
+   */
+  onClick?:    (event: React.MouseEvent<HTMLButtonElement>) => void
 }
 
 // ── Color tokens (exact from Figma) ──────────────────────────────────────────
@@ -121,10 +128,18 @@ function RoleGlyph({ role }: { role: WorkspaceRole }) {
   return <SolarOrganicGlyph />
 }
 
+function ChevronGlyph() {
+  return (
+    <svg width="8" height="8" viewBox="0 0 10 10" fill="none" aria-hidden>
+      <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 // Solar-mode role chip — icon + optional label, role-specific colour tokens.
 
-export const RoleBadge = React.forwardRef<HTMLSpanElement, RoleBadgeProps>(
+export const RoleBadge = React.forwardRef<HTMLSpanElement | HTMLButtonElement, RoleBadgeProps>(
   function RoleBadge(
     {
       role,
@@ -133,18 +148,22 @@ export const RoleBadge = React.forwardRef<HTMLSpanElement, RoleBadgeProps>(
       mode: _mode = 'solar',
       size: _size = 'md',
       asChild = false,
+      onClick,
       className,
       style,
       ...props
     },
     ref,
   ) {
-    const Comp   = (asChild ? Slot : 'span') as React.ElementType
+    const isInteractive = typeof onClick === 'function'
+    const Comp   = (asChild ? Slot : isInteractive ? 'button' : 'span') as React.ElementType
     const tokens = ROLE_TOKENS[role]
 
     return (
       <Comp
         ref={ref}
+        type={isInteractive ? 'button' : undefined}
+        onClick={onClick}
         className={className}
         style={{
           display:    'inline-flex',
@@ -152,11 +171,18 @@ export const RoleBadge = React.forwardRef<HTMLSpanElement, RoleBadgeProps>(
           height:     '20px',
           width:      showLabel ? 'auto' : '19.5px',
           flexShrink: 0,
+          ...(isInteractive && {
+            border:    'none',
+            padding:   0,
+            background: 'transparent',
+            font:      'inherit',
+            cursor:    'pointer',
+          }),
           ...style,
         }}
         {...props}
       >
-        {/* Chip inner — bg, shadow, icon + optional label */}
+        {/* Chip inner — bg, shadow, icon + optional label (+ trailing chevron when interactive) */}
         <span
           style={{
             display:         'inline-flex',
@@ -203,6 +229,12 @@ export const RoleBadge = React.forwardRef<HTMLSpanElement, RoleBadgeProps>(
               }}
             >
               {ROLE_LABEL[role]}
+            </span>
+          )}
+
+          {isInteractive && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', paddingRight: '2px', color: tokens.text }}>
+              <ChevronGlyph />
             </span>
           )}
         </span>
