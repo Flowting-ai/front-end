@@ -240,11 +240,13 @@ function ProjectChatPageInner() {
   // main chat page's effect on chatIdFromUrl. Without this, the shared
   // HighlightProvider keeps whichever other chat's highlights were loaded
   // last, so returning to this chat renders zero highlight marks even
-  // though the highlights themselves still exist server-side.
-  const { loadForChat: loadHighlightsForChat } = useHighlight()
+  // though the highlights themselves still exist server-side. A chat-id-less
+  // "new" route clears instead, so a previous chat's highlights don't linger.
+  const { loadForChat: loadHighlightsForChat, clearHighlights } = useHighlight()
   useEffect(() => {
     if (activeChatId) loadHighlightsForChat(activeChatId)
-  }, [activeChatId, loadHighlightsForChat])
+    else clearHighlights()
+  }, [activeChatId, loadHighlightsForChat, clearHighlights])
 
   useEffect(() => {
     setChatsLoading(true)

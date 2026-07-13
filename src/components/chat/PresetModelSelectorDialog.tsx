@@ -438,7 +438,7 @@ function PresetModelSelectorContent({
         >
           {/* Category tabs */}
           <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
-            <div style={{ flex: "1 0 0", minWidth: 0 }}>
+            <div style={{ flex: "0 1 auto", minWidth: 0 }}>
               <Tabs value={category} onValueChange={setCategory}>
                 <TabsList size="small" scrollable pillTopInset={0.5} pillBottomInset={1}>
                   {CATEGORY_TABS.map((t) => (

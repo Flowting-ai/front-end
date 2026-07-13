@@ -34,9 +34,16 @@ function HighlightSidebarImpl() {
 
   const { push }      = useRouter()
   const currentChatId = useCurrentChatId()
+  // Defensive chat-id filter (mirrors FloatingPanel's gutter) — the context's
+  // `highlights` list is expected to already be scoped to currentChatId via
+  // loadForChat, but this keeps a previous chat's entries from ever bleeding
+  // into the panel if that assumption is ever violated (e.g. a race, or a
+  // route with no chat-id-change effect wired up).
   const panelHighlights = useMemo(
-    () => filterMode === 'this-chat' ? sortHighlightsBySourcePosition(highlights) : highlights,
-    [filterMode, highlights],
+    () => filterMode === 'this-chat'
+      ? sortHighlightsBySourcePosition(highlights.filter(h => !h.chatId || h.chatId === currentChatId))
+      : highlights,
+    [filterMode, highlights, currentChatId],
   )
 
   // Stores a pending cross-chat scroll target when the user clicks "Open in chat"

@@ -693,16 +693,19 @@ function ChatPageInner() {
     : undefined;
   const activeChatCanManage = activeChatRecord?.can_edit === true;
   const activeChatReadOnly = activeChatRecord?.can_edit === false;
-  const { loadForChat: loadHighlightsForChat } = useHighlight();
+  const { loadForChat: loadHighlightsForChat, clearHighlights } = useHighlight();
 
   // Tracks a newly-created chat so handleChatMoveToTop can schedule a title refresh.
   const newlyCreatedChatIdRef = useRef<string | null>(null);
 
   // Load highlights whenever the URL chat ID changes — reads chatIdFromUrl directly
   // to avoid an effect chain (layoutEffect sets activeChatId → effect reacts to it).
+  // Navigating to a chat-id-less route (blank new-chat screen) clears instead —
+  // otherwise the previous chat's highlights would linger in the panel/gutter.
   useEffect(() => {
     if (chatIdFromUrl) loadHighlightsForChat(chatIdFromUrl);
-  }, [chatIdFromUrl, loadHighlightsForChat]);
+    else clearHighlights();
+  }, [chatIdFromUrl, loadHighlightsForChat, clearHighlights]);
 
   // Sync URL param into local state (e.g. sidebar navigation).
   // useLayoutEffect so the state update commits before the browser paints —

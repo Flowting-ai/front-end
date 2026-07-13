@@ -37,6 +37,10 @@ interface HighlightActionsValue {
   loadForChat:     (chatId: string) => void
   /** Load all highlights across every chat from the backend. */
   loadAll:         () => void
+  /** Drop whatever is currently loaded — call when navigating to a chat-id-less
+   *  route (e.g. a blank "new chat" screen) so the previous chat's highlights
+   *  don't linger in the panel/gutter. */
+  clearHighlights: () => void
   addHighlight:    (entry: Omit<HighlightEntry, 'id' | 'colorIndex' | 'renderKey'>) => Promise<string>
   deleteHighlight: (id: string) => Promise<void>
   copyHighlight:   (id: string) => void
@@ -102,6 +106,12 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
     getAllHighlights()
       .then(data => { if (!ctrl.signal.aborted) setHighlights(data.map(responseToEntry)) })
       .catch(() => {/* silently ignore */})
+  }, [])
+
+  const clearHighlights = useCallback(() => {
+    if (filterModeRef.current === 'all') return
+    loadAbortRef.current?.abort()
+    setHighlights([])
   }, [])
 
   const open   = useCallback(() => setIsOpen(true),    [])
@@ -174,7 +184,7 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
   const actions: HighlightActionsValue = {
     open, close, toggle,
     setFilterMode: handleSetFilterMode,
-    loadForChat, loadAll,
+    loadForChat, loadAll, clearHighlights,
     addHighlight, deleteHighlight, copyHighlight,
   }
 
