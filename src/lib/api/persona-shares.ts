@@ -1,6 +1,7 @@
 "use client";
 
 import { apiFetch, apiFetchJson, ApiError, friendlyApiError } from "./client";
+import { trackBrowserEvent } from "@/lib/analytics/events";
 import {
   PERSONA_SHARES_ENDPOINT,
   PERSONA_SHARES_RECEIVED_ENDPOINT,
@@ -148,10 +149,13 @@ export interface CreateShareParams {
 // ── API functions ──────────────────────────────────────────────────────────────
 
 export async function createShare(params: CreateShareParams): Promise<PersonaShare> {
-  return apiFetchJson<PersonaShare>(PERSONA_SHARES_ENDPOINT, {
+  const result = await apiFetchJson<PersonaShare>(PERSONA_SHARES_ENDPOINT, {
     method: "POST",
     body: JSON.stringify(params),
   });
+  // Analytics: an agent shared (link/email). share_created covers chat/project shares.
+  trackBrowserEvent("agent_shared", { share_type: params.share_type });
+  return result;
 }
 
 export async function listShares(): Promise<PersonaShare[]> {

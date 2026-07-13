@@ -5,6 +5,7 @@ import { AnimatePresence, m } from 'framer-motion'
 import { ArrowLeftOneIcon, ArrowRightOneIcon, CancelOneIcon, LaurelWreathOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
+import { trackFeature } from '@/lib/analytics/events'
 import { InputField } from '@/components/InputField'
 import { OptionRow } from '@/components/OptionRow'
 import type { OptionRowVariant } from '@/components/OptionRow'
@@ -114,6 +115,7 @@ export function EnhancePromptField(
     // ── Open / close ───────────────────────────────────────────────────────────
 
     const openEnhance = () => {
+      trackFeature('agent_enhance_instructions')
       // Run scan immediately so we can decide between [scanning] → [qa] / [complete].
       const scores = scanPrompt(value)
       const detectedMode = forceMode ?? classifyMode(scores)

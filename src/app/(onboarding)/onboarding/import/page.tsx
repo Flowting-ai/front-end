@@ -8,6 +8,7 @@ import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
 import { apiFetch } from "@/lib/api/client";
 import { MEMORY_USER_ENDPOINT } from "@/lib/config";
+import { trackBrowserEvent } from "@/lib/analytics/events";
 import { ONBOARDING_WORKSPACE_ROUTE, CHAT_ROUTE } from "@/lib/routes";
 
 const UNIVERSAL_PROMPT = `Based on everything you know about me - past conversations, saved memories, any standing instructions or preferences I've set - write a single paragraph (no headers, no bullets, no markdown) that briefs another AI assistant on how to work with me effectively. Cover:
@@ -63,6 +64,10 @@ export default function OnboardingImportPage() {
           onboarding_completed: true,
         }),
       ]);
+
+      // Analytics: onboarding finished (individual self-serve path). Metadata only.
+      trackBrowserEvent("onboarding_step_completed", { step: "complete" });
+      trackBrowserEvent("signup_completed", { account_type: data.accountType ?? undefined, invited_by_org: false });
 
       // Capture the free-text "Other" role detail as a user memory — the backend
       // user_role enum can't store it. Sent regardless of skipContext (it's a

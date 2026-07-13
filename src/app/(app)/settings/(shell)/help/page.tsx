@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { HelpSkeleton } from '../SettingsSkeleton'
 import { ReportBugModal } from '@/components/ReportBugModal'
 import { RequestFeatureModal } from '@/components/RequestFeatureModal'
+import { trackFeature } from '@/lib/analytics/events'
 
 // ── External link arrow icon ──────────────────────────────────────────────────
 
@@ -172,6 +173,7 @@ export default function HelpPage() {
   const [reportBugOpen,     setReportBugOpen]     = useState(false)
   const [requestFeatureOpen, setRequestFeatureOpen] = useState(false)
   useEffect(() => { setMounted(true) }, [])
+  useEffect(() => { trackFeature('settings_help_opened') }, [])
   if (!mounted) return <HelpSkeleton />
   return (
     <>

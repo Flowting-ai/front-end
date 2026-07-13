@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useEffect } from 'react'
 import { m, AnimatePresence } from 'framer-motion'
+import { trackFeature } from '@/lib/analytics/events'
 import {
   DashboardSquareOneIcon,
   ShapesOneIcon,
@@ -976,6 +977,7 @@ export function PinboardExpanded(
                                     label={f.label}
                                     icon={<FolderOneIcon variant="static" animated />}
                                     onClick={() => {
+                                      trackFeature('pin_folder_organize', { action: 'move', folder_kind: 'personal', pin_count: selectedPinIds.size })
                                       onMoveToFolder?.([...selectedPinIds], f.id, f.label)
                                       setOpenPanel(null)
                                       setSelectedPinIds(new Set())
@@ -993,6 +995,7 @@ export function PinboardExpanded(
                                     label={f.label}
                                     icon={<FolderOneIcon variant="static" animated />}
                                     onClick={() => {
+                                      trackFeature('pin_folder_organize', { action: 'move', folder_kind: 'project', pin_count: selectedPinIds.size })
                                       onMoveToFolder?.([...selectedPinIds], f.id, f.label)
                                       setOpenPanel(null)
                                       setSelectedPinIds(new Set())

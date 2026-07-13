@@ -7,6 +7,7 @@ import {
   CHAT_SHARE_ENDPOINT,
   CHAT_SHARE_FORK_ENDPOINT,
 } from '@/lib/config'
+import { trackBrowserEvent } from '@/lib/analytics/events'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,9 @@ export async function createChatShare(params: {
     method: 'POST',
     body:   JSON.stringify(body),
   })
+  // Analytics: shared-context adoption (agent shares tracked separately as agent_shared).
+  const kind = params.projectId ? 'project' : params.teamId ? 'team' : params.userId ? 'user' : 'link'
+  trackBrowserEvent('share_created', { kind })
   return normalizeShare(data)
 }
 

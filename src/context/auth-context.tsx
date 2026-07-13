@@ -23,6 +23,9 @@ import { AUTH_LOGIN_ROUTE, AUTH_LOGOUT_ROUTE } from "@/lib/routes";
 
 export interface AuthUser {
   id?: string | number | null;
+  /** Auth0 subject claim (the `sub`). Stable primary identity across every surface —
+   *  used as the Mixpanel distinct_id (never email; see docs/mixpanel-backend-contract.md). */
+  auth0Id?: string | null;
   email?: string | null;
   name?: string | null;
   firstName?: string | null;
@@ -123,6 +126,7 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
     : null;
 
   return {
+    auth0Id: profile.auth0_id || null,
     email: profile.email,
     firstName,
     lastName,

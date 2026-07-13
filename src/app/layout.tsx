@@ -4,6 +4,7 @@ import { AuthProvider } from "@/context/auth-context";
 import { Toaster } from "@/components/Toast";
 import { MotionProvider } from "@/components/MotionProvider";
 import { MetaPixel } from "@/components/MetaPixel";
+import { MixpanelProvider } from "@/components/Analytics/MixpanelProvider";
 import "./globals.css";
 
 // ── Fonts ─────────────────────────────────────────────────────────────────────
@@ -54,7 +55,9 @@ export default function RootLayout({
       <body className="h-full antialiased" suppressHydrationWarning>
         <MetaPixel />
         <MotionProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <MixpanelProvider>{children}</MixpanelProvider>
+          </AuthProvider>
           <Toaster />
         </MotionProvider>
       </body>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { CheckmarkCircleTwoIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
+import { trackFeature } from '@/lib/analytics/events'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -198,7 +199,7 @@ export function ExternalOutputCard({ actions, completedAt, onUndo }: ExternalOut
               <button
                 type="button"
                 className="brain-card-action"
-                onClick={action.onView}
+                onClick={() => { trackFeature("output_viewed", { connector: action.connector, verb: action.verb }); action.onView?.(); }}
                 style={{
                   display:    'flex',
                   alignItems: 'center',

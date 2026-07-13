@@ -3,6 +3,7 @@
 import { apiFetch, apiFetchJson } from "./client";
 import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import { friendlyModelError } from "@/lib/model-error";
+import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import {
   PERSONAS_ENDPOINT,
   PERSONA_DETAIL_ENDPOINT,
@@ -416,10 +417,13 @@ export async function setActiveVersion(repoId: string, versionId: string): Promi
 }
 
 export async function publishPersonaVersion(repoId: string, versionId: string): Promise<PersonaRepoResponse> {
-  return apiFetchJson<PersonaRepoResponse>(PERSONA_PUBLISH_ENDPOINT(repoId), {
+  const result = await apiFetchJson<PersonaRepoResponse>(PERSONA_PUBLISH_ENDPOINT(repoId), {
     method: "POST",
     body: JSON.stringify({ persona_id: versionId }),
   });
+  // Analytics: do agents spread beyond their creator? (choke point for all publish flows)
+  trackBrowserEvent("agent_published");
+  return result;
 }
 
 /** PATCH /persona/{repoId}/visibility — 204 */
@@ -627,6 +631,8 @@ export async function updateVersion(params: {
     );
   }
 
+  // Analytics: agent config edited (choke point for all configure-tab saves).
+  trackFeature("agent_edited");
   return result;
 }
 

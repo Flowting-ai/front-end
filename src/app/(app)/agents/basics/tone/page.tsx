@@ -13,6 +13,7 @@ import { stableKey } from '@/hooks/use-model-selection'
 import { pickTemplateAvatar } from '@/lib/persona-template-avatars'
 import { personaProfileKey } from '@/lib/storage-keys'
 import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENTS_BASICS_NAME_ROUTE } from '@/lib/routes'
+import { trackBrowserEvent } from '@/lib/analytics/events'
 
 // ── Session-storage key ────────────────────────────────────────────────────
 
@@ -303,6 +304,12 @@ function TonePageContent() {
       })
       const newRepoId    = repo.id
       const newVersionId = repo.active_version?.id ?? ''
+
+      // Analytics: do people build agents, and from templates or blank?
+      trackBrowserEvent('agent_created', {
+        from_template: !!wizardTemplate,
+        template_slug: wizardTemplate || undefined,
+      })
 
       // Persist wizard state so back-nav detects the created repo
       try { sessionStorage.setItem('persona_wizard_repo', JSON.stringify({ repoId: newRepoId, versionId: newVersionId })) } catch { /* ignore */ }

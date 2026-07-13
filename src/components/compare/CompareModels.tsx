@@ -19,6 +19,7 @@ import { MODELS_ENDPOINT } from "@/lib/config";
 import { getModelLlmId } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
 import { usePinboardActions } from "@/context/pinboard-context";
+import { trackBrowserEvent } from "@/lib/analytics/events";
 import { ConnectPromptCard, PermissionPromptCard } from "@/components/chat/ConnectorPrompts";
 import type { ConnectorConnectPrompt, ConnectorPermissionPrompt } from "@/hooks/use-chat-state";
 import katex from "katex";
@@ -938,6 +939,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     if (!content || !messageId) return;
     const title = content.split("\n")[0].slice(0, 80) || modelDisplayName;
     addPin({ content, title, category: "Quote", messageId, modelName: modelDisplayName });
+    trackBrowserEvent("pin_created", { source: "brain" });
     openPinboard();
   }, [testResponses, testMessageIds, addPin, openPinboard]);
 

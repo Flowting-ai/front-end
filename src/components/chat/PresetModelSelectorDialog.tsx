@@ -24,6 +24,7 @@ import { useModelSelectorContext } from "@/context/model-selector-context";
 import { getModelLlmId } from "@/lib/model-icons";
 import type { AIModel } from "@/types/ai-model";
 import { ModelSelectItem } from "@/components/ModelSelectItem";
+import { trackFeature } from "@/lib/analytics/events";
 import { ModelFeaturedCard } from "@/components/ModelFeaturedCard";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
 import { InputField } from "@/components/InputField";
@@ -464,10 +465,14 @@ function PresetModelSelectorContent({
                           infoSide="right"
                           infoMaxWidth={dropdownWidth}
                           selected={isSelected}
-                          onClick={() => onSelect(model)}
+                          onClick={() => {
+                            trackFeature("model_selector_manual", { model_id: String(model.modelId), model_type: model.modelType });
+                            onSelect(model);
+                          }}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
+                              trackFeature("model_selector_manual", { model_id: String(model.modelId), model_type: model.modelType });
                               onSelect(model);
                             }
                           }}

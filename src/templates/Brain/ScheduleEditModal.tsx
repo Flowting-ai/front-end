@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { Button } from '@/components/Button'
 import { springs } from '@/lib/springs'
+import { trackFeature } from '@/lib/analytics/events'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -193,6 +194,7 @@ export function ScheduleEditModal({
 
   const handleSave = () => {
     if (!name.trim() || !timeValid) return
+    trackFeature('schedule_created', { frequency_type: freqType })
     onSave({
       name:         name.trim(),
       instructions: instructions.trim(),

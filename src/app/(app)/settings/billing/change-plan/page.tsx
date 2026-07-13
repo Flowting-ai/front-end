@@ -6,6 +6,7 @@ import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { type UserPlanType } from '@/lib/api/user'
 import { createCheckout, type CheckoutPlan } from '@/lib/api/stripe'
+import { trackBrowserEvent } from '@/lib/analytics/events'
 import { toast } from 'sonner'
 import { SETTINGS_BILLING_ROUTE } from '@/lib/routes'
 
@@ -115,6 +116,7 @@ export default function ChangePlanPage() {
     setChangingTo(plan)
     try {
       const checkout = await createCheckout({ plan, billing: 'monthly', cancel_url: `${window.location.origin}/settings/billing/change-plan` })
+      trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: plan })
       document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
       window.location.href = checkout.checkout_url
     } catch (err) {
@@ -129,6 +131,7 @@ export default function ChangePlanPage() {
     setChangingTo(plan)
     try {
       const checkout = await createCheckout({ plan, billing: 'monthly', cancel_url: `${window.location.origin}/settings/billing/change-plan` })
+      trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: plan })
       document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
       window.location.href = checkout.checkout_url
     } catch (err) {
@@ -142,6 +145,7 @@ export default function ChangePlanPage() {
     setChangingTo('enterprise')
     try {
       const checkout = await createCheckout({ plan: 'enterprise', billing: 'monthly', cancel_url: `${window.location.origin}/settings/billing/change-plan` })
+      trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: 'enterprise' })
       document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
       window.location.href = checkout.checkout_url
     } catch (err) {

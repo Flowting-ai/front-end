@@ -23,6 +23,7 @@ import {
   PROJECT_ROUTE,
   AGENT_CHAT_ROUTE,
 } from "@/lib/routes";
+import { trackFeature } from "@/lib/analytics/events";
 
 // ── Navigable destinations ────────────────────────────────────────────────────
 
@@ -75,19 +76,22 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery,    setSearchQuery]    = useState('');
   const [searchPersonas, setSearchPersonas] = useState<Persona[]>([]);
 
-  const openSearch = useCallback(() => setSearchOpen(true), []);
+  const openSearch = useCallback(() => {
+    trackFeature("search");
+    setSearchOpen(true);
+  }, []);
 
   // Cmd/Ctrl+K opens search from anywhere in the app
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setSearchOpen(true);
+        openSearch();
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  }, [openSearch]);
 
   // Lazy-load personas the first time search opens (30s-cached, deduplicated)
   useEffect(() => {

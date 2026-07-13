@@ -27,6 +27,7 @@ import { setChatVisibility, listChats } from '@/lib/api/chat'
 import { listSharedWithMe, forkChatShare, type SharedChatItem } from '@/lib/api/chat-shares'
 import { useOrg } from '@/context/org-context'
 import { PROJECT_CHAT_NEW_ROUTE, PROJECT_CHAT_ROUTE, PROJECTS_ROUTE, CHAT_SHARE_ROUTE } from '@/lib/routes'
+import { trackFeature } from '@/lib/analytics/events'
 import { AlertCircleIcon } from '@strange-huge/icons'
 import type { Chat } from '@/types/chat'
 import { EditProjectModal } from '@/components/EditProjectModal'
@@ -859,7 +860,7 @@ export default function ProjectPage() {
                                     label={p.name}
                                     fluid
                                     selected={selectedPersona.id === p.id}
-                                    onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
+                                    onClick={() => { trackFeature('project_agent_attached', { persona_id: p.id }); setSelectedPersona(p); setPersonaChipOpen(false) }}
                                   />
                                 ))
                               : <Dropdown.Item label={project.teamId ? 'No shared team agents' : 'No agents yet'} fluid disabled />

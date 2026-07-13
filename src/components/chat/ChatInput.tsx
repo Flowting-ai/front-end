@@ -18,6 +18,7 @@ import SpeechRecognition, {
 } from "react-speech-recognition";
 import { toast } from "sonner";
 import { AudioWaveDisplay } from "@/components/shared/AudioWaveDisplay";
+import { trackFeature } from "@/lib/analytics/events";
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
 
@@ -289,6 +290,7 @@ export function ChatInput(
 
     const startRecording = async () => {
       if (!browserSupportsSpeechRecognition) return;
+      trackFeature("voice_input");
       preRecordingTextRef.current = value ?? "";
       resetTranscript();
 

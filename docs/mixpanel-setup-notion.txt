@@ -1,0 +1,232 @@
+Mixpanel Setup — Souvenir Analytics (for Sahil, Shyam & Kunal)
+What this is: the complete instruction for setting up product analytics. What to send, when, and why. No code in this doc — you decide how to implement it; this tells you exactly what the result must be.
+The engineering companion (Phase-0 audit, invariants, build order, vocabulary rules) — read Phase 0 there before writing any code:
+This registry doubles as the screen inventory for the design team's UX audit — one vocabulary between design and data.
+Why we're doing it: we are building the product's permanent feedback loop — how reliable it is, where users get stuck, which features earn their place, how businesses use it differently from individuals, and how every future customer (a new Heatmap agency, the next SCS) onboards — without us having to be in the room. The first questions this loop must answer, this month: (1) is SCS actually using what we migrate, (2) which limit makes individual users upgrade to Pro, (3) do Heatmap's pilot agencies come back after first touch. The system is designed for every question after those, too.
+What already exists (checked July 8)
+Mixpanel organization: Souvenir Inc · Project: Souvenir Inc, ID 4009866 · empty (only auto $session events). Clean slate.
+The backend already emits most of what we need as internal events (Brain run lifecycle over SSE) and already keeps a cost ledger (EnterpriseUsageEvent: model, tokens, cost per user per operation). The work is mirroring existing events to Mixpanel at the point they're written — not building new signals.
+The one idea everything depends on: every event is a postcard
+Every event carries five stamps, no exceptions:
+Who — the user's Auth0 ID (the sub value). Same person = same ID, always, on every surface.
+Which company — the organization ID, or blank for individual users. Plus the company's tier (teams / enterprise), so we can compare Enterprise orgs vs Teams orgs.
+Which plan — starter, pro, or power for individual users (blank for org members; their org's tier covers them).
+Where — web or slack.
+What it cost — on any event where compute ran (workflow runs, chat responses): which model, tokens, cost in dollars. Our pitch IS cost optimization; this stamp proves which workflows are worth their tokens and cannot be reconstructed later. Source: the existing EnterpriseUsageEvent ledger — Mixpanel derives from it, never computes in parallel.
+Why stamps matter more than events: if they're inconsistent — one event has the org ID, the next doesn't — then "is Seat Cover Solutions active this week?" becomes unanswerable forever. We can add events any time. We can never repair old postcards.
+Example. Arny from SCS runs a workflow from Slack: workflow_run · arny's-id · scs-org (enterprise) · plan blank · slack · gemini-3-flash / 12k tokens / $0.04. A solo Pro user does the same on the web: workflow_run · her-id · company blank · pro · web · (cost stamp likewise). Same event, different stamps — one system, every lens.
+Where events come from (two doors, one house)
+Browser (things a person clicks or visits) ──→ Mixpanel project 4009866 ←── Our backend / workflow engine (things that run on their own: scheduled + triggered runs, Slack activity) ←── Pipedream (fires the schedules & triggers)
+Backend door — where you start. The entire SCS migration is scheduled/triggered work that never touches a browser. If we only track the browser, SCS looks dead in the data while 88 automations run perfectly — and the July 24 "is SCS active" decision is made on garbage. Backend events mirror the existing SSE/ledger write points. Pipedream itself sends nothing to Mixpanel.
+Browser door — phase two: clicks, page flows, chat messages, onboarding steps.
+The four layers of tracking
+Layer
+What it is
+What it answers
+1 — Screen views (automatic; build once)
+Every screen change sends one screen_viewed event with a standardized screen name
+Time per screen, paths, funnels, drop-offs — for every screen including future ones
+2 — Session replay (a switch, not a project)
+Mixpanel Session Replay, all text masked
+WHY people are stuck — watch a new agency's first session instead of guessing
+3 — Decision events (curated, tables below)
+Hand-designed events that answer standing questions
+SCS active? Pro upgrades? Agencies returning? Reliability per workflow?
+4 — feature_used (one event, wide coverage)
+One event with a controlled feature-name list
+Which features earn their place — what to build, remove, prioritize
+Layer 1 — Screen views
+Every screen change sends screen_viewed with the screen's name from the registry at the bottom. Example: a new Heatmap agency onboards next month — with zero new tracking we see their team spent 11 minutes on Agent Configure but 40 seconds on Connectors.
+Layer 2 — Session replay
+Turn on with all text inputs and message content masked (verify the default). Target 100% of sessions for users in their first two weeks, sampled after.
+Layer 4 — feature_used
+One event name, one required property: which feature. The controlled list:
+model_selector_manual · compare_models · search · share_button · pin_drag · highlight_filter · pin_folder_organize · agent_template_browsed · agent_edited · agent_enhance_instructions · project_instructions_added · project_agent_attached · context_panel_opened · effort_level_changed · permission_level_changed · schedule_created · voice_input · flashcards · document_download · settings_help_opened · regenerate · output_viewed
+regenerate: regenerate + stop-run + reject-automation + re-prompt-within-2-minutes together form the override rate — the earliest warning that answer quality is slipping, months before retention moves.
+output_viewed: clicks on the "View" button of a run's external output — the first proof a human actually consumed what the agent made, not just that it was delivered.
+Rule: tracking a new feature = adding one name to this list (in the doc first), not designing a new event.
+Layer 3 in detail: decision events, surface by surface
+ = must be live before the SCS usage watch.
+1. Onboarding & activation
+Event
+When
+Must include
+Answers
+signup_completed
+Account created
+plan (if chosen), invited_by_org, UTM tags from the marketing site if present
+Where new users come from — self-serve, invites, or which ad campaign
+onboarding_step_completed
+Each onboarding step
+step name, step number
+Where people quit the guided flow
+activation_milestone
+First-ever: first connector, first agent, first workflow, first pin — per user AND per org
+which milestone
+The activation funnel for any new business
+2. Chat
+Event
+When
+Must include
+Answers
+chat_message_sent
+Message sent
+agent used?, in a project?, model, model picked by hand or algorithm
+Baseline activity; trust in auto-routing (cost story)
+ response_block_rendered
+Table/chart/steps renders post-stream
+block type, persisted yes/no
+Tripwire: vanishing-table bug can never return silently
+pin_created / highlight_created
+Pin or highlight
+source (chat/brain)
+Memory habit forming?
+memory_referenced
+AI cites a past pin/memory (backend)
+—
+Is the memory differentiator doing work?
+3. Agents
+Event
+When
+Must include
+Answers
+agent_created
+Wizard completes
+from template or blank, which template, connectors attached, wizard duration
+Do people build agents; is the wizard fast or a slog
+agent_wizard_abandoned
+Wizard exited before finish
+last step reached
+Where the wizard loses people
+agent_published / agent_shared
+Published or shared
+share type
+Do agents spread beyond their creator?
+agent_used
+Agent answers (slash-call or direct)
+connector names, surface
+Which agents earn their keep
+4. Brain & workflows ​
+Event
+When
+Must include
+Answers
+ workflow_run
+Any run starts — manual, scheduled, or triggered
+workflow type, how it started (person/schedule/trigger), source (brain / schedule / slack_automation) — three run families in the backend; this event unifies all of them
+The July 24 SCS decision and the standing "is this org alive" measure
+ workflow_completed / workflow_failed
+Run ends
+type, duration, failure reason, cost stamp
+Reliability per workflow type — the data behind the trust-signifier labels
+brain_clarification
+Brain asks a clarifying question
+question type, response (answered/skipped)
+Comprehension: high skip rates = questions aren't landing
+brain_run_stopped
+User hits stop mid-run
+phase when stopped
+Trust: "I don't believe where this is going"
+automation_approved / automation_rejected
+Approval gate answered
+risk tier
+Do users trust the agent enough to let it act?
+report_generated
+Client-ready output produced
+output type, data sources
+The thing agencies say they want — are they getting it?
+5. Projects & Teams
+Event
+When
+Must include
+Answers
+project_created
+New project
+team-shared or personal
+Shared-context adoption — our differentiator vs Victor's one-person silos
+project_instructions_added
+Instructions written into a project
+—
+Do people get projects, or just make empty folders?
+team_member_invited
+Invite sent
+role granted
+Does usage spread past one champion, or not?
+share_created
+Chat/agent/project shared
+what kind
+Same question, another angle
+6. Settings, connectors & controls
+Event
+When
+Must include
+Answers
+ connector_connect_attempted
+Connect flow starts → resolves
+app name, succeeded/failed/abandoned
+Which integrations block adoption.  The Pipedream hosted page often closes without callback — "started, never finished" must be recorded
+credit_cap_set
+Admin sets a member cap
+—
+Are the control features (why SCS chose us) used?
+model_toggled_off
+Admin disables a model
+model name
+Control story in action
+7. Billing
+Event
+When
+Must include
+Answers
+plan_limit_hit
+Starter/pro user hits a plan limit
+which limit
+Which limit actually sells the Pro upgrade
+checkout_started / plan_changed
+Checkout opens / plan changes
+from plan, to plan
+Conversion; downgrade early-warning
+plan_changed fires from the backend when the Stripe webhook arrives — never from the browser's success page.  Open question: no webhook appears in the API spec — confirm one exists (or build it) before this event. Same for plan_limit_hit: find the limit-rejection point in code first. Both are in the Brief's Phase-0 list.
+What we deliberately do NOT track
+No message content, no prompt text, no document contents. Ever. Metadata only. Session replay runs with text masked. This is a security promise — SCS chose us over Victor partly on data handling.
+The same ban covers AI-generated text: chat titles, plan text, run summaries, task titles — these often contain customer client names. No free-text strings in event properties — IDs and enumerated types only.
+Naming decree: in analytics, "plan" means subscription tier ONLY (Brain plans are "runs"), "agent" = what the API calls persona, "schedule" = what the API calls task. Full translation table in the Brief.
+No autocapture — turn it off. Layers 1 + 4 replace it with named, intentional coverage.
+Nothing outside this doc. New need → new line here first, then build.
+Order of work
+Settings check — autocapture off · tokens · Group Analytics on our plan? · replay masking verified · create a separate DEV project — all testing there, production stays clean
+The stamps — identity + cost on every event, both doors
+Backend  events + Layer 1 screen_viewed — the two build-once foundations
+Chai's 15-minute check (hard gate) — one workflow, one connector, one message, one screen change — all land in DEV Live View with all stamps. Nothing ships to production before this passes.
+Session replay on (masked) — then remaining Layer 3 events, then the Layer 4 wrapper
+Standing rules — no events outside this doc; new features = one line in the Layer 4 list; annotate every release AND the SCS migration waves on the Mixpanel timeline; tracking edits ride in the same PR as the UI change
+Appendix — Screen name registry (Layer 1)
+Names are concepts, not routes — a redesign keeps the name and re-points the event. If a screen isn't here, add it here first.
+Route
+Screen name
+/chat, /chats
+chat / chat_history
+/brain
+brain
+/agents
+agent_library
+/agent/configure
+agent_configure
+/projects, /project/:id
+projects / project_detail
+/teams
+teams
+/org
+org_manage
+/settings (each tab)
+settings_profile, settings_connectors, settings_models, settings_billing, settings_analytics
+/onboarding (each step)
+onboarding_<step>
+/welcome
+welcome
+/slack
+slack_setup
+/share, /chat-shares
+share_view
+/pinboard (panel)
+pinboard

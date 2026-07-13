@@ -6,6 +6,7 @@ import { SearchOneIcon, StickyNoteTwoIcon, CancelOneIcon, TickTwoIcon, FilterMai
 import { HighlightCard, HIGHLIGHT_COLORS } from '@/components/HighlightCard'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
+import { trackFeature } from '@/lib/analytics/events'
 import { Dropdown } from '@/components/Dropdown'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
@@ -241,7 +242,7 @@ export function HighlightPanel({
                       selected={filterMode === mode}
                       disabled={false}
                       rightIcon={filterMode === mode ? <TickTwoIcon /> : undefined}
-                      onClick={() => { onFilterChange(mode); setFilterDropOpen(false) }}
+                      onClick={() => { trackFeature('highlight_filter', { filter_mode: mode }); onFilterChange(mode); setFilterDropOpen(false) }}
                     />
                   ))}
                 </Dropdown.Section>

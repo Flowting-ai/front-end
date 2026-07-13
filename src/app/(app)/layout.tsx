@@ -13,6 +13,7 @@ import { OnboardingGuard } from "@/components/shared/OnboardingGuard";
 import { PlanUpgradeToast } from "@/components/shared/PlanUpgradeToast";
 import { SearchProvider } from "@/context/search-context";
 import { OrgProvider } from "@/context/org-context";
+import { OrgStamps } from "@/components/Analytics/OrgStamps";
 
 export default function AppGroupLayout({
   children,
@@ -22,6 +23,7 @@ export default function AppGroupLayout({
   return (
     <OnboardingGuard>
       <OrgProvider>
+      <OrgStamps />
       <ProjectsProvider>
         <ChatHistoryProvider>
           <PinboardProvider>

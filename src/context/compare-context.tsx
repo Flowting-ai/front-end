@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { createContext, useCallback, use, useState } from 'react'
+import { trackFeature } from '@/lib/analytics/events'
 
 interface CompareContextValue {
   isOpen: boolean
@@ -14,7 +15,7 @@ const CompareContext = createContext<CompareContextValue | null>(null)
 export function CompareProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
 
-  const open   = useCallback(() => setIsOpen(true),      [])
+  const open   = useCallback(() => { trackFeature('compare_models'); setIsOpen(true) }, [])
   const close  = useCallback(() => setIsOpen(false),     [])
   const toggle = useCallback(() => setIsOpen(v => !v),   [])
 

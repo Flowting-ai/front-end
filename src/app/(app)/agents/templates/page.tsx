@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { trackFeature } from '@/lib/analytics/events'
 import {
   CustomerService01Icon,
   GoldSellIcon,
@@ -64,6 +65,9 @@ export default function PersonaTemplatesPage() {
       setHasWizardDraft(!!(draft.name || draft.purpose || draft.template))
     } catch { /* ignore */ }
   }, [])
+
+  // Analytics: the template gallery was browsed (Layer 4 feature).
+  useEffect(() => { trackFeature('agent_template_browsed') }, [])
 
   function continueToBasics(name?: string) {
     // Starting fresh — clear any previously created wizard repo so a new one is made.

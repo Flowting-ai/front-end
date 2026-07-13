@@ -3,6 +3,7 @@
 import React from 'react'
 import { Dropdown } from '@/components/Dropdown'
 import { useModelSelectorContext } from '@/context/model-selector-context'
+import { trackFeature } from '@/lib/analytics/events'
 
 export function ModelMenu() {
   const {
@@ -39,7 +40,7 @@ export function ModelMenu() {
           subLabel="Enable extended reasoning"
           showSwitch
           switchChecked={enableReasoning}
-          onSwitchChange={setEnableReasoning}
+          onSwitchChange={(checked) => { trackFeature('effort_level_changed', { enabled: checked }); setEnableReasoning(checked) }}
           fluid
         />
       </Dropdown.Section>

@@ -52,6 +52,7 @@ import { fetchPersonas, personasForTeamContext, type Persona } from '@/lib/api/p
 import { fetchTeamAccessSnapshot } from '@/lib/team-access'
 import { ORG_TEAMS_ROUTE } from '@/lib/routes'
 import type { Team, TeamEditor, OrgMember, OrgRole, WorkspaceRole } from '@/types/teams'
+import { trackBrowserEvent, trackFeature } from '@/lib/analytics/events'
 import { toast } from 'sonner'
 
 const EDITOR_COLUMNS = '1fr 1fr 160px'
@@ -959,6 +960,7 @@ export default function TeamSettingsPage() {
     if (!orgId || !team) return
     try {
       await removeTeamEditor(orgId, team.id, memberId)
+      trackFeature('permission_level_changed', { role_changed_to: 'member' })
       await refreshRoster(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove member')
@@ -981,6 +983,8 @@ export default function TeamSettingsPage() {
     }
 
     await inviteTeamMembers(orgId, team.id, emails, role, undefined, projectId)
+    // Analytics: does usage spread past one champion? role granted + how many.
+    trackBrowserEvent('team_member_invited', { role, count: emails.length })
     toast.success(`Invite sent to ${emails.length} email${emails.length > 1 ? 's' : ''}`)
     setInviteOpen(false)
     void refreshRoster()
@@ -990,6 +994,7 @@ export default function TeamSettingsPage() {
     if (!orgId || !team) return
     const editor = await addTeamEditor(orgId, team.id, userId)
     setEditors(prev => [...prev, editor])
+    trackFeature('permission_level_changed', { role_changed_to: 'editor' })
     toast.success('Editor added')
   }
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { CancelOneIcon } from '@strange-huge/icons'
 import CancelCreationModal from './CancelCreationModal'
 import { AGENTS_ROUTE } from '@/lib/routes'
+import { trackBrowserEvent } from '@/lib/analytics/events'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -101,6 +102,8 @@ export function WizardShell({ steps, children }: WizardShellProps) {
             try { sessionStorage.removeItem('persona_wizard_draft') } catch { /* ignore */ }
             try { sessionStorage.removeItem('persona_wizard_starter') } catch { /* ignore */ }
             try { sessionStorage.removeItem('persona_wizard_repo') } catch { /* ignore */ }
+            // Analytics: where the wizard loses people.
+            trackBrowserEvent('agent_wizard_abandoned', { last_step: steps.find(s => s.state === 'active')?.label })
             push(AGENTS_ROUTE)
           }}
           onKeep={() => setCancelOpen(false)}

@@ -20,6 +20,24 @@ function parseTokenExpiry(token: string): number | null {
   }
 }
 
+/**
+ * Decode the `sub` (subject) claim from a JWT access token — the Auth0 user id
+ * (e.g. "auth0|abc123"). This is the same value the backend uses as `auth0_id`, and
+ * `GET /users/me` does NOT currently return it, so analytics derives identity here.
+ * Pure/base64-only decode; no signature verification (the token is already trusted).
+ */
+export function decodeJwtSub(token: string | null): string | null {
+  if (!token) return null;
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const decoded = JSON.parse(atob(payload));
+    return typeof decoded.sub === "string" && decoded.sub.length > 0 ? decoded.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 export function setInMemoryAccessToken(token: string | null): void {
   inMemoryAccessToken = token;
   tokenExpiresAt = token ? parseTokenExpiry(token) : null;

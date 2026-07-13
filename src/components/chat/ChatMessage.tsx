@@ -13,6 +13,7 @@ import { ContentRenderer } from "@/lib/content-renderer";
 import { applyRenderedHighlights, clearRenderedHighlights, getRenderedSelectionRange } from "@/lib/rendered-highlights";
 import { usePinboardActions } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
+import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import type { UIMessage, ActivityItem, WebCitation, ModelSelectedMeta } from "@/hooks/use-chat-state";
 import { respondToChatPrompt } from "@/lib/api/chat";
@@ -460,6 +461,7 @@ export function ChatMessage({
       chatId,
       ...(tagsFromBlocks.length > 0 ? { tags: tagsFromBlocks } : {}),
     });
+    trackBrowserEvent("pin_created", { source: "chat" });
     closeHighlightPanel();
     openPinboard();
   };
@@ -475,6 +477,7 @@ export function ChatMessage({
     const { selectedText: text, startOffset, endOffset } = selectionRange
 
     addHighlight({ text, messageId: message.id, startOffset, endOffset, chatId })
+    trackBrowserEvent("highlight_created", { source: "chat" })
     closePinboard()
     openHighlightPanel()
     sel.removeAllRanges()
@@ -994,6 +997,7 @@ export function ChatMessage({
                       href={downloadHref}
                       download={file.filename}
                       title="Download"
+                      onClick={() => trackFeature("document_download", { file_ext: file.filename?.split(".").pop()?.toLowerCase() })}
                       style={{
                         display: "flex",
                         alignItems: "center",

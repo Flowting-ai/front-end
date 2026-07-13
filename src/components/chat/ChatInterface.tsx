@@ -19,6 +19,7 @@ import {
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { registerChatScroller } from "@/lib/chat-scroller";
+import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { useChatState, type UseChatStateOptions, type UIMessage } from "@/hooks/use-chat-state";
 import {
   useStreamingChat,
@@ -789,6 +790,17 @@ export function ChatInterface({
     const mentionedPinIds = capturedMentionedPins.map(m => m.id);
     const allPinIds = [...new Set([...folderPinIds, ...mentionedPinIds])];
 
+    // Analytics: baseline activity + trust in auto-routing (cost story). Metadata only.
+    trackBrowserEvent("chat_message_sent", {
+      has_agent: !!selectedPersonaId,
+      model_pick: museActive ? "auto" : "manual",
+      model_id: !museActive && selectedModelId != null ? String(selectedModelId) : undefined,
+      web_search: webSearchEnabled,
+      reasoning: enableReasoning,
+      attachment_count: allFiles.length,
+      pin_count: allPinIds.length,
+    });
+
     try {
       const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
       await fetchAiResponse(content, chatId ?? null, loadingId, algorithm ? null : selectedModelId, {
@@ -839,6 +851,12 @@ export function ChatInterface({
     });
 
     const loadingId = addLoadingAssistantMessage();
+    // Analytics: part of the override rate (earliest answer-quality warning).
+    trackFeature("regenerate", {
+      model_pick: museActive ? "auto" : "manual",
+      model_id: !museActive && selectedModelId != null ? String(selectedModelId) : undefined,
+      reasoning: enableReasoning,
+    });
     const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
     fetchAiResponse(
       lastUserMsg.content,

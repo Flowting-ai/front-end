@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, use, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { BadgeColor } from '@/components/Badge'
+import { trackBrowserEvent, trackFeature } from '@/lib/analytics/events'
 import type { PinProps, PinLabel } from '@/components/Pin'
 import {
   fetchProjects,
@@ -274,6 +275,8 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     const api = await createProjectApi({ title: name, description, teamId })
     const project = apiToProject(api)
     setProjects(prev => [project, ...prev])
+    // Analytics: shared-context adoption — team-shared vs personal project.
+    trackBrowserEvent('project_created', { team_shared: !!teamId })
     return project
   }, [])
 
@@ -299,6 +302,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       try {
         const updated = await updateProjectApi(id, apiPatch)
         setProjects(prev => prev.map(p => p.id === id ? apiToProject(updated, p, undefined) : p))
+        // Analytics: do people give projects instructions, or just make empty folders?
+        if (patch.instructions !== undefined) {
+          trackFeature('project_instructions_added', { has_instructions: !!patch.instructions.trim() })
+        }
       } catch (err) {
         if (snapshot) setProjects(prev => prev.map(p => p.id === id ? snapshot : p))
         toast.error('Failed to update project', { description: err instanceof Error ? err.message : undefined })
