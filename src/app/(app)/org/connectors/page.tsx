@@ -2,12 +2,16 @@
 
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { springs } from '@/lib/springs'
 import {
   ArrowDownOneIcon,
   ArrowLeftOneIcon,
   ArrowRightOneIcon,
+  ArrowUpDownIcon,
   CancelOneIcon,
+  FilterMailIcon,
   InformationCircleIcon,
   PlusSignIcon,
   SearchOneIcon,
@@ -68,9 +72,10 @@ import {
 } from '@/lib/api/teams'
 import type { ConnectorRequestStatus, TeamConnectionEntry, TeamConnectorRequest } from '@/lib/api/teams'
 import { connectorLogoSrc } from '@/lib/connectorLogos'
+import { isMcpProviderConnector } from '@/lib/connectorProvider'
 import type { Team } from '@/types/teams'
 
-type MainTab = 'catalog' | 'permissions' | 'manage'
+type MainTab = 'org-access' | 'team-access' | 'requests' | 'shared-accounts'
 type AccountStatusFilter = 'all' | 'active' | 'needs-attention'
 
 type TeamRequestIndex = Record<string, Record<string, TeamConnectorRequest>>
@@ -366,9 +371,10 @@ function TeamPermissionsTable({
 }
 
 const ADMIN_TABS: Array<{ id: MainTab; label: string }> = [
-  { id: 'catalog', label: 'Catalog' },
-  { id: 'permissions', label: 'Permissions' },
-  { id: 'manage', label: 'Manage connectors' },
+  { id: 'org-access', label: 'Org access' },
+  { id: 'team-access', label: 'Team access' },
+  { id: 'requests', label: 'Requests' },
+  { id: 'shared-accounts', label: 'Shared accounts' },
 ]
 
 function PageShell({ children }: { children: React.ReactNode }) {
@@ -673,6 +679,145 @@ function useConnectorSearch(connectors: ConnectorCatalogEntry[], initialSearch =
   return { search, setSearch, filtered }
 }
 
+// ── Connector sort/filter (catalog listing) ───────────────────────────────────
+// Sort direction and status filter are independent axes — "Z to A" + "Only
+// OFF" is a valid combination, not a 5th mutually-exclusive option. Default is
+// A to Z / All. Org-enabled connectors are always pinned above disabled ones
+// when status is "All" (moot for "Only ON"/"Only OFF", since every visible
+// row already shares one status there).
+
+type ConnectorSortDirection = 'az' | 'za'
+type ConnectorStatusFilter  = 'all' | 'on' | 'off'
+
+const CONNECTOR_SORT_DIRECTIONS: { id: ConnectorSortDirection; label: string }[] = [
+  { id: 'az', label: 'A to Z' },
+  { id: 'za', label: 'Z to A' },
+]
+
+const CONNECTOR_STATUS_FILTERS: { id: ConnectorStatusFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'on',  label: 'Only ON' },
+  { id: 'off', label: 'Only OFF' },
+]
+
+function sortConnectors(
+  connectors: ConnectorCatalogEntry[],
+  direction: ConnectorSortDirection,
+  status: ConnectorStatusFilter,
+): ConnectorCatalogEntry[] {
+  const byName = (a: ConnectorCatalogEntry, b: ConnectorCatalogEntry) => a.display_name.localeCompare(b.display_name)
+  const dir = direction === 'za' ? -1 : 1
+
+  const scoped = status === 'on'
+    ? connectors.filter(c => c.org_enabled === true)
+    : status === 'off'
+    ? connectors.filter(c => c.org_enabled !== true)
+    : connectors
+
+  if (status !== 'all') return [...scoped].sort((a, b) => byName(a, b) * dir)
+
+  return [...scoped].sort((a, b) => {
+    const aActive = a.org_enabled === true
+    const bActive = b.org_enabled === true
+    if (aActive !== bActive) return aActive ? -1 : 1
+    return byName(a, b) * dir
+  })
+}
+
+// Two separate text buttons — same Dropdown.Float/Dropdown/Dropdown.Section/
+// Dropdown.Item pattern as Pinboard's own Sort and Filter dropdowns, but with
+// the current selection shown as the button's label (rather than an icon-only
+// trigger), so both are self-explanatory without a tooltip.
+function ConnectorSortDirectionButton({
+  value,
+  onChange,
+}: {
+  value:    ConnectorSortDirection
+  onChange: (next: ConnectorSortDirection) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const label = CONNECTOR_SORT_DIRECTIONS.find(option => option.id === value)?.label ?? 'Sort'
+
+  return (
+    <Dropdown.Float
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottom-end"
+      offset={4}
+      trigger={
+        <Button
+          variant="secondary"
+          size="sm"
+          leftIcon={<ArrowUpDownIcon size={16} />}
+          rightIcon={<ArrowDownOneIcon size={12} />}
+        >
+          {label}
+        </Button>
+      }
+    >
+      <Dropdown>
+        <Dropdown.Section fluid>
+          {CONNECTOR_SORT_DIRECTIONS.map(option => (
+            <Dropdown.Item
+              key={option.id}
+              fluid
+              label={option.label}
+              selected={option.id === value}
+              icon={option.id === value ? <TickTwoIcon size={14} /> : undefined}
+              onClick={() => { onChange(option.id); setOpen(false) }}
+            />
+          ))}
+        </Dropdown.Section>
+      </Dropdown>
+    </Dropdown.Float>
+  )
+}
+
+function ConnectorStatusFilterButton({
+  value,
+  onChange,
+}: {
+  value:    ConnectorStatusFilter
+  onChange: (next: ConnectorStatusFilter) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const label = CONNECTOR_STATUS_FILTERS.find(option => option.id === value)?.label ?? 'Status'
+
+  return (
+    <Dropdown.Float
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottom-end"
+      offset={4}
+      trigger={
+        <Button
+          variant="secondary"
+          size="sm"
+          leftIcon={<FilterMailIcon size={16} />}
+          rightIcon={<ArrowDownOneIcon size={12} />}
+        >
+          {label}
+        </Button>
+      }
+    >
+      <Dropdown>
+        <Dropdown.Section fluid>
+          {CONNECTOR_STATUS_FILTERS.map(option => (
+            <Dropdown.Item
+              key={option.id}
+              fluid
+              label={option.label}
+              selected={option.id === value}
+              icon={option.id === value ? <TickTwoIcon size={14} /> : undefined}
+              onClick={() => { onChange(option.id); setOpen(false) }}
+            />
+          ))}
+        </Dropdown.Section>
+      </Dropdown>
+    </Dropdown.Float>
+  )
+}
+
 async function loadTeamRequestIndex(orgId: string, teams: Team[]): Promise<TeamRequestIndex> {
   const entries = await Promise.all(
     teams.map(async team => {
@@ -685,7 +830,73 @@ async function loadTeamRequestIndex(orgId: string, teams: Team[]): Promise<TeamR
 
 const CONNECTOR_COLUMNS = 'minmax(240px, 1.4fr) 150px 140px 150px'
 
-function CatalogTab({
+// Deterministic gradient palette — kept in sync with TeamSwitcher/index.tsx and
+// org/teams/page.tsx's getTeamGradient/TeamAvatar so a team keeps the same color/icon everywhere.
+const CONNECTOR_TEAM_GRADIENTS = [
+  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',  // teal-blue
+  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',  // purple
+  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',  // orange
+  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',  // green
+  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',  // red-brown
+  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',  // blue
+]
+
+function getConnectorTeamGradient(teamId: string): string {
+  let hash = 0
+  for (let i = 0; i < teamId.length; i++) {
+    hash = ((hash << 5) - hash) + teamId.charCodeAt(i)
+    hash |= 0
+  }
+  return CONNECTOR_TEAM_GRADIENTS[Math.abs(hash) % CONNECTOR_TEAM_GRADIENTS.length]!
+}
+
+function ConnectorTeamAvatar({ teamId, name, size = 36 }: { teamId: string; name: string; size?: number }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        position:     'relative',
+        display:      'inline-flex',
+        width:        size,
+        height:       size,
+        borderRadius: 8,
+        background:   getConnectorTeamGradient(teamId),
+        flexShrink:   0,
+        overflow:     'hidden',
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          position:      'absolute',
+          inset:         0,
+          borderRadius:  8,
+          pointerEvents: 'none',
+          boxShadow:     'inset 0px 4px 4px 0px rgba(0,0,0,0.25), inset 0px -1px 0.4px 0px rgba(18,60,95,0.65)',
+        }}
+      />
+      <span
+        style={{
+          position:       'absolute',
+          inset:          0,
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+          fontFamily:     'var(--font-title)',
+          fontWeight:     500,
+          fontSize:       Math.round(size * 0.55),
+          lineHeight:     1,
+          color:          'var(--neutral-white)',
+          userSelect:     'none',
+        }}
+      >
+        {name.charAt(0).toUpperCase()}
+      </span>
+    </span>
+  )
+}
+
+function OrgAccessTab({
   orgId,
   connectors,
   initialSearch,
@@ -697,8 +908,15 @@ function CatalogTab({
   onCatalogUpdated: (connectors: ConnectorCatalogEntry[]) => void
 }) {
   const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
-  const browse = useConnectorBrowse(filtered, connectorEntrySlug, { resetKey: search })
+  const [sortDirection, setSortDirection] = useState<ConnectorSortDirection>('az')
+  const [statusFilter, setStatusFilter] = useState<ConnectorStatusFilter>('all')
+  const sorted = useMemo(
+    () => sortConnectors(filtered, sortDirection, statusFilter),
+    [filtered, sortDirection, statusFilter],
+  )
+  const browse = useConnectorBrowse(sorted, connectorEntrySlug, { resetKey: `${search}::${sortDirection}::${statusFilter}` })
   const [busyOrgSlug, setBusyOrgSlug] = useState<string | null>(null)
+  const [pendingDisable, setPendingDisable] = useState<ConnectorCatalogEntry | null>(null)
 
   const enabledSlugs = useMemo(
     () => connectors.filter(connector => connector.org_enabled === true).map(connector => connector.slug),
@@ -721,9 +939,288 @@ function CatalogTab({
     }
   }
 
+  function handleSwitchChange(connector: ConnectorCatalogEntry, checked: boolean) {
+    const accountCount = connector.accounts?.length ?? 0
+    if (!checked && accountCount > 0) {
+      setPendingDisable(connector)
+      return
+    }
+    void handleOrgToggle(connector, checked)
+  }
+
+  async function confirmDisable() {
+    if (!pendingDisable) return
+    await handleOrgToggle(pendingDisable, false)
+    setPendingDisable(null)
+  }
+
+  function renderConnectorRow(connector: ConnectorCatalogEntry) {
+    const orgEnabled = connector.org_enabled === true
+    const accountCount = connector.accounts?.length ?? 0
+    return (
+      <SettingsTableRow key={connector.slug} minHeight={72}>
+        <SettingsTableCell>
+          <ConnectorTitle connector={connector} />
+        </SettingsTableCell>
+        <SettingsTableCell>
+          <BodyText size={14} color="var(--neutral-500)">{connectorCategory(connector.slug)}</BodyText>
+        </SettingsTableCell>
+        <SettingsTableCell>
+          {accountCount > 0 ? (
+            <BodyText size={14} color="var(--neutral-500)">{accountCount} shared</BodyText>
+          ) : (
+            <BodyText size={14} color="var(--neutral-400)">—</BodyText>
+          )}
+        </SettingsTableCell>
+        <SettingsTableCell align="end">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {busyOrgSlug === connector.slug && <Spinner />}
+            <BodyText size={12} color="var(--neutral-700)" style={{ width: 52, textAlign: 'right' }}>
+              {orgEnabled ? 'Org ON' : 'Org OFF'}
+            </BodyText>
+            <Switch
+              checked={orgEnabled}
+              disabled={busyOrgSlug === connector.slug}
+              onCheckedChange={checked => handleSwitchChange(connector, checked)}
+            />
+          </div>
+        </SettingsTableCell>
+      </SettingsTableRow>
+    )
+  }
+
   return (
     <SettingsTable columns={CONNECTOR_COLUMNS} columnGap={24}>
-      <SettingsTableToolbar title="Connector catalog" style={{ flexWrap: 'wrap' }}>
+      <SettingsTableToolbar title="Org access" style={{ flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
+            <InputField
+              label="Search connectors"
+              showLabel={false}
+              showSubtitle={false}
+              size="small"
+              fluid
+              leftIcon={<SearchOneIcon size={16} />}
+              placeholder="Search connectors"
+              value={search}
+              onChange={setSearch}
+            />
+          </div>
+          <ConnectorSortDirectionButton value={sortDirection} onChange={setSortDirection} />
+          <ConnectorStatusFilterButton value={statusFilter} onChange={setStatusFilter} />
+        </div>
+      </SettingsTableToolbar>
+
+      <div style={{ padding: '0 24px 12px' }}>
+        <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
+      </div>
+
+      <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
+        <div role="table" aria-label="Org access" style={{ minWidth: 760 }}>
+          <SettingsTableHeader>
+            <SettingsTableHeaderCell>Connector</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell>Category</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell>Shared accounts</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="end">Organization</SettingsTableHeaderCell>
+          </SettingsTableHeader>
+
+          {browse.pageItems.length === 0 ? (
+            <div style={{ padding: '32px 24px', textAlign: 'center' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+                {connectors.length === 0 ? 'No connectors available' : 'No connectors match your filters'}
+              </p>
+            </div>
+          ) : statusFilter === 'all' ? (
+            <>
+              {(() => {
+                const enabledItems = browse.pageItems.filter(connector => connector.org_enabled === true)
+                const availableItems = browse.pageItems.filter(connector => connector.org_enabled !== true)
+                return (
+                  <>
+                    {enabledItems.length > 0 && (
+                      <>
+                        <ConnectorSectionLabel label="Enabled" />
+                        {enabledItems.map(renderConnectorRow)}
+                      </>
+                    )}
+                    {availableItems.length > 0 && (
+                      <>
+                        <ConnectorSectionLabel label="Available" />
+                        {availableItems.map(renderConnectorRow)}
+                      </>
+                    )}
+                  </>
+                )
+              })()}
+            </>
+          ) : browse.pageItems.map(renderConnectorRow)}
+
+          <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <BodyText size={12} color="var(--neutral-500)">
+              {browse.total} connector{browse.total === 1 ? '' : 's'}
+            </BodyText>
+            <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
+          </SettingsTableFooter>
+        </div>
+      </div>
+
+      {pendingDisable && (
+        <DisableConnectorConfirmModal
+          connector={pendingDisable}
+          busy={busyOrgSlug === pendingDisable.slug}
+          onCancel={() => setPendingDisable(null)}
+          onConfirm={() => void confirmDisable()}
+        />
+      )}
+    </SettingsTable>
+  )
+}
+
+const TEAM_ACCESS_COLUMNS = 'minmax(240px, 1.6fr) 180px 160px 56px'
+
+function TeamAccessTab({
+  orgId,
+  connectors,
+  teams,
+  initialSearch,
+}: {
+  orgId: string
+  connectors: ConnectorCatalogEntry[]
+  teams: Team[]
+  initialSearch: string
+}) {
+  const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
+  const sorted = useMemo(() => sortConnectors(filtered, 'az', 'all'), [filtered])
+  const browse = useConnectorBrowse(sorted, connectorEntrySlug, { resetKey: search })
+  const [expandedSlug, setExpandedSlug] = useState<string | null>(null)
+
+  // team id → connector slug → explicit approve/deny status. Fetched once for
+  // every team (not per connector), so the row badge and the expanded panel
+  // always agree, and expanding a connector needs no fetch of its own.
+  const [statusByTeam, setStatusByTeam] = useState<Record<string, Record<string, ConnectorRequestStatus>>>({})
+  const [loadingStatus, setLoadingStatus] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoadingStatus(true)
+      try {
+        const rows = await Promise.all(teams.map(team => listTeamConnectors(orgId, team.id)))
+        if (cancelled) return
+        const next: Record<string, Record<string, ConnectorRequestStatus>> = {}
+        teams.forEach((team, i) => {
+          next[team.id] = Object.fromEntries(rows[i].map(row => [row.connectorSlug, row.status]))
+        })
+        setStatusByTeam(next)
+      } catch (err) {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Failed to load team connector access')
+      } finally {
+        if (!cancelled) setLoadingStatus(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [orgId, teams])
+
+  // Matches the backend's own union (list_team_connections: approved =
+  // org_enabled | team_grant) — an explicit team approve/deny wins, otherwise
+  // it inherits the org-wide switch. Kept identical to /org/team/[teamId].
+  function isEffectivelyOn(connector: ConnectorCatalogEntry, team: Team): boolean {
+    const status = statusByTeam[team.id]?.[connector.slug]
+    if (status === 'approved') return true
+    if (status === 'denied') return false
+    return connector.org_enabled === true
+  }
+
+  function handleTeamStatusChange(connectorSlug: string, teamId: string, on: boolean) {
+    setStatusByTeam(prev => ({
+      ...prev,
+      [teamId]: { ...prev[teamId], [connectorSlug]: on ? 'approved' : 'denied' },
+    }))
+  }
+
+  function enabledConnectorTeams(connector: ConnectorCatalogEntry): Team[] {
+    return teams.filter(team => isEffectivelyOn(connector, team))
+  }
+
+  function renderConnectorRow(connector: ConnectorCatalogEntry) {
+    const enabledTeams = enabledConnectorTeams(connector)
+    const isExpanded = expandedSlug === connector.slug
+    return (
+      <React.Fragment key={connector.slug}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setExpandedSlug(isExpanded ? null : connector.slug)}
+          onKeyDown={e => {
+            if (e.key !== 'Enter' && e.key !== ' ') return
+            e.preventDefault()
+            setExpandedSlug(isExpanded ? null : connector.slug)
+          }}
+          aria-expanded={isExpanded}
+          aria-label={`${isExpanded ? 'Hide' : 'Show'} team access for ${connector.display_name}`}
+          className="connector-access-row"
+        >
+          <SettingsTableRow minHeight={72} divider={!isExpanded}>
+            <SettingsTableCell>
+              <ConnectorTitle connector={connector} />
+            </SettingsTableCell>
+            <SettingsTableCell>
+              <BodyText size={14} color="var(--neutral-500)">{connectorCategory(connector.slug)}</BodyText>
+            </SettingsTableCell>
+            <SettingsTableCell align="end">
+              {loadingStatus ? (
+                <SkeletonBlock width={72} height={22} radius={8} />
+              ) : (
+                <Badge color={enabledTeams.length > 0 ? 'Blue' : 'Neutral'} label={`${enabledTeams.length} team${enabledTeams.length === 1 ? '' : 's'}`} />
+              )}
+            </SettingsTableCell>
+            <SettingsTableCell align="end">
+              <IconButton
+                variant="ghost"
+                size="sm"
+                aria-label={`${isExpanded ? 'Hide' : 'Show'} team access for ${connector.display_name}`}
+                icon={
+                  <motion.span
+                    animate={{ rotate: isExpanded ? 180 : 0 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    style={{ display: 'flex', lineHeight: 0 }}
+                  >
+                    <ArrowDownOneIcon size={16} />
+                  </motion.span>
+                }
+                onClick={e => {
+                  e.stopPropagation()
+                  setExpandedSlug(isExpanded ? null : connector.slug)
+                }}
+              />
+            </SettingsTableCell>
+          </SettingsTableRow>
+        </div>
+        {isExpanded && (
+          <div style={{ padding: '0 24px 16px', borderBottom: '1px solid var(--neutral-100)', backgroundColor: 'var(--neutral-25, #fafaf9)' }}>
+            <ConnectorTeamAccessPanel
+              orgId={orgId}
+              connector={connector}
+              teams={teams}
+              statusByTeam={statusByTeam}
+              loading={loadingStatus}
+              onTeamStatusChange={(teamId, on) => handleTeamStatusChange(connector.slug, teamId, on)}
+            />
+          </div>
+        )}
+      </React.Fragment>
+    )
+  }
+
+  return (
+    <SettingsTable columns={TEAM_ACCESS_COLUMNS} columnGap={24}>
+      <style>{`
+        .connector-access-row { cursor: pointer; outline: none; }
+        .connector-access-row:hover { background-color: var(--neutral-50); }
+        .connector-access-row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+      `}</style>
+      <SettingsTableToolbar title="Team access" style={{ flexWrap: 'wrap' }}>
         <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
           <InputField
             label="Search connectors"
@@ -744,12 +1241,12 @@ function CatalogTab({
       </div>
 
       <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
-        <div role="table" aria-label="Connector catalog" style={{ minWidth: 760 }}>
+        <div role="table" aria-label="Team access" style={{ minWidth: 620 }}>
           <SettingsTableHeader>
             <SettingsTableHeaderCell>Connector</SettingsTableHeaderCell>
             <SettingsTableHeaderCell>Category</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell>Shared accounts</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="end">Organization</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="end">Team access</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="end">{''}</SettingsTableHeaderCell>
           </SettingsTableHeader>
 
           {browse.pageItems.length === 0 ? (
@@ -758,40 +1255,7 @@ function CatalogTab({
                 {connectors.length === 0 ? 'No connectors available' : 'No connectors match your filters'}
               </p>
             </div>
-          ) : browse.pageItems.map(connector => {
-            const orgEnabled = connector.org_enabled === true
-            const accountCount = connector.accounts?.length ?? 0
-            return (
-              <SettingsTableRow key={connector.slug} minHeight={72}>
-                <SettingsTableCell>
-                  <ConnectorTitle connector={connector} />
-                </SettingsTableCell>
-                <SettingsTableCell>
-                  <BodyText size={14} color="var(--neutral-500)">{connectorCategory(connector.slug)}</BodyText>
-                </SettingsTableCell>
-                <SettingsTableCell>
-                  {accountCount > 0 ? (
-                    <BodyText size={14} color="var(--neutral-500)">{accountCount} shared</BodyText>
-                  ) : (
-                    <BodyText size={14} color="var(--neutral-400)">—</BodyText>
-                  )}
-                </SettingsTableCell>
-                <SettingsTableCell align="end">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {busyOrgSlug === connector.slug && <Spinner />}
-                    <BodyText size={12} color="var(--neutral-700)" style={{ width: 52, textAlign: 'right' }}>
-                      {orgEnabled ? 'Org ON' : 'Org OFF'}
-                    </BodyText>
-                    <Switch
-                      checked={orgEnabled}
-                      disabled={busyOrgSlug === connector.slug}
-                      onCheckedChange={checked => void handleOrgToggle(connector, checked)}
-                    />
-                  </div>
-                </SettingsTableCell>
-              </SettingsTableRow>
-            )
-          })}
+          ) : browse.pageItems.map(renderConnectorRow)}
 
           <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <BodyText size={12} color="var(--neutral-500)">
@@ -802,6 +1266,318 @@ function CatalogTab({
         </div>
       </div>
     </SettingsTable>
+  )
+}
+
+const CONNECTOR_TEAMS_ROW_HEIGHT  = 56
+const CONNECTOR_TEAMS_ROW_GAP     = 8
+const CONNECTOR_TEAMS_VISIBLE_MAX = 5
+const CONNECTOR_TEAMS_LIST_MAX_HEIGHT =
+  CONNECTOR_TEAMS_ROW_HEIGHT * CONNECTOR_TEAMS_VISIBLE_MAX + CONNECTOR_TEAMS_ROW_GAP * (CONNECTOR_TEAMS_VISIBLE_MAX - 1)
+
+function ConnectorTeamAccessPanel({
+  orgId,
+  connector,
+  teams,
+  statusByTeam,
+  loading,
+  onTeamStatusChange,
+}: {
+  orgId: string
+  connector: ConnectorCatalogEntry
+  teams: Team[]
+  statusByTeam: Record<string, Record<string, ConnectorRequestStatus>>
+  loading: boolean
+  onTeamStatusChange?: (teamId: string, on: boolean) => void
+}) {
+  const [busyTeamId, setBusyTeamId] = useState<string | null>(null)
+  const [pendingOffTeam, setPendingOffTeam] = useState<Team | null>(null)
+  // Org-off does NOT restrict teams — admins can still grant a team its own
+  // access independent of the org-wide switch (org/team are separate grants,
+  // unioned at read time on the backend: approved = org_enabled | team_grant).
+  // This flag is display-copy only, never used to disable the switch below.
+  const isOrgDisabled = connector.org_enabled === false
+
+  // Matches the backend's own union (list_team_connections: approved =
+  // org_enabled | team_grant) — an explicit team approve/deny wins, otherwise
+  // it inherits the org-wide switch. Kept identical to /org/team/[teamId].
+  function isEffectivelyOn(team: Team): boolean {
+    const status = statusByTeam[team.id]?.[connector.slug]
+    if (status === 'approved') return true
+    if (status === 'denied') return false
+    return connector.org_enabled === true
+  }
+
+  const sortedTeams = loading
+    ? teams
+    : [...teams].sort((a, b) => {
+        const diff = Number(isEffectivelyOn(b)) - Number(isEffectivelyOn(a))
+        return diff !== 0 ? diff : a.name.localeCompare(b.name)
+      })
+
+  async function handleToggle(team: Team, checked: boolean) {
+    setBusyTeamId(team.id)
+    try {
+      const current = statusByTeam[team.id]?.[connector.slug]
+      if (!current) await requestTeamConnector(orgId, team.id, connector.slug)
+      await setTeamConnectorStatus(orgId, team.id, connector.slug, checked ? 'approved' : 'denied')
+      onTeamStatusChange?.(team.id, checked)
+      toast.success(`${connector.display_name} ${checked ? 'enabled' : 'disabled'} for ${team.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update team connector access')
+    } finally {
+      setBusyTeamId(null)
+    }
+  }
+
+  function handleSwitchChange(team: Team, checked: boolean) {
+    if (!checked) {
+      setPendingOffTeam(team)
+      return
+    }
+    void handleToggle(team, true)
+  }
+
+  async function confirmTeamOff() {
+    if (!pendingOffTeam) return
+    await handleToggle(pendingOffTeam, false)
+    setPendingOffTeam(null)
+  }
+
+  return (
+    <>
+      <div style={{ paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <BodyText size={12} color="var(--neutral-500)">
+          {isOrgDisabled
+            ? "Org-wide access is off. Turning a team on grants that team individual access without enabling the connector organization-wide."
+            : 'Turn this connector on or off for each team.'}
+        </BodyText>
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: CONNECTOR_TEAMS_ROW_GAP }}>
+            <style>{`@keyframes connSkeletonShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
+            {Array.from({ length: Math.min(4, Math.max(teams.length, 1)) }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  display:         'flex',
+                  alignItems:      'center',
+                  gap:             12,
+                  padding:         '10px 12px',
+                  borderRadius:    12,
+                  backgroundColor: 'var(--neutral-white)',
+                  boxShadow:       '0px 0px 0px 1px var(--neutral-100)',
+                  minHeight:       CONNECTOR_TEAMS_ROW_HEIGHT,
+                  boxSizing:       'border-box',
+                }}
+              >
+                <SkeletonBlock width={36} height={36} radius={8} />
+                <SkeletonBlock width={140} height={14} radius={5} />
+                <div style={{ flex: 1 }} />
+                <SkeletonBlock width={54} height={12} radius={4} />
+                <SkeletonBlock width={36} height={20} radius={10} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            className="kaya-scrollbar"
+            style={{
+              display:       'flex',
+              flexDirection: 'column',
+              gap:           CONNECTOR_TEAMS_ROW_GAP,
+              maxHeight:     teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? CONNECTOR_TEAMS_LIST_MAX_HEIGHT : undefined,
+              overflowY:     teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? 'auto' : undefined,
+              paddingRight:  teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? 4 : undefined,
+            }}
+          >
+            {sortedTeams.map((team, index) => {
+              const effectivelyOn = isEffectivelyOn(team)
+              return (
+                <motion.div
+                  key={team.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...springs.moderate, delay: Math.min(index, 8) * 0.035 }}
+                  style={{
+                    display:         'flex',
+                    alignItems:      'center',
+                    gap:             12,
+                    padding:         '10px 12px',
+                    borderRadius:    12,
+                    backgroundColor: 'var(--neutral-white)',
+                    boxShadow:       '0px 0px 0px 1px var(--neutral-100)',
+                    minHeight:       CONNECTOR_TEAMS_ROW_HEIGHT,
+                    flexShrink:      0,
+                    boxSizing:       'border-box',
+                  }}
+                >
+                  <ConnectorTeamAvatar teamId={team.id} name={team.name} size={36} />
+                  <p style={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 500,
+                    fontSize:   16,
+                    lineHeight: '24px',
+                    color:      'var(--neutral-900)',
+                    margin:     0,
+                    overflow:     'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace:   'nowrap',
+                  }}>
+                    {team.name}
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {busyTeamId === team.id && <Spinner />}
+                    <BodyText size={12} color="var(--neutral-700)" style={{ width: 62, textAlign: 'right' }}>
+                      {effectivelyOn ? 'Team ON' : 'Team OFF'}
+                    </BodyText>
+                    <Switch
+                      checked={effectivelyOn}
+                      disabled={busyTeamId === team.id}
+                      onCheckedChange={checked => handleSwitchChange(team, checked)}
+                    />
+                  </div>
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {pendingOffTeam && (
+        <TeamConnectorOffConfirmModal
+          connector={connector}
+          team={pendingOffTeam}
+          busy={busyTeamId === pendingOffTeam.id}
+          onCancel={() => setPendingOffTeam(null)}
+          onConfirm={() => void confirmTeamOff()}
+        />
+      )}
+    </>
+  )
+}
+
+function TeamConnectorOffConfirmModal({
+  connector,
+  team,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  connector: ConnectorCatalogEntry
+  team: Team
+  busy: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close dialog"
+        onClick={onCancel}
+        style={{ position: 'fixed', inset: 0, border: 'none', padding: 0, backgroundColor: 'rgba(18,12,8,0.38)', zIndex: 60, cursor: 'default' }}
+      />
+      <div
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 61,
+          width: 420,
+          maxWidth: 'calc(100vw - 48px)',
+          borderRadius: 20,
+          backgroundColor: '#f7f2ed',
+          boxShadow: '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1), 0px 0px 0px 1px var(--neutral-100)',
+          padding: 20,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+        }}
+      >
+        <div>
+          <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
+            Turn off {connector.display_name} for {team.name}?
+          </h2>
+          <BodyText style={{ marginTop: 8 }}>
+            {team.name} will lose access to this connector until it's turned back on.
+          </BodyText>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>Cancel</Button>
+          <Button variant="danger" size="sm" onClick={onConfirm} loading={busy}>Turn off</Button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function ConnectorSectionLabel({ label }: { label: string }) {
+  return (
+    <div style={{ padding: '10px 24px', backgroundColor: 'var(--neutral-25, #fafaf9)', borderBottom: '1px solid var(--neutral-100)' }}>
+      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, letterSpacing: 0.2, textTransform: 'uppercase', color: 'var(--neutral-500)', margin: 0 }}>
+        {label}
+      </p>
+    </div>
+  )
+}
+
+function DisableConnectorConfirmModal({
+  connector,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  connector: ConnectorCatalogEntry
+  busy: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const accountCount = connector.accounts?.length ?? 0
+  const teamCount = new Set((connector.accounts ?? []).flatMap(account => account.team_ids ?? [])).size
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close dialog"
+        onClick={onCancel}
+        style={{ position: 'fixed', inset: 0, border: 'none', padding: 0, backgroundColor: 'rgba(18,12,8,0.38)', zIndex: 50, cursor: 'default' }}
+      />
+      <div
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 51,
+          width: 420,
+          maxWidth: 'calc(100vw - 48px)',
+          borderRadius: 20,
+          backgroundColor: '#f7f2ed',
+          boxShadow: '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1), 0px 0px 0px 1px var(--neutral-100)',
+          padding: 20,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+        }}
+      >
+        <div>
+          <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
+            Turn off {connector.display_name}?
+          </h2>
+          <BodyText style={{ marginTop: 8 }}>
+            {accountCount} shared account{accountCount === 1 ? '' : 's'}
+            {teamCount > 0 ? `, used by ${teamCount} team${teamCount === 1 ? '' : 's'},` : ''} will stop working for the organization.
+          </BodyText>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>Cancel</Button>
+          <Button variant="danger" size="sm" onClick={onConfirm} loading={busy}>Turn off</Button>
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -1106,7 +1882,7 @@ function ManageConnectorsTab({
       )}
       <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
         {orgEnabled.length === 0 ? (
-          <EmptyState title="No connectors enabled yet" subtitle="Turn on connectors in the Catalog tab to manage shared accounts for them." />
+          <EmptyState title="No connectors enabled yet" subtitle="Turn on connectors in the Org access tab to manage shared accounts for them." />
         ) : browse.pageItems.length === 0 ? (
           <EmptyState title="No connectors found" subtitle="Try a different search or category." />
         ) : (
@@ -1256,6 +2032,14 @@ function AddSharedAccountModal({
       }
 
       if (res.redirectUrl) {
+        // Native MCP connectors: the backend's OAuth callback redirects back
+        // to our own app domain on success/failure, so this must navigate
+        // the current tab rather than a popup (a popup would just land our
+        // app inside the small popup window).
+        if (isMcpProviderConnector(connector.slug)) {
+          window.location.href = res.redirectUrl
+          return
+        }
         const popup = window.open('', '_blank', 'width=900,height=700')
         if (popup && !popup.closed) popup.location.href = res.redirectUrl
         else window.open(res.redirectUrl, '_blank', 'noopener')
@@ -1926,6 +2710,13 @@ function TeamScopedAccountModal({
       })
 
       if (res.redirectUrl && res.sharedAccountId) {
+        // Native MCP connectors: the backend's OAuth callback redirects back
+        // to our own app domain on success/failure, so this must navigate
+        // the current tab rather than a popup.
+        if (isMcpProviderConnector(connector.slug)) {
+          window.location.href = res.redirectUrl
+          return
+        }
         const popup = window.open('', '_blank', 'width=900,height=700')
         if (popup && !popup.closed) popup.location.href = res.redirectUrl
         else window.open(res.redirectUrl, '_blank', 'noopener')
@@ -2204,9 +2995,9 @@ function OrgConnectorsPageContent() {
   const params = useSearchParams()
   const initialSearch = params.get('q') ?? ''
   const isAdminView = currentUserRole === 'admin'
-  const VALID_TABS: MainTab[] = ['catalog', 'permissions', 'manage']
+  const VALID_TABS: MainTab[] = ['org-access', 'team-access', 'requests', 'shared-accounts']
   const tabParam = params.get('tab') as MainTab | null
-  const [tab, setTab] = useState<MainTab>(tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'catalog')
+  const [tab, setTab] = useState<MainTab>(tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'org-access')
 
   function handleTabChange(next: MainTab) {
     setTab(next)
@@ -2228,9 +3019,10 @@ function OrgConnectorsPageContent() {
     return pendingTeam + pendingPersonal
   }, [teamRequests, personalRequests])
 
-  // Mount load: only the catalog, which is all the Catalog/Manage tabs need.
-  // The Permissions tab's data (per-team + personal requests) is loaded lazily
-  // when that tab is first opened — the per-team fan-out is the slow part.
+  // Mount load: only the catalog, which is all the Org access/Team access/
+  // Shared accounts tabs need. The Requests tab's data (per-team + personal
+  // requests) is loaded lazily when that tab is first opened — the per-team
+  // fan-out is the slow part.
   const loadPageData = useCallback(async () => {
     if (!org.id) return
     setLoading(true)
@@ -2270,7 +3062,7 @@ function OrgConnectorsPageContent() {
 
   useEffect(() => {
     if (!orgReady || teamsLoading || !org.id || !isAdminView) return
-    if (tab !== 'permissions' || permissionsLoaded || permissionsLoading) return
+    if (tab !== 'requests' || permissionsLoaded || permissionsLoading) return
     const timer = window.setTimeout(() => { void loadPermissionsData() }, 0)
     return () => window.clearTimeout(timer)
   }, [tab, permissionsLoaded, permissionsLoading, orgReady, teamsLoading, org.id, isAdminView, loadPermissionsData])
@@ -2340,13 +3132,13 @@ function OrgConnectorsPageContent() {
               Connectors
             </h1>
             <BodyText style={{ padding: '5px 6px' }}>
-              Manage organization connector availability, access approvals, and shared accounts for teams.
+              Manage organization connector availability, per-team access, approvals, and shared accounts.
             </BodyText>
           </div>
           <Tabs.List>
             {ADMIN_TABS.map(item => (
               <Tabs.Trigger key={item.id} value={item.id}>
-                {item.id === 'permissions' && pendingCount > 0 ? (
+                {item.id === 'requests' && pendingCount > 0 ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     {item.label}
                     <Badge label={`${pendingCount}`} color="Red" />
@@ -2358,15 +3150,23 @@ function OrgConnectorsPageContent() {
             ))}
           </Tabs.List>
         </div>
-        <Tabs.Content value="catalog">
-          <CatalogTab
+        <Tabs.Content value="org-access">
+          <OrgAccessTab
             orgId={org.id}
             connectors={connectors}
             initialSearch={initialSearch}
             onCatalogUpdated={setConnectors}
           />
         </Tabs.Content>
-        <Tabs.Content value="permissions">
+        <Tabs.Content value="team-access">
+          <TeamAccessTab
+            orgId={org.id}
+            connectors={connectors}
+            teams={activeTeams}
+            initialSearch={initialSearch}
+          />
+        </Tabs.Content>
+        <Tabs.Content value="requests">
           <PermissionsTab
             orgId={org.id}
             connectors={connectors}
@@ -2377,7 +3177,7 @@ function OrgConnectorsPageContent() {
             onReload={loadPermissionsData}
           />
         </Tabs.Content>
-        <Tabs.Content value="manage">
+        <Tabs.Content value="shared-accounts">
           <ManageConnectorsTab
             connectors={connectors}
             initialSearch={initialSearch}

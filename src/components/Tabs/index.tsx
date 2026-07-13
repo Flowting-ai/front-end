@@ -3,9 +3,11 @@
 import React, { use, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 import { animate, motion } from 'framer-motion'
+import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
 import { springs } from '@/lib/springs'
 import { TabItem } from '@/components/TabItem'
+import { IconButton } from '@/components/IconButton'
 
 // ── Contexts — set by TabsList, consumed by TabsTrigger ───────────────────────
 
@@ -106,6 +108,8 @@ export function TabsList({
   // Collapse mode: widest label width across tabs (reserved for the active slot).
   const [maxLabelW, setMaxLabelW] = useState<number | null>(null)
   const [overflowing, setOverflowing] = useState(false)
+  const [atStart, setAtStart] = useState(true)
+  const [atEnd, setAtEnd]     = useState(false)
   const [dragging, setDragging]       = useState(false)
   const dragState = useRef<{ startX: number; startScroll: number; moved: boolean; pointerId: number; target: Element | null } | null>(null)
 
@@ -218,13 +222,23 @@ export function TabsList({
     if (!scrollable) { setOverflowing(false); return }
     const row = rowRef.current
     if (!row) return
-    const update = () => setOverflowing(row.scrollWidth > row.clientWidth + 1)
+    const update = () => {
+      setOverflowing(row.scrollWidth > row.clientWidth + 1)
+      setAtStart(row.scrollLeft <= 1)
+      setAtEnd(row.scrollLeft + row.clientWidth >= row.scrollWidth - 1)
+    }
     update()
     const ro = new ResizeObserver(update)
     ro.observe(row)
     for (const child of Array.from(row.children)) ro.observe(child as Element)
     return () => ro.disconnect()
   }, [scrollable, children])
+
+  const scrollByPage = useCallback((direction: 1 | -1) => {
+    const row = rowRef.current
+    if (!row) return
+    row.scrollBy({ left: direction * Math.round(row.clientWidth * 0.7), behavior: 'smooth' })
+  }, [])
 
   // ── Scrollable: pointer-drag to scroll the row ─────────────────────────────
   //
@@ -294,7 +308,10 @@ export function TabsList({
 
   const handleScroll = useCallback(() => {
     const row = rowRef.current
-    if (!row || !pill) return
+    if (!row) return
+    setAtStart(row.scrollLeft <= 1)
+    setAtEnd(row.scrollLeft + row.clientWidth >= row.scrollWidth - 1)
+    if (!pill) return
     shadowAnimX.current?.stop()
     const x = pill.x - row.scrollLeft
     shadowXCur.current = x
@@ -379,7 +396,8 @@ export function TabsList({
               overflowX:           'auto',
               overscrollBehaviorX: 'contain',
               scrollbarWidth:      'none' as const,
-              paddingLeft:         '1px',
+              paddingLeft:         overflowing ? 30 : 1,
+              paddingRight:        overflowing ? 30 : 0,
               cursor:              overflowing ? (dragging ? 'grabbing' : 'grab') : undefined,
               userSelect:          dragging ? 'none' : undefined,
               touchAction:         'pan-x',
@@ -416,6 +434,32 @@ export function TabsList({
           )}
           {children}
         </div>
+
+        {/* ── Scrollable: slide arrows, shown only while content overflows ── */}
+        {scrollable && overflowing && (
+          <>
+            <div style={{ position: 'absolute', left: 2, top: '50%', transform: 'translateY(-50%)', zIndex: 1 }}>
+              <IconButton
+                variant="secondary"
+                size="xs"
+                aria-label="Scroll categories left"
+                icon={<ArrowLeftOneIcon size={14} />}
+                disabled={atStart}
+                onClick={() => scrollByPage(-1)}
+              />
+            </div>
+            <div style={{ position: 'absolute', right: 2, top: '50%', transform: 'translateY(-50%)', zIndex: 1 }}>
+              <IconButton
+                variant="secondary"
+                size="xs"
+                aria-label="Scroll categories right"
+                icon={<ArrowRightOneIcon size={14} />}
+                disabled={atEnd}
+                onClick={() => scrollByPage(1)}
+              />
+            </div>
+          </>
+        )}
       </TabsPrimitive.List>
     </TabsSizeContext.Provider>
     </TabsFluidContext.Provider>

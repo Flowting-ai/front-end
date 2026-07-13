@@ -42,8 +42,9 @@ import {
   listTeamConnectors,
   requestTeamConnector,
   setTeamConnectorStatus,
+  listTeamPersonaShares,
 } from '@/lib/api/teams'
-import type { ConnectorRequestStatus } from '@/lib/api/teams'
+import type { ConnectorRequestStatus, TeamPersonaShare } from '@/lib/api/teams'
 import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 import { connectorLogoSrc } from '@/lib/connectorLogos'
 import type { ApiProjectSummary } from '@/lib/api/projects'
@@ -790,6 +791,7 @@ export default function TeamSettingsPage() {
     : ['editor', 'member']
 
   const [teamAgents, setTeamAgents] = useState<Persona[]>([])
+  const [teamAgentShares, setTeamAgentShares] = useState<TeamPersonaShare[]>([])
   const [agentsLoading, setAgentsLoading] = useState(true)
 
   useEffect(() => {
@@ -858,14 +860,21 @@ export default function TeamSettingsPage() {
   }, [team, refreshRoster])
 
   useEffect(() => {
-    if (!params.teamId) return
+    if (!orgId || !params.teamId) return
     const teamId = params.teamId
     setAgentsLoading(true)
-    fetchPersonas()
-      .then(list => setTeamAgents(personasForTeamContext(list, teamId)))
-      .catch(() => setTeamAgents([]))
+    Promise.all([
+      // Authoritative: every agent deployed to the team org-wide, with who shared it.
+      listTeamPersonaShares(orgId, teamId).catch(() => [] as TeamPersonaShare[]),
+      // Supplementary: status/description for agents visible to the current user.
+      fetchPersonas().then(list => personasForTeamContext(list, teamId)).catch(() => [] as Persona[]),
+    ])
+      .then(([shares, agents]) => {
+        setTeamAgentShares(shares)
+        setTeamAgents(agents)
+      })
       .finally(() => setAgentsLoading(false))
-  }, [params.teamId])
+  }, [orgId, params.teamId])
 
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') void refreshRoster() }
@@ -1219,32 +1228,39 @@ export default function TeamSettingsPage() {
             {agentsLoading && (
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>Loading…</p>
             )}
-            {!agentsLoading && teamAgents.length === 0 && (
+            {!agentsLoading && teamAgentShares.length === 0 && (
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
                 No agents shared to this team yet.
               </p>
             )}
-            {!agentsLoading && teamAgents.map(agent => (
-              <div key={agent.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
-                borderRadius: 10, backgroundColor: 'var(--neutral-50)', boxShadow: '0px 0px 0px 1px var(--neutral-100)' }}>
-                <div style={{ flex: '1 1 0', minWidth: 0 }}>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
-                    color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {agent.name}
-                  </p>
-                  {agent.description && (
+            {!agentsLoading && teamAgentShares.map(share => {
+              // teamAgents only covers agents visible to the *current* viewer, so
+              // an agent shared by a teammate the viewer can't otherwise see will
+              // have no match here — fall back to the share's own name/status-less display.
+              const agent = teamAgents.find(a => a.id === share.personaRepoId)
+              const ownerLabel = share.sharedByName || share.sharedByEmail || 'Unknown owner'
+              return (
+                <div key={share.shareId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                  borderRadius: 10, backgroundColor: 'var(--neutral-50)', boxShadow: '0px 0px 0px 1px var(--neutral-100)' }}>
+                  <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
+                      color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {agent?.name ?? share.personaName}
+                    </p>
                     <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)', margin: 0,
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {agent.description}
+                      Shared by {ownerLabel}
                     </p>
+                  </div>
+                  {agent && (
+                    <Badge
+                      color={agent.status === 'active' ? 'Green' : agent.status === 'paused' ? 'Yellow' : 'Neutral'}
+                      label={agent.status === 'active' ? 'Live' : agent.status === 'paused' ? 'Paused' : 'Draft'}
+                    />
                   )}
                 </div>
-                <Badge
-                  color={agent.status === 'active' ? 'Green' : agent.status === 'paused' ? 'Yellow' : 'Neutral'}
-                  label={agent.status === 'active' ? 'Live' : agent.status === 'paused' ? 'Paused' : 'Draft'}
-                />
-              </div>
-            ))}
+              )
+            })}
           </div>
         </Card>
 

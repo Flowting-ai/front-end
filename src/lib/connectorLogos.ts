@@ -162,6 +162,21 @@ export const CONNECTOR_LOGO_MAP: Record<string, string> = {
   'rich-panel':                '/connector-logos/richpanel.jpeg',
   'rich_panel':                '/connector-logos/richpanel.jpeg',
   'twilio':                    '/connector-logos/twilio.jpeg',
+  'bigcommerce':               '/connector-logos/bigcommerce.svg',
+  'google_forms':              '/connector-logos/google-forms.svg',
+  'google-forms':              '/connector-logos/google-forms.svg',
+  'googleforms':               '/connector-logos/google-forms.svg',
+  'granola_mcp':               '/connector-logos/granola.svg',
+  'heatmap':                   '/connector-logos/heatmap.jpeg',
+  'instantly':                 '/connector-logos/instantly.png',
+  'instantly-ai':              '/connector-logos/instantly.png',
+  'instantlyai':               '/connector-logos/instantly.png',
+  'instantly_ai':              '/connector-logos/instantly.png',
+  'one_drive':                 '/connector-logos/onedrive.svg',
+  'microsoft_power_bi':        '/connector-logos/power-bi.svg',
+  'resend':                    '/connector-logos/resend.svg',
+  'shipstation-v2':            '/connector-logos/ship-station.png',
+  'shipstation_v2':            '/connector-logos/ship-station.png',
 }
 
 /**
@@ -315,6 +330,21 @@ const CONNECTOR_DISPLAY_NAME: Record<string, string> = {
   'rich-panel':               'Richpanel',
   'rich_panel':               'Richpanel',
   'twilio':                   'Twilio',
+  'bigcommerce':              'BigCommerce',
+  'google_forms':             'Google Forms',
+  'google-forms':             'Google Forms',
+  'googleforms':              'Google Forms',
+  'granola_mcp':              'Granola',
+  'heatmap':                  'Heatmap',
+  'instantly':                'Instantly',
+  'instantly-ai':             'Instantly',
+  'instantlyai':              'Instantly',
+  'instantly_ai':             'Instantly',
+  'one_drive':                'OneDrive',
+  'microsoft_power_bi':       'Power BI',
+  'resend':                   'Resend',
+  'shipstation-v2':           'ShipStation',
+  'shipstation_v2':           'ShipStation',
 }
 
 export function connectorDisplayName(slug: string | null | undefined): string {

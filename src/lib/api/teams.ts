@@ -14,6 +14,7 @@ import {
   ORG_TEAM_CONNECTOR_ENDPOINT,
   ORG_TEAM_CONNECTIONS_ENDPOINT,
   ORG_TEAM_CONNECTION_ENDPOINT,
+  ORG_TEAM_PERSONA_SHARES_ENDPOINT,
   TEAM_INVITE_PREVIEW_ENDPOINT,
   TEAM_INVITE_ACCEPT_ENDPOINT,
 } from '@/lib/config'
@@ -600,4 +601,50 @@ export async function updateTeamConnectionPermissions(
 
 export async function unlinkTeamConnection(orgId: string, teamId: string, slug: string): Promise<void> {
   await apiFetch(ORG_TEAM_CONNECTION_ENDPOINT(orgId, teamId, slug), { method: 'DELETE' })
+}
+
+// ── Team persona (agent) shares — who owns each agent deployed to the team ────
+
+export interface TeamPersonaShare {
+  shareId:        string
+  personaRepoId:  string
+  personaName:    string
+  sharedByUserId: string
+  sharedByName:   string | null
+  sharedByEmail:  string | null
+  teamId:         string
+  teamName:       string
+  sharedAt:       string
+}
+
+interface PersonaTeamShareResponse {
+  share_id:         string
+  persona_repo_id:  string
+  persona_name:     string
+  shared_by_user_id: string
+  shared_by_name:   string | null
+  shared_by_email:  string | null
+  team_id:          string
+  team_name:        string
+  shared_at:        string
+}
+
+function normalizeTeamPersonaShare(r: PersonaTeamShareResponse): TeamPersonaShare {
+  return {
+    shareId:        r.share_id,
+    personaRepoId:  r.persona_repo_id,
+    personaName:    r.persona_name,
+    sharedByUserId: r.shared_by_user_id,
+    sharedByName:   r.shared_by_name ?? null,
+    sharedByEmail:  r.shared_by_email ?? null,
+    teamId:         r.team_id,
+    teamName:       r.team_name,
+    sharedAt:       r.shared_at,
+  }
+}
+
+/** Every agent currently deployed to this team, including who owns/shared it. */
+export async function listTeamPersonaShares(orgId: string, teamId: string): Promise<TeamPersonaShare[]> {
+  const list = await apiFetchJson<PersonaTeamShareResponse[]>(ORG_TEAM_PERSONA_SHARES_ENDPOINT(orgId, teamId))
+  return list.map(normalizeTeamPersonaShare)
 }

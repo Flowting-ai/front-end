@@ -17,7 +17,8 @@ import {
   SettingsTableToolbar,
 } from '@/components/SettingsTable'
 import { useOrg } from '@/context/org-context'
-import { createTeam } from '@/lib/api/teams'
+import { createTeam, listTeamConnectors } from '@/lib/api/teams'
+import { listOrgCatalog } from '@/lib/api/connectors'
 import { fetchTeamAccessSnapshot } from '@/lib/team-access'
 import type { Team } from '@/types/teams'
 import { ORG_TEAM_ROUTE } from '@/lib/routes'
@@ -258,7 +259,8 @@ function TeamsPageSkeleton() {
             <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
             <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={50} height={13} radius={4} /></div>
             <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={60} height={13} radius={4} /></div>
-            <div /><div />
+            <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={70} height={13} radius={4} /></div>
+            <div />
           </div>
 
           {/* Skeleton rows */}
@@ -274,7 +276,7 @@ function TeamsPageSkeleton() {
               <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
               <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
               <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
-              <div />
+              <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={110} height={32} radius={8} /></div>
             </div>
           ))}
@@ -295,6 +297,8 @@ export default function OrgTeamsPage() {
   const [editorCounts, setEditorCounts] = useState<Record<string, number>>({})
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({})
   const [countsLoading, setCountsLoading] = useState(true)
+  const [connectorCounts, setConnectorCounts] = useState<Record<string, number>>({})
+  const [connectorCountsLoading, setConnectorCountsLoading] = useState(true)
 
   const activeTeams = teams.filter(t => !t.archived)
 
@@ -326,6 +330,49 @@ export default function OrgTeamsPage() {
     void loadCounts()
     return () => { cancelled = true }
   }, [orgId, teams])
+
+  // A connector counts as "on" for a team the same way the backend computes
+  // it (list_team_connections: approved = org_enabled | team_grant) — explicit
+  // team approve/deny wins, otherwise it inherits the org-wide switch. Kept in
+  // sync with /org/connectors' Team access tab and /org/team/[teamId], which
+  // use this identical formula.
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadConnectorCounts() {
+      if (!orgId || !isAdmin || activeTeams.length === 0) {
+        if (!cancelled) { setConnectorCounts({}); setConnectorCountsLoading(false) }
+        return
+      }
+      setConnectorCountsLoading(true)
+      try {
+        const [catalog, statusRows] = await Promise.all([
+          listOrgCatalog(orgId),
+          Promise.all(activeTeams.map(team => listTeamConnectors(orgId, team.id))),
+        ])
+        const orgEnabledSlugs = new Set(catalog.filter(c => c.org_enabled === true).map(c => c.slug))
+        const counts: Record<string, number> = {}
+        activeTeams.forEach((team, i) => {
+          const statusBySlug = new Map(statusRows[i].map(row => [row.connectorSlug, row.status]))
+          let count = 0
+          for (const connector of catalog) {
+            const status = statusBySlug.get(connector.slug)
+            const on = status === 'approved' ? true : status === 'denied' ? false : orgEnabledSlugs.has(connector.slug)
+            if (on) count++
+          }
+          counts[team.id] = count
+        })
+        if (!cancelled) setConnectorCounts(counts)
+      } catch {
+        if (!cancelled) setConnectorCounts({})
+      } finally {
+        if (!cancelled) setConnectorCountsLoading(false)
+      }
+    }
+
+    void loadConnectorCounts()
+    return () => { cancelled = true }
+  }, [orgId, isAdmin, teams])
 
   if (teamsLoading) {
     return (
@@ -406,7 +453,7 @@ export default function OrgTeamsPage() {
             <SettingsTableHeaderCell align="center">Created</SettingsTableHeaderCell>
             <SettingsTableHeaderCell align="center">Editors</SettingsTableHeaderCell>
             <SettingsTableHeaderCell align="center">Members</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell>{null}</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="center">Connectors</SettingsTableHeaderCell>
             <SettingsTableHeaderCell align="end">Actions</SettingsTableHeaderCell>
           </SettingsTableHeader>
 
@@ -438,7 +485,13 @@ export default function OrgTeamsPage() {
               <SettingsTableCell align="center">
                 <CountCell loading={countsLoading} count={memberCounts[team.id] ?? 0} noun="member" color="Purple" />
               </SettingsTableCell>
-              <SettingsTableCell>{null}</SettingsTableCell>
+              <SettingsTableCell align="center">
+                {isAdmin ? (
+                  <CountCell loading={connectorCountsLoading} count={connectorCounts[team.id] ?? 0} noun="connector" color="Green" />
+                ) : (
+                  <TextPill>—</TextPill>
+                )}
+              </SettingsTableCell>
               <SettingsTableCell align="end">
                 <Button
                   variant="secondary"

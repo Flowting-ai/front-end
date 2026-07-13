@@ -11,6 +11,7 @@ import { ProjectsProvider } from "@/context/projects-context";
 import { ProjectPanelProvider } from "@/context/project-panel-context";
 import { OnboardingGuard } from "@/components/shared/OnboardingGuard";
 import { PlanUpgradeToast } from "@/components/shared/PlanUpgradeToast";
+import { ConnectorAuthResultToast } from "@/components/shared/ConnectorAuthResultToast";
 import { SearchProvider } from "@/context/search-context";
 import { OrgProvider } from "@/context/org-context";
 import { OrgStamps } from "@/components/Analytics/OrgStamps";
@@ -36,6 +37,7 @@ export default function AppGroupLayout({
                     </ProjectPanelProvider>
                     <PresetModelSelectorDialog />
                     <PlanUpgradeToast />
+                    <ConnectorAuthResultToast />
                   </SearchProvider>
                 </ModelSelectorProvider>
               </CompareProvider>

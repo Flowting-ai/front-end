@@ -13,6 +13,7 @@ import {
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
 } from '@/lib/api/connectors'
+import { isMcpProviderConnector } from '@/lib/connectorProvider'
 
 // ── Spinner icon ──────────────────────────────────────────────────────────────
 
@@ -143,10 +144,15 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
   }, [])
 
   const handleOAuth = useCallback((initData?: Record<string, string>) => {
+    // Native MCP connectors: the backend's OAuth callback redirects back to
+    // our own app domain on success/failure, so this must navigate the
+    // current tab rather than a popup. No popup to pre-open in that case.
+    const isMcp = isMcpProviderConnector(prompt.connector_slug)
+
     // Open WITHOUT noopener/noreferrer so we can navigate popup.location after
     // getting the redirect URL. noopener leaves the popup stuck at about:blank
     // (Firefox returns null; some Chrome configs block location assignment).
-    const popup = window.open('', '_blank', 'width=900,height=700')
+    const popup = isMcp ? null : window.open('', '_blank', 'width=900,height=700')
     setState('connecting')
     setErrorMsg('')
 
@@ -158,6 +164,10 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
         if (!link.redirect_url) {
           popup?.close()
           throw new Error('No redirect URL returned by server')
+        }
+        if (isMcp) {
+          window.location.href = link.redirect_url
+          return
         }
         if (popup && !popup.closed) {
           popup.location.href = link.redirect_url

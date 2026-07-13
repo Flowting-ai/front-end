@@ -11,15 +11,13 @@ import {
   SearchOneIcon,
   CancelOneIcon,
   AtomTwoIcon,
-  TextIcon,
-  SourceCodeSquareIcon,
   AiVisionRecognitionIcon,
   ImageTwoIcon,
-  AudioWaveOneIcon,
-  GlobalSearchIcon,
+  InformationCircleIcon,
 } from "@strange-huge/icons";
 import { LlmIcon } from "@strange-huge/icons/llm";
 import { IconButton } from "@/components/IconButton";
+import { Tooltip } from "@/components/Tooltip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { getModelLlmId } from "@/lib/model-icons";
 import type { AIModel } from "@/types/ai-model";
@@ -41,14 +39,50 @@ const TIER_TABS = [
 ] as const;
 
 const CATEGORY_TABS = [
-  { value: "all",    label: "All",        icon: <AtomTwoIcon             size={16} /> },
-  { value: "text",   label: "Text",       icon: <TextIcon                size={16} /> },
-  { value: "code",   label: "Code",       icon: <SourceCodeSquareIcon    size={16} /> },
-  { value: "vision", label: "Vision",     icon: <AiVisionRecognitionIcon size={16} /> },
-  { value: "image",  label: "Image",      icon: <ImageTwoIcon            size={16} /> },
-  { value: "audio",  label: "Audio",      icon: <AudioWaveOneIcon        size={16} /> },
-  { value: "search", label: "Web Search", icon: <GlobalSearchIcon        size={16} /> },
+  { value: "all",    label: "All",    icon: <AtomTwoIcon             size={16} /> },
+  { value: "vision", label: "Vision", icon: <AiVisionRecognitionIcon size={16} /> },
+  { value: "image",  label: "Image",  icon: <ImageTwoIcon            size={16} /> },
 ] as const;
+
+// Mirrors the actual filter predicate below (inputModalities/outputModalities
+// checks) so this copy never drifts from what the tabs really do.
+const CATEGORY_INFO = [
+  {
+    value: "all",
+    label: "All",
+    description: "Every model in the catalog — no input/output filter applied.",
+  },
+  {
+    value: "vision",
+    label: "Vision",
+    description: "Input modalities include image or vision — the model can see images you attach, like screenshots or photos.",
+  },
+  {
+    value: "image",
+    label: "Image",
+    description: "Output modalities include image — a dedicated image-generation model, not a chat model with an extra output.",
+  },
+] as const;
+
+function CategoryInfoContent() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "2px" }}>
+      {CATEGORY_INFO.map((c, i) => (
+        <React.Fragment key={c.value}>
+          {i > 0 && <Divider decorative />}
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <span style={{ ...CAPTION_STYLE, fontWeight: 700, whiteSpace: "normal", color: "var(--tooltip-text)" }}>
+              {c.label}
+            </span>
+            <span style={{ ...CAPTION_STYLE, fontWeight: 400, whiteSpace: "normal", color: "var(--tooltip-text)", opacity: 0.8 }}>
+              {c.description}
+            </span>
+          </div>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
 
 const CAPTION_STYLE: React.CSSProperties = {
   fontFamily: "var(--font-body)",
@@ -58,6 +92,34 @@ const CAPTION_STYLE: React.CSSProperties = {
   color: "var(--neutral-500)",
   whiteSpace: "nowrap",
 };
+
+// Same modality checks as the category filter (kept in sync deliberately) —
+// rendered as the model row's own right-end badges instead of a filter.
+function ModelModalityIcons({ model }: { model: AIModel }) {
+  const inputs = model.inputModalities ?? [];
+  const outputs = model.outputModalities ?? [];
+  const hasVision = inputs.some((v) => v === "image" || v === "vision");
+  const hasImage = outputs.some((v) => v === "image");
+  if (!hasVision && !hasImage) return null;
+  return (
+    <>
+      {hasVision && (
+        <Tooltip content="Vision — can see images you attach" side="top">
+          <span style={{ display: "flex" }}>
+            <AiVisionRecognitionIcon size={16} />
+          </span>
+        </Tooltip>
+      )}
+      {hasImage && (
+        <Tooltip content="Image — can generate images" side="top">
+          <span style={{ display: "flex" }}>
+            <ImageTwoIcon size={16} />
+          </span>
+        </Tooltip>
+      )}
+    </>
+  );
+}
 
 // ── Model row hover tooltip — mirrors the Instructions tab's model picker
 // (app/(app)/agent/configure/instructions/page.tsx) so tags / reasoning
@@ -191,6 +253,10 @@ interface PresetModelSelectorContentProps {
   museAdvanced: boolean;
   onMuseSelect: () => void;
   onAdvancedSelect: () => void;
+  /** Flip info tooltips to open leftward — set when the anchor trigger sits
+   * near the right edge of the viewport (e.g. the project page's top-right
+   * model button), leaving no room for them to open to the right. */
+  preferLeftTooltips: boolean;
 }
 
 function PresetModelSelectorContent({
@@ -201,6 +267,7 @@ function PresetModelSelectorContent({
   museAdvanced,
   onMuseSelect,
   onAdvancedSelect,
+  preferLeftTooltips,
 }: PresetModelSelectorContentProps) {
   const [search, setSearch] = useState("");
   const [tier, setTier] = useState("all");
@@ -263,22 +330,6 @@ function PresetModelSelectorContent({
           break;
         case "image":
           if (!outputs.some((v) => v === "image")) return false;
-          break;
-        case "audio":
-          if (
-            !inputs.some((v) => v === "audio") &&
-            !outputs.some((v) => v === "audio")
-          ) return false;
-          break;
-        case "search":
-          if (!inputs.some((v) => v === "web" || v === "search")) return false;
-          break;
-        case "code":
-          if (!outputs.some((v) => v === "code")) return false;
-          break;
-        case "text":
-          // Text-only: no image output (not image-gen), no audio, no video
-          if (outputs.some((v) => v === "image" || v === "audio" || v === "video")) return false;
           break;
       }
     }
@@ -386,16 +437,26 @@ function PresetModelSelectorContent({
           }}
         >
           {/* Category tabs */}
-          <div style={{ flexShrink: 0 }}>
-            <Tabs value={category} onValueChange={setCategory}>
-              <TabsList size="small" scrollable pillTopInset={0.5} pillBottomInset={1}>
-                {CATEGORY_TABS.map((t) => (
-                  <TabsTrigger key={t.value} value={t.value} icon={t.icon}>
-                    {t.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+            <div style={{ flex: "1 0 0", minWidth: 0 }}>
+              <Tabs value={category} onValueChange={setCategory}>
+                <TabsList size="small" scrollable pillTopInset={0.5} pillBottomInset={1}>
+                  {CATEGORY_TABS.map((t) => (
+                    <TabsTrigger key={t.value} value={t.value} icon={t.icon}>
+                      {t.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </div>
+            <Tooltip content={<CategoryInfoContent />} side={preferLeftTooltips ? "left" : "right"} align="center" maxWidth={280}>
+              <IconButton
+                size="xs"
+                variant="ghost"
+                icon={<InformationCircleIcon size={16} />}
+                aria-label="What do All, Vision, and Image filter on?"
+              />
+            </Tooltip>
           </div>
 
           {/* Model list */}
@@ -461,8 +522,9 @@ function PresetModelSelectorContent({
                           aria-pressed={isSelected}
                           llm={getModelLlmId(model.companyName, model.modelName) ?? undefined}
                           label={model.modelName}
+                          icons={<ModelModalityIcons model={model} />}
                           info={modelInfoContent(model)}
-                          infoSide="right"
+                          infoSide={preferLeftTooltips ? "left" : "right"}
                           infoMaxWidth={dropdownWidth}
                           selected={isSelected}
                           onClick={() => {
@@ -623,6 +685,12 @@ export function PresetModelSelectorDialog() {
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({});
+  // When the anchor (the "Model" trigger button) sits near the right edge of
+  // the viewport — e.g. the project overview page's top-right button — the
+  // dropdown panel below gets clamped so its own right edge hugs the
+  // viewport boundary, leaving no room for tooltips that open further right.
+  // Flip those to the left in that case.
+  const [preferLeftTooltips, setPreferLeftTooltips] = useState(false);
 
   // Compute fixed position from anchor element each time the dropdown opens
   useLayoutEffect(() => {
@@ -642,6 +710,7 @@ export function PresetModelSelectorDialog() {
     const left = Math.min(rawLeft, vw - DROPDOWN_WIDTH - 16);
 
     setStyle({ top, left: Math.max(16, left) });
+    setPreferLeftTooltips(left + DROPDOWN_WIDTH >= vw - 24);
   }, [isOpen, anchorEl]);
 
   // Close on outside click or Escape
@@ -701,6 +770,7 @@ export function PresetModelSelectorDialog() {
             museAdvanced={museAdvanced}
             onMuseSelect={() => { setMuseAdvanced(false); activateMuse() }}
             onAdvancedSelect={() => { setMuseAdvanced(true); close() }}
+            preferLeftTooltips={preferLeftTooltips}
           />
         </m.div>
       )}

@@ -17,6 +17,7 @@ import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
 import { useConnectorBrowse, CategoryFilter, Pagination } from '@/components/ConnectorBrowse'
 import { CONNECTOR_LOGO_MAP } from '@/lib/connectorLogos'
+import { isMcpProviderConnector } from '@/lib/connectorProvider'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { connectorCategory } from '@/lib/connectorCategories'
 import { useAuth } from '@/context/auth-context'
@@ -708,10 +709,16 @@ function useConnectFlow(
   }, [])
 
   const startOAuth = useCallback((initData?: Record<string, string>) => {
+    // Native MCP connectors: the backend's OAuth callback redirects back to
+    // our own app domain on success/failure, so this must navigate the
+    // current tab rather than a popup (a popup would just land our app
+    // inside the small popup window). No popup to pre-open in that case.
+    const isMcp = isMcpProviderConnector(entry.slug)
+
     // Open without noopener so we can navigate popup.location after getting
     // the redirect URL. noopener leaves the popup stuck at about:blank in some
     // browsers (Firefox returns null; some Chrome configs block location assign).
-    const popup = window.open('', '_blank', 'width=900,height=700')
+    const popup = isMcp ? null : window.open('', '_blank', 'width=900,height=700')
     setState('opening')
     setErrorMsg('')
 
@@ -727,6 +734,10 @@ function useConnectFlow(
             `${entry.display_name} did not return an OAuth URL. ` +
             `The connector provider may be misconfigured on the backend.`,
           )
+        }
+        if (isMcp) {
+          window.location.href = url
+          return
         }
         if (popup && !popup.closed) {
           popup.location.href = url

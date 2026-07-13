@@ -291,6 +291,8 @@ export const ORG_TEAM_CONNECTOR_ENDPOINT = (orgId: string, teamId: string, slug:
   withBase(`/organizations/${orgId}/teams/${teamId}/connectors/${encodeURIComponent(slug)}`)
 export const ORG_TEAM_CONNECTIONS_ENDPOINT = (orgId: string, teamId: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/connections`)
+export const ORG_TEAM_PERSONA_SHARES_ENDPOINT = (orgId: string, teamId: string) =>
+  withBase(`/organizations/${orgId}/teams/${teamId}/persona-shares`)
 export const ORG_TEAM_CONNECTION_ENDPOINT = (orgId: string, teamId: string, slug: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/connections/${encodeURIComponent(slug)}`)
 export const TEAM_INVITE_PREVIEW_ENDPOINT = (inviteId: string) =>
