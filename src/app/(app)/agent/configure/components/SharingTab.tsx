@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/Checkbox'
 import { CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
 import { Dropdown } from '@/components/Dropdown'
+import { ConfigureFormSkeleton } from '@/app/(app)/agent/configure/components/ConfigureFormSkeleton'
 
 import { toast } from 'sonner'
 import {
@@ -98,6 +99,11 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
   const [savedTeamIds,      setSavedTeamIds]      = useState<string[]>([])
   const [teamsOpen,         setTeamsOpen]         = useState(false)
 
+  // ── Loading gate — true until both the visibility (repo) and shares fetches settle ──
+  const [visibilityLoaded, setVisibilityLoaded] = useState(!repoId)
+  const [sharesLoaded,     setSharesLoaded]     = useState(!versionId)
+  const isLoading = !visibilityLoaded || !sharesLoaded
+
   const visibilityChanged =
     visibility !== savedVisibility ||
     selectedTeamIds.slice().sort().join(',') !== savedTeamIds.slice().sort().join(',')
@@ -179,7 +185,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
       setLinkShare(null)
       setSuperLinkEnabled(false)
       setEmailShares([])
-    })
+    }).finally(() => { if (!cancelled) setSharesLoaded(true) })
     return () => { cancelled = true }
   }, [versionId])
 
@@ -195,6 +201,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
         setSavedTeamIds(repo.team_ids ?? [])
       })
       .catch(() => {})
+      .finally(() => { if (!cancelled) setVisibilityLoaded(true) })
     return () => { cancelled = true }
   }, [repoId])
 
@@ -326,6 +333,10 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
       : 0
 
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  if (isLoading) {
+    return <ConfigureFormSkeleton rows={3} />
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%' }}>

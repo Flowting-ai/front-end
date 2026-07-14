@@ -62,8 +62,10 @@ import {
   SETTINGS_ACCOUNT_ROUTE,
   SETTINGS_BILLING_ROUTE,
   SETTINGS_HELP_ROUTE,
+  SETTINGS_CONNECTORS_ROUTE,
   AUTH_LOGIN_ROUTE,
 } from "@/lib/routes";
+import { ReportBugModal } from "@/components/ReportBugModal";
 
 // -- Collapse state persistence ------------------------------------------------
 
@@ -138,6 +140,24 @@ const sectionHeightVariants = {
   },
 };
 
+// -- Item stagger animation - same three-layer pattern as Sidebar's Default*Items --
+// Layer 2 - stagger orchestrator: delays children until after the height
+// animation completes so items never appear mid-clip.
+const sectionStaggerVariants = {
+  open: {
+    transition: { staggerChildren: 0.04, delayChildren: 0.24 },
+  },
+  closed: {
+    transition: {},
+  },
+};
+
+// Layer 3 - per-item: fade + drift
+const sectionItemVariants = {
+  open:   { opacity: 1, y: 0, transition: { duration: 0.18, ease: "easeOut" as const } },
+  closed: { opacity: 0, y: 5, transition: { duration: 0.12, ease: "easeIn"  as const } },
+};
+
 // -- Shared section props ------------------------------------------------------
 
 interface SectionProps {
@@ -175,7 +195,10 @@ function StarredSection({ activeChatId, onSelectChat, chatHistory }: SectionProp
         onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden"); }}
         onAnimationComplete={(def) => { if (def === "open") setOverflow("visible"); }}
       >
-        <div
+        <m.div
+          animate={shown ? "open" : "closed"}
+          initial="closed"
+          variants={sectionStaggerVariants}
           style={{
             paddingTop: "4px",
             display: "flex",
@@ -184,17 +207,18 @@ function StarredSection({ activeChatId, onSelectChat, chatHistory }: SectionProp
           }}
         >
           {starredChats.map((chat) => (
-            <ChatHistoryItem
-              key={chat.id}
-              chat={chat}
-              isActive={chat.id === activeChatId}
-              onSelect={onSelectChat}
-              onRename={chatHistory.rename}
-              onDelete={chatHistory.remove}
-              onStar={chatHistory.star}
-            />
+            <m.div key={chat.id} variants={sectionItemVariants}>
+              <ChatHistoryItem
+                chat={chat}
+                isActive={chat.id === activeChatId}
+                onSelect={onSelectChat}
+                onRename={chatHistory.rename}
+                onDelete={chatHistory.remove}
+                onStar={chatHistory.star}
+              />
+            </m.div>
           ))}
-        </div>
+        </m.div>
       </m.div>
     </>
   );
@@ -245,27 +269,35 @@ function RecentsList({ activeChatId, onSelectChat, chatHistory }: SectionProps) 
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+    <m.div
+      animate="open"
+      initial="closed"
+      variants={sectionStaggerVariants}
+      style={{ display: "flex", flexDirection: "column", gap: "4px" }}
+    >
       {chats.map((chat) => (
-        <ChatHistoryItem
-          key={chat.id}
-          chat={chat}
-          isActive={chat.id === activeChatId}
-          onSelect={onSelectChat}
-          onRename={rename}
-          onDelete={remove}
-          onStar={star}
-        />
+        <m.div key={chat.id} variants={sectionItemVariants}>
+          <ChatHistoryItem
+            chat={chat}
+            isActive={chat.id === activeChatId}
+            onSelect={onSelectChat}
+            onRename={rename}
+            onDelete={remove}
+            onStar={star}
+          />
+        </m.div>
       ))}
       {hasMore && (
-        <SidebarMenuItem
-          fluid
-          variant="default"
-          label="Load more"
-          onClick={loadMore}
-        />
+        <m.div variants={sectionItemVariants}>
+          <SidebarMenuItem
+            fluid
+            variant="default"
+            label="Load more"
+            onClick={loadMore}
+          />
+        </m.div>
       )}
-    </div>
+    </m.div>
   );
 }
 
@@ -460,7 +492,7 @@ function ProjectsSection({
   const { push }    = useRouter()
   const pathname    = usePathname()
   const chatHistory = useChatHistoryContext()
-  const { projects: allProjects, getChats, removeChat, renameChat, loadProjectChats } = useProjects()
+  const { projects: allProjects, loading: projectsLoading, getChats, removeChat, renameChat, loadProjectChats } = useProjects()
 
   const [shown,        setShown]        = useState(true)
   const [overflow,     setOverflow]     = useState<"visible" | "hidden">("visible")
@@ -518,19 +550,34 @@ function ProjectsSection({
         onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden") }}
         onAnimationComplete={(def) => { if (def === "open") setOverflow("visible") }}
       >
-        <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+        <m.div
+          animate={shown ? "open" : "closed"}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}
+        >
           {showNewProject && (
-            <SidebarMenuItem
-              fluid
-              variant="default"
-              label="New project"
-              icon={<FolderAddIcon size={20} />}
-              href={newProjectHref}
-              onClick={() => push(newProjectHref)}
-            />
+            <m.div variants={sectionItemVariants}>
+              <SidebarMenuItem
+                fluid
+                variant="default"
+                label="New project"
+                icon={<FolderAddIcon size={20} />}
+                href={newProjectHref}
+                onClick={() => push(newProjectHref)}
+              />
+            </m.div>
           )}
 
-          {projects.length === 0 && (
+          {projectsLoading && projects.length === 0 && (
+            <>
+              {Array.from({ length: 2 }).map((_, i) => (
+                <SidebarMenuSkeleton key={i} index={i} fluid />
+              ))}
+            </>
+          )}
+
+          {!projectsLoading && projects.length === 0 && (
             <div style={{
               padding:    "8px 6px",
               fontFamily: "var(--font-body)",
@@ -541,7 +588,7 @@ function ProjectsSection({
             </div>
           )}
 
-          {visibleProjects.map(project => {
+          {!projectsLoading && visibleProjects.map(project => {
             // Only chats the user can actually edit belong in this fully-
             // interactive tree (rename/delete, opens the real chat page).
             // A chat merely visible here via another member's project
@@ -552,59 +599,62 @@ function ProjectsSection({
             const isExpanded = expandedIds.has(project.id)
 
             return (
-              <SidebarProjectsSection
-                key={project.id}
-                fluid
-                label={project.name}
-                active={isActive}
-                expanded={isExpanded}
-                onClick={() => push(PROJECT_ROUTE(project.id))}
-                onExpandedChange={(v) => toggleExpand(project.id, v)}
-              >
-                {chats.length > 0 && (
-                <>
-                  {chats.slice(0, CHAT_LIMIT).map(chat => (
-                    <ProjectChatItem
-                      key={chat.id}
-                      chat={chat}
-                      isActive={pathname === PROJECT_CHAT_ROUTE(project.id, chat.id)}
-                      href={PROJECT_CHAT_ROUTE(project.id, chat.id)}
-                      onSelect={() => push(PROJECT_CHAT_ROUTE(project.id, chat.id))}
-                      onRename={async (chatId, title) => {
-                        renameChat(project.id, chatId, title)
-                        await chatHistory.rename(chatId, title)
-                      }}
-                      onDelete={(chatId) => removeChat(project.id, chatId)}
-                    />
-                  ))}
-                  {chats.length > CHAT_LIMIT && (
-                    <SidebarMenuItem
-                      fluid
-                      variant="default"
-                      icon={<MoreHorizontalIcon size={20} animated />}
-                      label="View all Project Chats"
-                      selected={pathname === PROJECT_ROUTE(project.id)}
-                      href={PROJECT_ROUTE(project.id)}
-                      onClick={() => push(PROJECT_ROUTE(project.id))}
-                    />
-                  )}
-                </>
-              )}
-              </SidebarProjectsSection>
+              <m.div key={project.id} variants={sectionItemVariants}>
+                <SidebarProjectsSection
+                  fluid
+                  label={project.name}
+                  active={isActive}
+                  expanded={isExpanded}
+                  onClick={() => push(PROJECT_ROUTE(project.id))}
+                  onExpandedChange={(v) => toggleExpand(project.id, v)}
+                >
+                  {chats.length > 0 && (
+                  <>
+                    {chats.slice(0, CHAT_LIMIT).map(chat => (
+                      <ProjectChatItem
+                        key={chat.id}
+                        chat={chat}
+                        isActive={pathname === PROJECT_CHAT_ROUTE(project.id, chat.id)}
+                        href={PROJECT_CHAT_ROUTE(project.id, chat.id)}
+                        onSelect={() => push(PROJECT_CHAT_ROUTE(project.id, chat.id))}
+                        onRename={async (chatId, title) => {
+                          renameChat(project.id, chatId, title)
+                          await chatHistory.rename(chatId, title)
+                        }}
+                        onDelete={(chatId) => removeChat(project.id, chatId)}
+                      />
+                    ))}
+                    {chats.length > CHAT_LIMIT && (
+                      <SidebarMenuItem
+                        fluid
+                        variant="default"
+                        icon={<MoreHorizontalIcon size={20} animated />}
+                        label="View all Project Chats"
+                        selected={pathname === PROJECT_ROUTE(project.id)}
+                        href={PROJECT_ROUTE(project.id)}
+                        onClick={() => push(PROJECT_ROUTE(project.id))}
+                      />
+                    )}
+                  </>
+                )}
+                </SidebarProjectsSection>
+              </m.div>
             )
           })}
 
           {hasMore && (
-            <SidebarMenuItem
-              fluid
-              variant="default"
-              icon={<MoreHorizontalIcon size={20} animated />}
-              label="See all projects"
-              href={PROJECTS_ROUTE}
-              onClick={() => push(PROJECTS_ROUTE)}
-            />
+            <m.div variants={sectionItemVariants}>
+              <SidebarMenuItem
+                fluid
+                variant="default"
+                icon={<MoreHorizontalIcon size={20} animated />}
+                label="See all projects"
+                href={PROJECTS_ROUTE}
+                onClick={() => push(PROJECTS_ROUTE)}
+              />
+            </m.div>
           )}
-        </div>
+        </m.div>
       </m.div>
     </>
   )
@@ -1072,7 +1122,12 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
         variants={sectionHeightVariants}
         style={{ overflow: shown ? 'visible' : 'hidden' }}
       >
-        <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+        <m.div
+          animate={shown ? 'open' : 'closed'}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}
+        >
           {isLoading && Array.from({ length: 3 }).map((_, i) => (
             <SidebarMenuSkeleton key={i} index={i} fluid />
           ))}
@@ -1108,73 +1163,74 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
               : <UserAiIcon size={20} />
 
             return (
-              <SidebarProjectsSection
-                key={persona.id}
-                fluid
-                label={persona.name}
-                icon={avatarIcon}
-                active={isActive}
-                expanded={isDraft ? false : isExpanded}
-                onClick={() => isDraft
-                  ? push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name }))
-                  : handleExpand(persona.id, !isExpanded)}
-                onExpandedChange={(v) => { if (!isDraft) handleExpand(persona.id, v) }}
-                showExpandArrow={!isDraft}
-                badge={isDraft ? (
-                  <Badge color="Yellow" label="Draft" />
-                ) : persona.sourceShareId !== null ? (
-                  <Badge color="Blue" label="Shared" />
-                ) : undefined}
-              >
-                {!isDraft && (
-                  <>
-                    {/* New chat button */}
-                    <SidebarMenuItem
-                      fluid
-                      variant="default"
-                      label="New chat"
-                      icon={<PlusSignIcon size={20} />}
-                      href={`/agents/${persona.id}/chat`}
-                      onClick={() => push(AGENT_CHAT_ROUTE(persona.id))}
-                    />
-
-                    {/* Loading skeletons */}
-                    {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
-                      <SidebarMenuSkeleton key={i} index={i} fluid />
-                    ))}
-
-                    {/* Chat items */}
-                    {visibleChats.map(chat => (
-                      <PersonaChatItem
-                        key={chat.id}
-                        personaId={persona.id}
-                        chat={chat}
-                        isActive={isActive && chat.id === activeChatId}
-                        onSelect={() => push(`${AGENT_CHAT_ROUTE(persona.id)}?chatId=${chat.id}`)}
-                        onRename={(chatId, title) => handleChatRename(persona.id, chatId, title)}
-                        onDelete={(chatId) => handleChatDelete(persona.id, chatId)}
+              <m.div key={persona.id} variants={sectionItemVariants}>
+                <SidebarProjectsSection
+                  fluid
+                  label={persona.name}
+                  icon={avatarIcon}
+                  active={isActive}
+                  expanded={isDraft ? false : isExpanded}
+                  onClick={() => isDraft
+                    ? push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name }))
+                    : handleExpand(persona.id, !isExpanded)}
+                  onExpandedChange={(v) => { if (!isDraft) handleExpand(persona.id, v) }}
+                  showExpandArrow={!isDraft}
+                  badge={isDraft ? (
+                    <Badge color="Yellow" label="Draft" />
+                  ) : persona.sourceShareId !== null ? (
+                    <Badge color="Blue" label="Shared" />
+                  ) : undefined}
+                >
+                  {!isDraft && (
+                    <>
+                      {/* New chat button */}
+                      <SidebarMenuItem
+                        fluid
+                        variant="default"
+                        label="New chat"
+                        icon={<PlusSignIcon size={20} />}
+                        href={`/agents/${persona.id}/chat`}
+                        onClick={() => push(AGENT_CHAT_ROUTE(persona.id))}
                       />
-                    ))}
 
-                    {/* Empty state */}
-                    {chatData?.loaded && visibleChats.length === 0 && (
-                      <div
-                        style={{
-                          padding:    "4px 6px",
-                          fontFamily: "var(--font-body)",
-                          fontSize:   "var(--font-size-caption)",
-                          color:      "var(--neutral-400)",
-                        }}
-                      >
-                        No chats yet
-                      </div>
-                    )}
-                  </>
-                )}
-              </SidebarProjectsSection>
+                      {/* Loading skeletons */}
+                      {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
+                        <SidebarMenuSkeleton key={i} index={i} fluid />
+                      ))}
+
+                      {/* Chat items */}
+                      {visibleChats.map(chat => (
+                        <PersonaChatItem
+                          key={chat.id}
+                          personaId={persona.id}
+                          chat={chat}
+                          isActive={isActive && chat.id === activeChatId}
+                          onSelect={() => push(`${AGENT_CHAT_ROUTE(persona.id)}?chatId=${chat.id}`)}
+                          onRename={(chatId, title) => handleChatRename(persona.id, chatId, title)}
+                          onDelete={(chatId) => handleChatDelete(persona.id, chatId)}
+                        />
+                      ))}
+
+                      {/* Empty state */}
+                      {chatData?.loaded && visibleChats.length === 0 && (
+                        <div
+                          style={{
+                            padding:    "4px 6px",
+                            fontFamily: "var(--font-body)",
+                            fontSize:   "var(--font-size-caption)",
+                            color:      "var(--neutral-400)",
+                          }}
+                        >
+                          No chats yet
+                        </div>
+                      )}
+                    </>
+                  )}
+                </SidebarProjectsSection>
+              </m.div>
             )
           })}
-        </div>
+        </m.div>
       </m.div>
     </>
   )
@@ -1340,52 +1396,53 @@ function PersonasSectionIndividual() {
       : <UserAiIcon size={20} />
 
     return (
-      <SidebarProjectsSection
-        key={persona.id}
-        fluid
-        label={persona.name}
-        icon={avatarIcon}
-        active={isActive}
-        expanded={isDraft ? false : isExpanded}
-        onClick={() => isDraft
-          ? push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name }))
-          : handleExpand(persona.id, !isExpanded)}
-        onExpandedChange={(v) => { if (!isDraft) handleExpand(persona.id, v) }}
-        showExpandArrow={!isDraft}
-        badge={isDraft ? <Badge color="Yellow" label="Draft" /> : undefined}
-      >
-        {!isDraft && (
-          <>
-            <SidebarMenuItem
-              fluid
-              variant="default"
-              label="New chat"
-              icon={<BubbleChatAddIcon size={20} />}
-              href={`/agents/${persona.id}/chat`}
-              onClick={() => push(AGENT_CHAT_ROUTE(persona.id))}
-            />
-            {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
-              <SidebarMenuSkeleton key={i} index={i} fluid />
-            ))}
-            {visibleChats.map(chat => (
-              <PersonaChatItem
-                key={chat.id}
-                personaId={persona.id}
-                chat={chat}
-                isActive={isActive && chat.id === activeChatId}
-                onSelect={() => push(`${AGENT_CHAT_ROUTE(persona.id)}?chatId=${chat.id}`)}
-                onRename={(chatId, title) => handleChatRename(persona.id, chatId, title)}
-                onDelete={(chatId) => handleChatDelete(persona.id, chatId)}
+      <m.div key={persona.id} variants={sectionItemVariants}>
+        <SidebarProjectsSection
+          fluid
+          label={persona.name}
+          icon={avatarIcon}
+          active={isActive}
+          expanded={isDraft ? false : isExpanded}
+          onClick={() => isDraft
+            ? push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(persona.id, { name: persona.name }))
+            : handleExpand(persona.id, !isExpanded)}
+          onExpandedChange={(v) => { if (!isDraft) handleExpand(persona.id, v) }}
+          showExpandArrow={!isDraft}
+          badge={isDraft ? <Badge color="Yellow" label="Draft" /> : undefined}
+        >
+          {!isDraft && (
+            <>
+              <SidebarMenuItem
+                fluid
+                variant="default"
+                label="New chat"
+                icon={<BubbleChatAddIcon size={20} />}
+                href={`/agents/${persona.id}/chat`}
+                onClick={() => push(AGENT_CHAT_ROUTE(persona.id))}
               />
-            ))}
-            {chatData?.loaded && visibleChats.length === 0 && (
-              <div style={{ padding: "4px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>
-                No chats yet
-              </div>
-            )}
-          </>
-        )}
-      </SidebarProjectsSection>
+              {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
+                <SidebarMenuSkeleton key={i} index={i} fluid />
+              ))}
+              {visibleChats.map(chat => (
+                <PersonaChatItem
+                  key={chat.id}
+                  personaId={persona.id}
+                  chat={chat}
+                  isActive={isActive && chat.id === activeChatId}
+                  onSelect={() => push(`${AGENT_CHAT_ROUTE(persona.id)}?chatId=${chat.id}`)}
+                  onRename={(chatId, title) => handleChatRename(persona.id, chatId, title)}
+                  onDelete={(chatId) => handleChatDelete(persona.id, chatId)}
+                />
+              ))}
+              {chatData?.loaded && visibleChats.length === 0 && (
+                <div style={{ padding: "4px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>
+                  No chats yet
+                </div>
+              )}
+            </>
+          )}
+        </SidebarProjectsSection>
+      </m.div>
     )
   }
 
@@ -1407,12 +1464,17 @@ function PersonasSectionIndividual() {
             variants={sectionHeightVariants}
             style={{ overflow: shownShared ? 'visible' : 'hidden' }}
           >
-            <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+            <m.div
+              animate={shownShared ? 'open' : 'closed'}
+              initial="closed"
+              variants={sectionStaggerVariants}
+              style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}
+            >
               {isLoading && Array.from({ length: 2 }).map((_, i) => (
                 <SidebarMenuSkeleton key={i} index={i} fluid />
               ))}
               {!isLoading && sharedPersonas.map(renderPersonaRow)}
-            </div>
+            </m.div>
           </m.div>
         </>
       )}
@@ -1431,14 +1493,21 @@ function PersonasSectionIndividual() {
         variants={sectionHeightVariants}
         style={{ overflow: shownOwned ? 'visible' : 'hidden' }}
       >
-        <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
-          <SidebarMenuItem
-            fluid
-            variant="default"
-            label="New Agent"
-            icon={<UserAddOneIcon size={20} />}
-            onClick={() => push(AGENTS_TEMPLATES_ROUTE)}
-          />
+        <m.div
+          animate={shownOwned ? 'open' : 'closed'}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}
+        >
+          <m.div variants={sectionItemVariants}>
+            <SidebarMenuItem
+              fluid
+              variant="default"
+              label="New Agent"
+              icon={<UserAddOneIcon size={20} />}
+              onClick={() => push(AGENTS_TEMPLATES_ROUTE)}
+            />
+          </m.div>
           {isLoading && Array.from({ length: 2 }).map((_, i) => (
             <SidebarMenuSkeleton key={i} index={i} fluid />
           ))}
@@ -1448,7 +1517,7 @@ function PersonasSectionIndividual() {
             </div>
           )}
           {!isLoading && ownedPersonas.map(renderPersonaRow)}
-        </div>
+        </m.div>
       </m.div>
     </>
   )
@@ -1538,7 +1607,12 @@ function RecentAgentChatsSection() {
         variants={sectionHeightVariants}
         style={{ overflow: shown ? 'visible' : 'hidden' }}
       >
-        <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+        <m.div
+          animate={shown ? 'open' : 'closed'}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}
+        >
           {isLoading && Array.from({ length: 3 }).map((_, i) => (
             <SidebarMenuSkeleton key={i} index={i} fluid />
           ))}
@@ -1548,17 +1622,18 @@ function RecentAgentChatsSection() {
             </div>
           )}
           {!isLoading && allChats.map(chat => (
-            <PersonaChatItem
-              key={chat.id}
-              personaId={chat.personaId}
-              chat={chat}
-              isActive={activePersonaId === chat.personaId && chat.id === activeChatId}
-              onSelect={() => push(`${AGENT_CHAT_ROUTE(chat.personaId)}?chatId=${chat.id}`)}
-              onRename={(chatId, title) => setAllChats(prev => prev.map(c => c.id === chatId ? { ...c, title } : c))}
-              onDelete={(chatId) => setAllChats(prev => prev.filter(c => c.id !== chatId))}
-            />
+            <m.div key={chat.id} variants={sectionItemVariants}>
+              <PersonaChatItem
+                personaId={chat.personaId}
+                chat={chat}
+                isActive={activePersonaId === chat.personaId && chat.id === activeChatId}
+                onSelect={() => push(`${AGENT_CHAT_ROUTE(chat.personaId)}?chatId=${chat.id}`)}
+                onRename={(chatId, title) => setAllChats(prev => prev.map(c => c.id === chatId ? { ...c, title } : c))}
+                onDelete={(chatId) => setAllChats(prev => prev.filter(c => c.id !== chatId))}
+              />
+            </m.div>
           ))}
-        </div>
+        </m.div>
       </m.div>
     </>
   )
@@ -1595,7 +1670,12 @@ function BrainScheduledTasksSection({ tasks, loading }: BrainScheduledTasksSecti
         onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden"); }}
         onAnimationComplete={(def) => { if (def === "open") setOverflow("visible"); }}
       >
-        <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+        <m.div
+          animate={shown ? "open" : "closed"}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}
+        >
           {loading ? (
             <>
               <SidebarMenuSkeleton index={0} fluid />
@@ -1603,16 +1683,17 @@ function BrainScheduledTasksSection({ tasks, loading }: BrainScheduledTasksSecti
             </>
           ) : tasks.length > 0 ? (
             tasks.map((task) => (
-              <SidebarMenuItem
-                key={task.id}
-                fluid
-                variant="chat-item"
-                label={task.title}
-                onClick={() => push(BRAIN_SCHEDULES_ROUTE)}
-              />
+              <m.div key={task.id} variants={sectionItemVariants}>
+                <SidebarMenuItem
+                  fluid
+                  variant="chat-item"
+                  label={task.title}
+                  onClick={() => push(BRAIN_SCHEDULES_ROUTE)}
+                />
+              </m.div>
             ))
           ) : null}
-        </div>
+        </m.div>
       </m.div>
     </>
   );
@@ -1651,6 +1732,9 @@ function LeftSidebarImpl({
 
   // -- Global search ---------------------------------------------------------
   const { searchOpen, openSearch } = useSearch();
+
+  // -- Account menu: Report a bug modal ---------------------------------------
+  const [reportBugOpen, setReportBugOpen] = useState(false);
 
   const isPersonaPage = pathname?.startsWith("/agents") || pathname?.startsWith("/agent");
   // Trailing slash matters: bare "/project" also prefix-matches "/projects"
@@ -1974,6 +2058,8 @@ function LeftSidebarImpl({
             onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => push(ORG_GENERAL_ROUTE) : undefined}
             onWhatsNew={() => toast.info("What's new — coming soon!")}
             onHelp={() => push(SETTINGS_HELP_ROUTE)}
+            onManageConnectors={() => push(SETTINGS_CONNECTORS_ROUTE)}
+            onReportBug={() => setReportBugOpen(true)}
             onLogOut={() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } }}
           />
         )
@@ -2018,6 +2104,7 @@ function LeftSidebarImpl({
         )
       }
     />
+    {reportBugOpen && <ReportBugModal onClose={() => setReportBugOpen(false)} />}
     </>
   );
 }

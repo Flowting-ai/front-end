@@ -28,6 +28,7 @@ import { setVersionTags } from '@/lib/version-tags'
 import { derivePublicationState } from '@/lib/persona-version-logic'
 import { parseServerDate } from '@/lib/utils/format-utils'
 import { AttributeTocRail, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
+import { ConfigureFormSkeleton } from '@/app/(app)/agent/configure/components/ConfigureFormSkeleton'
 
 const KNOWLEDGE_TOC_ITEMS: AttributeTocItem[] = [
   { id: 'files', label: 'Upload files', anchor: 'help-knowledge-upload' },
@@ -647,7 +648,7 @@ function PersonaConfigureKnowledgeContent() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', maxWidth: 714, paddingBottom: 32 }}>
           {isLoading ? (
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>Loading…</p>
+            <ConfigureFormSkeleton rows={4} />
           ) : (
             <KnowledgeTab
               files={files}

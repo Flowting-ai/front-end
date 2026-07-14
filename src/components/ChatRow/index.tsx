@@ -11,9 +11,11 @@ import { cn } from '@/lib/utils'
 
 // ── Shadows (Figma exact) ─────────────────────────────────────────────────────
 
-const SHADOW_ROW_BASE    = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 0px var(--neutral-100)'
-const SHADOW_ROW_RING    = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
-const SHADOW_ROW_FOCUSED = '0px 2px 2.8px 0px var(--blue-600), 0px 0px 0px 1px var(--blue-600)'
+// Resting white card — always-visible ring + soft shadow (was previously the hover-only state).
+const SHADOW_ROW_BASE     = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+// Hover/focus/pin-open — lifts further off the page.
+const SHADOW_ROW_ELEVATED = '0px 4px 10px 0px rgba(82,75,71,0.16), 0px 0px 0px 1px var(--neutral-200)'
+const SHADOW_ROW_FOCUSED  = '0px 2px 2.8px 0px var(--blue-600), 0px 0px 0px 1px var(--blue-600)'
 
 // Chip: rest = ghost ring, elevated (row hovered/focused) = filled with inner highlight
 const SHADOW_CHIP_REST     = '0px 0px 0px 1px rgba(59,54,50,0.3)'
@@ -56,6 +58,8 @@ export interface ChatRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   asChild?: boolean
   /** When true, shows a red "Read only" badge — for shared team chats the viewer doesn't own. */
   readOnly?: boolean
+  /** When true, shows a "Scheduled" badge — this chat was started from (or is linked to) a schedule. */
+  scheduled?: boolean
 }
 
 // ── PinCountChip ─────────────────────────────────────────────────────────────
@@ -230,6 +234,7 @@ function ChatRowInner(
     disabled      = false,
     asChild       = false,
     readOnly      = false,
+    scheduled     = false,
     className,
     style,
     onClick,
@@ -286,18 +291,16 @@ function ChatRowInner(
     // Keep three-dot visible while menu is open (even if mouse moves away)
     const showMenu      = (rowElevated || pinBoardOpen || menuOpen) && !selectionMode && !isEmpty
 
-    const bg = isEmpty || (!rowElevated && !pinBoardOpen)
-      ? 'transparent'
-      : pinBoardOpen && !rowElevated
-        ? 'var(--neutral-white)'
-        : 'var(--neutral-100)'
+    // Always a white card — selection-mode keeps the same white so the checkbox
+    // row doesn't flatten to transparent; only the empty/dashed affordance stays bare.
+    const bg = isEmpty ? 'transparent' : 'var(--neutral-white)'
 
     const rowShadow = isEmpty
       ? undefined
       : isFocused
         ? SHADOW_ROW_FOCUSED
         : rowElevated || pinBoardOpen
-          ? SHADOW_ROW_RING
+          ? SHADOW_ROW_ELEVATED
           : SHADOW_ROW_BASE
 
     return (
@@ -478,6 +481,9 @@ function ChatRowInner(
                 flexShrink: 0,
               }}
             >
+              {scheduled && !selectionMode && (
+                <Badge color="Purple" label="Scheduled" />
+              )}
               {readOnly && !selectionMode && (
                 <Badge color="Red" label="Read only" />
               )}

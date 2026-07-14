@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { m } from 'framer-motion'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
@@ -14,6 +15,7 @@ import {
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { IconButton } from '@/components/IconButton'
 import { AccountMenu } from '@/components/AccountMenu'
+import { ReportBugModal } from '@/components/ReportBugModal'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
 import { RoleBadge } from '@/components/RoleBadge'
@@ -25,6 +27,21 @@ import { useSettingsGuard } from '@/context/settings-guard-context'
 import { useMounted } from '@/hooks/use-mounted'
 import { toast } from 'sonner'
 import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_BILLING_ROUTE, SETTINGS_AI_ROUTE, SETTINGS_CONNECTORS_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
+
+// -- Item stagger animation - same three-layer pattern as LeftSidebar/Sidebar --
+const sectionStaggerVariants = {
+  open: {
+    transition: { staggerChildren: 0.04, delayChildren: 0.24 },
+  },
+  closed: {
+    transition: {},
+  },
+}
+
+const sectionItemVariants = {
+  open:   { opacity: 1, y: 0, transition: { duration: 0.18, ease: 'easeOut' as const } },
+  closed: { opacity: 0, y: 5, transition: { duration: 0.12, ease: 'easeIn'  as const } },
+}
 
 const MY_SETTINGS_ITEMS = [
   { id: 'account',       label: 'Account',         href: SETTINGS_ACCOUNT_ROUTE,    icon: <UserAiIcon        size={20} />, disabled: false },
@@ -48,6 +65,7 @@ export function SettingsSidebar() {
   const portalMounted = useMounted()
   const [pendingHref,    setPendingHref]    = useState<string | null>(null)
   const [isSavingGuard,  setIsSavingGuard]  = useState(false)
+  const [reportBugOpen,  setReportBugOpen]  = useState(false)
 
   const safeNavigate = (href: string) => {
     if (isDirty && pathname !== href) {
@@ -196,29 +214,37 @@ export function SettingsSidebar() {
               </p>
               {/* <Badge label="Individual" color="Blue" /> */}
             </div>
-            {MY_SETTINGS_ITEMS.map(item => (
-              item.disabled ? (
-                <div key={item.id} style={{ opacity: 0.4, pointerEvents: 'none' }}>
-                  <SidebarMenuItem
-                    fluid
-                    variant="default"
-                    icon={item.icon}
-                    label={item.label}
-                    selected={false}
-                  />
-                </div>
-              ) : (
-                <SidebarMenuItem
-                  key={item.id}
-                  fluid
-                  variant="default"
-                  icon={item.icon}
-                  label={item.label}
-                  selected={pathname === item.href}
-                  onClick={() => safeNavigate(item.href)}
-                />
-              )
-            ))}
+            <m.div
+              animate="open"
+              initial="closed"
+              variants={sectionStaggerVariants}
+              style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+            >
+              {MY_SETTINGS_ITEMS.map(item => (
+                <m.div key={item.id} variants={sectionItemVariants}>
+                  {item.disabled ? (
+                    <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                      <SidebarMenuItem
+                        fluid
+                        variant="default"
+                        icon={item.icon}
+                        label={item.label}
+                        selected={false}
+                      />
+                    </div>
+                  ) : (
+                    <SidebarMenuItem
+                      fluid
+                      variant="default"
+                      icon={item.icon}
+                      label={item.label}
+                      selected={pathname === item.href}
+                      onClick={() => safeNavigate(item.href)}
+                    />
+                  )}
+                </m.div>
+              ))}
+            </m.div>
           </div>
         </div>
 
@@ -259,6 +285,8 @@ export function SettingsSidebar() {
             onOrganization={(orgId && (orgRole === 'owner' || orgRole === 'admin')) ? () => safeNavigate(ORG_GENERAL_ROUTE) : undefined}
             onWhatsNew={() => toast.info("What's new — coming soon!")}
             onHelp={() => safeNavigate(SETTINGS_HELP_ROUTE)}
+            onManageConnectors={() => safeNavigate(SETTINGS_CONNECTORS_ROUTE)}
+            onReportBug={() => setReportBugOpen(true)}
             onLogOut={() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } }}
           />
         )}
@@ -300,6 +328,8 @@ export function SettingsSidebar() {
       </div>,
       document.body,
     )}
+
+    {reportBugOpen && <ReportBugModal onClose={() => setReportBugOpen(false)} />}
     </>
   )
 }

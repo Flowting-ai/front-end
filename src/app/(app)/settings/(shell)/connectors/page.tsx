@@ -1,8 +1,11 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Switch } from '@/components/Switch'
+import { Tooltip } from '@/components/Tooltip'
+import { springs } from '@/lib/springs'
 import {
   listConnectors,
   initiateLink,
@@ -11,8 +14,10 @@ import {
   pollConnectorUntilActive,
   oauthNeedsInitFields,
   DEFAULT_API_KEY_FIELD,
+  toolPolicyFromTool,
+  toolPermissionFromPolicy,
 } from '@/lib/api/connectors'
-import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
+import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool, ToolPolicy } from '@/lib/api/connectors'
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
 import { useConnectorBrowse, CategoryFilter, Pagination } from '@/components/ConnectorBrowse'
@@ -72,6 +77,51 @@ function MoreIcon() {
       <circle cx="8" cy="8"   r="1.4" fill="var(--neutral-500)" />
       <circle cx="8" cy="12.5" r="1.4" fill="var(--neutral-500)" />
     </svg>
+  )
+}
+
+function GridViewIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2"  y="2"  width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="9"  y="2"  width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="2"  y="9"  width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="9"  y="9"  width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  )
+}
+
+function ListViewIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="3"   width="12" height="2.2" rx="1.1" fill="currentColor" />
+      <rect x="2" y="6.9" width="12" height="2.2" rx="1.1" fill="currentColor" />
+      <rect x="2" y="10.8" width="12" height="2.2" rx="1.1" fill="currentColor" />
+    </svg>
+  )
+}
+
+// ── Grid / list view toggle ───────────────────────────────────────────────────
+
+type ConnectorViewMode = 'grid' | 'list'
+
+const GRID_LIST_STYLE: Record<ConnectorViewMode, React.CSSProperties> = {
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 },
+  list: { display: 'flex', flexDirection: 'column', gap: 8 },
+}
+
+function ViewModeToggle({ value, onChange }: { value: ConnectorViewMode; onChange: (v: ConnectorViewMode) => void }) {
+  return (
+    <Tabs value={value} onValueChange={v => onChange(v as ConnectorViewMode)}>
+      <TabsList size="small" collapse pillTopInset={0.5} pillBottomInset={1}>
+        <Tooltip content="Grid view" side="top">
+          <TabsTrigger value="grid" icon={<GridViewIcon />}>Grid</TabsTrigger>
+        </Tooltip>
+        <Tooltip content="List view" side="top">
+          <TabsTrigger value="list" icon={<ListViewIcon />}>List</TabsTrigger>
+        </Tooltip>
+      </TabsList>
+    </Tabs>
   )
 }
 
@@ -206,24 +256,24 @@ function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; s
 
 
 // ── Policy helpers ────────────────────────────────────────────────────────────
+// UI label layer over the backend's binary allowed/blocked gate (services/
+// connectors/schemas.py's ToolEntry — no "allow_once" there; a one-time allow
+// is a call-scoped decision the in-chat prompt unblocks without persisting).
 
-type UIPolicy = 'Always allow' | 'Ask' | 'Never' | 'Allow once'
+type UIPolicy = 'Always allow' | 'Ask' | 'Never'
 
-const UI_TO_API: Record<UIPolicy, ConnectorTool['policy']> = {
+const UI_TO_API: Record<UIPolicy, ToolPolicy> = {
   'Always allow': 'allow',
   'Ask':          'ask',
   'Never':        'block',
-  'Allow once':   'allow_once',
 }
 
-const API_TO_UI: Record<ConnectorTool['policy'], UIPolicy> = {
-  allow:       'Always allow',
-  ask:         'Ask',
-  block:       'Never',
-  allow_once:  'Allow once',
+function apiToUiPolicy(tool: { allowed: boolean; blocked: boolean }): UIPolicy {
+  const policy = toolPolicyFromTool(tool)
+  return policy === 'allow' ? 'Always allow' : policy === 'block' ? 'Never' : 'Ask'
 }
 
-const POLICY_OPTIONS: UIPolicy[] = ['Always allow', 'Ask', 'Never', 'Allow once']
+const POLICY_OPTIONS: UIPolicy[] = ['Always allow', 'Ask', 'Never']
 
 function connectedWorkspaceAccounts(entry: ConnectorCatalogEntry) {
   const options = (entry.account_options ?? [])
@@ -371,12 +421,12 @@ function ToolPermissionsModal({
 
   const handlePolicyChange = useCallback(async (toolSlug: string, uiPolicy: UIPolicy) => {
     if (abortedRef.current) return
-    const apiPolicy = UI_TO_API[uiPolicy]
-    setTools(prev => prev.map(t => t.slug === toolSlug ? { ...t, policy: apiPolicy } : t))
+    const apiPolicy = toolPermissionFromPolicy(UI_TO_API[uiPolicy])
+    setTools(prev => prev.map(t => t.slug === toolSlug ? { ...t, ...apiPolicy } : t))
     setSaving(toolSlug)
     try {
       const updated = await updateConnector(entry.slug, {
-        permissions: [{ slug: toolSlug, policy: apiPolicy }],
+        permissions: [{ slug: toolSlug, ...apiPolicy }],
       })
       if (abortedRef.current) return
       setTools(updated.tools ?? [])
@@ -414,10 +464,10 @@ function ToolPermissionsModal({
   const handleAllowAll = useCallback(async () => {
     if (abortedRef.current || tools.length === 0) return
     setAllowingAll(true)
-    setTools(prev => prev.map(t => ({ ...t, policy: 'allow' as const })))
+    setTools(prev => prev.map(t => ({ ...t, allowed: true, blocked: false })))
     try {
       const updated = await updateConnector(entry.slug, {
-        permissions: tools.map(t => ({ slug: t.slug, policy: 'allow' as const })),
+        permissions: tools.map(t => ({ slug: t.slug, allowed: true, blocked: false })),
       })
       if (abortedRef.current) return
       setTools(updated.tools ?? [])
@@ -601,7 +651,7 @@ function ToolPermissionsModal({
                       {humanizeAction(tool.slug, entry.slug)}
                     </span>
                     <PolicyDropdown
-                      value={API_TO_UI[tool.policy]}
+                      value={apiToUiPolicy(tool)}
                       onChange={v => void handlePolicyChange(tool.slug, v)}
                       disabled={saving === tool.slug}
                     />
@@ -933,12 +983,21 @@ function ConnectorCard({
   onManage,
   onUpdate,
   mode = 'personal',
+  layout = 'grid',
+  index = 0,
 }: {
   entry:     ConnectorCatalogEntry
   onManage:  (e: ConnectorCatalogEntry) => void
   onUpdate:  (updated: ConnectorCatalogEntry) => void
   mode?:     'personal' | 'workspace'
+  layout?:   ConnectorViewMode
+  /** Position within its list — drives the staggered entrance delay. */
+  index?:    number
 }) {
+  // Staggered fade+slide-in on mount — replays on load and on grid/list switch
+  // (the caller keys each card on `${slug}-${viewMode}` so toggling view forces
+  // a fresh mount here). Capped so a long list doesn't produce a slow tail.
+  const enterTransition = { ...springs.moderate, delay: Math.min(index, 10) * 0.03 }
   const [showApiForm, setShowApiForm] = useState(false)
   const { state, errorMsg, apiKeyValues, setApiKeyValues, startOAuth, submitApiKey } = useConnectFlow(entry, (updated) => {
     setShowApiForm(false)
@@ -990,17 +1049,113 @@ function ConnectorCard({
         ]
       : [{ label: 'Connect', onSelect: handleConnectClick }]
 
+  if (layout === 'list') {
+    const connectedBadge = isWorkspace
+      ? { on: workspaceConnected, label: workspaceConnected ? 'Connected' : 'Not attached' }
+      : { on: isActive, label: 'Connected' }
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={enterTransition}
+        style={{
+          display:         'flex',
+          flexDirection:   'column',
+          backgroundColor: 'white',
+          borderRadius:    12,
+          boxShadow:       '0px 2px 2.8px 0px var(--neutral-200), 0px 0px 0px 1px var(--neutral-200)',
+          overflow:        'hidden',
+        }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
+          <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <ConnectorAvatar entry={entry} size={28} />
+          </div>
+          <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <p style={{
+              fontFamily:   'var(--font-body)',
+              fontWeight:   500,
+              fontSize:     14,
+              lineHeight:   '20px',
+              color:        'var(--neutral-900)',
+              margin:       0,
+              overflow:     'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace:   'nowrap',
+            }}>
+              {entry.display_name}
+            </p>
+            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, color: 'var(--neutral-400)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {connectorCategory(entry.slug)}
+            </span>
+            {(isWorkspace || isActive) && (
+              <span style={{
+                display:         'inline-flex',
+                alignItems:      'center',
+                padding:         '1px 6px',
+                borderRadius:    6,
+                backgroundColor: connectedBadge.on ? 'var(--green-50)' : 'white',
+                boxShadow:       connectedBadge.on ? '0px 0px 0px 1px rgba(128,183,7,0.4)' : '0px 0px 0px 1px var(--neutral-200)',
+                fontFamily:      'var(--font-body)',
+                fontWeight:      500,
+                fontSize:        11,
+                lineHeight:      '16px',
+                color:           connectedBadge.on ? 'var(--green-800)' : 'var(--neutral-500)',
+                whiteSpace:      'nowrap',
+                flexShrink:      0,
+              }}>
+                {connectedBadge.label}
+              </span>
+            )}
+          </div>
+          {!isWorkspace && !showApiForm && (
+            isActive ? (
+              <Button variant="secondary" size="sm" onClick={() => onManage(entry)}>Manage</Button>
+            ) : (
+              <Button size="sm" onClick={handleConnectClick} disabled={isOpening || isSubmitting} loading={isPolling}>
+                {isOpening ? 'Opening…' : 'Connect'}
+              </Button>
+            )
+          )}
+          {!isWorkspace && <CardKebabMenu items={kebabItems} />}
+        </div>
+
+        {state === 'error' && errorMsg && (
+          <p style={{ margin: '0 14px 10px', fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--red-600, #DC2626)' }}>
+            {errorMsg}
+          </p>
+        )}
+
+        {showApiForm && !isActive && !isWorkspace && (
+          <div style={{ padding: '0 14px 14px' }}>
+            <ApiKeyForm
+              fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD]}
+              values={apiKeyValues}
+              onChange={setApiKeyValues}
+              onSubmit={entry.auth_mode === 'api_key' ? submitApiKey : () => startOAuth(apiKeyValues)}
+              onCancel={() => setShowApiForm(false)}
+              submitting={isSubmitting || isOpening || isPolling}
+            />
+          </div>
+        )}
+      </motion.div>
+    )
+  }
+
   return (
-    <div style={{
-      position:        'relative',
-      backgroundColor: 'white',
-      borderRadius:    16,
-      padding:         16,
-      paddingBottom:   isWorkspace || showApiForm ? 16 : 60,
-      display:         'flex',
-      flexDirection:   'column',
-      gap:             12,
-      boxShadow:       '0px 2px 2.8px 0px var(--neutral-200), 0px 0px 0px 1px var(--neutral-200)',
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={enterTransition}
+      style={{
+        position:        'relative',
+        backgroundColor: 'white',
+        borderRadius:    16,
+        padding:         16,
+        paddingBottom:   isWorkspace || showApiForm ? 16 : 60,
+        display:         'flex',
+        flexDirection:   'column',
+        gap:             12,
+        boxShadow:       '0px 2px 2.8px 0px var(--neutral-200), 0px 0px 0px 1px var(--neutral-200)',
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1032,6 +1187,25 @@ function ConnectorCard({
             {connectorCategory(entry.slug)}
           </p>
         </div>
+        {!isWorkspace && isActive && (
+          <span style={{
+            display:         'inline-flex',
+            alignItems:      'center',
+            padding:         '1px 6px',
+            borderRadius:    6,
+            backgroundColor: 'var(--green-50)',
+            boxShadow:       '0px 0px 0px 1px rgba(128,183,7,0.4)',
+            fontFamily:      'var(--font-body)',
+            fontWeight:      500,
+            fontSize:        11,
+            lineHeight:      '16px',
+            color:           'var(--green-800)',
+            whiteSpace:      'nowrap',
+            flexShrink:      0,
+          }}>
+            Connected
+          </span>
+        )}
         <CardKebabMenu items={kebabItems} />
       </div>
 
@@ -1188,7 +1362,7 @@ function ConnectorCard({
           )}
         </div>
       )}
-    </div>
+    </motion.div>
   )
 }
 
@@ -1236,6 +1410,10 @@ export default function ConnectorsPage() {
   const [loadError,           setLoadError]           = useState('')
   const [modalEntry,          setModalEntry]          = useState<ConnectorCatalogEntry | null>(null)
   const [activeTab,           setActiveTab]           = useState<'my' | 'workspace'>('my')
+  const [viewMode,            setViewMode]            = useState<ConnectorViewMode>('grid')
+  // Available-to-connect items paginate on their own (see `available` below) —
+  // independent from the connected section, which always shows every match.
+  const [availablePage,       setAvailablePage]       = useState(1)
 
   const fetchConnectors = useCallback(async () => {
     setLoading(true)
@@ -1284,15 +1462,30 @@ export default function ConnectorsPage() {
     (c: ConnectorCatalogEntry) => c.slug,
     { resetKey: searchQuery },
   )
-  const connectedTotal = browse.filteredItems.filter(c => c.linked).length
-  const connected = browse.pageItems.filter(c => c.linked)
-  const available = browse.pageItems.filter(c => !c.linked)
   // Workspace tab: connectors exposing a connected shared org account the viewer
   // can use (not paginated — shared accounts are few).
   const workspaceItems = browse.filteredItems.filter(hasConnectedWorkspaceAccount)
   const emptyMessage = searchQuery
     ? `No connectors found for "${searchQuery}"`
     : 'No connectors available.'
+
+  // Connected/available are split from the full category+search-filtered list
+  // (browse.filteredItems), NOT the paginated browse.pageItems — otherwise
+  // pagination chops the mixed active/inactive list arbitrarily, so only
+  // whichever connected connectors happen to land on the current page show up
+  // instead of all of them together. Connected always shows in full (usually
+  // few); only "available to connect" paginates, on its own page counter.
+  const connected = browse.filteredItems.filter(c => c.linked)
+  const availableAll = browse.filteredItems.filter(c => !c.linked)
+  const availablePageCount = Math.max(1, Math.ceil(availableAll.length / browse.pageSize))
+  const safeAvailablePage = Math.min(availablePage, availablePageCount)
+  const available = availableAll.slice(
+    (safeAvailablePage - 1) * browse.pageSize,
+    safeAvailablePage * browse.pageSize,
+  )
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- mirrors useConnectorBrowse's own reset-page-on-context-change behavior
+  useEffect(() => { setAvailablePage(1) }, [browse.category, searchQuery])
 
 
   return (
@@ -1402,6 +1595,8 @@ export default function ConnectorsPage() {
                   </button>
                 )}
               </div>
+
+              <ViewModeToggle value={viewMode} onChange={setViewMode} />
             </div>
 
             {/* Content */}
@@ -1468,19 +1663,21 @@ export default function ConnectorsPage() {
                         No shared workspace accounts are available to you yet.
                       </p>
                     ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                        {workspaceItems.map(c => (
+                      <div style={GRID_LIST_STYLE[viewMode]}>
+                        {workspaceItems.map((c, index) => (
                           <ConnectorCard
-                            key={c.slug}
+                            key={`${c.slug}-${viewMode}`}
                             entry={c}
                             mode="workspace"
+                            layout={viewMode}
+                            index={index}
                             onManage={handleManage}
                             onUpdate={handleUpdate}
                           />
                         ))}
                       </div>
                     )
-                  ) : browse.pageItems.length === 0 ? (
+                  ) : connected.length === 0 && available.length === 0 ? (
                     <p style={{
                       fontFamily: 'var(--font-body)',
                       fontWeight: 400,
@@ -1494,7 +1691,8 @@ export default function ConnectorsPage() {
                     </p>
                   ) : (
                     <>
-                      {/* Connected section */}
+                      {/* Connected section — always shown in full (not paginated),
+                          so pagination never scatters active connectors across pages. */}
                       {connected.length > 0 && (
                         <div style={{ marginBottom: 24 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -1521,14 +1719,16 @@ export default function ConnectorsPage() {
                               lineHeight:      '16px',
                               color:           'var(--green-800)',
                             }}>
-                              {connectedTotal} active
+                              {connected.length} active
                             </span>
                           </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                            {connected.map(c => (
+                          <div style={GRID_LIST_STYLE[viewMode]}>
+                            {connected.map((c, index) => (
                               <ConnectorCard
-                                key={c.slug}
+                                key={`${c.slug}-${viewMode}`}
                                 entry={c}
+                                layout={viewMode}
+                                index={index}
                                 onManage={handleManage}
                                 onUpdate={handleUpdate}
                               />
@@ -1537,7 +1737,7 @@ export default function ConnectorsPage() {
                         </div>
                       )}
 
-                      {/* Available section */}
+                      {/* Available section — paginated on its own counter. */}
                       {available.length > 0 && (
                         <div>
                           <p style={{
@@ -1548,24 +1748,25 @@ export default function ConnectorsPage() {
                             color:      'var(--neutral-900)',
                             margin:     '0 0 12px',
                           }}>
-                            {connectedTotal > 0 ? 'Available to connect' : 'All Connectors'}
+                            {connected.length > 0 ? 'Available to connect' : 'All Connectors'}
                           </p>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                            {available.map(c => (
+                          <div style={GRID_LIST_STYLE[viewMode]}>
+                            {available.map((c, index) => (
                               <ConnectorCard
-                                key={c.slug}
+                                key={`${c.slug}-${viewMode}`}
                                 entry={c}
+                                layout={viewMode}
+                                index={index}
                                 onManage={handleManage}
                                 onUpdate={handleUpdate}
                               />
                             ))}
                           </div>
+                          <div style={{ marginTop: 16 }}>
+                            <Pagination page={safeAvailablePage} pageCount={availablePageCount} onChange={setAvailablePage} />
+                          </div>
                         </div>
                       )}
-
-                      <div style={{ marginTop: 16 }}>
-                        <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
-                      </div>
                     </>
                   )}
                 </>

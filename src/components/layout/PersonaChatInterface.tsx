@@ -5,6 +5,7 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatAddMenu } from "@/components/chat/AddMenu";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
 import { ChatMessageMemo } from "@/components/chat/ChatMessage";
+import { ChatMessagesSkeleton } from "@/components/chat/ChatMessagesSkeleton";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
@@ -581,11 +582,7 @@ export function PersonaChatInterface({
       >
         <div style={{ width: "100%", maxWidth: "720px" }}>
 
-          {isLoadingMessages && (
-            <div style={{ display: "flex", justifyContent: "center", padding: "16px" }}>
-              <LoadingSpinner size={20} />
-            </div>
-          )}
+          {isLoadingMessages && <ChatMessagesSkeleton />}
 
           {!isLoadingMessages && messages.length === 0 && (
             <EmptyState

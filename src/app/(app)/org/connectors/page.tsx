@@ -36,6 +36,7 @@ import {
 } from '@/components/SettingsTable'
 import { Switch } from '@/components/Switch'
 import Tabs from '@/components/Tabs'
+import { Tooltip } from '@/components/Tooltip'
 import { useConnectorBrowse, CategoryFilter, Pagination } from '@/components/ConnectorBrowse'
 import { connectorCategory } from '@/lib/connectorCategories'
 import { useOrg } from '@/context/org-context'
@@ -48,7 +49,8 @@ import {
   listOrgCatalog,
   updateOrgCatalog,
 } from '@/lib/api/connectors'
-import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
+import { toolPolicyFromTool, toolPermissionFromPolicy } from '@/lib/api/connectors'
+import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool, ToolPolicy } from '@/lib/api/connectors'
 import {
   createOrgConnectorAccount,
   createPersonalRequest,
@@ -80,20 +82,18 @@ type AccountStatusFilter = 'all' | 'active' | 'needs-attention'
 
 type TeamRequestIndex = Record<string, Record<string, TeamConnectorRequest>>
 
-const POLICY_LABELS: Record<ConnectorTool['policy'], string> = {
-  allow:      'Always allow',
-  ask:        'Ask',
-  block:      'Never',
-  allow_once: 'Allow once',
+const POLICY_LABELS: Record<ToolPolicy, string> = {
+  allow: 'Always allow',
+  ask:   'Ask',
+  block: 'Never',
 }
 
-const POLICY_VALUES: ConnectorTool['policy'][] = ['allow', 'ask', 'block', 'allow_once']
+const POLICY_VALUES: ToolPolicy[] = ['allow', 'ask', 'block']
 
-const POLICY_HELP: Record<ConnectorTool['policy'], string> = {
-  allow:      'Runs without asking',
-  ask:        'Asks before each run',
-  block:      'Never runs',
-  allow_once: 'Runs once, then asks again',
+const POLICY_HELP: Record<ToolPolicy, string> = {
+  allow: 'Runs without asking',
+  ask:   'Asks before each run',
+  block: 'Never runs',
 }
 
 // Turn a raw tool slug (e.g. "GOOGLECALENDAR_CREATE_EVENT") into a readable
@@ -112,9 +112,9 @@ function PolicySelect({
   disabled,
   onChange,
 }: {
-  value:     ConnectorTool['policy']
+  value:     ToolPolicy
   disabled?: boolean
-  onChange:  (value: ConnectorTool['policy']) => void
+  onChange:  (value: ToolPolicy) => void
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -174,8 +174,8 @@ function PolicyFilterSelect({
   value,
   onChange,
 }: {
-  value:    'all' | ConnectorTool['policy']
-  onChange: (value: 'all' | ConnectorTool['policy']) => void
+  value:    'all' | ToolPolicy
+  onChange: (value: 'all' | ToolPolicy) => void
 }) {
   const [open, setOpen] = useState(false)
   const label = value === 'all' ? 'All permissions' : POLICY_LABELS[value]
@@ -232,7 +232,7 @@ function BulkPolicyButton({
 }: {
   count:     number
   disabled?: boolean
-  onPick:    (policy: ConnectorTool['policy']) => void
+  onPick:    (policy: ToolPolicy) => void
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -280,16 +280,16 @@ function TeamPermissionsTable({
   connectorSlug:    string
   savingPermission: string | null
   savingBulk:       boolean
-  onUpdateTool:     (tool: ConnectorTool, policy: ConnectorTool['policy']) => void
-  onBulkSet:        (slugs: string[], policy: ConnectorTool['policy']) => void
+  onUpdateTool:     (tool: ConnectorTool, policy: ToolPolicy) => void
+  onBulkSet:        (slugs: string[], policy: ToolPolicy) => void
 }) {
   const [search, setSearch] = useState('')
-  const [policyFilter, setPolicyFilter] = useState<'all' | ConnectorTool['policy']>('all')
+  const [policyFilter, setPolicyFilter] = useState<'all' | ToolPolicy>('all')
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return tools.filter(tool => {
-      if (policyFilter !== 'all' && tool.policy !== policyFilter) return false
+      if (policyFilter !== 'all' && toolPolicyFromTool(tool) !== policyFilter) return false
       if (q && !humanizeAction(tool.slug, connectorSlug).toLowerCase().includes(q)) return false
       return true
     })
@@ -351,7 +351,7 @@ function TeamPermissionsTable({
                 </SettingsTableCell>
                 <SettingsTableCell align="end">
                   <PolicySelect
-                    value={tool.policy}
+                    value={toolPolicyFromTool(tool)}
                     disabled={!connection || savingPermission === saveKey || savingBulk}
                     onChange={policy => onUpdateTool(tool, policy)}
                   />
@@ -910,6 +910,7 @@ function OrgAccessTab({
   const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
   const [sortDirection, setSortDirection] = useState<ConnectorSortDirection>('az')
   const [statusFilter, setStatusFilter] = useState<ConnectorStatusFilter>('all')
+  const [viewMode, setViewMode] = useState<ConnectorViewMode>('list')
   const sorted = useMemo(
     () => sortConnectors(filtered, sortDirection, statusFilter),
     [filtered, sortDirection, statusFilter],
@@ -917,6 +918,24 @@ function OrgAccessTab({
   const browse = useConnectorBrowse(sorted, connectorEntrySlug, { resetKey: `${search}::${sortDirection}::${statusFilter}` })
   const [busyOrgSlug, setBusyOrgSlug] = useState<string | null>(null)
   const [pendingDisable, setPendingDisable] = useState<ConnectorCatalogEntry | null>(null)
+
+  // Enabled/available are split from the full, category+search+sort-filtered
+  // list (browse.filteredItems), NOT the paginated browse.pageItems — otherwise
+  // pagination chops the mixed enabled/disabled list arbitrarily, so only
+  // whichever enabled connectors happen to land on the current page show up
+  // together instead of all of them. Enabled always shows in full; only
+  // "available" (disabled) paginates, on its own page counter.
+  const [availablePage, setAvailablePage] = useState(1)
+  const enabledItems = statusFilter === 'all' ? browse.filteredItems.filter(c => c.org_enabled === true) : []
+  const availableAllItems = statusFilter === 'all' ? browse.filteredItems.filter(c => c.org_enabled !== true) : []
+  const availablePageCount = Math.max(1, Math.ceil(availableAllItems.length / browse.pageSize))
+  const safeAvailablePage = Math.min(availablePage, availablePageCount)
+  const availableItems = availableAllItems.slice(
+    (safeAvailablePage - 1) * browse.pageSize,
+    safeAvailablePage * browse.pageSize,
+  )
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- mirrors useConnectorBrowse's own reset-page-on-context-change behavior
+  useEffect(() => { setAvailablePage(1) }, [browse.category, search, sortDirection, statusFilter])
 
   const enabledSlugs = useMemo(
     () => connectors.filter(connector => connector.org_enabled === true).map(connector => connector.slug),
@@ -954,40 +973,100 @@ function OrgAccessTab({
     setPendingDisable(null)
   }
 
-  function renderConnectorRow(connector: ConnectorCatalogEntry) {
+  // Staggered fade+slide-in on mount — replays on load and on list/grid switch
+  // (rows/cards below are keyed on `${slug}-${viewMode}`, so toggling view
+  // forces a fresh mount). Capped so a long page doesn't produce a slow tail.
+  function enterTransition(index: number) {
+    return { ...springs.moderate, delay: Math.min(index, 10) * 0.03 }
+  }
+
+  function renderConnectorRow(connector: ConnectorCatalogEntry, index: number) {
     const orgEnabled = connector.org_enabled === true
     const accountCount = connector.accounts?.length ?? 0
     return (
-      <SettingsTableRow key={connector.slug} minHeight={72}>
-        <SettingsTableCell>
-          <ConnectorTitle connector={connector} />
-        </SettingsTableCell>
-        <SettingsTableCell>
-          <BodyText size={14} color="var(--neutral-500)">{connectorCategory(connector.slug)}</BodyText>
-        </SettingsTableCell>
-        <SettingsTableCell>
-          {accountCount > 0 ? (
-            <BodyText size={14} color="var(--neutral-500)">{accountCount} shared</BodyText>
-          ) : (
-            <BodyText size={14} color="var(--neutral-400)">—</BodyText>
-          )}
-        </SettingsTableCell>
-        <SettingsTableCell align="end">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {busyOrgSlug === connector.slug && <Spinner />}
-            <BodyText size={12} color="var(--neutral-700)" style={{ width: 52, textAlign: 'right' }}>
-              {orgEnabled ? 'Org ON' : 'Org OFF'}
-            </BodyText>
-            <Switch
-              checked={orgEnabled}
-              disabled={busyOrgSlug === connector.slug}
-              onCheckedChange={checked => handleSwitchChange(connector, checked)}
-            />
-          </div>
-        </SettingsTableCell>
-      </SettingsTableRow>
+      <motion.div
+        key={`${connector.slug}-${viewMode}`}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={enterTransition(index)}
+      >
+        <SettingsTableRow minHeight={72}>
+          <SettingsTableCell>
+            <ConnectorTitle connector={connector} />
+          </SettingsTableCell>
+          <SettingsTableCell>
+            <BodyText size={14} color="var(--neutral-500)">{connectorCategory(connector.slug)}</BodyText>
+          </SettingsTableCell>
+          <SettingsTableCell>
+            {accountCount > 0 ? (
+              <BodyText size={14} color="var(--neutral-500)">{accountCount} shared</BodyText>
+            ) : (
+              <BodyText size={14} color="var(--neutral-400)">—</BodyText>
+            )}
+          </SettingsTableCell>
+          <SettingsTableCell align="end">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {busyOrgSlug === connector.slug && <Spinner />}
+              <BodyText size={12} color="var(--neutral-700)" style={{ width: 52, textAlign: 'right' }}>
+                {orgEnabled ? 'Org ON' : 'Org OFF'}
+              </BodyText>
+              <Switch
+                checked={orgEnabled}
+                disabled={busyOrgSlug === connector.slug}
+                onCheckedChange={checked => handleSwitchChange(connector, checked)}
+              />
+            </div>
+          </SettingsTableCell>
+        </SettingsTableRow>
+      </motion.div>
     )
   }
+
+  function renderConnectorCard(connector: ConnectorCatalogEntry, index: number) {
+    const orgEnabled = connector.org_enabled === true
+    const accountCount = connector.accounts?.length ?? 0
+    return (
+      <motion.div
+        key={`${connector.slug}-${viewMode}`}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={enterTransition(index)}
+        style={{
+          display:         'flex',
+          flexDirection:   'column',
+          gap:             12,
+          padding:         16,
+          borderRadius:    16,
+          backgroundColor: 'var(--neutral-white)',
+          boxShadow:       '0px 2px 2.8px 0px var(--neutral-200), 0px 0px 0px 1px var(--neutral-200)',
+        }}
+      >
+        <ConnectorTitle connector={connector} />
+        {accountCount > 0 ? (
+          <BodyText size={12} color="var(--neutral-500)">{accountCount} shared account{accountCount === 1 ? '' : 's'}</BodyText>
+        ) : (
+          <BodyText size={12} color="var(--neutral-400)">No shared accounts</BodyText>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+          {busyOrgSlug === connector.slug && <Spinner />}
+          <BodyText size={12} color="var(--neutral-700)">{orgEnabled ? 'Org ON' : 'Org OFF'}</BodyText>
+          <Switch
+            checked={orgEnabled}
+            disabled={busyOrgSlug === connector.slug}
+            onCheckedChange={checked => handleSwitchChange(connector, checked)}
+          />
+        </div>
+      </motion.div>
+    )
+  }
+
+  const isEmpty = statusFilter === 'all'
+    ? enabledItems.length === 0 && availableAllItems.length === 0
+    : browse.pageItems.length === 0
+  const emptyMessage = connectors.length === 0 ? 'No connectors available' : 'No connectors match your filters'
+  const paginationProps = statusFilter === 'all'
+    ? { page: safeAvailablePage, pageCount: availablePageCount, onChange: setAvailablePage }
+    : { page: browse.page, pageCount: browse.pageCount, onChange: browse.setPage }
 
   return (
     <SettingsTable columns={CONNECTOR_COLUMNS} columnGap={24}>
@@ -1008,6 +1087,7 @@ function OrgAccessTab({
           </div>
           <ConnectorSortDirectionButton value={sortDirection} onChange={setSortDirection} />
           <ConnectorStatusFilterButton value={statusFilter} onChange={setStatusFilter} />
+          <ConnectorViewToggle value={viewMode} onChange={setViewMode} />
         </div>
       </SettingsTableToolbar>
 
@@ -1015,54 +1095,87 @@ function OrgAccessTab({
         <CategoryFilter value={browse.category} categories={browse.availableCategories} onChange={browse.setCategory} />
       </div>
 
-      <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
-        <div role="table" aria-label="Org access" style={{ minWidth: 760 }}>
-          <SettingsTableHeader>
-            <SettingsTableHeaderCell>Connector</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell>Category</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell>Shared accounts</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="end">Organization</SettingsTableHeaderCell>
-          </SettingsTableHeader>
+      {viewMode === 'list' ? (
+        <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
+          <div role="table" aria-label="Org access" style={{ minWidth: 760 }}>
+            <SettingsTableHeader>
+              <SettingsTableHeaderCell>Connector</SettingsTableHeaderCell>
+              <SettingsTableHeaderCell>Category</SettingsTableHeaderCell>
+              <SettingsTableHeaderCell>Shared accounts</SettingsTableHeaderCell>
+              <SettingsTableHeaderCell align="end">Organization</SettingsTableHeaderCell>
+            </SettingsTableHeader>
 
-          {browse.pageItems.length === 0 ? (
-            <div style={{ padding: '32px 24px', textAlign: 'center' }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                {connectors.length === 0 ? 'No connectors available' : 'No connectors match your filters'}
-              </p>
-            </div>
-          ) : statusFilter === 'all' ? (
-            <>
-              {(() => {
-                const enabledItems = browse.pageItems.filter(connector => connector.org_enabled === true)
-                const availableItems = browse.pageItems.filter(connector => connector.org_enabled !== true)
-                return (
+            {isEmpty ? (
+              <div style={{ padding: '32px 24px', textAlign: 'center' }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+                  {emptyMessage}
+                </p>
+              </div>
+            ) : statusFilter === 'all' ? (
+              <>
+                {enabledItems.length > 0 && (
                   <>
-                    {enabledItems.length > 0 && (
-                      <>
-                        <ConnectorSectionLabel label="Enabled" />
-                        {enabledItems.map(renderConnectorRow)}
-                      </>
-                    )}
-                    {availableItems.length > 0 && (
-                      <>
-                        <ConnectorSectionLabel label="Available" />
-                        {availableItems.map(renderConnectorRow)}
-                      </>
-                    )}
+                    <ConnectorSectionLabel label="Enabled" />
+                    {enabledItems.map(renderConnectorRow)}
                   </>
-                )
-              })()}
-            </>
-          ) : browse.pageItems.map(renderConnectorRow)}
+                )}
+                {availableItems.length > 0 && (
+                  <>
+                    <ConnectorSectionLabel label="Available" />
+                    {availableItems.map(renderConnectorRow)}
+                  </>
+                )}
+              </>
+            ) : browse.pageItems.map(renderConnectorRow)}
 
-          <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <BodyText size={12} color="var(--neutral-500)">
+                {browse.total} connector{browse.total === 1 ? '' : 's'}
+              </BodyText>
+              <Pagination {...paginationProps} />
+            </SettingsTableFooter>
+          </div>
+        </div>
+      ) : isEmpty ? (
+        <div style={{ padding: '32px 24px', textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
+            {emptyMessage}
+          </p>
+        </div>
+      ) : (
+        <div style={{ padding: '0 24px 16px' }}>
+          {statusFilter === 'all' ? (
+            <>
+              {enabledItems.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ margin: '0 -24px' }}><ConnectorSectionLabel label="Enabled" /></div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 12 }}>
+                    {enabledItems.map(renderConnectorCard)}
+                  </div>
+                </div>
+              )}
+              {availableItems.length > 0 && (
+                <div>
+                  <div style={{ margin: '0 -24px' }}><ConnectorSectionLabel label="Available" /></div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 12 }}>
+                    {availableItems.map(renderConnectorCard)}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              {browse.pageItems.map(renderConnectorCard)}
+            </div>
+          )}
+          <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <BodyText size={12} color="var(--neutral-500)">
               {browse.total} connector{browse.total === 1 ? '' : 's'}
             </BodyText>
-            <Pagination page={browse.page} pageCount={browse.pageCount} onChange={browse.setPage} />
-          </SettingsTableFooter>
+            <Pagination {...paginationProps} />
+          </div>
         </div>
-      </div>
+      )}
 
       {pendingDisable && (
         <DisableConnectorConfirmModal
@@ -1521,6 +1634,46 @@ function ConnectorSectionLabel({ label }: { label: string }) {
         {label}
       </p>
     </div>
+  )
+}
+
+// ── Grid / list view toggle ───────────────────────────────────────────────────
+
+type ConnectorViewMode = 'grid' | 'list'
+
+function GridViewGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  )
+}
+
+function ListViewGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="3"    width="12" height="2.2" rx="1.1" fill="currentColor" />
+      <rect x="2" y="6.9"  width="12" height="2.2" rx="1.1" fill="currentColor" />
+      <rect x="2" y="10.8" width="12" height="2.2" rx="1.1" fill="currentColor" />
+    </svg>
+  )
+}
+
+function ConnectorViewToggle({ value, onChange }: { value: ConnectorViewMode; onChange: (v: ConnectorViewMode) => void }) {
+  return (
+    <Tabs value={value} onValueChange={v => onChange(v as ConnectorViewMode)}>
+      <Tabs.List size="small" collapse pillTopInset={0.5} pillBottomInset={1}>
+        <Tooltip content="Grid view" side="top">
+          <Tabs.Trigger value="grid" icon={<GridViewGlyph />}>Grid</Tabs.Trigger>
+        </Tooltip>
+        <Tooltip content="List view" side="top">
+          <Tabs.Trigger value="list" icon={<ListViewGlyph />}>List</Tabs.Trigger>
+        </Tooltip>
+      </Tabs.List>
+    </Tabs>
   )
 }
 
@@ -2306,7 +2459,7 @@ function AccountDetailView({
     }
   }
 
-  async function updateTeamPermission(team: Team, tool: ConnectorTool, policy: ConnectorTool['policy']) {
+  async function updateTeamPermission(team: Team, tool: ConnectorTool, policy: ToolPolicy) {
     const connection = teamConnections[team.id]
     if (!connection) {
       toast.error('Attach this shared account to the team before editing permissions')
@@ -2314,7 +2467,7 @@ function AccountDetailView({
     }
 
     const sourceTools = connection.tools.length > 0 ? connection.tools : (connector.tools ?? [])
-    const nextTools = sourceTools.map(item => item.slug === tool.slug ? { ...item, policy } : item)
+    const nextTools = sourceTools.map(item => item.slug === tool.slug ? { ...item, ...toolPermissionFromPolicy(policy) } : item)
     const saveKey = `${team.id}:${tool.slug}`
     setSavingPermission(saveKey)
     setTeamConnections(prev => ({
@@ -2334,7 +2487,7 @@ function AccountDetailView({
     }
   }
 
-  async function bulkSetPermissions(team: Team, slugs: string[], policy: ConnectorTool['policy']) {
+  async function bulkSetPermissions(team: Team, slugs: string[], policy: ToolPolicy) {
     const connection = teamConnections[team.id]
     if (!connection) {
       toast.error('Attach this shared account to the team before editing permissions')
@@ -2342,7 +2495,7 @@ function AccountDetailView({
     }
     const target = new Set(slugs)
     const sourceTools = connection.tools.length > 0 ? connection.tools : (connector.tools ?? [])
-    const nextTools = sourceTools.map(item => target.has(item.slug) ? { ...item, policy } : item)
+    const nextTools = sourceTools.map(item => target.has(item.slug) ? { ...item, ...toolPermissionFromPolicy(policy) } : item)
     setSavingBulk(true)
     setTeamConnections(prev => ({ ...prev, [team.id]: { ...connection, tools: nextTools } }))
     try {

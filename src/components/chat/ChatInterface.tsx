@@ -36,7 +36,7 @@ import { useCreditStatus } from "@/hooks/use-credit-status";
 import type { PinFolder } from "@/lib/api/pins";
 import type { PinMentionable } from "./PinMentionDropdown";
 import type { Source } from "@/types/chat";
-import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { ChatMessagesSkeleton } from "@/components/chat/ChatMessagesSkeleton";
 import { Upload } from "lucide-react";
 
 // ── Mention chip ──────────────────────────────────────────────────────────────
@@ -1015,19 +1015,9 @@ export function ChatInterface({
         }}
       >
         <div style={{ width: "100%", maxWidth: "720px" }}>
-          {/* Loading indicator — shown while fetching AND while the virtualizer
+          {/* Loading skeleton — shown while fetching AND while the virtualizer
               settles its initial measurements so the first visible frame is jitter-free */}
-          {(isLoadingMessages || isSettling) && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                padding: "16px",
-              }}
-            >
-              <LoadingSpinner size={20} />
-            </div>
-          )}
+          {(isLoadingMessages || isSettling) && <ChatMessagesSkeleton />}
 
           {/* Empty state — shown when no messages and not loading */}
           {!isLoadingMessages && !isSettling && messages.length === 0 && emptyState}

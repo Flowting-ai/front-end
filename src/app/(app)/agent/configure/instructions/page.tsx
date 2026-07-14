@@ -56,6 +56,7 @@ import { Badge, type BadgeColor } from '@/components/Badge'
 import { Divider } from '@/components/Divider'
 import { Slider } from '@/components/Slider'
 import { AttributeTocRail, ATTRIBUTE_HEADER_STYLE, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
+import { ConfigureFormSkeleton } from '@/app/(app)/agent/configure/components/ConfigureFormSkeleton'
 
 // ── Table-of-contents rail items for this tab ─────────────────────────────────
 // Rail component itself + ATTRIBUTE_HEADER_STYLE are shared across all 5
@@ -1579,10 +1580,10 @@ function PersonaConfigureInstructionsContent() {
 
         {/* ── Scrollable content area ────────────────────────────────────────── */}
         {isInitialising ? (
-          <div style={{ flex: '1 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
-              Loading…
-            </p>
+          <div style={{ flex: '1 0 0', minHeight: 0, overflow: 'hidden', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ width: '100%', maxWidth: 714, paddingTop: 3 }}>
+              <ConfigureFormSkeleton rows={5} />
+            </div>
           </div>
         ) : (
           <div

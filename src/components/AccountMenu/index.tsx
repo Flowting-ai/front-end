@@ -10,6 +10,8 @@ import {
   ArrowRightOneIcon,
   ArrowRightTwoIcon,
   CourtHouseIcon,
+  WorkflowSquareTenIcon,
+  AlertCircleIcon,
 } from '@strange-huge/icons'
 import { Dropdown, type DropdownPlacement } from '@/components/Dropdown'
 import { Divider } from '@/components/Divider'
@@ -49,10 +51,12 @@ export interface AccountMenuProps {
   onUpgradePlan?:  () => void
   onSettings?:     () => void
   /** When provided (or `showOrganization`), an "Organization" item is shown between Settings and What's new. */
-  onOrganization?: () => void
-  onWhatsNew?:     () => void
-  onHelp?:         () => void
-  onLogOut?:       () => void
+  onOrganization?:     () => void
+  onWhatsNew?:         () => void
+  onHelp?:             () => void
+  onManageConnectors?: () => void
+  onReportBug?:        () => void
+  onLogOut?:           () => void
 }
 
 // ── Shortcut pill (⌘ ,) ────────────────────────────────────────────────────────
@@ -268,6 +272,8 @@ export function AccountMenu({
   onOrganization,
   onWhatsNew,
   onHelp,
+  onManageConnectors,
+  onReportBug,
   onLogOut,
 }: AccountMenuProps & { ref?: React.Ref<HTMLDivElement> }) {
   const [internalOpen, setInternalOpen] = useState(false)
@@ -344,6 +350,12 @@ export function AccountMenu({
               />
             )}
             <Dropdown.Item
+              icon={<WorkflowSquareTenIcon />}
+              label="Manage connectors"
+              fluid
+              onClick={() => { onManageConnectors?.(); close() }}
+            />
+            <Dropdown.Item
               icon={<LogoIcon />}
               label="What's new"
               fluid
@@ -355,6 +367,12 @@ export function AccountMenu({
               rightIcon={<ArrowRightOneIcon />}
               fluid
               onClick={() => { onHelp?.(); close() }}
+            />
+            <Dropdown.Item
+              icon={<AlertCircleIcon />}
+              label="Report a bug"
+              fluid
+              onClick={() => { onReportBug?.(); close() }}
             />
 
             <Divider decorative />

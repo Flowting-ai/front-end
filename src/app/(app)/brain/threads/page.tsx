@@ -22,6 +22,8 @@ import {
   type BrainThreadDeletedEventDetail,
 } from '@/hooks/use-sidebar-events'
 import { BRAIN_ROUTE } from '@/lib/routes'
+import { listTasks } from '@/lib/api/tasks'
+import { getAllScheduleLinks } from '@/lib/scheduleLinks'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -59,6 +61,11 @@ function BrainThreadsPageInner() {
   const [threads,     setThreads]     = useState<BrainChatListItem[]>([])
   const [isLoading,   setIsLoading]   = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  // Chat ids that are linked to a still-existing schedule — drives the
+  // "Scheduled" tag on each thread row. Cross-referenced against the live
+  // task list since scheduleLinks is a local-only map that isn't cleaned up
+  // when a schedule is deleted.
+  const [scheduledChatIds, setScheduledChatIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     setIsLoading(true)
@@ -66,6 +73,16 @@ function BrainThreadsPageInner() {
       .then(setThreads)
       .catch(() => toast.error('Failed to load brain threads'))
       .finally(() => setIsLoading(false))
+  }, [])
+
+  useEffect(() => {
+    listTasks()
+      .then(tasks => {
+        const links = getAllScheduleLinks()
+        const chatIds = tasks.map(t => links[t.id]).filter((id): id is string => !!id)
+        setScheduledChatIds(new Set(chatIds))
+      })
+      .catch(() => {})
   }, [])
 
   // Navigate to /brain when sidebar "New thread" button fires the event.
@@ -122,12 +139,32 @@ function BrainThreadsPageInner() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
+    <div style={{
+      position:        'relative',
+      flex:            '1 0 0',
+      minWidth:        0,
+      display:         'flex',
+      flexDirection:   'column',
+      backgroundColor: 'var(--neutral-50)',
+      padding:         '10px 0',
+    }}>
+      <div style={{
+        position:        'relative',
+        flex:            '1 0 0',
+        minHeight:       0,
+        display:         'flex',
+        flexDirection:   'column',
+        borderRadius:    '22px',
+        border:          '1px solid var(--neutral-200)',
+        backgroundColor: 'var(--color-surface-glass)',
+        overflow:        'hidden',
+      }}>
       <div
         className="kaya-scrollbar"
         style={{
           flex:            '1 0 0',
           minWidth:        0,
-          height:          '100%',
+          minHeight:       0,
           overflowY:       'auto',
           overflowX:       'hidden',
           display:         'flex',
@@ -135,7 +172,6 @@ function BrainThreadsPageInner() {
           alignItems:      'center',
           padding:         '0 24px 40px',
           boxSizing:       'border-box',
-          backgroundColor: 'var(--neutral-50)',
         }}
       >
         <div style={{ width: '100%', maxWidth: 836, display: 'flex', flexDirection: 'column' }}>
@@ -225,6 +261,7 @@ function BrainThreadsPageInner() {
                     title={thread.chat_title || 'Untitled'}
                     timestamp={formatTimestamp(thread.updated_at ?? thread.created_at)}
                     starred={thread.starred}
+                    scheduled={scheduledChatIds.has(thread.id)}
                     onClick={() => push(`${BRAIN_ROUTE}?id=${thread.id}`)}
                     onRename={(title) => handleRename(thread.id, title)}
                     onStar={() => handleStar(thread.id)}
@@ -238,5 +275,7 @@ function BrainThreadsPageInner() {
 
         </div>
       </div>
+      </div>
+    </div>
   )
 }

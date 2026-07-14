@@ -34,6 +34,7 @@ import {
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
 import { ReasoningContent } from '@/components/chat/ReasoningBlock'
+import { ChatMessagesSkeleton } from '@/components/chat/ChatMessagesSkeleton'
 import { useCreditStatus } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
 import type { Phase, PlanStep, StepStatus } from '@/templates/Brain/lib/phase'
@@ -357,7 +358,7 @@ function allowsCustomQuestionAnswer(question: { allowCustom?: boolean }): boolea
 function synthesizeContextFromMessages(
   messages: BrainMessage[],
   personas: SynthPersonaSource[],
-): BrainContextEvent | null {
+): (BrainContextEvent & { allPinIds: string[] }) | null {
   const connectorSlugs = new Set<string>()
   // Persona picks in order (latest wins). `label` is the human name pulled from
   // the ask_user option, which survives even if the persona was later deleted.
@@ -365,6 +366,10 @@ function synthesizeContextFromMessages(
   // Pin ids referenced by any plan node, latest turn wins (so the rail reflects
   // the most recent set). Bare UUIDs — titles are resolved later from pinboard.
   let pinIds: string[] = []
+  // Every pin id referenced by ANY turn in the thread (true union, never
+  // cleared) — seeds the ContextRail's "Previously used" pins on reload,
+  // mirroring how connectorSlugs already accumulates across the whole thread.
+  const allPinIds = new Set<string>()
 
   for (const m of messages) {
     // Plan nodes carry the persona_id (a version id), connector_slugs, and the
@@ -380,6 +385,7 @@ function synthesizeContextFromMessages(
       if (Array.isArray(pins)) {
         const ids = pins.filter((p): p is string => typeof p === 'string' && p.length > 0)
         if (ids.length) pinIds = ids
+        for (const id of ids) allPinIds.add(id)
       }
     }
 
@@ -463,6 +469,7 @@ function synthesizeContextFromMessages(
       display_name: connectorDisplayName(slug),
       status:       'connected',
     })),
+    allPinIds: Array.from(allPinIds),
   }
 }
 
@@ -1584,6 +1591,15 @@ function BrainPageInner() {
   // files, connectors). Fired once at the start of each turn; drives the
   // ContextRail. Null until a turn runs → rail stays empty at idle.
   const [liveContext, setLiveContext] = useState<BrainContextEvent | null>(null)
+  // Running per-thread accumulator of every pin/file/connector ever seen in a
+  // `context` event this session — lets the rail show "Previously used" items
+  // that dropped out of the current turn's context, alongside what's active now.
+  // Reset alongside liveContext on new-thread / thread-switch.
+  const contextHistoryRef = useRef<{
+    pins:       Map<string, { title: string; source?: string }>
+    files:      Map<string, { mime_type?: string; size?: number }>
+    connectors: Map<string, { name: string; status: string }>
+  }>({ pins: new Map(), files: new Map(), connectors: new Map() })
   const [toolConnectPrompt,  setToolConnectPrompt]  = useState<ToolConnectPromptEvent | null>(null)
   const [liveToolCalls,      setLiveToolCalls]      = useState<Record<string, { status: 'streaming' | 'executing' | 'complete'; tool_call: ToolCallPreview }>>({})
 
@@ -1892,6 +1908,7 @@ function BrainPageInner() {
     setActivePlanId(null)
     setPendingRemapId(null)
     setLiveContext(null)
+    contextHistoryRef.current = { pins: new Map(), files: new Map(), connectors: new Map() }
     setHistoryMessages([])
     setLocalTurns([])
     setHistoryLoaded(!chatIdFromUrl)
@@ -1954,7 +1971,21 @@ function BrainPageInner() {
         if (synth?.persona) {
           synth.persona = await resolveContextPersonaFromId(synth.persona, personas)
         }
-        if (!cancelled && synth) setLiveContext(synth)
+        if (!cancelled && synth) {
+          setLiveContext(synth)
+          // Seed the accumulator from the whole thread's history so "Previously
+          // used" is populated immediately on reload, not only once new turns
+          // run in this session. Pin titles are left blank here — resolved
+          // reactively against the loaded pinboard in the contextRailData memo,
+          // same as the "active" pins already do.
+          const hist = contextHistoryRef.current
+          for (const id of synth.allPinIds) {
+            if (!hist.pins.has(id)) hist.pins.set(id, { title: '', source: undefined })
+          }
+          for (const c of synth.connectors ?? []) {
+            if (c.slug) hist.connectors.set(c.slug, { name: c.display_name || c.slug, status: c.status ?? 'connected' })
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) setHistoryLoaded(true)
@@ -2588,6 +2619,20 @@ function BrainPageInner() {
           connectors:       Array.isArray(d.connectors) ? (d.connectors as BrainContextEvent['connectors']) : [],
           available_models: Array.isArray(d.available_models) ? (d.available_models as unknown[]) : [],
         })
+        // Fold this turn's items into the running accumulator so ones that drop
+        // out of a later turn's context can still show up as "Previously used".
+        {
+          const hist = contextHistoryRef.current
+          for (const p of (Array.isArray(d.pins) ? d.pins as BrainContextEvent['pins'] : []) ?? []) {
+            if (p?.pin_id) hist.pins.set(p.pin_id, { title: p.title, source: p.tags?.length ? p.tags.join(' · ') : undefined })
+          }
+          for (const f of (Array.isArray(d.files) ? d.files as BrainContextEvent['files'] : []) ?? []) {
+            if (f?.name) hist.files.set(f.name, { mime_type: f.mime_type, size: f.size })
+          }
+          for (const c of (Array.isArray(d.connectors) ? d.connectors as BrainContextEvent['connectors'] : []) ?? []) {
+            if (c?.slug) hist.connectors.set(c.slug, { name: c.display_name || c.slug, status: c.status ?? 'connected' })
+          }
+        }
         break
       }
 
@@ -3993,6 +4038,7 @@ function BrainPageInner() {
     setActivePlanId(null)
     setPendingRemapId(null)
     setLiveContext(null)
+    contextHistoryRef.current = { pins: new Map(), files: new Map(), connectors: new Map() }
     setHistoryMessages([])
     setLocalTurns([])
     setHistoryLoaded(true)
@@ -4745,7 +4791,7 @@ function BrainPageInner() {
       // opens immediately when the user selects context before their first send.
       const initial: ContextRailData = {}
       if (chipPersona) initial.persona = chipPersona
-      if (chipPins.length) initial.pins = chipPins
+      if (chipPins.length) initial.pins = chipPins.map((p) => ({ ...p, active: true }))
       return initial
     }
 
@@ -4755,6 +4801,66 @@ function BrainPageInner() {
       if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
       return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
     }
+
+    // Keys present in THIS turn's snapshot — everything else already seen this
+    // session (contextHistoryRef) but not part of the active set is "previously used".
+    const activePinIds         = new Set((liveContext.pins ?? []).map((p) => p.pin_id))
+    const activeFileNames      = new Set((liveContext.files ?? []).map((f) => f.name))
+    const activeConnectorSlugs = new Set((liveContext.connectors ?? []).map((c) => c.slug))
+    const hist = contextHistoryRef.current
+
+    // Live SSE pins carry titles/tags. Reconstructed pins (chat reload) are
+    // bare ids with empty titles — resolve display text from the loaded
+    // pinboard, dropping any that no longer exist there.
+    const activePins = liveContext.pins?.length
+      ? liveContext.pins.flatMap((p) => {
+          if (p.title) {
+            return [{ id: p.pin_id, title: p.title, source: p.tags?.length ? p.tags.join(' · ') : undefined, active: true }]
+          }
+          const match = pinboardPins.find((pp) => pp.id === p.pin_id)
+          if (!match) return []
+          return [{ id: p.pin_id, title: match.title, source: match.folderName || (match.tags?.length ? match.tags.join(' · ') : undefined), active: true }]
+        })
+      : chipPins.map((p) => ({ ...p, active: true }))
+
+    // Bare ids seeded from thread-history reconstruction carry no title yet —
+    // resolve them against the loaded pinboard, same as the active pins above.
+    const previousPins = Array.from(hist.pins.entries())
+      .filter(([id]) => !activePinIds.has(id))
+      .flatMap(([id, p]) => {
+        if (p.title) return [{ id, title: p.title, source: p.source, active: false }]
+        const match = pinboardPins.find((pp) => pp.id === id)
+        if (!match) return []
+        return [{ id, title: match.title, source: match.folderName || (match.tags?.length ? match.tags.join(' · ') : undefined), active: false }]
+      })
+
+    const activeFiles = (liveContext.files ?? []).map((f) => ({
+      name:   f.name,
+      meta:   [f.mime_type, fmtSize(f.size)].filter(Boolean).join(' · ') || undefined,
+      active: true,
+    }))
+    const previousFiles = Array.from(hist.files.entries())
+      .filter(([name]) => !activeFileNames.has(name))
+      .map(([name, f]) => ({
+        name,
+        meta:   [f.mime_type, fmtSize(f.size)].filter(Boolean).join(' · ') || undefined,
+        active: false,
+      }))
+
+    const activeConnectors = (liveContext.connectors ?? []).map((c) => ({
+      name:   c.display_name || c.slug,
+      slug:   c.slug,
+      status: (c.status === 'failed' ? 'failed' : c.status === 'pending' ? 'pending' : 'connected') as 'connected' | 'failed' | 'pending',
+      active: true,
+    }))
+    const previousConnectors = Array.from(hist.connectors.entries())
+      .filter(([slug]) => !activeConnectorSlugs.has(slug))
+      .map(([slug, c]) => ({
+        name:   c.name,
+        slug,
+        status: (c.status === 'failed' ? 'failed' : c.status === 'pending' ? 'pending' : 'connected') as 'connected' | 'failed' | 'pending',
+        active: false,
+      }))
 
     return {
       // Prefer what Brain confirmed it loaded (SSE event); fall back to the
@@ -4767,28 +4873,9 @@ function BrainPageInner() {
             avatarUrl: liveContext.persona.avatar_url,
           }
         : chipPersona,
-      // Live SSE pins carry titles/tags. Reconstructed pins (chat reload) are
-      // bare ids with empty titles — resolve display text from the loaded
-      // pinboard, dropping any that no longer exist there.
-      pins: liveContext.pins?.length
-        ? liveContext.pins.flatMap((p) => {
-            if (p.title) {
-              return [{ id: p.pin_id, title: p.title, source: p.tags?.length ? p.tags.join(' · ') : undefined }]
-            }
-            const match = pinboardPins.find((pp) => pp.id === p.pin_id)
-            if (!match) return []
-            return [{ id: p.pin_id, title: match.title, source: match.folderName || (match.tags?.length ? match.tags.join(' · ') : undefined) }]
-          })
-        : chipPins,
-      files: (liveContext.files ?? []).map((f) => ({
-        name: f.name,
-        meta: [f.mime_type, fmtSize(f.size)].filter(Boolean).join(' · ') || undefined,
-      })),
-      connectors: (liveContext.connectors ?? []).map((c) => ({
-        name:   c.display_name || c.slug,
-        slug:   c.slug,
-        status: c.status === 'failed' ? 'failed' : c.status === 'pending' ? 'pending' : 'connected',
-      })),
+      pins:       [...activePins, ...previousPins],
+      files:      [...activeFiles, ...previousFiles],
+      connectors: [...activeConnectors, ...previousConnectors],
     }
   }, [liveContext, selectedPersona, selectedFolderPins, effectivePinIds, pinboardPins])
 
@@ -4883,6 +4970,7 @@ function BrainPageInner() {
     >
       {chatIdFromUrl || hasContent ? (
         <div style={{ display: 'flex', flexDirection: 'column', paddingBottom: 20 }}>
+          {!historyLoaded && <ChatMessagesSkeleton />}
           {historyLoaded && historyElements}
           {historyLoaded && localTurnElements}
           {historyLoaded && activeTurnContent}

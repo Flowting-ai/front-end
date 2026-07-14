@@ -376,11 +376,14 @@ export function PermissionPromptCard({ prompt, onDecided, skipSave = false }: Pe
     onDecided?.(policy)
     toast.success(`${label} — ${prompt.tool_name}`)
 
-    if (skipSave) return
+    // "Allow once" only unblocks this one call — there's no backend
+    // representation for it (ToolEntry is a persistent allowed/blocked gate,
+    // see services/connectors/schemas.py), so it's never saved as a preference.
+    if (skipSave || policy === 'allow_once') return
 
     // Save preference in the background — non-blocking.
     updateConnector(prompt.connector_slug, {
-      permissions: [{ slug: prompt.tool_name, policy }],
+      permissions: [{ slug: prompt.tool_name, allowed: policy === 'allow', blocked: policy === 'block' }],
     }).catch((err: unknown) => {
       if (abortedRef.current) return
       const msg = err instanceof Error ? err.message : 'Failed to save permission'

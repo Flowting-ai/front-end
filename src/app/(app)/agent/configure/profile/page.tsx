@@ -23,6 +23,7 @@ import { derivePublicationState } from '@/lib/persona-version-logic'
 import { personaTagsKey, personaProfileKey } from '@/lib/storage-keys'
 import { AGENTS_ROUTE } from '@/lib/routes'
 import { AttributeTocRail, type AttributeTocItem } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
+import { ConfigureFormSkeleton } from '@/app/(app)/agent/configure/components/ConfigureFormSkeleton'
 
 const PROFILE_TOC_ITEMS: AttributeTocItem[] = [
   { id: 'avatar',      label: 'Avatar',      anchor: 'help-profile-avatar' },
@@ -572,19 +573,25 @@ function PersonaConfigureProfileContent() {
             paddingBottom: 32,
           }}
         >
-          <ProfileTab
-            avatarUrl={avatarUrl}
-            onAvatarChange={v => { setAvatarUrl(v); markDirty(); markFieldTouched('profile', 'avatar') }}
-            personaName={personaName}
-            onPersonaNameChange={v => { setPersonaName(v); markDirty(); markFieldTouched('profile', 'name') }}
-            personaHandle={personaHandle}
-            onPersonaHandleChange={v => { setPersonaHandle(v); markDirty() }}
-            personaDescription={personaDescription}
-            onPersonaDescriptionChange={v => { setPersonaDescription(v); markDirty(); markFieldTouched('profile', 'description') }}
-            personaTags={personaTags}
-            onPersonaTagsChange={v => { setPersonaTags(v); markDirty(); markFieldTouched('profile', 'tags') }}
-          />
-          <div style={{ height: 24, flexShrink: 0 }} />
+          {!isInitialized ? (
+            <ConfigureFormSkeleton rows={4} />
+          ) : (
+            <>
+              <ProfileTab
+                avatarUrl={avatarUrl}
+                onAvatarChange={v => { setAvatarUrl(v); markDirty(); markFieldTouched('profile', 'avatar') }}
+                personaName={personaName}
+                onPersonaNameChange={v => { setPersonaName(v); markDirty(); markFieldTouched('profile', 'name') }}
+                personaHandle={personaHandle}
+                onPersonaHandleChange={v => { setPersonaHandle(v); markDirty() }}
+                personaDescription={personaDescription}
+                onPersonaDescriptionChange={v => { setPersonaDescription(v); markDirty(); markFieldTouched('profile', 'description') }}
+                personaTags={personaTags}
+                onPersonaTagsChange={v => { setPersonaTags(v); markDirty(); markFieldTouched('profile', 'tags') }}
+              />
+              <div style={{ height: 24, flexShrink: 0 }} />
+            </>
+          )}
         </div>
       </div>
 

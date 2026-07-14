@@ -16,15 +16,19 @@ import {
 // deterministically from the endpoint's real shape — no guessed defaults, no
 // fabricated fields. See the billing precedent in src/lib/api/organization.ts.
 
-export const POLICY_VALUES = ['allow', 'block', 'ask', 'allow_once'] as const
-const policySchema        = z.enum(POLICY_VALUES)
 const accountScopeSchema  = z.enum(['personal', 'shared_team'])
 const accountStatusSchema = z.enum(['active', 'disabled', 'expired'])
 const accessStatusSchema  = z.enum(['pending', 'approved', 'denied'])
 
+// Mirrors backend ToolEntry (services/connectors/schemas.py) exactly: a
+// binary allowed/blocked gate, extra="forbid" on the wire. Neither bit set
+// means "ask" (the connector's default, undecided state). There is no
+// "allow_once" on the backend — a one-time allow is a call-scoped decision
+// the UI unblocks immediately without ever persisting it as a permission.
 const toolEntrySchema = z.object({
-  slug:   z.string(),
-  policy: policySchema.default('ask'),
+  slug:    z.string(),
+  allowed: z.boolean().default(false),
+  blocked: z.boolean().default(false),
 })
 
 /** Rich descriptor for a single credential field returned by GET /connectors/{slug}.
@@ -124,6 +128,23 @@ const linkResponseSchema = z.object({
 
 export type ConnectorTool          = z.infer<typeof toolEntrySchema>
 export type ApiKeyField            = z.infer<typeof apiKeyFieldSchema>
+
+// ── Tool permission helpers ────────────────────────────────────────────────────
+// UI-facing 3-state view over the backend's allowed/blocked bits. Kept in one
+// place so every permission UI (personal connector settings, org team
+// permissions, in-chat prompts) derives/constructs the wire shape identically.
+
+export type ToolPolicy = 'allow' | 'ask' | 'block'
+
+export function toolPolicyFromTool(tool: { allowed: boolean; blocked: boolean }): ToolPolicy {
+  if (tool.blocked) return 'block'
+  if (tool.allowed) return 'allow'
+  return 'ask'
+}
+
+export function toolPermissionFromPolicy(policy: ToolPolicy): { allowed: boolean; blocked: boolean } {
+  return { allowed: policy === 'allow', blocked: policy === 'block' }
+}
 /** Snake_case shape of an org shared account as embedded in the catalog entry. */
 export type ConnectorAccount       = z.infer<typeof orgConnectorAccountSchema>
 export type ConnectorAccountOption = z.infer<typeof connectorAccountOptionSchema>
@@ -158,7 +179,7 @@ export function oauthNeedsInitFields(
 }
 
 export interface UpdateConnectorRequest {
-  permissions?: { slug: string; policy: 'allow' | 'block' | 'ask' | 'allow_once' }[]
+  permissions?: { slug: string; allowed: boolean; blocked: boolean }[]
   credentials?: Record<string, string>
 }
 

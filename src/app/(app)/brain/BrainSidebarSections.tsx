@@ -62,6 +62,21 @@ const sectionHeightVariants = {
   },
 }
 
+// -- Item stagger animation - same three-layer pattern as LeftSidebar --
+const sectionStaggerVariants = {
+  open: {
+    transition: { staggerChildren: 0.04, delayChildren: 0.24 },
+  },
+  closed: {
+    transition: {},
+  },
+}
+
+const sectionItemVariants = {
+  open:   { opacity: 1, y: 0, transition: { duration: 0.18, ease: 'easeOut' as const } },
+  closed: { opacity: 0, y: 5, transition: { duration: 0.12, ease: 'easeIn'  as const } },
+}
+
 
 // ── Thread item with rename / star / delete dropdown ─────────────────────────
 
@@ -314,19 +329,25 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
             onAnimationStart={(def) => { if (def === 'closed') setOverflowStar('hidden') }}
             onAnimationComplete={(def) => { if (def === 'open') setOverflowStar('visible') }}
           >
-            <div style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <m.div
+              animate={shownStarred ? 'open' : 'closed'}
+              initial="closed"
+              variants={sectionStaggerVariants}
+              style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
+            >
               {starredThreads.map(thread => (
-                <BrainThreadItem
-                  key={thread.id}
-                  thread={thread}
-                  isActive={thread.id === activeChatId}
-                  onSelect={() => onThreadClick(thread.id)}
-                  onRename={handleRename}
-                  onStar={handleStar}
-                  onDelete={handleDelete}
-                />
+                <m.div key={thread.id} variants={sectionItemVariants}>
+                  <BrainThreadItem
+                    thread={thread}
+                    isActive={thread.id === activeChatId}
+                    onSelect={() => onThreadClick(thread.id)}
+                    onRename={handleRename}
+                    onStar={handleStar}
+                    onDelete={handleDelete}
+                  />
+                </m.div>
               ))}
-            </div>
+            </m.div>
           </m.div>
         </>
       )}
@@ -347,7 +368,12 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
         onAnimationStart={(def) => { if (def === 'closed') setOverflowAll('hidden') }}
         onAnimationComplete={(def) => { if (def === 'open') setOverflowAll('visible') }}
       >
-        <div style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <m.div
+          animate={shownAll ? 'open' : 'closed'}
+          initial="closed"
+          variants={sectionStaggerVariants}
+          style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
+        >
           {isLoading && Array.from({ length: 3 }).map((_, i) => (
             <SidebarMenuSkeleton key={i} index={i} fluid />
           ))}
@@ -355,17 +381,18 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
           {!isLoading && threads.length === 0 && emptyRow}
 
           {!isLoading && threads.map(thread => (
-            <BrainThreadItem
-              key={thread.id}
-              thread={thread}
-              isActive={thread.id === activeChatId}
-              onSelect={() => onThreadClick(thread.id)}
-              onRename={handleRename}
-              onStar={handleStar}
-              onDelete={handleDelete}
-            />
+            <m.div key={thread.id} variants={sectionItemVariants}>
+              <BrainThreadItem
+                thread={thread}
+                isActive={thread.id === activeChatId}
+                onSelect={() => onThreadClick(thread.id)}
+                onRename={handleRename}
+                onStar={handleStar}
+                onDelete={handleDelete}
+              />
+            </m.div>
           ))}
-        </div>
+        </m.div>
       </m.div>
     </>
   )

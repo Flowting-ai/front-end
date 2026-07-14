@@ -20,6 +20,7 @@ import type { SharedChatItem } from '@/lib/api/chat-shares'
 import { CHAT_ROUTE, CHAT_SHARE_ROUTE } from '@/lib/routes'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Badge } from '@/components/Badge'
+import { Skeleton } from '@/components/Skeleton'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -300,7 +301,12 @@ export default function ChatsPage() {
         {activeTab === 'shared' && !selectionMode && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {sharedLoading && (
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: '32px 0', textAlign: 'center' }}>Loading…</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[...Array(4)].map((_, i) => (
+                  // eslint-disable-next-line react/no-array-index-as-key -- fixed-count skeleton placeholders, index is stable
+                  <Skeleton key={i} height={62} radius={12} style={{ opacity: 1 - i * 0.15 }} />
+                ))}
+              </div>
             )}
             {!sharedLoading && sharedItems.length === 0 && (
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: '32px 0', textAlign: 'center' }}>No chats have been shared with you yet.</p>
@@ -377,14 +383,7 @@ export default function ChatsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {[...Array(5)].map((_, i) => (
               // eslint-disable-next-line react/no-array-index-as-key -- fixed-count skeleton placeholders, index is stable
-              <div key={i} style={{
-                  height:          62,
-                  borderRadius:    12,
-                  backgroundColor: 'var(--neutral-100)',
-                  opacity:         1 - i * 0.15,
-                  animation:       'pulse 0.9s ease-in-out infinite',
-                }}
-              />
+              <Skeleton key={i} height={62} radius={12} style={{ opacity: 1 - i * 0.15 }} />
             ))}
           </div>
         )}

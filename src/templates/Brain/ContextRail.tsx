@@ -37,17 +37,23 @@ export interface ContextRailPin {
   id:      string
   title:   string
   source?: string
+  /** true = used by the current/latest turn; false/undefined = seen earlier this thread but not now. */
+  active?: boolean
 }
 
 export interface ContextRailConnector {
   name:   string
   slug?:  string
   status: 'connected' | 'failed' | 'pending'
+  /** true = used by the current/latest turn; false/undefined = seen earlier this thread but not now. */
+  active?: boolean
 }
 
 export interface ContextRailFile {
   name:  string
   meta?: string
+  /** true = used by the current/latest turn; false/undefined = seen earlier this thread but not now. */
+  active?: boolean
 }
 
 export interface ContextRailData {
@@ -66,6 +72,38 @@ export interface ContextRailProps {
 
 function SectionDivider() {
   return <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', flexShrink: 0 }} />
+}
+
+// Sub-grouping within a category (Pins/Files/Connectors): "Active" (green dot —
+// used by the current/latest turn) vs "Previously used" (seen earlier this
+// thread but not part of the current context). Only rendered when there's
+// something in that group, so a fresh conversation with no history shows no
+// extra chrome at all.
+function UsageSubHeader({ active }: { active: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px 2px' }}>
+      {active && (
+        <span aria-hidden style={{
+          width:           6,
+          height:          6,
+          borderRadius:    '50%',
+          backgroundColor: 'var(--color-tag-Green-text, #1e8a3c)',
+          flexShrink:      0,
+        }} />
+      )}
+      <span style={{
+        fontFamily: 'var(--font-body)',
+        fontSize:   11,
+        fontWeight: 'var(--font-weight-medium)',
+        lineHeight: '16px',
+        letterSpacing: '0.02em',
+        textTransform: 'uppercase',
+        color:      'var(--neutral-300)',
+      }}>
+        {active ? 'Active' : 'Previously used'}
+      </span>
+    </div>
+  )
 }
 
 function SectionHeader({ label, count }: { label: string; count?: number }) {
@@ -151,6 +189,125 @@ function ConnectorLogo({ name, slug, status }: { name: string; slug?: string; st
   )
 }
 
+// ── Row components (shared between the Active / Previously used groups) ──────
+
+function PinRow({ pin, index, dimmed }: { pin: ContextRailPin; index: number; dimmed?: boolean }) {
+  return (
+    <div
+      style={{
+        display:    'flex',
+        alignItems: 'flex-start',
+        gap:        10,
+        padding:    '7px 16px',
+        borderTop:  index > 0 ? '1px solid var(--neutral-100)' : 'none',
+        cursor:     dimmed ? 'default' : 'grab',
+        opacity:    dimmed ? 0.6 : 1,
+      }}
+    >
+      <span style={{ flexShrink: 0, lineHeight: 0, marginTop: 3 }}>
+        <PinIcon size={12} color="var(--neutral-400)" />
+      </span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+        <span style={{
+          fontFamily:   'var(--font-body)',
+          fontSize:     'var(--font-size-body)',
+          lineHeight:   'var(--line-height-body)',
+          color:        'var(--neutral-700)',
+          overflow:     'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace:   'nowrap',
+        }}>
+          {pin.title}
+        </span>
+        {pin.source && (
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            lineHeight: 'var(--line-height-caption)',
+            color:      'var(--neutral-400)',
+          }}>
+            {pin.source}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function FileRow({ file, index, dimmed }: { file: ContextRailFile; index: number; dimmed?: boolean }) {
+  return (
+    <div
+      style={{
+        display:       'flex',
+        flexDirection: 'column',
+        gap:           2,
+        padding:       '7px 16px',
+        borderTop:     index > 0 ? '1px solid var(--neutral-100)' : 'none',
+        minWidth:      0,
+        opacity:       dimmed ? 0.6 : 1,
+      }}
+    >
+      <span style={{
+        fontFamily:   'var(--font-body)',
+        fontSize:     'var(--font-size-body)',
+        lineHeight:   'var(--line-height-body)',
+        color:        'var(--neutral-700)',
+        overflow:     'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace:   'nowrap',
+      }}>
+        {file.name}
+      </span>
+      {file.meta && (
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize:   'var(--font-size-caption)',
+          lineHeight: 'var(--line-height-caption)',
+          color:      'var(--neutral-400)',
+        }}>
+          {file.meta}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function ConnectorRow({ connector: c, index, dimmed }: { connector: ContextRailConnector; index: number; dimmed?: boolean }) {
+  return (
+    <div
+      style={{
+        display:    'flex',
+        alignItems: 'center',
+        gap:        10,
+        padding:    '7px 16px',
+        borderTop:  index > 0 ? '1px solid var(--neutral-100)' : 'none',
+        opacity:    dimmed ? 0.6 : 1,
+      }}
+    >
+      <ConnectorLogo name={c.name} slug={c.slug} status={c.status} />
+      <span style={{
+        flex:       '1 0 0',
+        fontFamily: 'var(--font-body)',
+        fontSize:   'var(--font-size-body)',
+        lineHeight: 'var(--line-height-body)',
+        color:      'var(--neutral-700)',
+      }}>
+        {c.name}
+      </span>
+      <span style={{
+        fontFamily:    'var(--font-body)',
+        fontSize:      'var(--font-size-caption)',
+        lineHeight:    'var(--line-height-caption)',
+        color:         c.status === 'failed' ? 'var(--color-tag-Red-text, #c0392b)' : 'var(--neutral-400)',
+        textTransform: 'capitalize',
+        flexShrink:    0,
+      }}>
+        {c.status}
+      </span>
+    </div>
+  )
+}
+
 // ── Rail header ───────────────────────────────────────────────────────────────
 
 function RailHeader({ onClose }: { onClose?: () => void }) {
@@ -192,6 +349,15 @@ export function ContextRail({ data, onClose }: ContextRailProps) {
   const hasFiles      = files && files.length > 0
   const hasConnectors = connectors && connectors.length > 0
   const isEmpty       = !persona && !hasPins && !hasFiles && !hasConnectors
+
+  // Split each category into "Active" (used by the current/latest turn) and
+  // "Previously used" (seen earlier this thread but not part of it now).
+  const activePins        = pins?.filter((p) => p.active !== false) ?? []
+  const previousPins       = pins?.filter((p) => p.active === false) ?? []
+  const activeFiles        = files?.filter((f) => f.active !== false) ?? []
+  const previousFiles       = files?.filter((f) => f.active === false) ?? []
+  const activeConnectors   = connectors?.filter((c) => c.active !== false) ?? []
+  const previousConnectors = connectors?.filter((c) => c.active === false) ?? []
 
   const railStyle: React.CSSProperties = {
     width:           '100%',
@@ -286,48 +452,18 @@ export function ContextRail({ data, onClose }: ContextRailProps) {
         <>
           {persona && <SectionDivider />}
           <SectionHeader label="In context" count={pins!.length} />
+          {previousPins.length > 0 && activePins.length > 0 && <UsageSubHeader active />}
           <div style={{ display: 'flex', flexDirection: 'column', padding: '2px 0 14px' }}>
-            {pins!.map((pin, i) => (
-              <div
-                key={pin.id}
-                style={{
-                  display:     'flex',
-                  alignItems:  'flex-start',
-                  gap:         10,
-                  padding:     '7px 16px',
-                  borderTop:   i > 0 ? '1px solid var(--neutral-100)' : 'none',
-                  cursor:      'grab',
-                }}
-              >
-                <span style={{ flexShrink: 0, lineHeight: 0, marginTop: 3 }}>
-                  <PinIcon size={12} color="var(--neutral-400)" />
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                  <span style={{
-                    fontFamily:   'var(--font-body)',
-                    fontSize:     'var(--font-size-body)',
-                    lineHeight:   'var(--line-height-body)',
-                    color:        'var(--neutral-700)',
-                    overflow:     'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace:   'nowrap',
-                  }}>
-                    {pin.title}
-                  </span>
-                  {pin.source && (
-                    <span style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize:   'var(--font-size-caption)',
-                      lineHeight: 'var(--line-height-caption)',
-                      color:      'var(--neutral-400)',
-                    }}>
-                      {pin.source}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+            {activePins.map((pin, i) => <PinRow key={pin.id} pin={pin} index={i} />)}
           </div>
+          {previousPins.length > 0 && (
+            <>
+              <UsageSubHeader active={false} />
+              <div style={{ display: 'flex', flexDirection: 'column', padding: '2px 0 14px' }}>
+                {previousPins.map((pin, i) => <PinRow key={pin.id} pin={pin} index={i} dimmed />)}
+              </div>
+            </>
+          )}
         </>
       )}
 
@@ -336,43 +472,18 @@ export function ContextRail({ data, onClose }: ContextRailProps) {
         <>
           {(persona || hasPins) && <SectionDivider />}
           <SectionHeader label="Files" count={files!.length} />
+          {previousFiles.length > 0 && activeFiles.length > 0 && <UsageSubHeader active />}
           <div style={{ display: 'flex', flexDirection: 'column', padding: '2px 0 14px' }}>
-            {files!.map((file, i) => (
-              <div
-                key={`${file.name}-${i}`}
-                style={{
-                  display:    'flex',
-                  flexDirection: 'column',
-                  gap:        2,
-                  padding:    '7px 16px',
-                  borderTop:  i > 0 ? '1px solid var(--neutral-100)' : 'none',
-                  minWidth:   0,
-                }}
-              >
-                <span style={{
-                  fontFamily:   'var(--font-body)',
-                  fontSize:     'var(--font-size-body)',
-                  lineHeight:   'var(--line-height-body)',
-                  color:        'var(--neutral-700)',
-                  overflow:     'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace:   'nowrap',
-                }}>
-                  {file.name}
-                </span>
-                {file.meta && (
-                  <span style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize:   'var(--font-size-caption)',
-                    lineHeight: 'var(--line-height-caption)',
-                    color:      'var(--neutral-400)',
-                  }}>
-                    {file.meta}
-                  </span>
-                )}
-              </div>
-            ))}
+            {activeFiles.map((file, i) => <FileRow key={`${file.name}-${i}`} file={file} index={i} />)}
           </div>
+          {previousFiles.length > 0 && (
+            <>
+              <UsageSubHeader active={false} />
+              <div style={{ display: 'flex', flexDirection: 'column', padding: '2px 0 14px' }}>
+                {previousFiles.map((file, i) => <FileRow key={`${file.name}-${i}`} file={file} index={i} dimmed />)}
+              </div>
+            </>
+          )}
         </>
       )}
 
@@ -381,41 +492,18 @@ export function ContextRail({ data, onClose }: ContextRailProps) {
         <>
           {(persona || hasPins || hasFiles) && <SectionDivider />}
           <SectionHeader label="Connectors" />
+          {previousConnectors.length > 0 && activeConnectors.length > 0 && <UsageSubHeader active />}
           <div style={{ display: 'flex', flexDirection: 'column', padding: '2px 0 14px' }}>
-            {connectors!.map((c, i) => (
-              <div
-                key={c.slug ?? c.name}
-                style={{
-                  display:     'flex',
-                  alignItems:  'center',
-                  gap:         10,
-                  padding:     '7px 16px',
-                  borderTop:   i > 0 ? '1px solid var(--neutral-100)' : 'none',
-                }}
-              >
-                <ConnectorLogo name={c.name} slug={c.slug} status={c.status} />
-                <span style={{
-                  flex:       '1 0 0',
-                  fontFamily: 'var(--font-body)',
-                  fontSize:   'var(--font-size-body)',
-                  lineHeight: 'var(--line-height-body)',
-                  color:      'var(--neutral-700)',
-                }}>
-                  {c.name}
-                </span>
-                <span style={{
-                  fontFamily:    'var(--font-body)',
-                  fontSize:      'var(--font-size-caption)',
-                  lineHeight:    'var(--line-height-caption)',
-                  color:         c.status === 'failed' ? 'var(--color-tag-Red-text, #c0392b)' : 'var(--neutral-400)',
-                  textTransform: 'capitalize',
-                  flexShrink:    0,
-                }}>
-                  {c.status}
-                </span>
-              </div>
-            ))}
+            {activeConnectors.map((c, i) => <ConnectorRow key={c.slug ?? c.name} connector={c} index={i} />)}
           </div>
+          {previousConnectors.length > 0 && (
+            <>
+              <UsageSubHeader active={false} />
+              <div style={{ display: 'flex', flexDirection: 'column', padding: '2px 0 14px' }}>
+                {previousConnectors.map((c, i) => <ConnectorRow key={c.slug ?? c.name} connector={c} index={i} dimmed />)}
+              </div>
+            </>
+          )}
         </>
       )}
 

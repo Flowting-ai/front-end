@@ -33,6 +33,7 @@ import { ConnectPromptCard, PermissionPromptCard } from '@/components/chat/Conne
 import { ActivitiesSection } from '@/components/chat/ActivityRow'
 import { BreathingDot } from '@/components/BreathingDot'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
+import { Skeleton } from '@/components/Skeleton'
 import { MessageBubble } from '@/components/MessageBubble'
 import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
 import { PersonaConfigureProvider, usePersonaConfigure } from './context'
@@ -741,6 +742,18 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
 
 // ── Versions panel ────────────────────────────────────────────────────────────
 
+function VersionRowSkeleton({ opacity }: { opacity: number }) {
+  return (
+    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: 12, borderRadius: 16, flexShrink: 0, opacity }}>
+      <Skeleton width={37} height={37} radius={8} />
+      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <Skeleton width="60%" height={14} />
+        <Skeleton width="35%" height={11} />
+      </div>
+    </div>
+  )
+}
+
 function VersionsPanel() {
   const {
     personaInfo, setVersionsOpen,
@@ -818,7 +831,9 @@ function VersionsPanel() {
 
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: 3 }}>
         {versionsLoading ? (
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0 }}>Loading…</p>
+          <>
+            {[0, 1, 2].map(i => <VersionRowSkeleton key={i} opacity={1 - i * 0.25} />)}
+          </>
         ) : versions.length === 0 ? (
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: '24px 0', textAlign: 'center' }}>
             No versions yet. Use &ldquo;Save version&rdquo; to create one.
