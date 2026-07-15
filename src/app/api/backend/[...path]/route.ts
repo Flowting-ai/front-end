@@ -16,6 +16,11 @@ export const dynamic = "force-dynamic"
 // Node runtime (not Edge): we need undici's streaming body / `duplex: 'half'`
 // support and longer-lived connections for SSE turns that can run minutes.
 export const runtime = "nodejs"
+// Vercel Fluid's DEFAULT maxDuration is 300s — it was killing every brain SSE
+// turn at 5:00 flat (brain streams ride this catch-all, not the named chat
+// routes that already export 800). 800 matches those routes and outlives the
+// backend's 740s stream deadline plus the 300s prompt gate.
+export const maxDuration = 800
 
 const UPSTREAM = (process.env.SERVER_URL || "http://localhost:8000").replace(/\/$/, "")
 
