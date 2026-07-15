@@ -39,6 +39,8 @@ import { Sparkline } from '@/components/Sparkline'
 import { DateRangePill } from '@/components/DateRangePill'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
+import { useAuth } from '@/context/auth-context'
+import { listTeamPersonaShares } from '@/lib/api/teams'
 import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -563,7 +565,35 @@ export default function PersonasPage() {
   const { push } = useRouter()
   const pathname = usePathname()
   const { close: closePinboard } = usePinboard()
-  const { currentUserRole } = useOrg()
+  const { currentUserRole, orgId, teams } = useOrg()
+  const { user } = useAuth()
+
+  // repoId -> the persona's actual creator (from the team-persona-shares
+  // endpoint, which already tracks this for the "Shared by X" org/teams panel).
+  // `currentUserRole` is an ORG-WIDE role, not per-persona ownership — using it
+  // alone would treat every admin as if they owned every admin-created
+  // team-shared agent, not just their own. Falls back to that coarse check only
+  // until this authoritative map has loaded, to avoid a flash for real owners.
+  const [personaOwnerMap, setPersonaOwnerMap] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (!orgId || teams.length === 0) return
+    let cancelled = false
+    Promise.all(teams.map(t => listTeamPersonaShares(orgId, t.id).catch(() => [])))
+      .then(results => {
+        if (cancelled) return
+        const map: Record<string, string> = {}
+        for (const shares of results) for (const s of shares) map[s.personaRepoId] = s.sharedByUserId
+        setPersonaOwnerMap(map)
+      })
+    return () => { cancelled = true }
+  }, [orgId, teams])
+
+  function isOwnedByMe(persona: Persona): boolean {
+    if (persona.visibility !== 'team') return true
+    const ownerId = personaOwnerMap[persona.id]
+    if (ownerId) return String(ownerId) === String(user?.id)
+    return currentUserRole === 'admin'
+  }
 
   const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')
   const [personas,     setPersonas]     = useState<Persona[]>([])
@@ -830,16 +860,25 @@ export default function PersonasPage() {
     })
   }
 
+  // Team-shared agents the caller doesn't own aren't "theirs" yet — they only
+  // belong on this page once cloned (via the project Team panel's "Use" action,
+  // or the chat persona picker). Until then they live only in the team panel,
+  // not mixed into this personal library.
+  const visiblePersonas = useMemo(
+    () => personas.filter(p => p.visibility !== 'team' || isOwnedByMe(p)),
+    [personas, currentUserRole, personaOwnerMap, user?.id],
+  )
+
   // Filter + sort — split into three chained memos so a sort change doesn't
   // re-run filtering, and a filter change doesn't re-run the sort.
   const statusFiltered = useMemo(() => {
     // Pause is a binary backend flag (is_active). "Active" = not paused (covers
     // live + draft that are switched on); "Paused" = is_active false. This is a
     // clean partition and matches the pause toggle exactly.
-    if (filterStatus === 'active') return personas.filter(p => !p.isPaused)
-    if (filterStatus === 'paused') return personas.filter(p => p.isPaused)
-    return personas
-  }, [personas, filterStatus])
+    if (filterStatus === 'active') return visiblePersonas.filter(p => !p.isPaused)
+    if (filterStatus === 'paused') return visiblePersonas.filter(p => p.isPaused)
+    return visiblePersonas
+  }, [visiblePersonas, filterStatus])
 
   const filterPanelFiltered = useMemo(() => {
     let result = statusFiltered
@@ -930,6 +969,22 @@ export default function PersonasPage() {
     } catch {
       toast.dismiss(toastId)
       toast.error('Failed to copy agent. Please try again.')
+    }
+  }
+
+  // Team-shared originals aren't owned by this account, so the dedicated chat
+  // route 404s on them directly (backend chat-creation is owner-only). Clone
+  // into the member's own account first — same as handleCopyAndEdit — then
+  // land on that copy's chat page instead of the original's.
+  async function handleUseTeamSharedInChat(persona: Persona) {
+    const toastId = toast.loading(`Opening "${persona.name}"…`)
+    try {
+      const copy = await usePersonaRepoDeduped(persona.id)
+      toast.dismiss(toastId)
+      push(AGENT_CHAT_ROUTE(copy.id))
+    } catch {
+      toast.dismiss(toastId)
+      toast.error('Failed to open agent. Please try again.')
     }
   }
 
@@ -1055,13 +1110,13 @@ export default function PersonasPage() {
                     }
                   >
                     <Dropdown style={{ minWidth: 220 }}>
-                      {personas.length === 0 ? (
+                      {visiblePersonas.length === 0 ? (
                         <Dropdown.Section>
                           <Dropdown.Item label="No agents yet — create one first" disabled fluid />
                         </Dropdown.Section>
                       ) : (
                         <Dropdown.Section label="Select an agent">
-                          {personas.map(p => (
+                          {visiblePersonas.map(p => (
                             <Dropdown.Item
                               key={p.id}
                               label={p.name}
@@ -1448,18 +1503,19 @@ export default function PersonasPage() {
                           avatarUrl={draftAvatarMap[persona.id] ?? persona.imageUrl ?? undefined}
                           tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
-                          shared={persona.sourceShareId !== null || (persona.visibility === 'team' && currentUserRole !== 'admin')}
+                          shared={persona.sourceShareId !== null || (persona.visibility === 'team' && !isOwnedByMe(persona))}
                           modelVisible={Boolean(resolveModelName(persona.modelId))}
                           modelName={resolveModelName(persona.modelId) ?? undefined}
                           superlink={activeShareRepoIds.has(persona.id)}
                           visibility={visibilityForPersona[persona.id] === 'team' ? 'team' : visibilityForPersona[persona.id] === 'private' ? 'private' : undefined}
                           {...(() => {
-                            // Team-shared originals (admin-owned, visible to members via team) —
-                            // members cannot edit/delete/share the original; they copy it first.
-                            const isTeamShared = persona.visibility === 'team' && currentUserRole !== 'admin'
+                            // Team-shared originals not created by this user (regardless of
+                            // their own org role) — they cannot edit/delete/share the
+                            // original; they copy it first.
+                            const isTeamShared = persona.visibility === 'team' && !isOwnedByMe(persona)
                             if (isTeamShared) return {
                               onEdit:            () => void handleCopyAndEdit(persona),
-                              onUseInChat:       () => push(AGENT_CHAT_ROUTE(persona.id)),
+                              onUseInChat:       () => void handleUseTeamSharedInChat(persona),
                               onMenuDuplicate:   () => void handleCopyAndEdit(persona),
                             }
                             // Owned personas (private copies or admin's own team agents)
@@ -1728,13 +1784,13 @@ export default function PersonasPage() {
                         }
                       >
                         <Dropdown style={{ minWidth: 220 }}>
-                          {personas.length === 0 ? (
+                          {visiblePersonas.length === 0 ? (
                             <Dropdown.Section>
                               <Dropdown.Item label="No agents yet — create one first" disabled fluid />
                             </Dropdown.Section>
                           ) : (
                             <Dropdown.Section label="Select an agent">
-                              {personas.map(p => (
+                              {visiblePersonas.map(p => (
                                 <Dropdown.Item
                                   key={p.id}
                                   label={p.name}

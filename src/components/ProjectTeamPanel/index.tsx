@@ -1,11 +1,15 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { Avatar } from '@/components/Avatar'
+import { Button } from '@/components/Button'
 import { useOrg } from '@/context/org-context'
 import { listTeamEditors } from '@/lib/api/teams'
 import type { TeamEditor } from '@/types/teams'
-import { fetchPersonas, personasForTeamContext, type Persona } from '@/lib/api/personas'
+import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped, type Persona } from '@/lib/api/personas'
+import { AGENT_CHAT_ROUTE } from '@/lib/routes'
 import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
 
 export interface ProjectTeamPanelProps {
@@ -37,11 +41,32 @@ function EmptyRow({ text }: { text: string }) {
 }
 
 export function ProjectTeamPanel({ teamId, projectId, ownerUserId, canEdit }: ProjectTeamPanelProps) {
+  const { push } = useRouter()
   const { orgId } = useOrg()
   const [teamMembers, setTeamMembers] = useState<TeamEditor[]>([])
   const [membersLoading, setMembersLoading] = useState(true)
   const [agents, setAgents] = useState<Persona[]>([])
   const [agentsLoading, setAgentsLoading] = useState(true)
+  const [usingId, setUsingId] = useState<string | null>(null)
+
+  // Team-shared agents aren't owned by the member viewing this panel, so the
+  // dedicated chat route 404s on them directly (chat creation is owner-only on
+  // the backend). Clone into the member's own account first (deduped — repeat
+  // clicks reuse the same copy, never pile up duplicates), then open its chat.
+  async function handleUseAgent(agent: Persona) {
+    setUsingId(agent.id)
+    const toastId = toast.loading(`Opening "${agent.name}"…`)
+    try {
+      const copy = await usePersonaRepoDeduped(agent.id)
+      toast.dismiss(toastId)
+      push(AGENT_CHAT_ROUTE(copy.id))
+    } catch {
+      toast.dismiss(toastId)
+      toast.error('Failed to open agent. Please try again.')
+    } finally {
+      setUsingId(null)
+    }
+  }
 
   useEffect(() => {
     if (!orgId) return
@@ -119,7 +144,7 @@ export function ProjectTeamPanel({ teamId, projectId, ownerUserId, canEdit }: Pr
             ) : (
               <Avatar name={agent.name} size="sm" />
             )}
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0, flex: '1 0 0' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {agent.name}
               </p>
@@ -129,6 +154,15 @@ export function ProjectTeamPanel({ teamId, projectId, ownerUserId, canEdit }: Pr
                 </p>
               )}
             </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={usingId === agent.id}
+              disabled={usingId !== null && usingId !== agent.id}
+              onClick={() => void handleUseAgent(agent)}
+            >
+              Use
+            </Button>
           </div>
         ))}
       </div>

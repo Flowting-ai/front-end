@@ -12,8 +12,10 @@ import {
 } from '@strange-huge/icons'
 import type { PinFolder } from '@/lib/api/pins'
 import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped } from '@/lib/api/personas'
+import { listTeamPersonaShares } from '@/lib/api/teams'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
+import { useAuth } from '@/context/auth-context'
 
 // Module-level session cache: original team-persona repo ID → member's copy info.
 // Shared across component instances; resets on page refresh.
@@ -84,7 +86,8 @@ export function ChatAddMenu({
   hidePinFolders,
 }: ChatAddMenuProps) {
   const { folders: contextFolders } = usePinboard()
-  const { currentUserRole } = useOrg()
+  const { currentUserRole, orgId } = useOrg()
+  const { user } = useAuth()
   const pinFolders: PinFolder[] = contextFolders
     .filter(f => f.pinCount === undefined || f.pinCount > 0)
     .map(f => ({ id: f.id, name: f.label, pin_count: f.pinCount ?? 0 }))
@@ -102,22 +105,37 @@ export function ChatAddMenu({
     // Only show the spinner when there are no cached results yet.
     const needsLoad = personas.length === 0
     if (needsLoad) setLoadingPersonas(true)
-    // Members/editors can't use another user's persona directly — _resolve_persona enforces
-    // ownership. For team projects, transparently copy each team-shared persona into the
-    // member's own account so the chat proceeds with their copy's version ID.
-    const needsCopy = Boolean(teamId) && currentUserRole !== 'admin'
+
+    // Members/editors can't use another user's persona directly — _resolve_persona
+    // enforces ownership. For team projects, transparently copy each team-shared
+    // persona the caller doesn't personally own into their own account, so the
+    // chat proceeds with their copy's version ID.
+    //
+    // Ownership is per-persona, not per-org-role — `currentUserRole` alone would
+    // treat every admin as owning every admin-created team-shared agent, not just
+    // their own. listTeamPersonaShares carries the real creator id (same data the
+    // org/teams "Shared by X" panel uses); fall back to the coarse role check only
+    // if that fetch hasn't resolved yet, to avoid blocking the menu on it.
+    const ownerMapPromise = teamId && orgId
+      ? listTeamPersonaShares(orgId, teamId).then(shares => {
+          const map: Record<string, string> = {}
+          for (const s of shares) map[s.personaRepoId] = s.sharedByUserId
+          return map
+        }).catch(() => ({} as Record<string, string>))
+      : Promise.resolve({} as Record<string, string>)
 
     fetchPersonas()
       .then(async list => {
         if (teamId) {
-          const teamPersonas = personasForTeamContext(list, teamId)
-          if (!needsCopy) {
-            setPersonas(teamPersonas.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: p.temperature })))
-            return
+          const ownerMap = await ownerMapPromise
+          const isOwnedByMe = (repoId: string) => {
+            const ownerId = ownerMap[repoId]
+            return ownerId ? String(ownerId) === String(user?.id) : currentUserRole === 'admin'
           }
+          const teamPersonas = personasForTeamContext(list, teamId)
           const resolved = await Promise.all(teamPersonas.map(async p => {
             const base: SelectedPersonaInfo = { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: p.temperature }
-            if (p.visibility !== 'team') return base
+            if (p.visibility !== 'team' || isOwnedByMe(p.id)) return base
             const cached = _teamCopyCache.get(p.id)
             if (cached) return cached
             try {
@@ -143,7 +161,7 @@ export function ChatAddMenu({
       })
       .catch(() => setPersonas([]))
       .finally(() => setLoadingPersonas(false))
-  }, [personaMenuOpen, teamId, currentUserRole]) // eslint-disable-line react-hooks/exhaustive-deps -- personas.length read only for the initial guard, not a dep
+  }, [personaMenuOpen, teamId, currentUserRole, orgId, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps -- personas.length read only for the initial guard, not a dep
 
   return (
     <Dropdown style={{ width: 200 }}>

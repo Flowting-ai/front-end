@@ -203,8 +203,16 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
         }
         setOrgRole(resolvedRole)
         setOrgRoleResolved(roleDefinitive)
+        // isTeamPlan is a guess for when the backend role is unknown (roleDefinitive
+        // false) — it must NOT override a definitive 'member' answer, or every real
+        // non-owner team member whose own onboarding roleFit happened to be
+        // small_team/large_team gets silently promoted to 'admin' (this broke the
+        // clone-before-chat logic gated on currentUserRole !== 'admin' throughout
+        // the app, since a definitively-confirmed member was treated as an admin).
         setCurrentUserRole(
-          resolvedRole === 'owner' || resolvedRole === 'admin' || isTeamPlan ? 'admin' : 'member',
+          resolvedRole === 'owner' || resolvedRole === 'admin'
+            ? 'admin'
+            : roleDefinitive ? 'member' : (isTeamPlan ? 'admin' : 'member'),
         )
       })
       .catch(err => {
