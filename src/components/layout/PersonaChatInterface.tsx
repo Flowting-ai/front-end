@@ -472,6 +472,22 @@ export function PersonaChatInterface({
     });
   }, [selectedModel]);
 
+  // Permission-prompt answers live on the message, not in card-local state —
+  // otherwise the message_saved id swap remounts the row and resurrects
+  // already-answered cards.
+  const handlePromptDecided = useCallback((messageId: string, requestId: string, decision: string) => {
+    setMessages(prev => prev.map(msg =>
+      msg.id === messageId
+        ? {
+            ...msg,
+            connectorPermissionPrompts: msg.connectorPermissionPrompts?.map(p =>
+              p.request_id === requestId ? { ...p, decision } : p,
+            ),
+          }
+        : msg,
+    ));
+  }, []);
+
   // ── Send message ──────────────────────────────────────────────────────────
 
   // Individual credit/topup status — warning banner + hard send-gate.
@@ -600,6 +616,7 @@ export function PersonaChatInterface({
               chatId={chatId || undefined}
               hidePinAction
               disableHighlight
+              onPromptDecided={handlePromptDecided}
             />
           ))}
 

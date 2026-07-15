@@ -48,7 +48,10 @@ export function PermissionPromptCard({
     onDecided?.(value)
   }, [disabled, decided, hideAfterDecide, onDecided])
 
-  if (decided) return null
+  // prompt.decision is the durable answered marker (recorded in the owning
+  // surface's message state); the local flag only covers surfaces that don't
+  // record it. Without the durable check, remounts resurrect answered cards.
+  if (decided || prompt.decision) return null
 
   const logoSrc = connectorLogoSrc(prompt.connector_slug) ?? prompt.icon_url ?? connectorLogoSrc(prompt.display_name)
   const displayName = prompt.display_name || prompt.connector_slug || '?'
@@ -121,7 +124,7 @@ export function PermissionPromptCard({
           }}>
             {persistable
               ? <>The AI wants to call <code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.tool_name}</code>. Your choice applies to future calls too.</>
-              : <>One-time request — your decision applies to this call only.</>}
+              : <><code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.summary || prompt.tool_name}</code> — one-time request, applies to this call only.</>}
           </span>
         </div>
       </div>

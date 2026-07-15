@@ -276,6 +276,9 @@ interface ChatMessageProps {
   onCitationsClick?: () => void;
   onFollowUp?: (prompt: string) => void;
   onRetry?: () => void;
+  /** Records a permission-prompt answer in the owning messages state so the
+   *  card stays hidden across remounts (message-id swap, virtualizer). */
+  onPromptDecided?: (messageId: string, requestId: string, decision: string) => void;
 }
 
 export function ChatMessage({
@@ -291,6 +294,7 @@ export function ChatMessage({
   onEdit,
   onFollowUp,
   onRetry,
+  onPromptDecided,
 }: ChatMessageProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -814,7 +818,10 @@ export function ChatMessage({
               <PermissionPromptCard
                 key={prompt.request_id}
                 prompt={prompt}
-                onDecided={(policy) => { respondToChatPrompt(prompt.request_id, policy, prompt.respond_url).catch(() => {}) }}
+                onDecided={(policy) => {
+                  respondToChatPrompt(prompt.request_id, policy, prompt.respond_url).catch(() => {})
+                  onPromptDecided?.(message.id, prompt.request_id, policy)
+                }}
               />
             ))}
           </div>

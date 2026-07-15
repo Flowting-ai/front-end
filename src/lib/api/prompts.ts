@@ -23,20 +23,30 @@ export const connectorPermissionPromptSchema = z.looseObject({
   tool_slug:      z.string().optional(),
   tool_name:      z.string().optional(),
   suggested_args: z.record(z.string(), z.unknown()).optional(),
-  icon_url:       z.string().optional(),
+  icon_url:       z.string().nullish(),
+  /** Human-readable description of the exact call ("Raw GET https://…") —
+   *  what the card shows when the tool slug is an unreadable raw slug. */
+  summary:        z.string().optional(),
   /** False for synthetic/raw requests that must not be saved in settings. */
   persistable:    z.boolean().default(true),
   options:        z.array(promptOptionSchema).default([]),
+  /** Client-side only: the user's answer ("allow" | "allow_once" | "block").
+   *  Never sent on the wire — recorded in message state when the user decides,
+   *  so answered prompts stay hidden across remounts (e.g. the message-id swap
+   *  on message_saved). */
+  decision:       z.string().optional(),
 }).transform((raw) => ({
   request_id:     raw.prompt_id ?? raw.request_id ?? `cpp-${Date.now()}`,
   connector_slug: raw.connector_slug,
   display_name:   raw.display_name ?? raw.connector_slug,
   tool_name:      raw.tool_slug ?? raw.tool_name ?? '',
   suggested_args: raw.suggested_args,
-  icon_url:       raw.icon_url,
+  icon_url:       raw.icon_url ?? undefined,
+  summary:        raw.summary ?? '',
   respond_url:    raw.respond_url,
   persistable:    raw.persistable,
   options:        raw.options.map((o) => ({ value: o.value, label: o.label ?? o.value, style: o.style })),
+  decision:       raw.decision,
 }))
 
 export type ConnectorPermissionPrompt = z.infer<typeof connectorPermissionPromptSchema>

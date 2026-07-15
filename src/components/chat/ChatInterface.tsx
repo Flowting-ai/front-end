@@ -867,6 +867,22 @@ export function ChatInterface({
     );
   };
 
+  // Permission-prompt answers live on the message, not in card-local state —
+  // otherwise the message_saved id swap remounts the row and resurrects
+  // already-answered cards.
+  const handlePromptDecided = useCallback((messageId: string, requestId: string, decision: string) => {
+    setMessages((prev) => prev.map((msg) =>
+      msg.id === messageId
+        ? {
+            ...msg,
+            connectorPermissionPrompts: msg.connectorPermissionPrompts?.map((p) =>
+              p.request_id === requestId ? { ...p, decision } : p,
+            ),
+          }
+        : msg,
+    ));
+  }, [setMessages]);
+
   // Edit user message — replaces the message content, removes all subsequent
   // messages, then re-streams an assistant response using the backend's
   // replace_message_id edit API.
@@ -1073,6 +1089,7 @@ export function ChatInterface({
                         ? () => handleCitationsClick(message.sources!)
                         : undefined
                     }
+                    onPromptDecided={handlePromptDecided}
                   />
                 </div>
               );
