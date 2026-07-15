@@ -22,7 +22,7 @@ import { usePinboard, type PinItem }                       from '@/context/pinbo
 import { useHighlight }                                    from '@/context/highlight-context'
 import type { PinMentionable }                             from '@/components/chat/PinMentionDropdown'
 import { fetchPersonas, personasForTeamContext, getVersion, usePersonaRepoDeduped, isPersonaOwnedByViewer } from '@/lib/api/personas'
-import { fetchPersonaOwnerMap } from '@/lib/api/teams'
+import { fetchPersonaOwnerMap, resolveViewerUserId } from '@/lib/api/teams'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
 import { Dropdown }                                        from '@/components/Dropdown'
 import { Chip }                                            from '@/components/Chip'
@@ -200,8 +200,11 @@ function ProjectChatPageInner() {
     renameChat,
     loadProjectChats,
   } = useProjects()
-  const { currentUserRole, orgId } = useOrg()
+  const { currentUserRole, orgId, members } = useOrg()
   const { user } = useAuth()
+  // `user?.id` is never populated by the backend's /users/me — resolve the
+  // viewer's internal id via the org member list instead (see resolveViewerUserId).
+  const viewerUserId = resolveViewerUserId(members, user?.email)
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
   const isNewChat = params.chatId === 'new'
@@ -486,7 +489,7 @@ function ProjectChatPageInner() {
 
       const resolved = await Promise.all(teamPersonas.map(async p => {
         const base: SelectedPersonaInfo = { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }
-        if (isPersonaOwnedByViewer(p, ownerMap, user?.id, currentUserRole === 'admin')) return base
+        if (isPersonaOwnedByViewer(p, ownerMap, viewerUserId, currentUserRole === 'admin')) return base
         const cached = teamPersonaCopyCache.current.get(p.id)
         if (cached) return cached
         try {
@@ -516,7 +519,7 @@ function ProjectChatPageInner() {
       .catch(() => { if (!cancelled) setChipPersonas([]) })
       .finally(() => { if (!cancelled) setLoadingChipPersonas(false) })
     return () => { cancelled = true }
-  }, [personaChipOpen, project?.teamId, currentUserRole, orgId, user?.id])
+  }, [personaChipOpen, project?.teamId, currentUserRole, orgId, viewerUserId])
 
   // ── Chips ─────────────────────────────────────────────────────────────────
 

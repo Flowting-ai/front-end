@@ -31,6 +31,7 @@ import {
   listTeamConnections,
   attachSharedAccount,
   unlinkTeamConnection,
+  resolveViewerUserId,
   type TeamConnectorRequest,
   type TeamConnectionEntry,
 } from '@/lib/api/teams'
@@ -512,8 +513,11 @@ function TeamEditorPageContent() {
   const teamId = String(params.teamId)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { orgId, orgReady, currentUserRole } = useOrg()
+  const { orgId, orgReady, currentUserRole, members } = useOrg()
   const { user } = useAuth()
+  // `user?.id` is never populated by the backend's /users/me — resolve the
+  // viewer's internal id via the org member list instead (see resolveViewerUserId).
+  const viewerUserId = resolveViewerUserId(members, user?.email)
 
   const [team, setTeam] = useState<Team | null>(null)
   const [canLink, setCanLink] = useState(false)
@@ -560,7 +564,7 @@ function TeamEditorPageContent() {
       onBack={() => router.push(CHAT_ROUTE)}
     >
       {section === 'projects' && (
-        <ProjectsTab teamId={teamId} userId={String(user?.id ?? '')} />
+        <ProjectsTab teamId={teamId} userId={viewerUserId ?? ''} />
       )}
 
       {section === 'connectors' && (

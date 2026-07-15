@@ -13,7 +13,7 @@ import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
 import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
-import { fetchPersonaOwnerMap } from "@/lib/api/teams";
+import { fetchPersonaOwnerMap, resolveViewerUserId } from "@/lib/api/teams";
 import { listTasks } from "@/lib/api/tasks";
 import type { ScheduledTaskListItem } from "@/lib/api/tasks";
 import { CHAT_CREATED_EVENT, emitBrainNewThread } from "@/hooks/use-sidebar-events";
@@ -975,8 +975,11 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   const { push }            = useRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
-  const { orgId, teams, currentUserRole } = useOrg()
+  const { orgId, teams, currentUserRole, members } = useOrg()
   const { user } = useAuth()
+  // `user?.id` is never populated by the backend's /users/me — resolve the
+  // viewer's internal id via the org member list instead (see resolveViewerUserId).
+  const viewerUserId = resolveViewerUserId(members, user?.email)
 
   const personaMatch    = pathname?.match(/^\/agents\/([^/]+)\/chat/)
   const activePersonaId = personaMatch?.[1] ?? null
@@ -1010,8 +1013,8 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   }, [orgId, teams])
 
   const personas = useMemo(
-    () => rawPersonas.filter(p => isPersonaOwnedByViewer(p, personaOwnerMap, user?.id, currentUserRole === 'admin')),
-    [rawPersonas, personaOwnerMap, user?.id, currentUserRole],
+    () => rawPersonas.filter(p => isPersonaOwnedByViewer(p, personaOwnerMap, viewerUserId, currentUserRole === 'admin')),
+    [rawPersonas, personaOwnerMap, viewerUserId, currentUserRole],
   )
 
   // Load chats for a given persona — idempotent (no-op if already loaded/loading)

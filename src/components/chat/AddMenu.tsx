@@ -12,7 +12,7 @@ import {
 } from '@strange-huge/icons'
 import type { PinFolder } from '@/lib/api/pins'
 import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped, isPersonaOwnedByViewer } from '@/lib/api/personas'
-import { fetchPersonaOwnerMap } from '@/lib/api/teams'
+import { fetchPersonaOwnerMap, resolveViewerUserId } from '@/lib/api/teams'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
@@ -86,8 +86,11 @@ export function ChatAddMenu({
   hidePinFolders,
 }: ChatAddMenuProps) {
   const { folders: contextFolders } = usePinboard()
-  const { currentUserRole, orgId } = useOrg()
+  const { currentUserRole, orgId, members } = useOrg()
   const { user } = useAuth()
+  // `user?.id` is never populated by the backend's /users/me — resolve the
+  // viewer's internal id via the org member list instead (see resolveViewerUserId).
+  const viewerUserId = resolveViewerUserId(members, user?.email)
   const pinFolders: PinFolder[] = contextFolders
     .filter(f => f.pinCount === undefined || f.pinCount > 0)
     .map(f => ({ id: f.id, name: f.label, pin_count: f.pinCount ?? 0 }))
@@ -127,7 +130,7 @@ export function ChatAddMenu({
           const teamPersonas = personasForTeamContext(list, teamId)
           const resolved = await Promise.all(teamPersonas.map(async p => {
             const base: SelectedPersonaInfo = { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: p.temperature }
-            if (isPersonaOwnedByViewer(p, ownerMap, user?.id, currentUserRole === 'admin')) return base
+            if (isPersonaOwnedByViewer(p, ownerMap, viewerUserId, currentUserRole === 'admin')) return base
             const cached = _teamCopyCache.get(p.id)
             if (cached) return cached
             try {
@@ -153,7 +156,7 @@ export function ChatAddMenu({
       })
       .catch(() => setPersonas([]))
       .finally(() => setLoadingPersonas(false))
-  }, [personaMenuOpen, teamId, currentUserRole, orgId, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps -- personas.length read only for the initial guard, not a dep
+  }, [personaMenuOpen, teamId, currentUserRole, orgId, viewerUserId]) // eslint-disable-line react-hooks/exhaustive-deps -- personas.length read only for the initial guard, not a dep
 
   return (
     <Dropdown style={{ width: 200 }}>

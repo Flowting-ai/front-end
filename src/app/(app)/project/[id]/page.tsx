@@ -41,7 +41,7 @@ import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
 import Image from 'next/image'
 import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped, isPersonaOwnedByViewer } from '@/lib/api/personas'
-import { fetchPersonaOwnerMap } from '@/lib/api/teams'
+import { fetchPersonaOwnerMap, resolveViewerUserId } from '@/lib/api/teams'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
 import { FloatingMenu } from '@/components/FloatingMenu'
@@ -82,13 +82,16 @@ export default function ProjectPage() {
 
   const { orgId, caps, members, currentUserRole, teams: orgTeams } = useOrg()
   const { user } = useAuth()
+  // `user?.id` is never populated by the backend's /users/me — resolve the
+  // viewer's internal id via the org member list instead (see resolveViewerUserId).
+  const viewerUserId = resolveViewerUserId(members, user?.email)
   const project = getProject(params.id)
   const chats   = getChats(params.id)
   // Only the project's original creator may take it back to Private — the
   // backend's set_resource_visibility rejects the PATCH with a 403 for
   // anyone else (a team editor/admin managing a teammate's project, say).
   // Hiding the option for non-owners avoids surfacing that 403 at all.
-  const isProjectOwner = !!project && !!user?.id && String(project.ownerUserId) === String(user.id)
+  const isProjectOwner = !!project && !!viewerUserId && String(project.ownerUserId) === String(viewerUserId)
 
   useEffect(() => {
     setProjectLoading(true)
@@ -153,7 +156,7 @@ export default function ProjectPage() {
 
       const resolved = await Promise.all(teamPersonas.map(async p => {
         const base: SelectedPersonaInfo = { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }
-        if (isPersonaOwnedByViewer(p, ownerMap, user?.id, currentUserRole === 'admin')) return base
+        if (isPersonaOwnedByViewer(p, ownerMap, viewerUserId, currentUserRole === 'admin')) return base
         const cached = teamPersonaCopyCache.current.get(p.id)
         if (cached) return cached
         try {
@@ -183,7 +186,7 @@ export default function ProjectPage() {
       .catch(() => { if (!cancelled) setChipPersonas([]) })
       .finally(() => { if (!cancelled) setLoadingChipPersonas(false) })
     return () => { cancelled = true }
-  }, [personaChipOpen, project?.teamId, currentUserRole, orgId, user?.id])
+  }, [personaChipOpen, project?.teamId, currentUserRole, orgId, viewerUserId])
 
   // Team projects source their chat list from the global /chats endpoint
   // (which carries visibility/team_id/pins_count), filtered to this project.
