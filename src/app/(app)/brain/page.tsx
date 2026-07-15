@@ -96,6 +96,8 @@ import { isExtractable, extractText, stripDocumentBlocks } from '@/lib/brain-fil
 import { linkScheduleToChat, consumePendingPrompt, remapScheduleLink } from '@/lib/scheduleLinks'
 import { listTasks } from '@/lib/api/tasks'
 import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
+import { PermissionPromptCard } from '@/components/shared/PermissionPromptCard'
+import { parsePermissionPrompt, type ConnectorPermissionPrompt } from '@/lib/api/prompts'
 import {
   appendReasoningEvent,
   createReasoningState,
@@ -979,117 +981,6 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
   )
 }
 
-// ── Permission prompt card ────────────────────────────────────────────────────
-// Rendered inline when the model wants to run a connector tool whose policy is
-// `ask` (connector already linked). The user picks a decision; the page POSTs
-// the plain-string response to release the blocked stream.
-
-interface PermissionPromptCardProps {
-  prompt: {
-    displayName:  string
-    toolSlug:     string
-    connectorSlug: string
-    options:      { value: string; label: string; style?: string }[]
-  }
-  disabled?: boolean
-  onDecide:  (decision: string) => void
-}
-
-function PermissionPromptCard({ prompt, disabled = false, onDecide }: PermissionPromptCardProps) {
-  const logoSrc = connectorLogoSrc(prompt.connectorSlug) ?? connectorLogoSrc(prompt.displayName)
-  const displayName = prompt.displayName || prompt.connectorSlug || '?'
-  return (
-    <div style={{
-      display:         'flex',
-      flexDirection:   'column',
-      gap:             12,
-      padding:         '16px',
-      borderRadius:    16,
-      border:          '1px solid var(--neutral-200)',
-      backgroundColor: 'var(--color-surface-glass)',
-      boxShadow:       'var(--shadow-card-default)',
-    }}>
-      {/* Header: connector logo + title + tool slug */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        {logoSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- local brand asset, variable path prevents next/image static analysis
-          <img
-            src={logoSrc}
-            alt=""
-            width={32}
-            height={32}
-            style={{ objectFit: 'contain', display: 'block', flexShrink: 0, borderRadius: 8, marginTop: 1 }}
-          />
-        ) : (
-          <span style={{
-            width:           32,
-            height:          32,
-            borderRadius:    8,
-            backgroundColor: 'var(--neutral-100)',
-            display:         'flex',
-            alignItems:      'center',
-            justifyContent:  'center',
-            fontFamily:      'var(--font-body)',
-            fontSize:        14,
-            fontWeight:      600,
-            color:           'var(--neutral-600)',
-            flexShrink:      0,
-            textTransform:   'uppercase',
-            userSelect:      'none',
-            marginTop:       1,
-          }}>
-            {displayName.charAt(0)}
-          </span>
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: '1 0 0', minWidth: 0 }}>
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-body)',
-            fontWeight: 'var(--font-weight-medium)',
-            lineHeight: 'var(--line-height-body)',
-            color:      'var(--neutral-800)',
-          }}>
-            Allow {displayName} to run this action?
-          </span>
-          {prompt.toolSlug && (
-            <span style={{
-              fontFamily:   'var(--font-body)',
-              fontSize:     'var(--font-size-caption)',
-              lineHeight:   'var(--line-height-caption)',
-              color:        'var(--neutral-500)',
-              overflow:     'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace:   'nowrap',
-            }}>
-              <code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.toolSlug}</code>
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 }}>
-        {prompt.options.map((opt) => {
-          const isPrimary = opt.style === 'primary' || opt.value === 'allow' || opt.value === 'allow_once'
-          const isDanger  = opt.style === 'danger'
-          const variant = isDanger ? 'danger' : isPrimary ? 'default' : 'secondary'
-          return (
-            <Button
-              key={opt.value}
-              size="sm"
-              variant={variant}
-              disabled={disabled}
-              onClick={() => onDecide(opt.value)}
-            >
-              {opt.label}
-            </Button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 // ── Tool / search / file activity feed ────────────────────────────────────────
 // Lightweight chronological feed of mid-stream side effects: web searches,
 // generated images/files, live tool calls, tool progress updates. Each item
@@ -1415,15 +1306,9 @@ function BrainPageInner() {
   }
   const [activeClarification, setActiveClarification] = useState<ActiveClarification | null>(null)
   // Connector-tool permission ask (event: permission_prompt) — the connector is
-  // linked but the tool's policy is `ask`. Rendered inline in the active turn.
-  interface ActivePermissionPrompt {
-    promptId:       string
-    connectorSlug:  string
-    displayName:    string
-    toolSlug:       string
-    options:        { value: string; label: string; style?: string }[]
-  }
-  const [activePermissionPrompt, setActivePermissionPrompt] = useState<ActivePermissionPrompt | null>(null)
+  // linked but the tool's policy is `ask`. Rendered inline in the active turn
+  // via the shared PermissionPromptCard.
+  const [activePermissionPrompt, setActivePermissionPrompt] = useState<ConnectorPermissionPrompt | null>(null)
   const [permissionInFlight, setPermissionInFlight] = useState(false)
   // Write-approval ask (event: approval_prompt) — HITL confirmation before Brain
   // performs a real-world side effect (send email, post, delete …). Independent
@@ -1742,7 +1627,7 @@ function BrainPageInner() {
 
   // Permission prompt card appeared — always scroll into view.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (activePermissionPrompt) scrollToBottom(true) }, [activePermissionPrompt?.promptId])
+  useEffect(() => { if (activePermissionPrompt) scrollToBottom(true) }, [activePermissionPrompt?.request_id])
 
   // Persona / pin prompt-gate card appeared — always scroll into view.
   useEffect(() => {
@@ -2270,28 +2155,14 @@ function BrainPageInner() {
       // policy is `ask`. Distinct from tool_connect_prompt (which links an
       // unlinked connector). Resolve by POSTing a plain string decision.
       case 'permission_prompt': {
-        const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
-        if (!promptId) break
-        const optsRaw = Array.isArray(d.options) ? d.options : []
-        const opts = optsRaw.flatMap((o: unknown) => {
-          if (!o || typeof o !== 'object') return []
-          const oo = o as Record<string, unknown>
-          const value = typeof oo.value === 'string' ? oo.value : ''
-          return value ? [{ value, label: typeof oo.label === 'string' ? oo.label : value, style: typeof oo.style === 'string' ? oo.style : undefined }] : []
-        })
-        setActivePermissionPrompt({
-          promptId,
-          connectorSlug: typeof d.connector_slug === 'string' ? d.connector_slug : '',
-          displayName:   typeof d.display_name === 'string' ? d.display_name : (typeof d.connector_slug === 'string' ? d.connector_slug : ''),
-          toolSlug:      typeof d.tool_slug === 'string' ? d.tool_slug : '',
-          options:       opts.length > 0 ? opts : [
-            { value: 'allow_once', label: 'Allow once' },
-            { value: 'allow',      label: 'Always allow' },
-            { value: 'block',      label: 'Block' },
-          ],
-        })
+        // respondToPrompt needs the backend's real prompt_id — a prompt without
+        // one can never be resolved, so drop it rather than render a dead card.
+        if (typeof d.prompt_id !== 'string' || !d.prompt_id) break
+        const prompt = parsePermissionPrompt(d)
+        if (!prompt) break
+        setActivePermissionPrompt(prompt)
         setPermissionInFlight(false)
-        setTimeline((prev) => [...prev, { kind: 'permission', id: `permission-${++timelineSeqRef.current}`, promptId }])
+        setTimeline((prev) => [...prev, { kind: 'permission', id: `permission-${++timelineSeqRef.current}`, promptId: prompt.request_id }])
         break
       }
 
@@ -3779,7 +3650,7 @@ function BrainPageInner() {
   // ("allow_once" | "allow" | "block"). Unblocks the stream like clarifications.
   const handlePermissionDecision = useCallback((decision: string) => {
     if (!activePermissionPrompt || permissionInFlight) return
-    const { promptId } = activePermissionPrompt
+    const promptId = activePermissionPrompt.request_id
     setPermissionInFlight(true)
     void respondToPrompt(promptId, { response: decision })
       .then(() => {
@@ -4335,8 +4206,8 @@ function BrainPageInner() {
       case 'permission':
         // Only the row matching the still-open prompt renders the live card;
         // resolved/older permission rows collapse to nothing.
-        return activePermissionPrompt?.promptId === item.promptId
-          ? <PermissionPromptCard key={item.id} prompt={activePermissionPrompt} disabled={permissionInFlight} onDecide={handlePermissionDecision} />
+        return activePermissionPrompt?.request_id === item.promptId
+          ? <PermissionPromptCard key={item.id} prompt={activePermissionPrompt} disabled={permissionInFlight} hideAfterDecide={false} onDecided={handlePermissionDecision} />
           : null
       case 'approval':
         // Inline write-approval card at the exact pause point. The card owns its

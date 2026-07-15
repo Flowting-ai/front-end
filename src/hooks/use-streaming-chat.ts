@@ -4,6 +4,7 @@ import { useRef } from "react"
 import { extractThinkingContent } from "@/lib/parsers/content-parser"
 import { mergeStreamingText } from "@/lib/streaming"
 import { apiFetch } from "@/lib/api/client"
+import { parsePermissionPrompt } from "@/lib/api/prompts"
 import { friendlyModelError, MODEL_UNRESPONSIVE_MESSAGE } from "@/lib/model-error"
 import {
   CHAT_STOP_ENDPOINT,
@@ -985,19 +986,10 @@ export function useStreamingChat({
           if (eventName === "permission_prompt" || eventName === "tool_permission_prompt") {
             // Backend emits `prompt_id` + `respond_url` (spec fields). POST to respond_url
             // (or /chats/prompts/{prompt_id}) with {"response":"allow"|"allow_once"|"block"}
-            // to unblock the stream. Falls back to legacy `request_id`/`tool_name`.
-            const prompt: import("@/hooks/use-chat-state").ConnectorPermissionPrompt = {
-              request_id:     asString(parsed.prompt_id ?? parsed.request_id) ?? `cpp-${Date.now()}`,
-              connector_slug: asString(parsed.connector_slug) ?? "",
-              display_name:   asString(parsed.display_name) ?? asString(parsed.connector_slug) ?? "",
-              tool_name:      asString(parsed.tool_slug ?? parsed.tool_name) ?? "",
-              suggested_args: typeof parsed.suggested_args === 'object' && parsed.suggested_args !== null
-                ? (parsed.suggested_args as Record<string, unknown>)
-                : undefined,
-              icon_url:       asString(parsed.icon_url),
-              respond_url:    asString(parsed.respond_url) ?? undefined,
-              persistable:    parsed.persistable !== false,
-            }
+            // to unblock the stream. parsePermissionPrompt zod-validates the payload and
+            // folds legacy `request_id`/`tool_name` streams into the canonical shape.
+            const prompt = parsePermissionPrompt(parsed)
+            if (!prompt) continue
             const msgId = loadingMessageIdRef.current
             if (msgId) {
               setMessages((prev) =>

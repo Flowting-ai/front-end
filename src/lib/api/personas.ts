@@ -1,6 +1,7 @@
 "use client";
 
 import { apiFetch, apiFetchJson } from "./client";
+import { parsePermissionPrompt, type ConnectorPermissionPrompt } from "./prompts";
 import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import { friendlyModelError } from "@/lib/model-error";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
@@ -1058,16 +1059,9 @@ export interface PersonaConnectPrompt {
   icon_url?:      string
 }
 
-export interface PersonaPermissionPrompt {
-  /** prompt_id from the backend — POST this to /chats/prompts/{id} to unblock the stream. */
-  request_id:      string
-  connector_slug:  string
-  display_name:    string
-  tool_name:       string
-  suggested_args?: Record<string, unknown>
-  icon_url?:       string
-  respond_url?:    string
-}
+/** Canonical permission-prompt shape, zod-parsed in lib/api/prompts.ts —
+ *  aliased so persona stream consumers keep their existing import. */
+export type PersonaPermissionPrompt = ConnectorPermissionPrompt
 
 export interface PersonaChatStreamCallbacks {
   /** Called with the chatId extracted from the X-Chat-Id response header. */
@@ -1323,19 +1317,8 @@ async function readPersonaSSEStream(
             }
             case "permission_prompt":
             case "tool_permission_prompt": {
-              const permPrompt = {
-                request_id:     str(parsed.prompt_id ?? parsed.request_id) || `cpp-${Date.now()}`,
-                connector_slug: str(parsed.connector_slug),
-                display_name:   str(parsed.display_name) || str(parsed.connector_slug),
-                tool_name:      str(parsed.tool_slug ?? parsed.tool_name),
-                suggested_args: typeof parsed.suggested_args === 'object' && parsed.suggested_args !== null
-                  ? (parsed.suggested_args as Record<string, unknown>)
-                  : undefined,
-                icon_url:       str(parsed.icon_url) || undefined,
-                respond_url:    str(parsed.respond_url) || undefined,
-                persistable:    parsed.persistable !== false,
-              }
-              callbacks.onPermissionPrompt?.(permPrompt)
+              const permPrompt = parsePermissionPrompt(parsed)
+              if (permPrompt) callbacks.onPermissionPrompt?.(permPrompt)
               break
             }
             case "error":

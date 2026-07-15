@@ -20,8 +20,10 @@ import { getModelLlmId } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
 import { usePinboardActions } from "@/context/pinboard-context";
 import { trackBrowserEvent } from "@/lib/analytics/events";
-import { ConnectPromptCard, PermissionPromptCard } from "@/components/chat/ConnectorPrompts";
+import { ConnectPromptCard } from "@/components/chat/ConnectorPrompts";
+import { PermissionPromptCard } from "@/components/shared/PermissionPromptCard";
 import type { ConnectorConnectPrompt, ConnectorPermissionPrompt } from "@/hooks/use-chat-state";
+import { parsePermissionPrompt } from "@/lib/api/prompts";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { sanitizeKaTeX, sanitizeURL } from "@/lib/security";
@@ -1071,13 +1073,8 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             break;
           }
           case "tool_permission_prompt": {
-            const prompt: ConnectorPermissionPrompt = {
-              request_id:     typeof payload.request_id     === "string" ? payload.request_id     : `cpp-${Date.now()}`,
-              connector_slug: typeof payload.connector_slug === "string" ? payload.connector_slug : "",
-              display_name:   typeof payload.display_name   === "string" ? payload.display_name   : (typeof payload.connector_slug === "string" ? payload.connector_slug : ""),
-              tool_name:      typeof payload.tool_name      === "string" ? payload.tool_name      : "",
-              icon_url:       typeof payload.icon_url       === "string" ? payload.icon_url       : undefined,
-            };
+            const prompt = parsePermissionPrompt(payload);
+            if (!prompt) break;
             setPermissionPromptsPerModel((prev) => ({
               ...prev,
               [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],

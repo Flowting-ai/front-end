@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { m, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
-import type { ConnectorConnectPrompt, ConnectorPermissionPrompt } from '@/hooks/use-chat-state'
+import type { ConnectorConnectPrompt } from '@/hooks/use-chat-state'
 import {
   getConnector,
   initiateLink,
@@ -347,76 +347,5 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
   )
 }
 
-// ── PermissionPromptCard ──────────────────────────────────────────────────────
-
-type PermissionPolicy = 'allow' | 'block' | 'allow_once'
-
-interface PermissionPromptCardProps {
-  prompt:       ConnectorPermissionPrompt
-  onDecided?:   (policy: PermissionPolicy) => void
-  /** When true, skip saving to connector settings and immediately unblock the stream gate. */
-  skipSave?:    boolean
-}
-
-export function PermissionPromptCard({ prompt, onDecided, skipSave = false }: PermissionPromptCardProps) {
-  const [state,    setState]    = useState<'idle' | 'done'>('idle')
-  const abortedRef = useRef(false)
-
-  useEffect(() => {
-    return () => { abortedRef.current = true }
-  }, [])
-
-  const handlePolicy = useCallback((policy: PermissionPolicy) => {
-    // Unblock the backend stream immediately — do NOT wait for the preference
-    // save before calling onDecided. The backend holds the SSE connection open
-    // while awaiting the respond POST; saving first would deadlock (PATCH
-    // can't complete while SSE is held open on the same server connection).
-    const label = policy === 'allow' ? 'Allowed' : policy === 'block' ? 'Blocked' : 'Allowed once'
-    setState('done')
-    onDecided?.(policy)
-    toast.success(`${label} — ${prompt.tool_name}`)
-
-    // "Allow once" only unblocks this one call — there's no backend
-    // representation for it (ToolEntry is a persistent allowed/blocked gate,
-    // see services/connectors/schemas.py), so it's never saved as a preference.
-    const persistable = prompt.persistable !== false && !prompt.tool_name.startsWith('raw_')
-    if (skipSave || !persistable || policy === 'allow_once') return
-
-    // Save preference in the background — non-blocking.
-    updateConnector(prompt.connector_slug, {
-      permissions: [{ slug: prompt.tool_name, allowed: policy === 'allow', blocked: policy === 'block' }],
-    }).catch((err: unknown) => {
-      if (abortedRef.current) return
-      const msg = err instanceof Error ? err.message : 'Failed to save permission'
-      toast.error(`Failed to save permission preference: ${msg}`)
-    })
-  }, [prompt, onDecided, skipSave])
-
-  if (state === 'done') return null
-
-  return (
-    <PromptCard>
-      {/* Connector permission prompts body */}
-      <div>
-        <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--neutral-800)' }}>
-          Allow {prompt.display_name} to run?
-        </p>
-        <p style={{ margin: '4px 0 0', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)' }}>
-          The AI wants to call <code style={{ fontSize: 12, background: 'var(--neutral-100)', padding: '1px 5px', borderRadius: 4 }}>{prompt.tool_name}</code> via {prompt.display_name}.
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <PromptButton onClick={() => handlePolicy('allow')}>
-          Allow
-        </PromptButton>
-        <PromptButton variant="outline" onClick={() => handlePolicy('allow_once')}>
-          Allow once
-        </PromptButton>
-        <PromptButton variant="danger" onClick={() => handlePolicy('block')}>
-          Block
-        </PromptButton>
-      </div>
-    </PromptCard>
-  )
-}
+// The permission card lives in components/shared/PermissionPromptCard —
+// one implementation for chat, persona, agent configure, compare, and brain.
