@@ -1500,7 +1500,7 @@ function ConnectorTeamAccessPanel({
               gap:           CONNECTOR_TEAMS_ROW_GAP,
               maxHeight:     teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? CONNECTOR_TEAMS_LIST_MAX_HEIGHT : undefined,
               overflowY:     teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? 'auto' : undefined,
-              paddingRight:  teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? 4 : undefined,
+              padding:       teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? 3 : undefined,
             }}
           >
             {sortedTeams.map((team, index) => {

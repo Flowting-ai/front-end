@@ -73,7 +73,7 @@ export function SuperLinksEmpty({ ref, onBrowsePersonas, className, style, ...pr
           </span>
         </div>
         <Button size="sm" variant="secondary" onClick={onBrowsePersonas} rightIcon={<ArrowRightOneIcon />}>
-          Browse My Personas
+          Browse My Agents
         </Button>
       </div>
     )

@@ -57,7 +57,7 @@ export function ProjectTeamPanel({ teamId, projectId, ownerUserId, canEdit }: Pr
     setUsingId(agent.id)
     const toastId = toast.loading(`Opening "${agent.name}"…`)
     try {
-      const copy = await usePersonaRepoDeduped(agent.id)
+      const copy = await usePersonaRepoDeduped(agent.id, agent.activeVersionId)
       toast.dismiss(toastId)
       push(AGENT_CHAT_ROUTE(copy.id))
     } catch {

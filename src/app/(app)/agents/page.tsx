@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRouter, usePathname } from 'next/navigation'
@@ -14,10 +14,12 @@ import {
   CancelOneIcon,
   FilterMailIcon,
   AlertCircleIcon,
+  RedoIcon,
 } from '@strange-huge/icons'
 import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
+import { Spinner } from '@/components/Spinner'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, usePersonaRepoDeduped, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
@@ -37,6 +39,7 @@ import { SuperLinksEmpty } from '@/components/SuperLinksEmpty'
 import { StatCard } from '@/components/StatCard'
 import { Sparkline } from '@/components/Sparkline'
 import { DateRangePill } from '@/components/DateRangePill'
+import { TeamAgentsTab } from '@/app/(app)/agents/components/TeamAgentsTab'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
@@ -45,7 +48,7 @@ import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = 'my-personas' | 'super-links' | 'shared' | 'community'
+type TabId = 'my-personas' | 'team-agents' | 'super-links' | 'shared' | 'community'
 type SortKey = 'activity' | 'az' | 'za'
 
 type AgentFilters = {
@@ -608,10 +611,11 @@ export default function PersonasPage() {
   const [panelGenOpen,  setPanelGenOpen]  = useState(false)
 
   // Super Links state
-  const [dashboard,       setDashboard]       = useState<ShareDashboardResponse | null>(null)
-  const [sharesLoading,   setSharesLoading]   = useState(false)
-  const [selectedShareId, setSelectedShareId] = useState<string | null>(null)
-  const [slRange,         setSlRange]         = useState<'7d' | '30d' | '90d'>('30d')
+  const [dashboard,          setDashboard]          = useState<ShareDashboardResponse | null>(null)
+  const [sharesLoading,      setSharesLoading]      = useState(false)
+  const [dashboardRefreshing, setDashboardRefreshing] = useState(false)
+  const [selectedShareId,    setSelectedShareId]    = useState<string | null>(null)
+  const [slRange,            setSlRange]            = useState<'7d' | '30d' | '90d'>('30d')
 
   // Derived from slRange — used in both the fetch effect and the chart section
   const slDays = slRange === '7d' ? 7 : slRange === '90d' ? 90 : 30
@@ -701,6 +705,18 @@ export default function PersonasPage() {
       .catch(console.error)
       .finally(() => setSharesLoading(false))
   }, [activeTab, pathname, slDays])
+
+  // Manual refresh — usage numbers (credit_used/pct_used) on a recipient's
+  // Super Link only change on the backend as they use the shared agent; there's
+  // no push/poll here, so this button re-pulls the dashboard on demand.
+  const handleRefreshDashboard = useCallback(() => {
+    setDashboardRefreshing(true)
+    bustPersonasCache()
+    fetchDashboard(slDays)
+      .then(setDashboard)
+      .catch(console.error)
+      .finally(() => setDashboardRefreshing(false))
+  }, [slDays])
 
   // Fetch received shares whenever the shared tab becomes active.
   useEffect(() => {
@@ -954,7 +970,7 @@ export default function PersonasPage() {
   async function handleCopyAndEdit(persona: Persona) {
     const toastId = toast.loading(`Copying "${persona.name}"…`)
     try {
-      const copy = await usePersonaRepoDeduped(persona.id)
+      const copy = await usePersonaRepoDeduped(persona.id, persona.activeVersionId)
       toast.dismiss(toastId)
       push(AGENT_CONFIGURE_INSTRUCTIONS_ROUTE(copy.id, { name: persona.name }))
     } catch {
@@ -970,7 +986,7 @@ export default function PersonasPage() {
   async function handleUseTeamSharedInChat(persona: Persona) {
     const toastId = toast.loading(`Opening "${persona.name}"…`)
     try {
-      const copy = await usePersonaRepoDeduped(persona.id)
+      const copy = await usePersonaRepoDeduped(persona.id, persona.activeVersionId)
       toast.dismiss(toastId)
       push(AGENT_CHAT_ROUTE(copy.id))
     } catch {
@@ -1063,8 +1079,9 @@ export default function PersonasPage() {
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
               <Tabs.List>
                 <Tabs.Trigger value="my-personas">My Agents</Tabs.Trigger>
+                <Tabs.Trigger value="team-agents">Team Agents</Tabs.Trigger>
                 <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
-                <Tabs.Trigger value="shared">Shared</Tabs.Trigger>
+                <Tabs.Trigger value="shared">Shared with me</Tabs.Trigger>
                 {/* <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger> */}
               </Tabs.List>
             </Tabs>
@@ -1083,7 +1100,9 @@ export default function PersonasPage() {
                   ? 'Super Links'
                   : activeTab === 'shared'
                     ? (sharedFilter === 'with-others' ? 'Shared with others' : 'Shared with me')
-                    : 'Agents'}
+                    : activeTab === 'team-agents'
+                      ? 'Team Agents'
+                      : 'Agents'}
               </h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {activeTab === 'super-links' && (
@@ -1140,7 +1159,7 @@ export default function PersonasPage() {
                       </Dropdown.Section>
                     </Dropdown>
                   </Dropdown.Float>
-                ) : (
+                ) : activeTab === 'team-agents' ? null : (
                   <Button
                     variant="default"
                     leftIcon={<PlusSignIcon size={16} />}
@@ -1531,6 +1550,11 @@ export default function PersonasPage() {
             </div>
           )}
 
+          {/* ── Team Agents tab ── */}
+          {activeTab === 'team-agents' && (
+            <TeamAgentsTab />
+          )}
+
           {/* ── Recommended for you ── (hidden) */}
 
           {/* ── Shared tab · Shared with me ── */}
@@ -1764,6 +1788,15 @@ export default function PersonasPage() {
                       }}>
                         {sharesLoading ? 'Loading…' : `Super Links ${summary?.total_links ?? shares.length}`}
                       </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <IconButton
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Refresh usage"
+                        disabled={sharesLoading || dashboardRefreshing}
+                        icon={dashboardRefreshing ? <Spinner size={14} /> : <RedoIcon size={14} />}
+                        onClick={handleRefreshDashboard}
+                      />
                       <Dropdown.Float
                         open={panelGenOpen}
                         onOpenChange={setPanelGenOpen}
@@ -1796,6 +1829,7 @@ export default function PersonasPage() {
                           )}
                         </Dropdown>
                       </Dropdown.Float>
+                      </div>
                     </div>
 
                     {/* Scrollable rows — max 4 visible at once */}

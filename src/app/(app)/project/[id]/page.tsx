@@ -40,7 +40,8 @@ import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
 import Image from 'next/image'
-import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped } from '@/lib/api/personas'
+import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped, isPersonaOwnedByViewer } from '@/lib/api/personas'
+import { fetchPersonaOwnerMap } from '@/lib/api/teams'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
 import { FloatingMenu } from '@/components/FloatingMenu'
@@ -134,26 +135,31 @@ export default function ProjectPage() {
     setLoadingChipPersonas(true)
 
     const teamId = project?.teamId ?? null
-    const needsCopy = Boolean(teamId) && currentUserRole !== 'admin'
+    // Ownership is per-persona, not per-org-role — `currentUserRole` alone would treat every
+    // admin as owning every admin-created team-shared agent, not just their own.
+    // listTeamPersonaShares (via fetchPersonaOwnerMap) carries the real creator id; fall back
+    // to the coarse role check only if that fetch hasn't resolved yet.
     let cancelled = false
+    const ownerMapPromise = teamId && orgId
+      ? fetchPersonaOwnerMap(orgId, [teamId])
+      : Promise.resolve({} as Record<string, string>)
 
     async function loadChipPersonas() {
       const list = await fetchPersonas()
       if (cancelled) return
+      const ownerMap = await ownerMapPromise
+      if (cancelled) return
       const teamPersonas = personasForTeamContext(list, teamId)
-
-      if (!needsCopy) {
-        setChipPersonas(teamPersonas.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null })))
-        return
-      }
 
       const resolved = await Promise.all(teamPersonas.map(async p => {
         const base: SelectedPersonaInfo = { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }
-        if (p.visibility !== 'team') return base
+        if (isPersonaOwnedByViewer(p, ownerMap, user?.id, currentUserRole === 'admin')) return base
         const cached = teamPersonaCopyCache.current.get(p.id)
         if (cached) return cached
         try {
-          const copy = await usePersonaRepoDeduped(p.id)
+          // Deduped — persists across sessions in localStorage, so reopening this
+          // picker (or a page reload) never spawns another duplicate clone.
+          const copy = await usePersonaRepoDeduped(p.id, p.activeVersionId)
           const v = copy.published_version ?? copy.active_version
           const info: SelectedPersonaInfo = {
             id: copy.id,
@@ -177,7 +183,7 @@ export default function ProjectPage() {
       .catch(() => { if (!cancelled) setChipPersonas([]) })
       .finally(() => { if (!cancelled) setLoadingChipPersonas(false) })
     return () => { cancelled = true }
-  }, [personaChipOpen, project?.teamId, currentUserRole])
+  }, [personaChipOpen, project?.teamId, currentUserRole, orgId, user?.id])
 
   // Team projects source their chat list from the global /chats endpoint
   // (which carries visibility/team_id/pins_count), filtered to this project.

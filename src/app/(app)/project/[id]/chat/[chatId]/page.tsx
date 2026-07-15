@@ -15,12 +15,14 @@ import { ChatShareOverlay }                                from '@/components/ch
 import { useModelSelectorContext }                         from '@/context/model-selector-context'
 import { useProjects }                                     from '@/context/projects-context'
 import { useOrg }                                          from '@/context/org-context'
+import { useAuth }                                         from '@/context/auth-context'
 import { useFileUpload }                                   from '@/hooks/use-file-upload'
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
 import { usePinboard, type PinItem }                       from '@/context/pinboard-context'
 import { useHighlight }                                    from '@/context/highlight-context'
 import type { PinMentionable }                             from '@/components/chat/PinMentionDropdown'
-import { fetchPersonas, personasForTeamContext, getVersion, usePersonaRepo } from '@/lib/api/personas'
+import { fetchPersonas, personasForTeamContext, getVersion, usePersonaRepoDeduped, isPersonaOwnedByViewer } from '@/lib/api/personas'
+import { fetchPersonaOwnerMap } from '@/lib/api/teams'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
 import { Dropdown }                                        from '@/components/Dropdown'
 import { Chip }                                            from '@/components/Chip'
@@ -198,7 +200,8 @@ function ProjectChatPageInner() {
     renameChat,
     loadProjectChats,
   } = useProjects()
-  const { currentUserRole } = useOrg()
+  const { currentUserRole, orgId } = useOrg()
+  const { user } = useAuth()
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
   const isNewChat = params.chatId === 'new'
@@ -300,7 +303,9 @@ function ProjectChatPageInner() {
   const [personaChipOpen,    setPersonaChipOpen]    = useState(false)
   const [chipPersonas,       setChipPersonas]       = useState<SelectedPersonaInfo[]>([])
   const [loadingChipPersonas, setLoadingChipPersonas] = useState(false)
-  // Cache original-repo-id → member's copy info so usePersonaRepo is called at most once per session per persona
+  // In-memory cache on top of usePersonaRepoDeduped's own cross-session localStorage
+  // dedup — avoids even the cheap cached-lookup round trip on every menu reopen
+  // within the same mount.
   const teamPersonaCopyCache = useRef<Map<string, SelectedPersonaInfo>>(new Map())
 
   const fileInputRef           = useRef<HTMLInputElement>(null)
@@ -458,29 +463,36 @@ function ProjectChatPageInner() {
     setLoadingChipPersonas(true)
 
     const teamId = project?.teamId ?? null
-    // Members/editors can't use another user's persona directly — _resolve_persona enforces ownership.
-    // For team projects, transparently copy each team-shared persona into the member's own account
-    // so the chat can proceed with their copy's version ID instead of the admin's.
-    const needsCopy = Boolean(teamId) && currentUserRole !== 'admin'
+    // Members/editors can't use another user's persona directly — _resolve_persona enforces
+    // ownership. For team projects, transparently copy each team-shared persona the caller
+    // doesn't personally own into their own account, so the chat proceeds with their copy's
+    // version ID instead of the owner's.
+    //
+    // Ownership is per-persona, not per-org-role — `currentUserRole` alone would treat every
+    // admin as owning every admin-created team-shared agent, not just their own.
+    // listTeamPersonaShares (via fetchPersonaOwnerMap) carries the real creator id; fall back
+    // to the coarse role check only if that fetch hasn't resolved yet.
     let cancelled = false
+    const ownerMapPromise = teamId && orgId
+      ? fetchPersonaOwnerMap(orgId, [teamId])
+      : Promise.resolve({} as Record<string, string>)
 
     async function loadChipPersonas() {
       const list = await fetchPersonas()
       if (cancelled) return
+      const ownerMap = await ownerMapPromise
+      if (cancelled) return
       const teamPersonas = personasForTeamContext(list, teamId)
-
-      if (!needsCopy) {
-        setChipPersonas(teamPersonas.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null })))
-        return
-      }
 
       const resolved = await Promise.all(teamPersonas.map(async p => {
         const base: SelectedPersonaInfo = { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }
-        if (p.visibility !== 'team') return base
+        if (isPersonaOwnedByViewer(p, ownerMap, user?.id, currentUserRole === 'admin')) return base
         const cached = teamPersonaCopyCache.current.get(p.id)
         if (cached) return cached
         try {
-          const copy = await usePersonaRepo(p.id)
+          // Deduped — persists across sessions in localStorage, so reopening this
+          // picker (or a page reload) never spawns another duplicate clone.
+          const copy = await usePersonaRepoDeduped(p.id, p.activeVersionId)
           const v = copy.published_version ?? copy.active_version
           const info: SelectedPersonaInfo = {
             id: copy.id,
@@ -504,7 +516,7 @@ function ProjectChatPageInner() {
       .catch(() => { if (!cancelled) setChipPersonas([]) })
       .finally(() => { if (!cancelled) setLoadingChipPersonas(false) })
     return () => { cancelled = true }
-  }, [personaChipOpen, project?.teamId, currentUserRole])
+  }, [personaChipOpen, project?.teamId, currentUserRole, orgId, user?.id])
 
   // ── Chips ─────────────────────────────────────────────────────────────────
 

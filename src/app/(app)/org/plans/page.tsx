@@ -17,7 +17,7 @@ import {
   type BillingInfo,
 } from '@/lib/api/stripe'
 import { getOrgSettings, setOrgPoolCap, updateOrgSettings } from '@/lib/api/organization'
-import type { AdminBillingPerms, OrgPlan } from '@/types/teams'
+import type { AdminBillingPerms } from '@/types/teams'
 import { ORG_CHANGE_PLAN_ROUTE, ORG_MEMBERS_ROUTE } from '@/lib/routes'
 
 /*
@@ -321,7 +321,7 @@ function PlansPageSkeleton() {
 
 export default function OrgBillingPage() {
   const router = useRouter()
-  const { org, orgId, orgRole, plan, members: orgMembers } = useOrg()
+  const { org, orgId, orgRole, plan, members: orgMembers, refreshMembers } = useOrg()
 
   const isOwner      = orgRole === 'owner'
   const isEnterprise = org.plan === 'enterprise'
@@ -329,7 +329,6 @@ export default function OrgBillingPage() {
   const [billing,        setBilling]        = useState<BillingInfo | null>(null)
   const [billingLoading, setBillingLoading] = useState(true)
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false)
-  const [localPlan,      setLocalPlan]      = useState<OrgPlan | null>(null)
   const [capModalOpen,      setCapModalOpen]      = useState(false)
   const [savingCap,         setSavingCap]         = useState(false)
   const [contactSalesOpen,  setContactSalesOpen]  = useState(false)
@@ -343,7 +342,7 @@ export default function OrgBillingPage() {
     canViewInvoices:  true,
   })
   const [settingsLoading, setSettingsLoading] = useState(true)
-  const effectivePlan = localPlan ?? plan
+  const effectivePlan = plan
 
   const membersCount = orgMembers.length
 
@@ -504,8 +503,8 @@ export default function OrgBillingPage() {
     if (!orgId) return
     setSavingCap(true)
     try {
-      const updated = await setOrgPoolCap(orgId, valueUsd == null ? ENTERPRISE_INTERMAX : valueUsd)
-      setLocalPlan(updated)
+      await setOrgPoolCap(orgId, valueUsd == null ? ENTERPRISE_INTERMAX : valueUsd)
+      refreshMembers() // re-fetch the shared plan so usage stays live instead of freezing this snapshot
       setCapModalOpen(false)
       toast.success('Spend limit updated.')
     } catch {
@@ -607,7 +606,13 @@ export default function OrgBillingPage() {
           <>
             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
               <StatTile label="Shared credits"    value={totalCredits.toLocaleString()}   sub={`Resets ${nextBilling}`} />
-              <StatTile label="Credits Remaining" value={remainingCreds.toLocaleString()} sub={`${usedCredits.toLocaleString()} used this month`} />
+              <StatTile
+                label="Credits Remaining"
+                value={remainingCreds.toLocaleString()}
+                sub={overage > 0
+                  ? `${usedCredits.toLocaleString()} used · +${fmtCredits(overage)} overage`
+                  : `${usedCredits.toLocaleString()} used this month`}
+              />
               <StatTile label="Seats used"        value={String(membersCount)}            sub="Unlimited seats" />
               <div style={{
                 background:    'var(--neutral-white, #fff)',

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Switch } from '@/components/Switch'
@@ -25,6 +26,7 @@ import { CONNECTOR_LOGO_MAP } from '@/lib/connectorLogos'
 import { isMcpProviderConnector } from '@/lib/connectorProvider'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { connectorCategory } from '@/lib/connectorCategories'
+import { ORG_CONNECTORS_ROUTE } from '@/lib/routes'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 
@@ -1400,8 +1402,9 @@ function SkeletonCard() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ConnectorsPage() {
+  const { push } = useRouter()
   const { user } = useAuth()
-  const { orgId } = useOrg()
+  const { orgId, currentUserRole } = useOrg()
   const [searchQuery,         setSearchQuery]         = useState('')
   const [isSearching,         setIsSearching]         = useState(false)
   const [suggestionsOn,       setSuggestionsOn]       = useState(false)
@@ -1513,7 +1516,7 @@ export default function ConnectorsPage() {
         }}>
 
           {/* Page header */}
-          <div style={{ paddingLeft: 4, marginBottom: 12 }}>
+          <div style={{ paddingLeft: 4, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <h1 style={{
               fontFamily: 'var(--font-title)',
               fontWeight: 400,
@@ -1524,6 +1527,20 @@ export default function ConnectorsPage() {
             }}>
               Connectors
             </h1>
+            {orgId && (
+              currentUserRole === 'admin' ? (
+                <Button variant="secondary" size="sm" onClick={() => push(ORG_CONNECTORS_ROUTE)}>
+                  Manage all connectors
+                </Button>
+              ) : (
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '18px',
+                  color: 'var(--neutral-500)', margin: 0, textAlign: 'right',
+                }}>
+                  Need another connector? Ask your workspace admin to add it.
+                </p>
+              )
+            )}
           </div>
 
           {/* My / Workspace tabs */}
