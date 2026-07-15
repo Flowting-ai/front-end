@@ -559,7 +559,7 @@ function TeamConnectorRow({
   divider: boolean
   onToggle: (checked: boolean) => void
 }) {
-  const src = connectorLogoSrc(entry.slug)
+  const src = connectorLogoSrc(entry.slug) ?? entry.logo_url
   const initials = entry.display_name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()
 
   // org_enabled=false means the org admin disabled this connector globally; teams cannot override.

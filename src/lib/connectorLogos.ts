@@ -1,6 +1,7 @@
-// Local brand-logo assets for connectors, keyed by slug. The backend does NOT
-// return logo URLs (`/connectors` leaves `icon_url` null), so the FE bundles
-// these under /public/connector-logos/ and resolves them by slug. Keep the
+// Local brand-logo assets for connectors, keyed by slug, bundled under
+// /public/connector-logos/. The backend now returns a provider-hosted
+// `logo_url` on each catalog entry (Pipedream Apps API); these curated assets
+// take precedence where bundled, and `logo_url` covers the long tail. Keep the
 // slug variants (dash / underscore / concatenated) in sync with the backend's
 // connector slugs.
 export const CONNECTOR_LOGO_MAP: Record<string, string> = {

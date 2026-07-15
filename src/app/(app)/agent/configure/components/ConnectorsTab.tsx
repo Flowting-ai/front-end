@@ -40,7 +40,7 @@ function XIcon() {
 // we fall back to the entry's scalar fields for older catalog responses.
 
 function logoFor(entry: ConnectorCatalogEntry): string | undefined {
-  return CONNECTOR_LOGO_MAP[entry.slug] ?? entry.icon_url
+  return CONNECTOR_LOGO_MAP[entry.slug] ?? entry.logo_url ?? entry.icon_url
 }
 
 /** Connected, active shared-team accounts for this connector. */

@@ -86,6 +86,14 @@ const connectorCatalogEntrySchema = z.object({
   display_name:        z.string(),
   auth_mode:           z.enum(['oauth2', 'api_key']),
   description:         z.string(),
+  /** Provider-hosted brand logo (Pipedream Apps API img_src). Bundled assets
+   *  in CONNECTOR_LOGO_MAP take precedence; this covers the long tail. */
+  logo_url:            z.string().nullable().default(null),
+  /** Provider taxonomy (Pipedream categories, e.g. "Communication"). Distinct
+   *  from the FE's local connectorCategory grouping. */
+  categories:          z.array(z.string()).default([]),
+  /** Full Pipedream Apps API row — scopes, featured weight, custom fields. */
+  catalog_metadata:    z.record(z.string(), z.unknown()).default({}),
   tools:               z.array(toolEntrySchema).default([]),
   api_key_fields:      z.array(apiKeyFieldSchema).default([]),
   /** True when the current user's personal connector is linked. */

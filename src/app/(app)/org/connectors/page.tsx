@@ -479,8 +479,8 @@ function SearchBar({ value, onChange }: { value: string; onChange: (value: strin
   )
 }
 
-function ConnectorIcon({ connector }: { connector: Pick<ConnectorCatalogEntry, 'slug' | 'display_name'> }) {
-  const src = connectorLogoSrc(connector.slug)
+function ConnectorIcon({ connector }: { connector: Pick<ConnectorCatalogEntry, 'slug' | 'display_name'> & { logo_url?: string | null } }) {
+  const src = connectorLogoSrc(connector.slug) ?? connector.logo_url
   const initials = connector.display_name
     .split(/\s+/)
     .map(part => part[0])
@@ -1757,6 +1757,9 @@ function ApprovalRow({
     display_name: title,
     auth_mode: 'oauth2',
     description: '',
+    logo_url: null,
+    categories: [],
+    catalog_metadata: {},
     tools: [],
     api_key_fields: [],
     linked: false,

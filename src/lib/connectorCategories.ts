@@ -1,6 +1,7 @@
 // Connector categories for grouping/filtering in the connector UIs.
 //
-// Frontend-only source of truth (the backend has no category field). When a new
+// The backend now returns Pipedream's own `categories` on each catalog entry,
+// but the filter chips still run on this curated FE taxonomy. When a new
 // connector is added, map its slug here; anything unmapped falls under "Other"
 // so the UI never breaks — it just lands in the catch-all bucket.
 

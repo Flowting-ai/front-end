@@ -205,26 +205,13 @@ function CardKebabMenu({ items }: { items: { label: string; onSelect: () => void
 // ── Connector icon / avatar ───────────────────────────────────────────────────
 
 function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; size?: number }) {
-  const localLogo = CONNECTOR_LOGO_MAP[entry.slug]
+  const logo = CONNECTOR_LOGO_MAP[entry.slug] ?? entry.logo_url ?? entry.icon_url
 
-  if (localLogo) {
+  if (logo) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- local brand asset, variable path prevents next/image static analysis
+      // eslint-disable-next-line @next/next/no-img-element -- bundled asset or provider CDN URL, external domain not in next config
       <img
-        src={localLogo}
-        alt={entry.display_name}
-        width={size}
-        height={size}
-        style={{ objectFit: 'contain', flexShrink: 0 }}
-      />
-    )
-  }
-
-  if (entry.icon_url) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- dynamic connector icon URL, external domain not in next config
-      <img
-        src={entry.icon_url}
+        src={logo}
         alt={entry.display_name}
         width={size}
         height={size}
