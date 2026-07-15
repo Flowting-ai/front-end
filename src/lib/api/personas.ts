@@ -1333,6 +1333,7 @@ async function readPersonaSSEStream(
                   : undefined,
                 icon_url:       str(parsed.icon_url) || undefined,
                 respond_url:    str(parsed.respond_url) || undefined,
+                persistable:    parsed.persistable !== false,
               }
               callbacks.onPermissionPrompt?.(permPrompt)
               break
