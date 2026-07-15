@@ -51,6 +51,47 @@ const TEMPLATE_ROWS: string[][] = [
   ['Productivity', 'Tutoring'],
 ]
 
+// ── Template card ─────────────────────────────────────────────────────────────
+
+function TemplateCard({ name, onClick }: { name: string; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? 'var(--neutral-50)' : 'var(--neutral-white)',
+        border: `1.274px solid ${hovered ? 'var(--neutral-300)' : 'var(--neutral-100)'}`,
+        borderRadius: 15,
+        padding: 20,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+        boxShadow: hovered
+          ? '0px 4px 8px 0px rgba(202,220,241,0.55)'
+          : '0px 2.548px 3.821px 0px rgba(202,220,241,0.4)',
+        cursor: 'pointer',
+        width: 179,
+        transition: 'background-color 150ms, border-color 150ms, box-shadow 150ms',
+      }}
+    >
+      <HugeiconsIcon
+        icon={TEMPLATE_ICONS[name]}
+        size={30}
+        color="#26211e"
+        strokeWidth={1.5}
+      />
+      <span style={{
+        fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
+        fontSize: 16, lineHeight: '22px', color: 'var(--neutral-950)',
+        textAlign: 'center',
+      }}>
+        {name}
+      </span>
+    </button>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PersonaTemplatesPage() {
@@ -133,35 +174,7 @@ export default function PersonaTemplatesPage() {
             {TEMPLATE_ROWS.map((row, ri) => (
               <div key={ri} style={{ display: 'flex', gap: 16 }}>
                 {row.map(name => (
-                  <button
-                    key={name}
-                    onClick={() => continueToBasics(name)}
-                    style={{
-                      background: 'var(--neutral-white)',
-                      border: '1.274px solid var(--neutral-100)',
-                      borderRadius: 15,
-                      padding: 20,
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
-                      boxShadow: '0px 2.548px 3.821px 0px rgba(202,220,241,0.4)',
-                      cursor: 'pointer',
-                      width: 179,
-                      transition: 'border-color 150ms, box-shadow 150ms',
-                    }}
-                  >
-                    <HugeiconsIcon
-                      icon={TEMPLATE_ICONS[name]}
-                      size={30}
-                      color="#26211e"
-                      strokeWidth={1.5}
-                    />
-                    <span style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
-                      fontSize: 16, lineHeight: '22px', color: 'var(--neutral-950)',
-                      textAlign: 'center',
-                    }}>
-                      {name}
-                    </span>
-                  </button>
+                  <TemplateCard key={name} name={name} onClick={() => continueToBasics(name)} />
                 ))}
               </div>
             ))}

@@ -49,15 +49,12 @@ export const PLAN_CREDITS: Record<UserPlanType, number> = {
   power: 60_000,
 };
 
-export const PLAN_SHARE_TOKEN_LIMITS: Record<UserPlanType, number> = {
-  starter: 2_500,
-  pro: 6_000,
-  power: 30_000,
-};
+// Flat regardless of plan — superlink and email-invite shares both get the same
+// credit ceiling no matter what plan the sharer is on.
+const SHARE_TOKEN_LIMIT = 25_000;
 
-export function getShareTokenLimit(plan: UserPlanType | null | undefined): number {
-  if (!plan) return PLAN_SHARE_TOKEN_LIMITS.starter;
-  return PLAN_SHARE_TOKEN_LIMITS[plan] ?? PLAN_SHARE_TOKEN_LIMITS.starter;
+export function getShareTokenLimit(_plan?: UserPlanType | null): number {
+  return SHARE_TOKEN_LIMIT;
 }
 
 export function getPlanCredits(plan: UserPlanType): number {

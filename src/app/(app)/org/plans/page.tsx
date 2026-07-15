@@ -546,7 +546,6 @@ export default function OrgBillingPage() {
       remainingCredits={remainingCreds}
       providerUsage={providerUsage}
       includedUsage={includedUsage}
-      overage={overage}
       projectedInvoice={projectedInvoice}
       baseFeeUsd={baseFeeUsd}
       cycleLabel={`${fmtShort(cycleStart)} – ${fmtShort(cycleEnd)}`}
@@ -609,8 +608,8 @@ export default function OrgBillingPage() {
               <StatTile
                 label="Credits Remaining"
                 value={remainingCreds.toLocaleString()}
-                sub={overage > 0
-                  ? `${usedCredits.toLocaleString()} used · +${fmtCredits(overage)} overage`
+                sub={usedCredits > totalCredits
+                  ? `${(usedCredits - totalCredits).toLocaleString()} credits over plan`
                   : `${usedCredits.toLocaleString()} used this month`}
               />
               <StatTile label="Seats used"        value={String(membersCount)}            sub="Unlimited seats" />
@@ -1081,7 +1080,6 @@ function EnterpriseHero({
   remainingCredits,
   providerUsage,
   includedUsage,
-  overage,
   projectedInvoice,
   baseFeeUsd,
   cycleLabel,
@@ -1093,12 +1091,15 @@ function EnterpriseHero({
   remainingCredits: number
   providerUsage: number
   includedUsage: number
-  overage: number
   projectedInvoice: number
   baseFeeUsd: number
   cycleLabel:     string
 }) {
   const pct = totalCredits > 0 ? Math.min(100, (usedCredits / totalCredits) * 100) : 0
+  // Derived straight from providerUsage/includedUsage (both confirmed consistent
+  // with usedCredits/totalCredits above) rather than the backend's overageUsd
+  // field, which can disagree with actual usage.
+  const overageUsd = Math.max(providerUsage - includedUsage, 0)
   return (
     <HeroShell>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1138,10 +1139,10 @@ function EnterpriseHero({
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Badge
-          label={overage > 0
-            ? `${fmtCredits(overage)} credits overage`
+          label={overageUsd > 0
+            ? `${fmtCredits(overageUsd)} credits overage`
             : `${fmtCredits(Math.max(includedUsage - providerUsage, 0))} included credits left`}
-          tone={overage > 0 ? 'red' : 'green'}
+          tone={overageUsd > 0 ? 'red' : 'green'}
         />
         <Badge label={`${fmtUsd(projectedInvoice)} projected invoice`} tone="neutral" />
       </div>

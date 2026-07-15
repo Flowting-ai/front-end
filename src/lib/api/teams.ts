@@ -27,6 +27,7 @@ import type {
   InvitedMember,
   InvitedProject,
   TeamInviteOnboarding,
+  OrgMember,
 } from '@/types/teams'
 import type {
   ApiKeyField,
@@ -661,4 +662,19 @@ export async function fetchPersonaOwnerMap(orgId: string, teamIds: string[]): Pr
   const map: Record<string, string> = {}
   for (const shares of results) for (const s of shares) map[s.personaRepoId] = s.sharedByUserId
   return map
+}
+
+/**
+ * The viewer's internal backend user id, in the same id space as
+ * `TeamPersonaShare.sharedByUserId` / `OrgMember.id` (both ultimately
+ * `user_id` on the backend). `/users/me` never returns this internal id —
+ * `AuthUser.id` is never populated — so it can't be read directly off
+ * `useAuth()`. The org's member list is the only place the current user's
+ * internal id is exposed on the frontend, keyed by the one identity we do
+ * reliably have client-side: email. Returns `null` if the viewer isn't in
+ * `members` yet (list still loading) or no email is available.
+ */
+export function resolveViewerUserId(members: OrgMember[], viewerEmail: string | null | undefined): string | null {
+  if (!viewerEmail) return null
+  return members.find(m => m.email === viewerEmail)?.id ?? null
 }

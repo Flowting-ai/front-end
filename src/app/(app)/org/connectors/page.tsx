@@ -696,8 +696,8 @@ const CONNECTOR_SORT_DIRECTIONS: { id: ConnectorSortDirection; label: string }[]
 
 const CONNECTOR_STATUS_FILTERS: { id: ConnectorStatusFilter; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'on',  label: 'Only ON' },
-  { id: 'off', label: 'Only OFF' },
+  { id: 'on',  label: 'Enabled' },
+  { id: 'off', label: 'Available' },
 ]
 
 function sortConnectors(

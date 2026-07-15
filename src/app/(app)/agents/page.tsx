@@ -43,7 +43,7 @@ import { TeamAgentsTab } from '@/app/(app)/agents/components/TeamAgentsTab'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
-import { fetchPersonaOwnerMap } from '@/lib/api/teams'
+import { fetchPersonaOwnerMap, resolveViewerUserId } from '@/lib/api/teams'
 import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -568,8 +568,12 @@ export default function PersonasPage() {
   const { push } = useRouter()
   const pathname = usePathname()
   const { close: closePinboard } = usePinboard()
-  const { currentUserRole, orgId, teams } = useOrg()
+  const { currentUserRole, orgId, teams, members } = useOrg()
   const { user } = useAuth()
+  // `user?.id` is never populated (see resolveViewerUserId) — resolve the
+  // viewer's internal id via the org member list instead, so ownership checks
+  // below actually match against `personaOwnerMap`'s id space.
+  const viewerUserId = resolveViewerUserId(members, user?.email)
 
   // repoId -> the persona's actual creator (from the team-persona-shares
   // endpoint, which already tracks this for the "Shared by X" org/teams panel).
@@ -586,7 +590,7 @@ export default function PersonasPage() {
   }, [orgId, teams])
 
   function isOwnedByMe(persona: Persona): boolean {
-    return isPersonaOwnedByViewer(persona, personaOwnerMap, user?.id, currentUserRole === 'admin')
+    return isPersonaOwnedByViewer(persona, personaOwnerMap, viewerUserId, currentUserRole === 'admin')
   }
 
   const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')
@@ -873,7 +877,7 @@ export default function PersonasPage() {
   // not mixed into this personal library.
   const visiblePersonas = useMemo(
     () => personas.filter(p => p.visibility !== 'team' || isOwnedByMe(p)),
-    [personas, currentUserRole, personaOwnerMap, user?.id],
+    [personas, currentUserRole, personaOwnerMap, viewerUserId],
   )
 
   // Filter + sort — split into three chained memos so a sort change doesn't

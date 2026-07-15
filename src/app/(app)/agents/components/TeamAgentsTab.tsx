@@ -19,7 +19,7 @@ import { Avatar } from '@/components/Avatar'
 import { Dropdown } from '@/components/Dropdown'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
-import { listTeamPersonaShares } from '@/lib/api/teams'
+import { listTeamPersonaShares, resolveViewerUserId } from '@/lib/api/teams'
 import {
   fetchPersonas,
   usePersonaRepoDeduped,
@@ -218,7 +218,9 @@ function useTeamAgentRowActions(rows: TeamAgentRow[]) {
     setBulkUpdating(false)
   }
 
-  function handleOpen(persona: Persona) {
+  function handleOpen(persona: Persona, isOwner: boolean) {
+    // Owners chat on their own repo directly — no copy involved.
+    if (isOwner) { push(AGENT_CHAT_ROUTE(persona.id)); return }
     const copyId = getExistingCopyId(persona.id)
     if (copyId) push(AGENT_CHAT_ROUTE(copyId))
   }
@@ -263,9 +265,9 @@ function AgentActionCell({
 }) {
   if (isOwner) {
     return (
-      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0 }}>
-        Owned by you
-      </p>
+      <Button size="sm" variant="secondary" onClick={onOpen}>
+        Use in chat
+      </Button>
     )
   }
   if (state.status === 'not_copied') {
@@ -494,7 +496,7 @@ function AdminAgentsTable({ rows, isLoading, viewerId }: { rows: TeamAgentRow[];
                   state={state}
                   onCopy={() => void handleCopy(persona)}
                   onUpdate={() => void handleUpdate(persona)}
-                  onOpen={() => handleOpen(persona)}
+                  onOpen={() => handleOpen(persona, isOwner)}
                 />
               </SettingsTableCell>
             </SettingsTableRow>
@@ -585,7 +587,7 @@ function MemberAgentsSections({ rows, isLoading, viewerId }: { rows: TeamAgentRo
                       state={state}
                       onCopy={() => void handleCopy(persona)}
                       onUpdate={() => void handleUpdate(persona)}
-                      onOpen={() => handleOpen(persona)}
+                      onOpen={() => handleOpen(persona, isOwner)}
                     />
                   </SettingsTableCell>
                 </SettingsTableRow>
@@ -601,8 +603,11 @@ function MemberAgentsSections({ rows, isLoading, viewerId }: { rows: TeamAgentRo
 // ── Root ──────────────────────────────────────────────────────────────────────
 
 export function TeamAgentsTab() {
-  const { orgId, teams, currentUserRole } = useOrg()
+  const { orgId, teams, currentUserRole, members } = useOrg()
   const { user } = useAuth()
+  // `user?.id` is never populated by the backend's /users/me — resolve the
+  // viewer's internal id via the org member list instead (see resolveViewerUserId).
+  const viewerId = resolveViewerUserId(members, user?.email)
   const [rows, setRows] = useState<TeamAgentRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -656,8 +661,8 @@ export function TeamAgentsTab() {
   const isOrgAdmin = currentUserRole === 'admin'
 
   return isOrgAdmin
-    ? <AdminAgentsTable rows={rows} isLoading={isLoading} viewerId={user?.id} />
-    : <MemberAgentsSections rows={rows} isLoading={isLoading} viewerId={user?.id} />
+    ? <AdminAgentsTable rows={rows} isLoading={isLoading} viewerId={viewerId} />
+    : <MemberAgentsSections rows={rows} isLoading={isLoading} viewerId={viewerId} />
 }
 
 export default TeamAgentsTab

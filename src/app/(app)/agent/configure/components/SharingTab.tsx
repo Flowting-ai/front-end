@@ -111,7 +111,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
   function handleVisibilitySelect(v: Visibility) {
     if (v === 'team' && panelsLocked) { toast.error('Save a version first to set team visibility.'); return }
     setVisibility(v)
-    if (v !== 'team') setTeamsOpen(false)
+    setTeamsOpen(v === 'team')
     markFieldTouched('sharing', 'visibility')
   }
 
