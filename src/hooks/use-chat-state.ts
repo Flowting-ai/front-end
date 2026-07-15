@@ -37,6 +37,8 @@ export interface ConnectorPermissionPrompt {
   icon_url?:       string
   /** Absolute respond URL supplied by the backend (alternative to /chats/prompts/{id}). */
   respond_url?:    string
+  /** False for synthetic/raw requests that cannot be saved in connector settings. */
+  persistable?:    boolean
 }
 
 /** Extends the API Message with transient streaming-only UI state. */

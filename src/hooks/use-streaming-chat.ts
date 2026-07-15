@@ -996,6 +996,7 @@ export function useStreamingChat({
                 : undefined,
               icon_url:       asString(parsed.icon_url),
               respond_url:    asString(parsed.respond_url) ?? undefined,
+              persistable:    parsed.persistable !== false,
             }
             const msgId = loadingMessageIdRef.current
             if (msgId) {

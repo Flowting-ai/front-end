@@ -379,7 +379,8 @@ export function PermissionPromptCard({ prompt, onDecided, skipSave = false }: Pe
     // "Allow once" only unblocks this one call — there's no backend
     // representation for it (ToolEntry is a persistent allowed/blocked gate,
     // see services/connectors/schemas.py), so it's never saved as a preference.
-    if (skipSave || policy === 'allow_once') return
+    const persistable = prompt.persistable !== false && !prompt.tool_name.startsWith('raw_')
+    if (skipSave || !persistable || policy === 'allow_once') return
 
     // Save preference in the background — non-blocking.
     updateConnector(prompt.connector_slug, {
