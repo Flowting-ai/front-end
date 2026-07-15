@@ -648,3 +648,17 @@ export async function listTeamPersonaShares(orgId: string, teamId: string): Prom
   const list = await apiFetchJson<PersonaTeamShareResponse[]>(ORG_TEAM_PERSONA_SHARES_ENDPOINT(orgId, teamId))
   return list.map(normalizeTeamPersonaShare)
 }
+
+/**
+ * repoId -> creator user id, merged across every team in `teamIds`. This is
+ * the only place real per-persona ownership is available on the frontend —
+ * `PersonaRepoResponse` carries no owner field, so anything that needs to
+ * distinguish "my persona" from "a team-shared persona I don't own" (as
+ * opposed to a coarse, wrong org-role guess) should fetch this.
+ */
+export async function fetchPersonaOwnerMap(orgId: string, teamIds: string[]): Promise<Record<string, string>> {
+  const results = await Promise.all(teamIds.map(id => listTeamPersonaShares(orgId, id).catch(() => [] as TeamPersonaShare[])))
+  const map: Record<string, string> = {}
+  for (const shares of results) for (const s of shares) map[s.personaRepoId] = s.sharedByUserId
+  return map
+}

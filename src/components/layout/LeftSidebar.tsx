@@ -11,8 +11,9 @@ import { AccountMenu } from "@/components/AccountMenu";
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
-import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
+import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
+import { fetchPersonaOwnerMap } from "@/lib/api/teams";
 import { listTasks } from "@/lib/api/tasks";
 import type { ScheduledTaskListItem } from "@/lib/api/tasks";
 import { CHAT_CREATED_EVENT, emitBrainNewThread } from "@/hooks/use-sidebar-events";
@@ -974,25 +975,44 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   const { push }            = useRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
+  const { orgId, teams, currentUserRole } = useOrg()
+  const { user } = useAuth()
 
   const personaMatch    = pathname?.match(/^\/agents\/([^/]+)\/chat/)
   const activePersonaId = personaMatch?.[1] ?? null
   const activeChatId    = personaSearchParams.get("chatId")
 
-  const [personas,        setPersonas]        = useState<Persona[]>([])
+  const [rawPersonas,     setRawPersonas]     = useState<Persona[]>([])
   const [isLoading,       setIsLoading]       = useState(true)
   const [expandedIds,     setExpandedIds]     = useState<Set<string>>(new Set())
   const [personaChatsMap, setPersonaChatsMap] = useState<
     Record<string, { chats: PersonaChat[]; loaded: boolean; loading: boolean }>
   >({})
+  const [personaOwnerMap, setPersonaOwnerMap] = useState<Record<string, string>>({})
 
   // Load personas on mount; filter to team-shared only when teamId is provided.
   useEffect(() => {
     fetchPersonas()
-      .then(list => setPersonas(personasForTeamContext(list, teamId ?? null)))
+      .then(list => setRawPersonas(personasForTeamContext(list, teamId ?? null)))
       .catch(console.error)
       .finally(() => setIsLoading(false))
   }, [teamId])
+
+  // Real per-persona ownership (not an org-role guess) — needed so the sidebar
+  // never surfaces a team-shared agent this viewer doesn't own. Its "New chat"
+  // button skips the clone-before-chat step the chat chip picker and Team
+  // panel use, so an un-owned team-shared agent here would 404 on first send.
+  useEffect(() => {
+    if (!orgId || teams.length === 0) return
+    let cancelled = false
+    fetchPersonaOwnerMap(orgId, teams.map(t => t.id)).then(map => { if (!cancelled) setPersonaOwnerMap(map) })
+    return () => { cancelled = true }
+  }, [orgId, teams])
+
+  const personas = useMemo(
+    () => rawPersonas.filter(p => isPersonaOwnedByViewer(p, personaOwnerMap, user?.id, currentUserRole === 'admin')),
+    [rawPersonas, personaOwnerMap, user?.id, currentUserRole],
+  )
 
   // Load chats for a given persona — idempotent (no-op if already loaded/loading)
   const loadPersonaChats = useCallback((personaId: string) => {
@@ -1067,7 +1087,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   useEffect(() => {
     const handleListUpdated = () => {
       fetchPersonas()
-        .then(list => setPersonas(personasForTeamContext(list, teamId ?? null)))
+        .then(list => setRawPersonas(personasForTeamContext(list, teamId ?? null)))
         .catch(console.error)
     }
     window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, handleListUpdated)

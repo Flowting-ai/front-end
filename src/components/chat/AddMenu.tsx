@@ -11,8 +11,8 @@ import {
   UserAiIcon,
 } from '@strange-huge/icons'
 import type { PinFolder } from '@/lib/api/pins'
-import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped } from '@/lib/api/personas'
-import { listTeamPersonaShares } from '@/lib/api/teams'
+import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped, isPersonaOwnedByViewer } from '@/lib/api/personas'
+import { fetchPersonaOwnerMap } from '@/lib/api/teams'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
@@ -117,25 +117,17 @@ export function ChatAddMenu({
     // org/teams "Shared by X" panel uses); fall back to the coarse role check only
     // if that fetch hasn't resolved yet, to avoid blocking the menu on it.
     const ownerMapPromise = teamId && orgId
-      ? listTeamPersonaShares(orgId, teamId).then(shares => {
-          const map: Record<string, string> = {}
-          for (const s of shares) map[s.personaRepoId] = s.sharedByUserId
-          return map
-        }).catch(() => ({} as Record<string, string>))
+      ? fetchPersonaOwnerMap(orgId, [teamId])
       : Promise.resolve({} as Record<string, string>)
 
     fetchPersonas()
       .then(async list => {
         if (teamId) {
           const ownerMap = await ownerMapPromise
-          const isOwnedByMe = (repoId: string) => {
-            const ownerId = ownerMap[repoId]
-            return ownerId ? String(ownerId) === String(user?.id) : currentUserRole === 'admin'
-          }
           const teamPersonas = personasForTeamContext(list, teamId)
           const resolved = await Promise.all(teamPersonas.map(async p => {
             const base: SelectedPersonaInfo = { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: p.temperature }
-            if (p.visibility !== 'team' || isOwnedByMe(p.id)) return base
+            if (isPersonaOwnedByViewer(p, ownerMap, user?.id, currentUserRole === 'admin')) return base
             const cached = _teamCopyCache.get(p.id)
             if (cached) return cached
             try {

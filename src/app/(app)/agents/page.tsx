@@ -19,7 +19,7 @@ import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
-import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, usePersonaRepoDeduped, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
+import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, usePersonaRepoDeduped, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import type { AIModel } from '@/types/ai-model'
 import { fetchDashboard, listShares, listReceived, revokeShare, type PersonaShare, type ReceivedShareResponse, type ShareDashboardResponse } from '@/lib/api/persona-shares'
@@ -40,7 +40,7 @@ import { DateRangePill } from '@/components/DateRangePill'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
-import { listTeamPersonaShares } from '@/lib/api/teams'
+import { fetchPersonaOwnerMap } from '@/lib/api/teams'
 import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -578,21 +578,12 @@ export default function PersonasPage() {
   useEffect(() => {
     if (!orgId || teams.length === 0) return
     let cancelled = false
-    Promise.all(teams.map(t => listTeamPersonaShares(orgId, t.id).catch(() => [])))
-      .then(results => {
-        if (cancelled) return
-        const map: Record<string, string> = {}
-        for (const shares of results) for (const s of shares) map[s.personaRepoId] = s.sharedByUserId
-        setPersonaOwnerMap(map)
-      })
+    fetchPersonaOwnerMap(orgId, teams.map(t => t.id)).then(map => { if (!cancelled) setPersonaOwnerMap(map) })
     return () => { cancelled = true }
   }, [orgId, teams])
 
   function isOwnedByMe(persona: Persona): boolean {
-    if (persona.visibility !== 'team') return true
-    const ownerId = personaOwnerMap[persona.id]
-    if (ownerId) return String(ownerId) === String(user?.id)
-    return currentUserRole === 'admin'
+    return isPersonaOwnedByViewer(persona, personaOwnerMap, user?.id, currentUserRole === 'admin')
   }
 
   const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')

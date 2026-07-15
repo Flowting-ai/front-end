@@ -285,6 +285,26 @@ export function personasForTeamContext(
   )
 }
 
+/**
+ * Real per-persona ownership check — NOT the same as an org-role check.
+ * `PersonaRepoResponse` carries no owner field, so the only authoritative
+ * source is the team-persona-shares owner map (see fetchPersonaOwnerMap in
+ * lib/api/teams.ts), keyed by repo id. `fallbackOwned` is used only while
+ * that map hasn't loaded yet, to avoid a flash for genuine owners — pass the
+ * coarse `currentUserRole === 'admin'` guess for it.
+ */
+export function isPersonaOwnedByViewer(
+  persona: Pick<Persona, 'id' | 'visibility'>,
+  ownerMap: Record<string, string>,
+  viewerId: string | number | null | undefined,
+  fallbackOwned: boolean,
+): boolean {
+  if (persona.visibility !== 'team') return true
+  const ownerId = ownerMap[persona.id]
+  if (ownerId) return String(ownerId) === String(viewerId)
+  return fallbackOwned
+}
+
 export async function getPersona(repoId: string): Promise<Persona> {
   const repo = await apiFetchJson<PersonaRepoResponse>(PERSONA_DETAIL_ENDPOINT(repoId));
   return normalizeRepo(repo);

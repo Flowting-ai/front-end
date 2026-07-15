@@ -416,7 +416,10 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                   }
                 >
                   <Dropdown size="md">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 4 }}>
+                    <div
+                      className="kaya-scrollbar"
+                      style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 4, maxHeight: 400, overflowY: 'auto' }}
+                    >
                       {editableTeams.map(team => {
                         const checked = selectedTeamIds.includes(team.id)
                         const toggle = () => {
@@ -459,6 +462,21 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                     <p style={{ margin: '4px 8px 8px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
                       Selected members will have access to this agent.
                     </p>
+                    <div style={{ padding: '0 4px 4px' }}>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        fluid
+                        disabled={visibilitySaving || selectedTeamIds.length === 0}
+                        loading={visibilitySaving}
+                        onClick={async () => {
+                          await handleSaveVisibility()
+                          setTeamsOpen(false)
+                        }}
+                      >
+                        {visibilitySaving ? 'Saving…' : 'Save'}
+                      </Button>
+                    </div>
                   </Dropdown>
                 </Dropdown.Float>
               </div>
