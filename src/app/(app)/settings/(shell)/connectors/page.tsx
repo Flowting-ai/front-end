@@ -9,6 +9,7 @@ import { Tooltip } from '@/components/Tooltip'
 import { springs } from '@/lib/springs'
 import {
   listConnectors,
+  getConnector,
   initiateLink,
   updateConnector,
   unlinkConnector,
@@ -400,6 +401,10 @@ function ToolPermissionsModal({
   const [expanded,           setExpanded]           = useState(false)
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
   const abortedRef = useRef(false)
+  // Last server-confirmed tool list — what error paths revert to. The list
+  // response keeps long-tail (non-curated) connectors' tools empty, so the
+  // real list may only arrive from the detail fetch below.
+  const baselineToolsRef = useRef<ConnectorTool[]>(entry.tools ?? [])
   // Reset on every effect setup so React StrictMode's mount→cleanup→mount
   // cycle doesn't leave abortedRef stuck at true (which would silently bail
   // every async handler — manifesting as "click Connect, nothing happens").
@@ -407,6 +412,21 @@ function ToolPermissionsModal({
     abortedRef.current = false
     return () => { abortedRef.current = true }
   }, [])
+
+  // Long-tail connectors list their tools only on GET /connectors/{slug} —
+  // the catalog list response would balloon carrying every connector's tools.
+  useEffect(() => {
+    if ((entry.tools ?? []).length > 0) return
+    let cancelled = false
+    getConnector(entry.slug)
+      .then(detail => {
+        if (cancelled || abortedRef.current) return
+        baselineToolsRef.current = detail.tools ?? []
+        setTools(detail.tools ?? [])
+      })
+      .catch(() => { /* keep the empty list; the modal still offers disconnect */ })
+    return () => { cancelled = true }
+  }, [entry.slug, entry.tools])
 
   const handlePolicyChange = useCallback(async (toolSlug: string, uiPolicy: UIPolicy) => {
     if (abortedRef.current) return
@@ -418,13 +438,14 @@ function ToolPermissionsModal({
         permissions: [{ slug: toolSlug, ...apiPolicy }],
       })
       if (abortedRef.current) return
+      baselineToolsRef.current = updated.tools ?? []
       setTools(updated.tools ?? [])
       onUpdate(updated)
       toast.success('Permission updated')
     } catch (err) {
       if (abortedRef.current) return
       // revert
-      setTools(entry.tools ?? [])
+      setTools(baselineToolsRef.current)
       const msg = err instanceof Error ? err.message : 'Failed to update permission'
       toast.error(msg)
     } finally {
@@ -459,12 +480,13 @@ function ToolPermissionsModal({
         permissions: tools.map(t => ({ slug: t.slug, allowed: true, blocked: false })),
       })
       if (abortedRef.current) return
+      baselineToolsRef.current = updated.tools ?? []
       setTools(updated.tools ?? [])
       onUpdate(updated)
       toast.success('All tools set to Always allow')
     } catch (err) {
       if (abortedRef.current) return
-      setTools(entry.tools ?? [])
+      setTools(baselineToolsRef.current)
       const msg = err instanceof Error ? err.message : 'Failed to update permissions'
       toast.error(msg)
     } finally {

@@ -81,6 +81,24 @@ const connectorAccountOptionSchema = z.object({
   can_manage:         z.boolean().default(false),
 })
 
+/** The Pipedream Apps API row the catalog sync stores per connector — typed
+ *  mirror of the backend sync's App model. looseObject keeps any new provider
+ *  fields Pipedream adds without failing the parse. */
+const catalogMetadataSchema = z.looseObject({
+  id:                 z.string().optional(),
+  name_slug:          z.string().optional(),
+  name:               z.string().optional(),
+  img_src:            z.string().nullish(),
+  description:        z.string().optional(),
+  /** Provider auth style at Pipedream ("oauth" | "keys" | "none") — the
+   *  catalog's auth_mode stays "oauth2" because linking always goes through
+   *  the hosted Connect flow; this is the underlying truth. */
+  auth_type:          z.string().nullish(),
+  custom_fields_json: z.string().nullish(),
+  categories:         z.array(z.string()).optional(),
+  featured_weight:    z.number().nullish(),
+})
+
 const connectorCatalogEntrySchema = z.object({
   slug:                z.string(),
   display_name:        z.string(),
@@ -92,8 +110,7 @@ const connectorCatalogEntrySchema = z.object({
   /** Provider taxonomy (Pipedream categories, e.g. "Communication"). Distinct
    *  from the FE's local connectorCategory grouping. */
   categories:          z.array(z.string()).default([]),
-  /** Full Pipedream Apps API row — scopes, featured weight, custom fields. */
-  catalog_metadata:    z.record(z.string(), z.unknown()).default({}),
+  catalog_metadata:    catalogMetadataSchema.default({}),
   tools:               z.array(toolEntrySchema).default([]),
   api_key_fields:      z.array(apiKeyFieldSchema).default([]),
   /** True when the current user's personal connector is linked. */
@@ -155,6 +172,7 @@ export function toolPermissionFromPolicy(policy: ToolPolicy): { allowed: boolean
 }
 /** Snake_case shape of an org shared account as embedded in the catalog entry. */
 export type ConnectorAccount       = z.infer<typeof orgConnectorAccountSchema>
+export type ConnectorCatalogMetadata = z.infer<typeof catalogMetadataSchema>
 export type ConnectorAccountOption = z.infer<typeof connectorAccountOptionSchema>
 export type ConnectorCatalogEntry  = z.infer<typeof connectorCatalogEntrySchema>
 export type ConnectorListResponse  = z.infer<typeof connectorListResponseSchema>
