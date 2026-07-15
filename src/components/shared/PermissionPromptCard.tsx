@@ -1,9 +1,7 @@
 "use client"
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import React, { useCallback, useState } from 'react'
 import { Button } from '@/components/Button'
-import { updateConnector } from '@/lib/api/connectors'
 import { connectorLogoSrc } from '@/lib/connectorLogos'
 import type { ConnectorPermissionPrompt, PermissionPromptOption } from '@/lib/api/prompts'
 
@@ -23,12 +21,12 @@ const ONE_TIME_OPTIONS: PermissionPromptOption[] = [
 
 interface PermissionPromptCardProps {
   prompt:    ConnectorPermissionPrompt
-  /** Called with the chosen option value; the caller unblocks the stream. */
+  /** Called with the chosen option value; the caller unblocks the stream.
+   *  Persistence is server-side: the backend saves allow/block (scope-aware,
+   *  personal vs shared account) when the prompt resolves — the card never
+   *  writes settings itself. */
   onDecided?: (value: string) => void
   disabled?: boolean
-  /** When true, never PATCH the decision into connector settings (the surface
-   *  owns persistence). Raw/one-time prompts skip saving regardless. */
-  skipSave?: boolean
   /** Chat-style surfaces let the card remove itself after a decision; the
    *  brain keeps it mounted (disabled) until the respond POST succeeds. */
   hideAfterDecide?: boolean
@@ -38,38 +36,17 @@ export function PermissionPromptCard({
   prompt,
   onDecided,
   disabled = false,
-  skipSave = false,
   hideAfterDecide = true,
 }: PermissionPromptCardProps) {
   const [decided, setDecided] = useState(false)
-  const abortedRef = useRef(false)
-
-  useEffect(() => {
-    abortedRef.current = false
-    return () => { abortedRef.current = true }
-  }, [])
 
   const persistable = prompt.persistable && !prompt.tool_name.startsWith('raw_')
 
   const handleDecide = useCallback((value: string) => {
     if (disabled || decided) return
-    // Unblock the backend stream first — do NOT wait for the preference save.
-    // The backend holds the SSE connection open while awaiting the respond
-    // POST; saving first would deadlock.
     if (hideAfterDecide) setDecided(true)
     onDecided?.(value)
-
-    // "Allow once" has no backend representation (ToolEntry is a persistent
-    // allowed/blocked gate); one-time raw prompts must never be saved.
-    if (skipSave || !persistable || (value !== 'allow' && value !== 'block')) return
-    updateConnector(prompt.connector_slug, {
-      permissions: [{ slug: prompt.tool_name, allowed: value === 'allow', blocked: value === 'block' }],
-    }).catch((err: unknown) => {
-      if (abortedRef.current) return
-      const msg = err instanceof Error ? err.message : 'Failed to save permission'
-      toast.error(`Failed to save permission preference: ${msg}`)
-    })
-  }, [disabled, decided, hideAfterDecide, onDecided, skipSave, persistable, prompt])
+  }, [disabled, decided, hideAfterDecide, onDecided])
 
   if (decided) return null
 

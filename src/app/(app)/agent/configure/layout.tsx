@@ -607,7 +607,6 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
                     <PermissionPromptCard
                       key={p.request_id}
                       prompt={p}
-                      skipSave
                       onDecided={(policy) => { respondToChatPrompt(p.request_id, policy, p.respond_url).catch(() => {}) }}
                     />
                   ))}
