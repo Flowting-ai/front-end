@@ -4,16 +4,21 @@
  * Splits an assistant content string into typed segments so the renderer can
  * apply the right component to each one.
  *
- * The backend emits <table> and <chart> XML blocks inline inside the regular
- * `content` SSE events. Everything else is plain Markdown.
+ * The backend emits structured XML blocks (STRUCTURED_TAGS) inline inside the
+ * regular `content` SSE events. Everything else is plain Markdown.
  * See: docs/frontend-rendering.md
  */
 
+/** XML block tags the assistant can emit inline. Adding a widget = add its tag
+ *  here, add a case in ContentRenderer, and teach the model the format in the
+ *  backend's core/prompts/system.yaml formatting block. */
+export const STRUCTURED_TAGS = ["table", "chart", "metrics"] as const
+export type StructuredTag = (typeof STRUCTURED_TAGS)[number]
+
 export type ContentSegment =
   | { type: "markdown"; text: string; start: number; end: number }
-  | { type: "table"; xml: string; start: number; end: number }
-  | { type: "chart"; xml: string; start: number; end: number }
-  | { type: "pending"; tag: "table" | "chart"; start: number; end: number }
+  | { type: StructuredTag; xml: string; start: number; end: number }
+  | { type: "pending"; tag: StructuredTag; start: number; end: number }
 
 // ---------------------------------------------------------------------------
 // Code-fence exclusion
@@ -43,47 +48,34 @@ function isInsideFence(idx: number, fences: Array<[number, number]>): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Find the earliest occurrence of an XML opening tag (<table or <chart) that
- * is NOT inside a code fence, searching from `fromIdx` onward.
+ * Find the earliest occurrence of a structured-tag opening (e.g. <table,
+ * <chart) that is NOT inside a code fence, searching from `fromIdx` onward.
+ * Occurrences whose next character continues the tag name (<tableSomething)
+ * are skipped.
  */
 function findNextOpenTag(
   content: string,
   fromIdx: number,
   fences: Array<[number, number]>,
-): { idx: number; tag: "table" | "chart" } | null {
-  // We scan character by character, but for efficiency we use indexOf + fence check.
-  let tableIdx = content.indexOf("<table", fromIdx)
-  let chartIdx = content.indexOf("<chart", fromIdx)
+): { idx: number; tag: StructuredTag } | null {
+  let best: { idx: number; tag: StructuredTag } | null = null
 
-  // Skip fence-enclosed occurrences
-  while (tableIdx !== -1 && isInsideFence(tableIdx, fences)) {
-    tableIdx = content.indexOf("<table", tableIdx + 1)
-  }
-  while (chartIdx !== -1 && isInsideFence(chartIdx, fences)) {
-    chartIdx = content.indexOf("<chart", chartIdx + 1)
-  }
-
-  // Validate that the character after "<table" / "<chart" is either a space or ">"
-  // (so we don't match a hypothetical <tableSomething tag)
-  if (tableIdx !== -1) {
-    const nextChar = content[tableIdx + 6]
-    if (nextChar !== " " && nextChar !== ">" && nextChar !== "\n" && nextChar !== "\r" && nextChar !== "/") {
-      tableIdx = -1
+  for (const tag of STRUCTURED_TAGS) {
+    const open = `<${tag}`
+    let idx = content.indexOf(open, fromIdx)
+    while (idx !== -1) {
+      const nextChar = content[idx + open.length]
+      const isTagBoundary =
+        nextChar === " " || nextChar === ">" || nextChar === "\n" || nextChar === "\r" || nextChar === "/"
+      if (isTagBoundary && !isInsideFence(idx, fences)) break
+      idx = content.indexOf(open, idx + 1)
     }
-  }
-  if (chartIdx !== -1) {
-    const nextChar = content[chartIdx + 6]
-    if (nextChar !== " " && nextChar !== ">" && nextChar !== "\n" && nextChar !== "\r" && nextChar !== "/") {
-      chartIdx = -1
+    if (idx !== -1 && (best === null || idx < best.idx)) {
+      best = { idx, tag }
     }
   }
 
-  if (tableIdx === -1 && chartIdx === -1) return null
-  if (tableIdx === -1) return { idx: chartIdx, tag: "chart" }
-  if (chartIdx === -1) return { idx: tableIdx, tag: "table" }
-  return tableIdx <= chartIdx
-    ? { idx: tableIdx, tag: "table" }
-    : { idx: chartIdx, tag: "chart" }
+  return best
 }
 
 // ---------------------------------------------------------------------------
@@ -93,8 +85,8 @@ function findNextOpenTag(
 /**
  * Splits an assistant content string into typed segments.
  *
- * - Complete `<table>...</table>` blocks → `{ type: "table", xml }`
- * - Complete `<chart ...>...</chart>` blocks → `{ type: "chart", xml }`
+ * - Complete `<table>...</table>` / `<chart>...</chart>` / `<metrics>...</metrics>`
+ *   blocks → `{ type: <tag>, xml }`
  * - In-flight block (opening tag found but no closing tag yet) → `{ type: "pending" }`
  * - Everything else → `{ type: "markdown", text }`
  *

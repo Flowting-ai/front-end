@@ -13,10 +13,11 @@
  */
 
 import React from "react"
-import { parseContentSegments } from "./content-parser"
+import { parseContentSegments, type StructuredTag } from "./content-parser"
 import { MarkdownRenderer, type HighlightSpec } from "./markdown-utils"
 import { XmlTable } from "@/components/chat/XmlTable"
 import { XmlChart } from "@/components/chat/XmlChart"
+import { XmlMetrics } from "@/components/chat/XmlMetrics"
 import type { WebCitation } from "@/hooks/use-chat-state"
 
 // ---------------------------------------------------------------------------
@@ -24,10 +25,10 @@ import type { WebCitation } from "@/hooks/use-chat-state"
 // ---------------------------------------------------------------------------
 
 /**
- * Shown in place of a <table> or <chart> block that has started streaming
+ * Shown in place of a structured XML block that has started streaming
  * but whose closing tag has not yet arrived.
  */
-function PendingBlockPlaceholder({ tag }: { tag: "table" | "chart" }) {
+function PendingBlockPlaceholder({ tag }: { tag: StructuredTag }) {
   return (
     <div
       aria-label={`Loading ${tag}…`}
@@ -97,6 +98,9 @@ export function ContentRenderer({
 
       case "chart":
         return <XmlChart key={i} xml={seg.xml} />
+
+      case "metrics":
+        return <XmlMetrics key={i} xml={seg.xml} />
 
       case "pending":
         return <PendingBlockPlaceholder key={i} tag={seg.tag} />

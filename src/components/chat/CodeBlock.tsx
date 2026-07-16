@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
+import { MermaidDiagram } from "@/components/chat/MermaidDiagram";
 import { HIGHLIGHT_COLORS } from "@/components/HighlightCard";
 import { hasRawRange } from "@/lib/highlight-offsets";
 import type { HighlightSpec } from "@/lib/markdown-utils";
@@ -80,6 +81,14 @@ function renderPlainWithMarks(text: string, specs: HighlightSpec[], offsetBase: 
 }
 
 export function CodeBlock({ language, value, elementKey, highlights, sourceOffset = 0 }: CodeBlockProps) {
+  // ```mermaid fences are diagrams, not code — every markdown path (chat,
+  // brain, line renderer) funnels through here, so this is the one hook point.
+  if (language === "mermaid") return <MermaidDiagram code={value} />;
+
+  return <HighlightedCodeBlock language={language} value={value} elementKey={elementKey} highlights={highlights} sourceOffset={sourceOffset} />;
+}
+
+function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceOffset = 0 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
 // Raw hljs output — recomputed only when code content changes
   const [rawHtml, setRawHtml] = useState<string | null>(null);
