@@ -9,7 +9,7 @@ import { ConnectorRow } from '@/components/ConnectorRow'
 import { listConnectors } from '@/lib/api/connectors'
 import { getVersion, setVersionBlockedConnectors, unblockVersionConnector } from '@/lib/api/personas'
 import type { ConnectorCatalogEntry, ConnectorAccountOption } from '@/lib/api/connectors'
-import { CONNECTOR_LOGO_MAP } from '@/lib/connectorLogos'
+import { toConnector } from '@/lib/connector'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { SETTINGS_CONNECTORS_ROUTE } from '@/lib/routes'
 import { ATTRIBUTE_HEADER_STYLE } from '@/app/(app)/agent/configure/components/AttributeTrackerRail'
@@ -40,7 +40,7 @@ function XIcon() {
 // we fall back to the entry's scalar fields for older catalog responses.
 
 function logoFor(entry: ConnectorCatalogEntry): string | undefined {
-  return CONNECTOR_LOGO_MAP[entry.slug] ?? entry.logo_url ?? entry.icon_url
+  return toConnector(entry).logo ?? undefined
 }
 
 /** Connected, active shared-team accounts for this connector. */

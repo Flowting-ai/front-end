@@ -161,6 +161,8 @@ export interface ContextConnector {
   status?:       string
   auth_mode?:    string
   tool_count?:   number
+  /** Provider-hosted brand logo (catalog logo_url); bundled assets take precedence. */
+  logo_url?:     string | null
 }
 export interface BrainContextEvent {
   persona?:          ContextPersona | null

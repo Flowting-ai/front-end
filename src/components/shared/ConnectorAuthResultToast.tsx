@@ -3,7 +3,7 @@
 import { Suspense, useEffect } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { connectorDisplayName } from '@/lib/connectorLogos'
+import { toConnector } from '@/lib/connector'
 
 /**
  * Native MCP connector OAuth callbacks redirect back into the app with
@@ -23,7 +23,7 @@ function ConnectorAuthResultToastInner() {
     const link = searchParams.get('link')
     if (!slug || !link) return
 
-    const name = connectorDisplayName(slug)
+    const name = toConnector(slug).name
     if (link === 'connected') {
       toast.success(`${name} connected`)
     } else if (link === 'cancelled') {

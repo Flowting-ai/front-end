@@ -37,7 +37,7 @@ import {
 } from '@/lib/api/teams'
 import { fetchProjects, createProjectApi, type ApiProjectSummary } from '@/lib/api/projects'
 import { listAudit } from '@/lib/api/organization'
-import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
+import { toConnector } from '@/lib/connector'
 import { CHAT_ROUTE } from '@/lib/routes'
 import type { Team, AuditLogEntry } from '@/types/teams'
 
@@ -46,10 +46,9 @@ type TeamTab = 'projects' | 'connectors' | 'requests' | 'activity'
 // ── Shared chrome ─────────────────────────────────────────────────────────────
 
 // Connector logo in the design-system icon-box chrome (white box, rounded, hairline
-// ring). Logos resolve from the app's bundled set (connectorLogoSrc, ~63 connectors);
-// falls back to initials for anything unbundled.
+// ring); falls back to initials when no logo resolves.
 function ConnectorIcon({ slug, name }: { slug: string; name: string }) {
-  const src = connectorLogoSrc(slug)
+  const src = toConnector(slug).logo
   const initials = name.split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase()
   return (
     <div style={{
@@ -399,8 +398,8 @@ function RequestsTab({ orgId, teamId }: { orgId: string; teamId: string }) {
           <SettingsTableRow key={r.connectorSlug} divider={index < requests.length - 1}>
             <SettingsTableCell>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                <ConnectorIcon slug={r.connectorSlug} name={connectorDisplayName(r.connectorSlug)} />
-                <p style={cellTitle}>{connectorDisplayName(r.connectorSlug)}</p>
+                <ConnectorIcon slug={r.connectorSlug} name={toConnector(r.connectorSlug).name} />
+                <p style={cellTitle}>{toConnector(r.connectorSlug).name}</p>
               </div>
             </SettingsTableCell>
             <SettingsTableCell>

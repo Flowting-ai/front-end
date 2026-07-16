@@ -46,7 +46,7 @@ import {
 } from '@/lib/api/teams'
 import type { ConnectorRequestStatus, TeamPersonaShare } from '@/lib/api/teams'
 import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
-import { connectorLogoSrc } from '@/lib/connectorLogos'
+import { toConnector } from '@/lib/connector'
 import type { ApiProjectSummary } from '@/lib/api/projects'
 import { listMembers, getOrgSettings } from '@/lib/api/organization'
 import { fetchPersonas, personasForTeamContext, type Persona } from '@/lib/api/personas'
@@ -559,7 +559,7 @@ function TeamConnectorRow({
   divider: boolean
   onToggle: (checked: boolean) => void
 }) {
-  const src = connectorLogoSrc(entry.slug) ?? entry.logo_url
+  const src = toConnector(entry).logo
   const initials = entry.display_name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()
 
   // org_enabled=false means the org admin disabled this connector globally; teams cannot override.

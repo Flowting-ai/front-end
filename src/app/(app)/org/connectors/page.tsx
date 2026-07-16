@@ -73,7 +73,7 @@ import {
   unlinkTeamConnection,
 } from '@/lib/api/teams'
 import type { ConnectorRequestStatus, TeamConnectionEntry, TeamConnectorRequest } from '@/lib/api/teams'
-import { connectorLogoSrc } from '@/lib/connectorLogos'
+import { toConnector } from '@/lib/connector'
 import { isMcpProviderConnector } from '@/lib/connectorProvider'
 import type { Team } from '@/types/teams'
 
@@ -480,7 +480,7 @@ function SearchBar({ value, onChange }: { value: string; onChange: (value: strin
 }
 
 function ConnectorIcon({ connector }: { connector: Pick<ConnectorCatalogEntry, 'slug' | 'display_name'> & { logo_url?: string | null } }) {
-  const src = connectorLogoSrc(connector.slug) ?? connector.logo_url
+  const src = toConnector(connector).logo
   const initials = connector.display_name
     .split(/\s+/)
     .map(part => part[0])

@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { ContentRenderer } from '@/lib/content-renderer'
+import { toConnector } from '@/lib/connector'
 
 // ── Connector result detection ─────────────────────────────────────────────────
 // When the Brain model outputs a raw connector result JSON blob as content,
@@ -51,59 +52,6 @@ function isPartialConnectorResult(content: string): boolean {
 
 // ── Display helpers ────────────────────────────────────────────────────────────
 
-const CONNECTOR_NAMES: Record<string, string> = {
-  gmail:           'Gmail',
-  googlecalendar:  'Google Calendar',
-  googledrive:     'Google Drive',
-  googledocs:      'Google Docs',
-  googlesheets:    'Google Sheets',
-  googleanalytics: 'Google Analytics',
-  googlemeet:      'Google Meet',
-  googleslides:    'Google Slides',
-  googleads:       'Google Ads',
-  slack:           'Slack',
-  notion:          'Notion',
-  hubspot:         'HubSpot',
-  salesforce:      'Salesforce',
-  linear:          'Linear',
-  jira:            'Jira',
-  asana:           'Asana',
-  clickup:         'ClickUp',
-  airtable:        'Airtable',
-  shopify:         'Shopify',
-  stripe:          'Stripe',
-  zoom:            'Zoom',
-  calendly:        'Calendly',
-  notion2:         'Notion',
-  intercom:        'Intercom',
-  customerio:      'Customer.io',
-  mixpanel:        'Mixpanel',
-  amplitude:       'Amplitude',
-  figma:           'Figma',
-  miro:            'Miro',
-  canva:           'Canva',
-  vercel:          'Vercel',
-  supabase:        'Supabase',
-  databricks:      'Databricks',
-  outlook:         'Outlook',
-  teams:           'Microsoft Teams',
-  onedrive:        'OneDrive',
-  sharepoint:      'SharePoint',
-  excel:           'Excel',
-  word:            'Word',
-  onenote:         'OneNote',
-  quickbooks:      'QuickBooks',
-  zohobooks:       'Zoho Books',
-  twilio:          'Twilio',
-  richpanel:       'Richpanel',
-  shipstation:     'ShipStation',
-  monday:          'Monday.com',
-}
-
-function connectorDisplayName(slug: string): string {
-  return CONNECTOR_NAMES[slug.toLowerCase()] ?? slug
-}
-
 function toolDisplayLabel(toolSlug: string, connectorSlug: string): string {
   const lower = toolSlug.toLowerCase()
   const prefix = connectorSlug.toLowerCase() + '-'
@@ -128,7 +76,7 @@ function ConnectorResultCard({ data }: { data: ConnectorResultJson }) {
   }
 
   const connectorSlug  = meta?.connector ?? ''
-  const connectorName  = connectorSlug ? connectorDisplayName(connectorSlug) : ''
+  const connectorName  = connectorSlug ? toConnector(connectorSlug).name : ''
   const toolSlug       = meta?.tool ?? ''
   const actionLabel    = toolSlug ? toolDisplayLabel(toolSlug, connectorSlug) : 'Action completed'
   const summary        = typeof result?.exports?.['$summary'] === 'string'

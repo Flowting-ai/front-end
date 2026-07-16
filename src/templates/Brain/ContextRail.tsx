@@ -4,7 +4,7 @@ import React from 'react'
 import { PinIcon, CancelOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
-import { connectorLogoSrc } from '@/lib/connectorLogos'
+import type { Connector } from '@/lib/connector'
 import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -41,13 +41,10 @@ export interface ContextRailPin {
   active?: boolean
 }
 
-export interface ContextRailConnector {
-  name:   string
-  slug?:  string
-  status: 'connected' | 'failed' | 'pending'
-  /** true = used by the current/latest turn; false/undefined = seen earlier this thread but not now. */
-  active?: boolean
-}
+/** The shared Connector identity plus rail-specific usage state.
+ *  active: true = used by the current/latest turn; false/undefined = seen
+ *  earlier this thread but not now. */
+export type ContextRailConnector = Connector & { active?: boolean }
 
 export interface ContextRailFile {
   name:  string
@@ -132,24 +129,19 @@ function SectionHeader({ label, count }: { label: string; count?: number }) {
   )
 }
 
-// Bundled connector logos live in @/lib/connectorLogos (shared with the Brain
-// tool-connect card so both render the same brand assets).
-function ConnectorLogo({ name, slug, status }: { name: string; slug?: string; status: ContextRailConnector['status'] }) {
+function ConnectorLogo({ connector: c }: { connector: ContextRailConnector }) {
   const dotColor =
-    status === 'connected' ? 'var(--color-tag-Green-text, #1e8a3c)' :
-    status === 'failed'    ? 'var(--color-tag-Red-text, #c0392b)'   :
-                             'var(--neutral-300)'
-
-  // Resolve the bundled logo by slug (preferred) or display name.
-  const logoSrc = connectorLogoSrc(slug ?? name)
+    c.status === 'connected' ? 'var(--color-tag-Green-text, #1e8a3c)' :
+    c.status === 'failed'    ? 'var(--color-tag-Red-text, #c0392b)'   :
+                               'var(--neutral-300)'
 
   return (
     <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0, lineHeight: 0 }}>
-      {logoSrc ? (
-        // eslint-disable-next-line @next/next/no-img-element -- local brand asset, variable path prevents next/image static analysis
+      {c.logo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- brand asset (local or provider URL), variable path prevents next/image static analysis
         <img
-          src={logoSrc}
-          alt={name}
+          src={c.logo}
+          alt={c.name}
           width={16}
           height={16}
           style={{ objectFit: 'contain', display: 'block' }}
@@ -170,7 +162,7 @@ function ConnectorLogo({ name, slug, status }: { name: string; slug?: string; st
           userSelect:      'none',
           textTransform:   'uppercase',
         }}>
-          {name.charAt(0)}
+          {c.name.charAt(0)}
         </span>
       )}
       <span style={{
@@ -284,7 +276,7 @@ function ConnectorRow({ connector: c, index, dimmed }: { connector: ContextRailC
         opacity:    dimmed ? 0.6 : 1,
       }}
     >
-      <ConnectorLogo name={c.name} slug={c.slug} status={c.status} />
+      <ConnectorLogo connector={c} />
       <span style={{
         flex:       '1 0 0',
         fontFamily: 'var(--font-body)',
@@ -494,13 +486,13 @@ export function ContextRail({ data, onClose }: ContextRailProps) {
           <SectionHeader label="Connectors" />
           {previousConnectors.length > 0 && activeConnectors.length > 0 && <UsageSubHeader active />}
           <div style={{ display: 'flex', flexDirection: 'column', padding: '2px 0 14px' }}>
-            {activeConnectors.map((c, i) => <ConnectorRow key={c.slug ?? c.name} connector={c} index={i} />)}
+            {activeConnectors.map((c, i) => <ConnectorRow key={c.slug || c.name} connector={c} index={i} />)}
           </div>
           {previousConnectors.length > 0 && (
             <>
               <UsageSubHeader active={false} />
               <div style={{ display: 'flex', flexDirection: 'column', padding: '2px 0 14px' }}>
-                {previousConnectors.map((c, i) => <ConnectorRow key={c.slug ?? c.name} connector={c} index={i} dimmed />)}
+                {previousConnectors.map((c, i) => <ConnectorRow key={c.slug || c.name} connector={c} index={i} dimmed />)}
               </div>
             </>
           )}

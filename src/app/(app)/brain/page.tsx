@@ -95,7 +95,7 @@ import { registerStream, completeStream, getStreamCompletion } from '@/lib/strea
 import { isExtractable, extractText, stripDocumentBlocks } from '@/lib/brain-file-extract'
 import { linkScheduleToChat, consumePendingPrompt, remapScheduleLink } from '@/lib/scheduleLinks'
 import { listTasks } from '@/lib/api/tasks'
-import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
+import { toConnector, type Connector } from '@/lib/connector'
 import { PermissionPromptCard } from '@/components/shared/PermissionPromptCard'
 import { parsePermissionPrompt, type ConnectorPermissionPrompt } from '@/lib/api/prompts'
 import {
@@ -468,7 +468,7 @@ function synthesizeContextFromMessages(
     files: [],
     connectors: Array.from(connectorSlugs).sort().map((slug) => ({
       slug,
-      display_name: connectorDisplayName(slug),
+      display_name: toConnector(slug).name,
       status:       'connected',
     })),
     allPinIds: Array.from(allPinIds),
@@ -878,7 +878,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     backgroundColor: 'var(--neutral-white)',
   }
 
-  const logoSrc = connectorLogoSrc(event.connector_slug) ?? connectorLogoSrc(event.display_name)
+  const logoSrc = toConnector(event).logo
 
   return (
     <div style={cardStyle}>
@@ -1201,7 +1201,7 @@ function ExternalOutputBlock({ actions }: { actions: ExternalOutputAction[] }) {
       verb:      a.verb,
       target:    a.target,
       connector: a.connector,
-      logoSrc:   a.logo_url ?? connectorLogoSrc(a.connector_slug ?? a.connector) ?? undefined,
+      logoSrc:   toConnector(a).logo ?? undefined,
       detail:    a.detail,
       onView:    url ? () => window.open(url, '_blank', 'noopener') : undefined,
     }
@@ -1483,7 +1483,7 @@ function BrainPageInner() {
   const contextHistoryRef = useRef<{
     pins:       Map<string, { title: string; source?: string }>
     files:      Map<string, { mime_type?: string; size?: number }>
-    connectors: Map<string, { name: string; status: string }>
+    connectors: Map<string, Connector>
   }>({ pins: new Map(), files: new Map(), connectors: new Map() })
   const [toolConnectPrompt,  setToolConnectPrompt]  = useState<ToolConnectPromptEvent | null>(null)
   const [liveToolCalls,      setLiveToolCalls]      = useState<Record<string, { status: 'streaming' | 'executing' | 'complete'; tool_call: ToolCallPreview }>>({})
@@ -1868,7 +1868,7 @@ function BrainPageInner() {
             if (!hist.pins.has(id)) hist.pins.set(id, { title: '', source: undefined })
           }
           for (const c of synth.connectors ?? []) {
-            if (c.slug) hist.connectors.set(c.slug, { name: c.display_name || c.slug, status: c.status ?? 'connected' })
+            if (c.slug) hist.connectors.set(c.slug, toConnector(c))
           }
         }
       })
@@ -2501,7 +2501,7 @@ function BrainPageInner() {
             if (f?.name) hist.files.set(f.name, { mime_type: f.mime_type, size: f.size })
           }
           for (const c of (Array.isArray(d.connectors) ? d.connectors as BrainContextEvent['connectors'] : []) ?? []) {
-            if (c?.slug) hist.connectors.set(c.slug, { name: c.display_name || c.slug, status: c.status ?? 'connected' })
+            if (c?.slug) hist.connectors.set(c.slug, toConnector(c))
           }
         }
         break
@@ -4718,20 +4718,10 @@ function BrainPageInner() {
         active: false,
       }))
 
-    const activeConnectors = (liveContext.connectors ?? []).map((c) => ({
-      name:   c.display_name || c.slug,
-      slug:   c.slug,
-      status: (c.status === 'failed' ? 'failed' : c.status === 'pending' ? 'pending' : 'connected') as 'connected' | 'failed' | 'pending',
-      active: true,
-    }))
-    const previousConnectors = Array.from(hist.connectors.entries())
-      .filter(([slug]) => !activeConnectorSlugs.has(slug))
-      .map(([slug, c]) => ({
-        name:   c.name,
-        slug,
-        status: (c.status === 'failed' ? 'failed' : c.status === 'pending' ? 'pending' : 'connected') as 'connected' | 'failed' | 'pending',
-        active: false,
-      }))
+    const activeConnectors = (liveContext.connectors ?? []).map((c) => ({ ...toConnector(c), active: true }))
+    const previousConnectors = Array.from(hist.connectors.values())
+      .filter((c) => !activeConnectorSlugs.has(c.slug))
+      .map((c) => ({ ...c, active: false }))
 
     return {
       // Prefer what Brain confirmed it loaded (SSE event); fall back to the

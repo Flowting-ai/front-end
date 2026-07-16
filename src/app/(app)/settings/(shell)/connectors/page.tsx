@@ -23,7 +23,7 @@ import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool, ToolPolicy } fr
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
 import { useConnectorBrowse, CategoryFilter, Pagination } from '@/components/ConnectorBrowse'
-import { CONNECTOR_LOGO_MAP } from '@/lib/connectorLogos'
+import { toConnector } from '@/lib/connector'
 import { isMcpProviderConnector } from '@/lib/connectorProvider'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { connectorCategory } from '@/lib/connectorCategories'
@@ -206,7 +206,7 @@ function CardKebabMenu({ items }: { items: { label: string; onSelect: () => void
 // ── Connector icon / avatar ───────────────────────────────────────────────────
 
 function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; size?: number }) {
-  const logo = CONNECTOR_LOGO_MAP[entry.slug] ?? entry.logo_url ?? entry.icon_url
+  const logo = toConnector(entry).logo
 
   if (logo) {
     return (

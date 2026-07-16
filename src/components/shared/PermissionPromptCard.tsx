@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from 'react'
 import { Button } from '@/components/Button'
-import { connectorLogoSrc } from '@/lib/connectorLogos'
+import { toConnector } from '@/lib/connector'
 import type { ConnectorPermissionPrompt, PermissionPromptOption } from '@/lib/api/prompts'
 
 // The one permission card — chat, persona, agent configure, compare, and brain
@@ -53,8 +53,9 @@ export function PermissionPromptCard({
   // record it. Without the durable check, remounts resurrect answered cards.
   if (decided || prompt.decision) return null
 
-  const logoSrc = connectorLogoSrc(prompt.connector_slug) ?? prompt.icon_url ?? connectorLogoSrc(prompt.display_name)
-  const displayName = prompt.display_name || prompt.connector_slug || '?'
+  const connector = toConnector(prompt)
+  const logoSrc = connector.logo
+  const displayName = connector.name || '?'
   const options = prompt.options.length > 0
     ? prompt.options
     : persistable ? PERSISTENT_OPTIONS : ONE_TIME_OPTIONS

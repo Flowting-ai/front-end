@@ -4,6 +4,10 @@
 // take precedence where bundled, and `logo_url` covers the long tail. Keep the
 // slug variants (dash / underscore / concatenated) in sync with the backend's
 // connector slugs.
+//
+// Don't consume this module directly from UI code — build a `Connector` via
+// toConnector() in @/lib/connector, which folds these maps in with the
+// backend-provided logo/name fields.
 export const CONNECTOR_LOGO_MAP: Record<string, string> = {
   'airtable':          '/connector-logos/airtable.svg',
   'asana':             '/connector-logos/asana.svg',
