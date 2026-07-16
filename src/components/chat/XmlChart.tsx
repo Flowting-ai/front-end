@@ -13,8 +13,9 @@
  * See: docs/frontend-rendering.md - Charts section.
  */
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { AnimatePresence, m } from "framer-motion"
+import React, { useEffect, useMemo, useRef, useState } from "react"
+import { AnimatePresence, m, useReducedMotion } from "framer-motion"
+import { ChartNoAxesCombined, PieChart as PieChartIcon } from "lucide-react"
 
 // ---------------------------------------------------------------------------
 // Palette - mirrors souvenir-chat-preview BAR_PALETTE / PIE_COLORS_HEX
@@ -32,6 +33,7 @@ const BAR_PALETTE = [
 // Hex values needed for SVG attributes that cannot use CSS vars
 const PIE_COLORS_HEX = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B", "#524B47", "#A28847"]
 const LINE_COLORS    = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B"]
+const EMPTY_SUBSCRIBE = () => () => {}
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -86,13 +88,42 @@ function readChartAttrs(el: Element): ChartAttrs {
 // ---------------------------------------------------------------------------
 
 function ChartShell({ title, children }: { title?: string; children: React.ReactNode }) {
+  const reduceMotion = Boolean(useReducedMotion())
   return (
-    <div style={{ background: "var(--neutral-white)", border: "1px solid var(--neutral-100)", borderRadius: 12, padding: "16px 18px 14px", margin: "16px 0" }}>
-      {title && (
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-900)", marginBottom: 14 }}>{title}</div>
-      )}
-      {children}
-    </div>
+    <m.div
+      initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.99 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      whileHover={reduceMotion ? undefined : { y: -2 }}
+      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+      style={{
+        background: "linear-gradient(135deg, #F2F6F8 0%, #FFFEFC 52%, #F3EEE8 100%)",
+        border: "1px solid rgba(73,110,139,0.15)",
+        borderRadius: 18,
+        padding: "13px 15px 14px",
+        margin: "16px 0",
+        boxShadow: "0 10px 28px rgba(82,75,71,0.09), 0 2px 4px rgba(82,75,71,0.07)",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 14 }}>
+        <m.span
+          aria-hidden
+          initial={reduceMotion ? false : { scale: 0.82, rotate: -8 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 340, damping: 24 }}
+          style={{ width: 34, height: 34, display: "grid", placeItems: "center", borderRadius: 11, color: "#496E8B", backgroundColor: "rgba(222,235,244,0.76)", border: "1px solid rgba(73,110,139,0.16)" }}
+        >
+          <ChartNoAxesCombined size={16} strokeWidth={1.8} />
+        </m.span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 11, lineHeight: "15px", color: "var(--neutral-500)" }}>Data visualization</div>
+          <div style={{ fontSize: 13, lineHeight: "19px", fontWeight: 600, color: "var(--neutral-950)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title || "Chart"}</div>
+        </div>
+      </div>
+      <div style={{ padding: "10px 10px 6px", borderRadius: 13, backgroundColor: "rgba(255,255,255,0.67)", border: "1px solid rgba(82,75,71,0.08)" }}>
+        {children}
+      </div>
+    </m.div>
   )
 }
 
@@ -173,6 +204,7 @@ interface SliceDatum { label: string; value: number }
 function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }) {
   const [revealedCount, setRevealedCount] = useState(0)
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+  const reduceMotion = Boolean(useReducedMotion())
 
   const R = 90, CX = 110, CY = 110, SW = 26
   const circ = 2 * Math.PI * R
@@ -190,11 +222,10 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
 
   if (slices.length === 0 || total === 0) return null
 
-  let cumPct = 0
   const arcs = slices.map((sl, i) => {
     const pct = sl.value / total
-    const startDeg = cumPct * 360 - 90
-    cumPct += pct
+    const priorValue = slices.slice(0, i).reduce((sum, prior) => sum + prior.value, 0)
+    const startDeg = (priorValue / total) * 360 - 90
     return {
       pct,
       startDeg,
@@ -207,10 +238,28 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
   })
 
   return (
-    <div style={{ background: "var(--neutral-white)", border: "1px solid var(--neutral-100)", borderRadius: 12, padding: "18px 20px", margin: "16px 0" }}>
-      {attrs.title && (
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-900)", marginBottom: 16 }}>{attrs.title}</div>
-      )}
+    <m.div
+      initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.99 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      whileHover={reduceMotion ? undefined : { y: -2 }}
+      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+      style={{ background: "linear-gradient(135deg, #F3F0F7 0%, #FFFEFC 52%, #F1ECE7 100%)", border: "1px solid rgba(109,92,145,0.15)", borderRadius: 18, padding: "13px 15px 15px", margin: "16px 0", boxShadow: "0 10px 28px rgba(82,75,71,0.09), 0 2px 4px rgba(82,75,71,0.07)", overflow: "hidden" }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
+        <m.span
+          aria-hidden
+          initial={reduceMotion ? false : { scale: 0.82, rotate: -8 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 340, damping: 24 }}
+          style={{ width: 34, height: 34, display: "grid", placeItems: "center", borderRadius: 11, color: "#6D5C91", backgroundColor: "rgba(109,92,145,0.11)", border: "1px solid rgba(109,92,145,0.16)" }}
+        >
+          <PieChartIcon size={16} strokeWidth={1.8} />
+        </m.span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 11, lineHeight: "15px", color: "var(--neutral-500)" }}>Distribution</div>
+          <div style={{ fontSize: 13, lineHeight: "19px", fontWeight: 600, color: "var(--neutral-950)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attrs.title || "Breakdown"}</div>
+        </div>
+      </div>
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
         <svg width={220} height={220} viewBox="0 0 220 220" style={{ display: "block", maxWidth: "100%" }}>
           {/* Track ring */}
@@ -267,7 +316,7 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
           </m.div>
         ))}
       </div>
-    </div>
+    </m.div>
   )
 }
 
@@ -280,7 +329,7 @@ interface PointDatum { x: string | number; y: number }
 function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] }) {
   const [revealed, setRevealed] = useState(false)
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
-  const [hoverContainerX, setHoverContainerX] = useState(0)
+  const [tooltipLeft, setTooltipLeft] = useState(4)
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -314,7 +363,8 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
     if (svgX < PAD.left || svgX > PAD.left + chartW) { setHoverIdx(null); return }
     const xi = Math.round((svgX - PAD.left) / chartW * maxXIdx)
     setHoverIdx(Math.max(0, Math.min(maxXIdx, xi)))
-    setHoverContainerX(e.clientX - contRect.left)
+    const tooltipWidth = 120
+    setTooltipLeft(Math.max(4, Math.min(e.clientX - contRect.left - tooltipWidth / 2, contRect.width - tooltipWidth - 4)))
   }
 
   if (points.length === 0) return null
@@ -325,7 +375,6 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
   const skip = Math.ceil(points.length / 7)
   const crosshairSvgX = hoverIdx !== null ? PAD.left + (hoverIdx / maxXIdx) * chartW : 0
   const tooltipWidth = 120
-  const tooltipLeft = hoverContainerX - tooltipWidth / 2
 
   return (
     <ChartShell title={attrs.title}>
@@ -413,7 +462,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 4, scale: 0.96 }}
               transition={{ duration: 0.12 }}
-              style={{ position: "absolute", top: -8, left: Math.max(4, Math.min(tooltipLeft, (containerRef.current?.clientWidth ?? 400) - tooltipWidth - 4)), width: tooltipWidth, background: "var(--neutral-900)", borderRadius: 8, padding: "7px 10px", pointerEvents: "none", zIndex: 10, boxShadow: "0 4px 12px rgba(18,12,8,0.22)" }}>
+              style={{ position: "absolute", top: -8, left: tooltipLeft, width: tooltipWidth, background: "var(--neutral-900)", borderRadius: 8, padding: "7px 10px", pointerEvents: "none", zIndex: 10, boxShadow: "0 4px 12px rgba(18,12,8,0.22)" }}>
               <div style={{ fontSize: 12, color: "var(--neutral-400)", fontWeight: 500, marginBottom: 5, letterSpacing: "0.3px" }}>
                 {String(points[hoverIdx]?.x ?? "")}
               </div>
@@ -591,11 +640,7 @@ interface XmlChartProps { xml: string }
 
 export function XmlChart({ xml }: XmlChartProps) {
   const state = useMemo(() => parseChartXml(xml) ?? "error", [xml])
-  const [mounted, setMounted] = useState(false)
-
-  useLayoutEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = React.useSyncExternalStore(EMPTY_SUBSCRIBE, () => true, () => false)
 
   if (!mounted) {
     return (

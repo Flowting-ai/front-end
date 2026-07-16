@@ -16,6 +16,8 @@
 
 import React, { useEffect, useState } from "react"
 import { renderMermaidSVG } from "beautiful-mermaid"
+import { m, useReducedMotion } from "framer-motion"
+import { Check, Copy, GitBranch, Maximize2, Minimize2 } from "lucide-react"
 
 const THEME = {
   fg:          "var(--neutral-800)",
@@ -66,13 +68,16 @@ function Skeleton() {
 export function MermaidDiagram({ code }: { code: string }) {
   const [svg, setSvg] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const reduceMotion = Boolean(useReducedMotion())
 
   useEffect(() => {
     let failTimer: ReturnType<typeof setTimeout> | undefined
-    setFailed(false)
     const renderTimer = setTimeout(() => {
       try {
         setSvg(renderMermaidSVG(code, THEME))
+        setFailed(false)
       } catch {
         failTimer = setTimeout(() => setFailed(true), 1000)
       }
@@ -82,6 +87,13 @@ export function MermaidDiagram({ code }: { code: string }) {
       if (failTimer) clearTimeout(failTimer)
     }
   }, [code])
+
+  const copySource = () => {
+    navigator.clipboard?.writeText(code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
 
   if (failed) {
     return (
@@ -118,18 +130,83 @@ export function MermaidDiagram({ code }: { code: string }) {
   if (!svg) return <Skeleton />
 
   return (
-    <div
-      className="kaya-scrollbar"
+    <m.div
+      initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.99 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
       style={{
-        margin:       "12px 0",
-        padding:      12,
-        borderRadius: 8,
-        border:       "1px solid var(--neutral-100)",
-        background:   "var(--neutral-white)",
-        overflowX:    "auto",
+        position: expanded ? "fixed" : "relative",
+        inset: expanded ? 24 : undefined,
+        zIndex: expanded ? 1100 : undefined,
+        display: "flex",
+        flexDirection: "column",
+        margin: expanded ? 0 : "14px 0",
+        minHeight: expanded ? 0 : 220,
+        maxHeight: expanded ? "calc(100vh - 48px)" : undefined,
+        borderRadius: 18,
+        border: "1px solid rgba(109, 92, 145, 0.17)",
+        background: "linear-gradient(135deg, #F3F0F7 0%, #FFFEFC 52%, #EEE9F2 100%)",
+        boxShadow: expanded
+          ? "0 28px 80px rgba(18,12,8,0.28)"
+          : "0 10px 28px rgba(82,75,71,0.09), 0 2px 4px rgba(82,75,71,0.07)",
+        overflow: "hidden",
       }}
-      // Library-generated SVG from diagram text — same trust model as XmlChart's SVG output.
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 13px", borderBottom: "1px solid rgba(109, 92, 145, 0.10)" }}>
+        <m.span
+          aria-hidden
+          initial={reduceMotion ? false : { scale: 0.82, rotate: -8 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 340, damping: 24 }}
+          style={{ width: 34, height: 34, display: "grid", placeItems: "center", borderRadius: 11, color: "#6D5C91", backgroundColor: "rgba(109,92,145,0.11)", border: "1px solid rgba(109,92,145,0.16)" }}
+        >
+          <GitBranch size={16} strokeWidth={1.8} />
+        </m.span>
+        <div style={{ flex: "1 1 0", minWidth: 0 }}>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-500)" }}>Diagram</div>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-body)", fontWeight: "var(--font-weight-semibold)", color: "var(--neutral-950)" }}>Flow visualization</div>
+        </div>
+        <m.button
+          type="button"
+          onClick={copySource}
+          aria-label={copied ? "Diagram source copied" : "Copy diagram source"}
+          whileHover={reduceMotion ? undefined : { scale: 1.04 }}
+          whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+          style={{ width: 32, height: 32, display: "grid", placeItems: "center", borderRadius: 9, border: "1px solid rgba(82,75,71,0.12)", backgroundColor: "rgba(255,255,255,0.72)", color: copied ? "#287A47" : "var(--neutral-500)", cursor: "pointer" }}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+        </m.button>
+        <m.button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-label={expanded ? "Exit expanded diagram" : "Expand diagram"}
+          aria-pressed={expanded}
+          whileHover={reduceMotion ? undefined : { scale: 1.04 }}
+          whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+          style={{ width: 32, height: 32, display: "grid", placeItems: "center", borderRadius: 9, border: "1px solid rgba(82,75,71,0.12)", backgroundColor: "rgba(255,255,255,0.72)", color: "var(--neutral-500)", cursor: "pointer" }}
+        >
+          {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        </m.button>
+      </div>
+
+      <m.div
+        className="kaya-scrollbar"
+        initial={reduceMotion ? false : { opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: reduceMotion ? 0 : 0.08, duration: 0.34 }}
+        style={{
+          flex: expanded ? "1 1 0" : undefined,
+          minHeight: 0,
+          display: "grid",
+          placeItems: "center",
+          padding: expanded ? 24 : 16,
+          overflow: "auto",
+          backgroundImage: "radial-gradient(circle at 1px 1px, rgba(109,92,145,0.10) 1px, transparent 0)",
+          backgroundSize: "18px 18px",
+        }}
+        // Library-generated SVG from diagram text — same trust model as XmlChart's SVG output.
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+    </m.div>
   )
 }

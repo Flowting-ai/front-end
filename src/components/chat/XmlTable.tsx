@@ -13,13 +13,16 @@
  * See: docs/frontend-rendering.md - Tables section.
  */
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { AnimatePresence, m } from "framer-motion"
+import React, { useEffect, useMemo, useRef, useState } from "react"
+import { AnimatePresence, m, useReducedMotion } from "framer-motion"
+import { Check, Copy, Download, Table2 } from "lucide-react"
 
 interface ParsedTable {
   headers: string[]
   rows: string[][]
 }
+
+const EMPTY_SUBSCRIBE = () => () => {}
 
 function tableFromDoc(doc: Document): ParsedTable | null {
   const tableEl = doc.querySelector("table")
@@ -63,9 +66,11 @@ function parseTableXml(xml: string): ParsedTable | null {
 }
 
 function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: boolean }) {
-  const [skeletonVisible, setSkeletonVisible] = useState(() => animate)
-  const [revealedRows, setRevealedRows] = useState(() => animate ? 0 : data.rows.length)
-  const [isDone, setIsDone] = useState(() => !animate)
+  const reduceMotion = Boolean(useReducedMotion())
+  const shouldAnimate = animate && !reduceMotion
+  const [skeletonVisible, setSkeletonVisible] = useState(() => shouldAnimate)
+  const [revealedRows, setRevealedRows] = useState(() => shouldAnimate ? 0 : data.rows.length)
+  const [isDone, setIsDone] = useState(() => !shouldAnimate)
   const [mdCopied, setMdCopied] = useState(false)
   const { headers, rows } = data
   const colCount = Math.max(headers.length, ...rows.map((r) => r.length), 1)
@@ -78,10 +83,13 @@ function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: 
   // Keep a ref so the interval can always read the latest row count even as
   // streaming appends new rows — avoids stale-closure capture.
   const rowsLenRef = useRef(rows.length)
-  rowsLenRef.current = rows.length
 
   useEffect(() => {
-    if (!animate) return
+    rowsLenRef.current = rows.length
+  }, [rows.length])
+
+  useEffect(() => {
+    if (!shouldAnimate) return
     // Hoist iv outside setTimeout so the cleanup function can always cancel it,
     // even if the timeout fires but the component unmounts before the interval ends.
     let iv: ReturnType<typeof setInterval> | null = null
@@ -125,20 +133,55 @@ function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: 
     const csv = [headers, ...rows]
       .map((r) => Array.from({ length: colCount }, (_, i) => `"${(r[i] ?? "").replace(/"/g, '""')}"`).join(","))
       .join("\n")
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }))
     const a = Object.assign(document.createElement("a"), {
-      href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })),
+      href: url,
       download: "table.csv",
     })
     a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
-    <div style={{ margin: "16px 0" }}>
-      <div style={{ border: "1px solid var(--neutral-100)", borderRadius: 12, overflow: "hidden", fontSize: 14 }}>
+    <m.div
+      initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.99 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      whileHover={reduceMotion ? undefined : { y: -2 }}
+      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+      style={{
+        margin: "16px 0",
+        borderRadius: 18,
+        border: "1px solid rgba(73, 110, 139, 0.15)",
+        background: "linear-gradient(135deg, #F2F6F8 0%, #FFFEFC 52%, #F2ECE8 100%)",
+        boxShadow: "0 10px 28px rgba(82,75,71,0.09), 0 2px 4px rgba(82,75,71,0.07)",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 13px", borderBottom: "1px solid rgba(73,110,139,0.10)" }}>
+        <m.span
+          aria-hidden
+          initial={reduceMotion ? false : { scale: 0.82, rotate: -8 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 340, damping: 24 }}
+          style={{ width: 34, height: 34, display: "grid", placeItems: "center", borderRadius: 11, color: "#496E8B", backgroundColor: "rgba(222,235,244,0.76)", border: "1px solid rgba(73,110,139,0.16)" }}
+        >
+          <Table2 size={16} strokeWidth={1.8} />
+        </m.span>
+        <div style={{ flex: "1 1 0", minWidth: 0 }}>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-500)" }}>Structured data</div>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-body)", fontWeight: "var(--font-weight-semibold)", color: "var(--neutral-950)" }}>Data table</div>
+        </div>
+        <span style={{ padding: "4px 8px", borderRadius: 999, backgroundColor: "rgba(255,255,255,0.65)", border: "1px solid rgba(82,75,71,0.10)", fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-500)" }}>
+          {rows.length} × {colCount}
+        </span>
+      </div>
+
+      <div className="kaya-scrollbar" style={{ margin: 10, border: "1px solid rgba(82,75,71,0.10)", borderRadius: 12, overflowX: "auto", backgroundColor: "rgba(255,255,255,0.84)", boxShadow: "0 2px 7px rgba(82,75,71,0.05)", fontSize: 14 }}>
+        <div style={{ minWidth: Math.max(420, colCount * 120) }}>
         {headers.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: gridCols, background: "var(--neutral-800-05)", borderBottom: "1px solid var(--neutral-100)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: gridCols, background: "rgba(73,110,139,0.07)", borderBottom: "1px solid rgba(73,110,139,0.10)" }}>
             {headers.map((h, ci) => (
-              <div key={ci} style={{ padding: "9px 14px", fontWeight: 600, color: "var(--neutral-900)", fontSize: 14, letterSpacing: "0.1px", borderLeft: ci > 0 ? "1px solid var(--neutral-800-10)" : "none" }}>
+              <div key={ci} style={{ padding: "10px 14px", fontWeight: 600, color: "var(--neutral-900)", fontSize: 13, letterSpacing: "0.1px", borderLeft: ci > 0 ? "1px solid rgba(73,110,139,0.08)" : "none" }}>
                 {h}
               </div>
             ))}
@@ -166,7 +209,7 @@ function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: 
         </AnimatePresence>
         <AnimatePresence initial={false}>
           {rows.slice(0, revealedRows).map((row, ri) => (
-            <m.div key={ri} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18, ease: "easeOut" }}
+            <m.div key={ri} initial={reduceMotion ? false : { opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} whileHover={reduceMotion ? undefined : { backgroundColor: "rgba(73,110,139,0.045)" }} transition={{ duration: 0.18, ease: "easeOut" }}
               style={{ display: "grid", gridTemplateColumns: gridCols, borderBottom: rowBorderBottom(ri), background: "var(--neutral-white)" }}>
               {Array.from({ length: colCount }).map((_, ci) => (
                 <div key={ci} style={{ padding: "10px 14px", color: ci === 0 ? "var(--neutral-900)" : "var(--neutral-700)", fontWeight: ci === 0 ? 500 : 400, borderLeft: ci > 0 ? "1px solid var(--neutral-800-05)" : "none", fontSize: 14, lineHeight: "20px", wordBreak: "break-word" }}>
@@ -176,22 +219,25 @@ function AnimatedTable({ data, animate = true }: { data: ParsedTable; animate?: 
             </m.div>
           ))}
         </AnimatePresence>
+        </div>
       </div>
       <AnimatePresence>
         {isDone && (
           <m.div key="actions" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}
-            style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, paddingLeft: 1 }}>
-            <span style={{ fontSize: 12, color: "var(--neutral-300)", flex: 1 }}>
-              {rows.length} {rows.length === 1 ? "row" : "rows"} · {headers.length} col
+            style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, padding: "0 11px 11px" }}>
+            <span style={{ fontSize: 12, color: "var(--neutral-400)", flex: "1 1 120px" }}>
+              {rows.length} {rows.length === 1 ? "row" : "rows"} · {headers.length} {headers.length === 1 ? "column" : "columns"}
             </span>
-            <TableActionButton onClick={copyMarkdown}>
-              {mdCopied ? <span style={{ color: "var(--green-600)" }}>Copied!</span> : "Copy markdown"}
-            </TableActionButton>
-            <TableActionButton onClick={exportCSV}>Export CSV</TableActionButton>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              <TableActionButton onClick={copyMarkdown}>
+                {mdCopied ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy markdown</>}
+              </TableActionButton>
+              <TableActionButton onClick={exportCSV}><Download size={12} /> Export CSV</TableActionButton>
+            </div>
           </m.div>
         )}
       </AnimatePresence>
-    </div>
+    </m.div>
   )
 }
 
@@ -212,11 +258,7 @@ interface XmlTableProps {
 
 export function XmlTable({ xml, animate = false }: XmlTableProps) {
   const data = useMemo(() => parseTableXml(xml) ?? "error", [xml])
-  const [mounted, setMounted] = useState(false)
-
-  useLayoutEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = React.useSyncExternalStore(EMPTY_SUBSCRIBE, () => true, () => false)
 
   if (!mounted) {
     return (
