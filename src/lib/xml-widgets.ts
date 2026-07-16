@@ -2,7 +2,7 @@
  * xml-widgets.ts
  *
  * Shared scanner for the flat XML widget blocks the assistant emits
- * (<metrics>, <funnel>, <kanban>, <schedule>, <weather>, <email>). Tags carry
+ * (<metrics>, <funnel>, <kanban>, <schedule>, <weather>, <email>, <map>). Tags carry
  * data in attributes; some wrap inner content. Regex-based rather than
  * DOMParser so it behaves identically in the browser, SSR, and node tests.
  *

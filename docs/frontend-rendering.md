@@ -1,4 +1,4 @@
-# Frontend rendering contract - tables & charts
+# Frontend rendering contract - structured XML widgets
 
 This doc is the source of truth for how the assistant emits **structured
 content** that the frontend is expected to render specially. Anything not
@@ -13,7 +13,7 @@ prompt wins** - update this doc, not the other way around.
 
 ## Where these blocks appear in the SSE stream
 
-Tables and charts arrive **inline inside the regular `content` SSE events** -
+Structured widgets arrive **inline inside the regular `content` SSE events** -
 the same stream that carries prose text. There is no separate `table` or
 `chart` SSE event.
 
@@ -33,7 +33,7 @@ data: {"type":"content","content":"  <bar label=\"Q2\" value=\"150\"/>\n</chart>
 ```
 
 **Implication for streaming UIs:** a block can arrive split across many chunks.
-Don't attempt to render until the closing `</table>` or `</chart>` tag has been
+Don't attempt to render until the matching closing tag (for example `</map>`) has been
 seen. Until then, either show a placeholder or render the partial XML as
 plain text (whichever you prefer aesthetically).
 
@@ -204,6 +204,38 @@ Recommended binning behavior:
 | Child       | Required | Type   | Meaning              |
 |-------------|----------|--------|----------------------|
 | `<value>`   | yes (≥1) | number | One observation      |
+
+---
+
+## Interactive maps
+
+Every map is a static data snapshot wrapped in `<map>`. The client renders the
+snapshot with MapLibre so the user can pan, zoom, expand clusters, inspect
+point popups, and filter the ranked region rail without making another backend
+request.
+
+| Root attribute | Required | Notes                                      |
+|----------------|----------|--------------------------------------------|
+| `title`        | no       | Human-readable card heading                |
+| `metric`       | no       | Measure shown in popups and the ranked rail|
+| `unit`         | no       | Display prefix/suffix such as `$` or `ms`  |
+
+Each `<point/>` requires `lat`, `lng`, and `value` as plain finite numbers.
+`label` is the human-readable location, while `group` identifies the state,
+country, or market used for ranking. Optional `<group/>` children provide
+authoritative totals when the plotted points are only a sample.
+
+```xml
+<map title="Orders by market" metric="Orders" unit="$">
+  <group code="TX" value="1320000" label="Texas"/>
+  <point lat="32.7767" lng="-96.7970" value="4200" label="Dallas" group="TX"/>
+  <point lat="39.7392" lng="-104.9903" value="3800" label="Denver" group="CO"/>
+</map>
+```
+
+The model must only emit coordinates supplied by a source and is capped at 100
+points. The frontend validates coordinate ranges, ignores malformed points,
+and parks offscreen maps to stay below browser WebGL-context limits.
 
 ---
 

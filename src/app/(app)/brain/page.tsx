@@ -73,6 +73,7 @@ import {
   respondToPrompt,
   stopBrainChat,
   stopBrainRun,
+  parseBrainContextEvent,
   parseRecoveryPrompt,
   type RecoveryPrompt,
   type BackendPlanStep,
@@ -2472,36 +2473,20 @@ function BrainPageInner() {
       // Per-turn context snapshot — drives the ContextRail. Fires once at the
       // start of the turn with the persona/pins/files/connectors Brain loaded.
       case 'context': {
-        const rawPersona = (
-          d.persona && typeof d.persona === 'object'
-            ? d.persona
-            : null
-        ) as BrainContextEvent['persona']
-        setLiveContext({
-          persona: rawPersona
-            ? {
-                ...rawPersona,
-                avatar_url: rawPersona.avatar_url || rawPersona.image_url,
-              }
-            : null,
-          user_context:     (d.user_context && typeof d.user_context === 'object' ? d.user_context : null) as BrainContextEvent['user_context'],
-          pins:             Array.isArray(d.pins)       ? (d.pins       as BrainContextEvent['pins'])       : [],
-          files:            Array.isArray(d.files)      ? (d.files      as BrainContextEvent['files'])      : [],
-          connectors:       Array.isArray(d.connectors) ? (d.connectors as BrainContextEvent['connectors']) : [],
-          available_models: Array.isArray(d.available_models) ? (d.available_models as unknown[]) : [],
-        })
+        const context = parseBrainContextEvent(d)
+        setLiveContext(context)
         // Fold this turn's items into the running accumulator so ones that drop
         // out of a later turn's context can still show up as "Previously used".
         {
           const hist = contextHistoryRef.current
-          for (const p of (Array.isArray(d.pins) ? d.pins as BrainContextEvent['pins'] : []) ?? []) {
-            if (p?.pin_id) hist.pins.set(p.pin_id, { title: p.title, source: p.tags?.length ? p.tags.join(' · ') : undefined })
+          for (const p of context.pins) {
+            hist.pins.set(p.pin_id, { title: p.title, source: p.tags?.length ? p.tags.join(' · ') : undefined })
           }
-          for (const f of (Array.isArray(d.files) ? d.files as BrainContextEvent['files'] : []) ?? []) {
-            if (f?.name) hist.files.set(f.name, { mime_type: f.mime_type, size: f.size })
+          for (const f of context.files) {
+            hist.files.set(f.name, { mime_type: f.mime_type, size: f.size })
           }
-          for (const c of (Array.isArray(d.connectors) ? d.connectors as BrainContextEvent['connectors'] : []) ?? []) {
-            if (c?.slug) hist.connectors.set(c.slug, toConnector(c))
+          for (const c of context.connectors) {
+            hist.connectors.set(c.slug, toConnector(c))
           }
         }
         break
@@ -2549,7 +2534,7 @@ function BrainPageInner() {
     void resolveContextPersonaFromId(persona).then((resolved) => {
       if (cancelled || !resolved.avatar_url) return
       setLiveContext((current) => {
-        if (current?.persona?.persona_id !== resolved.persona_id) return current
+        if (!current || current.persona?.persona_id !== resolved.persona_id) return current
         return { ...current, persona: resolved }
       })
     })

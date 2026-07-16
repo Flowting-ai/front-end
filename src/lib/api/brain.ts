@@ -128,49 +128,107 @@ export interface BrainAttachment {
 }
 
 // ── `context` SSE event ───────────────────────────────────────────────────────
-// Snapshot of everything in scope for one Brain turn (persona, pins, files,
-// connectors, …). Fired once at the start of each turn so the FE can populate
-// its context sidebar. Mirrors core/sse_schemas.py ContextEvent.
-export interface ContextPersona {
-  persona_id?:     string
-  name?:           string
-  handler?:        string
-  prompt_preview?: string
-  model_id?:       string | null
-  // Optional avatar URL — populated when the FE reconstructs context from
-  // fetched messages on chat reload (the live `context` event omits this).
-  avatar_url?:     string
-  // Some backend persona payloads use the persona API's native field name.
-  image_url?:      string
+// The rail has exactly four user-facing context kinds: persona, pins, files,
+// and connectors. Parse the untrusted SSE payload once here rather than casting
+// arbitrary objects in the page. Invalid rows are dropped independently so one
+// bad connector cannot hide otherwise valid context.
+
+const optionalContextString = z.string().trim().min(1).optional()
+
+export const contextPersonaSchema = z.object({
+  persona_id:     optionalContextString,
+  name:           optionalContextString,
+  // An empty handler is meaningful for reconstructed/deleted personas.
+  handler:        z.string().trim().optional(),
+  prompt_preview: optionalContextString,
+  model_id:       z.string().trim().min(1).nullable().optional(),
+  avatar_url:     optionalContextString,
+  image_url:      optionalContextString,
+}).transform((persona) => ({
+  ...persona,
+  avatar_url: persona.avatar_url ?? persona.image_url,
+}))
+
+export const contextPinSchema = z.object({
+  pin_id:          z.string().trim().min(1),
+  // Reconstructed history can carry a bare pin id until the pinboard resolves it.
+  title:           z.string(),
+  content_preview: optionalContextString,
+  tags:            z.array(z.string().trim().min(1)).optional(),
+})
+
+export const contextFileSchema = z.object({
+  name:      z.string().trim().min(1),
+  mime_type: optionalContextString,
+  size:      z.number().nonnegative().optional(),
+  source:    optionalContextString,
+})
+
+export const contextConnectorSchema = z.object({
+  slug:         z.string().trim().min(1),
+  display_name: z.string().trim().min(1),
+  status:       z.string().trim().min(1).optional(),
+  // Catalog connectors always have one of these auth modes. Orphan connection
+  // rows and connector tool/action records do not, so they must never reach UI.
+  auth_mode:    z.enum(['oauth2', 'api_key']),
+  tool_count:   z.number().int().nonnegative(),
+  logo_url:     z.string().trim().min(1).nullable().optional(),
+}).transform(({
+  slug,
+  display_name,
+  status,
+  logo_url,
+}): {
+  slug: string
+  display_name: string
+  status?: string
+  logo_url?: string | null
+} => ({
+  slug,
+  display_name,
+  ...(status ? { status } : {}),
+  ...(logo_url !== undefined ? { logo_url } : {}),
+}))
+
+export type ContextPersona = z.output<typeof contextPersonaSchema>
+export type ContextPin = z.output<typeof contextPinSchema>
+export type ContextFile = z.output<typeof contextFileSchema>
+export type ContextConnector = z.output<typeof contextConnectorSchema>
+
+function parseContextRows<T>(value: unknown, schema: z.ZodType<T>): T[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((row) => {
+    const parsed = schema.safeParse(row)
+    return parsed.success ? [parsed.data] : []
+  })
 }
-export interface ContextPin {
-  pin_id:           string
-  title:            string
-  content_preview?: string
-  tags?:            string[]
+
+export const brainContextEventSchema = z.object({
+  persona: z.unknown().optional().transform((value) => {
+    if (value == null) return null
+    const parsed = contextPersonaSchema.safeParse(value)
+    return parsed.success ? parsed.data : null
+  }),
+  pins: z.unknown().optional().transform((value) =>
+    parseContextRows(value, contextPinSchema)),
+  files: z.unknown().optional().transform((value) =>
+    parseContextRows(value, contextFileSchema)),
+  connectors: z.unknown().optional().transform((value) =>
+    parseContextRows(value, contextConnectorSchema)),
+})
+
+export type BrainContextEvent = z.output<typeof brainContextEventSchema>
+
+const EMPTY_BRAIN_CONTEXT: BrainContextEvent = {
+  persona: null,
+  pins: [],
+  files: [],
+  connectors: [],
 }
-export interface ContextFile {
-  name:       string
-  mime_type?: string
-  size?:      number
-  source?:    string
-}
-export interface ContextConnector {
-  slug:          string
-  display_name?: string
-  status?:       string
-  auth_mode?:    string
-  tool_count?:   number
-  /** Provider-hosted brand logo (catalog logo_url); bundled assets take precedence. */
-  logo_url?:     string | null
-}
-export interface BrainContextEvent {
-  persona?:          ContextPersona | null
-  user_context?:     Record<string, unknown> | null
-  pins?:             ContextPin[]
-  files?:            ContextFile[]
-  connectors?:       ContextConnector[]
-  available_models?: unknown[]
+
+export function parseBrainContextEvent(value: unknown): BrainContextEvent {
+  const parsed = brainContextEventSchema.safeParse(value)
+  return parsed.success ? parsed.data : EMPTY_BRAIN_CONTEXT
 }
 
 // One real-world side effect a connector write-tool performed during a run

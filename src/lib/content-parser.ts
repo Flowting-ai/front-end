@@ -12,7 +12,7 @@
 /** XML block tags the assistant can emit inline. Adding a widget = add its tag
  *  here, add a case in ContentRenderer, and teach the model the format in the
  *  backend's core/prompts/system.yaml formatting block. */
-export const STRUCTURED_TAGS = ["table", "chart", "metrics", "email", "funnel", "kanban", "schedule", "weather"] as const
+export const STRUCTURED_TAGS = ["table", "chart", "metrics", "email", "funnel", "kanban", "schedule", "weather", "map"] as const
 export type StructuredTag = (typeof STRUCTURED_TAGS)[number]
 
 export type ContentSegment =

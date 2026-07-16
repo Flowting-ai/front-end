@@ -1,0 +1,311 @@
+.host {
+  container-type: inline-size;
+  margin: 14px 0;
+  width: 100%;
+}
+
+.card {
+  overflow: hidden;
+  border: 1px solid rgba(82, 75, 71, 0.12);
+  border-radius: 8px;
+  background: var(--neutral-white);
+  box-shadow: 0 2px 2.8px rgba(82, 75, 71, 0.12);
+  color: var(--neutral-900);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px 13px;
+  border-bottom: 1px solid rgba(82, 75, 71, 0.1);
+}
+
+.title,
+.subtitle {
+  margin: 0;
+}
+
+.title {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.subtitle {
+  margin-top: 2px;
+  color: var(--neutral-500);
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.pointBadge {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--neutral-100);
+  color: var(--neutral-600);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 220px);
+  min-height: 370px;
+}
+
+.mapPane {
+  min-width: 0;
+  min-height: 370px;
+  background: var(--neutral-50);
+}
+
+.rail {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border-left: 1px solid rgba(82, 75, 71, 0.1);
+  background: rgba(247, 242, 237, 0.38);
+}
+
+.railHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 13px 12px;
+  border-bottom: 1px solid rgba(82, 75, 71, 0.08);
+}
+
+.eyebrow {
+  overflow: hidden;
+  color: var(--neutral-700);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.visibleCount,
+.emptyRail {
+  color: var(--neutral-500);
+  font-family: var(--font-body);
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.visibleCount {
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.textButton {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--blue-700);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+.textButton:hover {
+  color: var(--blue-600);
+  text-decoration: underline;
+}
+
+.ranking {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px;
+}
+
+.rankRow {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.rankRow:hover,
+.rankRowSelected {
+  border-color: rgba(13, 110, 178, 0.14);
+  background: rgba(231, 244, 253, 0.65);
+}
+
+.rankMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rankLabel {
+  overflow: hidden;
+  color: var(--neutral-700);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rankValue {
+  flex: 0 0 auto;
+  color: var(--neutral-900);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.barTrack,
+.barFill {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+}
+
+.barTrack {
+  overflow: hidden;
+  background: rgba(82, 75, 71, 0.09);
+}
+
+.barFill {
+  background: linear-gradient(90deg, var(--blue-400), var(--blue-600));
+  transition: width 220ms ease;
+}
+
+.emptyRail {
+  margin: 8px;
+}
+
+.popup {
+  display: flex;
+  min-width: 120px;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--neutral-800);
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.popup strong {
+  color: var(--neutral-900);
+  font-size: 12px;
+}
+
+.placeholder {
+  position: relative;
+  display: grid;
+  min-height: 370px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid rgba(82, 75, 71, 0.12);
+  border-radius: 8px;
+  background: var(--neutral-50);
+}
+
+.placeholderGrid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.45;
+  background-image:
+    linear-gradient(rgba(82, 75, 71, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(82, 75, 71, 0.08) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: radial-gradient(circle at center, black, transparent 72%);
+}
+
+.placeholderLabel {
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid rgba(82, 75, 71, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 2px 8px rgba(82, 75, 71, 0.08);
+  color: var(--neutral-600);
+  font-family: var(--font-body);
+  font-size: 11px;
+}
+
+.mapPane :global(.maplibregl-ctrl-group) {
+  overflow: hidden;
+  border-radius: 7px;
+  box-shadow: 0 1px 4px rgba(38, 33, 30, 0.18);
+}
+
+.mapPane :global(.maplibregl-popup-content) {
+  border-radius: 8px;
+  padding: 9px 11px;
+  box-shadow: 0 6px 20px rgba(38, 33, 30, 0.16);
+}
+
+@container (max-width: 620px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .mapPane {
+    min-height: 330px;
+  }
+
+  .rail {
+    border-top: 1px solid rgba(82, 75, 71, 0.1);
+    border-left: 0;
+  }
+
+  .ranking {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 390px) {
+  .ranking {
+    grid-template-columns: 1fr;
+  }
+
+  .cardHeader {
+    align-items: flex-start;
+  }
+
+  .subtitle {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barFill {
+    transition: none;
+  }
+}
