@@ -6,6 +6,7 @@ import { parseFunnelXml } from "@/components/chat/XmlFunnel"
 import { parseKanbanXml } from "@/components/chat/XmlKanban"
 import { parseScheduleXml } from "@/components/chat/XmlSchedule"
 import { parseWeatherXml } from "@/components/chat/XmlWeather"
+import { parseMapXml } from "@/components/chat/XmlMap"
 
 describe("parseContentSegments structured tags", () => {
   it("splits a complete <metrics> block out of surrounding markdown", () => {
@@ -105,10 +106,11 @@ describe("widget block parsers", () => {
       '<kanban><column label="Todo"><card title="T"/></column></kanban>',
       '<schedule><event day="Mon" title="Standup"/></schedule>',
       '<weather location="SF"><current temp="18"/></weather>',
+      '<map metric="Orders"><point lat="37.77" lng="-122.42" value="10" label="SF"/></map>',
     ].join("\ntext\n")
     const types = parseContentSegments(content).map((s) => s.type)
     expect(types).toEqual([
-      "email", "markdown", "funnel", "markdown", "kanban", "markdown", "schedule", "markdown", "weather",
+      "email", "markdown", "funnel", "markdown", "kanban", "markdown", "schedule", "markdown", "weather", "markdown", "map",
     ])
   })
 
@@ -195,5 +197,33 @@ describe("widget block parsers", () => {
     expect(weather!.current).toMatchObject({ temp: "18", condition: "partly-cloudy" })
     expect(weather!.days).toEqual([{ label: "Wed", high: "21", low: "14", condition: "sunny" }])
     expect(parseWeatherXml("<weather location='SF'></weather>")).toBeNull()
+  })
+})
+
+describe("parseMapXml", () => {
+  it("parses static points, optional groups, and display metadata", () => {
+    const map = parseMapXml(
+      '<map title="Orders by market" metric="Orders" unit="$">' +
+      '<group code="TX" value="1320000" label="Texas"/>' +
+      '<point id="dallas" lat="32.7767" lng="-96.797" value="4200" label="Dallas &amp; Fort Worth" group="TX"/>' +
+      '<point lat="39.7392" lng="-104.9903" value="3800" label="Denver" code="CO"/>' +
+      '</map>',
+    )
+
+    expect(map).toEqual({
+      title: "Orders by market",
+      metric: "Orders",
+      unit: "$",
+      groups: [{ key: "TX", label: "Texas", value: 1320000 }],
+      points: [
+        { id: "dallas", lat: 32.7767, lng: -96.797, value: 4200, label: "Dallas & Fort Worth", group: "TX", code: undefined },
+        { id: "map-point-1", lat: 39.7392, lng: -104.9903, value: 3800, label: "Denver", group: "CO", code: "CO" },
+      ],
+    })
+  })
+
+  it("drops malformed coordinates and returns null without plottable points", () => {
+    expect(parseMapXml('<map><point lat="91" lng="0" value="10"/></map>')).toBeNull()
+    expect(parseMapXml('<map><point code="US" value="10"/></map>')).toBeNull()
   })
 })

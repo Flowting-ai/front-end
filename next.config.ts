@@ -23,6 +23,15 @@ const auth0Domain = process.env.AUTH0_DOMAIN
   ? `https://${process.env.AUTH0_DOMAIN}`
   : "";
 
+const mapStyleUrl = process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/positron";
+let mapStyleOrigin = "https://tiles.openfreemap.org";
+try {
+  mapStyleOrigin = new URL(mapStyleUrl).origin;
+} catch {
+  // The client will surface an invalid configured style; keep the default CSP
+  // origin rather than weakening connect-src when deployment config is bad.
+}
+
 const connectSrcParts = [
   "'self'",
   backendOrigin,
@@ -30,6 +39,7 @@ const connectSrcParts = [
   ...(auth0Domain ? [auth0Domain] : ["https://*.us.auth0.com"]),
   "https://*.mixpanel.com",
   "https://formspree.io",
+  mapStyleOrigin,
 ];
 
 if (isDev) {
@@ -121,6 +131,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https:",
               `connect-src ${connectSrcParts.join(" ")}`,
               "font-src 'self'",
+              "worker-src 'self' blob:",
               "frame-ancestors 'none'",
             ].join("; "),
           },

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { consumeBrainStream } from '@/lib/api/brain'
+import { consumeBrainStream, parseBrainContextEvent } from '@/lib/api/brain'
 
 function streamResponse(...chunks: string[]): Response {
   const encoder = new TextEncoder()
@@ -41,5 +41,83 @@ describe('consumeBrainStream', () => {
 
     expect(onNamed).not.toHaveBeenCalled()
     expect(onInline).toHaveBeenCalledWith({ type: 'done', finish_reason: 'stop' })
+  })
+})
+
+describe('parseBrainContextEvent', () => {
+  it('keeps only the four user-facing context kinds', () => {
+    const parsed = parseBrainContextEvent({
+      persona: { persona_id: 'persona-1', name: 'Researcher', image_url: '/persona.png' },
+      pins: [{ pin_id: 'pin-1', title: 'Launch brief', tags: ['work'] }],
+      files: [{ name: 'summary.pdf', mime_type: 'application/pdf', size: 128 }],
+      connectors: [{
+        slug: 'gmail',
+        display_name: 'Gmail',
+        status: 'connected',
+        auth_mode: 'oauth2',
+        tool_count: 12,
+        logo_url: '/gmail.svg',
+      }],
+      user_context: { email: 'private@example.com' },
+      available_models: [{ id: 'model-1' }],
+    })
+
+    expect(parsed).toEqual({
+      persona: {
+        persona_id: 'persona-1',
+        name: 'Researcher',
+        image_url: '/persona.png',
+        avatar_url: '/persona.png',
+      },
+      pins: [{ pin_id: 'pin-1', title: 'Launch brief', tags: ['work'] }],
+      files: [{ name: 'summary.pdf', mime_type: 'application/pdf', size: 128 }],
+      connectors: [{
+        slug: 'gmail',
+        display_name: 'Gmail',
+        status: 'connected',
+        logo_url: '/gmail.svg',
+      }],
+    })
+  })
+
+  it('drops connector tool rows while preserving valid context rows', () => {
+    const parsed = parseBrainContextEvent({
+      pins: [{ pin_id: 'pin-1', title: 'Keep me' }],
+      connectors: [
+        { slug: 'get', display_name: 'Get', status: 'connected' },
+        { slug: 'list', display_name: 'List', status: 'connected' },
+        { slug: 'search', display_name: 'Search', status: 'connected' },
+        {
+          slug: 'notion',
+          display_name: 'Notion',
+          status: 'connected',
+          auth_mode: 'oauth2',
+          tool_count: 8,
+        },
+      ],
+    })
+
+    expect(parsed.pins).toEqual([{ pin_id: 'pin-1', title: 'Keep me' }])
+    expect(parsed.connectors).toEqual([{
+      slug: 'notion',
+      display_name: 'Notion',
+      status: 'connected',
+    }])
+  })
+
+  it('isolates malformed rows instead of discarding the whole event', () => {
+    const parsed = parseBrainContextEvent({
+      persona: 'not-an-object',
+      pins: [null, { pin_id: '', title: 'Invalid' }],
+      files: [{ name: 'valid.txt' }, { name: '' }],
+      connectors: 'not-an-array',
+    })
+
+    expect(parsed).toEqual({
+      persona: null,
+      pins: [],
+      files: [{ name: 'valid.txt' }],
+      connectors: [],
+    })
   })
 })

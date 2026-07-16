@@ -23,6 +23,7 @@ import { XmlFunnel } from "@/components/chat/XmlFunnel"
 import { XmlKanban } from "@/components/chat/XmlKanban"
 import { XmlSchedule } from "@/components/chat/XmlSchedule"
 import { XmlWeather } from "@/components/chat/XmlWeather"
+import { XmlMap } from "@/components/chat/XmlMap"
 import type { WebCitation } from "@/hooks/use-chat-state"
 
 // ---------------------------------------------------------------------------
@@ -121,6 +122,9 @@ export function ContentRenderer({
 
       case "weather":
         return <XmlWeather key={i} xml={seg.xml} />
+
+      case "map":
+        return <XmlMap key={i} xml={seg.xml} />
 
       case "pending":
         return <PendingBlockPlaceholder key={i} tag={seg.tag} />

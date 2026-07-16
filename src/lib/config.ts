@@ -35,6 +35,13 @@ export const mixpanelToken =
     : process.env.NEXT_PUBLIC_MIXPANEL_TOKEN) ?? "";
 export const analyticsEnabled = mixpanelToken.length > 0;
 
+// Interactive XML maps use a keyless style by default. Keeping the URL in one
+// env-backed export lets deployments swap providers without changing widget
+// code; next.config.ts derives the matching CSP origin from the same variable.
+export const mapStyleUrl =
+  process.env.NEXT_PUBLIC_MAP_STYLE_URL ??
+  "https://tiles.openfreemap.org/styles/positron";
+
 if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
   console.debug("[Config] API_BASE_URL:", API_BASE_URL);
 }

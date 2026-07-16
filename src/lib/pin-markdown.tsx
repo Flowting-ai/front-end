@@ -346,17 +346,17 @@ const pinComponents: Components = {
   },
 };
 
-/** Strip the XML-style <chart>…</chart> blocks (and any orphan <slice> tags)
- *  that the LLM emits inline. Pin cards are summary-sized and don't render
- *  charts; without stripping, browsers warn about unknown HTML tags. */
-function stripXmlChartBlocks(s: string): string {
+/** Strip interactive XML blocks that compact Pin cards intentionally do not
+ *  render; without this, browsers warn about unknown HTML tags. */
+function stripInteractiveXmlBlocks(s: string): string {
   return s
     .replace(/<chart\b[\s\S]*?<\/chart>/gi, "")
+    .replace(/<map\b[\s\S]*?<\/map>/gi, "")
     .replace(/<\/?slice\b[^>]*>/gi, "");
 }
 
 export function PinMarkdownRenderer({ content }: { content: string }) {
-  const processed = preprocessMarkdown(stripXmlChartBlocks(content));
+  const processed = preprocessMarkdown(stripInteractiveXmlBlocks(content));
   return (
     <div
       style={{
