@@ -18,6 +18,11 @@ import { MarkdownRenderer, type HighlightSpec } from "./markdown-utils"
 import { XmlTable } from "@/components/chat/XmlTable"
 import { XmlChart } from "@/components/chat/XmlChart"
 import { XmlMetrics } from "@/components/chat/XmlMetrics"
+import { XmlEmail } from "@/components/chat/XmlEmail"
+import { XmlFunnel } from "@/components/chat/XmlFunnel"
+import { XmlKanban } from "@/components/chat/XmlKanban"
+import { XmlSchedule } from "@/components/chat/XmlSchedule"
+import { XmlWeather } from "@/components/chat/XmlWeather"
 import type { WebCitation } from "@/hooks/use-chat-state"
 
 // ---------------------------------------------------------------------------
@@ -101,6 +106,21 @@ export function ContentRenderer({
 
       case "metrics":
         return <XmlMetrics key={i} xml={seg.xml} />
+
+      case "email":
+        return <XmlEmail key={i} xml={seg.xml} />
+
+      case "funnel":
+        return <XmlFunnel key={i} xml={seg.xml} />
+
+      case "kanban":
+        return <XmlKanban key={i} xml={seg.xml} />
+
+      case "schedule":
+        return <XmlSchedule key={i} xml={seg.xml} />
+
+      case "weather":
+        return <XmlWeather key={i} xml={seg.xml} />
 
       case "pending":
         return <PendingBlockPlaceholder key={i} tag={seg.tag} />

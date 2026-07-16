@@ -20,6 +20,7 @@
 import React from "react"
 import { StatCard } from "@/components/StatCard"
 import type { DeltaTrend } from "@/components/DeltaPill"
+import { scanTags } from "@/lib/xml-widgets"
 
 export interface ParsedMetric {
   label: string
@@ -29,25 +30,9 @@ export interface ParsedMetric {
   sub?: string
 }
 
-const METRIC_TAG_RE = /<metric\b([^>]*?)\/?>/gi
-const ATTR_RE = /([a-zA-Z-]+)\s*=\s*"([^"]*)"/g
-
-function unescapeXml(s: string): string {
-  return s
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&")
-}
-
 export function parseMetricsXml(xml: string): ParsedMetric[] {
   const metrics: ParsedMetric[] = []
-  for (const tagMatch of xml.matchAll(METRIC_TAG_RE)) {
-    const attrs: Record<string, string> = {}
-    for (const attrMatch of tagMatch[1].matchAll(ATTR_RE)) {
-      attrs[attrMatch[1].toLowerCase()] = unescapeXml(attrMatch[2])
-    }
+  for (const { attrs } of scanTags(xml, "metric")) {
     const { label, value, delta, sub } = attrs
     if (!label || !value) continue
     const trendAttr = (attrs.trend ?? "").toLowerCase()

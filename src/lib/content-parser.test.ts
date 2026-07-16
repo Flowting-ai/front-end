@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { parseContentSegments } from "./content-parser"
 import { parseMetricsXml } from "@/components/chat/XmlMetrics"
+import { parseEmailXml } from "@/components/chat/XmlEmail"
+import { parseFunnelXml } from "@/components/chat/XmlFunnel"
+import { parseKanbanXml } from "@/components/chat/XmlKanban"
+import { parseScheduleXml } from "@/components/chat/XmlSchedule"
+import { parseWeatherXml } from "@/components/chat/XmlWeather"
 
 describe("parseContentSegments structured tags", () => {
   it("splits a complete <metrics> block out of surrounding markdown", () => {
@@ -76,5 +81,96 @@ describe("parseMetricsXml", () => {
 
   it("returns empty for prose with no metric tags", () => {
     expect(parseMetricsXml("<metrics>nothing here</metrics>")).toEqual([])
+  })
+})
+
+describe("widget block parsers", () => {
+  it("segments every widget tag type", () => {
+    const content = [
+      '<email subject="Hi">body</email>',
+      '<funnel><stage label="A" value="10"/></funnel>',
+      '<kanban><column label="Todo"><card title="T"/></column></kanban>',
+      '<schedule><event day="Mon" title="Standup"/></schedule>',
+      '<weather location="SF"><current temp="18"/></weather>',
+    ].join("\ntext\n")
+    const types = parseContentSegments(content).map((s) => s.type)
+    expect(types).toEqual([
+      "email", "markdown", "funnel", "markdown", "kanban", "markdown", "schedule", "markdown", "weather",
+    ])
+  })
+
+  it("parses an email with attachments, body markdown, and status default", () => {
+    const email = parseEmailXml(
+      '<email from="Kai (kai@acme.com)" to="you@store.com" date="Jul 15" subject="Q3 numbers">\n' +
+      '  <attachment name="report.pdf" size="1.2 MB"/>\n' +
+      "  Revenue was **up 8%** &amp; costs flat.\n" +
+      "</email>",
+    )
+    expect(email).toMatchObject({
+      status: "received",
+      subject: "Q3 numbers",
+      from: "Kai (kai@acme.com)",
+      attachments: [{ name: "report.pdf", size: "1.2 MB" }],
+    })
+    expect(email!.body).toBe("Revenue was **up 8%** & costs flat.")
+  })
+
+  it("recognizes draft and sent email statuses; rejects empty emails", () => {
+    expect(parseEmailXml('<email status="draft" subject="S">x</email>')!.status).toBe("draft")
+    expect(parseEmailXml('<email status="sent" subject="S">x</email>')!.status).toBe("sent")
+    expect(parseEmailXml("<email></email>")).toBeNull()
+  })
+
+  it("parses funnel stages and drops non-numeric values", () => {
+    const funnel = parseFunnelXml(
+      '<funnel title="Checkout"><stage label="Visited" value="12400"/>' +
+      '<stage label="Bad" value="lots"/><stage label="Bought" value="980"/></funnel>',
+    )
+    expect(funnel).toEqual({
+      title: "Checkout",
+      stages: [
+        { label: "Visited", value: 12400 },
+        { label: "Bought", value: 980 },
+      ],
+    })
+    expect(parseFunnelXml("<funnel></funnel>")).toBeNull()
+  })
+
+  it("parses kanban columns with nested cards", () => {
+    const kanban = parseKanbanXml(
+      '<kanban title="Sprint"><column label="To do">' +
+      '<card title="Fix login" sub="Alice" tag="High"/><card title="Docs"/></column>' +
+      '<column label="Done"></column></kanban>',
+    )
+    expect(kanban!.columns).toHaveLength(2)
+    expect(kanban!.columns[0].cards).toEqual([
+      { title: "Fix login", sub: "Alice", tag: "High" },
+      { title: "Docs", sub: undefined, tag: undefined },
+    ])
+    expect(kanban!.columns[1].cards).toEqual([])
+  })
+
+  it("groups schedule events by day in first-appearance order", () => {
+    const schedule = parseScheduleXml(
+      "<schedule>" +
+      '<event day="Mon" time="9:00" title="Standup"/>' +
+      '<event day="Tue" time="11:00" title="Call"/>' +
+      '<event day="Mon" time="14:00" title="Review"/>' +
+      "</schedule>",
+    )
+    expect(schedule!.days.map((d) => d.day)).toEqual(["Mon", "Tue"])
+    expect(schedule!.days[0].events.map((e) => e.title)).toEqual(["Standup", "Review"])
+  })
+
+  it("parses weather current + days and rejects empty blocks", () => {
+    const weather = parseWeatherXml(
+      '<weather location="SF" unit="°C">' +
+      '<current temp="18" condition="partly-cloudy" high="21" low="14" humidity="72%" wind="14 km/h"/>' +
+      '<day label="Wed" high="21" low="14" condition="sunny"/>' +
+      "</weather>",
+    )
+    expect(weather!.current).toMatchObject({ temp: "18", condition: "partly-cloudy" })
+    expect(weather!.days).toEqual([{ label: "Wed", high: "21", low: "14", condition: "sunny" }])
+    expect(parseWeatherXml("<weather location='SF'></weather>")).toBeNull()
   })
 })
