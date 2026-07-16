@@ -17,12 +17,14 @@ export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
   deltaTrend?: DeltaTrend
   /** Caption beneath the delta, e.g. "vs. last 30d". */
   sub?:        React.ReactNode
+  /** Optional trend visual (e.g. a small Sparkline) rendered below the delta row. */
+  trend?:      React.ReactNode
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function StatCard(
-  { label, value, delta, deltaTrend = 'up', sub, className, style, ref, ...props }: StatCardProps & { ref?: React.Ref<HTMLDivElement> },
+  { label, value, delta, deltaTrend = 'up', sub, trend, className, style, ref, ...props }: StatCardProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
     const [hovered, setHovered] = React.useState(false)
 
@@ -80,6 +82,8 @@ export function StatCard(
             )}
           </div>
         )}
+
+        {trend}
       </div>
     )
 }

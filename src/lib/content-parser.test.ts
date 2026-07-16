@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { parseContentSegments } from "./content-parser"
 import { parseMetricsXml } from "@/components/chat/XmlMetrics"
-import { parseEmailXml } from "@/components/chat/XmlEmail"
+import { parseEmailXml, splitSender } from "@/components/chat/XmlEmail"
 import { parseFunnelXml } from "@/components/chat/XmlFunnel"
 import { parseKanbanXml } from "@/components/chat/XmlKanban"
 import { parseScheduleXml } from "@/components/chat/XmlSchedule"
@@ -82,6 +82,19 @@ describe("parseMetricsXml", () => {
   it("returns empty for prose with no metric tags", () => {
     expect(parseMetricsXml("<metrics>nothing here</metrics>")).toEqual([])
   })
+
+  it("parses spark series and drops sparks with fewer than 2 valid points", () => {
+    const metrics = parseMetricsXml(
+      '<metrics>' +
+      '<metric label="A" value="1" spark="9800, 10400,9900 11200"/>' +
+      '<metric label="B" value="2" spark="42"/>' +
+      '<metric label="C" value="3" spark="not,numbers"/>' +
+      "</metrics>",
+    )
+    expect(metrics[0].spark).toEqual([9800, 10400, 9900, 11200])
+    expect(metrics[1].spark).toBeUndefined()
+    expect(metrics[2].spark).toBeUndefined()
+  })
 })
 
 describe("widget block parsers", () => {
@@ -119,6 +132,16 @@ describe("widget block parsers", () => {
     expect(parseEmailXml('<email status="draft" subject="S">x</email>')!.status).toBe("draft")
     expect(parseEmailXml('<email status="sent" subject="S">x</email>')!.status).toBe("sent")
     expect(parseEmailXml("<email></email>")).toBeNull()
+  })
+
+  it("carries bcc through and splits sender name/address variants", () => {
+    const email = parseEmailXml('<email subject="S" bcc="archive@acme.com">x</email>')
+    expect(email!.bcc).toBe("archive@acme.com")
+    expect(splitSender("Kai Rivera (kai@acme.com)")).toEqual({ name: "Kai Rivera", address: "kai@acme.com" })
+    expect(splitSender("Kai <kai@acme.com>")).toEqual({ name: "Kai", address: "kai@acme.com" })
+    expect(splitSender("kai@acme.com")).toEqual({ name: "", address: "kai@acme.com" })
+    expect(splitSender("Just A Name")).toEqual({ name: "Just A Name", address: "" })
+    expect(splitSender(undefined)).toEqual({ name: "", address: "" })
   })
 
   it("parses funnel stages and drops non-numeric values", () => {
