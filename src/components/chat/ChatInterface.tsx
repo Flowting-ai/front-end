@@ -498,6 +498,12 @@ export function ChatInterface({
 
   const isStreaming = streamState === "streaming" || streamState === "waiting";
 
+  // Synchronous reentrancy guard for handleSend/handleRegenerate. `isStreaming` is
+  // state-derived and lands a render behind the click, so a double-click (or an
+  // Enter-then-click race) within the same tick can slip two fetchAiResponse calls
+  // through before the button disables — this ref closes that gap.
+  const isSendingRef = useRef(false);
+
   // Auto-send initial prompt on mount (for new chats triggered from landing page)
   const initialPromptSentRef = useRef(false);
   const sendInitialPrompt = useRef<((prompt: string) => void) | null>(null);
@@ -770,6 +776,10 @@ export function ChatInterface({
     // already disabled and the CreditStatusBanner explains why, so block silently.
     if (creditStatus.blocked) return;
 
+    // Reentrancy guard: see isSendingRef declaration above.
+    if (isSendingRef.current) return;
+    isSendingRef.current = true;
+
     const content = text.trim();
     // Capture mentionedPins before clearing so they're stored on the optimistic message.
     const capturedMentionedPins = mentionedPins;
@@ -830,15 +840,21 @@ export function ChatInterface({
       });
     } catch {
       rollbackLast(2);
+    } finally {
+      isSendingRef.current = false;
     }
   };
 
   // Regenerate last assistant message
   const handleRegenerate = () => {
+    if (isSendingRef.current) return;
+
     const lastUserMsg = [...messages]
       .reverse()
       .find((m) => m.role === "user");
     if (!lastUserMsg) return;
+
+    isSendingRef.current = true;
 
     setMessages((prev) => {
       const lastAssistantIdx = prev.findLastIndex(
@@ -864,7 +880,9 @@ export function ChatInterface({
       loadingId,
       algorithm ? null : selectedModelId,
       algorithm ? { algorithm } : undefined,
-    );
+    ).finally(() => {
+      isSendingRef.current = false;
+    });
   };
 
   // Permission-prompt answers live on the message, not in card-local state —

@@ -123,6 +123,10 @@ function getTemperatureLabel(v: number): string {
   return 'Very Creative'
 }
 
+function getTemperatureValueLabel(v: number): string {
+  return `${v.toFixed(2)} · ${getTemperatureLabel(v)}`
+}
+
 // ── Undo / redo group — matches Figma node 848:54854 footer button group ─────
 
 function UndoRedoGroup({
@@ -1700,7 +1704,7 @@ function PersonaConfigureInstructionsContent() {
                     max={1}
                     step={0.01}
                     showValue
-                    valueFormat={getTemperatureLabel}
+                    valueFormat={getTemperatureValueLabel}
                     fillColor="var(--blue-600)"
                     aria-label="Creativity level"
                   />
