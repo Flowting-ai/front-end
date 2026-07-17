@@ -71,9 +71,11 @@ export async function POST(request: NextRequest) {
   // /chats endpoints and pass persona_id as a body field. This lets style, web
   // search, pin folders, reasoning, etc. compose with a selected persona.
   const isExistingChat = Boolean(chatId && !String(chatId).startsWith("temp-"))
+  // ?protocol=agui: stream AG-UI protocol events (the format the FE parses —
+  // see src/lib/agui) instead of the legacy SSE frames.
   const endpoint = isExistingChat && chatId
-    ? `${BACKEND_BASE}/chats/${chatId}/stream`
-    : `${BACKEND_BASE}/chats/create`
+    ? `${BACKEND_BASE}/chats/${chatId}/stream?protocol=agui`
+    : `${BACKEND_BASE}/chats/create?protocol=agui`
 
   // ── Build FormData for backend ───────────────────────────────────────────────
   const fd = new FormData()

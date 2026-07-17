@@ -15,6 +15,8 @@ import {
 } from "@/lib/config"
 import { ensureFreshToken } from "@/lib/jwt-utils"
 import { logger } from "@/lib/logger"
+import { parseAguiEvent } from "@/lib/agui/schemas"
+import { aguiToInternal } from "@/lib/agui/to-legacy"
 import type { UIMessage } from "@/hooks/use-chat-state"
 import { registerStream, completeStream } from "@/lib/stream-registry"
 import type { ReasoningSection } from "@/lib/reasoning"
@@ -235,8 +237,10 @@ export function useStreamingChat({
       const useDirectBackend =
         endpoint === "/api/chat" && (options?.files?.length ?? 0) > 0 && shouldUseDirectBackend()
       const directToken = useDirectBackend ? await ensureFreshToken() : null
+      // Direct-to-backend requests must opt into the AG-UI stream themselves;
+      // proxied requests get the parameter added by the proxy route.
       const resolvedEndpoint = useDirectBackend
-        ? directUpload(isExistingChat ? CHAT_STREAM_ENDPOINT(chatId!) : CHATS_CREATE_ENDPOINT)
+        ? `${directUpload(isExistingChat ? CHAT_STREAM_ENDPOINT(chatId!) : CHATS_CREATE_ENDPOINT)}?protocol=agui`
         : endpoint
 
       const fd = new FormData()
@@ -284,27 +288,13 @@ export function useStreamingChat({
         const rawChunks = buffer.split(/\r?\n\r?\n/)
         buffer = rawChunks.pop() ?? ""
 
-        const events: string[] = []
-        for (const raw of rawChunks) {
-          for (const part of raw.split(/\r?\n(?=event:)/)) events.push(part)
-        }
-
-        for (const eventStr of events) {
-          const lines = eventStr.split(/\r?\n/)
-          let eventName = ""
+        for (const eventStr of rawChunks) {
+          // AG-UI frames carry the event type inside the JSON payload, so only
+          // `data:` lines matter; comments/keepalives (":ready", ": ka") have
+          // none and fall through.
           const dataLines: string[] = []
-
-          for (const line of lines) {
-            if (line.startsWith("event:")) {
-              const inlineData = line.indexOf("data:", 6)
-              if (inlineData !== -1) {
-                eventName = line.slice(6, inlineData).trim()
-                const inlineRaw = line.slice(inlineData + 5)
-                dataLines.push(inlineRaw.startsWith(" ") ? inlineRaw.slice(1) : inlineRaw)
-              } else {
-                eventName = line.slice(6).trim()
-              }
-            } else if (line.startsWith("data:")) {
+          for (const line of eventStr.split(/\r?\n/)) {
+            if (line.startsWith("data:")) {
               // Per SSE spec: strip exactly one leading space (the protocol separator), preserve all other whitespace
               const raw = line.slice(5)
               dataLines.push(raw.startsWith(" ") ? raw.slice(1) : raw)
@@ -316,58 +306,30 @@ export function useStreamingChat({
 
           if (!dataStr) continue
 
-          let parsed: Record<string, unknown>
+          // ── AG-UI protocol decode ─────────────────────────────────────────
+          // The stream is AG-UI events (requested via ?protocol=agui). Each
+          // frame is zod-validated, then mapped onto the internal
+          // (eventName, parsed) contract the handlers below consume — see
+          // src/lib/agui/to-legacy.ts. Unknown/lifecycle-only events are
+          // skipped; state and rendering behave exactly as before the
+          // protocol swap.
+          let rawJson: unknown
           try {
-            parsed = JSON.parse(dataStr)
+            rawJson = JSON.parse(dataStr)
           } catch {
-            // Plain text token (not JSON) - treat as content chunk
-            // The backend sends `data: <token>` for LLM content
-            // Skip empty/whitespace-only tokens that result from SSE comment lines or keepalives
-            if (!dataStr.trim()) continue
-            const wasEmpty = !assistantContent
-            assistantContent = mergeStreamingText(assistantContent, dataStr)
-            const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
-            const hasOpenThink = /<think>/i.test(assistantContent)
-            const hasCloseThink = /<\/think>/i.test(assistantContent)
-            const stillThinking = hasOpenThink && !hasCloseThink
-            queueUpdate({
-              content: visibleText || "",
-              thinking: reasoningContent || thinkingText || undefined,
-              isThinkingInProgress: stillThinking && !reasoningContent,
-              isLoading: true,
-            }, wasEmpty)
-            if (isActiveStream()) setStreamState?.("streaming")
+            continue // keepalives/comments — never content under AG-UI
+          }
+          const aguiEvent = parseAguiEvent(rawJson)
+          if (!aguiEvent) {
+            logger.warn("[useStreamingChat] Unrecognised stream event", rawJson)
             continue
           }
-
-          // Normalise backends that emit `type` on the JSON object instead of
-          // the SSE `event:` field
-          if (!eventName && parsed.type) {
-            const t = String(parsed.type)
-            if (t === "content") {
-              eventName = "chunk"
-              if (typeof parsed.content === "string" && !("delta" in parsed)) {
-                parsed = { ...parsed, delta: parsed.content }
-              }
-            } else {
-              eventName = t
-            }
+          if (aguiEvent.type === "RUN_STARTED" && isActiveStream()) {
+            setStreamState?.("streaming")
           }
-          if (
-            eventName === "content" &&
-            typeof parsed.content === "string" &&
-            !("delta" in parsed)
-          ) {
-            parsed = { ...parsed, delta: parsed.content }
-            eventName = "chunk"
-          }
-          if (
-            eventName === "reasoning" &&
-            typeof parsed.content === "string" &&
-            !("delta" in parsed)
-          ) {
-            parsed = { ...parsed, delta: parsed.content }
-          }
+          const internal = aguiToInternal(aguiEvent)
+          if (!internal) continue
+          const { eventName, parsed } = internal
 
           // ── Universal file_attachments extractor ──────────────────────────
           // Run before any specific handler so file links are captured
@@ -874,8 +836,9 @@ export function useStreamingChat({
 
             const msgId = loadingMessageIdRef.current
             if (msgId) {
-              if (existingActivityId && existingActivityId !== toolCallId) {
-                // Upgrade the preliminary activity: replace its ID and set status to "executing"
+              if (existingActivityId) {
+                // Upgrade the preliminary activity in place (replacing its ID
+                // when the preliminary one was synthetic) and mark it executing.
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== msgId) return msg
@@ -918,8 +881,10 @@ export function useStreamingChat({
             if (toolName) {
               const existingId = toolCallIdByName.get(toolName)
               if (!existingId) {
-                // First streaming chunk for this tool — create a preliminary activity
-                const callId = `tcs-${toolName}-${Date.now()}`
+                // First streaming chunk for this tool — create a preliminary activity.
+                // AG-UI streams carry the provider's real tool_call_id; keep the
+                // synthetic fallback for payloads without one.
+                const callId = asString(toolCall?.tool_call_id) ?? `tcs-${toolName}-${Date.now()}`
                 toolCallIdByName.set(toolName, callId)
                 const activityType = toolNameToType(toolName)
                 const label = asString(parsed.label) ?? undefined
