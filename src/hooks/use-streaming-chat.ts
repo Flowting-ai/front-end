@@ -327,6 +327,12 @@ export function useStreamingChat({
           if (aguiEvent.type === "RUN_STARTED" && isActiveStream()) {
             setStreamState?.("streaming")
           }
+          // The reasoning phase is over (tool round or answer starting) —
+          // clear the thinking indicator, as the legacy intermediate `done`
+          // frames used to.
+          if (aguiEvent.type === "THINKING_END") {
+            queueUpdate({ isThinkingInProgress: false }, true)
+          }
           const internal = aguiToInternal(aguiEvent)
           if (!internal) continue
           const { eventName, parsed } = internal
