@@ -1035,20 +1035,41 @@ export function ChatInterface({
           minHeight: 0,
         }}
       >
-      <div
-        ref={messagesContainerRef}
-        className="kaya-scrollbar"
-        onScroll={handleScroll}
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "24px 16px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-        }}
-      >
-        <div style={{ width: "100%", maxWidth: "720px" }}>
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >
+          {isStreaming ? "Assistant is responding." : "Assistant response complete."}
+        </div>
+        <div
+          ref={messagesContainerRef}
+          className="kaya-scrollbar"
+          role="region"
+          aria-label="Conversation"
+          aria-busy={isLoadingMessages || isStreaming ? true : undefined}
+          onScroll={handleScroll}
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "24px 16px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          <div style={{ width: "100%", maxWidth: "720px" }}>
           {/* Loading skeleton — shown while fetching AND while the virtualizer
               settles its initial measurements so the first visible frame is jitter-free */}
           {(isLoadingMessages || isSettling) && <ChatMessagesSkeleton />}

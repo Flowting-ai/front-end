@@ -4,10 +4,21 @@ This doc is the source of truth for how the assistant emits **structured
 content** that the frontend is expected to render specially. Anything not
 covered here is plain Markdown and should be rendered as Markdown.
 
-The rules below are mirrored in the system prompt
-([modules/llm/system_instruction.py](../modules/llm/system_instruction.py))
-under the `<formatting>` block. **If the prompt and this doc ever disagree, the
-prompt wins** - update this doc, not the other way around.
+The rules below are mirrored in the backend's canonical
+`core/prompts/system.yaml` `<formatting>` block. **If the prompt and this doc ever
+disagree, update both in the same change.**
+
+## Prose before widgets
+
+- Lead with the answer, decision, or recommended action. Comparison and decision
+  responses name the recommendation and its main reason before the details.
+- Short answers do not need headings. Longer responses use `##` major sections
+  and `###` subsections; chat responses never emit an H1.
+- Use bullets for parallel items and numbered lists only when sequence or priority
+  matters.
+- Use a structured table only when users need to compare multiple items across
+  shared fields, or when the result naturally has rows and columns.
+- Raw HTML is not part of the response contract.
 
 ---
 

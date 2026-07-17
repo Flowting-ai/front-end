@@ -68,14 +68,20 @@ function webCitationToSourceItem(citation: WebCitation, n: number): SourceItem {
 export function CitationChip({ n, citation }: { n: number; citation?: WebCitation }) {
   if (!citation) {
     return (
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        verticalAlign: 'text-bottom', width: 18, height: 18, borderRadius: '999px',
-        backgroundColor: 'var(--neutral-200)', fontFamily: 'var(--font-body)',
-        fontWeight: 600, fontSize: 10, lineHeight: 1, color: 'var(--neutral-600)',
-        marginLeft: 2, flexShrink: 0,
-      }}>
-        {n}
+      <span
+        role="note"
+        aria-label={`Source ${n} unavailable`}
+        title="Source unavailable"
+        data-missing-citation="true"
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          verticalAlign: 'text-bottom', width: 18, height: 18, borderRadius: '999px',
+          backgroundColor: 'transparent', fontFamily: 'var(--font-body)',
+          fontWeight: 600, fontSize: 10, lineHeight: 1, color: 'var(--neutral-600)',
+          marginLeft: 2, flexShrink: 0, border: '1px dashed var(--neutral-300)',
+        }}
+      >
+        ?
       </span>
     )
   }

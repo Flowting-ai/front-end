@@ -499,6 +499,9 @@ export function ChatMessage({
   return (
     <m.div
       data-message-id={message.id}
+      role="article"
+      aria-label={isUser ? "Your message" : "Assistant response"}
+      aria-busy={!isUser && message.isLoading ? true : undefined}
       initial={isNewMessage
         ? (isUser ? { opacity: 0, y: 10, scale: 0.97 } : { opacity: 0, y: 10 })
         : false}
