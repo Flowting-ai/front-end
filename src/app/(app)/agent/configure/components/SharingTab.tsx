@@ -518,7 +518,7 @@ export default function SharingTab({ repoId, versionId, onChanged }: SharingTabP
                 maxWidth: 560,
               }}
             >
-              Generate a shareable URL. Recipients get their own copy of this persona — you cover their credit usage up to the limit you set.
+              Generate a shareable URL. Recipients get their own copy of this agent — you cover their credit usage up to the limit you set.
             </span>
           </div>
           <Switch

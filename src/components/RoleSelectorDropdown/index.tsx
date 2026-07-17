@@ -25,8 +25,8 @@ const ROLE_LABEL: Record<WorkspaceRole, string> = {
 const ROLE_DESC: Record<WorkspaceRole, string> = {
   owner:  'Workspace owner',
   admin:  'Full access — billing, members, settings',
-  editor: 'Member + can publish personas to Team scope',
-  member: 'Can chat, use personas, access team projects',
+  editor: 'Member + can publish agents to Team scope',
+  member: 'Can chat, use agents, access team projects',
 }
 
 const ALL_ROLES: WorkspaceRole[] = ['admin', 'editor', 'member']

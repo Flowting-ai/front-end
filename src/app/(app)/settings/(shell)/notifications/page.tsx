@@ -449,8 +449,8 @@ export default function NotificationsPage() {
             />
             <NotifRow
               id="persona-invite"
-              label="Persona invite"
-              description="A persona was shared with you"
+              label="Agent invite"
+              description="An agent was shared with you"
               prefs={prefs} onChange={toggleNotifPref} divider
             />
             <NotifRow

@@ -108,7 +108,7 @@ function PersonaSelectingRow({
     >
       <StreamingIndicator
         phase={phase}
-        label={phase === 'choosing' ? 'Selecting persona…' : `Using ${personaName}`}
+        label={phase === 'choosing' ? 'Selecting agent…' : `Using ${personaName}`}
         logoKey={personaName}
         logo={(
           // eslint-disable-next-line @next/next/no-img-element -- dynamic persona URL with deterministic fallback
@@ -178,7 +178,7 @@ function LockedRow({
             lineHeight: 'var(--line-height-body)',
             color:      'var(--neutral-400)',
           }}>
-            No persona lens
+            No agent lens
           </span>
           <span aria-hidden style={{ color: 'var(--neutral-300)', userSelect: 'none', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)' }}>·</span>
           <InlineAction label="Add one" onClick={onChangeLock} />
@@ -230,10 +230,10 @@ export function PersonaSelectionCard({
   }
 
   const bodyText = isSingle
-    ? 'Brain recommends a persona for this task. Confirm to use it as a lens before planning begins.'
-    : `Brain found ${personas.length} personas that fit this task. Select one to use as a lens before planning begins.`
+    ? 'Brain recommends an agent for this task. Confirm to use it as a lens before planning begins.'
+    : `Brain found ${personas.length} agents that fit this task. Select one to use as a lens before planning begins.`
 
-  const buttonLabel = selected ? 'Use this persona' : 'Select a persona'
+  const buttonLabel = selected ? 'Use this agent' : 'Select an agent'
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -278,7 +278,7 @@ export function PersonaSelectionCard({
           color:      'var(--neutral-500)',
           lineHeight: 'var(--line-height-caption)',
         }}>
-          {isSingle ? 'Recommended persona' : 'Select a persona'}
+          {isSingle ? 'Recommended agent' : 'Select an agent'}
         </span>
       </div>
 
@@ -415,7 +415,7 @@ export function PersonaSelectionCard({
       {/* Actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Button variant="ghost" size="sm" onClick={handleSkip}>
-          Proceed without persona
+          Proceed without an agent
         </Button>
         <div style={{ flex: '1 0 0' }} />
         <Button

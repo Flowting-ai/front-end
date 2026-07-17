@@ -351,7 +351,7 @@ function ActionBar({
     >
       {type === 'hover' && (
         <>
-          {onEdit && <IconButton variant="ghost" size="sm" aria-label="Edit persona" icon={<PenOneIcon />} onClick={onEdit} />}
+          {onEdit && <IconButton variant="ghost" size="sm" aria-label="Edit agent" icon={<PenOneIcon />} onClick={onEdit} />}
           {onLink && <IconButton variant="ghost" size="sm" aria-label="Copy link" icon={<ShareOneIcon />} onClick={onLink} />}
           <div style={{ flex: 1 }} />
           <Button variant="secondary" size="sm" onClick={onUseInChat}>Use in chat</Button>
@@ -645,7 +645,7 @@ function PersonaCardInner({
                     <IconButton
                       variant="ghost"
                       size="xs"
-                      aria-label="Bookmark persona"
+                      aria-label="Bookmark agent"
                       icon={<BookmarkTwoIcon />}
                       onClick={onBookmark}
                     />

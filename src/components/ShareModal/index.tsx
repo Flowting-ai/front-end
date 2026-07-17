@@ -402,7 +402,7 @@ export function ShareModal({
     const Comp       = (asChild ? Slot : 'div') as React.ElementType
     const inputRef   = useRef<HTMLInputElement>(null)
     const [emailDraft, setEmailDraft] = useState('')
-    const resolvedAlt = personaAvatarAlt ?? (personaName ? `${personaName} persona` : 'Persona')
+    const resolvedAlt = personaAvatarAlt ?? (personaName ? `${personaName} agent` : 'Agent')
 
     // Auto-focus email input on mount
     useEffect(() => { inputRef.current?.focus() }, [])
@@ -453,7 +453,7 @@ export function ShareModal({
         ref={ref}
         role="dialog"
         aria-modal="true"
-        aria-label={personaName ? `Share ${personaName}` : 'Share persona'}
+        aria-label={personaName ? `Share ${personaName}` : 'Share agent'}
         className={cn(className)}
         onKeyDown={handleModalKeyDown}
         style={{
@@ -526,7 +526,7 @@ export function ShareModal({
                 whiteSpace:   'nowrap',
               }}
             >
-              {personaName ? `Share '${personaName}'` : 'Share persona'}
+              {personaName ? `Share '${personaName}'` : 'Share agent'}
             </span>
           </div>
 

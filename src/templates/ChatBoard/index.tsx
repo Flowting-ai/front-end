@@ -124,7 +124,7 @@ const PLACEHOLDER_PINS: PinboardPin[] = [
     category: 'Planning',
     pinTitle: 'Launch checklist — Souvenir AI v1',
     description:
-      'Pin board, Chat board, Persona, and Workflow all need a final accessibility pass before the v1 cut. Marketing site assets are blocked on the hero illustration handoff from design.',
+      'Pin board, Chat board, Agent, and Workflow all need a final accessibility pass before the v1 cut. Marketing site assets are blocked on the hero illustration handoff from design.',
     labels: [
       { color: 'Neutral', text: 'Launch'  },
       { color: 'Neutral', text: 'v1'      },

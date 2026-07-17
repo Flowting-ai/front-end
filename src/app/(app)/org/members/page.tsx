@@ -3,19 +3,20 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { PlusSignIcon, SearchOneIcon, CancelCircleIcon, ExchangeOneIcon } from '@strange-huge/icons'
+import { SearchOneIcon, CancelCircleIcon, ExchangeOneIcon, InformationCircleIcon, TickTwoIcon, UserAddOneIcon, UserIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
-import { RoleBadge }        from '@/components/RoleBadge'
-import { CREDIT_CAP_COLUMNS, CreditCapRow } from '@/components/CreditCapRow'
+import { RoleBadge, RoleGlyph, ROLE_TOKENS, ROLE_LABEL } from '@/components/RoleBadge'
+import { CREDIT_CAP_COLUMNS, CreditCapRow, formatCredits } from '@/components/CreditCapRow'
 import { Button }           from '@/components/Button'
+import { IconButton }       from '@/components/IconButton'
 import { Avatar }           from '@/components/Avatar'
 import { InputField }       from '@/components/InputField'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
-import { AppInviteModal }   from '@/components/InviteModal'
+import { Tooltip }          from '@/components/Tooltip'
+import { AppInviteModal, type InviteResult } from '@/components/InviteModal'
 import {
   SettingsTable,
   SettingsTableCell,
-  SettingsTableFooter,
   SettingsTableHeader,
   SettingsTableHeaderCell,
   SettingsTableRow,
@@ -179,7 +180,7 @@ function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string;
           justifyContent: 'center',
           fontFamily:     'var(--font-title)',
           fontWeight:     500,
-          fontSize:       11,
+          fontSize:       Math.round(size * 0.58),
           lineHeight:     1,
           color:          'var(--neutral-white)',
           userSelect:     'none',
@@ -334,6 +335,7 @@ const manageRoleSectionLabelStyle: React.CSSProperties = {
   fontSize:   11,
   color:      'var(--neutral-400)',
   margin:     0,
+  padding:    '0 10px',
 }
 
 function buildTeamRolesMap(member: OrgMember, teams: { id: string; name: string }[]): Record<string, TeamRoleValue> {
@@ -359,19 +361,26 @@ const CHANGED_TAB_VARS = {
 
 function InfoNote({ children }: { children: React.ReactNode }) {
   return (
-    <p style={{
-      fontFamily:      'var(--font-body)',
-      fontWeight:      400,
-      fontSize:        12,
-      lineHeight:      '18px',
-      color:           'var(--neutral-500)',
-      margin:          0,
-      padding:         '8px 10px',
-      backgroundColor: 'var(--neutral-50)',
-      borderRadius:    8,
+    <div style={{
+      display:         'flex',
+      alignItems:      'flex-start',
+      gap:             8,
+      padding:         '10px 12px',
+      backgroundColor: 'var(--neutral-100)',
+      borderRadius:    10,
     }}>
-      {children}
-    </p>
+      <InformationCircleIcon size={16} color="var(--neutral-500)" style={{ flexShrink: 0, marginTop: 1 }} />
+      <p style={{
+        fontFamily: 'var(--font-body)',
+        fontWeight: 400,
+        fontSize:   13,
+        lineHeight: '20px',
+        color:      'var(--neutral-700)',
+        margin:     0,
+      }}>
+        {children}
+      </p>
+    </div>
   )
 }
 
@@ -448,6 +457,7 @@ function ManageRoleModal({
   member,
   canPromoteToAdmin,
   teams,
+  workspaceName,
   onCancel,
   onSave,
   onRemove,
@@ -456,27 +466,64 @@ function ManageRoleModal({
   /** Only Owners can hand out Admin — a plain Admin can only move editor <-> member. */
   canPromoteToAdmin: boolean
   teams:             { id: string; name: string }[]
+  workspaceName:     string
   onCancel:          () => void
-  onSave:            (desiredOrgRole: 'admin' | 'member', teamRoles: Record<string, TeamRoleValue>) => void
+  /** Resolves true only once the save fully succeeded — the modal stays open
+   *  (so nothing has to be redone) on a partial or total failure. */
+  onSave:            (desiredOrgRole: 'admin' | 'member', teamRoles: Record<string, TeamRoleValue>) => Promise<boolean>
   /** Removes the member from the workspace entirely — distinct from "Remove from team" below. */
   onRemove:          () => void
 }) {
   const router = useRouter()
   const memberName = member.name || member.email
-  const [roleMode, setRoleMode] = useState<'admin' | 'member'>(
-    member.orgRole === 'admin' || member.orgRole === 'owner' ? 'admin' : 'member',
-  )
+  // Highest role this member actually holds — mirrors the resolve_role ladder
+  // (owner > admin > editor > member; editor is derived from a live
+  // TeamEditor grant, not a stored role) — same shape as displayRoleFor()
+  // elsewhere on this page, just not collapsing owner/admin together.
+  const effectiveRole: 'owner' | 'admin' | 'editor' | 'member' =
+    member.orgRole === 'owner' ? 'owner'
+    : member.orgRole === 'admin' ? 'admin'
+    : member.teamMemberships.some(tm => tm.isTeamOwner) ? 'editor'
+    : 'member'
+  const initialRoleMode = member.orgRole === 'admin' || member.orgRole === 'owner' ? 'admin' : 'member'
+  const [roleMode, setRoleMode] = useState<'admin' | 'member'>(initialRoleMode)
   const [teamRoles, setTeamRoles] = useState<Record<string, TeamRoleValue>>(() => buildTeamRolesMap(member, teams))
   // Frozen at mount — never updated — so a team's Tabs can tell "edited this
   // session" apart from "already was this way." Comparing against `member`
   // directly wouldn't work since `member` itself doesn't change while the
   // modal is open, but this keeps the intent explicit at the call site.
   const [initialTeamRoles] = useState<Record<string, TeamRoleValue>>(() => buildTeamRolesMap(member, teams))
+  // Drives the Save button: disabled until something actually differs from
+  // what the modal opened with, and the button's label counts exactly how
+  // many things changed. Recomputed every render, so both stay in sync the
+  // instant a role tab or per-team role changes (including flipping a value
+  // back to its original, which correctly drops it from the count).
+  // Per-team diffs are moot once roleMode is 'admin' — Admins get blanket
+  // access regardless of per-team grants (see handleManageRole), so they
+  // don't count as a pending change while that tab is selected.
+  const changedTeamCount = Object.keys({ ...initialTeamRoles, ...teamRoles }).filter(
+    teamId => (teamRoles[teamId] ?? 'none') !== (initialTeamRoles[teamId] ?? 'none'),
+  ).length
+  const changeCount = (roleMode !== initialRoleMode ? 1 : 0) + (roleMode === 'admin' ? 0 : changedTeamCount)
+  const hasChanges = changeCount > 0
   const [teamSearch, setTeamSearch] = useState('')
+  // Same collapsed-icon → expanding-field pattern as the Workspace Members
+  // table's search (itself modeled on the Pinboard panel's search toggle).
+  const [teamSearchOpen, setTeamSearchOpen] = useState(false)
   const [teamFilter, setTeamFilter] = useState<TeamFilterValue>('all')
   const [confirmRemoveMember, setConfirmRemoveMember] = useState(false)
   const [confirmRemoveTeamId, setConfirmRemoveTeamId] = useState<string | null>(null)
   const confirmRemoveTeam = teams.find(t => t.id === confirmRemoveTeamId) ?? null
+  // True while the Save API calls are in flight — blocks double-submit and
+  // premature dismissal (Cancel / backdrop / Escape) mid-save.
+  const [saving, setSaving] = useState(false)
+  // Demoting an Admin to Member is asked to be confirmed separately, since
+  // it's a meaningful permission change with no other safety net today.
+  const [confirmDowngrade, setConfirmDowngrade] = useState(false)
+  // Any close attempt (Cancel, backdrop, Escape, "Invite to team") while
+  // hasChanges is true routes through this instead of closing immediately —
+  // it holds what to actually do once the user confirms discarding.
+  const [pendingCloseAction, setPendingCloseAction] = useState<(() => void) | null>(null)
 
   // Backdrop click-to-dismiss needs both the mousedown AND the click to have
   // landed directly on the backdrop. A plain `e.target === e.currentTarget`
@@ -487,10 +534,48 @@ function ManageRoleModal({
   // of the tab button that was actually pressed.
   const backdropMouseDown = useRef(false)
 
-  const goToTeamSettings = (teamId: string) => {
-    onCancel()
-    router.push(ORG_TEAM_ROUTE(teamId))
+  // Funnels every "leave the modal" gesture through the same unsaved-changes
+  // guard: run `action` now if nothing would be lost, otherwise stash it and
+  // let the confirm dialog below run it once the user confirms discarding.
+  const requestClose = (action: () => void) => {
+    if (saving) return
+    if (hasChanges) { setPendingCloseAction(() => action); return }
+    action()
   }
+
+  // Actually submits. Only closes the modal once `onSave` reports the save
+  // fully succeeded — on a partial/total failure the modal stays open with
+  // every selection intact, so nothing has to be redone by hand.
+  const doSave = async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      const ok = await onSave(roleMode, teamRoles)
+      if (ok) onCancel()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const goToTeamSettings = (teamId: string) => {
+    requestClose(() => {
+      onCancel()
+      router.push(ORG_TEAM_ROUTE(teamId))
+    })
+  }
+
+  // Escape mirrors Cancel/backdrop — but only for this modal's own layer.
+  // A nested confirm dialog (remove-member, remove-from-team, discard,
+  // downgrade) should absorb the Escape itself via its own backdrop instead
+  // of this handler skipping past it.
+  useEffect(() => {
+    if (confirmRemoveMember || confirmRemoveTeamId || confirmDowngrade || pendingCloseAction) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') requestClose(onCancel)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [confirmRemoveMember, confirmRemoveTeamId, confirmDowngrade, pendingCloseAction, saving, hasChanges, onCancel])
 
   const normalizedTeamSearch = teamSearch.trim().toLowerCase()
   const searchedTeams = normalizedTeamSearch
@@ -520,7 +605,7 @@ function ManageRoleModal({
       }}
       onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
       onClick={(e) => {
-        if (backdropMouseDown.current && e.target === e.currentTarget) onCancel()
+        if (backdropMouseDown.current && e.target === e.currentTarget) requestClose(onCancel)
         backdropMouseDown.current = false
       }}
     >
@@ -530,7 +615,7 @@ function ManageRoleModal({
           maxWidth:        'calc(100vw - 32px)',
           maxHeight:       'calc(100vh - 64px)',
           borderRadius:    20,
-          backgroundColor: 'var(--neutral-white)',
+          backgroundColor: 'var(--neutral-50)',
           border:          '1px solid var(--neutral-200)',
           boxShadow:       '0px 8px 32px rgba(0,0,0,0.12)',
           overflow:        'hidden',
@@ -542,22 +627,42 @@ function ManageRoleModal({
         {/* Header */}
         <div style={{ padding: '24px 24px 16px' }}>
           <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
-            Manage User
+            Manage User : <span style={{ color: 'var(--neutral-600)' }}>{memberName}</span>
           </h2>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
-            Choose access for <strong style={{ color: 'var(--neutral-700)' }}>{memberName}</strong>.
-          </p>
+          {/* Email, current (highest) role, and team count — a quick snapshot
+              of the member being managed, replacing the old plain "Choose
+              access for X" line. */}
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '18px', color: 'var(--neutral-500)' }}>
+              {member.email}
+            </span>
+            <span aria-hidden style={{ color: 'var(--neutral-300)' }}>·</span>
+            <RoleBadge role={effectiveRole} showLabel mode="solar" />
+            <span aria-hidden style={{ color: 'var(--neutral-300)' }}>·</span>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: '18px', color: 'var(--neutral-500)' }}>
+              {/* Owner/Admin have blanket access — teamMemberships is empty for
+                  them (see handleManageRole), so "0 teams" would be misleading. */}
+              {effectiveRole === 'owner' || effectiveRole === 'admin'
+                ? 'All teams'
+                : `${member.teamMemberships.length} team${member.teamMemberships.length === 1 ? '' : 's'}`}
+            </span>
+          </div>
         </div>
 
         <div className="kaya-scrollbar" style={{ padding: '3px 27px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {canPromoteToAdmin && (
+              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13, color: 'var(--neutral-600)' }}>
+                Choose access
+              </span>
+            )}
             {/* Admin/Member tab on the left (Owners only); the workspace-removal
                 action always sits at the right end of this same row, regardless
                 of whether the tab itself is shown. */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               {canPromoteToAdmin ? (
                 <Tabs value={roleMode} onValueChange={(value) => setRoleMode(value as 'admin' | 'member')}>
-                  <TabsList size="small">
+                  <TabsList size="medium">
                     <TabsTrigger value="admin">Admin</TabsTrigger>
                     <TabsTrigger value="member">Member</TabsTrigger>
                   </TabsList>
@@ -565,8 +670,8 @@ function ManageRoleModal({
               ) : (
                 <div />
               )}
-              <Button variant="secondary" size="sm" onClick={() => setConfirmRemoveMember(true)}>
-                Remove
+              <Button variant="danger" size="sm" leftIcon={<UserIcon animated size={16} />} onClick={() => setConfirmRemoveMember(true)}>
+                Remove from {workspaceName}
               </Button>
             </div>
             {canPromoteToAdmin && (
@@ -580,9 +685,6 @@ function ManageRoleModal({
 
           {roleMode === 'member' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: 'var(--neutral-600)', margin: 0 }}>
-                Team access
-              </p>
               {!canPromoteToAdmin && (
                 <InfoNote>They will only have access to the teams you assign them to below.</InfoNote>
               )}
@@ -592,21 +694,84 @@ function ManageRoleModal({
                 </p>
               ) : (
                 <>
-                  {/* Search + assigned/unassigned filter, side by side */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                      <InputField
-                        label="Search teams"
-                        showLabel={false}
-                        showSubtitle={false}
-                        size="small"
-                        fluid
-                        leftIcon={<SearchOneIcon size={16} />}
-                        placeholder="Search teams"
-                        value={teamSearch}
-                        onChange={setTeamSearch}
-                      />
-                    </div>
+                  {/* "Team access" label lines up with the search + filter
+                      group on the same row (search sits immediately left of
+                      the filter tabs, not spread across the row). Search
+                      starts collapsed to an icon button — same toggle pattern
+                      as the Workspace Members table's search. */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13, color: 'var(--neutral-600)', margin: 0 }}>
+                      Team access
+                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Tooltip content="Search" disabled={teamSearchOpen}>
+                      <div style={{ display: 'flex', alignItems: 'center', flex: teamSearchOpen ? '1 0 120px' : undefined, minWidth: 0 }}>
+                        <AnimatePresence initial={false} mode="popLayout">
+                          {!teamSearchOpen ? (
+                            <motion.span
+                              key="team-search-btn"
+                              // No `layout` here (unlike Pinboard's reference):
+                              // this modal's height changes with the Assigned/
+                              // Unassigned filter, which re-centers the whole
+                              // overlay — `layout` would pick that up as a
+                              // position change and slide the icon to match,
+                              // which reads as the search icon "moving" for no
+                              // reason. AnimatePresence's popLayout mode alone
+                              // is enough to animate the open/close swap itself.
+                              initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
+                              animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
+                              exit={{ opacity: 0, scale: 0.25, filter: 'blur(4px)', transition: { type: 'spring', duration: 0.2, bounce: 0 } }}
+                              style={{ display: 'inline-flex', flexShrink: 0 }}
+                            >
+                              <IconButton
+                                variant="ghost"
+                                size="sm"
+                                icon={<SearchOneIcon size={20} />}
+                                aria-label="Open search"
+                                onClick={() => setTeamSearchOpen(true)}
+                              />
+                            </motion.span>
+                          ) : (
+                            <motion.div
+                              key="team-search-input"
+                              initial={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
+                              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
+                              exit={{ opacity: 0, scale: 0.95, filter: 'blur(4px)', transition: { duration: 0.15, ease: 'easeIn' } }}
+                              style={{ flex: '1 0 0', minWidth: 0 }}
+                            >
+                              <InputField
+                                label="Search teams"
+                                showLabel={false}
+                                showSubtitle={false}
+                                size="small"
+                                fluid
+                                leftIcon={<SearchOneIcon size={16} />}
+                                rightIcon={
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label="Close search"
+                                    onClick={() => { setTeamSearchOpen(false); setTeamSearch('') }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ' ') { setTeamSearchOpen(false); setTeamSearch('') }
+                                    }}
+                                    className="kds-icon-in-field"
+                                    style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
+                                  >
+                                    <CancelCircleIcon size={16} />
+                                  </span>
+                                }
+                                placeholder="Search teams"
+                                value={teamSearch}
+                                onChange={setTeamSearch}
+                                // eslint-disable-next-line jsx-a11y/no-autofocus -- focus moves into search on user-triggered open
+                                autoFocus
+                              />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </Tooltip>
                     <Tabs value={teamFilter} onValueChange={(value) => setTeamFilter(value as TeamFilterValue)}>
                       <TabsList size="small">
                         <TabsTrigger value="all">All</TabsTrigger>
@@ -614,29 +779,42 @@ function ManageRoleModal({
                         <TabsTrigger value="unassigned">Unassigned</TabsTrigger>
                       </TabsList>
                     </Tabs>
+                    </div>
                   </div>
 
-                  {/* Column header — shares the same grid template as every row below,
-                      so "Team"/"Role"/"Actions" line up with their columns exactly. */}
-                  <div style={{ display: 'grid', gridTemplateColumns: MANAGE_ROLE_TEAM_GRID_COLUMNS, gap: 12, padding: '0 10px' }}>
-                    <p style={manageRoleColumnHeaderStyle}>Team</p>
-                    <p style={manageRoleColumnHeaderStyle}>Role</p>
-                    <p style={{ ...manageRoleColumnHeaderStyle, textAlign: 'right' }}>Actions</p>
-                  </div>
+                  {/* Bordered container — same border treatment as the app's
+                      main chat layout shell (1px neutral-200, rounded corners)
+                      — holding the column header and the scrollable team list
+                      as one cohesive box. The header and every row below share
+                      the same grid template AND the same horizontal inset
+                      (header's own padding vs. the scroll viewport's zero
+                      horizontal padding + each row's own padding), so "Team" /
+                      "Role" / "Actions" land exactly above their fields. */}
+                  <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 14, overflow: 'hidden' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: MANAGE_ROLE_TEAM_GRID_COLUMNS, gap: 12, padding: '10px 18px', borderBottom: '1px solid var(--neutral-200)' }}>
+                      <p style={manageRoleColumnHeaderStyle}>Team</p>
+                      <p style={manageRoleColumnHeaderStyle}>Role</p>
+                      <p style={{ ...manageRoleColumnHeaderStyle, textAlign: 'right' }}>Actions</p>
+                    </div>
 
-                  <div
-                    className="kaya-scrollbar"
-                    style={{
-                      display:       'flex',
-                      flexDirection: 'column',
-                      gap:           MANAGE_ROLE_TEAM_ROW_GAP,
-                      maxHeight:     MANAGE_ROLE_TEAM_LIST_MAX_HEIGHT,
-                      overflowY:     'auto',
-                      padding:       3,
-                    }}
-                  >
+                    <div
+                      className="kaya-scrollbar"
+                      style={{
+                        display:       'flex',
+                        flexDirection: 'column',
+                        gap:           MANAGE_ROLE_TEAM_ROW_GAP,
+                        maxHeight:     MANAGE_ROLE_TEAM_LIST_MAX_HEIGHT,
+                        overflowY:     'auto',
+                        // Horizontal padding here is the gap between each row
+                        // card's own border and this list's outer border — the
+                        // header's own padding is bumped by the same amount
+                        // (10px → 18px) so "Team"/"Role"/"Actions" stay lined
+                        // up with the row content despite the extra inset.
+                        padding:       '8px 8px',
+                      }}
+                    >
                     {nothingToShow ? (
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '8px 2px' }}>
+                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '8px 10px' }}>
                         {teamSearch.trim() ? `No teams match “${teamSearch}”.` : 'No teams to show.'}
                       </p>
                     ) : (
@@ -656,6 +834,7 @@ function ManageRoleModal({
                                   padding:             '8px 10px',
                                   borderRadius:        10,
                                   border:              '1px solid var(--neutral-200)',
+                                  backgroundColor:     'var(--neutral-white-70)',
                                   boxSizing:           'border-box',
                                   flexShrink:          0,
                                 }}
@@ -686,7 +865,7 @@ function ManageRoleModal({
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                   <Button
-                                    variant="secondary"
+                                    variant="danger"
                                     size="sm"
                                     onClick={() => setConfirmRemoveTeamId(team.id)}
                                   >
@@ -717,6 +896,7 @@ function ManageRoleModal({
                                   padding:             '8px 10px',
                                   borderRadius:        10,
                                   border:              '1px solid var(--neutral-200)',
+                                  backgroundColor:     'var(--neutral-white-70)',
                                   boxSizing:           'border-box',
                                   flexShrink:          0,
                                 }}
@@ -735,7 +915,7 @@ function ManageRoleModal({
                                   <Button
                                     variant="secondary"
                                     size="sm"
-                                    leftIcon={<PlusSignIcon size={16} />}
+                                    leftIcon={<UserAddOneIcon animated size={16} />}
                                     onClick={() => goToTeamSettings(team.id)}
                                   >
                                     Invite to team
@@ -747,6 +927,7 @@ function ManageRoleModal({
                         )}
                       </>
                     )}
+                    </div>
                   </div>
                 </>
               )}
@@ -756,11 +937,55 @@ function ManageRoleModal({
 
         {/* Actions */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '20px 24px 24px' }}>
-          <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
-          <Button variant="default" size="sm" onClick={() => onSave(roleMode, teamRoles)}>Save</Button>
+          <Button variant="ghost" size="sm" disabled={saving} onClick={() => requestClose(onCancel)}>Cancel</Button>
+          <Button
+            variant="default"
+            size="sm"
+            loading={saving}
+            disabled={!hasChanges || saving}
+            onClick={() => {
+              // A demotion from Admin gets its own confirmation — a bigger
+              // permission change than the rest, with no other safety net.
+              if (initialRoleMode === 'admin' && roleMode === 'member') { setConfirmDowngrade(true); return }
+              void doSave()
+            }}
+          >
+            {hasChanges ? `Save ${changeCount} change${changeCount === 1 ? '' : 's'}` : 'Save'}
+          </Button>
         </div>
       </div>
     </div>
+
+    {pendingCloseAction && (
+      <ConfirmModal
+        title="Discard changes?"
+        description={
+          <>You have unsaved changes for <strong style={{ color: 'var(--neutral-700)' }}>{memberName}</strong>. They&rsquo;ll be lost if you continue.</>
+        }
+        confirmLabel="Discard changes"
+        onCancel={() => setPendingCloseAction(null)}
+        onConfirm={() => {
+          const action = pendingCloseAction
+          setPendingCloseAction(null)
+          action?.()
+        }}
+      />
+    )}
+
+    {confirmDowngrade && (
+      <ConfirmModal
+        title="Remove Admin access?"
+        description={
+          <>This will demote <strong style={{ color: 'var(--neutral-700)' }}>{memberName}</strong> from Admin to Member, removing their organization-wide access.</>
+        }
+        confirmLabel="Demote to Member"
+        onCancel={() => setConfirmDowngrade(false)}
+        onConfirm={() => {
+          setConfirmDowngrade(false)
+          void doSave()
+        }}
+      />
+    )}
 
     {confirmRemoveMember && (
       <ConfirmModal
@@ -807,6 +1032,7 @@ function MembersTable({
   isCurrentUserOwner = false,
   loading,
   teams,
+  workspaceName,
   onManageRole,
   onRemove,
   onRevokeInvite,
@@ -820,13 +1046,18 @@ function MembersTable({
   loading?:             boolean
   /** Active teams offered in the Manage-role modal's per-team list. */
   teams:                { id: string; name: string }[]
-  onManageRole:         (id: string, desiredOrgRole: 'admin' | 'member', teamRoles: Record<string, TeamRoleValue>) => void
+  workspaceName:        string
+  onManageRole:         (id: string, desiredOrgRole: 'admin' | 'member', teamRoles: Record<string, TeamRoleValue>) => Promise<boolean>
   onRemove:             (id: string) => void
   onRevokeInvite:       (id: string) => void
   onInviteClick:        () => void
   onRefresh:            () => void
 }) {
   const [searchQuery,   setSearchQuery]   = useState('')
+  // Search starts collapsed to an icon button — matches the Pinboard panel's
+  // search affordance (PinboardHeader): click to expand, an embedded icon
+  // inside the field clears the query and collapses it back in one action.
+  const [searchOpen,    setSearchOpen]    = useState(false)
   // Which member's "Manage role" modal is open, if any.
   const [manageRoleTarget, setManageRoleTarget] = useState<OrgMember | null>(null)
 
@@ -843,35 +1074,91 @@ function MembersTable({
 
   return (
     <SettingsTable columns={WORKSPACE_MEMBER_COLUMNS} columnGap={0}>
-      <SettingsTableToolbar title="Workspace Members" style={{ flexWrap: 'wrap' }}>
+      <SettingsTableToolbar
+        title={
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            Workspace Members
+            <Tooltip content="Sync member list">
+              <IconButton
+                variant="ghost"
+                size="sm"
+                icon={<ExchangeOneIcon animated size={20} />}
+                aria-label="Sync member list"
+                onClick={onRefresh}
+              />
+            </Tooltip>
+          </span>
+        }
+        style={{ flexWrap: 'wrap' }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 12, maxWidth: '100%' }}>
-          <Button
-            variant="ghost"
-            size="sm"
-            leftIcon={<ExchangeOneIcon animated size={16} />}
-            aria-label="Refresh members"
-            onClick={onRefresh}
-          >
-            Refresh
-          </Button>
-          <div style={{ width: 220, maxWidth: '100%', flexShrink: 1 }}>
-            <InputField
-              label="Search members"
-              showLabel={false}
-              showSubtitle={false}
-              size="small"
-              fluid
-              leftIcon={<SearchOneIcon size={16} />}
-              placeholder="Search members"
-              value={searchQuery}
-              onChange={setSearchQuery}
-            />
-          </div>
+          <Tooltip content="Search" disabled={searchOpen}>
+            <div style={{ display: 'flex', alignItems: 'center', flex: searchOpen ? '1 0 160px' : undefined, minWidth: 0, maxWidth: searchOpen ? 260 : undefined }}>
+              <AnimatePresence initial={false} mode="popLayout">
+                {!searchOpen ? (
+                  <motion.span
+                    key="search-btn"
+                    layout
+                    initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
+                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
+                    exit={{ opacity: 0, scale: 0.25, filter: 'blur(4px)', transition: { type: 'spring', duration: 0.2, bounce: 0 } }}
+                    style={{ display: 'inline-flex', flexShrink: 0 }}
+                  >
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      icon={<SearchOneIcon size={20} />}
+                      aria-label="Open search"
+                      onClick={() => setSearchOpen(true)}
+                    />
+                  </motion.span>
+                ) : (
+                  <motion.div
+                    key="search-input"
+                    initial={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
+                    animate={{ opacity: 1, scale: 1, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
+                    exit={{ opacity: 0, scale: 0.95, filter: 'blur(4px)', transition: { duration: 0.15, ease: 'easeIn' } }}
+                    style={{ flex: '1 0 0', minWidth: 0 }}
+                  >
+                    <InputField
+                      label="Search members"
+                      showLabel={false}
+                      showSubtitle={false}
+                      size="small"
+                      fluid
+                      leftIcon={<SearchOneIcon size={16} />}
+                      rightIcon={
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          aria-label="Close search"
+                          onClick={() => { setSearchOpen(false); setSearchQuery('') }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') { setSearchOpen(false); setSearchQuery('') }
+                          }}
+                          className="kds-icon-in-field"
+                          style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
+                        >
+                          <CancelCircleIcon size={16} />
+                        </span>
+                      }
+                      placeholder="Search members"
+                      value={searchQuery}
+                      onChange={setSearchQuery}
+                      // eslint-disable-next-line jsx-a11y/no-autofocus -- focus moves into search on user-triggered open
+                      autoFocus
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </Tooltip>
           {isAdmin && (
             <Button
               variant="secondary"
               size="sm"
-              leftIcon={<PlusSignIcon size={16} />}
+              iconSize={20}
+              leftIcon={<UserAddOneIcon animated size={20} />}
               onClick={onInviteClick}
             >
               Invite members
@@ -883,7 +1170,15 @@ function MembersTable({
       <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
         <div role="table" aria-label="Workspace members" style={{ minWidth: 900 }}>
           <SettingsTableHeader>
-            <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                Member
+                <Badge
+                  label={normalizedQuery ? `${filteredMembers.length} of ${members.length} members` : `${members.length} member${members.length === 1 ? '' : 's'}`}
+                  color="Neutral"
+                />
+              </span>
+            </SettingsTableHeaderCell>
             <SettingsTableHeaderCell>
               {/* Split into two labels on the same grid template as roleTeamRowStyle,
                   so "Role" sits directly above the role badges and "Team" sits
@@ -923,7 +1218,7 @@ function MembersTable({
               >
                 <SettingsTableCell style={{ alignSelf: 'flex-start', paddingTop: 16, paddingBottom: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                    <Avatar name={member.name || member.email} size="md" />
+                    <Avatar name={member.name || member.email} size="md" style={{ fontSize: 16 }} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                         <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -947,7 +1242,7 @@ function MembersTable({
                 <SettingsTableCell align="end" style={{ alignSelf: 'flex-start', paddingTop: 16, paddingBottom: 16 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                     {canManageRole && (
-                      <Button variant="secondary" size="sm" onClick={() => setManageRoleTarget(member)}>
+                      <Button variant="secondary" size="sm" leftIcon={<UserIcon animated size={16} />} onClick={() => setManageRoleTarget(member)}>
                         Manage User
                       </Button>
                     )}
@@ -965,14 +1260,6 @@ function MembersTable({
               </SettingsTableRow>
             )
           })}
-
-          <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)' }}>
-            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)' }}>
-              {normalizedQuery
-                ? `${filteredMembers.length} of ${members.length} members`
-                : `${members.length} member${members.length === 1 ? '' : 's'}`}
-            </span>
-          </SettingsTableFooter>
         </div>
       </div>
 
@@ -981,11 +1268,12 @@ function MembersTable({
           member={manageRoleTarget}
           canPromoteToAdmin={isCurrentUserOwner}
           teams={teams}
+          workspaceName={workspaceName}
           onCancel={() => setManageRoleTarget(null)}
-          onSave={(desiredOrgRole, teamRoles) => {
-            onManageRole(manageRoleTarget.id, desiredOrgRole, teamRoles)
-            setManageRoleTarget(null)
-          }}
+          // ManageRoleModal itself closes (via onCancel above) once this
+          // resolves true — see its doSave. Nothing to do here but relay
+          // the real result so a partial/total failure leaves it open.
+          onSave={(desiredOrgRole, teamRoles) => onManageRole(manageRoleTarget.id, desiredOrgRole, teamRoles)}
           onRemove={() => {
             onRemove(manageRoleTarget.id)
             setManageRoleTarget(null)
@@ -996,67 +1284,309 @@ function MembersTable({
   )
 }
 
-// ── Roles & Permissions section (collapsible) ────────────────────────────────
+// ── Roles & Permissions modal ──────────────────────────────────────────────────
+// Triggered by the info button next to the "Members" page title, rather than
+// a standalone card in the page flow.
 
 const ROLES_INFO = [
-  { role: 'owner'  as const, description: 'Full organization control, including billing, payment methods, invoices, subscriptions, topup credit purchases, and ownership transfer.' },
+  { role: 'owner'  as const, description: 'Full organization control, including billing, payment methods, invoices, subscriptions, and topup credit purchases.' },
   { role: 'admin'  as const, description: 'Everything a owner can do. But cannot manage billing or payments.' },
   { role: 'editor' as const, description: 'Inherits Member access and can edit content in assigned teams, without organization settings or member administration.' },
   { role: 'member' as const, description: 'Baseline access through assigned projects. Cannot change organization settings, manage other members, or edit teams.' },
 ]
 
-function RolesPermissionsSection() {
-  const [open, setOpen] = React.useState(true)
+// Badge diameter — same size for all four levels; the rail (connecting line +
+// ordering) carries the hierarchy, not badge scale.
+const ROLE_STACK_BADGE_SIZE = 36
+const ROLE_STACK_RAIL_WIDTH = ROLE_STACK_BADGE_SIZE
+
+function RolesPermissionsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  // Same mousedown+click double-check as ManageRoleModal's own backdrop.
+  const backdropMouseDown = useRef(false)
+  const [detailOpen, setDetailOpen] = useState(false)
+
+  if (!open) return null
 
   return (
-    <div style={{
-      borderRadius:    16,
-      border:          '1px solid var(--neutral-200)',
-      backgroundColor: '#f9f5f1',
-      overflow:        'hidden',
-      width:           '100%',
-      boxShadow:       SHADOW_CARD,
-    }}>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
+    <>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Roles & Permissions"
+      style={{
+        position:        'fixed',
+        inset:           0,
+        zIndex:          300,
+        display:         'flex',
+        alignItems:      'center',
+        justifyContent:  'center',
+        backgroundColor: 'rgba(0,0,0,0.35)',
+      }}
+      onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
+      onClick={(e) => {
+        if (backdropMouseDown.current && e.target === e.currentTarget) onClose()
+        backdropMouseDown.current = false
+      }}
+    >
+      <div
         style={{
-          width: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-          gap: 12, padding: '12px 24px 16px', background: 'none', border: 'none', cursor: 'pointer',
-          borderBottom: open ? '1px solid var(--neutral-100)' : 'none', textAlign: 'left',
+          width:           640,
+          maxWidth:        'calc(100vw - 32px)',
+          maxHeight:       'calc(100vh - 64px)',
+          borderRadius:    20,
+          backgroundColor: '#f9f5f1',
+          border:          '1px solid var(--neutral-200)',
+          boxShadow:       '0px 8px 32px rgba(0,0,0,0.12)',
+          overflow:        'hidden',
+          display:         'flex',
+          flexDirection:   'column',
         }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 15, color: 'var(--neutral-900)', margin: 0 }}>
-            Roles &amp; Permissions
-          </p>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 'var(--font-size-caption)', color: 'var(--neutral-500)', margin: '3px 0 0' }}>
-            Default behavior for new projects and chats across the workspace.
-          </p>
-        </div>
-        <svg
-          width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden
-          style={{ flexShrink: 0, marginTop: 4, transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 200ms ease', color: 'var(--neutral-400)' }}
-        >
-          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-
-      {open && ROLES_INFO.map((item, index) => (
-        <React.Fragment key={item.role}>
-          {index > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', margin: '0 24px' }} />}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 24px' }}>
-            <Badge
-              label={item.role.charAt(0).toUpperCase() + item.role.slice(1)}
-              color={item.role === 'owner' ? 'Purple' : item.role === 'admin' ? 'Blue' : item.role === 'editor' ? 'Green' : 'Neutral'}
-              style={{ flexShrink: 0 }}
-            />
-            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 'var(--font-size-body)', color: 'var(--neutral-700)', lineHeight: 'var(--line-height-body)' }}>
-              {item.description}
-            </span>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '24px 24px 16px' }}>
+          <div>
+            <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
+              Roles &amp; Permissions
+            </h2>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
+              Default behavior for new projects and chats across the workspace.
+            </p>
           </div>
-        </React.Fragment>
-      ))}
+          <IconButton variant="ghost" size="sm" aria-label="Close" icon={<CancelCircleIcon size={18} />} onClick={onClose} />
+        </div>
+
+        {/* Hierarchical stack, highest role first — a vertical timeline (rail +
+            circular badges, all the same size) connecting the four roles top
+            to bottom; ordering and copy carry the hierarchy. The connector
+            between two badges is a flex-grown div, so it always fills exactly
+            the gap between them with no manual pixel math. */}
+        <div className="kaya-scrollbar" style={{ overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', padding: '4px 24px 24px' }}>
+            {ROLES_INFO.map((item, i) => {
+              const tokens = ROLE_TOKENS[item.role]
+              const badgeSize = ROLE_STACK_BADGE_SIZE
+              const isLast = i === ROLES_INFO.length - 1
+              return (
+                <div
+                  key={item.role}
+                  style={{ display: 'flex', gap: 14 }}
+                >
+                  {/* Rail column — badge, then a connector filling the rest of this row's height */}
+                  <div style={{ width: ROLE_STACK_RAIL_WIDTH, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{
+                      flexShrink:      0,
+                      width:           badgeSize,
+                      height:          badgeSize,
+                      borderRadius:    '50%',
+                      display:         'flex',
+                      alignItems:      'center',
+                      justifyContent:  'center',
+                      backgroundColor: tokens.bg,
+                      boxShadow:       tokens.shadow,
+                      color:           tokens.text,
+                    }}>
+                      <RoleGlyph role={item.role} size={Math.round(badgeSize * 0.5)} />
+                    </div>
+                    {!isLast && (
+                      <div aria-hidden style={{ width: 2, flex: '1 0 0', marginTop: 4, backgroundColor: 'var(--neutral-200)' }} />
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      <p style={{
+                        margin:     0,
+                        fontFamily: 'var(--font-title)',
+                        fontWeight: 400,
+                        fontSize:   20,
+                        lineHeight: '24px',
+                        color:      tokens.text,
+                      }}>
+                        {ROLE_LABEL[item.role]}
+                      </p>
+                      {(i === 0 || isLast) && (
+                        <span style={{
+                          fontFamily: 'var(--font-body)',
+                          fontWeight: 500,
+                          fontSize:   'var(--font-size-caption)',
+                          color:      'var(--neutral-400)',
+                        }}>
+                          {i === 0 ? 'Highest access' : 'Lowest access'}
+                        </span>
+                      )}
+                    </div>
+                    <p style={{
+                      margin:     0,
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 400,
+                      fontSize:   'var(--font-size-body)',
+                      lineHeight: 'var(--line-height-body)',
+                      color:      'var(--neutral-600)',
+                    }}>
+                      {item.description}
+                    </p>
+                    {/* Gap to the next role — lives in the text column (not row
+                        padding/margin) so the rail's flex-grown connector, which
+                        stretches to match this column's full height, threads
+                        through it and reaches the next badge with no gap in the line. */}
+                    {!isLast && <div style={{ height: 20 }} />}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '16px 24px 24px' }}>
+          <Button variant="secondary" size="sm" onClick={() => setDetailOpen(true)}>
+            View in detail
+          </Button>
+        </div>
+      </div>
+    </div>
+
+    <RoleComparisonModal open={detailOpen} onClose={() => setDetailOpen(false)} />
+    </>
+  )
+}
+
+// ── Role comparison table ──────────────────────────────────────────────────────
+// Rows mirror the actual capability ladder in src/lib/roles.ts (itself a mirror
+// of the backend's services/organizations/roles.py) — not a separate marketing
+// description of the roles, so this can't drift from what the roles actually do.
+
+const ROLE_COMPARISON_COLUMNS = ROLES_INFO.map(r => r.role)
+const ROLE_COMPARISON_GRID_COLUMNS = 'minmax(200px, 1fr) repeat(4, 84px)'
+
+const ROLE_CAPABILITIES: { label: string; grants: Record<RoleTeamRoleValue, boolean> }[] = [
+  {
+    label: 'Access assigned projects',
+    grants: { owner: true, admin: true, editor: true, member: true },
+  },
+  {
+    label: 'Edit & publish content in assigned teams',
+    grants: { owner: true, admin: true, editor: true, member: false },
+  },
+  {
+    label: 'Full access to every team & project org-wide',
+    grants: { owner: true, admin: true, editor: false, member: false },
+  },
+  {
+    label: 'Manage the org: invites, members, credit caps, roles, connectors',
+    grants: { owner: true, admin: true, editor: false, member: false },
+  },
+  {
+    label: 'Manage billing: plans, top-ups, invoices, payment method',
+    grants: { owner: true, admin: false, editor: false, member: false },
+  },
+]
+
+function RoleComparisonModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const backdropMouseDown = useRef(false)
+
+  if (!open) return null
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Role comparison"
+      style={{
+        position:        'fixed',
+        inset:           0,
+        zIndex:          400,
+        display:         'flex',
+        alignItems:      'center',
+        justifyContent:  'center',
+        backgroundColor: 'rgba(0,0,0,0.35)',
+      }}
+      onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
+      onClick={(e) => {
+        if (backdropMouseDown.current && e.target === e.currentTarget) onClose()
+        backdropMouseDown.current = false
+      }}
+    >
+      <div
+        style={{
+          width:           720,
+          maxWidth:        'calc(100vw - 32px)',
+          maxHeight:       'calc(100vh - 64px)',
+          borderRadius:    20,
+          backgroundColor: 'var(--neutral-white)',
+          border:          '1px solid var(--neutral-200)',
+          boxShadow:       '0px 8px 32px rgba(0,0,0,0.12)',
+          overflow:        'hidden',
+          display:         'flex',
+          flexDirection:   'column',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '24px 24px 16px' }}>
+          <div>
+            <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
+              Role comparison
+            </h2>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
+              What each role can do, side by side.
+            </p>
+          </div>
+          <IconButton variant="ghost" size="sm" aria-label="Close" icon={<CancelCircleIcon size={18} />} onClick={onClose} />
+        </div>
+
+        {/* Table */}
+        <div className="kaya-scrollbar" style={{ overflowX: 'auto', overflowY: 'auto', padding: '0 24px 24px' }}>
+          <div style={{ minWidth: 640 }}>
+            {/* Column header — role icon + name, same colors as the stack above */}
+            <div style={{ display: 'grid', gridTemplateColumns: ROLE_COMPARISON_GRID_COLUMNS, gap: 8, padding: '8px 0' }}>
+              <div />
+              {ROLE_COMPARISON_COLUMNS.map(role => {
+                const tokens = ROLE_TOKENS[role]
+                return (
+                  <div key={role} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <span style={{ display: 'inline-flex', color: tokens.text }}>
+                      <RoleGlyph role={role} size={18} />
+                    </span>
+                    <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: tokens.text }}>
+                      {ROLE_LABEL[role]}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div style={{ height: 1, backgroundColor: 'var(--neutral-200)' }} />
+
+            {/* Capability rows */}
+            {ROLE_CAPABILITIES.map((cap, i) => (
+              <div
+                key={cap.label}
+                style={{
+                  display:             'grid',
+                  gridTemplateColumns: ROLE_COMPARISON_GRID_COLUMNS,
+                  gap:                 8,
+                  alignItems:          'center',
+                  padding:             '12px 0',
+                  borderBottom:        i < ROLE_CAPABILITIES.length - 1 ? '1px solid var(--neutral-100)' : 'none',
+                }}
+              >
+                <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '18px', color: 'var(--neutral-700)' }}>
+                  {cap.label}
+                </p>
+                {ROLE_COMPARISON_COLUMNS.map(role => (
+                  <div key={role} style={{ display: 'flex', justifyContent: 'center' }}>
+                    {cap.grants[role]
+                      ? <TickTwoIcon size={16} color="var(--green-600)" />
+                      : <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-300)' }}>–</span>}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1144,17 +1674,6 @@ function MembersPageSkeleton() {
           </div>
         </div>
 
-        {/* Roles & Permissions skeleton */}
-        <div style={{ borderRadius: 16, border: '1px solid var(--neutral-200)', backgroundColor: '#f9f5f1', overflow: 'hidden', width: '100%', boxShadow: SHADOW_CARD }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '12px 24px 16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <SkeletonBlock width={150} height={15} radius={4} />
-              <SkeletonBlock width={280} height={13} radius={4} />
-            </div>
-            <SkeletonBlock width={16} height={16} radius={4} />
-          </div>
-        </div>
-
       </div>
     </>
   )
@@ -1192,24 +1711,51 @@ function mergeTeamMemberships(
 // omitted — the backend cap endpoint is keyed by user_id, which they lack until
 // they accept (the invite's own cap is applied on accept instead).
 
-function CreditCapsSection({ members, isAdmin, onAssignCredits }: {
+function CreditCapsSection({ members, isAdmin, poolRemaining, onAssignCredits }: {
   members:     OrgMember[]
   isAdmin:     boolean
+  /** Org-wide credits left this billing period — passed through to each row
+   *  so the assign input can warn before committing past it. */
+  poolRemaining: number
   onAssignCredits: (memberId: string, amount: number) => void | Promise<void>
 }) {
   const active = members.filter(m => m.inviteStatus === 'signed_up')
   if (active.length === 0) return null
 
+  // Rollup so an admin doesn't have to add up every row by hand to know how
+  // much of the pool is already committed as caps, or how many members still
+  // have no cap at all (and so can draw from the pool without limit).
+  const capable = active.filter(m => m.orgRole === 'member')
+  const cappedMembers = capable.filter(m => m.creditCap != null)
+  const totalCapped = cappedMembers.reduce((sum, m) => sum + (m.creditCap ?? 0), 0)
+  const uncappedCount = capable.length - cappedMembers.length
+
   return (
     <SettingsTable columns={CREDIT_CAP_COLUMNS} columnGap={0}>
-      <SettingsTableToolbar title="Per-member credit caps" />
+      <SettingsTableToolbar title="Per-member credit caps">
+        {capable.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '20px', color: 'var(--neutral-500)' }}>
+            <span><strong style={{ color: 'var(--neutral-700)' }}>{formatCredits(totalCapped)}</strong> capped</span>
+            <span aria-hidden style={{ color: 'var(--neutral-300)' }}>·</span>
+            <span><strong style={{ color: 'var(--neutral-700)' }}>{cappedMembers.length}</strong> member{cappedMembers.length === 1 ? '' : 's'}</span>
+            {uncappedCount > 0 && (
+              <>
+                <span aria-hidden style={{ color: 'var(--neutral-300)' }}>·</span>
+                <span><strong style={{ color: 'var(--neutral-700)' }}>{uncappedCount}</strong> uncapped</span>
+              </>
+            )}
+            <span aria-hidden style={{ color: 'var(--neutral-300)' }}>·</span>
+            <span><strong style={{ color: 'var(--neutral-700)' }}>{formatCredits(poolRemaining)}</strong> left in pool</span>
+          </div>
+        )}
+      </SettingsTableToolbar>
       <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
         <div role="table" aria-label="Per-member credit caps" style={{ minWidth: 810 }}>
           <SettingsTableHeader>
             <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
             <SettingsTableHeaderCell align="center">Allocation used</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="center">Current cap</SettingsTableHeaderCell>
             <SettingsTableHeaderCell align="center">Remaining</SettingsTableHeaderCell>
+            <SettingsTableHeaderCell align="center">Current cap</SettingsTableHeaderCell>
             <SettingsTableHeaderCell align="center">Assign credits</SettingsTableHeaderCell>
           </SettingsTableHeader>
           {active.map(m => (
@@ -1222,6 +1768,7 @@ function CreditCapsSection({ members, isAdmin, onAssignCredits }: {
               creditCap={m.creditCap}
               isAdmin={isAdmin}
               canAssign={m.orgRole === 'member'}
+              poolRemaining={poolRemaining}
               onAssignCredits={(amount) => onAssignCredits(m.id, amount)}
             />
           ))}
@@ -1297,12 +1844,7 @@ export default function OrgMembersPage() {
   const [inviteLoading,  setInviteLoading]  = useState(false)
   const [projects,       setProjects]       = useState<ApiProjectSummary[]>([])
   const [allowedDomains, setAllowedDomains] = useState<string[]>([])
-
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') refreshMembers() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [refreshMembers])
+  const [rolesInfoOpen,  setRolesInfoOpen]  = useState(false)
 
   useEffect(() => {
     if (!orgId) return
@@ -1385,13 +1927,16 @@ export default function OrgMembersPage() {
   // fall back on). So a team's projects can legitimately come back empty even
   // when it does have one. When that happens we skip that team's change
   // rather than silently stripping access, and report it.
+  // Returns whether the save fully succeeded, so ManageRoleModal only closes
+  // itself (via doSave) on a clean save — a partial/total failure leaves it
+  // open with every selection intact instead of forcing a redo from scratch.
   const handleManageRole = async (
     memberId: string,
     desiredOrgRole: 'admin' | 'member',
     desiredTeamRoles: Record<string, TeamRoleValue>,
-  ) => {
+  ): Promise<boolean> => {
     const member = members.find(m => m.id === memberId)
-    if (!member || !orgId) return
+    if (!member || !orgId) return false
     const memberName = member.name || member.email
     const prev = members
 
@@ -1407,7 +1952,7 @@ export default function OrgMembersPage() {
         bumpMembers(ms => ms.map(m => m.id === memberId ? { ...m, role: 'admin', orgRole: 'admin', teamMemberships: [] } : m))
         toast.success(`${memberName} is now an Admin`)
         refreshMembers()
-        return
+        return true
       }
 
       if (member.orgRole === 'admin') {
@@ -1424,7 +1969,7 @@ export default function OrgMembersPage() {
       if (diffs.length === 0) {
         toast.success(`Updated ${memberName}'s role`)
         refreshMembers()
-        return
+        return true
       }
 
       // Only fetch projects if some diff actually needs project-level grants
@@ -1469,9 +2014,11 @@ export default function OrgMembersPage() {
         toast.success(`Updated ${memberName}'s role`)
       }
       refreshMembers()
+      return failures.length === 0
     } catch (err) {
       bumpMembers(prev)
       toast.error(err instanceof Error ? err.message : 'Failed to update role')
+      return false
     }
   }
 
@@ -1510,37 +2057,51 @@ export default function OrgMembersPage() {
     }
   }
 
+  // Returns per-email results rather than throwing, so InviteModal can drop
+  // only the emails that actually succeeded and keep the rest (with why they
+  // failed) visible as chips instead of silently clearing the whole batch —
+  // see InviteModal's handleSubmit for the other half of this contract.
   const handleInvite = async (
-    email: string,
+    emails: string[],
     role: WorkspaceRole,
     creditCap?: number,
     selectedTeamId?: string,
     projectId?: string,
-  ) => {
-    if (!orgId) return
-
-    const normalizedEmail = email.trim().toLowerCase()
-    const alreadyMember = members.some(m => m.email?.toLowerCase() === normalizedEmail)
-    if (alreadyMember) {
-      toast.error(`${email} is already a member of this workspace`)
-      return
-    }
-
-    if (allowedDomains.length > 0) {
-      const domain = email.trim().split('@')[1]?.toLowerCase() ?? ''
-      if (!allowedDomains.includes(domain)) {
-        toast.error('Email domain not allowed', {
-          description: `Invites are restricted to: ${allowedDomains.join(', ')}`,
-        })
-        return
-      }
+  ): Promise<InviteResult> => {
+    if (!orgId) {
+      return { succeeded: [], failed: emails.map(email => ({ email, reason: 'No organization selected' })) }
     }
 
     const teamId = selectedTeamId ?? teams.find(t => !t.archived)?.id
     if (!teamId) {
       toast.error('Create a team first before inviting members')
-      return
+      return { succeeded: [], failed: emails.map(email => ({ email, reason: 'No team available' })) }
     }
+
+    // Local checks first (no round trip needed): already-a-member and
+    // domain-restriction. Only what passes both goes into the batched call.
+    const failed: { email: string; reason: string }[] = []
+    const toSend: string[] = []
+    for (const raw of emails) {
+      const email = raw.trim()
+      const normalizedEmail = email.toLowerCase()
+      const alreadyMember = members.some(m => m.email?.toLowerCase() === normalizedEmail)
+      if (alreadyMember) {
+        failed.push({ email, reason: 'Already a member of this workspace' })
+        continue
+      }
+      if (allowedDomains.length > 0) {
+        const domain = email.split('@')[1]?.toLowerCase() ?? ''
+        if (!allowedDomains.includes(domain)) {
+          failed.push({ email, reason: `Domain not allowed — restricted to ${allowedDomains.join(', ')}` })
+          continue
+        }
+      }
+      toSend.push(email)
+    }
+
+    if (toSend.length === 0) return { succeeded: [], failed }
+
     setInviteLoading(true)
     try {
       // The backend now grants TeamEditor (for editor invites) and applies the
@@ -1549,36 +2110,41 @@ export default function OrgMembersPage() {
       await inviteTeamMembers(
         orgId,
         teamId,
-        [email],
+        toSend,
         role,
         creditCap && creditCap > 0 ? creditCap / 1000 : undefined,
         projectId,
       )
 
-      // Optimistic pending row. The cap and team-editor grant only take effect
-      // once the invite is accepted, so they're not shown on the pending row.
-      bumpMembers(prev => [...prev, {
-        id:              `invite_${Date.now()}`,
-        name:            email.split('@')[0] ?? email,
-        email,
-        role,
-        orgRole:         role === 'admin' ? 'admin' : 'member',
-        inviteStatus:    'invite_sent',
-        teamMemberships: [{
-          teamId,
-          teamName: teams.find(t => t.id === teamId)?.name ?? 'Team',
-          isTeamOwner: role === 'editor',
-        }],
-        creditUsed:      0,
-        allocationUsed:  0,
-      }])
-      setInviteOpen(false)
-      toast.success('Invite sent')
-      // Reconcile the optimistic (synthetic-id) row with the real backend
-      // invite record so its user_id is available for revoking.
+      // Optimistic pending rows. The cap and team-editor grant only take
+      // effect once each invite is accepted, so they're not shown here.
+      bumpMembers(prev => [
+        ...prev,
+        ...toSend.map(email => ({
+          id:              `invite_${Date.now()}_${email}`,
+          name:            email.split('@')[0] ?? email,
+          email,
+          role,
+          orgRole:         (role === 'admin' ? 'admin' : 'member') as OrgMember['orgRole'],
+          inviteStatus:    'invite_sent' as const,
+          teamMemberships: [{
+            teamId,
+            teamName: teams.find(t => t.id === teamId)?.name ?? 'Team',
+            isTeamOwner: role === 'editor',
+          }],
+          creditUsed:      0,
+          allocationUsed:  0,
+        })),
+      ])
+      toast.success(toSend.length === 1 ? 'Invite sent' : `${toSend.length} invites sent`)
+      // Reconcile the optimistic (synthetic-id) rows with the real backend
+      // invite records so their user_ids are available for revoking.
       refreshMembers()
+      return { succeeded: toSend, failed }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to send invite')
+      const reason = err instanceof Error ? err.message : 'Failed to send invite'
+      toast.error(reason)
+      return { succeeded: [], failed: [...failed, ...toSend.map(email => ({ email, reason }))] }
     } finally {
       setInviteLoading(false)
     }
@@ -1628,13 +2194,23 @@ export default function OrgMembersPage() {
       <div style={{ width: '100%', maxWidth: 960, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Page header */}
-        <div>
-          <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 28, lineHeight: '36px', color: 'var(--neutral-900)', margin: 0 }}>
-            Members
-          </h1>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
-            Manage who has access to your workspace and what they can do.
-          </p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 28, lineHeight: '36px', color: 'var(--neutral-900)', margin: 0 }}>
+              Members
+            </h1>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
+              Manage who has access to your workspace and what they can do.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<InformationCircleIcon size={16} />}
+            onClick={() => setRolesInfoOpen(true)}
+          >
+            Roles &amp; Permissions
+          </Button>
         </div>
 
         {/* Stats row */}
@@ -1671,7 +2247,8 @@ export default function OrgMembersPage() {
           isCurrentUserOwner={currentUserIsOwner}
           loading={membersLoading}
           teams={teams.filter(t => !t.archived).map(team => ({ id: team.id, name: team.name }))}
-          onManageRole={(id, desiredOrgRole, teamRoles) => void handleManageRole(id, desiredOrgRole, teamRoles)}
+          workspaceName={org.name}
+          onManageRole={(id, desiredOrgRole, teamRoles) => handleManageRole(id, desiredOrgRole, teamRoles)}
           onRemove={handleRemove}
           onRevokeInvite={handleRevokeInvite}
           onInviteClick={() => setInviteOpen(true)}
@@ -1679,12 +2256,12 @@ export default function OrgMembersPage() {
         />
 
         {/* Credit caps */}
-        <CreditCapsSection members={members} isAdmin={isAdmin} onAssignCredits={handleAssignCredits} />
-
-        {/* Roles & Permissions */}
-        <RolesPermissionsSection />
+        <CreditCapsSection members={members} isAdmin={isAdmin} poolRemaining={org.creditPool.remaining} onAssignCredits={handleAssignCredits} />
 
       </div>
+
+      {/* Roles & Permissions info modal — opened from the info button next to the page title */}
+      <RolesPermissionsModal open={rolesInfoOpen} onClose={() => setRolesInfoOpen(false)} />
 
       {/* Invite modal */}
       <AppInviteModal
@@ -1699,6 +2276,9 @@ export default function OrgMembersPage() {
             ? [{ id: project.id, title: project.title, teamId: project.teamId }]
             : []
         ))}
+        existingEmails={members.map(m => m.email).filter(Boolean)}
+        allowedDomains={allowedDomains}
+        poolRemaining={org.creditPool.remaining}
       />
     </div>
   )

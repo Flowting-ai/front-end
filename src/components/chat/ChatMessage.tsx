@@ -296,13 +296,11 @@ export function ChatMessage({
   onRetry,
   onPromptDecided,
 }: ChatMessageProps) {
-  const [isHovered, setIsHovered] = useState(false);
   const [copied, setCopied] = useState(false);
   const [selectionOpen, setSelectionOpen] = useState(false);
   const [selectionAnchor, setSelectionAnchor] = useState<DOMRect | null>(null);
   const [justModelSelected, setJustModelSelected] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
-  const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevModelKeyRef = useRef<string | undefined>(undefined);
   const { addPin, removePinByMessage, open: openPinboard, close: closePinboard } = usePinboardActions();
   const { addHighlight, open: openHighlightPanel, close: closeHighlightPanel, highlights } = useHighlight();
@@ -422,19 +420,6 @@ export function ChatMessage({
     }
   }, [disableHighlight, isAssistant, messageHighlights])
 
-  // Cleanup hover timer on unmount
-  useEffect(() => () => {
-    if (hoverLeaveTimer.current) clearTimeout(hoverLeaveTimer.current);
-  }, []);
-
-  const handleHoverEnter = () => {
-    if (hoverLeaveTimer.current) clearTimeout(hoverLeaveTimer.current);
-    setIsHovered(true);
-  };
-  const handleHoverLeave = () => {
-    hoverLeaveTimer.current = setTimeout(() => setIsHovered(false), 100);
-  };
-
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(message.content);
@@ -517,8 +502,6 @@ export function ChatMessage({
         padding: "12px 0",
         width: "100%",
       }}
-      onMouseEnter={handleHoverEnter}
-      onMouseLeave={handleHoverLeave}
     >
       {isUser ? (
         /* ── User message: right-aligned bubble ── */
@@ -1064,17 +1047,15 @@ export function ChatMessage({
           </span>
         )}
 
-        {/* Action buttons - always in-flow to prevent layout shift; opacity/pointer-events control visibility */}
+        {/* Action buttons - always visible; gated only by loading state */}
         <m.div
-          animate={{ opacity: isHovered && !message.isLoading ? 1 : 0 }}
+          animate={{ opacity: !message.isLoading ? 1 : 0 }}
           transition={{ duration: 0.15 }}
-          onMouseEnter={handleHoverEnter}
-          onMouseLeave={handleHoverLeave}
           style={{
             display: "flex",
             gap: 2,
             marginTop: 4,
-            pointerEvents: isHovered && !message.isLoading ? "auto" : "none",
+            pointerEvents: !message.isLoading ? "auto" : "none",
           }}
         >
           {!hidePinAction && (

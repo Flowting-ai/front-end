@@ -341,7 +341,7 @@ function DefaultAddMenu({
         <Dropdown.Submenu
           trigger={
             <Dropdown.Item
-              label="Add persona"
+              label="Add agent"
               icon={<UserAddOneIcon />}
               rightIcon={<ArrowRightOneIcon />}
               fluid

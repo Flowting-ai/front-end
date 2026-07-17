@@ -275,7 +275,7 @@ export default function PreferencesPage() {
               textOverflow: 'ellipsis',
               whiteSpace:   'nowrap',
             }}>
-              Set a default communication style for all AI responses. You can override this per persona or per chat.
+              Set a default communication style for all AI responses. You can override this per agent or per chat.
             </p>
           </div>
 
@@ -369,7 +369,7 @@ export default function PreferencesPage() {
               textOverflow: 'ellipsis',
               whiteSpace:   'nowrap',
             }}>
-              Set a default communication style for all AI responses. You can override this per persona or per chat.
+              Set a default communication style for all AI responses. You can override this per agent or per chat.
             </p>
           </div>
         </div>

@@ -159,7 +159,7 @@ export default function ProfileTab({
             }}
           >
             {avatarUrl ? (
-              <NextImage src={avatarUrl} alt="Persona avatar" fill sizes="65px" unoptimized style={{ objectFit: "cover" }} />
+              <NextImage src={avatarUrl} alt="Agent avatar" fill sizes="65px" unoptimized style={{ objectFit: "cover" }} />
             ) : (
               <div style={{ width: "100%", height: "100%", backgroundColor: "#ede1d7", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#827a74" strokeWidth="1.5">
@@ -216,7 +216,7 @@ export default function ProfileTab({
             type="text"
             value={personaName}
             onChange={(e) => onPersonaNameChange(e.target.value)}
-            placeholder="Persona name"
+            placeholder="Agent name"
             style={{
               flex: 1,
               fontFamily: "var(--font-body)",

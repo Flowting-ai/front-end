@@ -69,7 +69,7 @@ export function SuperLinksEmpty({ ref, onBrowsePersonas, className, style, ...pr
               maxWidth:   260,
             }}
           >
-            Generate a Super Link from any persona. Open a persona card and choose &ldquo;Generate Super Link&rdquo; from the menu.
+            Generate a Super Link from any agent. Open an agent card and choose &ldquo;Generate Super Link&rdquo; from the menu.
           </span>
         </div>
         <Button size="sm" variant="secondary" onClick={onBrowsePersonas} rightIcon={<ArrowRightOneIcon />}>

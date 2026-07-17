@@ -11,7 +11,8 @@ export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg'
 export interface AvatarProps extends React.HTMLAttributes<HTMLSpanElement> {
   /** Full name. Initials are derived as the first letter of the first two words. */
   name:   string
-  /** Background colour. Falls back to `var(--neutral-700)`. */
+  /** Background colour, or a `linear-gradient(...)`/`radial-gradient(...)` CSS
+   *  value for a gradient fill. Falls back to `var(--neutral-700)`. */
   color?: string
   /** Render size. xs=24, sm=28, md=32, lg=40. */
   size?:  AvatarSize
@@ -42,6 +43,7 @@ export function Avatar({ ref, name, color, size = 'md', initials, asChild, class
     const px = SIZE_PX[size]
     const fontSize = FONT_TOKEN[size]
     const text = (initials ?? deriveInitials(name)).slice(0, 2)
+    const isGradient = color?.includes('gradient(')
 
     return (
       <Comp
@@ -56,7 +58,8 @@ export function Avatar({ ref, name, color, size = 'md', initials, asChild, class
           width:           px,
           height:          px,
           borderRadius:    '50%',
-          backgroundColor: color ?? 'var(--neutral-700)',
+          backgroundColor: isGradient ? undefined : (color ?? 'var(--neutral-700)'),
+          backgroundImage:  isGradient ? color : undefined,
           color:           'var(--neutral-white)',
           fontFamily:      'var(--font-body)',
           fontWeight:      'var(--font-weight-medium)',

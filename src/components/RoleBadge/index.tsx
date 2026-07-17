@@ -32,7 +32,7 @@ export interface RoleBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 type RoleTokens = { bg: string; text: string; shadow: string }
 
-const ROLE_TOKENS: Record<WorkspaceRole, RoleTokens> = {
+export const ROLE_TOKENS: Record<WorkspaceRole, RoleTokens> = {
   owner: {
     bg:   '#f7fee6',
     text: '#456211',
@@ -75,7 +75,7 @@ const ROLE_TOKENS: Record<WorkspaceRole, RoleTokens> = {
   },
 }
 
-const ROLE_LABEL: Record<WorkspaceRole, string> = {
+export const ROLE_LABEL: Record<WorkspaceRole, string> = {
   owner:  'Owner',
   admin:  'Admin',
   editor: 'Editor',
@@ -121,11 +121,11 @@ function SolarOrganicGlyph({ size = 10 }: { size?: number }) {
   )
 }
 
-function RoleGlyph({ role }: { role: WorkspaceRole }) {
-  if (role === 'owner')  return <SolarSystemGlyph />
-  if (role === 'admin')  return <SolarRingGlyph />
-  if (role === 'editor') return <SolarCometGlyph />
-  return <SolarOrganicGlyph />
+export function RoleGlyph({ role, size }: { role: WorkspaceRole; size?: number }) {
+  if (role === 'owner')  return <SolarSystemGlyph size={size} />
+  if (role === 'admin')  return <SolarRingGlyph size={size} />
+  if (role === 'editor') return <SolarCometGlyph size={size} />
+  return <SolarOrganicGlyph size={size} />
 }
 
 function ChevronGlyph() {

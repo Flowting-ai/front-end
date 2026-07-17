@@ -524,7 +524,7 @@ export default function FilesPage() {
                   textOverflow: 'ellipsis',
                   whiteSpace:   'nowrap',
                 }}>
-                  Files you&apos;ve uploaded across all chats, personas, and knowledge bases.
+                  Files you&apos;ve uploaded across all chats, agents, and knowledge bases.
                 </p>
               </div>
               <BlueBadge>{planName} · {storageLimit}</BlueBadge>
@@ -583,7 +583,7 @@ export default function FilesPage() {
           {/* Storage breakdown rows */}
           <div style={{ padding: '0 24px' }}>
             <StorageRow label="Chat attachments"      value="1.2 GB" divider />
-            <StorageRow label="Persona knowledge files" value="0.8 GB" divider />
+            <StorageRow label="Agent knowledge files" value="0.8 GB" divider />
             <StorageRow label="Workspace shared files" value="0.4 GB" />
           </div>
         </SettingsCard>
@@ -668,7 +668,7 @@ export default function FilesPage() {
               color:      'var(--neutral-500)',
               margin:     '0 0 12px',
             }}>
-              File types accepted for upload across all surfaces - chat, personas, and knowledge base.
+              File types accepted for upload across all surfaces - chat, agents, and knowledge base.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
               {FILE_TYPES.map(type => (
@@ -863,7 +863,7 @@ export default function FilesPage() {
                   color:      'var(--neutral-500)',
                   margin:     0,
                 }}>
-                  Download all your chats, pins, personas, workflows, and files as a ZIP archive. Delivered to your email.
+                  Download all your chats, pins, agents, workflows, and files as a ZIP archive. Delivered to your email.
                 </p>
               </div>
               <OutlineButton>Export</OutlineButton>

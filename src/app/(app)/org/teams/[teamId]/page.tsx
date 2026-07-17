@@ -876,12 +876,6 @@ export default function TeamSettingsPage() {
       .finally(() => setAgentsLoading(false))
   }, [orgId, params.teamId])
 
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') void refreshRoster() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [refreshRoster])
-
   const editorIds = useMemo(() => new Set(editors.map(e => e.userId)), [editors])
 
   // Full team roster: active access comes from team editor and project-member

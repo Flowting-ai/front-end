@@ -229,7 +229,7 @@ export function ProjectConfigPanel({
         <Divider />
 
         {/* Default persona */}
-        <SectionLabel>Default persona</SectionLabel>
+        <SectionLabel>Default agent</SectionLabel>
         {defaultPersona ? (
           <div style={{
             display:    'flex',
@@ -298,7 +298,7 @@ export function ProjectConfigPanel({
                 fontSize:   'var(--font-size-caption)',
                 lineHeight: 'var(--line-height-caption)',
               }}>
-                Choose persona
+                Choose an agent
               </span>
             </button>
           </div>

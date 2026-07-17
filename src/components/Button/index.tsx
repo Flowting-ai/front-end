@@ -36,6 +36,10 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   asChild?: boolean
   leftIcon?: React.ReactNode
   rightIcon?: React.ReactNode
+  /** Size (px) of the leftIcon/rightIcon slot. Defaults to 16 — only override
+   *  when the passed icon itself is rendered at a larger size, otherwise it
+   *  gets clipped by the slot's overflow-hidden. */
+  iconSize?: number
   image?: string
   loading?: boolean
   fluid?: boolean
@@ -78,6 +82,7 @@ export function Button({
   asChild = false,
   leftIcon,
   rightIcon,
+  iconSize = 16,
   image,
   loading = false,
   disabled = false,
@@ -315,7 +320,7 @@ export function Button({
         )}
 
         {(image || leftIcon) && (
-          <div className="relative shrink-0 size-[16px] flex items-center justify-center overflow-hidden" style={{ color: textColor[variant], filter: iconFilter, pointerEvents: 'none', opacity: loading ? 0 : 1 }}>
+          <div className="relative shrink-0 flex items-center justify-center overflow-hidden" style={{ width: iconSize, height: iconSize, color: textColor[variant], filter: iconFilter, pointerEvents: 'none', opacity: loading ? 0 : 1 }}>
             {image
               ? <img alt="" src={image} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: '50%' }} />
               : leftIcon}
@@ -327,7 +332,7 @@ export function Button({
         </span>
 
         {rightIcon && (
-          <div className="relative shrink-0 size-[16px] flex items-center justify-center" style={{ color: textColor[variant], filter: iconFilter, pointerEvents: 'none', opacity: loading ? 0 : 1 }}>
+          <div className="relative shrink-0 flex items-center justify-center" style={{ width: iconSize, height: iconSize, color: textColor[variant], filter: iconFilter, pointerEvents: 'none', opacity: loading ? 0 : 1 }}>
             {rightIcon}
           </div>
         )}

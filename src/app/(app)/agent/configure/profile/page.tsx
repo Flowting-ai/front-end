@@ -597,7 +597,7 @@ function PersonaConfigureProfileContent() {
 
       {republishModalOpen && (
         <RepublishModal
-          personaName={personaName || 'Persona'}
+          personaName={personaName || 'Agent'}
           superLinkActive={false}
           onClose={() => setRepublishModalOpen(false)}
           onDone={() => { setRepublishModalOpen(false); push(AGENTS_ROUTE) }}

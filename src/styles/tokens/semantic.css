@@ -55,12 +55,13 @@
 
   /* ── Button / Danger ─────────────────────────────────────────────────────
      Red extension of Button/Secondary — shares secondary shadow tokens,
-     only bg and text colors differ.
+     only bg and text colors differ. Light tint (not a bold fill), same
+     bg/text pairing already validated by the Badge/tag Red variant.
      ─────────────────────────────────────────────────────────────────────────── */
-  --button-danger-bg:            var(--red-500);
-  --button-danger-bg-hover:      var(--red-600);
-  --button-danger-text:          var(--neutral-white);
-  --button-danger-text-disabled: var(--red-100);
+  --button-danger-bg:            var(--red-100);
+  --button-danger-bg-hover:      var(--red-200);
+  --button-danger-text:          var(--red-700);
+  --button-danger-text-disabled: var(--red-700);
 
   /* ── Button / Ghost + Outline - Hover/Active shared ──────────────────────── */
   --button-subtle-border-hover: var(--color-interactive-subtle-border-hover);

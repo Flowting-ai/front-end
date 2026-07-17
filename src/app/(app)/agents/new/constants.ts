@@ -38,4 +38,4 @@ export const LANGUAGES: Language[] = [
 ];
 
 export const DEFAULT_LANGUAGE = "english-us";
-export const DEFAULT_PERSONA_NAME = "Persona name";
+export const DEFAULT_PERSONA_NAME = "Agent name";

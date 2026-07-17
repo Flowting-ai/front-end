@@ -341,7 +341,7 @@ function cleanPersonaLabel(label: string): string {
 }
 
 function personaHandleFromName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'persona'
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'agent'
 }
 
 function isDefaultPersonaOption(option: QuestionCardOption): boolean {
@@ -3531,7 +3531,7 @@ function BrainPageInner() {
           console.error('[Brain] persona question_prompt respond failed:', e)
           const msg = e instanceof ApiError && e.status === 404
             ? 'This prompt expired — please re-send your message.'
-            : 'Failed to submit your persona choice. Please try again.'
+            : 'Failed to submit your agent choice. Please try again.'
           toast.error(msg)
         })
         .finally(() => setClarificationInFlight(false))
@@ -3555,7 +3555,7 @@ function BrainPageInner() {
         console.error('[Brain] persona clarification respond failed:', e)
         const msg = e instanceof ApiError && e.status === 404
           ? 'This prompt expired — please re-send your message.'
-          : 'Failed to submit your persona choice. Please try again.'
+          : 'Failed to submit your agent choice. Please try again.'
         toast.error(msg)
       })
       .finally(() => setClarificationInFlight(false))
@@ -4236,7 +4236,7 @@ function BrainPageInner() {
       {(selectedPersona || liveContext?.persona) && (
         <Rise>
           <PersonaActiveBar
-            personaName={selectedPersona?.name || liveContext?.persona?.name || liveContext?.persona?.handler || 'Persona'}
+            personaName={selectedPersona?.name || liveContext?.persona?.name || liveContext?.persona?.handler || 'Agent'}
             onChangePersona={() => setPersonaChipOpen(true)}
             onRemovePersona={() => setSelectedPersona(null)}
           />
@@ -4560,7 +4560,7 @@ function BrainPageInner() {
     >
       <div style={{ width: 'min(520px, calc(100vw - 32px))', background: 'var(--neutral-white)', borderRadius: 12 }}>
         {loadingChipPersonas ? (
-          <div style={{ padding: 20, color: 'var(--neutral-400)' }}>Loading personas…</div>
+          <div style={{ padding: 20, color: 'var(--neutral-400)' }}>Loading agents…</div>
         ) : chipPersonas.length > 0 ? (
           <PersonaSelectionCard
             key={selectedPersona.id}
@@ -4581,7 +4581,7 @@ function BrainPageInner() {
             }}
           />
         ) : (
-          <div style={{ padding: 20, color: 'var(--neutral-400)' }}>No personas yet.</div>
+          <div style={{ padding: 20, color: 'var(--neutral-400)' }}>No agents yet.</div>
         )}
       </div>
     </Dropdown.Float>
@@ -4714,7 +4714,7 @@ function BrainPageInner() {
       persona: liveContext.persona
         ? {
             id:        liveContext.persona.persona_id,
-            name:      liveContext.persona.name || liveContext.persona.handler || 'Persona',
+            name:      liveContext.persona.name || liveContext.persona.handler || 'Agent',
             handle:    liveContext.persona.handler || '',
             avatarUrl: liveContext.persona.avatar_url,
           }

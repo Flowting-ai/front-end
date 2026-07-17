@@ -77,7 +77,7 @@ export function EnhancePromptField(
     value,
     onChange,
     personaContext = DEFAULT_CONTEXT,
-    placeholder = "Describe your persona's goals, expertise, tone, and responsibilities. Example: 'You are a senior UX researcher who specializes in…'",
+    placeholder = "Describe your agent's goals, expertise, tone, and responsibilities. Example: 'You are a senior UX researcher who specializes in…'",
     ariaLabel = 'System prompt',
     forceMode,
     label = 'System Instruction',

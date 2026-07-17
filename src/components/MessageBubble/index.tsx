@@ -82,7 +82,6 @@ export function MessageBubble({
   }: MessageBubbleProps & { ref?: React.Ref<HTMLDivElement> }) {
     const shouldReduceMotion = useReducedMotion() ?? false
 
-    const [hovered,     setHovered]     = useState(false)
     const [copied,      setCopied]      = useState(false)
     const [editing,     setEditing]     = useState(false)
     const [editDraft,   setEditDraft]   = useState(content)
@@ -95,11 +94,9 @@ export function MessageBubble({
     // Pixel width captured just before entering edit mode - used to animate back on exit.
     const naturalWidthRef = useRef<number>(0)
     const timers          = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
-    const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     useEffect(() => () => {
       timers.current.forEach(clearTimeout)
-      if (hoverLeaveTimer.current) clearTimeout(hoverLeaveTimer.current)
     }, [])
 
     // Focus + move cursor to end when entering edit mode
@@ -130,7 +127,6 @@ export function MessageBubble({
       const natural = bubbleCardRef.current?.offsetWidth ?? 0
       naturalWidthRef.current = natural
       setEditDraft(content)
-      setHovered(false)
 
       if (shouldReduceMotion || !natural) {
         setBubbleWidth('100%')
@@ -178,14 +174,6 @@ export function MessageBubble({
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleEditSave() }
     }
 
-    const handleHoverEnter = () => {
-      if (hoverLeaveTimer.current) clearTimeout(hoverLeaveTimer.current)
-      if (!editing) setHovered(true)
-    }
-    const handleHoverLeave = () => {
-      hoverLeaveTimer.current = setTimeout(() => setHovered(false), 80)
-    }
-
     const fadeDuration = shouldReduceMotion ? 0 : 0.15
 
     // ── Assistant bubble ───────────────────────────────────────────────────────
@@ -217,8 +205,6 @@ export function MessageBubble({
           paddingBottom: editing ? CTA_ZONE : 0,
           transition:    shouldReduceMotion ? 'none' : `padding-bottom ${fadeDuration}s ease-out`,
         }}
-        onMouseEnter={handleHoverEnter}
-        onMouseLeave={handleHoverLeave}
         {...props}
       >
         {/* ── Bubble card ── */}
@@ -367,24 +353,18 @@ export function MessageBubble({
           )}
         </AnimatePresence>
 
-        {/* ── Hover action bar ── */}
-        {/* Always in-flow so its area is inside the root wrapper's border box -   */}
-        {/* hovering directly over the buttons triggers onMouseEnter on the root   */}
-        {/* wrapper without needing to hover the bubble first (same pattern as the */}
-        {/* AI actions bar in ChatMessage). opacity/pointerEvents gate visibility. */}
+        {/* ── Action bar — always visible (except while editing) ── */}
         {!hideActions && (
           <m.div
-            animate={{ opacity: !editing && hovered ? 1 : 0 }}
+            animate={{ opacity: !editing ? 1 : 0 }}
             transition={{ duration: fadeDuration, ease: 'easeOut' }}
-            onMouseEnter={handleHoverEnter}
-            onMouseLeave={handleHoverLeave}
             style={{
               display:       'flex',
               alignItems:    'center',
               alignSelf:     'flex-end',
               gap:           2,
               marginTop:     4,
-              pointerEvents: !editing && hovered ? 'auto' : 'none',
+              pointerEvents: !editing ? 'auto' : 'none',
             }}
           >
             {timestamp && (

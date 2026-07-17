@@ -58,7 +58,7 @@ function fmtK(n: number): string {
 
 export function SuperLinks(
   {
-    workspaceLabel = 'Personas · Acme inc.',
+    workspaceLabel = 'Agents · Acme inc.',
     heading        = 'Super Links',
     dateRange      = 'Apr 12 – May 12',
     summary,

@@ -55,7 +55,7 @@ export function SettingsTableToolbar({
   children,
   style,
 }: {
-  title: string
+  title: React.ReactNode
   children?: React.ReactNode
   style?: React.CSSProperties
 }) {

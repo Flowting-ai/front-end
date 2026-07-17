@@ -25,7 +25,7 @@ function ConnectorChip({
       type="button"
       onClick={onToggle}
       disabled={saving}
-      title={`${enabled ? 'Disable' : 'Enable'} ${entry.display_name} in this persona`}
+      title={`${enabled ? 'Disable' : 'Enable'} ${entry.display_name} in this agent`}
       style={{
         display:         'inline-flex',
         alignItems:      'center',

@@ -509,7 +509,7 @@ export default function AiModelsPage() {
             color:      'var(--neutral-500)',
             margin:     0,
           }}>
-            Enable or disable the AI models available across chat, personas, and workflows.
+            Enable or disable the AI models available across chat, agents, and workflows.
           </p>
         </div>
 

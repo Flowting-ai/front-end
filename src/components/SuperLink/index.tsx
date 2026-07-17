@@ -60,7 +60,7 @@ export function SuperLink(
     ref,
     enabled          = false,
     url,
-    urlPlaceholder   = 'souvenir.app/p/your-persona-a8b2c3',
+    urlPlaceholder   = 'souvenir.app/p/your-agent-a8b2c3',
     description      = 'Generate a shareable URL anyone can chat without a Souvenir account. You cover the token cost.',
     tokenUsed        = 0,
     tokenLimit       = 10_000,
