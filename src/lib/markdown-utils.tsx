@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import { HighlightMark } from "@/components/HighlightMark";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -17,6 +17,11 @@ import { stripResponseInterruptedMarker } from "@/lib/model-error";
 
 const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins: Pluggable[] = [rehypeKatex];
+
+function markdownUrlTransform(value: string, key: string): string {
+  if (key === "href" && /^citation:\/\/[1-9]\d*$/.test(value)) return value;
+  return defaultUrlTransform(value);
+}
 
 // ── Highlight mark types & rehype plugin ──────────────────────────────────────
 
@@ -320,9 +325,9 @@ const BASE_COMPONENTS: Components = {
   },
   h1({ children, ...props }) {
     return (
-      <h1 style={{ fontSize: "22px", fontWeight: 500, color: "var(--neutral-900)", fontFamily: "var(--font-body)", lineHeight: "30px", margin: "10px 0 16px" }} {...props}>
+      <h2 style={{ fontSize: "22px", fontWeight: 500, color: "var(--neutral-900)", fontFamily: "var(--font-body)", lineHeight: "30px", margin: "10px 0 16px" }} {...props}>
         {children}
-      </h1>
+      </h2>
     );
   },
   h2({ children, ...props }) {
@@ -572,12 +577,14 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
         lineHeight: "26px",
         color: "var(--neutral-800)",
         wordBreak: "break-word",
+        maxWidth: "75ch",
       }}
     >
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
         rehypePlugins={resolvedRehypePlugins}
         components={resolvedComponents}
+        urlTransform={markdownUrlTransform}
       >
         {processed}
       </ReactMarkdown>

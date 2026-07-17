@@ -7,6 +7,52 @@ import { applyRenderedHighlights } from "./rendered-highlights"
 import type { HighlightSpec } from "./markdown-utils"
 
 describe("ContentRenderer markdown formatting", () => {
+  it("remaps an unexpected response H1 so it cannot compete with the page heading", () => {
+    const html = renderToStaticMarkup(<ContentRenderer content="# Unexpected title" />)
+
+    expect(html).toContain("<h2")
+    expect(html).not.toContain("<h1")
+  })
+
+  it("constrains prose width while preserving the shared markdown renderer", () => {
+    const html = renderToStaticMarkup(<ContentRenderer content="A readable paragraph." />)
+
+    expect(html).toContain("max-width:75ch")
+  })
+
+  it("does not present an unmatched citation marker as a valid source", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer
+        content="This marker has no source [2]."
+        webCitations={[{ title: "Only source", url: "https://example.com/one" }]}
+      />,
+    )
+
+    expect(html).toContain('data-missing-citation="true"')
+    expect(html).toContain('aria-label="Source 2 unavailable"')
+    expect(html).toContain(">?</span>")
+  })
+
+  it("keeps a matched citation interactive and source-backed", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer
+        content="This claim is sourced [1]."
+        webCitations={[{ title: "Primary source", url: "https://example.com/primary" }]}
+      />,
+    )
+
+    expect(html).toContain('aria-label="Source 1: Primary source"')
+    expect(html).not.toContain("data-missing-citation")
+  })
+
+  it("keeps unsafe model-authored link protocols blocked", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer content="[Do not run this](javascript:alert('xss'))" />,
+    )
+
+    expect(html).not.toContain("javascript:")
+  })
+
   it("preserves preview-style generated response structure for headings, nested lists, emphasis, code, and math", () => {
     const html = renderToStaticMarkup(
       <ContentRenderer
