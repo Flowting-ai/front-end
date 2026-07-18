@@ -2,6 +2,7 @@
 
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders, getAuth0AccessToken, ensureFreshToken } from "@/lib/jwt-utils";
+import { getFriendlyHttpErrorText } from "@/lib/http-errors";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -94,12 +95,19 @@ export function friendlyApiError(raw: string, statusCode?: number): string {
     return "The requested resource was not found.";
   }
 
-  // Long JSON blobs or stack traces → generic message
-  if (raw.length > 300 || raw.startsWith("{") || raw.startsWith("<")) {
-    return "Something went wrong. Please try again.";
+  // Long JSON blobs, stack traces, or text that's just restating the status
+  // code (e.g. apiFetchJson's "Request failed with status 500" default) →
+  // proper per-code copy instead of ever surfacing a bare code or technical string.
+  if (
+    raw.length > 300 ||
+    raw.startsWith("{") ||
+    raw.startsWith("<") ||
+    /^request failed with status \d+$/i.test(raw.trim())
+  ) {
+    return getFriendlyHttpErrorText(statusCode);
   }
 
-  return raw;
+  return raw || getFriendlyHttpErrorText(statusCode);
 }
 
 // ---------------------------------------------------------------------------

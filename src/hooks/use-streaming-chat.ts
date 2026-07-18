@@ -1286,6 +1286,7 @@ export function useStreamingChat({
                 {
                   content: "Your session has expired. Signing you out…",
                   isLoading: false,
+                  isError: true,
                 },
                 true,
               )
@@ -1298,6 +1299,7 @@ export function useStreamingChat({
                   content: friendlyModelError(rawError),
                   isThinkingInProgress: false,
                   isLoading: false,
+                  isError: true,
                 },
                 true,
               )
@@ -1439,7 +1441,7 @@ export function useStreamingChat({
           )
         } else {
           queueUpdate(
-            { content: "Generation interrupted. Please retry.", isLoading: false },
+            { content: "Generation interrupted. Please retry.", isLoading: false, isError: true },
             true,
           )
         }
@@ -1484,6 +1486,7 @@ export function useStreamingChat({
           content: friendlyModelError(rawMsg),
           isThinkingInProgress: false,
           isLoading: false,
+          isError: true,
         },
         true,
       )

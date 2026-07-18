@@ -29,8 +29,9 @@ import {
   PERSONA_CHATS_CREATE_ENDPOINT,
   PERSONA_CHAT_STREAM_ENDPOINT,
 } from "@/lib/config";
-import { getStreamCompletion } from "@/lib/stream-registry";
+import { getStreamCompletion, consumeInterruptedStreamMarker } from "@/lib/stream-registry";
 import { logger } from "@/lib/logger";
+import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import { CreditStatusBanner } from "@/components/CreditStatusBanner";
 
@@ -398,9 +399,37 @@ export function PersonaChatInterface({
               }))
             : undefined,
         }));
+        // If a stream for this chat was still running when the tab last saw
+        // it (i.e. the page reloaded/crashed mid-generation), reinterpret the
+        // interrupted turn as "Generation stopped" instead of it silently
+        // looking finished — or, if nothing was saved yet, showing nothing.
+        if (consumeInterruptedStreamMarker(initialChatId)) {
+          const last = uiMessages[uiMessages.length - 1];
+          if (last && last.role === "assistant") {
+            uiMessages[uiMessages.length - 1] = {
+              ...last,
+              isLoading: false,
+              stoppedByUser: true,
+              content: last.content || "Generation stopped.",
+            };
+          } else {
+            uiMessages.push({
+              id: `interrupted-${Date.now()}`,
+              role: "assistant",
+              content: "Generation stopped.",
+              created_at: new Date().toISOString(),
+              chat_id: initialChatId,
+              isLoading: false,
+              stoppedByUser: true,
+            });
+          }
+        }
         setMessages(uiMessages);
       })
-      .catch(err => logger.error("[PersonaChat] Failed to load messages", err))
+      .catch(err => {
+        logger.error("[PersonaChat] Failed to load messages", err);
+        toast.error(err instanceof Error ? err.message : "Failed to load messages");
+      })
       .finally(() => { if (!cancelled) setIsLoadingMessages(false); });
 
     // If a background stream is still running for this chat (the user navigated
@@ -428,9 +457,20 @@ export function PersonaChatInterface({
       e.preventDefault();
       e.returnValue = "";
     };
+    // pagehide fires right before the page tears down, even after the user
+    // confirms the beforeunload dialog above — abort the in-flight request
+    // immediately so the backend notices the disconnect and saves whatever
+    // partial content exists right away instead of racing the reload.
+    const handlePageHide = () => {
+      handleStopGeneration();
+    };
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isStreaming]);
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [isStreaming, handleStopGeneration]);
 
   // ── Scroll management ─────────────────────────────────────────────────────
 

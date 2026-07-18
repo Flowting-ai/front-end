@@ -27,6 +27,7 @@ import {
   RedoIcon,
   TickTwoIcon,
   ImageDownloadTwoIcon,
+  AlertCircleIcon,
 } from "@strange-huge/icons";
 
 // ── Generated Image Card with download button ──────────────────────────────────
@@ -751,11 +752,31 @@ export function ChatMessage({
           />
         )}
 
+        {/* Error state - distinct from a normal assistant reply so a friendly
+            error message never reads as if the model itself said it. */}
+        {message.isError && message.content ? (
+          <div
+            style={{
+              display:         "flex",
+              alignItems:      "flex-start",
+              gap:             8,
+              padding:         "10px 12px",
+              backgroundColor: "var(--color-tag-Red-bg)",
+              borderRadius:    10,
+            }}
+          >
+            <AlertCircleIcon size={16} color="var(--color-tag-Red-text)" style={{ flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 14, lineHeight: "20px", color: "var(--color-tag-Red-text)", margin: 0 }}>
+              {message.content}
+            </p>
+          </div>
+        ) : null}
+
         {/* Message content - assistant only (user handled above) */}
         {/* Text content always renders via ContentRenderer so that markdown
             structure, links, bold, code, math, and citation chips are handled uniformly
             regardless of whether the backend also sends a text responseBlock. */}
-        {message.content ? (
+        {message.content && !message.isError ? (
           <m.div
             ref={contentRef}
             initial={isNewMessage ? { opacity: 0, y: 5 } : false}

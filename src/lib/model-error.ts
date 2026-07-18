@@ -14,6 +14,8 @@
  * below still reads fine to the user.
  */
 
+import { getFriendlyHttpErrorText } from "@/lib/http-errors";
+
 export const MODEL_UNRESPONSIVE_MESSAGE =
   "This model is unresponsive right now. Please try again or switch to another model.";
 const MODEL_TOO_LARGE_MESSAGE =
@@ -79,8 +81,9 @@ export function friendlyModelError(raw?: string | null, statusCode?: number): st
 
   if (code !== undefined) {
     if (STATUS_MESSAGES[code]) return STATUS_MESSAGES[code];
-    // Any status code without dedicated copy yet — still friendly, never raw.
-    return code >= 500 ? "The model provider ran into an unexpected error. Please try again." : MODEL_GENERIC_ERROR_MESSAGE;
+    // Any status code without model-specific copy still gets proper per-code
+    // wording from the shared table — never a bare code or generic text.
+    return getFriendlyHttpErrorText(code);
   }
 
   if (UNRESPONSIVE_MARKERS.some((marker) => lower.includes(marker))) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { apiFetch, apiFetchJson, ApiError } from "./client";
+import { apiFetch, apiFetchJson, ApiError, friendlyApiError } from "./client";
 import {
   API_BASE_URL,
   CHATS_ENDPOINT,
@@ -77,6 +77,7 @@ export async function listChats(cursor?: string): Promise<ChatsListResponse> {
     throw new ApiError(
       response.status,
       "list_chats_failed",
+      friendlyApiError("Failed to load chats", response.status),
       "Failed to load chats",
     );
   }
@@ -149,6 +150,7 @@ export async function deleteChat(chatId: string): Promise<void> {
     throw new ApiError(
       response.status,
       "delete_chat_failed",
+      friendlyApiError("Failed to delete chat", response.status),
       "Failed to delete chat",
     );
   }
@@ -395,6 +397,7 @@ export async function getChatMessages(
     throw new ApiError(
       response.status,
       "get_messages_failed",
+      friendlyApiError("Failed to load messages", response.status),
       "Failed to load messages",
     );
   }
@@ -434,6 +437,7 @@ export async function deleteMessage(messageId: string): Promise<void> {
     throw new ApiError(
       response.status,
       "delete_message_failed",
+      friendlyApiError("Failed to delete message", response.status),
       "Failed to delete message",
     );
   }
@@ -473,7 +477,12 @@ export async function respondToChatPrompt(
     body:   JSON.stringify({ response }),
   });
   if (!res.ok && res.status !== 204) {
-    throw new ApiError(res.status, "prompt_respond_failed", "Failed to respond to prompt");
+    throw new ApiError(
+      res.status,
+      "prompt_respond_failed",
+      friendlyApiError("Failed to respond to prompt", res.status),
+      "Failed to respond to prompt",
+    );
   }
 }
 

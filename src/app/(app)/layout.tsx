@@ -1,6 +1,7 @@
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/atom-one-light.css";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ChatHistoryProvider } from "@/context/chat-history-context";
 import { PinboardProvider } from "@/context/pinboard-context";
 import { HighlightProvider } from "@/context/highlight-context";
@@ -33,7 +34,9 @@ export default function AppGroupLayout({
                 <ModelSelectorProvider>
                   <SearchProvider>
                     <ProjectPanelProvider>
-                      <AppLayout>{children}</AppLayout>
+                      <AppLayout>
+                        <ErrorBoundary>{children}</ErrorBoundary>
+                      </AppLayout>
                     </ProjectPanelProvider>
                     <PresetModelSelectorDialog />
                     <PlanUpgradeToast />

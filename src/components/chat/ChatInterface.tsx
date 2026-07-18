@@ -399,19 +399,8 @@ export function ChatInterface({
   }, [messages, contextModel]);
 
   // ── Tab / page-reload resilience ──────────────────────────────────────────
-
-  // Warn before page reload when a stream is active so the user doesn't
-  // accidentally lose a response that's still being generated.
-  useEffect(() => {
-    const isActive = streamState === "streaming" || streamState === "waiting"
-    if (!isActive) return
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-      e.returnValue = ""
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload)
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
-  }, [streamState])
+  // (the beforeunload/pagehide effect lives further below, after
+  // useStreamingChat provides handleStopGeneration)
 
   // When the browser tab regains focus, check if the SSE connection died
   // silently while the tab was hidden (e.g. server timeout, proxy close).
@@ -497,6 +486,31 @@ export function ChatInterface({
   });
 
   const isStreaming = streamState === "streaming" || streamState === "waiting";
+
+  // Warn before page reload when a stream is active so the user doesn't
+  // accidentally lose a response that's still being generated.
+  useEffect(() => {
+    if (!isStreaming) return
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    // pagehide fires right before the page actually tears down — including
+    // after the user confirms the beforeunload dialog above. Stopping
+    // generation here (rather than leaving the connection to die on its own)
+    // aborts the in-flight request immediately, so the backend notices the
+    // disconnect and saves whatever partial content exists right away instead
+    // of racing the reload's next message fetch.
+    const handlePageHide = () => {
+      handleStopGeneration()
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    window.addEventListener("pagehide", handlePageHide)
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      window.removeEventListener("pagehide", handlePageHide)
+    }
+  }, [isStreaming, handleStopGeneration])
 
   // Synchronous reentrancy guard for handleSend/handleRegenerate. `isStreaming` is
   // state-derived and lands a render behind the click, so a double-click (or an

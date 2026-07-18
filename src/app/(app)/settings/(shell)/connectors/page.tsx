@@ -109,7 +109,13 @@ function ListViewIcon() {
 type ConnectorViewMode = 'grid' | 'list'
 
 const GRID_LIST_STYLE: Record<ConnectorViewMode, React.CSSProperties> = {
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 },
+  // minmax(0, 1fr), not bare 1fr — a bare 1fr track computes as
+  // minmax(auto, 1fr), so a card whose content can't shrink below some
+  // intrinsic width (e.g. a long unbroken account name) forces that column
+  // wider than its fair share, pushing the whole row past the container.
+  // The outer scroller clips horizontal overflow rather than scrolling it,
+  // so that showed up as cards getting cut off and unevenly sized.
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 },
   list: { display: 'flex', flexDirection: 'column', gap: 8 },
 }
 
@@ -1166,6 +1172,7 @@ function ConnectorCard({
         display:         'flex',
         flexDirection:   'column',
         gap:             12,
+        minWidth:        0,
         boxShadow:       '0px 2px 2.8px 0px var(--neutral-200), 0px 0px 0px 1px var(--neutral-200)',
     }}>
       {/* Header */}
@@ -1390,6 +1397,7 @@ function SkeletonCard() {
       display:         'flex',
       flexDirection:   'column',
       gap:             12,
+      minWidth:        0,
       boxShadow:       '0px 2px 2.8px 0px var(--neutral-200), 0px 0px 0px 1px var(--neutral-200)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1628,7 +1636,7 @@ export default function ConnectorsPage() {
             {/* Content */}
             <div style={{ padding: 16 }}>
               {loading ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
                   {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
                 </div>
               ) : loadError ? (
