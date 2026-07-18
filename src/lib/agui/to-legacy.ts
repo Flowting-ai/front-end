@@ -59,6 +59,15 @@ export function aguiToInternal(event: AguiEvent): InternalEvent | null {
     case "RUN_STARTED":
     case "TEXT_MESSAGE_START":
     case "TEXT_MESSAGE_END":
+    // Run lifecycle — only the native run stream emits these (see
+    // lib/brain/runStream.ts); the chat path never sees them.
+    case "STEP_STARTED":
+    case "STEP_FINISHED":
+    case "REASONING_START":
+    case "REASONING_MESSAGE_START":
+    case "REASONING_MESSAGE_CONTENT":
+    case "REASONING_MESSAGE_END":
+    case "REASONING_END":
     case "THINKING_START":
     case "THINKING_TEXT_MESSAGE_START":
     case "THINKING_TEXT_MESSAGE_END":

@@ -30,6 +30,24 @@ export const aguiEventSchema = z.discriminatedUnion("type", [
     delta: z.string(),
   }),
   z.looseObject({ type: z.literal("TEXT_MESSAGE_END"), messageId: z.string() }),
+  // Run lifecycle — the detached cortex run brackets each node's stream with a
+  // STEP_STARTED/STEP_FINISHED pair (stepName = node id) and streams node
+  // reasoning as the standard REASONING_* lifecycle.
+  z.looseObject({ type: z.literal("STEP_STARTED"), stepName: z.string() }),
+  z.looseObject({ type: z.literal("STEP_FINISHED"), stepName: z.string() }),
+  z.looseObject({ type: z.literal("REASONING_START"), messageId: z.string() }),
+  z.looseObject({
+    type: z.literal("REASONING_MESSAGE_START"),
+    messageId: z.string(),
+    role: z.string().optional(),
+  }),
+  z.looseObject({
+    type: z.literal("REASONING_MESSAGE_CONTENT"),
+    messageId: z.string(),
+    delta: z.string(),
+  }),
+  z.looseObject({ type: z.literal("REASONING_MESSAGE_END"), messageId: z.string() }),
+  z.looseObject({ type: z.literal("REASONING_END"), messageId: z.string() }),
   z.looseObject({ type: z.literal("THINKING_START"), title: z.string().optional() }),
   z.looseObject({ type: z.literal("THINKING_TEXT_MESSAGE_START") }),
   z.looseObject({

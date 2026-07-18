@@ -212,3 +212,52 @@ describe('parsePlanNodes', () => {
     expect(parsePlanNodes(null)).toEqual([])
   })
 })
+
+describe('consumeBrainStream AG-UI (real dev stream)', () => {
+  it('routes RUN_STARTED, CUSTOM(plan_proposed), and RUN_FINISHED', async () => {
+    const onNamed = vi.fn()
+    const onInline = vi.fn()
+    const onRunStarted = vi.fn()
+
+    const planValue = {
+      plan_id: 'e7dfd883-03c2-4fe7-91f0-0205fc19a769',
+      summary: 'Stress-test plan',
+      steps: [
+        { id: 'shopify_read', task: 'READ-ONLY: pull Shopify data',
+          persona_id: null, model_id: '0a5df8ae-71f9-47e5-927e-f841d29e1e84',
+          context: { connectors: [], pins: [], files: [] },
+          is_critical: false, status: 'pending' },
+        { id: 'synthesis', task: 'Synthesize the 8 sources',
+          persona_id: null, model_id: '0a5df8ae-71f9-47e5-927e-f841d29e1e84',
+          context: { connectors: [], pins: [], files: [] },
+          is_critical: false, status: 'pending' },
+      ],
+      edges: [{ from: 'shopify_read', to: 'synthesis' }],
+      required_connectors: [],
+    }
+
+    await consumeBrainStream(
+      streamResponse(
+        'data: {"type":"RUN_STARTED","threadId":"c939312b-fe05-42ae-90ee-c36dbf8b1cfc","runId":"da6644c7"}\n\n',
+        'data: {"type":"CUSTOM","name":"title","value":{"title":"Complex Read-Only Integration Plan"}}\n\n',
+        'data: {"type":"CUSTOM","name":"stream_heartbeat","value":{"elapsed_seconds":5.0}}\n\n',
+        `data: ${JSON.stringify({ type: 'CUSTOM', name: 'plan_proposed', value: planValue })}\n\n`,
+        'data: {"type":"RUN_FINISHED","threadId":"c939312b","runId":"da6644c7","result":{"usage":{"total_tokens":118954}}}\n\n',
+      ),
+      { onNamed, onInline, onRunStarted },
+    )
+
+    expect(onRunStarted).toHaveBeenCalledWith('c939312b-fe05-42ae-90ee-c36dbf8b1cfc', 'da6644c7')
+    expect(onNamed).toHaveBeenCalledWith('title', { title: 'Complex Read-Only Integration Plan' })
+    expect(onNamed).toHaveBeenCalledWith('plan_proposed', planValue)
+    expect(onInline).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'done', finish_reason: 'stop' }),
+    )
+
+    // The plan_proposed value parses into two well-formed nodes.
+    const emitted = onNamed.mock.calls.find(([name]) => name === 'plan_proposed')![1]
+    const nodes = parsePlanNodes((emitted as { steps: unknown }).steps)
+    expect(nodes.map((n) => n.id)).toEqual(['shopify_read', 'synthesis'])
+    expect(nodes[0].model_id).toBe('0a5df8ae-71f9-47e5-927e-f841d29e1e84')
+  })
+})

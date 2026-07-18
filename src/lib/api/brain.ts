@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { apiFetch, apiFetchJson, ApiError } from './client'
 import { API_BASE_URL, directUpload, shouldUseDirectBackend } from '../config'
 import type { ReasoningSection } from '../reasoning'
+import { createBrainRunDispatcher } from '../brain/runStream'
 
 // ── Endpoint helpers ──────────────────────────────────────────────────────────
 
@@ -805,15 +806,24 @@ const STREAM_IDLE_TIMEOUT_MS = 800_000
  * Idle watchdog: if no chunk arrives for STREAM_IDLE_TIMEOUT_MS, the reader
  * is cancelled and `onError` is invoked with a timeout error.
  */
+export interface ConsumeBrainStreamOpts {
+  /** The detached run stream emits native AG-UI events (not legacy-translated
+   *  like the planner turn). Decode them through the typed run dispatcher. */
+  runStream?: boolean
+}
+
 export async function consumeBrainStream(
   response: Response,
   callbacks: BrainSSECallbacks,
+  opts: ConsumeBrainStreamOpts = {},
 ): Promise<void> {
   if (!response.body) {
     callbacks.onError?.(new Error('No response body'))
     callbacks.onClose?.()
     return
   }
+
+  const aguiDispatch = opts.runStream ? createBrainRunDispatcher() : dispatchAguiFrame
 
   const reader  = response.body.getReader()
   const decoder = new TextDecoder()
@@ -848,7 +858,7 @@ export async function consumeBrainStream(
     }
 
     if (!eventName && data && typeof data === 'object'
-        && dispatchAguiFrame(data as Record<string, unknown>, callbacks)) return
+        && aguiDispatch(data as Record<string, unknown>, callbacks)) return
     if (eventName) callbacks.onNamed(eventName, data)
     else           callbacks.onInline(data)
   }

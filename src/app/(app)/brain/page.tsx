@@ -2458,7 +2458,14 @@ function BrainPageInner() {
 
       case 'step_completed': {
         const stepId = d.step_id as string
-        setStepStatuses((prev) => ({ ...prev, [stepId]: 'complete' }))
+        // STEP_FINISHED brackets every node — including one that just failed or
+        // was skipped (its sidecar lands first). Don't let the bracket reset a
+        // terminal step back to complete.
+        setStepStatuses((prev) => (
+          prev[stepId] === 'failed' || prev[stepId] === 'skipped'
+            ? prev
+            : { ...prev, [stepId]: 'complete' }
+        ))
         setNodeStreamDetail((prev) => (prev[stepId] ? { ...prev, [stepId]: '' } : prev))
         break
       }
@@ -2470,8 +2477,11 @@ function BrainPageInner() {
         const stepId  = typeof d.step_id === 'string' ? d.step_id : ''
         const content = typeof d.content === 'string' ? d.content : ''
         if (!stepId || !content) break
+        // The synthesizer ('synthesis' step) writes the final answer when the
+        // plan has no sole leaf (or failed) — treat it like the leaf: stream to
+        // the chat bubble, not a node's reasoning block.
         const leaves = planLeafIdsRef.current
-        if (leaves.size === 1 && leaves.has(stepId)) {
+        if (stepId === 'synthesis' || (leaves.size === 1 && leaves.has(stepId))) {
           setStreamedContent((prev) => prev + content)
           setReasoningActive(false)
           setTimeline((prev) => {
@@ -3024,7 +3034,7 @@ function BrainPageInner() {
           setStreamError(e.message || 'Brain run connection lost. Reopen this chat to reconnect.')
           setPhase('failed')
         },
-      }))
+      }, { runStream: true }))
       .catch((e) => {
         completeStream(owningChatId)
         if ((e as Error)?.name === 'AbortError') return
