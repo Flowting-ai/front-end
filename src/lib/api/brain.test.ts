@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { consumeBrainStream, parseBrainContextEvent } from '@/lib/api/brain'
+import {
+  consumeBrainStream,
+  parseBrainContextEvent,
+  parseBrainToolActivity,
+  parseModelSelectedEvent,
+  parsePlanNodes,
+} from '@/lib/api/brain'
 
 function streamResponse(...chunks: string[]): Response {
   const encoder = new TextEncoder()
@@ -119,5 +125,90 @@ describe('parseBrainContextEvent', () => {
       files: [{ name: 'valid.txt' }],
       connectors: [],
     })
+  })
+})
+
+describe('Brain activity event parsing', () => {
+  it('validates and normalizes the selected model event', () => {
+    expect(parseModelSelectedEvent({
+      model_id: 'model-1',
+      model_name: 'Claude Sonnet 4.5',
+      company: 'Anthropic',
+      thinking_enabled: true,
+      ignored_private_field: 'not forwarded',
+    })).toEqual({
+      modelId: 'model-1',
+      modelName: 'Claude Sonnet 4.5',
+      deploymentName: undefined,
+      company: 'Anthropic',
+      complexity: undefined,
+      thinkingEnabled: true,
+      effort: undefined,
+    })
+
+    expect(parseModelSelectedEvent({ model_id: 'missing-name' })).toBeNull()
+  })
+
+  it('normalizes connector tool arguments and lifecycle metadata', () => {
+    expect(parseBrainToolActivity({
+      type: 'tool_complete',
+      label: 'Reading Gmail',
+      tool_call: {
+        tool_call_id: 'call-1',
+        name: 'run_connector_tool',
+        arguments: '{"tool_slug":"GMAIL_FETCH_EMAILS","arguments":{"query":"private"}}',
+        result: '{"messages":["private body"]}',
+        duration_s: 1.25,
+      },
+    })).toEqual({
+      key: 'call-1',
+      status: 'complete',
+      label: 'Reading Gmail',
+      tool_call: {
+        tool_call_id: 'call-1',
+        name: 'run_connector_tool',
+        arguments: {
+          tool_slug: 'GMAIL_FETCH_EMAILS',
+          arguments: { query: 'private' },
+        },
+        result: '{"messages":["private body"]}',
+        duration_s: 1.25,
+      },
+    })
+  })
+
+  it('rejects malformed tool lifecycle events', () => {
+    expect(parseBrainToolActivity({ type: 'tool_complete', tool_call: null })).toBeNull()
+    expect(parseBrainToolActivity({ type: 'content', content: 'hello' })).toBeNull()
+  })
+})
+
+describe('parsePlanNodes', () => {
+  it('parses the unified node shape and defaults context', () => {
+    const [node] = parsePlanNodes([{
+      id: 's1',
+      task: 'Pull last 90 days of orders\nfull line items',
+      model_id: '55555555-5555-5555-5555-555555555555',
+      context: { connectors: ['shopify'] },
+      is_critical: true,
+      status: 'running',
+    }])
+    expect(node.id).toBe('s1')
+    expect(node.model_id).toBe('55555555-5555-5555-5555-555555555555')
+    expect(node.context?.connectors).toEqual(['shopify'])
+    expect(node.is_critical).toBe(true)
+  })
+
+  it('drops rows missing the load-bearing id, keeps valid ones', () => {
+    const nodes = parsePlanNodes([
+      { task: 'no id' },
+      { id: 's2', task: 'ok' },
+    ])
+    expect(nodes.map((n) => n.id)).toEqual(['s2'])
+  })
+
+  it('returns [] for non-array input', () => {
+    expect(parsePlanNodes(undefined)).toEqual([])
+    expect(parsePlanNodes(null)).toEqual([])
   })
 })

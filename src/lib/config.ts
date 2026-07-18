@@ -146,6 +146,8 @@ export const CHAT_SAVE_TO_DRIVE_ENDPOINT = (attachmentId: string) =>
   withBase(`/chats/files/${attachmentId}/save-to-drive`);
 export const CHAT_PROMPT_RESPOND_ENDPOINT = (promptId: string) =>
   withBase(`/chats/prompts/${promptId}`);
+export const CHAT_PENDING_PROMPTS_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}/prompts/pending`);
 
 // ── LLM Models ───────────────────────────────────────────────────────────────
 export const MODELS_ENDPOINT = withBase("/llm/models");

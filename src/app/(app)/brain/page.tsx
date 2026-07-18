@@ -33,7 +33,7 @@ import {
 } from '@/templates/Brain'
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
-import { ReasoningContent } from '@/components/chat/ReasoningBlock'
+import { ModelLogo, ReasoningContent } from '@/components/chat/ReasoningBlock'
 import { ChatMessagesSkeleton } from '@/components/chat/ChatMessagesSkeleton'
 import { useCreditStatus } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
@@ -74,17 +74,21 @@ import {
   stopBrainChat,
   stopBrainRun,
   parseBrainContextEvent,
+  parseBrainToolActivity,
+  parseModelSelectedEvent,
   parseRecoveryPrompt,
+  parsePlanNodes,
   type RecoveryPrompt,
-  type BackendPlanStep,
   type BackendPlanNode,
   type BrainContextEvent,
+  type BrainToolActivity,
   type ContextPersona,
   type ExternalOutputAction,
   type BrainMessage,
   type BrainPlanResponse,
   type GeneratedFileEvent,
   type ImageEvent,
+  type ModelSelectedEvent,
   type ToolCallPreview,
   type ToolConnectPromptEvent,
   type ToolProgressEvent,
@@ -99,6 +103,7 @@ import { listTasks } from '@/lib/api/tasks'
 import { toConnector, type Connector } from '@/lib/connector'
 import { PermissionPromptCard } from '@/components/shared/PermissionPromptCard'
 import { parsePermissionPrompt, type ConnectorPermissionPrompt } from '@/lib/api/prompts'
+import { fetchPendingPrompts } from '@/lib/api/chat'
 import {
   appendReasoningEvent,
   createReasoningState,
@@ -141,6 +146,69 @@ function formatToolSlug(slug: string): string {
   return slug.replace(/_/g, ' ')
 }
 
+function toolArguments(call: ToolCallPreview): Record<string, unknown> {
+  return call.arguments && typeof call.arguments === 'object' && !Array.isArray(call.arguments)
+    ? call.arguments
+    : {}
+}
+
+function connectorActionName(slug: string, connectorSlug: string): string {
+  const parts = slug.split('_').filter(Boolean)
+  if (parts.length === 0) return 'Use connector'
+  const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (normalize(parts[0]) === normalize(connectorSlug)) parts.shift()
+  if (parts.length === 0) return 'Use connector'
+  return parts
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+}
+
+interface ToolPresentation {
+  label:      string
+  detail:     string
+  connector?: Connector
+}
+
+/**
+ * Turn the meta-dispatch wire shape (`run_connector_tool` + `tool_slug`) into
+ * the connector action a person recognizes. Arguments and result payloads are
+ * intentionally never returned: activity disclosure must not become a data
+ * leak for email bodies, document text, tokens, or other connector content.
+ */
+function describeToolCall(call: ToolCallPreview, label?: string): ToolPresentation {
+  const args = toolArguments(call)
+  const toolName = call.name ?? 'tool'
+  const actionSlug = typeof args.tool_slug === 'string' ? args.tool_slug : toolName
+  let connectorSlug = typeof args.connector_slug === 'string' ? args.connector_slug : ''
+
+  if (!connectorSlug && (toolName === 'run_connector_tool' || typeof args.tool_slug === 'string')) {
+    connectorSlug = actionSlug.split('_')[0]?.toLowerCase() ?? ''
+  }
+
+  // Promoted connector actions are exposed directly after their first call
+  // (e.g. gmail_send_email). Recognize curated connector prefixes through the
+  // canonical connector resolver; unknown internal tools have no logo and stay
+  // generic instead of being mislabeled as a connector.
+  if (!connectorSlug && actionSlug.includes('_')) {
+    const candidate = actionSlug.split('_')[0]?.toLowerCase() ?? ''
+    if (candidate && toConnector(candidate).logo) connectorSlug = candidate
+  }
+
+  if (connectorSlug) {
+    const connector = toConnector(connectorSlug)
+    return {
+      label: connector.name,
+      detail: connectorActionName(actionSlug, connectorSlug),
+      connector,
+    }
+  }
+
+  return {
+    label: 'Tool',
+    detail: label ?? formatToolSlug(toolName),
+  }
+}
+
 // Map the backend approval verb (past-tense: "Sent"/"Posted"/"Deleted"/…) to the
 // ApprovalCard's three action types, which drive its badge colour.
 function approvalActionType(verb: string): 'delete' | 'send' | 'publish' {
@@ -175,30 +243,27 @@ function mapBackendStepStatus(status?: string): StepStatus {
   }
 }
 
-function mapBackendStep(step: BackendPlanStep): PlanStep {
-  return {
-    id:           step.id,
-    label:        step.title,
-    modelId:      step.model_id ?? undefined,
-    modelName:    step.model_name ?? undefined,
-    modelCompany: step.model_company ?? undefined,
-    connector:    step.connector_slug,
-    isCritical:   false,
-    status:       mapBackendStepStatus(step.status),
-  }
+// The node's label is the first line of its task; the plan card shows one line.
+function nodeLabel(task: string | undefined): string {
+  const first = (task ?? '').trim().split('\n')[0]
+  return first || 'Step'
 }
 
 function mapBackendNode(node: BackendPlanNode): PlanStep {
   return {
     id:           node.id,
-    label:        node.title,
+    label:        nodeLabel(node.task),
     modelId:      node.model_id ?? undefined,
     modelName:    node.model_name ?? undefined,
     modelCompany: node.model_company ?? undefined,
-    isCritical:   false,
+    connector:    node.context?.connectors?.[0],
+    isCritical:   node.is_critical ?? false,
     status:       mapBackendStepStatus(node.status),
   }
 }
+
+// `plan_proposed.steps` and persisted `plan_json.nodes` are the same shape now.
+const mapBackendStep = mapBackendNode
 
 // ── Edge-derived flow grouping ────────────────────────────────────────────────
 // The plan is a DAG: nodes are subtasks, edges {from,to} mean "to waits on
@@ -260,8 +325,8 @@ function mapHistoryPlanSteps(plan: BrainPlanResponse): PlanStep[] {
   // `nodes`/`edges` graph instead of a flat `steps` list; fall back to nodes
   // so node-format plans still render, and derive flow grouping from edges.
   const pj = plan.plan_json
-  if (pj?.steps?.length) return applyFlowGrouping(pj.steps.map(mapBackendStep), pj.edges)
-  if (pj?.nodes?.length) return applyFlowGrouping(pj.nodes.map(mapBackendNode), pj.edges)
+  const raw = pj?.nodes?.length ? pj.nodes : pj?.steps
+  if (raw?.length) return applyFlowGrouping(parsePlanNodes(raw).map(mapBackendNode), pj?.edges)
   return []
 }
 
@@ -303,15 +368,12 @@ function buildNodeReasoningSections(
 // saved message body, so it stays in the chat bubble.
 function historyNodeReasoningSections(plan: BrainPlanResponse | null | undefined): ReasoningSection[] {
   const pj = plan?.plan_json
-  // Newer plans persist `nodes`; older ones a flat `steps` list. Both carry
-  // id/title/result_preview, so handle either.
-  const nodes: Array<{ id: string; title: string; result_preview?: string }> =
-    (pj?.nodes?.length ? pj.nodes : pj?.steps) ?? []
+  const nodes = parsePlanNodes(pj?.nodes?.length ? pj.nodes : pj?.steps)
   if (nodes.length <= 1) return []
   const leafIds = computeLeafIds(nodes.map((n) => n.id), pj?.edges)
   return nodes
     .filter((n) => !leafIds.has(n.id) && (n.result_preview ?? '').trim())
-    .map((n) => ({ heading: n.title || 'Step', body: n.result_preview ?? '' }))
+    .map((n) => ({ heading: nodeLabel(n.task), body: n.result_preview ?? '' }))
 }
 
 // ── Synthesize a context snapshot from fetched messages ──────────────────────
@@ -647,6 +709,8 @@ interface LocalTurn {
   images?:         ImageEvent[]
   generatedFiles?: GeneratedFileEvent[]
   externalActions?: ExternalOutputAction[]
+  model?:           ModelSelectedEvent
+  toolActivities?:  BrainToolActivity[]
   completedAt?:    Date
   cancelled:       boolean
   attachments?:    UserAttachment[]
@@ -992,7 +1056,8 @@ type ActivityFeedItem =
   | { kind: 'web_search'; data: WebSearchEvent;     id: string }
   | { kind: 'image';      data: ImageEvent;         id: string }
   | { kind: 'file';       data: GeneratedFileEvent; id: string }
-  | { kind: 'tool';       data: ToolCallPreview;    id: string; status: 'streaming' | 'executing' | 'complete' | 'failed' }
+  | { kind: 'model';      data: ModelSelectedEvent; id: string }
+  | { kind: 'tool';       data: ToolCallPreview;    id: string; label?: string; status: 'streaming' | 'executing' | 'complete' | 'failed' }
   | { kind: 'progress';   data: ToolProgressEvent;  id: string }
 
 // ── Turn timeline ─────────────────────────────────────────────────────────────
@@ -1005,6 +1070,7 @@ type ActivityFeedItem =
 // live state and are looked up by reference at render time.
 type TimelineItem =
   | { kind: 'text';       id: string; text: string }
+  | { kind: 'model';      id: string; data: ModelSelectedEvent }
   | { kind: 'tool';       id: string; toolKey: string }
   | { kind: 'web_search'; id: string; data: WebSearchEvent }
   | { kind: 'file';       id: string; data: GeneratedFileEvent }
@@ -1042,18 +1108,59 @@ function ActivityFeed({ items }: { items: ActivityFeedItem[] }) {
               <span style={feedMetaStyle}>{item.data.mime_type}</span>
             </div>
           )
-          case 'tool': return (
+          case 'model': return (
             <div key={item.id} style={feedRowStyle}>
-              <span style={feedLabelStyle}>Tool</span>
-              <span style={feedValueStyle}>{item.data.name ?? 'unknown'}</span>
-              <span style={{
-                ...feedMetaStyle,
-                ...(item.status === 'failed' ? { color: 'var(--red-500, #DC3545)' } : {}),
-              }}>
-                {item.status === 'failed' ? 'failed' : item.status === 'complete' ? 'done' : item.status}
-              </span>
+              <ModelLogo
+                modelName={item.data.modelName}
+                modelMeta={{
+                  modelId: item.data.modelId ?? '',
+                  modelName: item.data.modelName ?? 'Model',
+                  company: item.data.company,
+                  complexity: item.data.complexity,
+                  thinkingEnabled: item.data.thinkingEnabled,
+                  effort: item.data.effort,
+                }}
+                size={14}
+              />
+              <span style={feedLabelStyle}>Model</span>
+              <span style={feedValueStyle}>{item.data.modelName}</span>
+              {item.data.company && <span style={feedMetaStyle}>{item.data.company}</span>}
             </div>
           )
+          case 'tool': {
+            const presentation = describeToolCall(item.data, item.label)
+            const statusLabel = item.status === 'failed'
+              ? 'failed'
+              : item.status === 'complete'
+                ? item.data.duration_s != null
+                  ? item.data.duration_s < 1
+                    ? `${Math.round(item.data.duration_s * 1000)}ms`
+                    : `${item.data.duration_s.toFixed(1)}s`
+                  : 'done'
+                : item.status === 'executing' ? 'running' : 'preparing'
+            return (
+              <div key={item.id} style={feedRowStyle}>
+                {presentation.connector?.logo && (
+                  <Image
+                    src={presentation.connector.logo}
+                    width={14}
+                    height={14}
+                    alt=""
+                    unoptimized
+                    style={{ display: 'block', objectFit: 'contain', flexShrink: 0 }}
+                  />
+                )}
+                <span style={feedLabelStyle}>{presentation.label}</span>
+                <span style={feedValueStyle}>{presentation.detail}</span>
+                <span style={{
+                  ...feedMetaStyle,
+                  ...(item.status === 'failed' ? { color: 'var(--red-500, #DC3545)' } : {}),
+                }}>
+                  {statusLabel}
+                </span>
+              </div>
+            )
+          }
           case 'progress': return (
             <div key={item.id} style={feedRowStyle}>
               <span style={feedLabelStyle}>{item.data.tool}</span>
@@ -1487,7 +1594,8 @@ function BrainPageInner() {
     connectors: Map<string, Connector>
   }>({ pins: new Map(), files: new Map(), connectors: new Map() })
   const [toolConnectPrompt,  setToolConnectPrompt]  = useState<ToolConnectPromptEvent | null>(null)
-  const [liveToolCalls,      setLiveToolCalls]      = useState<Record<string, { status: 'streaming' | 'executing' | 'complete'; tool_call: ToolCallPreview }>>({})
+  const [activeModel,        setActiveModel]        = useState<ModelSelectedEvent | null>(null)
+  const [liveToolCalls,      setLiveToolCalls]      = useState<Record<string, BrainToolActivity>>({})
 
   // ── Ordered turn timeline ────────────────────────────────────────────────────
   // The chronological render model for the active turn (see TimelineItem). Reset
@@ -1496,6 +1604,8 @@ function BrainPageInner() {
   // ensures a single progress row.
   const [timeline, setTimeline] = useState<TimelineItem[]>([])
   const seenToolIdsRef  = useRef<Set<string>>(new Set())
+  const activeToolKeyByNameRef = useRef<Map<string, string>>(new Map())
+  const seenModelIdsRef = useRef<Set<string>>(new Set())
   const progressPushedRef = useRef(false)
   const timelineSeqRef  = useRef(0)
 
@@ -1784,9 +1894,12 @@ function BrainPageInner() {
     setAwaitingRecovery(false)
     setActiveStuckPrompt(null)
     setStuckInFlight(false)
+    setActiveModel(null)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
+    activeToolKeyByNameRef.current = new Map()
+    seenModelIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
     waitingForPlanApprovalRef.current = false
@@ -1872,6 +1985,16 @@ function BrainPageInner() {
             if (c.slug) hist.connectors.set(c.slug, toConnector(c))
           }
         }
+        // Prompts the backend is still blocked on (a run kept waiting through
+        // the reload) — re-deliver them through the normal event handler so
+        // the cards render again instead of the run deadlocking until timeout.
+        const pending = await fetchPendingPrompts(chatIdFromUrl).catch(() => [])
+        if (!cancelled) {
+          for (const p of pending) {
+            if (p.expires_at && Date.parse(p.expires_at) <= Date.now()) continue
+            handleNamedEvent(p.event, p.data)
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) setHistoryLoaded(true)
@@ -1939,14 +2062,14 @@ function BrainPageInner() {
         // The event names the DAG nodes `steps` for FE-compat and ships the
         // dependency `edges` alongside — fold both into flow-grouped steps so
         // PlanCard renders parallel branches as "runs at the same time".
-        const rawSteps = ((d.steps ?? []) as BackendPlanStep[])
+        const rawSteps = parsePlanNodes(d.steps)
         const steps    = applyFlowGrouping(rawSteps.map(mapBackendStep), d.edges)
         const planId   = typeof d.plan_id === 'string' ? d.plan_id : null
         const summary  = (d.summary as string) ?? ''
         // Record node titles/order + leaf set so step_content can split node
         // outputs between the reasoning block (non-leaf) and chat (sole leaf).
         setPlanNodeMeta(Object.fromEntries(
-          rawSteps.map((s, i) => [s.id, { title: s.title, order: i }]),
+          rawSteps.map((s, i) => [s.id, { title: nodeLabel(s.task), order: i }]),
         ))
         setPlanLeafIds(computeLeafIds(rawSteps.map((s) => s.id), d.edges))
         setNodeOutputs({})
@@ -2167,6 +2290,38 @@ function BrainPageInner() {
         break
       }
 
+      // The backend stopped waiting on a prompt — retire the matching card and
+      // say so; a late answer would 404.
+      // Server confirmation that a prompt was answered (this tab or another) —
+      // retire the card without a toast; the run continues on its own.
+      case 'prompt_resolved': {
+        const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
+        if (!promptId) break
+        setActivePermissionPrompt((prev) => (prev?.request_id === promptId ? null : prev))
+        setActiveApprovalPrompt((prev) => (prev?.promptId === promptId ? null : prev))
+        break
+      }
+
+      case 'prompt_timeout': {
+        const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
+        if (!promptId) break
+        // Functional updates: this callback's closure is stale (deps exclude
+        // prompt state), so match against the live value inside the setter.
+        setActivePermissionPrompt((prev) => {
+          if (prev?.request_id !== promptId) return prev
+          setPermissionInFlight(false)
+          toast.warning('No response received in time — the prompt expired and the run continued without it.')
+          return null
+        })
+        setActiveApprovalPrompt((prev) => {
+          if (prev?.promptId !== promptId) return prev
+          setApprovalInFlight(false)
+          toast.warning('No response received in time — the approval expired and the run continued without it.')
+          return null
+        })
+        break
+      }
+
       // Write-approval gate (HITL): Brain paused before a real-world side effect.
       // Render an inline ApprovalCard; resolve by POSTing approve / reject.
       case 'approval_prompt': {
@@ -2373,6 +2528,22 @@ function BrainPageInner() {
         // success transition and flip the failure card to 'complete'.
         if (enteredNodeFailedRef.current) break
         scheduleCompletion()
+        break
+      }
+
+      case 'model_selected': {
+        const model = parseModelSelectedEvent(d)
+        if (!model) break
+        setActiveModel(model)
+
+        const modelKey = model.modelId ?? `${model.company ?? ''}:${model.modelName}`
+        if (!seenModelIdsRef.current.has(modelKey)) {
+          seenModelIdsRef.current.add(modelKey)
+          setTimeline((prev) => [
+            ...prev,
+            { kind: 'model', id: `model-${++timelineSeqRef.current}`, data: model },
+          ])
+        }
         break
       }
 
@@ -2607,20 +2778,22 @@ function BrainPageInner() {
     // The activity feed renders one row per tool_call id, updating status
     // as the model progresses streaming → executing → complete.
     if (t === 'tool_calls_streaming' || t === 'tool_executing' || t === 'tool_complete') {
-      const tc = d.tool_call as ToolCallPreview | null | undefined
-      if (!tc) return
-      const id = tc.id ?? tc.name ?? `tool-${Date.now()}`
-      const status: 'streaming' | 'executing' | 'complete' =
-        t === 'tool_calls_streaming' ? 'streaming'
-      : t === 'tool_executing'        ? 'executing'
-      :                                 'complete'
-      setLiveToolCalls((prev) => ({ ...prev, [id]: { status, tool_call: tc } }))
-      // First time we see this tool id → add a row to the timeline at its
+      const parsed = parseBrainToolActivity(d)
+      if (!parsed) return
+
+      const toolName = parsed.tool_call.name ?? ''
+      const existingKey = toolName ? activeToolKeyByNameRef.current.get(toolName) : undefined
+      const key = existingKey ?? parsed.key
+      if (toolName) activeToolKeyByNameRef.current.set(toolName, key)
+
+      setLiveToolCalls((prev) => ({ ...prev, [key]: { ...parsed, key } }))
+      // First time we see this call → add a row to the timeline at its
       // arrival position. Later status updates flow through liveToolCalls.
-      if (!seenToolIdsRef.current.has(id)) {
-        seenToolIdsRef.current.add(id)
-        setTimeline((prev) => [...prev, { kind: 'tool', id: `tool-${++timelineSeqRef.current}`, toolKey: id }])
+      if (!seenToolIdsRef.current.has(key)) {
+        seenToolIdsRef.current.add(key)
+        setTimeline((prev) => [...prev, { kind: 'tool', id: `tool-${++timelineSeqRef.current}`, toolKey: key }])
       }
+      if (parsed.status === 'complete' && toolName) activeToolKeyByNameRef.current.delete(toolName)
       return
     }
 
@@ -2666,6 +2839,8 @@ function BrainPageInner() {
     currentAttachments: UserAttachment[] = [],
     currentStreamFiles: GeneratedFileEvent[] = [],
     currentExternalActions: ExternalOutputAction[] = [],
+    currentModel: ModelSelectedEvent | null = null,
+    currentToolActivities: BrainToolActivity[] = [],
   ) => {
     const key = `turn-${++turnCounterRef.current}`
     setLocalTurns((prev) => [
@@ -2681,6 +2856,8 @@ function BrainPageInner() {
         images:         currentStreamImages.length > 0 ? currentStreamImages : undefined,
         generatedFiles: currentStreamFiles.length > 0 ? currentStreamFiles : undefined,
         externalActions: currentExternalActions.length > 0 ? currentExternalActions : undefined,
+        model:           currentModel ?? undefined,
+        toolActivities:  currentToolActivities.length > 0 ? currentToolActivities : undefined,
         completedAt:    currentCompletedAt ?? undefined,
         cancelled:      opts.cancelled ?? false,
         attachments:    currentAttachments.length > 0 ? currentAttachments : undefined,
@@ -2722,9 +2899,12 @@ function BrainPageInner() {
     setAwaitingRecovery(false)
     setActiveStuckPrompt(null)
     setStuckInFlight(false)
+    setActiveModel(null)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
+    activeToolKeyByNameRef.current = new Map()
+    seenModelIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
     waitingForPlanApprovalRef.current = false
@@ -2890,9 +3070,12 @@ function BrainPageInner() {
     setActiveRecoveryPrompt(null)
     setRecoveryInFlight(false)
     setAwaitingRecovery(false)
+    setActiveModel(null)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
+    activeToolKeyByNameRef.current = new Map()
+    seenModelIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
     waitingForPlanApprovalRef.current = false
@@ -2916,35 +3099,35 @@ function BrainPageInner() {
         ...contextOpts,
         ...(files?.length ? { files } : {}),
       }
+      // Adopt a brand-new chat's id — from the X-Chat-Id header when readable,
+      // or from AG-UI RUN_STARTED.threadId (the reliable source cross-origin).
+      const adoptNewChatId = (id: string) => {
+        if (!id || resolvedChatId) return
+        resolvedChatId = id
+        registerStream(id)
+        skipNextResetRef.current = true
+        skipNextHistoryLoadRef.current = true
+        setChatId(id)
+        chatIdRef.current = id
+        // Surface the new thread in the sidebar immediately (title resolves
+        // later via the stream's 'title' event).
+        emitBrainThreadCreated({ chatId: id, title: 'New thread' })
+        if (fromScheduleId) {
+          linkScheduleToChat(fromScheduleId, id)
+          // If the id looks like a local temp id (not a UUID), flag it for
+          // remapping once the stream completes and Brain has persisted the task.
+          if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fromScheduleId)) {
+            setPendingRemapId(fromScheduleId)
+          }
+        }
+        replace(`${BRAIN_ROUTE}?id=${id}`, { scroll: false })
+      }
+
+      const isNewChat = !resolvedChatId
       if (!resolvedChatId) {
         const result = await startBrainChat(input, streamOpts, controller.signal)
-        resolvedChatId = result.chatId
         response = result.stream
-        if (resolvedChatId) {
-          registerStream(resolvedChatId)
-          skipNextResetRef.current = true
-          skipNextHistoryLoadRef.current = true
-          setChatId(resolvedChatId)
-          chatIdRef.current = resolvedChatId
-          // Surface the new thread in the sidebar immediately (title resolves
-          // later via the stream's 'title' event).
-          emitBrainThreadCreated({ chatId: resolvedChatId, title: 'New thread' })
-          if (fromScheduleId) {
-            linkScheduleToChat(fromScheduleId, resolvedChatId)
-            // If the id looks like a local temp id (not a UUID), flag it for
-            // remapping once the stream completes and Brain has persisted the task.
-            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fromScheduleId)) {
-              setPendingRemapId(fromScheduleId)
-            }
-          }
-          replace(`${BRAIN_ROUTE}?id=${resolvedChatId}`, { scroll: false })
-        } else {
-          // Backend forgot to set X-Chat-Id (e.g., a misconfigured proxy
-          // stripping the header). The stream will still play, but the chat
-          // is unrecoverable on refresh — warn the user.
-          console.warn('[Brain] /brain/create returned no X-Chat-Id header — chat is orphaned')
-          toast.warning('Chat started but cannot be saved to the URL. Refreshing will lose it.')
-        }
+        adoptNewChatId(result.chatId)
       } else {
         response = await continueBrainChat(resolvedChatId, input, streamOpts, controller.signal)
       }
@@ -2953,6 +3136,9 @@ function BrainPageInner() {
       let terminalEventReceived = false
       let streamErrored = false
       await consumeBrainStream(response, {
+        onRunStarted: (threadId) => {
+          if (isNewChat) adoptNewChatId(threadId)
+        },
         onNamed:  (name, data) => {
           if (name === 'plan_proposed') durablePlanProposed = true
           if (isTerminalBrainEvent(name)) terminalEventReceived = true
@@ -3083,6 +3269,8 @@ function BrainPageInner() {
         userAttachments,
         streamFiles,
         externalActions,
+        activeModel,
+        Object.values(liveToolCalls),
       )
     }
 
@@ -3135,7 +3323,8 @@ function BrainPageInner() {
     void doSend()
   }, [
     phase, chatId, planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections,
-    activePlanSummary, completedAt, streamImages, streamFiles, externalActions, snapshotAndReset, runBrainStream,
+    activePlanSummary, completedAt, streamImages, streamFiles, externalActions, activeModel, liveToolCalls,
+    snapshotAndReset, runBrainStream,
     brainAttachments, userAttachments, creditStatus.blocked, selectedPersona, effectivePinIds,
     selectedFolders.length, pinboardLoading,
   ])
@@ -3791,12 +3980,15 @@ function BrainPageInner() {
       userAttachments,
       streamFiles,
       externalActions,
+      activeModel,
+      Object.values(liveToolCalls),
     )
     seedBrainInput(userMessage)
     setPhase('idle')
   }, [
     planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections, activePlanSummary, completedAt,
-    streamImages, userAttachments, streamFiles, externalActions, snapshotAndReset, seedBrainInput,
+    streamImages, userAttachments, streamFiles, externalActions, activeModel, liveToolCalls,
+    snapshotAndReset, seedBrainInput,
   ])
 
   // ── Restart ───────────────────────────────────────────────────────────────────
@@ -3815,9 +4007,11 @@ function BrainPageInner() {
       userAttachments,
       streamFiles,
       externalActions,
+      activeModel,
+      Object.values(liveToolCalls),
     )
     setPhase('idle')
-  }, [phase, planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles, externalActions])
+  }, [phase, planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles, externalActions, activeModel, liveToolCalls])
 
   // ── New chat ─────────────────────────────────────────────────────────────────
   // Used by both the sidebar's "Brain" button and the "+ New chat" entry.
@@ -3885,9 +4079,12 @@ function BrainPageInner() {
     setAwaitingRecovery(false)
     setActiveStuckPrompt(null)
     setStuckInFlight(false)
+    setActiveModel(null)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
+    activeToolKeyByNameRef.current = new Map()
+    seenModelIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
     waitingForPlanApprovalRef.current = false
@@ -3931,6 +4128,9 @@ function BrainPageInner() {
       ...historyNodeReasoningSections(msg.plan),
       ...normalizeReasoningSections(msg.reasoning_sections),
     ]
+    const historyModel = msg.model_name
+      ? parseModelSelectedEvent({ model_name: msg.model_name })
+      : null
 
     // Map persisted tool_calls into ActivityFeedItem[] for the history view.
     const rawToolCalls = (msg.tool_calls ?? []) as Array<Record<string, unknown>>
@@ -3952,11 +4152,6 @@ function BrainPageInner() {
         // run_connector_tool / gmail_send_email / list_connector_tools etc
         if (tool === 'list_connectors' || tool === 'list_connector_tools') return null // internal, don't show
 
-        // Display name: prefer args.tool_slug (e.g. GMAIL_SEND_EMAIL → Gmail: Send Email),
-        // otherwise humanise the tool function name (gmail_send_email → gmail send email).
-        const rawSlug = typeof args.tool_slug === 'string' ? args.tool_slug : tool
-        const toolName = formatToolSlug(rawSlug)
-
         // Detect success/failure from the tool output JSON.
         // `successful === false` or a top-level `error` field means the call failed.
         let toolStatus: 'streaming' | 'executing' | 'complete' | 'failed' = 'complete'
@@ -3968,7 +4163,12 @@ function BrainPageInner() {
             }
           } catch { /* not JSON, keep as complete */ }
         }
-        return { kind: 'tool', data: { name: toolName }, id: `${msg.id}-tc-${idx}`, status: toolStatus }
+        return {
+          kind: 'tool',
+          data: { name: tool, arguments: args },
+          id: `${msg.id}-tc-${idx}`,
+          status: toolStatus,
+        }
       })
       .filter((x): x is ActivityFeedItem => x !== null)
 
@@ -4004,6 +4204,13 @@ function BrainPageInner() {
               completedAt={msg.created_at ? new Date(msg.created_at) : undefined}
             />
           )
+        )}
+        {historyModel && (
+          <ActivityFeed items={[{
+            kind: 'model',
+            data: historyModel,
+            id: `${msg.id}-model`,
+          }]} />
         )}
         {historyToolItems.length > 0 && <ActivityFeed items={historyToolItems} />}
         {images.length > 0 && <MessageImages images={images} />}
@@ -4050,6 +4257,18 @@ function BrainPageInner() {
           summary={turn.planSummary}
           completedAt={turn.completedAt}
         />
+      )}
+      {turn.model && (
+        <ActivityFeed items={[{ kind: 'model', data: turn.model, id: `${turn.key}-model` }]} />
+      )}
+      {turn.toolActivities && turn.toolActivities.length > 0 && (
+        <ActivityFeed items={turn.toolActivities.map((activity, index) => ({
+          kind: 'tool' as const,
+          data: activity.tool_call,
+          label: activity.label,
+          id: `${turn.key}-tool-${index}`,
+          status: activity.status,
+        }))} />
       )}
       {turn.images && turn.images.length > 0 && <MessageImages images={turn.images} />}
       {turn.output && (
@@ -4169,9 +4388,11 @@ function BrainPageInner() {
             isComplete={!isLast || streamingComplete || phase === 'complete' || phase === 'cancelled' || phase === 'failed'}
           />
         )
+      case 'model':
+        return <ActivityFeed key={item.id} items={[{ kind: 'model', data: item.data, id: item.id }]} />
       case 'tool': {
         const e = liveToolCalls[item.toolKey]
-        return e ? <ActivityFeed key={item.id} items={[{ kind: 'tool', data: e.tool_call, id: item.id, status: e.status }]} /> : null
+        return e ? <ActivityFeed key={item.id} items={[{ kind: 'tool', data: e.tool_call, id: item.id, label: e.label, status: e.status }]} /> : null
       }
       case 'web_search':
         return <ActivityFeed key={item.id} items={[{ kind: 'web_search', data: item.data, id: item.id }]} />

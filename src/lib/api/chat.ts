@@ -9,6 +9,7 @@ import {
   CHAT_STAR_ENDPOINT,
   CHAT_STOP_ENDPOINT,
   CHAT_SAVE_TO_DRIVE_ENDPOINT,
+  CHAT_PENDING_PROMPTS_ENDPOINT,
   CHAT_PROMPT_RESPOND_ENDPOINT,
   CHAT_VISIBILITY_ENDPOINT,
   CHAT_COPY_ENDPOINT,
@@ -484,6 +485,23 @@ export async function respondToChatPrompt(
       "Failed to respond to prompt",
     );
   }
+}
+
+export interface PendingPrompt {
+  prompt_id: string;
+  event: string;
+  data: Record<string, unknown>;
+  expires_at?: string;
+}
+
+/** GET /chats/{chat_id}/prompts/pending — prompts still waiting on the user,
+ *  as re-deliverable events. Fetched on load so a reload mid-prompt re-renders
+ *  the card instead of silently deadlocking the run until timeout. */
+export async function fetchPendingPrompts(chatId: string): Promise<PendingPrompt[]> {
+  const res = await apiFetch(CHAT_PENDING_PROMPTS_ENDPOINT(chatId));
+  if (!res.ok) return [];
+  const body = (await res.json().catch(() => null)) as { prompts?: PendingPrompt[] } | null;
+  return Array.isArray(body?.prompts) ? body.prompts : [];
 }
 
 /** PATCH /chats/{chat_id}/visibility */

@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
+import { toast } from "sonner";
 import { AnimatePresence, m } from "framer-motion";
 import { ReasoningBlock, ModelLogo, AnimatedLogo } from "./ReasoningBlock";
 import { BreathingDot } from "@/components/BreathingDot";
@@ -826,7 +827,10 @@ export function ChatMessage({
                 key={prompt.request_id}
                 prompt={prompt}
                 onDecided={(policy) => {
-                  respondToChatPrompt(prompt.request_id, policy, prompt.respond_url).catch(() => {})
+                  respondToChatPrompt(prompt.request_id, policy, prompt.respond_url).catch((e: unknown) => {
+                    console.error('[chat] permission respond failed:', e)
+                    toast.error('Your response was not received — the prompt may have expired. Please re-send your message.')
+                  })
                   onPromptDecided?.(message.id, prompt.request_id, policy)
                 }}
               />

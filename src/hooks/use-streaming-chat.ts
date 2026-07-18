@@ -985,6 +985,29 @@ export function useStreamingChat({
             continue
           }
 
+          if (eventName === "prompt_timeout" || eventName === "prompt_resolved") {
+            // The backend stopped waiting on a prompt (answered — maybe from
+            // another tab — or expired). Retire the card; a late POST would 404.
+            const promptId = asString(parsed.prompt_id)
+            if (!promptId) continue
+            setMessages((prev) =>
+              prev.map((msg) => {
+                const perms = msg.connectorPermissionPrompts
+                const connects = msg.connectorConnectPrompts
+                if (!perms?.some((p) => p.request_id === promptId) &&
+                    !connects?.some((p) => p.request_id === promptId)) return msg
+                const decision = eventName === "prompt_resolved" ? "resolved" : "timeout"
+                return {
+                  ...msg,
+                  connectorPermissionPrompts: perms?.map((p) =>
+                    p.request_id === promptId ? { ...p, decision } : p),
+                  connectorConnectPrompts: connects?.filter((p) => p.request_id !== promptId),
+                }
+              }),
+            )
+            continue
+          }
+
           if (eventName === "tool_complete" || parsed.type === "tool_complete") {
             // Tool finished - schema: {content (tool name), label, tool_call: {name, tool_call_id, result, duration_s}}
             const toolCall = parsed.tool_call as Record<string, unknown> | undefined

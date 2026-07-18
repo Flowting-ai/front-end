@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, m } from 'framer-motion'
+import { m } from 'framer-motion'
 import {
   WorkflowSquareTenIcon,
   AlertCircleIcon,
@@ -12,7 +12,8 @@ import {
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Spinner } from '@/components/Spinner'
-import { springs } from '@/lib/springs'
+import { ModelLogo } from '@/components/chat/ReasoningBlock'
+import { toConnector } from '@/lib/connector'
 import type { PlanStep, ConnectorRequirement } from './lib/phase'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -145,9 +146,75 @@ function StepBadges({ step }: { step: PlanStep }) {
   )
 }
 
+function StepModelDisclosure({ step }: { step: PlanStep }) {
+  if (!step.modelName) return null
+  return (
+    <span style={{
+      display:     'inline-flex',
+      alignItems:  'center',
+      gap:         5,
+      fontFamily:  'var(--font-body)',
+      fontSize:    'var(--font-size-caption)',
+      lineHeight:  'var(--line-height-caption)',
+      color:       'var(--neutral-400)',
+    }}>
+      <ModelLogo
+        modelName={step.modelName}
+        modelMeta={{
+          modelId: step.modelId ?? '',
+          modelName: step.modelName,
+          company: step.modelCompany,
+        }}
+        size={12}
+      />
+      {step.modelName}
+    </span>
+  )
+}
+
+function StepConnectorLogo({ slug, size = 24 }: { slug?: string; size?: number }) {
+  if (!slug) return null
+  const connector = toConnector(slug)
+  const logoSize = size - 8
+
+  return (
+    <span
+      aria-label={`${connector.name} connector`}
+      title={connector.name}
+      style={{
+        display:         'inline-flex',
+        alignItems:      'center',
+        justifyContent:  'center',
+        width:           size,
+        height:          size,
+        borderRadius:    4,
+        backgroundColor: 'var(--neutral-50)',
+        border:          '1px solid var(--neutral-100)',
+        flexShrink:      0,
+        overflow:        'hidden',
+      }}
+    >
+      {connector.logo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- canonical connector assets may be local or provider-hosted
+        <img
+          src={connector.logo}
+          alt=""
+          style={{ width: logoSize, height: logoSize, objectFit: 'contain', display: 'block' }}
+        />
+      ) : (
+        <span aria-hidden style={{ fontSize: 10, fontWeight: 600, color: 'var(--neutral-500)' }}>
+          {connector.name.charAt(0).toUpperCase() || '?'}
+        </span>
+      )}
+    </span>
+  )
+}
+
 // ── ConnectorRow ──────────────────────────────────────────────────────────────
 
 function ConnectorRow({ connector }: { connector: ConnectorRequirement }) {
+  const identity = toConnector({ name: connector.name, logo_url: connector.logoUrl })
+
   return (
     <div style={{
       display:         'flex',
@@ -170,9 +237,12 @@ function ConnectorRow({ connector }: { connector: ConnectorRequirement }) {
         justifyContent:  'center',
         overflow:        'hidden',
       }}>
-        {connector.logoUrl
-          ? <img src={connector.logoUrl} alt="" style={{ width: 20, height: 20, objectFit: 'contain' }} />
-          : <div style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: 'var(--neutral-200)' }} />
+        {identity.logo
+          // eslint-disable-next-line @next/next/no-img-element -- canonical connector assets may be local or provider-hosted
+          ? <img src={identity.logo} alt={`${identity.name} logo`} style={{ width: 20, height: 20, objectFit: 'contain' }} />
+          : <span aria-hidden style={{ fontSize: 12, fontWeight: 600, color: 'var(--neutral-500)' }}>
+              {identity.name.charAt(0).toUpperCase() || '?'}
+            </span>
         }
       </div>
 
@@ -219,9 +289,10 @@ interface PlanStepRowProps {
   isLast:    boolean
   animDelay: number
   dimmed:    boolean
+  showModel: boolean
 }
 
-function PlanStepRow({ step, index, isLast, animDelay, dimmed }: PlanStepRowProps) {
+function PlanStepRow({ step, index, isLast, animDelay, dimmed, showModel }: PlanStepRowProps) {
   const needsAuth = !!step.requiresConnector && !step.requiresConnector.isConnected
   const [showWhy, setShowWhy] = useState(false)
   const whyRef = useRef<HTMLDivElement>(null)
@@ -278,6 +349,7 @@ function PlanStepRow({ step, index, isLast, animDelay, dimmed }: PlanStepRowProp
           gap:           4,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {!needsAuth && <StepConnectorLogo slug={step.connector} />}
             <span style={{
               fontFamily: 'var(--font-body)',
               fontSize:   'var(--font-size-body)',
@@ -288,6 +360,7 @@ function PlanStepRow({ step, index, isLast, animDelay, dimmed }: PlanStepRowProp
               {step.label}
             </span>
             <StepBadges step={step} />
+            {showModel && <StepModelDisclosure step={step} />}
             {step.rationale && (
               <div ref={whyRef} style={{ position: 'relative', display: 'inline-flex' }}>
                 <button
@@ -341,18 +414,6 @@ function PlanStepRow({ step, index, isLast, animDelay, dimmed }: PlanStepRowProp
             )}
           </div>
 
-          {step.connector && !isLast && !needsAuth && (
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-caption)',
-              fontStyle:  'italic',
-              color:      'var(--neutral-400)',
-              lineHeight: 'var(--line-height-caption)',
-            }}>
-              via {step.connector}
-            </span>
-          )}
-
           {needsAuth && <ConnectorRow connector={step.requiresConnector!} />}
         </div>
       </div>
@@ -362,7 +423,7 @@ function PlanStepRow({ step, index, isLast, animDelay, dimmed }: PlanStepRowProp
 
 // ── CompactStepRow — used inside PlanParallelGroup ────────────────────────────
 
-function CompactStepRow({ step, globalIndex }: { step: PlanStep; globalIndex: number }) {
+function CompactStepRow({ step, globalIndex, showModel }: { step: PlanStep; globalIndex: number; showModel: boolean }) {
   const needsAuth = !!step.requiresConnector && !step.requiresConnector.isConnected
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
@@ -377,6 +438,7 @@ function CompactStepRow({ step, globalIndex }: { step: PlanStep; globalIndex: nu
         gap:           3,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+          {!needsAuth && <StepConnectorLogo slug={step.connector} />}
           <span style={{
             fontFamily: 'var(--font-body)',
             fontSize:   'var(--font-size-body)',
@@ -387,6 +449,7 @@ function CompactStepRow({ step, globalIndex }: { step: PlanStep; globalIndex: nu
             {step.label}
           </span>
           <StepBadges step={step} />
+          {showModel && <StepModelDisclosure step={step} />}
         </div>
         {needsAuth && <ConnectorRow connector={step.requiresConnector!} />}
       </div>
@@ -402,9 +465,10 @@ interface PlanParallelGroupProps {
   isLast:     boolean
   animDelay:  number
   dimmed:     boolean
+  showModel:  boolean
 }
 
-function PlanParallelGroup({ steps, startIndex, isLast, animDelay, dimmed }: PlanParallelGroupProps) {
+function PlanParallelGroup({ steps, startIndex, isLast, animDelay, dimmed, showModel }: PlanParallelGroupProps) {
   return (
     <m.div
       initial={planStepsAnimatedOnce ? false : { opacity: 0, y: 6 }}
@@ -477,6 +541,7 @@ function PlanParallelGroup({ steps, startIndex, isLast, animDelay, dimmed }: Pla
                 key={step.id}
                 step={step}
                 globalIndex={startIndex + i}
+                showModel={showModel}
               />
             ))}
           </div>
@@ -521,6 +586,10 @@ export function PlanCard({
   hideActions     = false,
 }: PlanCardProps) {
   const items        = groupSteps(steps)
+  const modelNames   = [...new Set(steps.map((step) => step.modelName).filter((name): name is string => !!name))]
+  const sharedModel  = modelNames.length === 1 && steps.every((step) => step.modelName === modelNames[0])
+    ? steps.find((step) => step.modelName === modelNames[0])
+    : undefined
   const allConnected = steps.every(s => !s.requiresConnector || s.requiresConnector.isConnected)
   const cardRef      = useRef<HTMLDivElement>(null)
 
@@ -574,12 +643,35 @@ export function PlanCard({
         }}>
           Plan
         </span>
+        {sharedModel?.modelName && (
+          <span style={{
+            display:     'inline-flex',
+            alignItems:  'center',
+            gap:         5,
+            marginLeft:  'auto',
+            fontFamily:  'var(--font-body)',
+            fontSize:    'var(--font-size-caption)',
+            lineHeight:  'var(--line-height-caption)',
+            color:       'var(--neutral-400)',
+          }}>
+            <ModelLogo
+              modelName={sharedModel.modelName}
+              modelMeta={{
+                modelId: sharedModel.modelId ?? '',
+                modelName: sharedModel.modelName,
+                company: sharedModel.modelCompany,
+              }}
+              size={12}
+            />
+            {sharedModel.modelName}
+          </span>
+        )}
         <span style={{
           fontFamily: 'var(--font-body)',
           fontSize:   'var(--font-size-caption)',
           color:      'var(--neutral-300)',
           lineHeight: 'var(--line-height-caption)',
-          marginLeft: 'auto',
+          marginLeft: sharedModel ? 8 : 'auto',
         }}>
           {steps.length} step{steps.length !== 1 ? 's' : ''}
         </span>
@@ -615,6 +707,7 @@ export function PlanCard({
                 isLast={isLast}
                 animDelay={animDelay}
                 dimmed={dimmed}
+                showModel={!sharedModel}
               />
             )
           }
@@ -626,6 +719,7 @@ export function PlanCard({
               isLast={isLast}
               animDelay={animDelay}
               dimmed={dimmed}
+              showModel={!sharedModel}
             />
           )
         })}

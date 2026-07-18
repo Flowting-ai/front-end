@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { m } from 'framer-motion'
 import {
   WorkflowSquareTenIcon,
@@ -79,19 +79,14 @@ interface LiveStepRowProps {
 }
 
 function NodeModelIndicator({ step }: { step: PlanStep }) {
-  const [phase, setPhase] = useState<'choosing' | 'streaming'>('choosing')
   const modelName = step.modelName || 'Model'
   const llmId = getModelLlmId(step.modelCompany, step.modelName)
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setPhase('streaming'), 420)
-    return () => window.clearTimeout(timer)
-  }, [])
+  const isWorking = step.status === 'executing'
 
   return (
     <ModelStreamingIndicator
-      phase={phase}
-      label={phase === 'choosing' ? `Selecting ${modelName}…` : `${modelName} · Working…`}
+      phase={isWorking ? 'streaming' : 'complete'}
+      label={isWorking ? `${modelName} · Working…` : modelName}
       llmId={llmId ?? undefined}
       style={{ marginTop: 2 }}
     />
@@ -191,7 +186,7 @@ function LiveStepRow({ step, index, isLast }: LiveStepRowProps) {
           </span>
         )}
 
-        {isActive && (step.modelId || step.modelName) && (
+        {(step.modelId || step.modelName) && (
           <NodeModelIndicator step={step} />
         )}
 
