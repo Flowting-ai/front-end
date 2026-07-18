@@ -24,7 +24,11 @@ import {
 } from "@/hooks/use-sidebar-events";
 import { apiFetch } from "@/lib/api/client";
 import { fetchAllModels } from "@/lib/api/models";
-import { PERSONA_CHAT_STOP_ENDPOINT } from "@/lib/config";
+import {
+  PERSONA_CHAT_STOP_ENDPOINT,
+  PERSONA_CHATS_CREATE_ENDPOINT,
+  PERSONA_CHAT_STREAM_ENDPOINT,
+} from "@/lib/config";
 import { getStreamCompletion } from "@/lib/stream-registry";
 import { logger } from "@/lib/logger";
 import { useCreditStatus } from "@/hooks/use-credit-status";
@@ -207,6 +211,10 @@ export function PersonaChatInterface({
     onTitleUpdate: handleTitleUpdate,
     setStreamState,
     endpoint: "/api/persona-chat",
+    directEndpoints: {
+      create: PERSONA_CHATS_CREATE_ENDPOINT(personaId),
+      stream: (chatId) => PERSONA_CHAT_STREAM_ENDPOINT(personaId, chatId),
+    },
     onStopBackend: handleStopBackend,
     // Persona model is pre-seeded from the agent's configured version; ignore
     // backend model_selected events so the correct name/logo always shows.

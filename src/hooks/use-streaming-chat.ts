@@ -39,6 +39,11 @@ export interface UseStreamingChatParams {
   onStreamDone?: () => void
   /** Override the proxy endpoint (defaults to "/api/chat"). Use for persona chat, etc. */
   endpoint?: string
+  /** Absolute backend endpoints for proxy-less streaming on deployed origins.
+   *  Defaults to the regular chat endpoints; persona chat passes its own.
+   *  Callers with a bespoke proxy and no direct equivalent omit this AND pass
+   *  `endpoint`, keeping their proxy on all origins. */
+  directEndpoints?: { create: string; stream: (chatId: string) => string }
   /** Custom stop handler. When provided, called instead of the default CHAT_STOP_ENDPOINT call.
    *  Receives the resolved chatId. Use for persona chat stop endpoints. */
   onStopBackend?: (chatId: string) => void
@@ -64,6 +69,7 @@ export function useStreamingChat({
   setStreamState,
   onStreamDone,
   endpoint = "/api/chat",
+  directEndpoints,
   onStopBackend,
   currentChatIdRef,
   skipModelSelected,
@@ -225,22 +231,22 @@ export function useStreamingChat({
     const erroredToolNames = new Set<string>()
 
     try {
-      // ── Resolve transport: proxy vs direct-to-backend ─────────────────────
-      // /api/chat is a Vercel serverless function with a hard 4.5MB request-body
-      // cap (FUNCTION_PAYLOAD_TOO_LARGE → 413). A file attachment can easily
-      // exceed that, so file-carrying requests on the default endpoint bypass
-      // the proxy and go straight to the backend — same pattern already used
-      // for persona/project uploads (see directUpload in lib/config.ts). Text-only
-      // sends, and any caller using a non-default endpoint (e.g. persona chat),
-      // keep using their proxy unchanged.
+      // ── Resolve transport: direct-to-backend vs proxy ─────────────────────
+      // Deployed origins stream straight to the backend (absolute URL + Bearer):
+      // no Vercel serverless proxy in the path, so its stream duration limits
+      // (300/800s kills) and 4.5MB request-body cap don't apply. The proxy
+      // (`endpoint`) remains for local dev — the backend CORS allowlist has no
+      // localhost — and for callers with a bespoke proxy but no directEndpoints.
       const isExistingChat = Boolean(chatId && !chatId.startsWith("temp-"))
-      const useDirectBackend =
-        endpoint === "/api/chat" && (options?.files?.length ?? 0) > 0 && shouldUseDirectBackend()
+      const direct = directEndpoints ?? (endpoint === "/api/chat"
+        ? { create: CHATS_CREATE_ENDPOINT, stream: CHAT_STREAM_ENDPOINT }
+        : null)
+      const useDirectBackend = direct !== null && shouldUseDirectBackend()
       const directToken = useDirectBackend ? await ensureFreshToken() : null
       // Direct-to-backend requests must opt into the AG-UI stream themselves;
       // proxied requests get the parameter added by the proxy route.
       const resolvedEndpoint = useDirectBackend
-        ? `${directUpload(isExistingChat ? CHAT_STREAM_ENDPOINT(chatId!) : CHATS_CREATE_ENDPOINT)}?protocol=agui`
+        ? `${directUpload(isExistingChat ? direct!.stream(chatId!) : direct!.create)}?protocol=agui`
         : endpoint
 
       const fd = new FormData()
@@ -324,8 +330,12 @@ export function useStreamingChat({
             logger.warn("[useStreamingChat] Unrecognised stream event", rawJson)
             continue
           }
-          if (aguiEvent.type === "RUN_STARTED" && isActiveStream()) {
-            setStreamState?.("streaming")
+          if (aguiEvent.type === "RUN_STARTED") {
+            // threadId is the chat id. This is the primary id source for new
+            // chats on direct streams: the X-Chat-Id response header is not
+            // CORS-exposed, so cross-origin JS can't read it.
+            adoptChatId(aguiEvent.threadId)
+            if (isActiveStream()) setStreamState?.("streaming")
           }
           // The reasoning phase is over (tool round or answer starting) —
           // clear the thinking indicator, as the legacy intermediate `done`
