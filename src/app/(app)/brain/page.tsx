@@ -113,6 +113,14 @@ import {
   type ReasoningSection,
 } from '@/lib/reasoning'
 import type { ContextRailData } from '@/templates/Brain/ContextRail'
+import {
+  rollupContext,
+  toActivityPlan,
+  type ActivityPlan,
+  type ContextPanel,
+  type PlanInput,
+  type RunViewResolvers,
+} from '@/lib/brain/run-view'
 
 // ── Page (Suspense wrapper required for useSearchParams) ──────────────────────
 
@@ -1584,6 +1592,7 @@ function BrainPageInner() {
   // files, connectors). Fired once at the start of each turn; drives the
   // ContextRail. Null until a turn runs → rail stays empty at idle.
   const [liveContext, setLiveContext] = useState<BrainContextEvent | null>(null)
+  const [activePlanRaw, setActivePlanRaw] = useState<PlanInput | null>(null)
   // Running per-thread accumulator of every pin/file/connector ever seen in a
   // `context` event this session — lets the rail show "Previously used" items
   // that dropped out of the current turn's context, alongside what's active now.
@@ -1614,6 +1623,8 @@ function BrainPageInner() {
   // reasoning block; the sole leaf node's tokens stream to the chat bubble.
   // planNodeMetaRef/planLeafIdsRef are set from the approved plan's nodes+edges.
   const [nodeOutputs, setNodeOutputs] = useState<Record<string, string>>({})
+  const [nodeStreamDetail, setNodeStreamDetail] = useState<Record<string, string>>({})
+  const [nodeUsedConnectors, setNodeUsedConnectors] = useState<Record<string, string[]>>({})
   // State drives the render; ref mirrors give the SSE handler a stale-free read
   // (it isn't in the handler's dep list). Both are set together on plan_proposed.
   const [planNodeMeta, setPlanNodeMeta] = useState<Record<string, NodeMeta>>({})
@@ -1883,6 +1894,8 @@ function BrainPageInner() {
     setStreamFiles([])
     setExternalActions([])
     setNodeOutputs({})
+    setNodeStreamDetail({})
+    setNodeUsedConnectors({})
     setPlanNodeMeta({})
     setPlanLeafIds(new Set())
     setToolProgress(null)
@@ -1906,6 +1919,7 @@ function BrainPageInner() {
     activeRunSeqRef.current = 0
     setActivePlanId(null)
     setPendingRemapId(null)
+    setActivePlanRaw(null)
     setLiveContext(null)
     contextHistoryRef.current = { pins: new Map(), files: new Map(), connectors: new Map() }
     setHistoryMessages([])
@@ -1940,6 +1954,12 @@ function BrainPageInner() {
           setActivePlanId(latestPlan.id)
           activeRunSeqRef.current = 0
           setActivePlanSteps(steps)
+          setActivePlanRaw({
+            summary: latestPlan.plan_json?.summary ?? '',
+            nodes:   latestPlan.plan_json?.nodes,
+            steps:   latestPlan.plan_json?.steps,
+            edges:   latestPlan.plan_json?.edges,
+          })
           setActivePlanSummary(latestPlan.plan_json?.summary ?? '')
           setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, s.status ?? 'pending' as StepStatus])))
           setStreamedContent(latestWithPlan.output ?? '')
@@ -2073,10 +2093,13 @@ function BrainPageInner() {
         ))
         setPlanLeafIds(computeLeafIds(rawSteps.map((s) => s.id), d.edges))
         setNodeOutputs({})
+        setNodeStreamDetail({})
+        setNodeUsedConnectors({})
         pendingPlanIdRef.current = planId
         waitingForPlanApprovalRef.current = true
         setActivePlanId(planId)
         setActivePlanSteps(steps)
+        setActivePlanRaw({ summary, steps: d.steps, edges: d.edges })
         setActivePlanSummary(summary)
         setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, 'pending' as StepStatus])))
         setShowCounterInput(false)
@@ -2436,6 +2459,7 @@ function BrainPageInner() {
       case 'step_completed': {
         const stepId = d.step_id as string
         setStepStatuses((prev) => ({ ...prev, [stepId]: 'complete' }))
+        setNodeStreamDetail((prev) => (prev[stepId] ? { ...prev, [stepId]: '' } : prev))
         break
       }
 
@@ -2470,6 +2494,7 @@ function BrainPageInner() {
         const stepId = d.step_id as string
         const error  = typeof d.error === 'string' ? d.error : ''
         setStepStatuses((prev) => ({ ...prev, [stepId]: 'failed' }))
+        setNodeStreamDetail((prev) => (prev[stepId] ? { ...prev, [stepId]: '' } : prev))
         // The backend now self-diagnoses and follows up with a recovery
         // user_prompt (metadata.recovery) that resolves THIS run — rerun / skip /
         // apply-fix / cancel. Hold a "diagnosing" note until it arrives; the live
@@ -2794,6 +2819,25 @@ function BrainPageInner() {
         setTimeline((prev) => [...prev, { kind: 'tool', id: `tool-${++timelineSeqRef.current}`, toolKey: key }])
       }
       if (parsed.status === 'complete' && toolName) activeToolKeyByNameRef.current.delete(toolName)
+
+      // Subtask tool events carry the owning node (dispatcher stamps step_id):
+      // feed the node's live detail line and its actually-used connector set.
+      const stepId = parsed.stepId
+      if (stepId) {
+        const presentation = describeToolCall(parsed.tool_call, parsed.label)
+        if (parsed.status === 'complete') {
+          setNodeStreamDetail((prev) => (prev[stepId] ? { ...prev, [stepId]: '' } : prev))
+        } else if (presentation.detail) {
+          setNodeStreamDetail((prev) => ({ ...prev, [stepId]: presentation.detail }))
+        }
+        const slug = presentation.connector?.slug
+        if (slug && parsed.status !== 'streaming') {
+          setNodeUsedConnectors((prev) => {
+            const current = prev[stepId] ?? []
+            return current.includes(slug) ? prev : { ...prev, [stepId]: [...current, slug] }
+          })
+        }
+      }
       return
     }
 
@@ -2888,6 +2932,8 @@ function BrainPageInner() {
     setStreamFiles([])
     setExternalActions([])
     setNodeOutputs({})
+    setNodeStreamDetail({})
+    setNodeUsedConnectors({})
     setPlanNodeMeta({})
     setPlanLeafIds(new Set())
     setToolProgress(null)
@@ -2910,6 +2956,7 @@ function BrainPageInner() {
     waitingForPlanApprovalRef.current = false
     activeRunSeqRef.current = 0
     setActivePlanId(null)
+    setActivePlanRaw(null)
   }, [])
 
   useEffect(() => {
@@ -3061,6 +3108,8 @@ function BrainPageInner() {
     setStreamFiles([])
     setExternalActions([])
     setNodeOutputs({})
+    setNodeStreamDetail({})
+    setNodeUsedConnectors({})
     setPlanNodeMeta({})
     setPlanLeafIds(new Set())
     setToolProgress(null)
@@ -4068,6 +4117,8 @@ function BrainPageInner() {
     setStreamFiles([])
     setExternalActions([])
     setNodeOutputs({})
+    setNodeStreamDetail({})
+    setNodeUsedConnectors({})
     setPlanNodeMeta({})
     setPlanLeafIds(new Set())
     setToolProgress(null)
@@ -4090,6 +4141,7 @@ function BrainPageInner() {
     waitingForPlanApprovalRef.current = false
     setActivePlanId(null)
     setPendingRemapId(null)
+    setActivePlanRaw(null)
     setLiveContext(null)
     contextHistoryRef.current = { pins: new Map(), files: new Map(), connectors: new Map() }
     setHistoryMessages([])
@@ -4308,6 +4360,44 @@ function BrainPageInner() {
   const planExecutionStarted = planSteps.some(
     (s) => s.status === 'executing' || s.status === 'complete' || s.status === 'failed',
   )
+  const runViewResolvers = useMemo<RunViewResolvers>(() => ({
+    persona: (id) => {
+      const match = chipPersonas.find((p) => p.id === id)
+        ?? (selectedPersona?.id === id ? selectedPersona : null)
+      if (!match) return null
+      return { id: match.id, name: match.name, avatar: match.imageUrl ?? undefined }
+    },
+    model: (id) => {
+      const match = models.find((m) => String(m.modelId ?? m.id) === String(id))
+      if (!match) return null
+      return { id, name: match.modelName, company: match.companyName }
+    },
+    pin: (id) => {
+      const match = pinboardPins.find((p) => p.id === id)
+      if (!match) return null
+      return {
+        id,
+        title:  match.title,
+        source: match.folderName || (match.tags?.length ? match.tags.join(' · ') : undefined),
+      }
+    },
+  }), [chipPersonas, selectedPersona, models, pinboardPins])
+
+  const activityPlan = useMemo<ActivityPlan | null>(() => {
+    if (!activePlanRaw) return null
+    return toActivityPlan(activePlanRaw, runViewResolvers, {
+      statusById: stepStatuses,
+      outputById: nodeOutputs,
+      detailById: nodeStreamDetail,
+      usedById:   nodeUsedConnectors,
+    })
+  }, [activePlanRaw, runViewResolvers, stepStatuses, nodeOutputs, nodeStreamDetail, nodeUsedConnectors])
+
+  const planContextPanel = useMemo<ContextPanel | null>(
+    () => (activityPlan ? rollupContext(activityPlan) : null),
+    [activityPlan],
+  )
+
   // Show the plan approval card only when we're genuinely waiting for approval
   // (planning or pre-plan clarification). During mid-execution question_prompts
   // the plan is already running, so don't re-surface the approval UI.
@@ -4510,7 +4600,7 @@ function BrainPageInner() {
 
       {/* ActivityBlock — plan-step tracker; persists through executing and paused */}
       {showActivityBlock && (
-        <ActivityBlock steps={planSteps} interpretation={activePlanSummary} />
+        <ActivityBlock nodes={activityPlan?.nodes ?? []} interpretation={activePlanSummary} />
       )}
 
       {/* Complete header sits above the transcript; plan recap is nested as
@@ -4863,6 +4953,23 @@ function BrainPageInner() {
         source: pin.folderName || (pin.tags?.length ? pin.tags.join(' · ') : undefined),
       }))
 
+    if (planContextPanel) {
+      const planPersona = planContextPanel.persona
+      return {
+        persona: planPersona
+          ? {
+              id:        planPersona.id,
+              name:      planPersona.name,
+              handle:    planPersona.handle ?? '',
+              avatarUrl: planPersona.avatar,
+            }
+          : chipPersona,
+        pins:       planContextPanel.pins.map((pin) => ({ ...pin, active: true })),
+        files:      planContextPanel.files.map((file) => ({ ...file, active: true })),
+        connectors: planContextPanel.connectors.map((connector) => ({ ...connector, active: true })),
+      }
+    }
+
     if (!liveContext) {
       // No turn has run yet — show the chip persona + staged pins so the rail
       // opens immediately when the user selects context before their first send.
@@ -4944,7 +5051,7 @@ function BrainPageInner() {
       files:      [...activeFiles, ...previousFiles],
       connectors: [...activeConnectors, ...previousConnectors],
     }
-  }, [liveContext, selectedPersona, selectedFolderPins, effectivePinIds, pinboardPins])
+  }, [planContextPanel, liveContext, selectedPersona, selectedFolderPins, effectivePinIds, pinboardPins])
 
   // ── Has any content to render ─────────────────────────────────────────────────
 

@@ -593,12 +593,15 @@ export interface BrainToolActivity {
   status:    BrainToolActivityStatus
   label?:    string
   tool_call: ToolCallPreview
+  /** Owning plan node when the event came from a subtask (dispatcher stamps it). */
+  stepId?:   string
 }
 
 const toolActivityEventSchema = z.looseObject({
   type: z.enum(['tool_calls_streaming', 'tool_executing', 'tool_complete']),
   content: optionalEventString,
   label:   optionalEventString,
+  step_id: optionalEventString,
   tool_call: toolCallPreviewSchema.nullish(),
 })
 
@@ -638,6 +641,7 @@ export function parseBrainToolActivity(value: unknown): BrainToolActivity | null
     status,
     label: parsed.data.label,
     tool_call: toolCall,
+    stepId: parsed.data.step_id,
   }
 }
 
