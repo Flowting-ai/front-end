@@ -37,7 +37,12 @@ import { ModelLogo, ReasoningContent } from '@/components/chat/ReasoningBlock'
 import { ChatMessagesSkeleton } from '@/components/chat/ChatMessagesSkeleton'
 import { useCreditStatus } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
-import type { Phase, PlanStep, StepStatus } from '@/templates/Brain/lib/phase'
+import {
+  shouldCompletePlannerStreamOnClose,
+  type Phase,
+  type PlanStep,
+  type StepStatus,
+} from '@/templates/Brain/lib/phase'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
 import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
@@ -2561,7 +2566,10 @@ function BrainPageInner() {
         // A failed step owns the terminal UI (NodeFailureCard). The run still
         // emits message_saved as it tears down — don't let it schedule the
         // success transition and flip the failure card to 'complete'.
-        if (enteredNodeFailedRef.current) break
+        // Some legacy planner streams also save the placeholder message after
+        // plan_proposed. That is persistence, not completion: the proposed
+        // plan must remain visible until the user approves or cancels it.
+        if (enteredNodeFailedRef.current || waitingForPlanApprovalRef.current) break
         scheduleCompletion()
         break
       }
@@ -3219,14 +3227,24 @@ function BrainPageInner() {
           if (streamErrored) return
           if (terminalEventReceived) {
             // Terminal signal received, but scheduleCompletion() may have been
-            // skipped by a guard (enteredNodeFailedRef, waitingForPlanApprovalRef).
+            // skipped by a guard. RUN_FINISHED is also the normal end of a
+            // planner turn that proposed a durable plan, and React may not have
+            // committed phase='planning' yet when this callback runs. Use the
+            // synchronous plan flags as the authority so the PlanCard survives.
             // Only apply safety net when this stream ended naturally (not aborted
             // by a new send, which sets controller.signal.aborted).
-            if (!controller.signal.aborted) {
-              const cur = phaseRef.current
-              if ((cur === 'streaming' || cur === 'thinking') && !completeTimerRef.current) {
-                scheduleCompletion()
-              }
+            if (
+              !completeTimerRef.current &&
+              shouldCompletePlannerStreamOnClose({
+                phase: phaseRef.current,
+                terminalEventReceived,
+                streamErrored,
+                aborted: controller.signal.aborted,
+                planProposed: durablePlanProposed,
+                waitingForApproval: waitingForPlanApprovalRef.current,
+              })
+            ) {
+              scheduleCompletion()
             }
             return
           }
