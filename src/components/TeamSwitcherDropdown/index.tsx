@@ -10,7 +10,6 @@ import {
   AuditTwoIcon,
   DashboardSquareOneIcon,
   LinkSixIcon,
-  FolderOneIcon,
   WorkflowSquareTenIcon,
 } from '@strange-huge/icons'
 import { Dropdown } from '@/components/Dropdown'
@@ -59,7 +58,6 @@ export interface TeamSwitcherDropdownProps extends React.HTMLAttributes<HTMLDivE
   currentUserRole:   WorkspaceRole
   roleMode?:         RoleBadgeMode
   onSelectTeam?:     (teamId: string) => void
-  onSelectPersonal?: () => void
   onActionSelect?:   (teamId: string, action: string) => void
   onManageTeams?:    () => void
   asChild?:          boolean
@@ -252,7 +250,6 @@ export const TeamSwitcherDropdown = React.forwardRef<HTMLDivElement, TeamSwitche
       currentUserRole,
       roleMode = 'solar',
       onSelectTeam,
-      onSelectPersonal,
       onActionSelect,
       onManageTeams,
       asChild = false,
@@ -282,18 +279,6 @@ export const TeamSwitcherDropdown = React.forwardRef<HTMLDivElement, TeamSwitche
     return (
       <Comp ref={ref} className={className} style={style} {...props}>
         <Dropdown style={{ width: '283px' }}>
-          {/* Personal projects — fill-only hover, no flyout */}
-          <Dropdown.Section fluid>
-            <Dropdown.Item
-              fluid
-              icon={<FolderOneIcon />}
-              label="Personal projects"
-              subLabel="View all your personal projects"
-              selected={activeTeamId === 'personal'}
-              onClick={onSelectPersonal}
-            />
-          </Dropdown.Section>
-
           {/* Teams list */}
           <Dropdown.Section label={teamsLabel} divider fluid>
             {(() => {
