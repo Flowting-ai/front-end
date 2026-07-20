@@ -89,13 +89,16 @@ async function fetchOnboardingState(): Promise<OnboardingStateResult> {
   try {
     if (!apiBaseUrl) return { data: null, requiresReauth: false };
     const { token } = await auth0.getAccessToken({ audience });
-    if (!token) return { data: null, requiresReauth: false };
+    if (!token) return { data: null, requiresReauth: true };
 
     const response = await fetch(`${apiBaseUrl}${ONBOARDING_ENDPOINT_PATH}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
 
+    if (response.status === 401) {
+      return { data: null, requiresReauth: true };
+    }
     if (!response.ok) return { data: null, requiresReauth: false };
 
     const data = (await response.json()) as Record<string, unknown>;
@@ -120,7 +123,7 @@ async function fetchOnboardingState(): Promise<OnboardingStateResult> {
         ? String((error as { code?: unknown }).code)
         : "";
 
-    if (code === "missing_refresh_token") {
+    if (code === "missing_session" || code === "missing_refresh_token") {
       return { data: null, requiresReauth: true };
     }
 
@@ -162,9 +165,19 @@ export default async function proxy(request: NextRequest) {
   // request rather than falling back to next/headers (which behaves differently
   // in the proxy runtime vs. App Router route handlers).
   const session = await auth0.getSession(request);
-  const onboardingResult = session
-    ? await fetchOnboardingState()
-    : { data: null, requiresReauth: false };
+
+  // Authentication must be decided before any route-specific pass-through.
+  // In particular, the team invite landing page forwards to
+  // /onboarding/team/<inviteId>. If onboarding is allowed through first, a
+  // logged-out invitee reaches the client loader and its protected API call
+  // instead of Auth0.
+  if (!session) {
+    const loginUrl = new URL(AUTH_LOGIN_ROUTE, request.url);
+    loginUrl.searchParams.set("returnTo", pathname || ROOT_ROUTE);
+    return Response.redirect(loginUrl);
+  }
+
+  const onboardingResult = await fetchOnboardingState();
 
   const onboarding = onboardingResult.data;
   const hasOnboarded = onboarding?.allowsMainApp === true;
@@ -215,12 +228,6 @@ export default async function proxy(request: NextRequest) {
       "souvenir_checkout_complete=; path=/; max-age=0; SameSite=Lax",
     );
     return res;
-  }
-
-  if (!session) {
-    const loginUrl = new URL(AUTH_LOGIN_ROUTE, request.url);
-    loginUrl.searchParams.set("returnTo", pathname || ROOT_ROUTE);
-    return Response.redirect(loginUrl);
   }
 
   return await auth0.middleware(request);
