@@ -465,6 +465,7 @@ export default function ChatsPage() {
                         onClick={() => handleOpenChat(chat.id)}
                         onRename={(newTitle) => rename(chat.id, newTitle)}
                         onStar={() => star(chat.id)}
+                        onMoveToProject={() => { setSelectedIds(new Set([chat.id])); setMoveModalOpen(true) }}
                         onDelete={() => { remove(chat.id); toast.success('Chat deleted') }}
                       />
                     </div>

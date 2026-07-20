@@ -4,7 +4,7 @@ import React, { useState, useCallback, useRef } from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { m, AnimatePresence } from 'framer-motion'
-import { PinIcon, MoreHorizontalIcon } from '@strange-huge/icons'
+import { PinIcon, MoreHorizontalIcon, PenOneIcon, StarIcon, FolderOneIcon } from '@strange-huge/icons'
 import { Checkbox } from '@/components/Checkbox'
 import { Badge } from '@/components/Badge'
 import { cn } from '@/lib/utils'
@@ -50,6 +50,8 @@ export interface ChatRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   onRename?: (title: string) => void
   /** Called when user toggles star from the context menu. */
   onStar?: () => void
+  /** Called when user selects "Move to project" from the context menu. Omit to hide the item. */
+  onMoveToProject?: () => void
   /** Called when user selects Delete from the context menu. */
   onDelete?: () => void
   /** Empty-state: dashed blue border + glow, descriptive text, no controls. */
@@ -135,11 +137,12 @@ function PinCountChip({ pinCount, pinBoardOpen, rowElevated, title, onClick }: P
 
 interface MenuItemProps {
   label: string
+  icon?: React.ReactNode
   destructive?: boolean
   onSelect: () => void
 }
 
-function MenuItem({ label, destructive, onSelect }: MenuItemProps) {
+function MenuItem({ label, icon, destructive, onSelect }: MenuItemProps) {
   const [hovered, setHovered] = useState(false)
   return (
     <DropdownMenu.Item
@@ -149,6 +152,7 @@ function MenuItem({ label, destructive, onSelect }: MenuItemProps) {
       style={{
         display:         'flex',
         alignItems:      'center',
+        gap:             8,
         padding:         '7px 10px',
         borderRadius:    8,
         cursor:          'pointer',
@@ -163,6 +167,7 @@ function MenuItem({ label, destructive, onSelect }: MenuItemProps) {
         transition:      'background-color 100ms',
       }}
     >
+      {icon}
       {label}
     </DropdownMenu.Item>
   )
@@ -229,6 +234,7 @@ function ChatRowInner(
     starred       = false,
     onRename,
     onStar,
+    onMoveToProject,
     onDelete,
     isEmpty       = false,
     disabled      = false,
@@ -511,12 +517,21 @@ function ChatRowInner(
                     >
                       <MenuItem
                         label="Rename"
+                        icon={<PenOneIcon animated size={14} color="var(--neutral-600)" />}
                         onSelect={() => { pendingRenameRef.current = true; setRenameValue(title); setIsRenaming(true) }}
                       />
                       <MenuItem
                         label={starred ? 'Unstar' : 'Star'}
+                        icon={<StarIcon animated size={14} color="var(--neutral-600)" />}
                         onSelect={() => onStar?.()}
                       />
+                      {onMoveToProject && (
+                        <MenuItem
+                          label="Move to project"
+                          icon={<FolderOneIcon size={14} color="var(--neutral-600)" variant="static" />}
+                          onSelect={() => onMoveToProject()}
+                        />
+                      )}
                       <DropdownMenu.Separator
                         style={{
                           height:          1,

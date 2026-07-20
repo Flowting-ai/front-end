@@ -35,6 +35,11 @@ export interface ProjectChatRowProps {
 // Per-chat publish flow — mirrors the design's YourChatRow state machine.
 type PublishState = 'idle' | 'confirming' | 'published' | 'unpublishing'
 
+// Always a white card, matching ChatRow's rest/hover shadow treatment so chat
+// rows look consistent between the project page and /chats.
+const SHADOW_ROW_BASE     = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+const SHADOW_ROW_ELEVATED = '0px 4px 10px 0px rgba(82,75,71,0.16), 0px 0px 0px 1px var(--neutral-200)'
+
 // ── Empty-state row ────────────────────────────────────────────────────────────
 
 export function ProjectChatEmptyRow() {
@@ -123,16 +128,19 @@ export function ProjectChatRow(
     // Pin badge uses warm hover style when the row is active or hovered
     const showPinAction = hovered || menuOpen || !!active
 
-    const backgroundColor = (hovered || menuOpen) ? 'var(--neutral-100)' : 'transparent'
+    const backgroundColor = 'var(--neutral-white)'
 
     const boxShadow = (() => {
       if (active && (hovered || menuOpen)) {
         return '0px 2px 2.8px 0px rgba(13,110,178,0.12), 0px 0px 0px 1.5px var(--blue-500)'
       }
-      if (hovered || menuOpen) {
-        return '0px 1px 1.5px 0px rgba(82,75,71,0.10), 0px 0px 0px 1px var(--neutral-200)'
+      if (active && !hovered && !menuOpen) {
+        return SHADOW_ROW_BASE
       }
-      return 'none'
+      if (hovered || menuOpen) {
+        return SHADOW_ROW_ELEVATED
+      }
+      return SHADOW_ROW_BASE
     })()
 
     // Active-but-not-hovered uses a dashed outline border

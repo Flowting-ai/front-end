@@ -645,7 +645,8 @@ function ProjectsSection({
                   label={project.name}
                   active={isActive}
                   expanded={isExpanded}
-                  onClick={() => push(PROJECT_ROUTE(project.id))}
+                  showExpandArrow={false}
+                  onClick={() => toggleExpand(project.id, !isExpanded)}
                   onExpandedChange={(v) => toggleExpand(project.id, v)}
                 >
                   {chats.length > 0 && (
@@ -782,7 +783,8 @@ function PersonalProjectsMenu({ projects }: { projects: Project[] }) {
               label={project.name}
               active={isActive}
               expanded={isExpanded}
-              onClick={() => push(PROJECT_ROUTE(project.id))}
+              showExpandArrow={false}
+              onClick={() => toggleProjectExpand(project.id, !isExpanded)}
               onExpandedChange={(v) => toggleProjectExpand(project.id, v)}
             >
               {chats.length > 0 ? (

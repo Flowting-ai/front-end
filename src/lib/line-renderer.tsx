@@ -25,6 +25,7 @@ import { sanitizeKaTeX } from "@/lib/security"
 import { hasRawRange } from "@/lib/highlight-offsets"
 import type { WebCitation } from "@/hooks/use-chat-state"
 import type { HighlightSpec } from "./markdown-utils"
+import { isLikelyInlineMath } from "./markdown-utils"
 
 // ── KaTeX helpers ──────────────────────────────────────────────────────────────
 
@@ -199,8 +200,17 @@ function renderInlineSegment(text: string, sourceStart: number, prefix: string, 
       // $$display math$$ inline — consume both $$ pairs, render with KaTeX
       nodes.push(renderKatex(m[10], false, key))
     } else if (m[11] !== undefined) {
-      // $inline math$ — render with KaTeX
-      nodes.push(renderKatex(m[11], false, key))
+      // $inline math$ — only if the captured span actually looks like math.
+      // A price sentence with two literal dollar signs (e.g. "$50-150/mo
+      // depending on plan; ... can be $500+/mo") also matches this pattern;
+      // feeding that whole prose span to KaTeX renders it as math, which
+      // collapses the ordinary whitespace between words. Same guard used by
+      // the main markdown pipeline's escapeCurrencyDollars.
+      if (isLikelyInlineMath(m[11])) {
+        nodes.push(renderKatex(m[11], false, key))
+      } else {
+        nodes.push(...renderHighlightedText(m[0], sourceStart + m.index, key, ctx))
+      }
     } else if (m[13] !== undefined) {
       // \(inline math\) — LaTeX \(...\) delimiter, render with KaTeX
       nodes.push(renderKatex(m[13], false, key))
