@@ -95,11 +95,6 @@ const nextConfig: NextConfig = {
 
   async redirects() {
     return [
-      {
-        source: '/team-invite/:inviteId',
-        destination: '/onboarding/team/:inviteId',
-        permanent: false,
-      },
       // Legacy Stripe cancel_url — the env-default pointed here but the page never existed.
       // Redirect to plans so old sessions and any un-updated backend envs don't 404.
       {
