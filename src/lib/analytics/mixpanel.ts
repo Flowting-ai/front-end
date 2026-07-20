@@ -34,6 +34,28 @@ export function initAnalytics(): void {
   if (initialized || !analyticsEnabled || typeof window === "undefined") return;
   try {
     mixpanel.init(mixpanelToken, {
+      // First-party proxy: send every request through our own origin instead of
+      // api-js.mixpanel.com, so tracker/ad blockers (uBlock, Brave, Dia,
+      // EasyPrivacy, …) have no third-party domain to block. The server route at
+      // src/app/dispatch/[...path]/route.ts forwards to Mixpanel and preserves the
+      // client IP for geolocation. See docs/mixpanel-frontend-implementation.md.
+      //
+      // The path is deliberately generic. Same-origin alone is NOT enough — uBlock
+      // /EasyPrivacy also match by PATH regardless of domain, and `/ingest`, `/e/`,
+      // `/track`, `/collect` are all on blocklists (uBlock blocked `/ingest/e` in
+      // testing). So both the host (`/dispatch`) and the route aliases below
+      // (`evt`/`usr`/`grp`) must avoid any tracking-flavoured token.
+      api_host: "/dispatch",
+      // A COMPLETE object is required: the SDK shallow-merges api_routes, so any
+      // omitted key would fall through to `undefined` rather than its default.
+      // The proxy reverses these (evt→track, usr→engage, grp→groups).
+      api_routes: {
+        track: "evt",
+        engage: "usr",
+        groups: "grp",
+        record: "record",
+        flags: "flags",
+      },
       // Named, intentional coverage instead of autocapture (per the setup doc).
       autocapture: false,
       // We emit `screen_viewed` ourselves on every client-side navigation.

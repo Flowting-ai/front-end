@@ -19,6 +19,7 @@ Status legend: ✅ done & verified · 🟡 partial · ⛔ deferred (with reason)
 | `src/lib/analytics/screens.test.ts` *(new)* | 10 unit tests for the route→screen map. |
 | `src/components/Analytics/MixpanelProvider.tsx` *(new)* | Pass-through provider: init + identity + logout `reset` + `screen_viewed` on every navigation. Identity id resolves from `user.auth0Id` **or** the JWT `sub` (see `jwt-utils`). Dev-only `[analytics] identify → …` diagnostic. Mounted in `src/app/layout.tsx` **inside `AuthProvider`**. |
 | `src/components/Analytics/OrgStamps.tsx` *(new)* | Renders `null`; registers `org_id` + `org_tier` as **super properties only** (no `people.set`/`set_group`). Mounted in `src/app/(app)/layout.tsx` **inside `OrgProvider`**. |
+| `src/app/dispatch/[...path]/route.ts` *(new)* | First-party analytics **proxy** (see R3). Forwards `/dispatch/*` server-side to `api-js.mixpanel.com`, preserving the client IP (`X-Forwarded-For`) for geolocation and stripping the same-origin session cookie. The SDK is pointed here via `api_host:"/dispatch"`. |
 | `src/lib/config.ts` | Added `mixpanelToken` + `analyticsEnabled` + build-time dev/prod token selection. |
 | `src/context/auth-context.tsx` | Added optional `auth0Id` to `AuthUser` and mapped `profile.auth0_id`. |
 | `src/lib/jwt-utils.ts` | Added `decodeJwtSub(token)` — reads the Auth0 `sub` claim from the access token (mirrors the existing `parseTokenExpiry`), used as the analytics `distinct_id` since `/users/me` omits `auth0_id`. |
@@ -138,3 +139,39 @@ with full stamps (`feature_used`, `screen_viewed` carrying `org_id`, `org_tier: 
 the signature (correct here — the value is a non-sensitive analytics label, and the backend
 remains the signature-verifying security boundary). It mirrors the existing `parseTokenExpiry`.
 The token is never logged or transmitted; only the opaque `sub` reaches Mixpanel.
+
+**R3 — First-party proxy (browser-proof ingestion).** The SDK was talking to
+`api-js.mixpanel.com`, a third-party domain on every tracker/ad blocklist — so events
+from users on uBlock / Brave / Dia / EasyPrivacy (e.g. an agency ops person) were dropped
+before ingestion, making them invisible in the data. Fix: route all traffic through our own
+origin so blockers see the app talking to itself.
+
+> **Full write-up:** `docs/mixpanel-browser-proof.md` — task, methodology, every gotcha,
+> and the real-browser verification. The summary below is the changelog view.
+
+| Change | File | Detail |
+|---|---|---|
+| Proxy route | `src/app/dispatch/[...path]/route.ts` *(new)* | Node route handler forwarding `/dispatch/*` → `https://api-js.mixpanel.com/*`. We use a handler, **not a `next.config` rewrite**, because this repo removed rewrites (Turbopack buffers them — see `next.config.ts`) and a handler lets us explicitly forward the client IP and strip the cookie. |
+| SDK init | `src/lib/analytics/mixpanel.ts` | `api_host:"/dispatch"` + a full `api_routes` alias map (`track→evt`, `engage→usr`, `groups→grp`; `record`/`flags` kept). The alias also drops the SDK's default trailing slash (which would 308-redirect and break `sendBeacon`). `api_routes` must be a **complete** object — the SDK shallow-merges it. |
+| Proxy matcher | `src/proxy.ts` | Excluded `dispatch` from the middleware matcher. It is extension-less, so otherwise every beacon would hit the onboarding/auth gate — pre-auth events 302'd to `/auth/login` (lost) and authed events triggering a `/users/me` fetch each. Middleware runs **before** the route handler, so it must be skipped here. |
+
+**Path choice (important — learned the hard way):** the endpoint and aliases are deliberately
+generic (`/dispatch/evt|usr|grp`). Same-origin is **not** sufficient on its own — uBlock/
+EasyPrivacy match tracking paths (`/ingest`, `/e/`, `/track`, `/collect`) **by path,
+regardless of domain**. A first attempt used `/ingest/e` and uBlock in Chrome blocked it
+(observed live: `(blocked)`, 0 B). Renaming to a non-tracking path fixed it. **Never** rename
+these back to tracking-flavoured tokens.
+
+Verified against the SDK source (`mixpanel-browser@2.78`): default `api_host` is
+`api-js.mixpanel.com`; the `settings`/`flags`/`record` endpoints are **not** fetched under
+our config (`remote_settings_mode: disabled`, flags off, record 0), so only `track`/`engage`/
+`groups` fire. **No CSP change needed** — `connect-src 'self'` already covers `/dispatch`.
+
+**Privacy note (proxy):** because `/dispatch` is same-origin, the browser auto-attaches the
+Auth0 session cookie to every beacon; the route handler **strips** `cookie` (and
+`authorization`/`referer`) before forwarding, so nothing sensitive reaches Mixpanel — only
+the client IP (for geolocation) and the SDK payload.
+
+**Prod token (unrelated to this code):** production still no-ops until
+`NEXT_PUBLIC_MIXPANEL_TOKEN_PROD` is provisioned (env only — no code change). The proxy works
+identically in dev and prod.
