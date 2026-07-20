@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Dropdown } from '@/components/Dropdown'
 import {
   ArrowRightOneIcon,
@@ -11,26 +11,10 @@ import {
   UserAiIcon,
 } from '@strange-huge/icons'
 import type { PinFolder } from '@/lib/api/pins'
-import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped, isPersonaOwnedByViewer } from '@/lib/api/personas'
-import { fetchPersonaOwnerMap, resolveViewerUserId } from '@/lib/api/teams'
+import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
+import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 import { usePinboard } from '@/context/pinboard-context'
-import { useOrg } from '@/context/org-context'
-import { useAuth } from '@/context/auth-context'
-
-// Module-level session cache: original team-persona repo ID → member's copy info.
-// Shared across component instances; resets on page refresh.
-const _teamCopyCache = new Map<string, SelectedPersonaInfo>()
-
-export interface SelectedPersonaInfo {
-  id:              string
-  name:            string
-  imageUrl:        string | null
-  modelId:         string | null
-  activeVersionId: string | null
-  /** null = not yet fetched from the version; populated by the model-selector effect. */
-  systemPrompt:    string | null
-  temperature:     number | null
-}
+export type { SelectedPersonaInfo } from '@/lib/chat-personas'
 
 export const USE_STYLE_OPTIONS = [
   { id: 'none',         label: 'None',         subLabel: 'Default AI behavior' },
@@ -58,11 +42,6 @@ export interface ChatAddMenuProps {
   onFolderToggle:    (folder: PinFolder) => void
   selectedPersonaId: string | null
   onPersonaChange:   (persona: SelectedPersonaInfo | null) => void
-  /**
-   * Team project scope. When set, the agent picker lists only agents shared to
-   * this team (never private/individual ones). Omit/null outside a team project.
-   */
-  teamId?:           string | null
   hidePersona?:      boolean
   hideStyle?:        boolean
   hideWebSearch?:    boolean
@@ -79,18 +58,12 @@ export function ChatAddMenu({
   onFolderToggle,
   selectedPersonaId,
   onPersonaChange,
-  teamId,
   hidePersona,
   hideStyle,
   hideWebSearch,
   hidePinFolders,
 }: ChatAddMenuProps) {
   const { folders: contextFolders } = usePinboard()
-  const { currentUserRole, orgId, members } = useOrg()
-  const { user } = useAuth()
-  // `user?.id` is never populated by the backend's /users/me — resolve the
-  // viewer's internal id via the org member list instead (see resolveViewerUserId).
-  const viewerUserId = resolveViewerUserId(members, user?.email)
   const pinFolders: PinFolder[] = contextFolders
     .filter(f => f.pinCount === undefined || f.pinCount > 0)
     .map(f => ({ id: f.id, name: f.label, pin_count: f.pinCount ?? 0 }))
@@ -100,63 +73,7 @@ export function ChatAddMenu({
   const styleMenuOpen      = openSubmenu === 'style'
   const personaMenuOpen    = openSubmenu === 'persona'
   const pinFoldersMenuOpen = openSubmenu === 'pinFolders'
-  const [personas,           setPersonas]           = useState<SelectedPersonaInfo[]>([])
-  const [loadingPersonas,    setLoadingPersonas]    = useState(false)
-
-  useEffect(() => {
-    if (!personaMenuOpen) return
-    // Only show the spinner when there are no cached results yet.
-    const needsLoad = personas.length === 0
-    if (needsLoad) setLoadingPersonas(true)
-
-    // Members/editors can't use another user's persona directly — _resolve_persona
-    // enforces ownership. For team projects, transparently copy each team-shared
-    // persona the caller doesn't personally own into their own account, so the
-    // chat proceeds with their copy's version ID.
-    //
-    // Ownership is per-persona, not per-org-role — `currentUserRole` alone would
-    // treat every admin as owning every admin-created team-shared agent, not just
-    // their own. listTeamPersonaShares carries the real creator id (same data the
-    // org/teams "Shared by X" panel uses); fall back to the coarse role check only
-    // if that fetch hasn't resolved yet, to avoid blocking the menu on it.
-    const ownerMapPromise = teamId && orgId
-      ? fetchPersonaOwnerMap(orgId, [teamId])
-      : Promise.resolve({} as Record<string, string>)
-
-    fetchPersonas()
-      .then(async list => {
-        if (teamId) {
-          const ownerMap = await ownerMapPromise
-          const teamPersonas = personasForTeamContext(list, teamId)
-          const resolved = await Promise.all(teamPersonas.map(async p => {
-            const base: SelectedPersonaInfo = { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: p.temperature }
-            if (isPersonaOwnedByViewer(p, ownerMap, viewerUserId, currentUserRole === 'admin')) return base
-            const cached = _teamCopyCache.get(p.id)
-            if (cached) return cached
-            try {
-              const copy = await usePersonaRepoDeduped(p.id)
-              const v = copy.published_version ?? copy.active_version
-              const info: SelectedPersonaInfo = {
-                id: copy.id,
-                name: p.name,
-                imageUrl: v?.image_url ?? p.imageUrl,
-                modelId: v?.model_id ?? p.modelId,
-                activeVersionId: copy.published_version_id ?? null,
-                systemPrompt: null,
-                temperature: v?.temperature ?? p.temperature,
-              }
-              _teamCopyCache.set(p.id, info)
-              return info
-            } catch { return base }
-          }))
-          setPersonas(resolved)
-        } else {
-          setPersonas(list.filter(p => p.visibility === 'private').map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: p.temperature })))
-        }
-      })
-      .catch(() => setPersonas([]))
-      .finally(() => setLoadingPersonas(false))
-  }, [personaMenuOpen, teamId, currentUserRole, orgId, viewerUserId]) // eslint-disable-line react-hooks/exhaustive-deps -- personas.length read only for the initial guard, not a dep
+  const { personas, loading: loadingPersonas } = useSelectableChatPersonas(personaMenuOpen)
 
   return (
     <Dropdown style={{ width: 200 }}>
@@ -224,7 +141,7 @@ export function ChatAddMenu({
                           }}
                         />
                       ))
-                    : <Dropdown.Item label={teamId ? 'No shared team agents' : 'No agents yet'} fluid disabled />
+                    : <Dropdown.Item label="No agents yet" fluid disabled />
                 }
               </Dropdown.Section>
             </Dropdown>

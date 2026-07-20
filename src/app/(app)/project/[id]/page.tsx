@@ -40,8 +40,8 @@ import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
 import Image from 'next/image'
-import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped, isPersonaOwnedByViewer } from '@/lib/api/personas'
-import { fetchPersonaOwnerMap, resolveViewerUserId } from '@/lib/api/teams'
+import { resolveViewerUserId } from '@/lib/api/teams'
+import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
 import { FloatingMenu } from '@/components/FloatingMenu'
@@ -80,7 +80,7 @@ export default function ProjectPage() {
   const modelButtonLabel = useModelButtonLabel()
   const modelLlmId = museActive ? null : getModelLlmId(selectedModel?.companyName, selectedModel?.modelName)
 
-  const { orgId, caps, members, currentUserRole, teams: orgTeams } = useOrg()
+  const { caps, members, teams: orgTeams } = useOrg()
   const { user } = useAuth()
   // `user?.id` is never populated by the backend's /users/me — resolve the
   // viewer's internal id via the org member list instead (see resolveViewerUserId).
@@ -113,9 +113,7 @@ export default function ProjectPage() {
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([])
   const [selectedPersona,      setSelectedPersona]      = useState<SelectedPersonaInfo | null>(null)
   const [personaChipOpen,      setPersonaChipOpen]      = useState(false)
-  const [chipPersonas,         setChipPersonas]         = useState<SelectedPersonaInfo[]>([])
-  const [loadingChipPersonas,  setLoadingChipPersonas]  = useState(false)
-  const teamPersonaCopyCache = useRef<Map<string, SelectedPersonaInfo>>(new Map())
+  const { personas: chipPersonas, loading: loadingChipPersonas } = useSelectableChatPersonas(personaChipOpen)
   const [newChatAttachments,   setNewChatAttachments]   = useState<PendingAttachment[]>([])
   const [pendingFiles,     setPendingFiles]     = useState<File[]>([])
   const [projectLoading,   setProjectLoading]   = useState(true)
@@ -132,61 +130,6 @@ export default function ProjectPage() {
   const [forkingShareId,   setForkingShareId]   = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { processFiles, FILE_ACCEPT } = useFileUpload()
-
-  useEffect(() => {
-    if (!personaChipOpen) return
-    setLoadingChipPersonas(true)
-
-    const teamId = project?.teamId ?? null
-    // Ownership is per-persona, not per-org-role — `currentUserRole` alone would treat every
-    // admin as owning every admin-created team-shared agent, not just their own.
-    // listTeamPersonaShares (via fetchPersonaOwnerMap) carries the real creator id; fall back
-    // to the coarse role check only if that fetch hasn't resolved yet.
-    let cancelled = false
-    const ownerMapPromise = teamId && orgId
-      ? fetchPersonaOwnerMap(orgId, [teamId])
-      : Promise.resolve({} as Record<string, string>)
-
-    async function loadChipPersonas() {
-      const list = await fetchPersonas()
-      if (cancelled) return
-      const ownerMap = await ownerMapPromise
-      if (cancelled) return
-      const teamPersonas = personasForTeamContext(list, teamId)
-
-      const resolved = await Promise.all(teamPersonas.map(async p => {
-        const base: SelectedPersonaInfo = { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }
-        if (isPersonaOwnedByViewer(p, ownerMap, viewerUserId, currentUserRole === 'admin')) return base
-        const cached = teamPersonaCopyCache.current.get(p.id)
-        if (cached) return cached
-        try {
-          // Deduped — persists across sessions in localStorage, so reopening this
-          // picker (or a page reload) never spawns another duplicate clone.
-          const copy = await usePersonaRepoDeduped(p.id, p.activeVersionId)
-          const v = copy.published_version ?? copy.active_version
-          const info: SelectedPersonaInfo = {
-            id: copy.id,
-            name: p.name,
-            imageUrl: v?.image_url ?? p.imageUrl,
-            modelId: v?.model_id ?? p.modelId,
-            activeVersionId: copy.published_version_id ?? null,
-            systemPrompt: null,
-            temperature: v?.temperature ?? p.temperature,
-          }
-          teamPersonaCopyCache.current.set(p.id, info)
-          return info
-        } catch {
-          return base
-        }
-      }))
-      if (!cancelled) setChipPersonas(resolved)
-    }
-
-    loadChipPersonas()
-      .catch(() => { if (!cancelled) setChipPersonas([]) })
-      .finally(() => { if (!cancelled) setLoadingChipPersonas(false) })
-    return () => { cancelled = true }
-  }, [personaChipOpen, project?.teamId, currentUserRole, orgId, viewerUserId])
 
   // Team projects source their chat list from the global /chats endpoint
   // (which carries visibility/team_id/pins_count), filtered to this project.
@@ -791,7 +734,6 @@ export default function ProjectPage() {
                   )}
                   selectedPersonaId={selectedPersona?.id ?? null}
                   onPersonaChange={setSelectedPersona}
-                  teamId={project.teamId ?? null}
                 />
               }
               chips={
@@ -872,7 +814,7 @@ export default function ProjectPage() {
                                     onClick={() => { trackFeature('project_agent_attached', { persona_id: p.id }); setSelectedPersona(p); setPersonaChipOpen(false) }}
                                   />
                                 ))
-                              : <Dropdown.Item label={project.teamId ? 'No shared team agents' : 'No agents yet'} fluid disabled />
+                              : <Dropdown.Item label="No agents yet" fluid disabled />
                           }
                         </Dropdown.Section>
                       </Dropdown>
