@@ -3,7 +3,7 @@
 import { z } from 'zod'
 import { apiFetch, apiFetchJson, ApiError } from './client'
 import { validateInlineEvent, validateNamedEvent } from './sse-schemas'
-import { API_BASE_URL, directUpload, shouldUseDirectBackend } from '../config'
+import { API_BASE_URL, CHAT_PENDING_PROMPTS_ENDPOINT, directUpload, shouldUseDirectBackend } from '../config'
 import type { ReasoningSection } from '../reasoning'
 
 // ── Endpoint helpers ──────────────────────────────────────────────────────────
@@ -942,6 +942,30 @@ export async function counterBrainPlan(
 
 export async function cancelBrainPlan(planId: string): Promise<BrainPlanActionResponse> {
   return apiFetchJson<BrainPlanActionResponse>(BRAIN_PLAN_CANCEL(planId), { method: 'POST' })
+}
+
+// Prompts still waiting for an answer when a client (re)loads — the stream
+// that carried them died with the previous session. Mirrors the
+// prompt_gate.pending_for_chat response: re-deliverable (event, data) pairs.
+const pendingPromptSchema = z.object({
+  prompt_id: z.string(),
+  event: z.string(),
+  data: z.looseObject({}),
+  expires_at: z.string().nullable().optional(),
+})
+
+export type PendingPrompt = z.infer<typeof pendingPromptSchema>
+
+export async function getPendingPrompts(chatId: string): Promise<PendingPrompt[]> {
+  const response = await apiFetch(CHAT_PENDING_PROMPTS_ENDPOINT(chatId), { method: 'GET' })
+  if (!response.ok) return []
+  const raw = await response.json().catch(() => null)
+  const parsed = z.array(pendingPromptSchema).safeParse(raw)
+  if (!parsed.success) {
+    console.error('[brain] pending prompts failed schema validation', parsed.error.issues)
+    return []
+  }
+  return parsed.data
 }
 
 export async function subscribeBrainRun(

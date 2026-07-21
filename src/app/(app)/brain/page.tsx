@@ -67,6 +67,7 @@ import {
   consumeBrainStream,
   getBrainMessages,
   getBrainPlan,
+  getPendingPrompts,
   subscribeBrainRun,
   approveBrainPlan,
   counterBrainPlan,
@@ -1287,6 +1288,10 @@ function BrainPageInner() {
   // via the shared PermissionPromptCard.
   const [activePermissionPrompt, setActivePermissionPrompt] = useState<ConnectorPermissionPrompt | null>(null)
   const [permissionInFlight, setPermissionInFlight] = useState(false)
+  // Prompts already answered (or resolved/expired server-side). The run-events
+  // subscription replays persisted events on reconnect, so an already-decided
+  // permission_prompt can be re-delivered — it must never re-render a card.
+  const resolvedPromptIdsRef = useRef<Set<string>>(new Set())
   // Write-approval ask (event: approval_prompt) — HITL confirmation before Brain
   // performs a real-world side effect (send email, post, delete …). Independent
   // of permission policy; fires for every write. Rendered inline as ApprovalCard.
@@ -1765,6 +1770,7 @@ function BrainPageInner() {
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
+    resolvedPromptIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
     waitingForPlanApprovalRef.current = false
@@ -2156,9 +2162,25 @@ function BrainPageInner() {
         if (typeof d.prompt_id !== 'string' || !d.prompt_id) break
         const prompt = parsePermissionPrompt(d)
         if (!prompt) break
+        if (resolvedPromptIdsRef.current.has(prompt.request_id)) break
         setActivePermissionPrompt(prompt)
         setPermissionInFlight(false)
-        setTimeline((prev) => [...prev, { kind: 'permission', id: `permission-${++timelineSeqRef.current}`, promptId: prompt.request_id }])
+        setTimeline((prev) => prev.some((it) => it.kind === 'permission' && it.promptId === prompt.request_id)
+          ? prev
+          : [...prev, { kind: 'permission', id: `permission-${++timelineSeqRef.current}`, promptId: prompt.request_id }])
+        break
+      }
+
+      // Server confirmation that a pending prompt was answered (possibly from
+      // another tab) or expired — retire the card and remember the id so a
+      // replayed permission_prompt can't resurrect it.
+      case 'prompt_resolved':
+      case 'prompt_timeout': {
+        const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
+        if (!promptId) break
+        resolvedPromptIdsRef.current.add(promptId)
+        setActivePermissionPrompt((prev) => (prev && prev.request_id === promptId ? null : prev))
+        setActiveApprovalPrompt((prev) => (prev && prev.promptId === promptId ? null : prev))
         break
       }
 
@@ -2167,6 +2189,7 @@ function BrainPageInner() {
       case 'approval_prompt': {
         const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
         if (!promptId) break
+        if (resolvedPromptIdsRef.current.has(promptId)) break
         setActiveApprovalPrompt({
           promptId,
           verb:          typeof d.verb === 'string' ? d.verb : '',
@@ -2176,7 +2199,9 @@ function BrainPageInner() {
           target:        typeof d.target === 'string' ? d.target : '',
         })
         setApprovalInFlight(false)
-        setTimeline((prev) => [...prev, { kind: 'approval', id: `approval-${++timelineSeqRef.current}`, promptId }])
+        setTimeline((prev) => prev.some((it) => it.kind === 'approval' && it.promptId === promptId)
+          ? prev
+          : [...prev, { kind: 'approval', id: `approval-${++timelineSeqRef.current}`, promptId }])
         break
       }
 
@@ -2726,12 +2751,36 @@ function BrainPageInner() {
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
+    resolvedPromptIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
     waitingForPlanApprovalRef.current = false
     activeRunSeqRef.current = 0
     setActivePlanId(null)
   }, [])
+
+  // ── Pending-prompt recovery on (re)load ─────────────────────────────────────
+  // Prompts emitted while no client was listening (page refresh, closed tab)
+  // are still waiting server-side. Re-deliver them through the same named-event
+  // dispatch once history has loaded, so the cards render exactly as if they
+  // had arrived live. Expired entries are dropped; the resolved-id guard
+  // already dedupes anything the live stream re-delivers afterwards.
+  const pendingPromptsFetchedForRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!chatIdFromUrl || !historyLoaded) return
+    if (pendingPromptsFetchedForRef.current === chatIdFromUrl) return
+    pendingPromptsFetchedForRef.current = chatIdFromUrl
+    void getPendingPrompts(chatIdFromUrl)
+      .then((prompts) => {
+        if (chatIdRef.current !== chatIdFromUrl) return
+        for (const prompt of prompts) {
+          if (prompt.expires_at && new Date(prompt.expires_at).getTime() <= Date.now()) continue
+          const data = prompt.data as Record<string, unknown>
+          handleNamedEvent(prompt.event, { ...data, prompt_id: data.prompt_id ?? prompt.prompt_id })
+        }
+      })
+      .catch((e) => console.error('[Brain] pending prompt recovery failed:', e))
+  }, [chatIdFromUrl, historyLoaded, handleNamedEvent])
 
   useEffect(() => {
     if (!activePlanId) return
@@ -2894,6 +2943,7 @@ function BrainPageInner() {
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
+    resolvedPromptIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
     waitingForPlanApprovalRef.current = false
@@ -3640,8 +3690,12 @@ function BrainPageInner() {
     setPermissionInFlight(true)
     void respondToPrompt(promptId, { response: decision })
       .then(() => {
+        resolvedPromptIdsRef.current.add(promptId)
         setActivePermissionPrompt(null)
-        setPhase('thinking')
+        // Mid-run permission asks must NOT leave the run phases: the
+        // run-events subscription only stays connected in those phases, and
+        // tearing it down forces a replay that re-delivers the prompt.
+        setPhase((prev) => (prev === 'executing' || prev === 'paused' ? prev : 'thinking'))
       })
       .catch((e: unknown) => {
         console.error('[Brain] permission respond failed:', e)
@@ -3690,7 +3744,10 @@ function BrainPageInner() {
     const { promptId } = activeApprovalPrompt
     setApprovalInFlight(true)
     void respondToPrompt(promptId, { response: decision })
-      .then(() => { setPhase('thinking') })
+      .then(() => {
+        resolvedPromptIdsRef.current.add(promptId)
+        setPhase((prev) => (prev === 'executing' || prev === 'paused' ? prev : 'thinking'))
+      })
       .catch((e: unknown) => {
         console.error('[Brain] approval respond failed:', e)
         const msg = e instanceof ApiError && e.status === 404
@@ -3889,6 +3946,7 @@ function BrainPageInner() {
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
+    resolvedPromptIdsRef.current = new Set()
     progressPushedRef.current = false
     pendingPlanIdRef.current = null
     waitingForPlanApprovalRef.current = false
