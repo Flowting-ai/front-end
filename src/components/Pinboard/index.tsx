@@ -1543,12 +1543,12 @@ export function Pinboard(
             // it without being hidden; +4px adds a small resting gap so the
             // last pin doesn't sit flush against the toolbar's bleed edge.
             paddingBottom:        bottomH + 4,
+            paddingLeft:          8,
+            paddingRight:         8,
             outline:              'none',
           }}
         >
-          {/* Horizontal padding lives here, not on the scrolling element
-              above — keeps the scrollbar flush with the panel's edge. */}
-          <div style={{ width: '100%', padding: '0 8px', boxSizing: 'border-box' }}>
+          <div style={{ width: '100%' }}>
             {pins.length === 0 && hasActiveFilters ? (
               // Empty result - tag / category / content-type filters returned
               // no pins. The hasActiveFilters gate keeps this message off the

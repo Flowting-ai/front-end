@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { m } from 'framer-motion'
 import {
   WorkflowSquareTenIcon,
@@ -12,11 +12,12 @@ import { Spinner } from '@/components/Spinner'
 import { StreamingIndicator as ModelStreamingIndicator } from '@/components/StreamingIndicator'
 import { getModelLlmId } from '@/lib/model-icons'
 import { springs } from '@/lib/springs'
-import { toConnector, type Connector } from '@/lib/connector'
-import type { ActivityNode, StepStatus } from '@/lib/brain/run-view'
+import type { PlanStep } from './lib/phase'
+
+// ── Step status circle (live variant — no auth rows, no dimming) ───────────────
 
 interface LiveStepCircleProps {
-  status: StepStatus
+  status: PlanStep['status']
   index:  number
 }
 
@@ -54,6 +55,7 @@ function LiveStepCircle({ status, index }: LiveStepCircleProps) {
       </div>
     )
   }
+  // pending / upcoming
   return (
     <div style={{
       ...base,
@@ -68,118 +70,51 @@ function LiveStepCircle({ status, index }: LiveStepCircleProps) {
   )
 }
 
-function ConnectorChip({ connector, used }: { connector: Connector; used: boolean }) {
-  return (
-    <span
-      title={used ? `${connector.name} — used by this step` : `${connector.name} — available to this step`}
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        gap:             4,
-        fontFamily:      'var(--font-body)',
-        fontSize:        'var(--font-size-caption)',
-        lineHeight:      'var(--line-height-caption)',
-        color:           used ? 'var(--neutral-600)' : 'var(--neutral-400)',
-        backgroundColor: used ? 'var(--neutral-100)' : 'transparent',
-        border:          used ? '1px solid transparent' : '1px dashed var(--neutral-200)',
-        borderRadius:    4,
-        padding:         '1px 6px',
-        opacity:         used ? 1 : 0.75,
-        transition:      'opacity 150ms ease, background-color 150ms ease',
-      }}
-    >
-      {connector.logo ? (
-        // eslint-disable-next-line @next/next/no-img-element -- brand asset, variable path prevents next/image static analysis
-        <img
-          src={connector.logo}
-          alt=""
-          width={12}
-          height={12}
-          style={{ objectFit: 'contain', display: 'block', flexShrink: 0 }}
-        />
-      ) : (
-        <span aria-hidden style={{
-          width:           12,
-          height:          12,
-          borderRadius:    3,
-          backgroundColor: 'var(--neutral-200)',
-          display:         'flex',
-          alignItems:      'center',
-          justifyContent:  'center',
-          fontSize:        9,
-          fontWeight:      600,
-          color:           'var(--neutral-600)',
-          textTransform:   'uppercase',
-          flexShrink:      0,
-        }}>
-          {connector.name.charAt(0)}
-        </span>
-      )}
-      {connector.name}
-    </span>
-  )
+// ── LiveStepRow ────────────────────────────────────────────────────────────────
+
+interface LiveStepRowProps {
+  step:    PlanStep
+  index:   number
+  isLast:  boolean
 }
 
-function NodeModelIndicator({ node }: { node: ActivityNode }) {
-  const modelName = node.model?.name || 'Model'
-  const llmId = getModelLlmId(node.model?.company, node.model?.name)
-  const isWorking = node.status === 'executing'
+function NodeModelIndicator({ step }: { step: PlanStep }) {
+  const [phase, setPhase] = useState<'choosing' | 'streaming'>('choosing')
+  const modelName = step.modelName || 'Model'
+  const llmId = getModelLlmId(step.modelCompany, step.modelName)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setPhase('streaming'), 420)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   return (
     <ModelStreamingIndicator
-      phase={isWorking ? 'streaming' : 'complete'}
-      label={isWorking ? `${modelName} · Working…` : modelName}
+      phase={phase}
+      label={phase === 'choosing' ? `Selecting ${modelName}…` : `${modelName} · Working…`}
       llmId={llmId ?? undefined}
       style={{ marginTop: 2 }}
     />
   )
 }
 
-function formatDuration(startedAt: string | null, completedAt: string | null): string | null {
-  if (!startedAt || !completedAt) return null
-  const ms = Date.parse(completedAt) - Date.parse(startedAt)
-  if (!Number.isFinite(ms) || ms < 0) return null
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
-  const minutes = Math.floor(ms / 60_000)
-  const seconds = Math.round((ms % 60_000) / 1000)
-  return `${minutes}m ${seconds}s`
-}
-
-const captionStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-body)',
-  fontSize:   'var(--font-size-caption)',
-  lineHeight: 'var(--line-height-caption)',
-}
-
-interface LiveStepRowProps {
-  node:   ActivityNode
-  index:  number
-  isLast: boolean
-}
-
-function LiveStepRow({ node, index, isLast }: LiveStepRowProps) {
-  const isActive = node.status === 'executing'
-  const isDone   = node.status === 'complete' || node.status === 'skipped'
-  const isFailed = node.status === 'failed'
-  const duration = formatDuration(node.startedAt, node.completedAt)
-  const preview  = node.status === 'complete' ? node.resultPreview?.trim() : ''
-  const declared = node.context.connectors
-  const extraUsed = node.usedConnectors
-    .filter((slug) => !declared.some((c) => c.slug === slug))
-    .map((slug) => toConnector(slug))
-  const chips = [...declared, ...extraUsed]
+function LiveStepRow({ step, index, isLast }: LiveStepRowProps) {
+  const isActive = step.status === 'executing'
+  const isDone   = step.status === 'complete' || step.status === 'skipped'
+  const isFailed = step.status === 'failed'
 
   return (
     <div style={{
-      display:         'flex',
-      gap:             10,
+      display:    'flex',
+      gap:        10,
+      // Active step gets a very subtle warm background to signal "this is running"
       backgroundColor: isActive ? 'var(--neutral-50)' : 'transparent',
       borderRadius:    isActive ? 12 : 0,
       padding:         isActive ? '4px 6px 4px 4px' : '0',
       margin:          isActive ? '0 -6px' : '0',
       transition:      'background-color 150ms ease',
     }}>
+      {/* Circle + connector */}
       <div style={{
         display:       'flex',
         flexDirection: 'column',
@@ -187,12 +122,15 @@ function LiveStepRow({ node, index, isLast }: LiveStepRowProps) {
         flexShrink:    0,
         width:         28,
       }}>
-        <LiveStepCircle status={node.status} index={index} />
+        <LiveStepCircle status={step.status} index={index} />
         {!isLast && (
           <div style={{
             flex:            '1 0 0',
             width:           1,
-            backgroundColor: isDone ? 'var(--neutral-300)' : 'var(--neutral-200)',
+            // Completed connector is slightly darker; upcoming is lighter
+            backgroundColor: isDone
+              ? 'var(--neutral-300)'
+              : 'var(--neutral-200)',
             marginTop:       4,
             minHeight:       12,
             transition:      'background-color 150ms ease',
@@ -200,6 +138,7 @@ function LiveStepRow({ node, index, isLast }: LiveStepRowProps) {
         )}
       </div>
 
+      {/* Content */}
       <div style={{
         flex:          '1 0 0',
         minWidth:      0,
@@ -220,85 +159,87 @@ function LiveStepRow({ node, index, isLast }: LiveStepRowProps) {
               : isDone
                 ? 'var(--neutral-500)'
                 : 'var(--neutral-800)',
-            textDecoration: node.status === 'skipped' ? 'line-through' : 'none',
+            textDecoration: step.status === 'skipped' ? 'line-through' : 'none',
             transition:  'color 150ms ease',
           }}>
-            {node.label}
+            {step.label}
           </span>
-          {node.isCritical && isFailed && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+          {step.isCritical && isFailed && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
               <AlertCircleIcon size={12} color="var(--color-tag-Red-text)" />
-              <span style={{ ...captionStyle, color: 'var(--color-tag-Red-text)' }}>Critical</span>
-            </span>
-          )}
-          {duration && (
-            <span style={{ ...captionStyle, color: 'var(--neutral-400)', marginLeft: 'auto' }}>
-              {duration}
-            </span>
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize:   'var(--font-size-caption)',
+                lineHeight: 'var(--line-height-caption)',
+                color:      'var(--color-tag-Red-text)',
+              }}>
+                Critical
+              </span>
+            </div>
           )}
         </div>
 
-        {isActive && node.streamDetail && (
+        {isActive && step.streamDetail && (
           <span style={{
-            ...captionStyle,
-            color:     'var(--neutral-400)',
-            fontStyle: 'italic',
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            lineHeight: 'var(--line-height-caption)',
+            color:      'var(--neutral-400)',
+            fontStyle:  'italic',
           }}>
-            {node.streamDetail}
+            {step.streamDetail}
           </span>
         )}
 
-        {node.model && <NodeModelIndicator node={node} />}
+        {isActive && (step.modelId || step.modelName) && (
+          <NodeModelIndicator step={step} />
+        )}
 
-        {chips.length > 0 && (
+        {step.connector && isActive && !step.connectorDisclosure?.length && (
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            fontStyle:  'italic',
+            color:      'var(--neutral-400)',
+            lineHeight: 'var(--line-height-caption)',
+          }}>
+            via {step.connector}
+          </span>
+        )}
+
+        {step.connectorDisclosure && step.connectorDisclosure.length > 0 && (
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
-            {chips.map((connector) => (
-              <ConnectorChip
-                key={connector.slug}
-                connector={connector}
-                used={node.usedConnectors.includes(connector.slug)}
-              />
+            {step.connectorDisclosure.map(c => (
+              <span key={c} style={{
+                fontFamily:      'var(--font-body)',
+                fontSize:        'var(--font-size-caption)',
+                lineHeight:      'var(--line-height-caption)',
+                color:           'var(--neutral-400)',
+                backgroundColor: 'var(--neutral-100)',
+                borderRadius:    4,
+                padding:         '1px 6px',
+              }}>
+                via {c}
+              </span>
             ))}
           </div>
-        )}
-
-        {preview && (
-          <span style={{
-            ...captionStyle,
-            color:             'var(--neutral-500)',
-            display:           '-webkit-box',
-            WebkitLineClamp:   2,
-            WebkitBoxOrient:   'vertical',
-            overflow:          'hidden',
-            whiteSpace:        'pre-wrap',
-            wordBreak:         'break-word',
-          }}>
-            {preview}
-          </span>
-        )}
-
-        {isFailed && node.error && (
-          <span style={{
-            ...captionStyle,
-            color:      'var(--color-tag-Red-text)',
-            whiteSpace: 'pre-wrap',
-            wordBreak:  'break-word',
-          }}>
-            {node.error}
-          </span>
         )}
       </div>
     </div>
   )
 }
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 export interface ActivityBlockProps {
-  nodes:           ActivityNode[]
+  steps:           PlanStep[]
   interpretation?: string
 }
 
-export function ActivityBlock({ nodes, interpretation }: ActivityBlockProps) {
-  const doneCount = nodes.filter((n) => n.status === 'complete' || n.status === 'skipped').length
+// ── ActivityBlock ─────────────────────────────────────────────────────────────
+
+export function ActivityBlock({ steps, interpretation }: ActivityBlockProps) {
+  const doneCount      = steps.filter(s => s.status === 'complete' || s.status === 'skipped').length
 
   return (
     <m.div
@@ -306,25 +247,35 @@ export function ActivityBlock({ nodes, interpretation }: ActivityBlockProps) {
       animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
       transition={springs.moderate}
       style={{
-        display:       'flex',
-        flexDirection: 'column',
-        gap:           12,
+        display:        'flex',
+        flexDirection:  'column',
+        gap:            12,
       }}
     >
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <WorkflowSquareTenIcon size={14} color="var(--neutral-400)" />
         <span style={{
-          ...captionStyle,
+          fontFamily: 'var(--font-body)',
+          fontSize:   'var(--font-size-caption)',
           fontWeight: 'var(--font-weight-medium)',
           color:      'var(--neutral-600)',
+          lineHeight: 'var(--line-height-caption)',
         }}>
           Running
         </span>
-        <span style={{ ...captionStyle, color: 'var(--neutral-500)', marginLeft: 'auto' }}>
-          {doneCount} / {nodes.length}
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize:   'var(--font-size-caption)',
+          color:      'var(--neutral-500)',
+          lineHeight: 'var(--line-height-caption)',
+          marginLeft: 'auto',
+        }}>
+          {doneCount} / {steps.length}
         </span>
       </div>
 
+      {/* Interpretation — Brain's stated goal */}
       {interpretation && (
         <p style={{
           margin:     0,
@@ -338,13 +289,14 @@ export function ActivityBlock({ nodes, interpretation }: ActivityBlockProps) {
         </p>
       )}
 
+      {/* Steps — no mount animation, steps were already shown in PlanCard */}
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {nodes.map((node, i) => (
+        {steps.map((step, i) => (
           <LiveStepRow
-            key={node.id}
-            node={node}
+            key={step.id}
+            step={step}
             index={i}
-            isLast={i === nodes.length - 1}
+            isLast={i === steps.length - 1}
           />
         ))}
       </div>

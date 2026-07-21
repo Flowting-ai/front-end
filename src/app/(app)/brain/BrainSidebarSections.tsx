@@ -356,7 +356,7 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
       <SidebarMenuItem
         fluid
         variant="header"
-        label="Recent Threads"
+        label="Threads"
         shown={shownAll}
         onShowClick={() => setShownAll(s => !s)}
       />

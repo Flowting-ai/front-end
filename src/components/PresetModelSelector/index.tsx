@@ -190,9 +190,10 @@ export function PresetModelSelector(
                       overflowY:           'auto',
                       overscrollBehaviorY: 'contain',
                       padding:             '2px',
+                      paddingRight:        '8px',
                     }}
                   >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginRight: '-6px' }}>
                       {children}
                     </div>
                   </div>

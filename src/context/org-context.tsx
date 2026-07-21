@@ -161,12 +161,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     restoredOrgRef.current = orgId
     try {
       const saved = localStorage.getItem(activeTeamStorageKey(orgId))
-      // 'personal' is a stale sentinel from a since-removed Team Switcher
-      // option — no UI sets it anymore, so a persisted value from before
-      // that removal should fall back to the default (first team) instead
-      // of getting stuck showing "Personal Projects" forever.
-      if (saved && saved !== 'personal') _setActiveTeamId(saved)
-      else if (saved === 'personal') localStorage.removeItem(activeTeamStorageKey(orgId))
+      if (saved) _setActiveTeamId(saved)
     } catch { /* ignore */ }
   }, [orgId])
 
@@ -261,12 +256,11 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setTeamsLoading(false))
   }, [orgId, teamsRefreshToken])
 
-  // Drop a persisted team that no longer exists (deleted while away), or a
-  // stale 'personal' sentinel from the since-removed Team Switcher option —
-  // both fall back to the default (first team) rather than getting stuck.
+  // Drop a persisted team that no longer exists (deleted while away). 'personal'
+  // is a valid sentinel, not a team id, so it's exempt.
   useEffect(() => {
-    if (teamsLoading || !activeTeamId) return
-    if (activeTeamId === 'personal' || !teams.some(t => t.id === activeTeamId)) setActiveTeamId(null)
+    if (teamsLoading || !activeTeamId || activeTeamId === 'personal') return
+    if (!teams.some(t => t.id === activeTeamId)) setActiveTeamId(null)
   }, [teams, teamsLoading, activeTeamId, setActiveTeamId])
 
   function refreshTeams() {

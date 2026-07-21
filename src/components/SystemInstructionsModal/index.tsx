@@ -193,17 +193,15 @@ export function SystemInstructionsModal({
             <div
               className="kaya-scrollbar"
               style={{
+                display:       'flex',
+                flexDirection: 'column',
+                gap:           '14px',
+                padding:       '20px',
                 flex:          '1 1 0',
                 minHeight:     0,
                 overflowY:     'auto',
-                paddingTop:    '20px',
-                paddingBottom: '20px',
               }}
             >
-              {/* Horizontal padding lives on this inner wrapper, not the
-                  scrolling element above — keeps the scrollbar flush with the
-                  modal's edge. */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '0 20px' }}>
               <p
                 style={{
                   fontFamily:  'var(--font-body)',
@@ -270,7 +268,6 @@ export function SystemInstructionsModal({
                 >
                   {draft.length} / {maxLength}
                 </p>
-              </div>
               </div>
             </div>
 

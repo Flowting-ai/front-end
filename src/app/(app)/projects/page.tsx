@@ -135,14 +135,11 @@ export default function ProjectsPage() {
         height:         '100%',
         overflowY:      'auto',
         overflowX:      'hidden',
-        paddingTop:     35,
-        paddingBottom:  40,
+        padding:        '35px 24px 40px',
         boxSizing:      'border-box',
       }}
     >
-      {/* Horizontal padding lives here, not on the scrolling element above —
-          keeps the scrollbar flush with the container's edge. */}
-      <div style={{ width: '100%', maxWidth: '884px', padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div style={{ width: '100%', maxWidth: '836px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
         {/* Heading row */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

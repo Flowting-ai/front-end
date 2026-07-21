@@ -1,6 +1,6 @@
 "use client";
 
-import { apiFetch, apiFetchJson, ApiError, friendlyApiError } from "./client";
+import { apiFetch, apiFetchJson, ApiError } from "./client";
 import {
   API_BASE_URL,
   CHATS_ENDPOINT,
@@ -9,7 +9,6 @@ import {
   CHAT_STAR_ENDPOINT,
   CHAT_STOP_ENDPOINT,
   CHAT_SAVE_TO_DRIVE_ENDPOINT,
-  CHAT_PENDING_PROMPTS_ENDPOINT,
   CHAT_PROMPT_RESPOND_ENDPOINT,
   CHAT_VISIBILITY_ENDPOINT,
   CHAT_COPY_ENDPOINT,
@@ -78,7 +77,6 @@ export async function listChats(cursor?: string): Promise<ChatsListResponse> {
     throw new ApiError(
       response.status,
       "list_chats_failed",
-      friendlyApiError("Failed to load chats", response.status),
       "Failed to load chats",
     );
   }
@@ -151,7 +149,6 @@ export async function deleteChat(chatId: string): Promise<void> {
     throw new ApiError(
       response.status,
       "delete_chat_failed",
-      friendlyApiError("Failed to delete chat", response.status),
       "Failed to delete chat",
     );
   }
@@ -398,7 +395,6 @@ export async function getChatMessages(
     throw new ApiError(
       response.status,
       "get_messages_failed",
-      friendlyApiError("Failed to load messages", response.status),
       "Failed to load messages",
     );
   }
@@ -438,7 +434,6 @@ export async function deleteMessage(messageId: string): Promise<void> {
     throw new ApiError(
       response.status,
       "delete_message_failed",
-      friendlyApiError("Failed to delete message", response.status),
       "Failed to delete message",
     );
   }
@@ -478,30 +473,8 @@ export async function respondToChatPrompt(
     body:   JSON.stringify({ response }),
   });
   if (!res.ok && res.status !== 204) {
-    throw new ApiError(
-      res.status,
-      "prompt_respond_failed",
-      friendlyApiError("Failed to respond to prompt", res.status),
-      "Failed to respond to prompt",
-    );
+    throw new ApiError(res.status, "prompt_respond_failed", "Failed to respond to prompt");
   }
-}
-
-export interface PendingPrompt {
-  prompt_id: string;
-  event: string;
-  data: Record<string, unknown>;
-  expires_at?: string;
-}
-
-/** GET /chats/{chat_id}/prompts/pending — prompts still waiting on the user,
- *  as re-deliverable events. Fetched on load so a reload mid-prompt re-renders
- *  the card instead of silently deadlocking the run until timeout. */
-export async function fetchPendingPrompts(chatId: string): Promise<PendingPrompt[]> {
-  const res = await apiFetch(CHAT_PENDING_PROMPTS_ENDPOINT(chatId));
-  if (!res.ok) return [];
-  const body = (await res.json().catch(() => null)) as { prompts?: PendingPrompt[] } | null;
-  return Array.isArray(body?.prompts) ? body.prompts : [];
 }
 
 /** PATCH /chats/{chat_id}/visibility */

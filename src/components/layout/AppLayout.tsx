@@ -48,8 +48,8 @@ export function AppLayout({
   onSelectChat,
   onNewChat,
 }: AppLayoutProps) {
-  const { close: closePinboard } = usePinboard()
-  const { close: closeHighlight } = useHighlight()
+  const { isOpen: pinboardOpen, close: closePinboard } = usePinboard()
+  const { isOpen: highlightOpen, close: closeHighlight } = useHighlight()
   const { plan, currentUserRole } = useOrg()
   const pathname = usePathname()
   const router = useRouter()
@@ -170,17 +170,13 @@ export function AppLayout({
           />
         )}
 
-        {/* Content area — right padding removed (was 10px when no side panel
-            was open): that, plus the rounded container's own 12px, plus each
-            page's own inner scroll padding, was stacking into a much bigger
-            scrollbar-to-edge gap than intended. Each page's own inner content
-            now owns its exact edge spacing instead. */}
+        {/* Content area with original 10px spacing */}
         <div
           style={{
             flex:      "1 0 0",
             minHeight: 0,
             display:   "flex",
-            padding:   "10px 0",
+            padding:   (pinboardOpen || highlightOpen) ? "10px 0" : "10px 10px 10px 0",
           }}
         >
         {isPersonaPage && !isPersonaChatPage ? (
@@ -203,11 +199,7 @@ export function AppLayout({
         ) : (
           /* ── Inner rounded container (Figma 3220:33871) ──
               border 1px neutral-200, rounded-22px, bg rgba(255,255,255,0.2),
-              overflow-clip, isolate for FloatingPanel z-index scoping.
-              Right padding removed — it was stacking with the content area's
-              own padding and each page's inner scroll padding into a much
-              bigger scrollbar-to-edge gap than intended. Each page's own
-              inner content now owns its exact right-edge spacing instead. */
+              overflow-clip, isolate for FloatingPanel z-index scoping. */
           <div
             style={{
               position:        "relative",
@@ -217,9 +209,7 @@ export function AppLayout({
               flexDirection:   "column",
               alignItems:      "flex-start",
               gap:             "2px",
-              paddingTop:      "12px",
-              paddingBottom:   "12px",
-              paddingLeft:     "12px",
+              padding:         "12px",
               borderRadius:    "22px",
               border:          "1px solid var(--neutral-200)",
               backgroundColor: "rgba(255, 255, 255, 0.2)",

@@ -329,7 +329,7 @@ function SkeletonRow({ children, border = true }: { children: React.ReactNode; b
 
 function GeneralPageSkeleton() {
   return (
-    <div style={{ width: '100%', maxWidth: 908, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <style>{`@keyframes generalSkeletonShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
 
       {/* Page header */}
@@ -719,8 +719,7 @@ export default function OrgGeneralPage() {
           display:        'flex',
           alignItems:     'flex-start',
           justifyContent: 'center',
-          paddingTop:     64,
-          paddingBottom:  48,
+          padding:        '64px 24px 48px',
         }}
       >
         <GeneralPageSkeleton />
@@ -739,13 +738,10 @@ export default function OrgGeneralPage() {
         display:        'flex',
         alignItems:     'flex-start',
         justifyContent: 'center',
-        paddingTop:     64,
-        paddingBottom:  48,
+        padding:        '64px 24px 48px',
       }}
     >
-      {/* Horizontal padding lives here, not on the scrolling element above —
-          keeps the scrollbar flush with the container's edge. */}
-      <div style={{ width: '100%', maxWidth: 908, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
         {/* ── Page header ── */}
         <div style={{ paddingLeft: 4, marginBottom: 4 }}>

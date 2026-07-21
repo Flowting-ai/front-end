@@ -14,16 +14,12 @@
  * below still reads fine to the user.
  */
 
-import { getFriendlyHttpErrorText } from "@/lib/http-errors";
-
 export const MODEL_UNRESPONSIVE_MESSAGE =
   "This model is unresponsive right now. Please try again or switch to another model.";
 const MODEL_TOO_LARGE_MESSAGE =
   "Your message is too large for this model. Try shortening it or removing attachments.";
 const MODEL_GENERIC_ERROR_MESSAGE =
   "Something went wrong generating a response. Please try again.";
-const CHAT_NOT_FOUND_MESSAGE =
-  "This chat no longer exists — it may have been deleted. Start a new chat to continue.";
 
 // Keyed by HTTP status code. Add an entry here for any new status-specific
 // copy; anything not listed falls back to a generic message below instead
@@ -76,15 +72,6 @@ export function friendlyModelError(raw?: string | null, statusCode?: number): st
   const text = raw ?? "";
   const lower = text.toLowerCase();
 
-  // Checked before the status-code table below: a 404 from the chat-stream
-  // endpoint is never "the model 404'd" — it means the chat itself is gone
-  // (deleted, or never belonged to this viewer) — a specific, actionable
-  // reason worth distinguishing from the generic "model unresponsive" copy
-  // a bare 404 would otherwise get.
-  if (lower.includes("chat not found")) {
-    return CHAT_NOT_FOUND_MESSAGE;
-  }
-
   const code = statusCode ?? (() => {
     const match = STATUS_PREFIX_RE.exec(text);
     return match ? Number(match[1]) : undefined;
@@ -92,9 +79,8 @@ export function friendlyModelError(raw?: string | null, statusCode?: number): st
 
   if (code !== undefined) {
     if (STATUS_MESSAGES[code]) return STATUS_MESSAGES[code];
-    // Any status code without model-specific copy still gets proper per-code
-    // wording from the shared table — never a bare code or generic text.
-    return getFriendlyHttpErrorText(code);
+    // Any status code without dedicated copy yet — still friendly, never raw.
+    return code >= 500 ? "The model provider ran into an unexpected error. Please try again." : MODEL_GENERIC_ERROR_MESSAGE;
   }
 
   if (UNRESPONSIVE_MARKERS.some((marker) => lower.includes(marker))) {

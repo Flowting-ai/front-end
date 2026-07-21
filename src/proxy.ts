@@ -241,13 +241,6 @@ export const config = {
     // onboarding/auth gate; otherwise an <img> request gets a 302 to /auth/login
     // (or the next onboarding step) instead of the file, rendering as a broken
     // image. App/API/auth routes have no dot in the path, so they still match.
-    //
-    // `dispatch` is the first-party Mixpanel analytics proxy
-    // (src/app/dispatch/[...path]/route.ts). It is extension-less, so without this
-    // exclusion every analytics beacon would hit the onboarding/auth gate —
-    // pre-auth events would be 302'd to /auth/login (and lost), and authed events
-    // would trigger a /users/me fetch each. Middleware runs before route
-    // handlers, so it must be skipped here entirely.
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|dispatch|.*\\..*).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\..*).*)",
   ],
 };

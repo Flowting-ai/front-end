@@ -389,13 +389,10 @@ function PageShell({ children }: { children: React.ReactNode }) {
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
-        paddingTop: 64,
-        paddingBottom: 48,
+        padding: '64px 24px 48px',
       }}
     >
-      {/* Horizontal padding lives here, not on the scrolling element above —
-          keeps the scrollbar flush with the container's edge. */}
-      <div style={{ width: 1088, maxWidth: '100%', padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 28 }}>
+      <div style={{ width: 1040, maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 28 }}>
         {children}
       </div>
     </div>
@@ -2101,14 +2098,10 @@ function ModalShell({
           borderRadius: 20,
           backgroundColor: '#f7f2ed',
           boxShadow: '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1), 0px 0px 0px 1px var(--neutral-100)',
-          paddingTop: 8,
-          paddingBottom: 8,
+          padding: 8,
         }}
       >
-        {/* Horizontal padding absorbed here (16 + the 8 that used to be on the
-            scrolling element above) — keeps the scrollbar flush with the
-            modal's edge instead of inset by it. */}
-        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ padding: '12px 12px 20px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>

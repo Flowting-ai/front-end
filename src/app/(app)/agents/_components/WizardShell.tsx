@@ -65,41 +65,35 @@ export function WizardShell({ steps, children }: WizardShellProps) {
       flexDirection: 'column',
       alignItems: 'center',
       paddingTop: 32,
+      paddingLeft: 48,
+      paddingRight: 48,
       paddingBottom: 32,
       minHeight: 0,
       overflowY: 'auto',
     }}>
-      {/* Horizontal padding lives on this inner wrapper, not the scrolling
-          element above — keeps the scrollbar flush with the card's border. */}
+      {/* Header: step indicators + close */}
       <div style={{
-        width: '100%', boxSizing: 'border-box',
-        paddingLeft: 48, paddingRight: 48,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 0 auto',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        width: '100%', marginBottom: 36, flexShrink: 0,
       }}>
-        {/* Header: step indicators + close */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          width: '100%', marginBottom: 36, flexShrink: 0,
-        }}>
-          <div style={{ flex: '1 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-            {steps.map(step => <StepBadge key={step.label} {...step} />)}
-          </div>
-          <button
-            onClick={() => setCancelOpen(true)}
-            aria-label="Close"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-              background: 'rgba(255,255,255,0)', border: 'none', cursor: 'pointer',
-              boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', padding: 8,
-            }}
-          >
-            <CancelOneIcon size={20} />
-          </button>
+        <div style={{ flex: '1 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          {steps.map(step => <StepBadge key={step.label} {...step} />)}
         </div>
-
-        {children}
+        <button
+          onClick={() => setCancelOpen(true)}
+          aria-label="Close"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+            background: 'rgba(255,255,255,0)', border: 'none', cursor: 'pointer',
+            boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', padding: 8,
+          }}
+        >
+          <CancelOneIcon size={20} />
+        </button>
       </div>
+
+      {children}
 
       {cancelOpen && (
         <CancelCreationModal

@@ -15,33 +15,9 @@ import {
 } from "@/lib/config"
 import { ensureFreshToken } from "@/lib/jwt-utils"
 import { logger } from "@/lib/logger"
-import { parseAguiEvent } from "@/lib/agui/schemas"
-import { aguiToInternal } from "@/lib/agui/to-legacy"
 import type { UIMessage } from "@/hooks/use-chat-state"
 import { registerStream, completeStream } from "@/lib/stream-registry"
 import type { ReasoningSection } from "@/lib/reasoning"
-
-// ── Error markers ─────────────────────────────────────────────────────────────
-
-/**
- * Marks an Error's `message` as already user-facing copy — produced by
- * `friendlyModelError` at the point of failure, when the real status code /
- * raw backend text was still available. The outer catch checks this before
- * deciding whether to translate: re-running an already-friendly message
- * through `friendlyModelError` again would match no known pattern and
- * flatten it into the generic fallback, destroying the specific reason.
- */
-class FriendlyStreamError extends Error {
-  readonly alreadyFriendly = true as const
-}
-
-/** A 401 (or auth-flavored error text) from the XHR transport — the caller
- *  should sign the user out rather than show any chat error content. */
-class AuthExpiredError extends Error {
-  constructor() {
-    super("Your session has expired. Signing you out…")
-  }
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -61,11 +37,6 @@ export interface UseStreamingChatParams {
   onStreamDone?: () => void
   /** Override the proxy endpoint (defaults to "/api/chat"). Use for persona chat, etc. */
   endpoint?: string
-  /** Absolute backend endpoints for proxy-less streaming on deployed origins.
-   *  Defaults to the regular chat endpoints; persona chat passes its own.
-   *  Callers with a bespoke proxy and no direct equivalent omit this AND pass
-   *  `endpoint`, keeping their proxy on all origins. */
-  directEndpoints?: { create: string; stream: (chatId: string) => string }
   /** Custom stop handler. When provided, called instead of the default CHAT_STOP_ENDPOINT call.
    *  Receives the resolved chatId. Use for persona chat stop endpoints. */
   onStopBackend?: (chatId: string) => void
@@ -91,7 +62,6 @@ export function useStreamingChat({
   setStreamState,
   onStreamDone,
   endpoint = "/api/chat",
-  directEndpoints,
   onStopBackend,
   currentChatIdRef,
   skipModelSelected,
@@ -253,22 +223,20 @@ export function useStreamingChat({
     const erroredToolNames = new Set<string>()
 
     try {
-      // ── Resolve transport: direct-to-backend vs proxy ─────────────────────
-      // Deployed origins stream straight to the backend (absolute URL + Bearer):
-      // no Vercel serverless proxy in the path, so its stream duration limits
-      // (300/800s kills) and 4.5MB request-body cap don't apply. The proxy
-      // (`endpoint`) remains for local dev — the backend CORS allowlist has no
-      // localhost — and for callers with a bespoke proxy but no directEndpoints.
+      // ── Resolve transport: proxy vs direct-to-backend ─────────────────────
+      // /api/chat is a Vercel serverless function with a hard 4.5MB request-body
+      // cap (FUNCTION_PAYLOAD_TOO_LARGE → 413). A file attachment can easily
+      // exceed that, so file-carrying requests on the default endpoint bypass
+      // the proxy and go straight to the backend — same pattern already used
+      // for persona/project uploads (see directUpload in lib/config.ts). Text-only
+      // sends, and any caller using a non-default endpoint (e.g. persona chat),
+      // keep using their proxy unchanged.
       const isExistingChat = Boolean(chatId && !chatId.startsWith("temp-"))
-      const direct = directEndpoints ?? (endpoint === "/api/chat"
-        ? { create: CHATS_CREATE_ENDPOINT, stream: CHAT_STREAM_ENDPOINT }
-        : null)
-      const useDirectBackend = direct !== null && shouldUseDirectBackend()
+      const useDirectBackend =
+        endpoint === "/api/chat" && (options?.files?.length ?? 0) > 0 && shouldUseDirectBackend()
       const directToken = useDirectBackend ? await ensureFreshToken() : null
-      // Direct-to-backend requests must opt into the AG-UI stream themselves;
-      // proxied requests get the parameter added by the proxy route.
       const resolvedEndpoint = useDirectBackend
-        ? `${directUpload(isExistingChat ? direct!.stream(chatId!) : direct!.create)}?protocol=agui`
+        ? directUpload(isExistingChat ? CHAT_STREAM_ENDPOINT(chatId!) : CHATS_CREATE_ENDPOINT)
         : endpoint
 
       const fd = new FormData()
@@ -316,13 +284,27 @@ export function useStreamingChat({
         const rawChunks = buffer.split(/\r?\n\r?\n/)
         buffer = rawChunks.pop() ?? ""
 
-        for (const eventStr of rawChunks) {
-          // AG-UI frames carry the event type inside the JSON payload, so only
-          // `data:` lines matter; comments/keepalives (":ready", ": ka") have
-          // none and fall through.
+        const events: string[] = []
+        for (const raw of rawChunks) {
+          for (const part of raw.split(/\r?\n(?=event:)/)) events.push(part)
+        }
+
+        for (const eventStr of events) {
+          const lines = eventStr.split(/\r?\n/)
+          let eventName = ""
           const dataLines: string[] = []
-          for (const line of eventStr.split(/\r?\n/)) {
-            if (line.startsWith("data:")) {
+
+          for (const line of lines) {
+            if (line.startsWith("event:")) {
+              const inlineData = line.indexOf("data:", 6)
+              if (inlineData !== -1) {
+                eventName = line.slice(6, inlineData).trim()
+                const inlineRaw = line.slice(inlineData + 5)
+                dataLines.push(inlineRaw.startsWith(" ") ? inlineRaw.slice(1) : inlineRaw)
+              } else {
+                eventName = line.slice(6).trim()
+              }
+            } else if (line.startsWith("data:")) {
               // Per SSE spec: strip exactly one leading space (the protocol separator), preserve all other whitespace
               const raw = line.slice(5)
               dataLines.push(raw.startsWith(" ") ? raw.slice(1) : raw)
@@ -334,40 +316,58 @@ export function useStreamingChat({
 
           if (!dataStr) continue
 
-          // ── AG-UI protocol decode ─────────────────────────────────────────
-          // The stream is AG-UI events (requested via ?protocol=agui). Each
-          // frame is zod-validated, then mapped onto the internal
-          // (eventName, parsed) contract the handlers below consume — see
-          // src/lib/agui/to-legacy.ts. Unknown/lifecycle-only events are
-          // skipped; state and rendering behave exactly as before the
-          // protocol swap.
-          let rawJson: unknown
+          let parsed: Record<string, unknown>
           try {
-            rawJson = JSON.parse(dataStr)
+            parsed = JSON.parse(dataStr)
           } catch {
-            continue // keepalives/comments — never content under AG-UI
-          }
-          const aguiEvent = parseAguiEvent(rawJson)
-          if (!aguiEvent) {
-            logger.warn("[useStreamingChat] Unrecognised stream event", rawJson)
+            // Plain text token (not JSON) - treat as content chunk
+            // The backend sends `data: <token>` for LLM content
+            // Skip empty/whitespace-only tokens that result from SSE comment lines or keepalives
+            if (!dataStr.trim()) continue
+            const wasEmpty = !assistantContent
+            assistantContent = mergeStreamingText(assistantContent, dataStr)
+            const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
+            const hasOpenThink = /<think>/i.test(assistantContent)
+            const hasCloseThink = /<\/think>/i.test(assistantContent)
+            const stillThinking = hasOpenThink && !hasCloseThink
+            queueUpdate({
+              content: visibleText || "",
+              thinking: reasoningContent || thinkingText || undefined,
+              isThinkingInProgress: stillThinking && !reasoningContent,
+              isLoading: true,
+            }, wasEmpty)
+            if (isActiveStream()) setStreamState?.("streaming")
             continue
           }
-          if (aguiEvent.type === "RUN_STARTED") {
-            // threadId is the chat id. This is the primary id source for new
-            // chats on direct streams: the X-Chat-Id response header is not
-            // CORS-exposed, so cross-origin JS can't read it.
-            adoptChatId(aguiEvent.threadId)
-            if (isActiveStream()) setStreamState?.("streaming")
+
+          // Normalise backends that emit `type` on the JSON object instead of
+          // the SSE `event:` field
+          if (!eventName && parsed.type) {
+            const t = String(parsed.type)
+            if (t === "content") {
+              eventName = "chunk"
+              if (typeof parsed.content === "string" && !("delta" in parsed)) {
+                parsed = { ...parsed, delta: parsed.content }
+              }
+            } else {
+              eventName = t
+            }
           }
-          // The reasoning phase is over (tool round or answer starting) —
-          // clear the thinking indicator, as the legacy intermediate `done`
-          // frames used to.
-          if (aguiEvent.type === "THINKING_END") {
-            queueUpdate({ isThinkingInProgress: false }, true)
+          if (
+            eventName === "content" &&
+            typeof parsed.content === "string" &&
+            !("delta" in parsed)
+          ) {
+            parsed = { ...parsed, delta: parsed.content }
+            eventName = "chunk"
           }
-          const internal = aguiToInternal(aguiEvent)
-          if (!internal) continue
-          const { eventName, parsed } = internal
+          if (
+            eventName === "reasoning" &&
+            typeof parsed.content === "string" &&
+            !("delta" in parsed)
+          ) {
+            parsed = { ...parsed, delta: parsed.content }
+          }
 
           // ── Universal file_attachments extractor ──────────────────────────
           // Run before any specific handler so file links are captured
@@ -874,9 +874,8 @@ export function useStreamingChat({
 
             const msgId = loadingMessageIdRef.current
             if (msgId) {
-              if (existingActivityId) {
-                // Upgrade the preliminary activity in place (replacing its ID
-                // when the preliminary one was synthetic) and mark it executing.
+              if (existingActivityId && existingActivityId !== toolCallId) {
+                // Upgrade the preliminary activity: replace its ID and set status to "executing"
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== msgId) return msg
@@ -919,10 +918,8 @@ export function useStreamingChat({
             if (toolName) {
               const existingId = toolCallIdByName.get(toolName)
               if (!existingId) {
-                // First streaming chunk for this tool — create a preliminary activity.
-                // AG-UI streams carry the provider's real tool_call_id; keep the
-                // synthetic fallback for payloads without one.
-                const callId = asString(toolCall?.tool_call_id) ?? `tcs-${toolName}-${Date.now()}`
+                // First streaming chunk for this tool — create a preliminary activity
+                const callId = `tcs-${toolName}-${Date.now()}`
                 toolCallIdByName.set(toolName, callId)
                 const activityType = toolNameToType(toolName)
                 const label = asString(parsed.label) ?? undefined
@@ -1004,29 +1001,6 @@ export function useStreamingChat({
                 }),
               )
             }
-            continue
-          }
-
-          if (eventName === "prompt_timeout" || eventName === "prompt_resolved") {
-            // The backend stopped waiting on a prompt (answered — maybe from
-            // another tab — or expired). Retire the card; a late POST would 404.
-            const promptId = asString(parsed.prompt_id)
-            if (!promptId) continue
-            setMessages((prev) =>
-              prev.map((msg) => {
-                const perms = msg.connectorPermissionPrompts
-                const connects = msg.connectorConnectPrompts
-                if (!perms?.some((p) => p.request_id === promptId) &&
-                    !connects?.some((p) => p.request_id === promptId)) return msg
-                const decision = eventName === "prompt_resolved" ? "resolved" : "timeout"
-                return {
-                  ...msg,
-                  connectorPermissionPrompts: perms?.map((p) =>
-                    p.request_id === promptId ? { ...p, decision } : p),
-                  connectorConnectPrompts: connects?.filter((p) => p.request_id !== promptId),
-                }
-              }),
-            )
             continue
           }
 
@@ -1331,7 +1305,6 @@ export function useStreamingChat({
                 {
                   content: "Your session has expired. Signing you out…",
                   isLoading: false,
-                  isError: true,
                 },
                 true,
               )
@@ -1344,7 +1317,6 @@ export function useStreamingChat({
                   content: friendlyModelError(rawError),
                   isThinkingInProgress: false,
                   isLoading: false,
-                  isError: true,
                 },
                 true,
               )
@@ -1397,10 +1369,6 @@ export function useStreamingChat({
 
         let headersHandled = false
         let processedLength = 0
-        // Set right before the HEADERS_RECEIVED branch rejects on a non-2xx
-        // status, so the DONE backstop below doesn't re-log/re-reject the
-        // same failure a second time.
-        let statusRejected = false
 
         // onprogress fires for every incoming chunk of streaming data and is
         // more reliable than relying on onreadystatechange LOADING events alone.
@@ -1421,26 +1389,9 @@ export function useStreamingChat({
           if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED && !headersHandled) {
             headersHandled = true
             if (xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)) {
-              const rawText = xhr.responseText || `Request failed with status ${xhr.status}`
-              const lowerText = rawText.toLowerCase()
-              logger.error("[useStreamingChat] Stream request failed", {
-                status: xhr.status,
-                chatId,
-                isExistingChat,
-                endpoint: resolvedEndpoint,
-                responseText: xhr.responseText,
-              })
-              statusRejected = true
-              if (
-                xhr.status === 401 ||
-                lowerText.includes("token expired") ||
-                lowerText.includes("not authenticated") ||
-                lowerText.includes("unauthorized")
-              ) {
-                reject(new AuthExpiredError())
-              } else {
-                reject(new FriendlyStreamError(friendlyModelError(rawText, xhr.status)))
-              }
+              reject(new Error(
+                friendlyModelError(xhr.responseText || `Request failed with status ${xhr.status}`, xhr.status),
+              ))
               return
             }
             const headerChatId =
@@ -1464,24 +1415,7 @@ export function useStreamingChat({
             // Flush any incomplete SSE event still in the buffer
             if (buffer.trim()) processSSEText("\n\n")
             if (xhr.status === 0 && !stopRequestedRef.current) {
-              logger.error("[useStreamingChat] Connection dropped mid-stream", {
-                chatId, isExistingChat, endpoint: resolvedEndpoint,
-              })
-              reject(new FriendlyStreamError(friendlyModelError("", 503)))
-            } else if (!statusRejected && xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)) {
-              // Backstop: HEADERS_RECEIVED should have already caught a non-2xx
-              // status, but if that branch was skipped/raced for any reason,
-              // this is the last chance to surface the real error instead of
-              // silently falling through to "Generation interrupted."
-              const rawText = xhr.responseText || `Request failed with status ${xhr.status}`
-              logger.error("[useStreamingChat] Stream request failed (caught at DONE)", {
-                status: xhr.status, chatId, isExistingChat, endpoint: resolvedEndpoint, responseText: xhr.responseText,
-              })
-              if (xhr.status === 401) {
-                reject(new AuthExpiredError())
-              } else {
-                reject(new FriendlyStreamError(friendlyModelError(rawText, xhr.status)))
-              }
+              reject(new Error(friendlyModelError("", 503)))
             } else {
               resolve()
             }
@@ -1497,10 +1431,7 @@ export function useStreamingChat({
 
         xhr.onerror = () => {
           xhrRef.current = null
-          logger.error("[useStreamingChat] XHR network error", {
-            chatId, isExistingChat, endpoint: resolvedEndpoint,
-          })
-          reject(new FriendlyStreamError(friendlyModelError("", 503)))
+          reject(new Error(friendlyModelError("", 503)))
         }
 
         xhr.send(fd)
@@ -1527,7 +1458,7 @@ export function useStreamingChat({
           )
         } else {
           queueUpdate(
-            { content: "Generation interrupted. Please retry.", isLoading: false, isError: true },
+            { content: "Generation interrupted. Please retry.", isLoading: false },
             true,
           )
         }
@@ -1549,21 +1480,10 @@ export function useStreamingChat({
 
       logger.error("[useStreamingChat] Error", error)
 
-      if (error instanceof AuthExpiredError) {
-        setStreamState?.("error")
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("auth:session-expired"))
-        }
-        return
-      }
-
       const rawMsg =
         error instanceof Error ? error.message : "Failed to connect to AI service"
       const lower = rawMsg.toLowerCase()
 
-      // Fallback for errors that never passed through the XHR reject paths
-      // above (e.g. a synchronous throw earlier in this function), so
-      // weren't already classified as AuthExpiredError there.
       if (
         lower.includes("token expired") ||
         lower.includes("not authenticated") ||
@@ -1580,16 +1500,9 @@ export function useStreamingChat({
       setStreamState?.("error")
       queueUpdate(
         {
-          // Errors from the XHR paths above are already translated by
-          // friendlyModelError at the point of failure, when the real status
-          // code / raw backend text was still available. Re-running the
-          // translator on that already-friendly text would match no known
-          // pattern and flatten it into the generic fallback — so only
-          // translate genuinely-raw messages here.
-          content: error instanceof FriendlyStreamError ? rawMsg : friendlyModelError(rawMsg),
+          content: friendlyModelError(rawMsg),
           isThinkingInProgress: false,
           isLoading: false,
-          isError: true,
         },
         true,
       )

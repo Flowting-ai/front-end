@@ -498,6 +498,7 @@ function PresetModelSelectorContent({
                     overflowY: "auto",
                     overscrollBehaviorY: "contain",
                     padding: "2px",
+                    paddingRight: "8px",
                   }}
                 >
                   <div
@@ -505,6 +506,7 @@ function PresetModelSelectorContent({
                       display: "flex",
                       flexDirection: "column",
                       gap: "4px",
+                      marginRight: "-6px",
                     }}
                   >
                     {filtered.map((model) => {

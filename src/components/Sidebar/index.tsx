@@ -558,6 +558,7 @@ function DefaultProjectItems({ projects, activeFolder, expandedFolders, selected
               currentUserRole={currentUserRole}
               roleMode={roleMode}
               onSelectTeam={(id) => { onTeamSwitch?.(id); setTeamSwitcherOpen(false) }}
+              onSelectPersonal={() => setTeamSwitcherOpen(false)}
               onManageTeams={() => setTeamSwitcherOpen(false)}
             />
           </Dropdown.Float>

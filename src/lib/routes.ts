@@ -26,7 +26,6 @@ export const ORG_ACTIVITY_ROUTE = "/org/activity";
 export const ORG_PLANS_ROUTE = "/org/plans";
 export const ORG_TEAMS_ROUTE = "/org/teams";
 export const ORG_MEMBERS_ROUTE = "/org/members";
-export const ORG_ANALYTICS_ROUTE = "/org/analytics";
 export const ORG_CHANGE_PLAN_ROUTE = "/org/change-plan";
 export const ORG_SOUVENIR_SLACK_ROUTE = "/org/souvenir-slack";
 export const ORG_CONNECTORS_ROUTE = "/org/connectors";

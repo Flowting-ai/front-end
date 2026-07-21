@@ -227,7 +227,7 @@ function PlansPageSkeleton() {
   return (
     <>
       <style>{`@keyframes plansSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
-      <div style={{ width: '100%', maxWidth: 1128, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Page header */}
         <div style={{ paddingLeft: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -525,7 +525,7 @@ export default function OrgBillingPage() {
 
   if (settingsLoading || (isOwner && billingLoading)) {
     return (
-      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 64, paddingBottom: 48 }}>
+      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
         <PlansPageSkeleton />
       </div>
     )
@@ -582,13 +582,10 @@ export default function OrgBillingPage() {
         display:        'flex',
         alignItems:     'flex-start',
         justifyContent: 'center',
-        paddingTop:     64,
-        paddingBottom:  48,
+        padding:        '64px 24px 48px',
       }}
     >
-      {/* Horizontal padding lives here, not on the scrolling element above —
-          keeps the scrollbar flush with the container's edge. */}
-      <div style={{ width: '100%', maxWidth: 1128, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: '100%', maxWidth: 1080, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Page header */}
         <div style={{ paddingLeft: 4 }}>

@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
   LogoIcon,
@@ -170,23 +169,14 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
     // ── chat-item-edit state ───────────────────────────────────────────────────
     const [editValue, setEditValue] = useState(label)
     const inputRef    = useRef<HTMLInputElement>(null)
-    const renameResolvedRef = useRef(false)
+    const cancelledRef = useRef(false)
     const lastEnterRef = useRef<number>(0)
 
     useEffect(() => {
       if (isEditVariant && inputRef.current) {
-        renameResolvedRef.current = false
-        // Deferred to a macrotask: Radix's DropdownMenu restores focus to its
-        // trigger when the menu closes (which is how Rename gets opened), and
-        // that restoration can land after this same commit's effects run —
-        // a plain synchronous focus()/select() here loses that race silently
-        // (no error, just an unfocused input with no visible caret). A
-        // setTimeout(0) guarantees this runs after Radix's own cleanup.
-        const id = window.setTimeout(() => {
-          inputRef.current?.focus()
-          inputRef.current?.select()
-        }, 0)
-        return () => window.clearTimeout(id)
+        inputRef.current.focus()
+        inputRef.current.select()
+        cancelledRef.current = false
       }
     }, [isEditVariant])
 
@@ -586,31 +576,19 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={(e) => {
-                // Stop every keystroke here — otherwise it bubbles to the row's
-                // own onKeyDown, which treats Enter/Space as "activate this row"
-                // and calls preventDefault on Space, silently blocking the
-                // space character from ever reaching the input.
-                e.stopPropagation()
                 if (e.key === 'Enter') {
                   e.preventDefault()
-                  renameResolvedRef.current = true
+                  cancelledRef.current = false
                   onCommit?.(editValue)
                 }
                 if (e.key === 'Escape') {
                   e.preventDefault()
-                  renameResolvedRef.current = true
+                  cancelledRef.current = true
                   onCancel?.()
-                  toast.info('Rename cancelled')
                 }
               }}
               onBlur={() => {
-                // Enter/Escape already resolved this rename synchronously — the
-                // blur that follows (input unmounting) is just DOM cleanup, not
-                // a real click-away, so skip it to avoid double-handling.
-                if (renameResolvedRef.current) return
-                renameResolvedRef.current = true
-                onCancel?.()
-                toast.info('Rename cancelled')
+                if (!cancelledRef.current) onCommit?.(editValue)
               }}
               style={{
                 width:       '100%',

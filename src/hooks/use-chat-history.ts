@@ -95,7 +95,6 @@ export function useChatHistory(): UseChatHistoryResult {
     );
     try {
       await renameChat(chatId, title);
-      toast.success("Chat renamed");
     } catch {
       setChats((prev) =>
         prev.map((c) => (c.id === chatId ? { ...c, title: rollback } : c)),

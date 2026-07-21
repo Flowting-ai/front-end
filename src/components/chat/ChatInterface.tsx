@@ -399,8 +399,19 @@ export function ChatInterface({
   }, [messages, contextModel]);
 
   // ── Tab / page-reload resilience ──────────────────────────────────────────
-  // (the beforeunload/pagehide effect lives further below, after
-  // useStreamingChat provides handleStopGeneration)
+
+  // Warn before page reload when a stream is active so the user doesn't
+  // accidentally lose a response that's still being generated.
+  useEffect(() => {
+    const isActive = streamState === "streaming" || streamState === "waiting"
+    if (!isActive) return
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [streamState])
 
   // When the browser tab regains focus, check if the SSE connection died
   // silently while the tab was hidden (e.g. server timeout, proxy close).
@@ -486,31 +497,6 @@ export function ChatInterface({
   });
 
   const isStreaming = streamState === "streaming" || streamState === "waiting";
-
-  // Warn before page reload when a stream is active so the user doesn't
-  // accidentally lose a response that's still being generated.
-  useEffect(() => {
-    if (!isStreaming) return
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-      e.returnValue = ""
-    }
-    // pagehide fires right before the page actually tears down — including
-    // after the user confirms the beforeunload dialog above. Stopping
-    // generation here (rather than leaving the connection to die on its own)
-    // aborts the in-flight request immediately, so the backend notices the
-    // disconnect and saves whatever partial content exists right away instead
-    // of racing the reload's next message fetch.
-    const handlePageHide = () => {
-      handleStopGeneration()
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload)
-    window.addEventListener("pagehide", handlePageHide)
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload)
-      window.removeEventListener("pagehide", handlePageHide)
-    }
-  }, [isStreaming, handleStopGeneration])
 
   // Synchronous reentrancy guard for handleSend/handleRegenerate. `isStreaming` is
   // state-derived and lands a render behind the click, so a double-click (or an
@@ -1077,21 +1063,13 @@ export function ChatInterface({
           style={{
             flex: 1,
             overflowY: "auto",
-            paddingTop: "24px",
-            paddingBottom: "24px",
-            paddingRight: "2px",
+            padding: "24px 16px",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
           }}
         >
-          {/* 2px right padding on the scrolling element above sits the
-              scrollbar exactly 2px from the layout's edge. Reading-comfort
-              padding lives here, not on the scrolling element above —
-              keeps the scrollbar flush with the container's edge instead of
-              inset by the reading-comfort padding (mirrors the sidebar's
-              scroll-container-flush / inner-content-padded pattern). */}
-          <div style={{ width: "100%", maxWidth: "752px", padding: "0 16px", boxSizing: "border-box" }}>
+          <div style={{ width: "100%", maxWidth: "720px" }}>
           {/* Loading skeleton — shown while fetching AND while the virtualizer
               settles its initial measurements so the first visible frame is jitter-free */}
           {(isLoadingMessages || isSettling) && <ChatMessagesSkeleton />}

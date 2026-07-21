@@ -168,12 +168,11 @@ export function ProjectConfigPanel({
           overflowY:           'auto',
           overflowX:           'hidden',
           overscrollBehaviorY: 'contain',
+          padding:             '0 16px',
           outline:             'none',
         }}
       >
-        {/* Horizontal padding lives on this inner wrapper, not the scrolling
-            element above — keeps the scrollbar flush with the panel's edge. */}
-        <div style={{ padding: '0 16px' }}>
+
         {/* Project name */}
         <SectionLabel>Name</SectionLabel>
         <div style={{
@@ -443,7 +442,6 @@ export function ProjectConfigPanel({
 
         {/* Spacer */}
         <div style={{ height: 24 }} />
-        </div>
       </div>
 
       {/* ── Footer ── */}

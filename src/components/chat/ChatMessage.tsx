@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { toast } from "sonner";
 import { AnimatePresence, m } from "framer-motion";
 import { ReasoningBlock, ModelLogo, AnimatedLogo } from "./ReasoningBlock";
 import { BreathingDot } from "@/components/BreathingDot";
@@ -28,7 +27,6 @@ import {
   RedoIcon,
   TickTwoIcon,
   ImageDownloadTwoIcon,
-  AlertCircleIcon,
 } from "@strange-huge/icons";
 
 // ── Generated Image Card with download button ──────────────────────────────────
@@ -753,31 +751,11 @@ export function ChatMessage({
           />
         )}
 
-        {/* Error state - distinct from a normal assistant reply so a friendly
-            error message never reads as if the model itself said it. */}
-        {message.isError && message.content ? (
-          <div
-            style={{
-              display:         "flex",
-              alignItems:      "flex-start",
-              gap:             8,
-              padding:         "10px 12px",
-              backgroundColor: "var(--color-tag-Red-bg)",
-              borderRadius:    10,
-            }}
-          >
-            <AlertCircleIcon size={16} color="var(--color-tag-Red-text)" style={{ flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 14, lineHeight: "20px", color: "var(--color-tag-Red-text)", margin: 0 }}>
-              {message.content}
-            </p>
-          </div>
-        ) : null}
-
         {/* Message content - assistant only (user handled above) */}
         {/* Text content always renders via ContentRenderer so that markdown
             structure, links, bold, code, math, and citation chips are handled uniformly
             regardless of whether the backend also sends a text responseBlock. */}
-        {message.content && !message.isError ? (
+        {message.content ? (
           <m.div
             ref={contentRef}
             initial={isNewMessage ? { opacity: 0, y: 5 } : false}
@@ -827,10 +805,7 @@ export function ChatMessage({
                 key={prompt.request_id}
                 prompt={prompt}
                 onDecided={(policy) => {
-                  respondToChatPrompt(prompt.request_id, policy, prompt.respond_url).catch((e: unknown) => {
-                    console.error('[chat] permission respond failed:', e)
-                    toast.error('Your response was not received — the prompt may have expired. Please re-send your message.')
-                  })
+                  respondToChatPrompt(prompt.request_id, policy, prompt.respond_url).catch(() => {})
                   onPromptDecided?.(message.id, prompt.request_id, policy)
                 }}
               />

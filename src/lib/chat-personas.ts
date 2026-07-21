@@ -73,15 +73,13 @@ export async function resolveSelectableChatPersonas(
   }))
 }
 
-/** The complete set of agents the backend says this viewer may access.
- *  Drafts are excluded — they aren't published/usable yet. */
+/** The complete set of agents the backend says this viewer may access. */
 export async function fetchSelectableChatPersonas(
   orgId: string | null | undefined,
   viewerUserId: string | number | null | undefined,
   fallbackOwned: boolean,
 ): Promise<SelectedPersonaInfo[]> {
-  const allPersonas = await fetchPersonas()
-  const personas = allPersonas.filter(persona => persona.status !== 'draft')
+  const personas = await fetchPersonas()
   const teamIds = [...new Set(
     personas.flatMap(persona => persona.visibility === 'team' ? persona.teamIds : []),
   )]

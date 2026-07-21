@@ -222,24 +222,11 @@ const _personaDetailInFlight = new Map<string, Promise<PersonaRepoResponse>>()
 
 export const PERSONAS_LIST_UPDATED_EVENT = 'persona:list-updated'
 
-// Bumped on every bust so an in-flight fetch that started before a newer
-// mutation can tell its response is stale and skip writing it to the shared
-// cache — see fetchPersonas() below.
-let _personasFetchGeneration = 0
-
 export function bustPersonasCache(): void {
   _personasCache = null
   _personasCacheTime = 0
   _personaDetailCache.clear()
   _personaDetailInFlight.clear()
-  // Rapid-fire mutations (e.g. deleting several agents back-to-back) used to
-  // let a later bust's re-fetch collapse into an earlier, already-in-flight
-  // request that was issued (and possibly still resolves with data captured)
-  // before the later mutation had committed server-side — reintroducing a
-  // just-deleted agent into the list. Clearing the in-flight handle here
-  // guarantees every fetch issued after a bust is a genuinely fresh request.
-  _fetchPersonasInFlight = null
-  _personasFetchGeneration++
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event(PERSONAS_LIST_UPDATED_EVENT))
   }
@@ -255,7 +242,6 @@ export function fetchPersonas(): Promise<Persona[]> {
     return Promise.resolve(_personasCache)
   }
   if (_fetchPersonasInFlight) return _fetchPersonasInFlight
-  const generation = _personasFetchGeneration
   _fetchPersonasInFlight = apiFetchJson<PersonaRepoResponse[]>(PERSONAS_ENDPOINT)
     .then(async list => {
       const normalized = list.map(normalizeRepo)
@@ -274,13 +260,8 @@ export function fetchPersonas(): Promise<Persona[]> {
           }
         }),
       )
-      // Only cache this response if no bust happened while it was in flight —
-      // otherwise it reflects pre-mutation data and must not clobber whatever
-      // a newer request (or the next fresh caller) will see.
-      if (generation === _personasFetchGeneration) {
-        _personasCache = enriched
-        _personasCacheTime = Date.now()
-      }
+      _personasCache = enriched
+      _personasCacheTime = Date.now()
       return enriched
     })
     .finally(() => { _fetchPersonasInFlight = null })

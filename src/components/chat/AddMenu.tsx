@@ -14,7 +14,6 @@ import type { PinFolder } from '@/lib/api/pins'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 import { usePinboard } from '@/context/pinboard-context'
-import { getPersonaFallbackAvatar } from '@/lib/persona-template-avatars'
 export type { SelectedPersonaInfo } from '@/lib/chat-personas'
 
 export const USE_STYLE_OPTIONS = [
@@ -134,13 +133,6 @@ export function ChatAddMenu({
                         <Dropdown.Item
                           key={p.id}
                           label={p.name}
-                          avatar={
-                            <img
-                              src={p.imageUrl ?? getPersonaFallbackAvatar(p.id)}
-                              alt=""
-                              style={{ width: 24, height: 24, borderRadius: 6, objectFit: 'cover' }}
-                            />
-                          }
                           fluid
                           selected={selectedPersonaId === p.id}
                           onClick={() => {

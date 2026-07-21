@@ -30,19 +30,14 @@ export function SettingsPageShell({
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
-        paddingTop: 64,
-        paddingBottom: 48,
+        padding: '64px 24px 48px',
       }}
     >
-      {/* Horizontal padding lives here, not on the scrolling element above —
-          keeps the scrollbar flush with the container's edge. */}
       <div
         style={{
           flex: '1 0 0',
           minWidth: 0,
-          maxWidth: maxWidth + 48,
-          padding: '0 24px',
-          boxSizing: 'border-box',
+          maxWidth,
           display: 'flex',
           flexDirection: 'column',
           gap: 10,

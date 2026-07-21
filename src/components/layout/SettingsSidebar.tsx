@@ -191,13 +191,12 @@ export function SettingsSidebar() {
           minHeight:     0,
           overflowY:     'auto',
           overflowX:     'hidden',
-          paddingTop:    8,
-          paddingBottom: 16,
+          display:       'flex',
+          flexDirection: 'column',
+          gap:           24,
+          padding:       '8px 16px 16px',
         }}
       >
-        {/* Horizontal padding lives on this inner wrapper, not the scrolling
-            element above — keeps the scrollbar flush with the sidebar's edge. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '0 16px' }}>
         {/* My Settings section  - Personal Settings */}
         <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -247,7 +246,6 @@ export function SettingsSidebar() {
               ))}
             </m.div>
           </div>
-        </div>
         </div>
 
       </div>

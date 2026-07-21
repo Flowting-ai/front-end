@@ -24,14 +24,9 @@ import {
 } from "@/hooks/use-sidebar-events";
 import { apiFetch } from "@/lib/api/client";
 import { fetchAllModels } from "@/lib/api/models";
-import {
-  PERSONA_CHAT_STOP_ENDPOINT,
-  PERSONA_CHATS_CREATE_ENDPOINT,
-  PERSONA_CHAT_STREAM_ENDPOINT,
-} from "@/lib/config";
-import { getStreamCompletion, consumeInterruptedStreamMarker } from "@/lib/stream-registry";
+import { PERSONA_CHAT_STOP_ENDPOINT } from "@/lib/config";
+import { getStreamCompletion } from "@/lib/stream-registry";
 import { logger } from "@/lib/logger";
-import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import { CreditStatusBanner } from "@/components/CreditStatusBanner";
 
@@ -212,10 +207,6 @@ export function PersonaChatInterface({
     onTitleUpdate: handleTitleUpdate,
     setStreamState,
     endpoint: "/api/persona-chat",
-    directEndpoints: {
-      create: PERSONA_CHATS_CREATE_ENDPOINT(personaId),
-      stream: (chatId) => PERSONA_CHAT_STREAM_ENDPOINT(personaId, chatId),
-    },
     onStopBackend: handleStopBackend,
     // Persona model is pre-seeded from the agent's configured version; ignore
     // backend model_selected events so the correct name/logo always shows.
@@ -399,37 +390,9 @@ export function PersonaChatInterface({
               }))
             : undefined,
         }));
-        // If a stream for this chat was still running when the tab last saw
-        // it (i.e. the page reloaded/crashed mid-generation), reinterpret the
-        // interrupted turn as "Generation stopped" instead of it silently
-        // looking finished — or, if nothing was saved yet, showing nothing.
-        if (consumeInterruptedStreamMarker(initialChatId)) {
-          const last = uiMessages[uiMessages.length - 1];
-          if (last && last.role === "assistant") {
-            uiMessages[uiMessages.length - 1] = {
-              ...last,
-              isLoading: false,
-              stoppedByUser: true,
-              content: last.content || "Generation stopped.",
-            };
-          } else {
-            uiMessages.push({
-              id: `interrupted-${Date.now()}`,
-              role: "assistant",
-              content: "Generation stopped.",
-              created_at: new Date().toISOString(),
-              chat_id: initialChatId,
-              isLoading: false,
-              stoppedByUser: true,
-            });
-          }
-        }
         setMessages(uiMessages);
       })
-      .catch(err => {
-        logger.error("[PersonaChat] Failed to load messages", err);
-        toast.error(err instanceof Error ? err.message : "Failed to load messages");
-      })
+      .catch(err => logger.error("[PersonaChat] Failed to load messages", err))
       .finally(() => { if (!cancelled) setIsLoadingMessages(false); });
 
     // If a background stream is still running for this chat (the user navigated
@@ -457,20 +420,9 @@ export function PersonaChatInterface({
       e.preventDefault();
       e.returnValue = "";
     };
-    // pagehide fires right before the page tears down, even after the user
-    // confirms the beforeunload dialog above — abort the in-flight request
-    // immediately so the backend notices the disconnect and saves whatever
-    // partial content exists right away instead of racing the reload.
-    const handlePageHide = () => {
-      handleStopGeneration();
-    };
     window.addEventListener("beforeunload", handleBeforeUnload);
-    window.addEventListener("pagehide", handlePageHide);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("pagehide", handlePageHide);
-    };
-  }, [isStreaming, handleStopGeneration]);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isStreaming]);
 
   // ── Scroll management ─────────────────────────────────────────────────────
 
@@ -642,12 +594,9 @@ export function PersonaChatInterface({
       <div
         ref={messagesContainerRef}
         className="kaya-scrollbar"
-        style={{ flex: 1, overflowY: "auto", paddingTop: "24px", paddingBottom: "24px", paddingRight: "2px", display: "flex", flexDirection: "column", alignItems: "center" }}
+        style={{ flex: 1, overflowY: "auto", padding: "24px 16px", display: "flex", flexDirection: "column", alignItems: "center" }}
       >
-        {/* 2px right padding on the scrolling element above sits the
-            scrollbar exactly 2px from the layout's edge. Reading-comfort
-            padding lives here, not on the scrolling element above. */}
-        <div style={{ width: "100%", maxWidth: "752px", padding: "0 16px", boxSizing: "border-box" }}>
+        <div style={{ width: "100%", maxWidth: "720px" }}>
 
           {isLoadingMessages && <ChatMessagesSkeleton />}
 

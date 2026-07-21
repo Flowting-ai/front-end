@@ -168,13 +168,9 @@ export function BuyCreditsModal({ open, onClose, billing, onSuccess }: BuyCredit
               style={{
                 overflowY: 'auto',
                 maxHeight: 'calc(100dvh - 64px)',
-                paddingTop: 16, paddingBottom: 16,
+                padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
               }}
             >
-              {/* Horizontal padding lives on this inner wrapper, not the
-                  scrolling element above — keeps the scrollbar flush with the
-                  modal's edge. */}
-              <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* ── Header ── */}
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8,
@@ -379,7 +375,6 @@ export function BuyCreditsModal({ open, onClose, billing, onSuccess }: BuyCredit
                 }}>
                   By clicking Pay now, you allow Souvenir to charge your card in the amount above.
                 </p>
-              </div>
               </div>
             </div>
           </m.div>

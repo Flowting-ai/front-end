@@ -275,9 +275,10 @@ export function ModelSelector({
                       overflowY:           'auto',
                       overscrollBehaviorY: 'contain',
                       padding:             '2px',
+                      paddingRight:        '8px',
                     }}
                   >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginRight: '-6px' }}>
                       <ModelSelectorContext.Provider value={{ category, provider, tier, search }}>
                         {children}
                       </ModelSelectorContext.Provider>

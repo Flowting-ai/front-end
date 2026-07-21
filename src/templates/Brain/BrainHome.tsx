@@ -264,22 +264,17 @@ export function BrainHome({
   return (
     <div className="kaya-scrollbar" style={{
       flex:          1,
+      display:       'flex',
+      flexDirection: 'column',
+      alignItems:    'center',
+      justifyContent:'flex-start',
+      gap:           '28px',
       paddingTop:    '80px',
       paddingBottom: '40px',
+      paddingLeft:   '24px',
+      paddingRight:  '24px',
       overflowY:     'auto',
     }}>
-      {/* Horizontal padding lives on this inner wrapper, not the scrolling
-          element above — keeps the scrollbar flush with the container's
-          edge. */}
-      <div style={{
-        display:       'flex',
-        flexDirection: 'column',
-        alignItems:    'center',
-        justifyContent:'flex-start',
-        gap:           '28px',
-        paddingLeft:   '24px',
-        paddingRight:  '24px',
-      }}>
 
       {/* ── Hero ── */}
       <div style={{
@@ -373,7 +368,6 @@ export function BrainHome({
         </div>
       )}
 
-      </div>
     </div>
   )
 }

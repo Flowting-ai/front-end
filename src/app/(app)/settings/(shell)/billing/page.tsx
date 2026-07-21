@@ -429,12 +429,9 @@ export default function BillingPage() {
   const nextBilling      = display?.nextBilling      ?? '-'
   const periodEnd        = display?.periodEnd        ?? null
   const cancelAtPeriodEnd = display?.cancelAtPeriodEnd ?? false
-  // Cancel/Resume act on the Stripe subscription (DELETE /stripe/subscription),
-  // which cancels whichever plan the caller's account is tied to — individual
-  // or team. org/plans exposes the same "Cancel plan" flow to team accounts,
-  // gated to the org owner there; mirror that gate here so team owners get it
-  // on this page too instead of only being able to cancel from org/plans.
-  const hasActiveSub      = Boolean(individualPlan) || (isTeamAccount && isOrgOwner)
+  // Cancel/Resume act on the personal Stripe subscription, so only individual
+  // paid plans expose them — team billing is managed at the org level.
+  const hasActiveSub      = Boolean(individualPlan)
 
   const pm        = billing?.payment_method ?? null
   const hasPaymentMethod = Boolean(pm && pm.last4)
@@ -564,12 +561,10 @@ export default function BillingPage() {
         className="kaya-scrollbar"
         style={{
           flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden',
-          display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 64, paddingBottom: 48,
+          display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding:        '64px 24px 48px',
         }}
       >
-        {/* Horizontal padding lives here, not on the scrolling element above —
-            keeps the scrollbar flush with the container's edge. */}
-        <div style={{ width: '100%', maxWidth: 908, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           {/* ── Page header (static) ── */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>

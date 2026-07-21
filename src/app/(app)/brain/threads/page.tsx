@@ -170,13 +170,11 @@ function BrainThreadsPageInner() {
           display:         'flex',
           flexDirection:   'column',
           alignItems:      'center',
-          paddingBottom:   40,
+          padding:         '0 24px 40px',
           boxSizing:       'border-box',
         }}
       >
-        {/* Horizontal padding lives here, not on the scrolling element above —
-            keeps the scrollbar flush with the bordered card's edge. */}
-        <div style={{ width: '100%', maxWidth: 884, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ width: '100%', maxWidth: 836, display: 'flex', flexDirection: 'column' }}>
 
           {/* ── Header ── */}
           <div style={{

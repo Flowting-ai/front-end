@@ -4,7 +4,6 @@ import { z } from 'zod'
 import { apiFetch, apiFetchJson, ApiError } from './client'
 import { API_BASE_URL, directUpload, shouldUseDirectBackend } from '../config'
 import type { ReasoningSection } from '../reasoning'
-import { createBrainRunDispatcher } from '../brain/runStream'
 
 // ── Endpoint helpers ──────────────────────────────────────────────────────────
 
@@ -12,9 +11,9 @@ const withBase = (path: string) => `${API_BASE_URL}${path}`
 
 const BRAIN_BASE      = withBase('/brain')
 const BRAIN_BOOTSTRAP = withBase('/brain/bootstrap')
-const BRAIN_CREATE    = withBase('/brain/create?protocol=agui')
+const BRAIN_CREATE    = withBase('/brain/create')
 const BRAIN_RENAME    = withBase('/brain/rename')
-const BRAIN_STREAM    = (chatId: string) => withBase(`/brain/${chatId}/stream?protocol=agui`)
+const BRAIN_STREAM    = (chatId: string) => withBase(`/brain/${chatId}/stream`)
 const BRAIN_MESSAGES  = (chatId: string) => withBase(`/brain/${chatId}/messages`)
 const BRAIN_PLANS     = (chatId: string) => withBase(`/brain/${chatId}/plans`)
 const BRAIN_RUN       = (planId: string) => withBase(`/brain/runs/${planId}`)
@@ -34,45 +33,39 @@ const PROMPT_RESPOND  = (promptId: string) => withBase(`/chats/prompts/${promptI
 
 // ── Backend types ─────────────────────────────────────────────────────────────
 
-// The unified plan node (services/cortex/schema.py Node + runtime state).
-// `plan_proposed.steps` and persisted `plan_json.nodes` both carry this shape.
-// Zod-validated (like the context event / recovery prompts) so a backend schema
-// drift surfaces here as a dropped row, not a silent `undefined` in the UI.
-// Lenient: only `id`/`task` are load-bearing; unknown extra keys pass through.
-const nodeContextSchema = z.object({
-  connectors: z.array(z.string()).default([]),
-  pins:       z.array(z.string()).default([]),
-  files:      z.array(z.string()).default([]),
-}).partial().passthrough()
+export interface BackendPlanStep {
+  id:              string
+  title:           string
+  description?:    string
+  kind:            'skill' | 'connector' | 'tool' | 'synthesis'
+  model_id?:       string | null
+  model_name?:     string | null
+  model_company?:  string | null
+  tool?:           string
+  connector_slug?: string
+  depends_on?:     string[]
+  args_preview?:   Record<string, unknown>
+  status?:         'pending' | 'running' | 'completed' | 'failed'
+  result_preview?: string
+  error?:          string
+  started_at?:     string
+  completed_at?:   string
+}
 
-export const backendPlanNodeSchema = z.object({
-  id:              z.string().trim().min(1),
-  task:            z.string().default(''),
-  persona_id:      z.string().nullish(),
-  model_id:        z.string().nullish(),
-  model_name:      z.string().nullish(),
-  model_company:   z.string().nullish(),
-  context:         nodeContextSchema.optional(),
-  is_critical:     z.boolean().optional(),
-  status:          z.string().optional(),
-  result_preview:  z.string().optional(),
-  error:           z.string().optional(),
-  started_at:      z.string().optional(),
-  completed_at:    z.string().optional(),
-}).passthrough()
-
-export type BackendPlanNode = z.output<typeof backendPlanNodeSchema>
-// Back-compat alias: the event field is still named `steps`.
-export type BackendPlanStep = BackendPlanNode
-
-/** Validate a raw plan-node array (plan_proposed.steps or plan_json.nodes),
- *  dropping any row that fails rather than letting a malformed node through. */
-export function parsePlanNodes(value: unknown): BackendPlanNode[] {
-  if (!Array.isArray(value)) return []
-  return value.flatMap((row) => {
-    const parsed = backendPlanNodeSchema.safeParse(row)
-    return parsed.success ? [parsed.data] : []
-  })
+// Newer plans persist a node graph instead of a flat step list. Preserve its
+// model metadata so live execution can identify the model working on each node.
+export interface BackendPlanNode {
+  id:              string
+  kind:            string
+  title:           string
+  description?:    string
+  status?:         string
+  model_id?:       string | null
+  model_name?:     string | null
+  model_company?:  string | null
+  result_preview?: string
+  started_at?:     string
+  completed_at?:   string
 }
 
 export interface BackendPlanJson {
@@ -368,38 +361,6 @@ export interface WebSearchEvent          { query: string; links: Array<Record<st
 export interface ImageEvent              { url: string; s3_key: string }
 export interface GeneratedFileEvent      { url: string; s3_key: string; filename: string; mime_type: string }
 
-// The model router emits this before generation starts. Keep this at the API
-// boundary so Brain can disclose the actual routed model without trusting an
-// arbitrary SSE object in the page component.
-const optionalEventString = z.string().trim().min(1).optional()
-
-export const modelSelectedEventSchema = z.looseObject({
-  model_id:        optionalEventString,
-  model_name:      optionalEventString,
-  // Some legacy streams used camelCase for this one field.
-  modelName:       optionalEventString,
-  deployment_name: optionalEventString,
-  company:         optionalEventString,
-  complexity:      optionalEventString,
-  thinking_enabled: z.boolean().optional(),
-  effort:          optionalEventString,
-}).transform((event) => ({
-  modelId:         event.model_id,
-  modelName:       event.model_name ?? event.modelName,
-  deploymentName: event.deployment_name,
-  company:         event.company,
-  complexity:      event.complexity,
-  thinkingEnabled: event.thinking_enabled,
-  effort:          event.effort,
-}))
-
-export type ModelSelectedEvent = z.output<typeof modelSelectedEventSchema>
-
-export function parseModelSelectedEvent(value: unknown): ModelSelectedEvent | null {
-  const parsed = modelSelectedEventSchema.safeParse(value)
-  return parsed.success && parsed.data.modelName ? parsed.data : null
-}
-
 export interface ToolProgressEvent {
   tool:            string
   status:          string
@@ -536,7 +497,6 @@ export interface StepSkippedEvent   { plan_id: string; step_id: string; reason?:
 export interface BrainNamedEvents {
   message_saved:       MessageSavedEvent
   title:               TitleEvent
-  model_selected:      ModelSelectedEvent
   web_search:          WebSearchEvent
   image:               ImageEvent
   generated_file:      GeneratedFileEvent
@@ -568,82 +528,12 @@ export interface ReasoningBodyInline       { type: 'reasoning_body';    content?
 export interface ReasoningInline           { type: 'reasoning';         content?: string; delta?: string }
 export interface ContentInline             { type: 'content';           content: string }
 
-const toolArgumentsSchema = z.union([
-  z.record(z.string(), z.unknown()),
-  z.string(),
-])
-
-export const toolCallPreviewSchema = z.looseObject({
-  id:            optionalEventString,
-  tool_call_id:  optionalEventString,
-  name:          optionalEventString,
-  arguments:     toolArgumentsSchema.optional(),
-  raw_arguments: z.string().optional(),
-  result:        z.string().optional(),
-  status:        optionalEventString,
-  duration_s:    z.number().nonnegative().optional(),
-})
-
-export type ToolCallPreview = z.output<typeof toolCallPreviewSchema>
-
-export type BrainToolActivityStatus = 'streaming' | 'executing' | 'complete'
-
-export interface BrainToolActivity {
-  /** Provider call id when present; tool name is the stable legacy fallback. */
-  key:       string
-  status:    BrainToolActivityStatus
-  label?:    string
-  tool_call: ToolCallPreview
-  /** Owning plan node when the event came from a subtask (dispatcher stamps it). */
-  stepId?:   string
-}
-
-const toolActivityEventSchema = z.looseObject({
-  type: z.enum(['tool_calls_streaming', 'tool_executing', 'tool_complete']),
-  content: optionalEventString,
-  label:   optionalEventString,
-  step_id: optionalEventString,
-  tool_call: toolCallPreviewSchema.nullish(),
-})
-
-function parseToolArguments(value: ToolCallPreview['arguments']): ToolCallPreview['arguments'] {
-  if (typeof value !== 'string') return value
-  try {
-    const parsed = z.record(z.string(), z.unknown()).safeParse(JSON.parse(value))
-    return parsed.success ? parsed.data : value
-  } catch {
-    // Argument fragments are expected during tool_calls_streaming. Preserve the
-    // string for correlation, but never render it directly in the UI.
-    return value
-  }
-}
-
-/** Parse one untrusted inline tool lifecycle event into a UI-safe activity. */
-export function parseBrainToolActivity(value: unknown): BrainToolActivity | null {
-  const parsed = toolActivityEventSchema.safeParse(value)
-  if (!parsed.success) return null
-
-  const rawCall = parsed.data.tool_call ?? {}
-  const name = rawCall.name ?? parsed.data.content
-  if (!name) return null
-
-  const toolCall: ToolCallPreview = {
-    ...rawCall,
-    name,
-    arguments: parseToolArguments(rawCall.arguments),
-  }
-  const status: BrainToolActivityStatus =
-    parsed.data.type === 'tool_calls_streaming' ? 'streaming'
-      : parsed.data.type === 'tool_executing' ? 'executing'
-        : 'complete'
-
-  return {
-    key: rawCall.tool_call_id ?? rawCall.id ?? name,
-    status,
-    label: parsed.data.label,
-    tool_call: toolCall,
-    stepId: parsed.data.step_id,
-  }
+export interface ToolCallPreview {
+  id?:        string
+  name?:      string
+  arguments?: string | Record<string, unknown>
+  result?:    string
+  status?:    string
 }
 
 export interface ToolCallsStreamingInline {
@@ -714,69 +604,6 @@ export interface BrainSSECallbacks {
   onInline: (data: unknown) => void
   onClose?: () => void
   onError?: (e: Error) => void
-  /** AG-UI RUN_STARTED — carries the backend thread (chat) id. The one
-   *  reliable source of a new chat's id on cross-origin streams. */
-  onRunStarted?: (threadId: string, runId: string) => void
-}
-
-// ── AG-UI frame mapping ───────────────────────────────────────────────────────
-// The backend re-encodes the brain stream as AG-UI events when the request
-// carries ?protocol=agui. Souvenir named events ride as CUSTOM (name/value),
-// legacy inline meta frames ride as CUSTOM whose value keeps its `type`, and
-// the text/thinking/tool lifecycles replace the legacy inline frames. Frames
-// are detected per-block, so legacy streams (e.g. the files proxy) keep
-// working through the same consumer.
-
-const AGUI_LIFECYCLE_NOOP = new Set([
-  'TEXT_MESSAGE_START', 'TEXT_MESSAGE_END',
-  'THINKING_START', 'THINKING_END',
-  'THINKING_TEXT_MESSAGE_START', 'THINKING_TEXT_MESSAGE_END',
-  'TOOL_CALL_ARGS', 'TOOL_CALL_END', 'TOOL_CALL_RESULT',
-  'STATE_SNAPSHOT', 'STATE_DELTA', 'MESSAGES_SNAPSHOT', 'RAW',
-])
-
-function dispatchAguiFrame(d: Record<string, unknown>, callbacks: BrainSSECallbacks): boolean {
-  const t = d.type
-  if (typeof t !== 'string') return false
-  switch (t) {
-    case 'RUN_STARTED':
-      callbacks.onRunStarted?.(String(d.threadId ?? ''), String(d.runId ?? ''))
-      return true
-    case 'TEXT_MESSAGE_CONTENT':
-      callbacks.onInline({ type: 'content', content: String(d.delta ?? '') })
-      return true
-    case 'THINKING_TEXT_MESSAGE_CONTENT':
-      callbacks.onInline({ type: 'reasoning', content: String(d.delta ?? '') })
-      return true
-    case 'TOOL_CALL_START':
-      callbacks.onInline({
-        type: 'tool_calls_streaming',
-        content: String(d.toolCallName ?? ''),
-        tool_call: { name: d.toolCallName, tool_call_id: d.toolCallId },
-      })
-      return true
-    case 'CUSTOM': {
-      const name = typeof d.name === 'string' ? d.name : 'unknown'
-      const value = (typeof d.value === 'object' && d.value !== null
-        ? d.value : { value: d.value }) as Record<string, unknown>
-      // Legacy inline meta (tool_executing, tool_complete, tool_error,
-      // reasoning_heading/body) keeps its `type` inside the value.
-      if (value.type === name) callbacks.onInline(value)
-      else callbacks.onNamed(name, value)
-      return true
-    }
-    case 'RUN_FINISHED': {
-      const result = (typeof d.result === 'object' && d.result !== null
-        ? d.result : {}) as Record<string, unknown>
-      callbacks.onInline({ type: 'done', finish_reason: 'stop', usage: result.usage })
-      return true
-    }
-    case 'RUN_ERROR':
-      callbacks.onInline({ type: 'error', error: String(d.message ?? 'stream error') })
-      return true
-    default:
-      return AGUI_LIFECYCLE_NOOP.has(t)
-  }
 }
 
 // ── SSE stream consumer ───────────────────────────────────────────────────────
@@ -806,24 +633,15 @@ const STREAM_IDLE_TIMEOUT_MS = 800_000
  * Idle watchdog: if no chunk arrives for STREAM_IDLE_TIMEOUT_MS, the reader
  * is cancelled and `onError` is invoked with a timeout error.
  */
-export interface ConsumeBrainStreamOpts {
-  /** The detached run stream emits native AG-UI events (not legacy-translated
-   *  like the planner turn). Decode them through the typed run dispatcher. */
-  runStream?: boolean
-}
-
 export async function consumeBrainStream(
   response: Response,
   callbacks: BrainSSECallbacks,
-  opts: ConsumeBrainStreamOpts = {},
 ): Promise<void> {
   if (!response.body) {
     callbacks.onError?.(new Error('No response body'))
     callbacks.onClose?.()
     return
   }
-
-  const aguiDispatch = opts.runStream ? createBrainRunDispatcher() : dispatchAguiFrame
 
   const reader  = response.body.getReader()
   const decoder = new TextDecoder()
@@ -857,8 +675,6 @@ export async function consumeBrainStream(
       return
     }
 
-    if (!eventName && data && typeof data === 'object'
-        && aguiDispatch(data as Record<string, unknown>, callbacks)) return
     if (eventName) callbacks.onNamed(eventName, data)
     else           callbacks.onInline(data)
   }

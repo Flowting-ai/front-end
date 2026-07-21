@@ -66,35 +66,6 @@ export const PHASE_TRANSITIONS: Record<Phase, Phase[]> = {
   'failed':          ['idle'],
 }
 
-export interface PlannerStreamCloseState {
-  phase:                  Phase
-  terminalEventReceived: boolean
-  streamErrored:         boolean
-  aborted:               boolean
-  planProposed:          boolean
-  waitingForApproval:    boolean
-}
-
-/**
- * The AG-UI wrapper closes a successful planner stream with RUN_FINISHED even
- * when that turn ended by proposing a plan. React may not have committed the
- * preceding `setPhase('planning')` yet, so `phase` alone is not authoritative
- * here. The synchronous proposal/approval flags prevent the close safety net
- * from converting a valid pending plan into a completed turn.
- */
-export function shouldCompletePlannerStreamOnClose({
-  phase,
-  terminalEventReceived,
-  streamErrored,
-  aborted,
-  planProposed,
-  waitingForApproval,
-}: PlannerStreamCloseState): boolean {
-  if (!terminalEventReceived || streamErrored || aborted) return false
-  if (planProposed || waitingForApproval) return false
-  return phase === 'thinking' || phase === 'streaming'
-}
-
 // Clarification question types
 export type ClarificationType = 'ambiguity' | 'depth' | 'permission'
 

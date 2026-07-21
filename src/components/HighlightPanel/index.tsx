@@ -316,12 +316,12 @@ export function HighlightPanel({
           height:              '100%',
           overflowY:           'auto',
           overscrollBehaviorY: 'contain',
-          paddingBottom:       24,
+          padding:             '0 8px 24px',
+          display:             'flex',
+          flexDirection:       'column',
+          gap:                 8,
         }}
       >
-        {/* Horizontal padding lives on this inner wrapper, not the scrolling
-            element above — keeps the scrollbar flush with the panel's edge. */}
-        <div style={{ padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <AnimatePresence initial={false}>
           {filtered.map(h => (
             <m.div
@@ -382,7 +382,6 @@ export function HighlightPanel({
             </m.div>
           )}
         </AnimatePresence>
-        </div>
       </div>
 
       {/* ── Top edge fade - 4 progressive backdrop-blur layers + 1 surface gradient ── */}

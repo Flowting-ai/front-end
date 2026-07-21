@@ -424,18 +424,14 @@ export function SuperLinkDrawer({ ref, link, onClose, onStatusChange, onLimitCha
                   minHeight:           0,
                   overflowY:           'auto',
                   overscrollBehaviorY: 'contain',
+                  padding:             '18px',
                 }}
               >
-                {/* Horizontal (and vertical) padding lives on this inner
-                    wrapper, not the scrolling element above — keeps the
-                    scrollbar flush with the drawer's edge. */}
-                <div style={{ padding: '18px' }}>
                 <TabsContent value="overview"><DrawerOverview link={link} /></TabsContent>
                 <TabsContent value="sessions"><DrawerSessions link={link} /></TabsContent>
                 <TabsContent value="settings">
                   <DrawerSettings link={link} onStatusChange={onStatusChange} onLimitChange={onLimitChange} />
                 </TabsContent>
-                </div>
               </div>
             </Tabs>
           </m.aside>

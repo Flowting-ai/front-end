@@ -432,12 +432,7 @@ function findNextUnescapedDollar(content: string, start: number): number {
   return -1
 }
 
-// Exported so other line-based renderers (e.g. line-renderer.tsx, used for
-// the reasoning/"thinking" disclosure) can apply the same guard before
-// treating a $...$ span as real math — without it, a price sentence with two
-// literal dollar signs gets its whole span rendered as KaTeX, which collapses
-// ordinary whitespace between words.
-export function isLikelyInlineMath(value: string): boolean {
+function isLikelyInlineMath(value: string): boolean {
   const trimmed = value.trim()
   if (!trimmed || trimmed.length > 100) return false
   if (/[;:]/.test(trimmed)) return false

@@ -189,62 +189,55 @@ function CardShell({ step, heading, sub, onClose, children, footer }: {
           display: 'flex', flexDirection: 'column', flex: '1 0 0', minHeight: 0,
           borderRadius: 22, border: '1px solid var(--neutral-200,#d1c6bd)',
           backgroundColor: 'rgba(255,255,255,0.2)',
-          paddingTop: 32, paddingBottom: 32,
+          paddingTop: 32, paddingLeft: 48, paddingRight: 48, paddingBottom: 32,
           overflowY: 'auto', boxSizing: 'border-box',
         }}
       >
-        {/* Horizontal padding lives on this inner wrapper, not the scrolling
-            element above — keeps the scrollbar flush with the card's border. */}
-        <div style={{
-          display: 'flex', flexDirection: 'column', flex: '1 0 0', minHeight: 0,
-          paddingLeft: 48, paddingRight: 48, boxSizing: 'border-box',
-        }}>
-          {/* Step badges + close */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 90 }}>
-            <div style={{ flex: '1 0 0', display: 'flex', justifyContent: 'center' }}>
-              <StepBadges step={step} />
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 36, height: 36, borderRadius: 10, border: 'none',
-                background: 'transparent', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
-                cursor: 'pointer', outline: 'none',
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-                <path d="M14.5 5.5L5.5 14.5M5.5 5.5l9 9" stroke="var(--neutral-700)" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </button>
+        {/* Step badges + close */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 90 }}>
+          <div style={{ flex: '1 0 0', display: 'flex', justifyContent: 'center' }}>
+            <StepBadges step={step} />
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 36, height: 36, borderRadius: 10, border: 'none',
+              background: 'transparent', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
+              cursor: 'pointer', outline: 'none',
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+              <path d="M14.5 5.5L5.5 14.5M5.5 5.5l9 9" stroke="var(--neutral-700)" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
 
-          {/* Heading */}
-          <div style={{ textAlign: 'center', marginBottom: 35, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-            <p style={{
-              fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24,
-              lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap',
-            }}>
-              {heading}
-            </p>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14,
-              lineHeight: '22px', color: '#827a74', margin: 0, width: 416, textAlign: 'center',
-            }}>
-              {sub}
-            </p>
-          </div>
+        {/* Heading */}
+        <div style={{ textAlign: 'center', marginBottom: 35, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+          <p style={{
+            fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24,
+            lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap',
+          }}>
+            {heading}
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14,
+            lineHeight: '22px', color: '#827a74', margin: 0, width: 416, textAlign: 'center',
+          }}>
+            {sub}
+          </p>
+        </div>
 
-          {/* Content */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 0 0' }}>
-            {children}
-          </div>
+        {/* Content */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 0 0' }}>
+          {children}
+        </div>
 
-          {/* Footer */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 64 }}>
-            {footer}
-          </div>
+        {/* Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 64 }}>
+          {footer}
         </div>
       </div>
     </div>

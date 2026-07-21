@@ -210,14 +210,12 @@ export default function ChatsPage() {
         height:        '100%',
         overflowY:     'auto',
         overflowX:     'hidden',
-        paddingBottom: 40,
+        padding:       '0 24px 40px',
         boxSizing:     'border-box',
         backgroundColor: 'var(--neutral-50)',
       }}
     >
-      {/* Horizontal padding lives here, not on the scrolling element above —
-          keeps the scrollbar flush with the container's edge. */}
-      <div style={{ width: '100%', maxWidth: 884, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ width: '100%', maxWidth: 836, display: 'flex', flexDirection: 'column' }}>
 
         {/* ── Page header ─────────────────────────────────────────────────── */}
         <div
@@ -467,7 +465,6 @@ export default function ChatsPage() {
                         onClick={() => handleOpenChat(chat.id)}
                         onRename={(newTitle) => rename(chat.id, newTitle)}
                         onStar={() => star(chat.id)}
-                        onMoveToProject={() => { setSelectedIds(new Set([chat.id])); setMoveModalOpen(true) }}
                         onDelete={() => { remove(chat.id); toast.success('Chat deleted') }}
                       />
                     </div>

@@ -303,9 +303,8 @@ export function BrainShell({
             width:         '100%',
           }}>
 
-            {/* Thread slot — spans full content-area width; scrollbar sits 2px
-                from the glass card's inner edge. Inner wrapper owns the 28px
-                horizontal padding so content aligns with inputs below. */}
+            {/* Thread slot — spans full content-area width; scrollbar sits at glass card inner edge.
+                Inner wrapper owns the 28px horizontal padding so content aligns with inputs below. */}
             <div
               ref={threadRef}
               data-slot="brain-thread"
@@ -316,7 +315,6 @@ export function BrainShell({
                 overflowY:           'auto',
                 overscrollBehaviorY: 'contain',
                 scrollbarGutter:      'stable',
-                paddingRight:        2,
               }}
               className="kaya-scrollbar"
             >
