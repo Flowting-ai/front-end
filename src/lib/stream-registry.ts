@@ -34,6 +34,7 @@ export function registerStream(chatId: string | null): void {
     resolve = r
   })
   registry.set(chatId, { promise, resolve })
+  markInFlight(chatId)
 }
 
 /**
@@ -47,6 +48,56 @@ export function completeStream(chatId: string | null): void {
   if (entry) {
     entry.resolve()
     registry.delete(chatId)
+  }
+  clearInFlight(chatId)
+}
+
+// ── Reload-survival marker ───────────────────────────────────────────────────
+//
+// The in-memory `registry` above is wiped by a full page reload, so it can't
+// tell "this chat's stream was cut off by a reload" apart from "this chat has
+// no stream." sessionStorage survives a reload within the same tab (it's only
+// cleared when the tab/window closes), so it's used here as a one-shot marker:
+// set the moment a stream starts, cleared the moment it ends normally (done,
+// error, or user-initiated stop — every exit path already calls
+// completeStream). If the marker is still present when a chat's history is
+// next loaded, the previous page died mid-stream — used to show "Generation
+// stopped" instead of the response silently vanishing.
+
+const INFLIGHT_KEY_PREFIX = "kaya:stream-inflight:"
+
+function inflightKey(chatId: string): string {
+  return `${INFLIGHT_KEY_PREFIX}${chatId}`
+}
+
+function markInFlight(chatId: string): void {
+  try {
+    sessionStorage.setItem(inflightKey(chatId), "1")
+  } catch {
+    // Storage unavailable (private browsing, quota) — best effort only.
+  }
+}
+
+function clearInFlight(chatId: string): void {
+  try {
+    sessionStorage.removeItem(inflightKey(chatId))
+  } catch {
+    // Storage unavailable — nothing to clear.
+  }
+}
+
+/**
+ * One-shot check: true if `chatId` had a stream registered that never
+ * completed (page reloaded/crashed before `completeStream` ran). Consumes the
+ * marker, so it only returns true once per interruption.
+ */
+export function consumeInterruptedStreamMarker(chatId: string): boolean {
+  try {
+    const found = sessionStorage.getItem(inflightKey(chatId)) !== null
+    if (found) sessionStorage.removeItem(inflightKey(chatId))
+    return found
+  } catch {
+    return false
   }
 }
 

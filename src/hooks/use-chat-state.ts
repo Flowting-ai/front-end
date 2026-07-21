@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { toast } from "sonner"
 import { getChatMessages } from "@/lib/api/chat"
 import { toUIMessages } from "@/lib/normalizers/message-transformer"
 import { logger } from "@/lib/logger"
-import { getStreamCompletion } from "@/lib/stream-registry"
+import { getStreamCompletion, consumeInterruptedStreamMarker } from "@/lib/stream-registry"
 import type { Message } from "@/types/chat"
 
 // ── UIMessage ─────────────────────────────────────────────────────────────────
@@ -40,6 +41,10 @@ export interface UIMessage extends Message {
   isThinkingInProgress?: boolean
   /** True when the user clicked Stop during generation. */
   stoppedByUser?: boolean
+  /** True when `content` is a friendly error message rather than an actual
+   *  model response — renders with a distinct error treatment instead of a
+   *  normal assistant bubble. */
+  isError?: boolean
   /** Model name reported by backend during streaming. */
   modelName?: string
   /** Model metadata from model_selected event. */
@@ -267,6 +272,39 @@ export interface UseChatStateResult {
   refreshMessages: () => Promise<void>
 }
 
+// ── Reload-interrupted stream recovery ───────────────────────────────────────
+
+/**
+ * If a stream for `chatId` was still running when this tab last saw it (see
+ * stream-registry.ts — this is only true right after a reload/crash mid-
+ * generation), reinterpret the freshly-loaded history so the interrupted turn
+ * reads as "Generation stopped" instead of silently looking finished or, if
+ * the backend hadn't persisted anything yet, disappearing outright.
+ */
+function markInterruptedIfNeeded(chatId: string, msgs: UIMessage[]): UIMessage[] {
+  if (!consumeInterruptedStreamMarker(chatId)) return msgs
+
+  const last = msgs[msgs.length - 1]
+  if (last && last.role === "assistant") {
+    return msgs.map((m, i) =>
+      i === msgs.length - 1
+        ? { ...m, isLoading: false, stoppedByUser: true, content: m.content || "Generation stopped." }
+        : m,
+    )
+  }
+
+  const placeholder: UIMessage = {
+    id: `interrupted-${Date.now()}`,
+    role: "assistant",
+    content: "Generation stopped.",
+    created_at: new Date().toISOString(),
+    chat_id: chatId,
+    isLoading: false,
+    stoppedByUser: true,
+  }
+  return [...msgs, placeholder]
+}
+
 // ── Implementation ────────────────────────────────────────────────────────────
 
 export interface UseChatStateOptions {
@@ -334,19 +372,20 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
           if (options?.loadMessages) {
             const msgs = await options.loadMessages(chatId)
             if (!cancelled) {
-              setMessages(msgs)
+              setMessages(markInterruptedIfNeeded(chatId, msgs))
               setHasMoreMessages(false)
             }
           } else {
             const res = await getChatMessages(chatId)
             if (!cancelled) {
-              setMessages(toUIMessages(res.messages))
+              setMessages(markInterruptedIfNeeded(chatId, toUIMessages(res.messages)))
               setHasMoreMessages(res.has_more)
               cursorRef.current = res.next_cursor ?? undefined
             }
           }
         } catch (err) {
           logger.error("[useChatState] Failed to reload after background stream", err)
+          toast.error(err instanceof Error ? err.message : "Failed to load messages")
         } finally {
           if (!cancelled) setIsLoadingMessages(false)
           loadingRef.current = false
@@ -368,13 +407,13 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
       ? options.loadMessages(chatId).then((msgs) => {
           // Custom loader returns UIMessage[] directly; no pagination.
           if (!cancelled) {
-            setMessages(msgs)
+            setMessages(markInterruptedIfNeeded(chatId, msgs))
             setHasMoreMessages(false)
           }
         })
       : getChatMessages(chatId).then((res) => {
           if (cancelled) return
-          setMessages(toUIMessages(res.messages))
+          setMessages(markInterruptedIfNeeded(chatId, toUIMessages(res.messages)))
           setHasMoreMessages(res.has_more)
           cursorRef.current = res.next_cursor ?? undefined
         })
@@ -382,6 +421,7 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     fetch
       .catch((err) => {
         logger.error("[useChatState] Failed to load messages", err)
+        toast.error(err instanceof Error ? err.message : "Failed to load messages")
       })
       .finally(() => {
         if (!cancelled) setIsLoadingMessages(false)
@@ -405,6 +445,7 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
       cursorRef.current = res.next_cursor ?? undefined
     } catch (err) {
       logger.error("[useChatState] Failed to load more messages", err)
+      toast.error(err instanceof Error ? err.message : "Failed to load more messages")
     } finally {
       loadingRef.current = false
     }
@@ -470,16 +511,17 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     try {
       if (options?.loadMessages) {
         const msgs = await options.loadMessages(chatId)
-        setMessages(msgs)
+        setMessages(markInterruptedIfNeeded(chatId, msgs))
         setHasMoreMessages(false)
       } else {
         const res = await getChatMessages(chatId)
-        setMessages(toUIMessages(res.messages))
+        setMessages(markInterruptedIfNeeded(chatId, toUIMessages(res.messages)))
         setHasMoreMessages(res.has_more)
         cursorRef.current = res.next_cursor ?? undefined
       }
     } catch (err) {
       logger.error("[useChatState] Failed to refresh messages", err)
+      toast.error(err instanceof Error ? err.message : "Failed to refresh messages")
     } finally {
       setIsLoadingMessages(false)
       loadingRef.current = false

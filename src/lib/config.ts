@@ -1,14 +1,23 @@
 "use client";
 
-// Client-side requests go through a same-origin proxy to avoid CORS.
-// The streaming route handler at src/app/api/backend/[...path]/route.ts
-// forwards /api/backend/:path* → SERVER_URL/:path*.
-export const API_BASE_URL = "/api/backend";
-
 // Absolute backend origin (no trailing slash).
 // NEXT_PUBLIC_SERVER_URL is the reliable client-bundle alias (see next.config.ts env block).
 // Falls back to SERVER_URL for local dev where next.config.ts bakes it under that key.
 const SERVER_ORIGIN = (process.env.NEXT_PUBLIC_SERVER_URL ?? process.env.SERVER_URL ?? "").replace(/\/+$/, "");
+
+const isLocalHost = (host: string): boolean =>
+  host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host.endsWith(".local");
+
+// On deployed origins the browser talks to the backend directly (absolute URL,
+// Bearer auth via doFetch, CORS already allows the app origin) — no Vercel
+// serverless proxy in the path, so its 300/800s stream kills and 4.5 MB body
+// cap don't apply. Local dev keeps the same-origin proxy at
+// src/app/api/backend/[...path]/route.ts because the backend's CORS allowlist
+// doesn't include localhost.
+export const API_BASE_URL =
+  SERVER_ORIGIN && typeof window !== "undefined" && !isLocalHost(window.location.hostname)
+    ? SERVER_ORIGIN
+    : "/api/backend";
 
 export const audience = process.env.AUTH0_AUDIENCE ?? "";
 
@@ -67,9 +76,6 @@ const withBase = (path: string) => `${API_BASE_URL}${path}`;
  * localhost (and whenever SERVER_ORIGIN is unset), and go direct only on
  * deployed origins where the cap actually bites and CORS is configured.
  */
-const isLocalHost = (host: string): boolean =>
-  host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host.endsWith(".local");
-
 export const directUpload = (endpoint: string): string => {
   if (!SERVER_ORIGIN || !endpoint.startsWith(API_BASE_URL)) return endpoint;
   if (typeof window !== "undefined" && isLocalHost(window.location.hostname)) return endpoint;
@@ -140,6 +146,8 @@ export const CHAT_SAVE_TO_DRIVE_ENDPOINT = (attachmentId: string) =>
   withBase(`/chats/files/${attachmentId}/save-to-drive`);
 export const CHAT_PROMPT_RESPOND_ENDPOINT = (promptId: string) =>
   withBase(`/chats/prompts/${promptId}`);
+export const CHAT_PENDING_PROMPTS_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}/prompts/pending`);
 
 // ── LLM Models ───────────────────────────────────────────────────────────────
 export const MODELS_ENDPOINT = withBase("/llm/models");
