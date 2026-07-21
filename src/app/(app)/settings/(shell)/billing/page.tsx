@@ -59,11 +59,10 @@ const PLAN_FEATURE_LIST: Record<string, string[]> = {
 
 // sessionStorage keys — last-known snapshot so returning from Stripe paints
 // instantly instead of flashing an empty "No Plan" state while data reloads.
-// v2: snapshot now carries `isTeamAccount` and a string planType ('teams'),
-// so a refresh paints the right plan immediately instead of flashing the trial
-// state. Bumped from v1 to discard the older shape.
-const SNAP_KEY = 'kaya:billing:snapshot:v2'
-const BILL_KEY = 'kaya:billing:info:v1'
+// v3/v2: bumped to discard blobs cached before the backend carried
+// `entity`/`org_id`/`role` — an old personal snapshot must never paint a team view.
+const SNAP_KEY = 'kaya:billing:snapshot:v3'
+const BILL_KEY = 'kaya:billing:info:v2'
 
 /** Minimal display snapshot persisted across the Stripe round-trip. */
 interface BillingSnapshot {
@@ -195,7 +194,7 @@ function UsageRow({ label, used, total, value }: { label: string; used: number; 
 export default function BillingPage() {
   const router = useRouter()
   const { user, refreshUser, isHydrated, jwtToken } = useAuth()
-  const { plan: orgPlan, orgId, orgRole, orgReady, roleError, orgRoleResolved, currentUserRole, orgPlanSettled } = useOrg()
+  const { plan: orgPlan, orgId, orgRole, orgReady, orgRoleResolved, orgPlanSettled } = useOrg()
 
   const portalMounted = useMounted()
   // Lazy-init from the cached snapshot (runs once; SSR-safe — readCache returns
@@ -264,30 +263,22 @@ export default function BillingPage() {
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
-  // Compute team-account flag early so liveReady can gate on orgPlan for teams.
-  const earlyIsTeamAccount = Boolean(
-    billing?.plan_type === 'teams' || user?.orgId || orgId ||
-    user?.roleFit === 'small_team' || user?.roleFit === 'large_team',
-  )
+  // Team detection comes from the backend contract: /stripe/billing `entity`
+  // and /users/me `org_id` (both resolved server-side by the same resolver).
+  const liveIsTeamAccount = Boolean(billing?.entity === 'org' || user?.orgId || orgId)
   // Don't mark ready until billing has been attempted. For team accounts also
   // wait for orgPlan — without it the credits chain bottoms out at 0
   // (user.creditsTotal is 0 for org members) and paints a wrong snapshot.
-  // Use liveIsTeamAccount (computed below) rather than earlyIsTeamAccount so
-  // the gate still fires when the team flag only becomes visible after billing
-  // loads (e.g. billing.plan_type === 'teams' while user.orgId is absent).
-  // liveIsTeamAccount is a derived const — hoisted above liveReady here.
-  const liveIsTeamAccountForGate = Boolean(
-    billing?.plan_type === 'teams' ||
-    user?.orgId ||
-    orgId ||
-    user?.roleFit === 'small_team' ||
-    user?.roleFit === 'large_team',
-  )
   const liveReady = isHydrated && !!user && billingLoaded &&
-    (!liveIsTeamAccountForGate || orgPlan !== null || (orgPlanSettled && orgReady))
+    (!liveIsTeamAccount || orgPlan !== null || (orgPlanSettled && orgReady))
+
+  // Subscription-state fields are only read from a billing payload whose entity
+  // agrees with the resolved account type — a stale personal payload must never
+  // supply cancel/period state to a team view.
+  const subSource = billing && (billing.entity === 'org') === liveIsTeamAccount ? billing : null
 
   const nextBillingLive = fmtDate(
-    billing?.upcoming_invoice?.next_payment_date ?? user?.nextBillingDate ?? user?.currentPeriodEnd,
+    subSource?.upcoming_invoice?.next_payment_date ?? user?.nextBillingDate ?? user?.currentPeriodEnd,
   )
 
   // Personal credit balance from the billing response (GET /stripe/billing).
@@ -297,30 +288,10 @@ export default function BillingPage() {
   const billingBalance = creditsFromBilling(billing?.credits ?? null);
   // Per-category spend in dollars: current backend `by_category`, falling back
   // to the legacy per-category `used` object.
-  const billingPerCategory =
-    billing?.credits?.by_category ??
-    (billing?.credits?.used && typeof billing.credits.used === "object"
-      ? billing.credits.used
-      : {});
+  const billingPerCategory = billing?.credits.by_category ?? { chat: 0, persona: 0, brain: 0 }
   const billingCreditsTotal = billing?.credits ? billingBalance.total : null;
   const billingCreditsUsed = billingBalance.used;
   const billingCreditsRemaining = billing?.credits ? billingBalance.remaining : null;
-
-  // For team/org accounts the credit pool lives on the organisation, not the
-  // personal Stripe subscription. Override with org plan values when present.
-  //
-  // `user.orgId` alone is unreliable — /users/me often omits it for team owners
-  // and members. Treat the account as a team when ANY of these hold: the profile
-  // carries an org id, the org-context resolved one (via listOrganizations), or
-  // the onboarding role_fit marks them as a team. This is the single guardrail
-  // that keeps team accounts out of the trial/individual UI.
-  const liveIsTeamAccount = Boolean(
-    billing?.plan_type === 'teams' ||
-    user?.orgId ||
-    orgId ||
-    user?.roleFit === 'small_team' ||
-    user?.roleFit === 'large_team',
-  )
   // orgPlan.totalCredits = remaining + used (the full period grant, from the backend's
   // `granted` field). planCredits + topupCredits are the drain-tracked remaining balances,
   // not the period total — using them here would show remaining instead of the allocation.
@@ -357,8 +328,8 @@ export default function BillingPage() {
         personaCredits:   Math.round((billingPerCategory.persona ?? 0) * 1000),
         brainCredits:     Math.round((billingPerCategory.brain ?? 0) * 1000),
         nextBilling:      nextBillingLive,
-        periodEnd:        billing?.current_period_end ?? user?.currentPeriodEnd ?? null,
-        cancelAtPeriodEnd: billing?.cancel_at_period_end ?? user?.cancelAtPeriodEnd ?? false,
+        periodEnd:        subSource?.current_period_end ?? user?.currentPeriodEnd ?? null,
+        cancelAtPeriodEnd: subSource?.cancel_at_period_end ?? user?.cancelAtPeriodEnd ?? false,
       }
     : null
 
@@ -381,37 +352,15 @@ export default function BillingPage() {
   // Team flag: live signal OR the cached snapshot — the cached value is what
   // kills the trial→teams flicker on refresh (first paint already knows).
   const isTeamAccount    = liveIsTeamAccount || (display?.isTeamAccount ?? false)
-  // Individual accounts: show controls as soon as the user loads.
-  // Team accounts: confirmed once orgReady resolves the owner role.
-  //
-  // Three resilience fallbacks (backend enforces real permissions on every action):
-  //   orgLookupFailed — billing confirmed a team plan but listOrganizations()
-  //     returned nothing (owner's profile lacks org_id AND org_members row missing
-  //     or API failed). orgRole stuck at default 'member'.
-  //   roleError — org was found (orgId set) but getOrg() threw (network/5xx).
-  //     orgRole stuck at default 'member' even though user may be owner.
-  //   roleUnknown — org was found, getOrg() succeeded, but my_role was null so
-  //     orgRole is a guess. The owner may not have isTeamPlan set (e.g. upgraded
-  //     from an individual plan). Allow optimistic access; BE enforces.
-  // All three are only triggered when liveIsTeamAccount is true, so individual-plan
-  // users are unaffected.
-  const orgLookupFailed = orgReady && !orgId && liveIsTeamAccount
-  const roleUnknown = orgReady && !roleError && !!orgId && !orgRoleResolved && liveIsTeamAccount
+  // Role comes from the backend contract (same resolver on both endpoints);
+  // org-context is the fallback while those requests are in flight. Backend
+  // enforces real permissions on every action.
+  const billingRole = subSource?.role ?? user?.role ?? (orgReady && orgRoleResolved ? orgRole : null)
   // Owner-only: Change Plan and Buy Credits. Admins/members see the fallback text.
-  const isOrgOwner = isHydrated && !!user && (
-    !liveIsTeamAccount ||
-    (orgReady && orgRole === 'owner') ||
-    orgLookupFailed ||
-    (orgReady && roleError && liveIsTeamAccount) ||
-    roleUnknown
-  )
+  const isOrgOwner = isHydrated && !!user && (!liveIsTeamAccount || billingRole === 'owner')
   // Broader billing access: owner + admin can see Payment details and Invoices.
   const canManageBilling = isHydrated && !!user && (
-    !liveIsTeamAccount ||
-    (orgReady && (orgRole === 'owner' || orgRole === 'admin' || currentUserRole === 'admin')) ||
-    orgLookupFailed ||
-    (orgReady && roleError && liveIsTeamAccount) ||
-    roleUnknown
+    !liveIsTeamAccount || billingRole === 'owner' || billingRole === 'admin'
   )
   // The known individual paid tiers (drive price + feature list). 'teams' and
   // any unknown value resolve to null here.
@@ -436,9 +385,9 @@ export default function BillingPage() {
   // on this page too instead of only being able to cancel from org/plans.
   const hasActiveSub      = Boolean(individualPlan) || (isTeamAccount && isOrgOwner)
 
-  const pm        = billing?.payment_method ?? null
+  const pm        = subSource?.payment_method ?? null
   const hasPaymentMethod = Boolean(pm && pm.last4)
-  const invoices  = billing?.invoices ?? []
+  const invoices  = subSource?.invoices ?? []
   // Payment / invoice cards: cached billing paints instantly; show skeleton only
   // when we have nothing cached and the first fetch hasn't returned yet.
   const billingPending = !billing && !billingLoaded
@@ -692,7 +641,7 @@ export default function BillingPage() {
                       <Badge label="Subscription Active" color="Green" />
                     </div>
                   )}
-                  {cancelAtPeriodEnd && (
+                  {hasActiveSub && cancelAtPeriodEnd && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <span style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.ink }}>
                         Cancels on {fmtDate(periodEnd)}

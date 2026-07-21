@@ -1,247 +1,59 @@
 "use client";
 
+// Thin compatibility layer over the zod-validated billing client in ./user —
+// single implementation, two historical import paths.
+
 import {
-  STRIPE_BILLING_ENDPOINT,
-  STRIPE_CHECKOUT_ENDPOINT,
-  STRIPE_PORTAL_ENDPOINT,
-  STRIPE_SUBSCRIPTION_ENDPOINT,
-  STRIPE_SUBSCRIPTION_RESUME_ENDPOINT,
-  STRIPE_TOPUP_ENDPOINT,
-  STRIPE_TOPUP_CHARGE_ENDPOINT,
-  STRIPE_TRIAL_ENDPOINT,
-} from "@/lib/config";
-import { apiFetch, apiFetchJson, ApiError } from "./client";
+  chargeTopUp as chargeTopUpAmount,
+  createCheckoutSession,
+  createTopUpSession,
+  type BillingPlan,
+  type CheckoutPlan,
+  type CheckoutSessionResponse,
+  type TopUpChargeResponse,
+  type TopUpSessionResponse,
+} from "./user";
 
-// ── Schemas (match OpenAPI components.schemas) ────────────────────────────────
-
-export type PlanType = "starter" | "pro" | "power" | "trial";
-
-/** All plan keys accepted by POST /stripe/checkout (individual + team tiers). */
-export type CheckoutPlan =
-  | "starter" | "pro" | "power"
-  | "team_125" | "team_250" | "team_500" | "team_1000" | "team_1500" | "team_2000"
-  | "enterprise";
+export {
+  billingInfoSchema,
+  cancelSubscription,
+  fetchBilling,
+  openBillingPortal,
+  resumeSubscription,
+  startTrial,
+  type BillingInfo,
+  type BillingInvoice as InvoiceInfo,
+  type BillingPaymentMethod as PaymentMethodInfo,
+  type BillingPlan,
+  type BillingUpcomingInvoice as UpcomingInvoiceInfo,
+  type CheckoutPlan,
+  type SubscriptionActionResponse,
+  type UserPlanType as PlanType,
+} from "./user";
 
 export interface CreateCheckoutSessionRequest {
-  /** Plan key — the backend maps it to the right Stripe price. */
   plan: CheckoutPlan;
-  /** monthly | annual. Default 'monthly'. */
-  billing?: "monthly" | "annual";
-  /** Optional override for Stripe's cancel (back) button URL. */
-  cancel_url?: string;
-}
-
-export interface CreateCheckoutSessionResponse {
-  checkout_url: string;
-  session_id:   string;
+  billing?: BillingPlan;
 }
 
 export interface CreateTopUpSessionRequest {
-  /** Dollars to add as credit (1:1). Stripe minimum: $1. */
   amount_usd: number;
 }
 
-export interface CreateTopUpSessionResponse {
-  checkout_url: string;
-}
-
-export interface TopUpChargeResponse {
-  status: string;
-  client_secret?: string | null;
-}
-
-export interface SubscriptionActionResponse {
-  status: string;
-  plan_type?: string | null;
-  current_period_end?: string | null;
-}
-
-export interface TrialSummary {
-  remaining: number;
-  expires_at: string;
-}
-
-export interface UsageResponse {
-  credits: number;
-  plan_credits: number;
-  topup_credits: number;
-  used: number;
-  spent_this_period: number;
-  trial?: TrialSummary | null;
-  by_category?: { chat?: number; persona?: number; brain?: number };
-}
-
-export interface BillingPortalResponse {
-  portal_url: string;
-}
-
-/** Matches OpenAPI TrialCreditInfo. */
-export interface TrialCreditInfo {
-  amount:      number;
-  remaining:   number;
-  used:        number;
-  starts_at?:  string | null;
-  expires_at:  string;
-}
-
-/** Matches OpenAPI CreditSummary — the credit state inside BillingInfo. */
-export interface CreditSummary {
-  total_credits:  number;
-  plan_credits:   number;
-  topup_credits:  number;
-  used:           number;
-  remaining:      number;
-  trial?:         TrialCreditInfo | null;
-  by_category?:   { chat?: number; persona?: number; brain?: number } | null;
-}
-
-export interface PaymentMethodInfo {
-  brand:     string | null
-  last4:     string | null
-  exp_month: number | null
-  exp_year:  number | null
-  funding:   string | null
-}
-
-export interface InvoiceInfo {
-  amount_paid: number
-  currency:    string
-  status:      string | null
-  created:     string | null
-  invoice_url: string | null
-  invoice_pdf: string | null
-}
-
-/** Matches OpenAPI UpcomingInvoiceInfo. */
-export interface UpcomingInvoiceInfo {
-  amount_due:          number
-  currency:            string
-  next_payment_date:   string | null
-}
-
-export interface BillingInfo {
-  plan_type:            string | null
-  subscription_status:  string | null
-  current_period_end:   string | null
-  cancel_at_period_end: boolean
-  payment_method:       PaymentMethodInfo | null
-  invoices:             InvoiceInfo[]
-  upcoming_invoice:     UpcomingInvoiceInfo | null
-  credits:              CreditSummary
-  billing_model?: string | null
-  base_fee_usd?: number
-  included_usage_usd?: number
-  provider_usage_usd?: number
-  included_usage_remaining_usd?: number
-  overage_usd?: number
-  projected_invoice_usd?: number
-  input_tokens?: number
-  output_tokens?: number
-  reasoning_tokens?: number
-  cached_tokens?: number
-  total_tokens?: number
-  usage_event_count?: number
-  metered_event_count?: number
-  meter_sync_status?: string | null
-}
-
-// ── API functions ─────────────────────────────────────────────────────────────
-
-/**
- * POST /stripe/checkout — start a checkout session for the given plan.
- * Use this both for initial signup and to switch plans.
- */
 export async function createCheckout(
   body: CreateCheckoutSessionRequest,
-): Promise<CreateCheckoutSessionResponse> {
-  // Body is exactly { plan, billing } — identity comes from the JWT and the
-  // backend owns the Stripe price ids. Never send user/auth0 ids or price_id.
-  return apiFetchJson<CreateCheckoutSessionResponse>(STRIPE_CHECKOUT_ENDPOINT, {
-    method: "POST",
-    body:   JSON.stringify({ billing: "monthly", ...body }),
-  });
+): Promise<CheckoutSessionResponse> {
+  return createCheckoutSession(body.plan, body.billing ?? "monthly");
 }
 
-/** POST /stripe/topup — start a checkout session to add prepaid credit. */
 export async function createTopUp(
   body: CreateTopUpSessionRequest,
-): Promise<CreateTopUpSessionResponse> {
-  return apiFetchJson<CreateTopUpSessionResponse>(STRIPE_TOPUP_ENDPOINT, {
-    method: "POST",
-    body:   JSON.stringify(body),
-  });
+): Promise<TopUpSessionResponse> {
+  return createTopUpSession(body.amount_usd);
 }
 
-/** POST /stripe/topup/charge — charge the saved payment method immediately. */
 export async function chargeTopUp(
   body: CreateTopUpSessionRequest,
 ): Promise<TopUpChargeResponse> {
-  return apiFetchJson<TopUpChargeResponse>(STRIPE_TOPUP_CHARGE_ENDPOINT, {
-    method: "POST",
-    body:   JSON.stringify(body),
-  });
-}
-
-/** POST /stripe/trial — grant 1000 free trial credits. */
-export async function startTrial(): Promise<UsageResponse> {
-  return apiFetchJson<UsageResponse>(STRIPE_TRIAL_ENDPOINT, { method: "POST" });
-}
-
-/** DELETE /stripe/subscription — cancel the current user's subscription. */
-export async function cancelSubscription(): Promise<SubscriptionActionResponse> {
-  const res = await apiFetch(STRIPE_SUBSCRIPTION_ENDPOINT, { method: "DELETE" });
-
-  let data: SubscriptionActionResponse & { error?: string } = { status: "" };
-  try {
-    data = (await res.json()) as SubscriptionActionResponse & { error?: string };
-  } catch {
-    // non-JSON body
-  }
-
-  if (!res.ok || !data.status) {
-    throw new ApiError(
-      res.status,
-      "stripe_cancel_failed",
-      data.error || "Failed to cancel subscription.",
-    );
-  }
-
-  return { status: data.status, plan_type: data.plan_type, current_period_end: data.current_period_end };
-}
-
-/** POST /stripe/subscription/resume — re-activate a cancelled subscription. */
-export async function resumeSubscription(): Promise<SubscriptionActionResponse> {
-  const res = await apiFetch(STRIPE_SUBSCRIPTION_RESUME_ENDPOINT, { method: "POST" });
-
-  let data: SubscriptionActionResponse & { error?: string } = { status: "" };
-  try {
-    data = (await res.json()) as SubscriptionActionResponse & { error?: string };
-  } catch {
-    // non-JSON body
-  }
-
-  if (!res.ok || !data.status) {
-    throw new ApiError(
-      res.status,
-      "stripe_resume_failed",
-      data.error || "Failed to resume subscription.",
-    );
-  }
-
-  return { status: data.status, plan_type: data.plan_type, current_period_end: data.current_period_end };
-}
-
-/** GET /stripe/billing — payment method, invoices, upcoming invoice. */
-export async function fetchBilling(): Promise<BillingInfo | null> {
-  const res = await apiFetch(STRIPE_BILLING_ENDPOINT, { method: "GET" });
-  if (!res.ok) return null;
-  return res.json() as Promise<BillingInfo>;
-}
-
-/** POST /stripe/portal — create a Stripe-hosted billing portal session. */
-export async function openBillingPortal(): Promise<string | null> {
-  const res = await apiFetch(STRIPE_PORTAL_ENDPOINT, { method: "POST" });
-  if (!res.ok) return null;
-  const data = (await res.json()) as BillingPortalResponse;
-  return data.portal_url ?? null;
+  return chargeTopUpAmount(body.amount_usd);
 }

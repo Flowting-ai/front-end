@@ -51,10 +51,11 @@ interface IndividualTier {
   planType:     string
 }
 
+// Credits mirror the backend grants (services/users/settings/plans.yaml, USD × 1000).
 const INDIVIDUAL_TIERS: IndividualTier[] = [
-  { sliderLabel: '$12',  monthlyPrice: '$12',  annualPrice: '$9',  annualBilled: '$108/yr',  creditsLabel: '5,000',  planType: 'individual_12'  },
+  { sliderLabel: '$12',  monthlyPrice: '$12',  annualPrice: '$9',  annualBilled: '$108/yr',  creditsLabel: '4,000',  planType: 'individual_12'  },
   { sliderLabel: '$25',  monthlyPrice: '$25',  annualPrice: '$19', annualBilled: '$225/yr',  creditsLabel: '12,000', planType: 'individual_25'  },
-  { sliderLabel: '$100', monthlyPrice: '$100', annualPrice: '$75', annualBilled: '$900/yr',  creditsLabel: '55,000', planType: 'individual_100' },
+  { sliderLabel: '$100', monthlyPrice: '$100', annualPrice: '$75', annualBilled: '$900/yr',  creditsLabel: '45,000', planType: 'individual_100' },
 ]
 
 // ── Small shared components ───────────────────────────────────────────────────
@@ -372,11 +373,7 @@ function OnboardingPlansContent() {
     setTeamLoading(true)
     setTeamError(null)
     try {
-      const { checkout_url } = await createCheckout({
-        plan:       teamTier.planType,
-        billing,
-        cancel_url: `${window.location.origin}/onboarding/plans?type=team&plan=${teamTier.planType}&billing=${billing}`,
-      })
+      const { checkout_url } = await createCheckout({ plan: teamTier.planType, billing })
       window.location.href = checkout_url
     } catch (err) {
       setTeamError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')

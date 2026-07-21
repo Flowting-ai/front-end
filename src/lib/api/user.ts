@@ -1,5 +1,6 @@
 "use client";
 
+import { z } from "zod";
 import {
   STRIPE_BILLING_ENDPOINT,
   STRIPE_CHECKOUT_ENDPOINT,
@@ -24,8 +25,7 @@ export type UserPlanType = "starter" | "pro" | "power";
  */
 export type CheckoutPlan =
   | "starter" | "pro" | "power"
-  | "team_125" | "team_250" | "team_500" | "team_1000" | "team_1500" | "team_2000"
-  | "enterprise";
+  | "team_125" | "team_250" | "team_500" | "team_1000" | "team_1500" | "team_2000";
 export type BillingPlan = "monthly" | "annual";
 
 export interface UserPaymentMethod {
@@ -180,6 +180,8 @@ export interface UserProfile {
   active: boolean | null;
   /** Set when the user belongs to a teams / enterprise organisation. */
   org_id?: string | null;
+  /** Org role (owner | admin | member) when org_id is set. */
+  role?: string | null;
 }
 
 function normalizeUserProfile(raw: unknown): UserProfile {
@@ -234,7 +236,7 @@ function normalizeUserProfile(raw: unknown): UserProfile {
           : typeof root.next_billing === "string"
             ? root.next_billing
             : null,
-    cancel_at_period_end: Boolean(root.cancel_at_period_end),
+    cancel_at_period_end: Boolean(root.cancel_at_period_end ?? planObj.cancel_at_period_end),
     payment_methods: paymentMethods,
     invoices: Array.isArray(root.invoices)
       ? (root.invoices as Record<string, unknown>[]).map((inv, idx) => ({
@@ -346,44 +348,104 @@ function normalizeUserProfile(raw: unknown): UserProfile {
     created_at: typeof root.created_at === "string" ? root.created_at : null,
     active: typeof root.active === "boolean" ? root.active : null,
     org_id: typeof root.org_id === "string" ? root.org_id : null,
+    role: typeof root.role === "string" ? root.role : null,
   };
 }
 
 // ── Billing snapshot (GET /stripe/billing → BillingInfo) ──────────────────────
+// Zod schemas mirroring services/stripe/schemas.py (BillingInfo) and
+// services/users/schemas.py (CreditSummary). Validated at the boundary so the
+// UI renders from the endpoint's real shape — no guessed defaults.
 
-export interface BillingPaymentMethod {
-  brand: string | null;
-  last4: string | null;
-  exp_month: number | null;
-  exp_year: number | null;
-  funding?: string | null;
-}
+const trialCreditInfoSchema = z.object({
+  amount: z.number(),
+  remaining: z.number(),
+  used: z.number(),
+  starts_at: z.string().nullable().default(null),
+  expires_at: z.string(),
+});
 
-export interface BillingInvoice {
-  amount_paid: number;
-  currency: string;
-  status: string | null;
-  created: string | null;
-  invoice_url: string | null;
-  invoice_pdf: string | null;
-}
+const usageBreakdownSchema = z.object({
+  chat: z.number().default(0),
+  persona: z.number().default(0),
+  brain: z.number().default(0),
+});
 
-export interface BillingUpcomingInvoice {
-  amount_due: number;
-  currency: string;
-  next_payment_date: string | null;
-}
+const creditSummarySchema = z.object({
+  total_credits: z.number().default(0),
+  plan_credits: z.number().default(0),
+  topup_credits: z.number().default(0),
+  used: z.number().default(0),
+  remaining: z.number().default(0),
+  trial: trialCreditInfoSchema.nullable().default(null),
+  by_category: usageBreakdownSchema.default({ chat: 0, persona: 0, brain: 0 }),
+});
 
-export interface BillingInfo {
-  plan_type: string | null;
-  subscription_status: string | null;
-  current_period_end: string | null;
-  cancel_at_period_end: boolean;
-  payment_method: BillingPaymentMethod | null;
-  invoices: BillingInvoice[];
-  upcoming_invoice: BillingUpcomingInvoice | null;
-  credits: BillingCredits | null;
-}
+const paymentMethodInfoSchema = z.object({
+  brand: z.string().nullable().default(null),
+  last4: z.string().nullable().default(null),
+  exp_month: z.number().nullable().default(null),
+  exp_year: z.number().nullable().default(null),
+  funding: z.string().nullable().default(null),
+});
+
+// Stripe sends `created` as a Unix timestamp (seconds) on some payloads;
+// normalize to an ISO string for fmtDate().
+const invoiceDateSchema = z
+  .union([z.string(), z.number()])
+  .nullable()
+  .default(null)
+  .transform((v) => {
+    if (typeof v === "number") return new Date(v * 1000).toISOString();
+    return v && v.length > 0 ? v : null;
+  });
+
+const invoiceInfoSchema = z.object({
+  amount_paid: z.number().default(0),
+  currency: z.string().default("usd"),
+  status: z.string().nullable().default(null),
+  created: invoiceDateSchema,
+  invoice_url: z.string().nullable().default(null),
+  invoice_pdf: z.string().nullable().default(null),
+});
+
+const upcomingInvoiceInfoSchema = z.object({
+  amount_due: z.number().default(0),
+  currency: z.string().default("usd"),
+  next_payment_date: z.string().nullable().default(null),
+});
+
+export const billingInfoSchema = z.object({
+  entity: z.enum(["personal", "org"]).default("personal"),
+  org_id: z.string().nullable().default(null),
+  role: z.string().nullable().default(null),
+  plan_type: z.string().nullable().default(null),
+  subscription_status: z.string().nullable().default(null),
+  current_period_end: z.string().nullable().default(null),
+  cancel_at_period_end: z.boolean().default(false),
+  payment_method: paymentMethodInfoSchema.nullable().default(null),
+  invoices: z.array(invoiceInfoSchema).default([]),
+  upcoming_invoice: upcomingInvoiceInfoSchema.nullable().default(null),
+  credits: creditSummarySchema.default({}),
+  billing_model: z.string().nullable().default(null),
+  base_fee_usd: z.number().default(0),
+  included_usage_usd: z.number().default(0),
+  provider_usage_usd: z.number().default(0),
+  included_usage_remaining_usd: z.number().default(0),
+  overage_usd: z.number().default(0),
+  projected_invoice_usd: z.number().default(0),
+  input_tokens: z.number().default(0),
+  output_tokens: z.number().default(0),
+  reasoning_tokens: z.number().default(0),
+  cached_tokens: z.number().default(0),
+  total_tokens: z.number().default(0),
+  usage_event_count: z.number().default(0),
+});
+
+export type BillingInfo = z.infer<typeof billingInfoSchema>;
+export type BillingPaymentMethod = z.infer<typeof paymentMethodInfoSchema>;
+export type BillingInvoice = z.infer<typeof invoiceInfoSchema>;
+export type BillingUpcomingInvoice = z.infer<typeof upcomingInvoiceInfoSchema>;
 
 export interface CheckoutSessionResponse {
   checkout_url: string;
@@ -613,87 +675,12 @@ export async function fetchBilling(): Promise<BillingInfo | null> {
   const response = await apiFetch(STRIPE_BILLING_ENDPOINT, { method: "GET" });
   if (!response.ok) return null;
   const raw = (await response.json()) as Record<string, unknown>;
-  const root = (raw.data ?? raw) as Record<string, unknown>;
-  const pm =
-    root.payment_method && typeof root.payment_method === "object"
-      ? (root.payment_method as BillingPaymentMethod)
-      : null;
-  const upcoming =
-    root.upcoming_invoice && typeof root.upcoming_invoice === "object"
-      ? (root.upcoming_invoice as BillingUpcomingInvoice)
-      : null;
-  const credits =
-    root.credits && typeof root.credits === "object"
-      ? (() => {
-          const c = root.credits as Record<string, unknown>;
-          const trial =
-            c.trial && typeof c.trial === "object"
-              ? (() => {
-                  const t = c.trial as Record<string, unknown>;
-                  return {
-                    amount: typeof t.amount === "number" ? t.amount : 0,
-                    remaining: typeof t.remaining === "number" ? t.remaining : 0,
-                    used: typeof t.used === "number" ? t.used : 0,
-                    starts_at: typeof t.starts_at === "string" ? t.starts_at : null,
-                    expires_at: typeof t.expires_at === "string" ? t.expires_at : "",
-                  } as TrialCredits;
-                })()
-              : null;
-          // `used` may be a scalar (current backend) or a per-category object
-          // (legacy). Preserve whichever arrives.
-          const used =
-            typeof c.used === "number"
-              ? c.used
-              : c.used && typeof c.used === "object"
-                ? (c.used as { chat?: number; persona?: number; brain?: number })
-                : null;
-          const byCategory =
-            c.by_category && typeof c.by_category === "object"
-              ? (c.by_category as { chat?: number; persona?: number; brain?: number })
-              : null;
-          return {
-            total_credits: typeof c.total_credits === "number" ? c.total_credits : 0,
-            plan_credits: typeof c.plan_credits === "number" ? c.plan_credits : 0,
-            topup_credits: typeof c.topup_credits === "number" ? c.topup_credits : 0,
-            remaining: typeof c.remaining === "number" ? c.remaining : undefined,
-            trial,
-            used,
-            by_category: byCategory,
-          } as BillingCredits;
-        })()
-      : null;
-  // Normalise invoice fields: Stripe returns `created` as a Unix timestamp
-  // (seconds), but our type and fmtDate() expect an ISO string. Convert any
-  // number to ISO; leave strings untouched.
-  const normalizeInvoiceDate = (raw: unknown): string | null => {
-    if (typeof raw === "number") return new Date(raw * 1000).toISOString()
-    if (typeof raw === "string" && raw.length > 0) return raw
-    return null
+  const parsed = billingInfoSchema.safeParse(raw.data ?? raw);
+  if (!parsed.success) {
+    console.error("[fetchBilling] response failed schema validation", parsed.error.flatten());
+    return null;
   }
-
-  const rawInvoices = Array.isArray(root.invoices)
-    ? (root.invoices as Record<string, unknown>[]).map((inv): BillingInvoice => ({
-        amount_paid:  typeof inv.amount_paid === "number"  ? inv.amount_paid  : 0,
-        currency:     typeof inv.currency    === "string"  ? inv.currency     : "usd",
-        status:       typeof inv.status      === "string"  ? inv.status       : null,
-        created:      normalizeInvoiceDate(inv.created),
-        invoice_url:  typeof inv.invoice_url === "string"  ? inv.invoice_url  : null,
-        invoice_pdf:  typeof inv.invoice_pdf === "string"  ? inv.invoice_pdf  : null,
-      }))
-    : []
-
-  return {
-    plan_type: typeof root.plan_type === "string" ? root.plan_type : null,
-    subscription_status:
-      typeof root.subscription_status === "string" ? root.subscription_status : null,
-    current_period_end:
-      typeof root.current_period_end === "string" ? root.current_period_end : null,
-    cancel_at_period_end: Boolean(root.cancel_at_period_end),
-    payment_method: pm,
-    invoices: rawInvoices,
-    upcoming_invoice: upcoming,
-    credits,
-  };
+  return parsed.data;
 }
 
 /** Create a Stripe hosted billing-portal session and return its URL. */

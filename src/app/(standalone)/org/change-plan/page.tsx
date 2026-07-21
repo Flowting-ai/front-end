@@ -14,15 +14,16 @@ const TITLE = 'var(--font-title)'
 const BODY  = 'var(--font-body)'
 const MONO  = "'Geist Mono', ui-monospace, monospace"
 
+// Credits mirror the backend grants (services/users/settings/plans.yaml, USD × 1000).
 const INDIVIDUAL_PLANS: { id: UserPlanType; price: number; credits: number }[] = [
-  { id: 'starter', price: 12,  credits: 5000  },
+  { id: 'starter', price: 12,  credits: 4000  },
   { id: 'pro',     price: 25,  credits: 12000 },
-  { id: 'power',   price: 100, credits: 50000 },
+  { id: 'power',   price: 100, credits: 45000 },
 ]
 
 const TEAM_PLANS: { price: number; credits: number; label: string; planType: CheckoutPlan }[] = [
   { price: 125,  credits: 60000,   label: '$125',  planType: 'team_125'  },
-  { price: 250,  credits: 120000,  label: '$250',  planType: 'team_250'  },
+  { price: 250,  credits: 125000,  label: '$250',  planType: 'team_250'  },
   { price: 500,  credits: 250000,  label: '$500',  planType: 'team_500'  },
   { price: 1000, credits: 500000,  label: '$1k',   planType: 'team_1000' },
   { price: 1500, credits: 750000,  label: '$1.5k', planType: 'team_1500' },
@@ -135,19 +136,6 @@ export default function OrgChangePlanPage() {
       window.location.href = checkout.checkout_url
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to start checkout')
-      setChangingTo(null)
-    }
-  }
-
-  const handleSelectEnterprise = async () => {
-    if (changingTo) return
-    setChangingTo('enterprise')
-    try {
-      const checkout = await createCheckout({ plan: 'enterprise', billing: 'monthly' })
-      document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
-      window.location.href = checkout.checkout_url
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to start Enterprise checkout')
       setChangingTo(null)
     }
   }

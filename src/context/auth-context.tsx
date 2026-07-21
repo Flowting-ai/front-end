@@ -69,6 +69,8 @@ export interface AuthUser {
   creditsRemainingDisplay?: string | null;
   /** Non-null when the user belongs to a teams / enterprise organisation. */
   orgId?: string | null;
+  /** Org role (owner | admin | member) when orgId is set. */
+  role?: string | null;
 }
 
 interface AuthContextValue {
@@ -183,6 +185,7 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
     creditsDisplay,
     creditsRemainingDisplay,
     orgId: profile.org_id ?? null,
+    role: profile.role ?? null,
   };
 }
 
