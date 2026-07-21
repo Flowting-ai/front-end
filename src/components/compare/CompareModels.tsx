@@ -1301,7 +1301,11 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                       style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 12, padding: 12, background: "#FFFFFF", borderRadius: 8 }}
                     >
                       {/* Response area */}
-                      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10, paddingLeft: 10, paddingRight: 10 }}>
+                      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10 }}>
+                        {/* Horizontal padding lives on this inner wrapper, not
+                            the scrolling element above — keeps the scrollbar
+                            flush with the card's edge. */}
+                        <div style={{ padding: "0 10px" }}>
                         {isModelStreaming ? (
                           <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
                             {modelResponse || ""}<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />
@@ -1321,6 +1325,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                             </div>
                           </div>
                         )}
+                        </div>
                       </div>
                       {/* Connector prompts — shown below the response in expanded view */}
                       {(connectPromptsPerModel[responseKey]?.length > 0 || permissionPromptsPerModel[responseKey]?.length > 0) && (
@@ -1408,7 +1413,11 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                         </Button>
                       </div>
                       {/* Response area */}
-                      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, padding: 10, display: "flex", flexDirection: "column", alignItems: modelResponse ? "flex-start" : "center", justifyContent: modelResponse ? "flex-start" : "center" }}>
+                      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10, paddingBottom: 10 }}>
+                        {/* Horizontal padding lives on this inner wrapper, not
+                            the scrolling element above — keeps the scrollbar
+                            flush with the card's edge. */}
+                        <div style={{ padding: "0 10px", display: "flex", flexDirection: "column", alignItems: modelResponse ? "flex-start" : "center", justifyContent: modelResponse ? "flex-start" : "center", height: "100%" }}>
                         {isModelStreaming ? (
                           <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
                             {modelResponse || ""}<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />
@@ -1428,6 +1437,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                             </div>
                           </div>
                         )}
+                        </div>
                       </div>
                       {/* Connector prompts — shown below the response */}
                       {(connectPromptsPerModel[responseKey]?.length > 0 || permissionPromptsPerModel[responseKey]?.length > 0) && (

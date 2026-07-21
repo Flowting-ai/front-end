@@ -207,7 +207,11 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied }: Chat
                 <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
 
                 {/* Body */}
-                <div className="kaya-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px', maxHeight: 'min(620px, calc(100vh - 180px))', overflowY: 'auto' }}>
+                <div className="kaya-scrollbar" style={{ maxHeight: 'min(620px, calc(100vh - 180px))', overflowY: 'auto', paddingTop: '20px', paddingBottom: '20px' }}>
+                  {/* Horizontal padding lives on this inner wrapper, not the
+                      scrolling element above — keeps the scrollbar flush with
+                      the overlay's edge. */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 20px' }}>
 
                   {/* Visibility: Private / Team — side-by-side muse cards */}
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -396,6 +400,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied }: Chat
                         }
                       </Dropdown>
                     </DropdownFloat>
+                  </div>
                   </div>
                 </div>
 

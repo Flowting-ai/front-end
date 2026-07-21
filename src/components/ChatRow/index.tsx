@@ -1,21 +1,17 @@
 'use client'
 
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { m, AnimatePresence } from 'framer-motion'
+import { toast } from 'sonner'
 import { PinIcon, MoreHorizontalIcon, PenOneIcon, StarIcon, FolderOneIcon } from '@strange-huge/icons'
 import { Checkbox } from '@/components/Checkbox'
 import { Badge } from '@/components/Badge'
+import { IconButton } from '@/components/IconButton'
 import { cn } from '@/lib/utils'
 
 // ── Shadows (Figma exact) ─────────────────────────────────────────────────────
-
-// Resting white card — always-visible ring + soft shadow (was previously the hover-only state).
-const SHADOW_ROW_BASE     = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
-// Hover/focus/pin-open — lifts further off the page.
-const SHADOW_ROW_ELEVATED = '0px 4px 10px 0px rgba(82,75,71,0.16), 0px 0px 0px 1px var(--neutral-200)'
-const SHADOW_ROW_FOCUSED  = '0px 2px 2.8px 0px var(--blue-600), 0px 0px 0px 1px var(--blue-600)'
 
 // Chip: rest = ghost ring, elevated (row hovered/focused) = filled with inner highlight
 const SHADOW_CHIP_REST     = '0px 0px 0px 1px rgba(59,54,50,0.3)'
@@ -182,40 +178,29 @@ interface ThreeDotButtonOwnProps {
 }
 
 function ThreeDotButton({ visible, title, readOnly = false, onClick, ref, ...rest }: ThreeDotButtonOwnProps & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'title'> & { ref?: React.Ref<HTMLButtonElement> }) {
-  const [hovered, setHovered] = useState(false)
-  const [focused, setFocused] = useState(false)
-
   return (
-    <button
-      ref={ref}
-      type="button"
-      onClick={readOnly ? undefined : (e) => { e.stopPropagation(); onClick?.(e) }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      aria-label={`Options for "${title}"`}
-      tabIndex={-1}
+    <span
       style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        padding:         6,
-        borderRadius:    8,
-        border:          'none',
-        backgroundColor: hovered ? 'rgba(237,225,215,0.6)' : 'transparent',
-        cursor:          readOnly ? 'not-allowed' : 'pointer',
-        outline:         focused ? '2px solid var(--blue-400)' : 'none',
-        outlineOffset:   2,
-        flexShrink:      0,
-        opacity:         visible ? 1 : 0,
-        pointerEvents:   visible ? 'auto' : 'none',
-        transition:      'opacity 120ms, background-color 120ms',
+        display:       'inline-flex',
+        flexShrink:    0,
+        opacity:       visible ? 1 : 0,
+        pointerEvents: visible ? 'auto' : 'none',
+        transition:    'opacity 120ms',
       }}
-      {...rest}
     >
-      <MoreHorizontalIcon size={20} color="var(--neutral-600)" />
-    </button>
+      <IconButton
+        ref={ref}
+        type="button"
+        variant="ghost"
+        size="sm"
+        tabIndex={-1}
+        aria-label={`Options for "${title}"`}
+        icon={<MoreHorizontalIcon size={20} />}
+        disabled={readOnly}
+        onClick={readOnly ? undefined : (e) => { e.stopPropagation(); onClick?.(e) }}
+        {...rest}
+      />
+    </span>
   )
 }
 
@@ -258,6 +243,15 @@ function ChatRowInner(
     const [renameValue, setRenameValue] = useState('')
     const renameInputRef    = useRef<HTMLInputElement>(null)
     const pendingRenameRef = useRef(false)
+    // Set alongside pendingRenameRef in the Rename onSelect, but consumed
+    // separately in onCloseAutoFocus (which fires a tick after the row's own
+    // onClick guard already reset pendingRenameRef) — prevents Radix from
+    // yanking focus back to the trigger button right after the input focuses.
+    const renameJustOpenedRef = useRef(false)
+    // Set by Enter/Escape so the blur that follows setIsRenaming(false)
+    // (removing the focused input from the DOM) is recognized as DOM cleanup
+    // rather than a genuine click-away, and isn't double-handled.
+    const renameResolvedRef = useRef(false)
 
     const resolvedTitle = title || 'Untitled chat'
 
@@ -268,6 +262,22 @@ function ChatRowInner(
       }
       setIsRenaming(false)
     }, [renameValue, resolvedTitle, onRename])
+
+    useEffect(() => {
+      if (isRenaming && renameInputRef.current) {
+        renameResolvedRef.current = false
+        // Deferred to a macrotask: Radix's DropdownMenu restores focus to its
+        // trigger when the menu closes, and that restoration can land after
+        // this same commit's effects run — a plain synchronous focus() here
+        // loses that race silently. setTimeout(0) guarantees this runs after
+        // Radix's own cleanup.
+        const id = window.setTimeout(() => {
+          renameInputRef.current?.focus()
+          renameInputRef.current?.select()
+        }, 0)
+        return () => window.clearTimeout(id)
+      }
+    }, [isRenaming])
 
     const handleRowFocus = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
       if (e.target === e.currentTarget) setRowFocused(true)
@@ -297,17 +307,16 @@ function ChatRowInner(
     // Keep three-dot visible while menu is open (even if mouse moves away)
     const showMenu      = (rowElevated || pinBoardOpen || menuOpen) && !selectionMode && !isEmpty
 
-    // Always a white card — selection-mode keeps the same white so the checkbox
-    // row doesn't flatten to transparent; only the empty/dashed affordance stays bare.
-    const bg = isEmpty ? 'transparent' : 'var(--neutral-white)'
+    // Ghost-button treatment (see Button's `ghost` variant) for bg/hover, plus a
+    // persistent 1px border (same color as the list divider) on every row.
+    const rowActive = rowElevated || pinBoardOpen
+    const bg = isEmpty ? 'transparent' : rowActive ? 'var(--button-ghost-bg-hover)' : 'transparent'
 
     const rowShadow = isEmpty
       ? undefined
-      : isFocused
-        ? SHADOW_ROW_FOCUSED
-        : rowElevated || pinBoardOpen
-          ? SHADOW_ROW_ELEVATED
-          : SHADOW_ROW_BASE
+      : rowActive
+        ? 'var(--shadow-item-inner), inset 0 0 0 1px var(--divider-color)'
+        : 'inset 0 0 0 1px var(--divider-color)'
 
     return (
       <Comp
@@ -415,13 +424,25 @@ function ChatRowInner(
               {isRenaming ? (
                 <input
                   ref={renameInputRef}
-                  autoFocus
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
-                  onBlur={submitRename}
+                  onBlur={() => {
+                    // Enter/Escape already resolved this rename synchronously — the
+                    // blur that follows (input unmounting) is just DOM cleanup, not
+                    // a real click-away, so skip it to avoid double-handling.
+                    if (renameResolvedRef.current) return
+                    renameResolvedRef.current = true
+                    setIsRenaming(false)
+                    toast.info('Rename cancelled')
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter')  { e.preventDefault(); submitRename() }
-                    if (e.key === 'Escape') { e.preventDefault(); setIsRenaming(false) }
+                    if (e.key === 'Enter')  { e.preventDefault(); renameResolvedRef.current = true; submitRename() }
+                    if (e.key === 'Escape') {
+                      e.preventDefault()
+                      renameResolvedRef.current = true
+                      setIsRenaming(false)
+                      toast.info('Rename cancelled')
+                    }
                     e.stopPropagation()
                   }}
                   onClick={(e) => e.stopPropagation()}
@@ -506,6 +527,12 @@ function ChatRowInner(
                       side="bottom"
                       align="end"
                       sideOffset={4}
+                      onCloseAutoFocus={(e) => {
+                        if (renameJustOpenedRef.current) {
+                          e.preventDefault()
+                          renameJustOpenedRef.current = false
+                        }
+                      }}
                       style={{
                         background:    'var(--neutral-white)',
                         borderRadius:  12,
@@ -518,7 +545,7 @@ function ChatRowInner(
                       <MenuItem
                         label="Rename"
                         icon={<PenOneIcon animated size={14} color="var(--neutral-600)" />}
-                        onSelect={() => { pendingRenameRef.current = true; setRenameValue(title); setIsRenaming(true) }}
+                        onSelect={() => { pendingRenameRef.current = true; renameJustOpenedRef.current = true; setRenameValue(title); setIsRenaming(true) }}
                       />
                       <MenuItem
                         label={starred ? 'Unstar' : 'Star'}

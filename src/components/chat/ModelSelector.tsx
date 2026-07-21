@@ -336,9 +336,13 @@ export function ModelSelector({
               style={{
                 flex: 1,
                 overflowY: "auto",
-                padding: "0 12px 16px",
+                paddingBottom: "16px",
               }}
             >
+              {/* Horizontal padding lives on this inner wrapper, not the
+                  scrolling element above — keeps the scrollbar flush with the
+                  dropdown's edge. */}
+              <div style={{ padding: "0 12px" }}>
               {Object.entries(grouped).map(([provider, providerModels]) => (
                 <div key={provider} style={{ marginBottom: "12px" }}>
                   {/* Provider label */}
@@ -393,6 +397,7 @@ export function ModelSelector({
                     : "No models available"}
                 </div>
               )}
+              </div>
             </div>
           </m.div>
         </>

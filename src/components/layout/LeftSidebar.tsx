@@ -4,7 +4,7 @@ import React, { useCallback, useRef, useMemo, useState, useEffect, Suspense } fr
 import { m } from "framer-motion";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { BubbleChatAddIcon, FolderAddIcon, FolderOneIcon, MoreHorizontalIcon, PlusSignIcon, SettingsOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
+import { AlertTwoIcon, BubbleChatAddIcon, CircleIcon, FolderAddIcon, FolderOneIcon, MoreHorizontalIcon, PlusSignIcon, SettingsOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
 import { DEFAULT_ADMIN_GROUPS } from "@/components/Sidebar";
 import { AccountMenu } from "@/components/AccountMenu";
@@ -14,8 +14,8 @@ import { useProjects } from "@/context/projects-context";
 import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { fetchPersonaOwnerMap, resolveViewerUserId } from "@/lib/api/teams";
-import { listTasks } from "@/lib/api/tasks";
-import type { ScheduledTaskListItem } from "@/lib/api/tasks";
+import { listTasks, getTask } from "@/lib/api/tasks";
+import type { ScheduledTaskListItem, ScheduledTaskRunResponse } from "@/lib/api/tasks";
 import { CHAT_CREATED_EVENT, emitBrainNewThread } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
 import { BrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
@@ -1815,22 +1815,95 @@ function RecentAgentChatsSection() {
 // Receives pre-loaded tasks from LeftSidebarImpl so the list survives tab
 // switches without re-fetching on each brain-tab mount/unmount cycle.
 
+/** Per-schedule run status derived from its run history (see computeScheduleRunInfo). */
+interface ScheduleRunInfo {
+  /** Outcome of the most recent run — null when there's no run yet or its
+   *  status isn't one we render an indicator for (e.g. still "running"). */
+  lastRunStatus: "success" | "failed" | null;
+  /** Runs that happened after this schedule was last opened from the sidebar. */
+  newRunsCount: number;
+}
+
+const SCHEDULE_SEEN_KEY_PREFIX = "brain-schedule-seen:";
+
+function getScheduleLastSeenAt(taskId: string): number | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(SCHEDULE_SEEN_KEY_PREFIX + taskId);
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function markScheduleSeen(taskId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SCHEDULE_SEEN_KEY_PREFIX + taskId, String(Date.now()));
+  } catch {
+    // Storage full/unavailable — the badge just won't clear until next reload; non-critical.
+  }
+}
+
+function scheduleRunTimestamp(run: ScheduledTaskRunResponse): number {
+  const iso = run.completed_at ?? run.started_at ?? run.created_at;
+  const ms = iso ? new Date(iso).getTime() : NaN;
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/** Never-seen schedules count every existing run as "new" — there's nothing
+ *  more correct to compare against than "you haven't looked at this yet". */
+function computeScheduleRunInfo(runs: ScheduledTaskRunResponse[], lastSeenAt: number | null): ScheduleRunInfo {
+  if (runs.length === 0) return { lastRunStatus: null, newRunsCount: 0 };
+  const sorted = [...runs].sort((a, b) => scheduleRunTimestamp(b) - scheduleRunTimestamp(a));
+  const latestStatus = sorted[0].status;
+  const lastRunStatus = latestStatus === "completed" ? "success" : latestStatus === "failed" ? "failed" : null;
+  const newRunsCount = lastSeenAt == null
+    ? runs.length
+    : sorted.filter((r) => scheduleRunTimestamp(r) > lastSeenAt).length;
+  return { lastRunStatus, newRunsCount };
+}
+
+/** Blue circle = last run succeeded (or no run yet). Caution icon = last run
+ *  failed / needs attention. Rendered via SidebarMenuItem's own `icon` slot
+ *  (default variant), which injects `triggered` on hover itself — same as
+ *  every other icon passed to that prop elsewhere in this file. */
+function scheduleStatusIcon(status: ScheduleRunInfo["lastRunStatus"]): React.ReactElement<{ triggered?: boolean }> {
+  if (status === "failed") {
+    return <AlertTwoIcon size={14} color="var(--color-tag-Yellow-text)" aria-label="Needs attention" />;
+  }
+  // CircleIcon is stroke-only (fill: none on the <svg>) — pass `fill` as an
+  // extra SVG prop so the circle renders solid instead of a hollow ring.
+  return (
+    <CircleIcon
+      size={8}
+      color="var(--color-tag-Blue-text)"
+      fill="var(--color-tag-Blue-text)"
+      aria-label={status === "success" ? "Last run succeeded" : "No runs yet"}
+    />
+  );
+}
+
 interface BrainScheduledTasksSectionProps {
   tasks: ScheduledTaskListItem[];
   loading: boolean;
+  runInfo: Record<string, ScheduleRunInfo>;
+  onTaskOpened: (taskId: string) => void;
 }
 
-function BrainScheduledTasksSection({ tasks, loading }: BrainScheduledTasksSectionProps) {
+// Sidebar preview is a bounded "recent" list — the dedicated /brain/schedules
+// page is where the full set lives; "See all" always links there.
+const SCHEDULE_PREVIEW_LIMIT = 5;
+
+function BrainScheduledTasksSection({ tasks, loading, runInfo, onTaskOpened }: BrainScheduledTasksSectionProps) {
   const { push } = useRouter();
   const [shown, setShown] = useState(true);
   const [overflow, setOverflow] = useState<"visible" | "hidden">("visible");
+  const visibleTasks = tasks.slice(0, SCHEDULE_PREVIEW_LIMIT);
 
   return (
     <>
       <SidebarMenuItem
         fluid
         variant="header"
-        label="Schedules"
+        label="Recent schedules"
         shown={shown}
         onShowClick={() => setShown((s) => !s)}
       />
@@ -1853,18 +1926,35 @@ function BrainScheduledTasksSection({ tasks, loading }: BrainScheduledTasksSecti
               <SidebarMenuSkeleton index={0} fluid />
               <SidebarMenuSkeleton index={1} fluid />
             </>
-          ) : tasks.length > 0 ? (
-            tasks.map((task) => (
-              <m.div key={task.id} variants={sectionItemVariants}>
+          ) : (
+            <>
+              {visibleTasks.map((task) => {
+                const info = runInfo[task.id];
+                return (
+                  <m.div key={task.id} variants={sectionItemVariants}>
+                    <SidebarMenuItem
+                      fluid
+                      variant="default"
+                      icon={scheduleStatusIcon(info?.lastRunStatus ?? null)}
+                      label={task.title}
+                      trailing={info && info.newRunsCount > 0 ? <Badge color="Neutral" label={`${info.newRunsCount} new`} /> : undefined}
+                      onClick={() => { onTaskOpened(task.id); push(BRAIN_SCHEDULES_ROUTE); }}
+                    />
+                  </m.div>
+                );
+              })}
+              <m.div variants={sectionItemVariants}>
                 <SidebarMenuItem
                   fluid
-                  variant="chat-item"
-                  label={task.title}
+                  variant="default"
+                  icon={<MoreHorizontalIcon size={20} animated />}
+                  label="See all"
+                  href={BRAIN_SCHEDULES_ROUTE}
                   onClick={() => push(BRAIN_SCHEDULES_ROUTE)}
                 />
               </m.div>
-            ))
-          ) : null}
+            </>
+          )}
         </m.div>
       </m.div>
     </>
@@ -1980,16 +2070,44 @@ function LeftSidebarImpl({
   // Lifted here so the list survives brain-tab switches without re-fetching.
   const [brainTasks, setBrainTasks] = useState<ScheduledTaskListItem[]>([]);
   const [brainTasksLoading, setBrainTasksLoading] = useState(false);
+  const [brainTaskRunInfo, setBrainTaskRunInfo] = useState<Record<string, ScheduleRunInfo>>({});
   const brainTasksFetchedRef = useRef(false);
   useEffect(() => {
     if (!isBrainPage || brainTasksFetchedRef.current) return;
     brainTasksFetchedRef.current = true;
     setBrainTasksLoading(true);
     listTasks()
-      .then(setBrainTasks)
+      .then(async (tasks) => {
+        setBrainTasks(tasks);
+        // Per-task run history isn't on the list payload — fetch each task's
+        // detail (already-existing endpoint) to derive the status dot + badge.
+        const entries = await Promise.all(tasks.map(async (task) => {
+          try {
+            const detail = await getTask(task.id);
+            const lastSeenAt = getScheduleLastSeenAt(task.id);
+            const info = computeScheduleRunInfo(detail.runs ?? [], lastSeenAt);
+            if (process.env.NODE_ENV !== "production") {
+              // eslint-disable-next-line no-console
+              console.debug("[BrainSchedules] run info", { taskId: task.id, title: task.title, runs: detail.runs?.length ?? 0, info });
+            }
+            return [task.id, info] as const;
+          } catch (err) {
+            console.error("[BrainSchedules] failed to fetch task detail for status indicator", task.id, err);
+            return [task.id, { lastRunStatus: null, newRunsCount: 0 } as ScheduleRunInfo] as const;
+          }
+        }));
+        setBrainTaskRunInfo(Object.fromEntries(entries));
+      })
       .catch(() => {})
       .finally(() => setBrainTasksLoading(false));
   }, [isBrainPage]);
+
+  const handleScheduleOpened = useCallback((taskId: string) => {
+    markScheduleSeen(taskId);
+    setBrainTaskRunInfo((prev) =>
+      prev[taskId] ? { ...prev, [taskId]: { ...prev[taskId], newRunsCount: 0 } } : prev,
+    );
+  }, []);
 
   // Exclude project chats from the Recents/Starred lists - they are already
   // shown inside the Projects section and would be confusing duplicates.
@@ -2247,7 +2365,14 @@ function LeftSidebarImpl({
       ) : (
         <ProjectsSection label="Personal Projects" />
       )}
-      scheduledTasksItems={isBrainPage ? <BrainScheduledTasksSection tasks={brainTasks} loading={brainTasksLoading} /> : undefined}
+      scheduledTasksItems={isBrainPage ? (
+        <BrainScheduledTasksSection
+          tasks={brainTasks}
+          loading={brainTasksLoading}
+          runInfo={brainTaskRunInfo}
+          onTaskOpened={handleScheduleOpened}
+        />
+      ) : undefined}
       brainRecentItems={
         <BrainSidebarSections
           activeChatId={isBrainPage ? (chatSearchParams.get('id') ?? null) : null}

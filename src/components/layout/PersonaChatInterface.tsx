@@ -642,9 +642,12 @@ export function PersonaChatInterface({
       <div
         ref={messagesContainerRef}
         className="kaya-scrollbar"
-        style={{ flex: 1, overflowY: "auto", padding: "24px 16px", display: "flex", flexDirection: "column", alignItems: "center" }}
+        style={{ flex: 1, overflowY: "auto", paddingTop: "24px", paddingBottom: "24px", paddingRight: "2px", display: "flex", flexDirection: "column", alignItems: "center" }}
       >
-        <div style={{ width: "100%", maxWidth: "720px" }}>
+        {/* 2px right padding on the scrolling element above sits the
+            scrollbar exactly 2px from the layout's edge. Reading-comfort
+            padding lives here, not on the scrolling element above. */}
+        <div style={{ width: "100%", maxWidth: "752px", padding: "0 16px", boxSizing: "border-box" }}>
 
           {isLoadingMessages && <ChatMessagesSkeleton />}
 

@@ -1520,12 +1520,17 @@ export default function ConnectorsPage() {
           display:        'flex',
           alignItems:     'flex-start',
           justifyContent: 'center',
-          padding:        '96px 12px 48px',
+          paddingTop:     96,
+          paddingBottom:  48,
         }}
       >
+        {/* Horizontal padding lives here, not on the scrolling element above —
+            keeps the scrollbar flush with the container's edge. */}
         <div style={{
           flex:          '1 0 0',
-          maxWidth:      967,
+          maxWidth:      991,
+          padding:       '0 12px',
+          boxSizing:     'border-box',
           minWidth:      0,
           display:       'flex',
           flexDirection: 'column',

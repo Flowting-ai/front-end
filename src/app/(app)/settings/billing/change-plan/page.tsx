@@ -214,13 +214,15 @@ export default function ChangePlanPage() {
         style={{
           flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '0 24px 48px',
+          paddingBottom: 48,
           backgroundColor: '#f7f2ed',
         }}
       >
+        {/* Horizontal padding lives on these two inner sections, not the
+            scrolling element above — keeps the scrollbar flush with the edge. */}
         {/* Back button — fixed to top-left of the page */}
         <div style={{
-          width: '100%', maxWidth: 1200,
+          width: '100%', maxWidth: 1248, padding: '0 24px', boxSizing: 'border-box',
           paddingTop: 24, paddingBottom: 0,
           flexShrink: 0,
         }}>
@@ -253,7 +255,7 @@ export default function ChangePlanPage() {
           </button>
         </div>
 
-        <div style={{ width: '100%', maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 64, alignItems: 'center', paddingTop: 40 }}>
+        <div style={{ width: '100%', maxWidth: 1248, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 64, alignItems: 'center', paddingTop: 40 }}>
 
           {/* ── Header ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>

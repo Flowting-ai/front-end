@@ -612,7 +612,7 @@ function AnalyticsPageSkeleton() {
   return (
     <>
       <style>{`@keyframes analyticsSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
-      <div style={{ flex: '1 0 0', minWidth: 0, maxWidth: 1114, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ flex: '1 0 0', minWidth: 0, maxWidth: 1162, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Page header */}
         <div style={{ paddingLeft: 4, display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -772,7 +772,7 @@ export default function OrgUsageAnalyticsPage() {
 
   if (!orgReady || membersLoading) {
     return (
-      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
+      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 64, paddingBottom: 48 }}>
         <AnalyticsPageSkeleton />
       </div>
     )
@@ -814,14 +814,19 @@ export default function OrgUsageAnalyticsPage() {
         display:        'flex',
         alignItems:     'flex-start',
         justifyContent: 'center',
-        padding:        '64px 24px 48px',
+        paddingTop:     64,
+        paddingBottom:  48,
       }}
     >
+      {/* Horizontal padding lives here, not on the scrolling element above —
+          keeps the scrollbar flush with the container's edge. */}
       <div
         style={{
           flex:          '1 0 0',
           minWidth:      0,
-          maxWidth:      1114,
+          maxWidth:      1162,
+          padding:       '0 24px',
+          boxSizing:     'border-box',
           display:       'flex',
           flexDirection: 'column',
           gap:           12,

@@ -395,16 +395,17 @@ export function PinboardExpanded(
                       overflowY:           'auto',
                       overflowX:           'hidden',
                       overscrollBehaviorY: 'contain',
-                      display:             'flex',
-                      flexDirection:       'column',
-                      gap:                 4,
-                      padding:             '0 8px 8px',
+                      paddingBottom:       8,
                     }}
                     onScroll={(e) => {
                       const el = e.currentTarget
                       setShowFolderBlur(el.scrollHeight - el.scrollTop - el.clientHeight > 4)
                     }}
                   >
+                {/* Horizontal padding lives on this inner wrapper, not the
+                    scrolling element above — keeps the scrollbar flush with
+                    the panel's edge. */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '0 8px' }}>
                 {personalFolders.map((f) => (
                   <div
                     key={f.id}
@@ -471,6 +472,7 @@ export function PinboardExpanded(
                     </div>
                   </div>
                 ))}
+                </div>
                   </div>
                   {showFolderBlur && (
                     <div style={{

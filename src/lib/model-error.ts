@@ -22,6 +22,8 @@ const MODEL_TOO_LARGE_MESSAGE =
   "Your message is too large for this model. Try shortening it or removing attachments.";
 const MODEL_GENERIC_ERROR_MESSAGE =
   "Something went wrong generating a response. Please try again.";
+const CHAT_NOT_FOUND_MESSAGE =
+  "This chat no longer exists — it may have been deleted. Start a new chat to continue.";
 
 // Keyed by HTTP status code. Add an entry here for any new status-specific
 // copy; anything not listed falls back to a generic message below instead
@@ -73,6 +75,15 @@ const STATUS_PREFIX_RE = /(?:^|\s)(\d{3})\s*:/;
 export function friendlyModelError(raw?: string | null, statusCode?: number): string {
   const text = raw ?? "";
   const lower = text.toLowerCase();
+
+  // Checked before the status-code table below: a 404 from the chat-stream
+  // endpoint is never "the model 404'd" — it means the chat itself is gone
+  // (deleted, or never belonged to this viewer) — a specific, actionable
+  // reason worth distinguishing from the generic "model unresponsive" copy
+  // a bare 404 would otherwise get.
+  if (lower.includes("chat not found")) {
+    return CHAT_NOT_FOUND_MESSAGE;
+  }
 
   const code = statusCode ?? (() => {
     const match = STATUS_PREFIX_RE.exec(text);

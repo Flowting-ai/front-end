@@ -26,6 +26,8 @@ function Bone({
 
 // ── Shared layout constants ───────────────────────────────────────────────────
 
+// Horizontal padding lives on INNER, not OUTER (the scrolling element) — keeps
+// the scrollbar flush with the container's edge instead of inset by it.
 const OUTER: React.CSSProperties = {
   flex:           '1 0 0',
   minHeight:      0,
@@ -34,12 +36,15 @@ const OUTER: React.CSSProperties = {
   display:        'flex',
   alignItems:     'flex-start',
   justifyContent: 'center',
-  padding:        '64px 24px 48px',
+  paddingTop:     64,
+  paddingBottom:  48,
 }
 
 const INNER: React.CSSProperties = {
   width:         '100%',
-  maxWidth:      860,
+  maxWidth:      908,
+  padding:       '0 24px',
+  boxSizing:     'border-box',
   display:       'flex',
   flexDirection: 'column',
   gap:           10,

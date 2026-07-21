@@ -581,7 +581,10 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
         </div>
       )}
       {/* Messages */}
-      <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
+      <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', paddingTop: 4, paddingBottom: 4 }}>
+        {/* Horizontal padding lives on this inner wrapper, not the scrolling
+            element above — keeps the scrollbar flush with the panel's edge. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 8px' }}>
         {chatMessages.length === 0 ? (
           !hasSavedVersion ? (
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-400)', margin: 0 }}>
@@ -637,6 +640,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
             </div>
           ))
         )}
+        </div>
       </div>
 
       {/* Input */}
@@ -705,7 +709,11 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0, textAlign: 'center', padding: '0 24px' }}>Save a version first to unlock AI Suggestions</p>
           </div>
         )}
-        <div ref={guideScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
+        <div ref={guideScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', paddingTop: 4, paddingBottom: 4 }}>
+          {/* Horizontal padding lives on this inner wrapper, not the
+              scrolling element above — keeps the scrollbar flush with the
+              panel's edge. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 8px' }}>
           {guideMessages.length === 0 ? (
             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
               Ask me anything about improving your agent — I&apos;ll review your current draft and give you tailored advice.
@@ -723,6 +731,7 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
               </div>
             ))
           )}
+          </div>
         </div>
         <div style={{ flexShrink: 0 }}>
           <ChatInput

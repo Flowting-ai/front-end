@@ -21,6 +21,28 @@ import type { UIMessage } from "@/hooks/use-chat-state"
 import { registerStream, completeStream } from "@/lib/stream-registry"
 import type { ReasoningSection } from "@/lib/reasoning"
 
+// ── Error markers ─────────────────────────────────────────────────────────────
+
+/**
+ * Marks an Error's `message` as already user-facing copy — produced by
+ * `friendlyModelError` at the point of failure, when the real status code /
+ * raw backend text was still available. The outer catch checks this before
+ * deciding whether to translate: re-running an already-friendly message
+ * through `friendlyModelError` again would match no known pattern and
+ * flatten it into the generic fallback, destroying the specific reason.
+ */
+class FriendlyStreamError extends Error {
+  readonly alreadyFriendly = true as const
+}
+
+/** A 401 (or auth-flavored error text) from the XHR transport — the caller
+ *  should sign the user out rather than show any chat error content. */
+class AuthExpiredError extends Error {
+  constructor() {
+    super("Your session has expired. Signing you out…")
+  }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type StreamState = "idle" | "waiting" | "streaming" | "done" | "aborted" | "error"
@@ -1395,9 +1417,25 @@ export function useStreamingChat({
           if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED && !headersHandled) {
             headersHandled = true
             if (xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)) {
-              reject(new Error(
-                friendlyModelError(xhr.responseText || `Request failed with status ${xhr.status}`, xhr.status),
-              ))
+              const rawText = xhr.responseText || `Request failed with status ${xhr.status}`
+              const lowerText = rawText.toLowerCase()
+              logger.error("[useStreamingChat] Stream request failed", {
+                status: xhr.status,
+                chatId,
+                isExistingChat,
+                endpoint: resolvedEndpoint,
+                responseText: xhr.responseText,
+              })
+              if (
+                xhr.status === 401 ||
+                lowerText.includes("token expired") ||
+                lowerText.includes("not authenticated") ||
+                lowerText.includes("unauthorized")
+              ) {
+                reject(new AuthExpiredError())
+              } else {
+                reject(new FriendlyStreamError(friendlyModelError(rawText, xhr.status)))
+              }
               return
             }
             const headerChatId =
@@ -1421,7 +1459,10 @@ export function useStreamingChat({
             // Flush any incomplete SSE event still in the buffer
             if (buffer.trim()) processSSEText("\n\n")
             if (xhr.status === 0 && !stopRequestedRef.current) {
-              reject(new Error(friendlyModelError("", 503)))
+              logger.error("[useStreamingChat] Connection dropped mid-stream", {
+                chatId, isExistingChat, endpoint: resolvedEndpoint,
+              })
+              reject(new FriendlyStreamError(friendlyModelError("", 503)))
             } else {
               resolve()
             }
@@ -1437,7 +1478,10 @@ export function useStreamingChat({
 
         xhr.onerror = () => {
           xhrRef.current = null
-          reject(new Error(friendlyModelError("", 503)))
+          logger.error("[useStreamingChat] XHR network error", {
+            chatId, isExistingChat, endpoint: resolvedEndpoint,
+          })
+          reject(new FriendlyStreamError(friendlyModelError("", 503)))
         }
 
         xhr.send(fd)
@@ -1486,10 +1530,21 @@ export function useStreamingChat({
 
       logger.error("[useStreamingChat] Error", error)
 
+      if (error instanceof AuthExpiredError) {
+        setStreamState?.("error")
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("auth:session-expired"))
+        }
+        return
+      }
+
       const rawMsg =
         error instanceof Error ? error.message : "Failed to connect to AI service"
       const lower = rawMsg.toLowerCase()
 
+      // Fallback for errors that never passed through the XHR reject paths
+      // above (e.g. a synchronous throw earlier in this function), so
+      // weren't already classified as AuthExpiredError there.
       if (
         lower.includes("token expired") ||
         lower.includes("not authenticated") ||
@@ -1506,7 +1561,13 @@ export function useStreamingChat({
       setStreamState?.("error")
       queueUpdate(
         {
-          content: friendlyModelError(rawMsg),
+          // Errors from the XHR paths above are already translated by
+          // friendlyModelError at the point of failure, when the real status
+          // code / raw backend text was still available. Re-running the
+          // translator on that already-friendly text would match no known
+          // pattern and flatten it into the generic fallback — so only
+          // translate genuinely-raw messages here.
+          content: error instanceof FriendlyStreamError ? rawMsg : friendlyModelError(rawMsg),
           isThinkingInProgress: false,
           isLoading: false,
           isError: true,

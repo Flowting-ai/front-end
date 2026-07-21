@@ -29,7 +29,8 @@ import { Button } from "@/components/Button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from "@/components/chat/AddMenu";
 import { ChatShareOverlay } from "@/components/chat/ChatShareOverlay";
-import { fetchPersonas, getVersion } from "@/lib/api/personas";
+import { getVersion } from "@/lib/api/personas";
+import { useSelectableChatPersonas } from "@/hooks/use-selectable-chat-personas";
 import { ModelMenu } from "@/components/chat/ModelMenu";
 import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
@@ -271,10 +272,9 @@ function ChatPageInner() {
   const [styleChipOpen,       setStyleChipOpen]       = useState(false);
   const [personaChipOpen,     setPersonaChipOpen]     = useState(false);
   const [openFolderChipId,    setOpenFolderChipId]    = useState<string | null>(null);
-  const [chipPersonas,        setChipPersonas]        = useState<SelectedPersonaInfo[]>([]);
-  const [loadingChipPersonas, setLoadingChipPersonas] = useState(false);
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
   const [selectedPersona,  setSelectedPersona]  = useState<SelectedPersonaInfo | null>(null);
+  const { personas: chipPersonas, loading: loadingChipPersonas } = useSelectableChatPersonas(personaChipOpen);
 
   // Tracks which chatIds were created in this session as persona chats.
   // This prevents routing an existing regular chatId through the persona endpoint.
@@ -594,7 +594,6 @@ function ChatPageInner() {
       )}
       selectedPersonaId={selectedPersona?.id ?? null}
       onPersonaChange={setSelectedPersona}
-      teamId={activeTeamId}
     />
   );
 
@@ -669,17 +668,6 @@ function ChatPageInner() {
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
-
-  useEffect(() => {
-    if (!personaChipOpen) return
-    setLoadingChipPersonas(true)
-    fetchPersonas()
-      // Normal chat only surfaces personally-owned agents. Team-shared personas are
-      // scoped to project chat where the copy flow handles them correctly.
-      .then(list => setChipPersonas(list.filter(p => p.visibility === 'private').map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
-      .catch(() => setChipPersonas([]))
-      .finally(() => setLoadingChipPersonas(false))
-  }, [personaChipOpen])
 
   const modelButtonLabel = museActive
     ? museAdvanced

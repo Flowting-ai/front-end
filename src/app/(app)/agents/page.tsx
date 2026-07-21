@@ -1072,13 +1072,18 @@ export default function PersonasPage() {
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          padding: '36px 12px 24px',
+          paddingTop: 36,
+          paddingBottom: 24,
           boxSizing: 'border-box',
         }}
       >
+        {/* Horizontal padding lives here, not on the scrolling element above —
+            keeps the scrollbar flush with the card's edge. */}
         <div style={{
           width: '100%',
-          maxWidth: 967,
+          maxWidth: 991,
+          padding: '0 12px',
+          boxSizing: 'border-box',
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
