@@ -18,7 +18,7 @@ import {
 } from '@/lib/api/stripe'
 import { getOrgSettings, setOrgPoolCap, updateOrgSettings } from '@/lib/api/organization'
 import type { AdminBillingPerms } from '@/types/teams'
-import { ORG_CHANGE_PLAN_ROUTE, ORG_MEMBERS_ROUTE } from '@/lib/routes'
+import { ORG_CHANGE_PLAN_ROUTE, ORG_MEMBERS_ROUTE, SETTINGS_BILLING_ROUTE } from '@/lib/routes'
 
 /*
  * Settings → Organization → Billing ("Plans & Usage")
@@ -562,6 +562,7 @@ export default function OrgBillingPage() {
       onAnnualChange={setAnnual}
       onContactSales={() => setContactSalesOpen(true)}
       onUpgrade={() => router.push(ORG_CHANGE_PLAN_ROUTE)}
+      onManagePlan={() => router.push(SETTINGS_BILLING_ROUTE)}
       onRequestPlanChange={handleRequestPlanChange}
       cancelAtPeriodEnd={billing?.cancel_at_period_end ?? false}
       cancelsOnLabel={nextBilling}
@@ -911,6 +912,7 @@ function TeamsHero({
   onAnnualChange,
   onContactSales,
   onUpgrade,
+  onManagePlan,
   onRequestPlanChange,
   cancelAtPeriodEnd,
   cancelsOnLabel,
@@ -928,6 +930,7 @@ function TeamsHero({
   onAnnualChange:      (v: boolean) => void
   onContactSales:      () => void
   onUpgrade:           () => void
+  onManagePlan:        () => void
   onRequestPlanChange: () => void
   cancelAtPeriodEnd:   boolean
   cancelsOnLabel:      string
@@ -1031,6 +1034,7 @@ function TeamsHero({
                 </button>
               )}
               {/* <Button variant="secondary" onClick={onContactSales}>Contact Sales Team</Button> */}
+              <Button variant="secondary" onClick={onManagePlan}>Manage plan</Button>
               <Button variant="default" onClick={onUpgrade}>Upgrade plan</Button>
             </div>
           </div>
