@@ -53,6 +53,7 @@ import type { PinFolder } from '@/lib/api/pins'
 import { usePinboard } from '@/context/pinboard-context'
 import {
   initiateLink,
+  listConnectors,
   pollConnectorUntilActive,
   getConnector,
   updateConnector,
@@ -83,6 +84,7 @@ import {
   type CortexPlan,
   type RecoveryPrompt,
   type BrainContextEvent,
+  type ContextConnector,
   type ContextPersona,
   type ExternalOutputAction,
   type BrainMessage,
@@ -1460,6 +1462,25 @@ function BrainPageInner() {
   const [liveContext, setLiveContext] = useState<BrainContextEvent | null>(null)
   // The active turn's typed plan — drives the ContextRail via buildContextPlan.
   const [activeCortexPlan, setActiveCortexPlan] = useState<CortexPlan | null>(null)
+  // Connector catalog rows (display names, brand logos, linked state) —
+  // buildContextPlan resolves plan connector slugs against these since the
+  // cortex stream carries slugs only.
+  const [connectorCatalog, setConnectorCatalog] = useState<ContextConnector[]>([])
+  useEffect(() => {
+    let cancelled = false
+    void listConnectors()
+      .then((entries) => {
+        if (cancelled) return
+        setConnectorCatalog(entries.map((e) => ({
+          slug:         e.slug,
+          display_name: e.display_name,
+          status:       e.linked || e.workspace_linked ? 'connected' : 'disconnected',
+          logo_url:     e.logo_url,
+        })))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
   // Running per-thread accumulator of every pin/file/connector ever seen in a
   // `context` event this session — lets the rail show "Previously used" items
   // that dropped out of the current turn's context, alongside what's active now.
@@ -4706,7 +4727,7 @@ function BrainPageInner() {
     // (buildContextPlan) and the SSE `context` event only supplies display
     // rows. Without a plan, the event snapshot renders as before.
     const railContext = activeCortexPlan
-      ? buildContextPlan(activeCortexPlan, liveContext)
+      ? buildContextPlan(activeCortexPlan, liveContext, connectorCatalog)
       : liveContext
 
     if (!railContext) {
@@ -4790,7 +4811,7 @@ function BrainPageInner() {
       files:      [...activeFiles, ...previousFiles],
       connectors: [...activeConnectors, ...previousConnectors],
     }
-  }, [liveContext, activeCortexPlan, selectedPersona, selectedFolderPins, effectivePinIds, pinboardPins])
+  }, [liveContext, activeCortexPlan, connectorCatalog, selectedPersona, selectedFolderPins, effectivePinIds, pinboardPins])
 
   // ── Has any content to render ─────────────────────────────────────────────────
 

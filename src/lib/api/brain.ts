@@ -256,6 +256,7 @@ export function parseBrainContextEvent(value: unknown): BrainContextEvent {
 export function buildContextPlan(
   plan: CortexPlan,
   ctx: BrainContextEvent | null,
+  connectorCatalog: ContextConnector[] = [],
 ): BrainContextEvent {
   const personaIds = new Set<string>()
   const connectorSlugs = new Set<string>()
@@ -267,6 +268,7 @@ export function buildContextPlan(
     for (const pin of n.context.pins) if (pin) pinIds.add(pin)
     if (n.context.files.length > 0) usesFiles = true
   }
+  const catalogBySlug = new Map(connectorCatalog.map((c) => [c.slug.toLowerCase(), c]))
   return {
     persona: personaIds.size === 0
       ? null
@@ -277,9 +279,15 @@ export function buildContextPlan(
     // Node file refs are attachment ids while the event rows are named
     // uploads of the same turn — membership is all-or-nothing per turn.
     files: usesFiles ? ctx?.files ?? [] : [],
-    connectors: [...connectorSlugs].map((slug) =>
-      ctx?.connectors.find((c) => c.slug.toLowerCase() === slug) ?? { slug, display_name: slug },
-    ),
+    // Row resolution per member slug: the turn's context event, decorated
+    // with catalog display data (logo_url) it may lack, then the catalog row
+    // alone, then a minimal typed stub.
+    connectors: [...connectorSlugs].map((slug) => {
+      const live = ctx?.connectors.find((c) => c.slug.toLowerCase() === slug)
+      const cat = catalogBySlug.get(slug)
+      if (live && cat) return { ...cat, ...live, logo_url: live.logo_url ?? cat.logo_url }
+      return live ?? cat ?? { slug, display_name: slug }
+    }),
   }
 }
 
