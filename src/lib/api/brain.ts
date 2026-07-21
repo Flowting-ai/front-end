@@ -248,6 +248,41 @@ export function parseBrainContextEvent(value: unknown): BrainContextEvent {
   return parsed.success ? parsed.data : EMPTY_BRAIN_CONTEXT
 }
 
+/** Fold the plan's node contexts into the typed context objects. The plan is
+ *  the source of truth for MEMBERSHIP — which persona, connectors, pins, and
+ *  files the run actually uses (services/cortex/schema.py NodeContext); the
+ *  `context` event only supplies display rows for those members. Rendering the
+ *  event verbatim would list every connector on the account. */
+export function buildContextPlan(
+  plan: CortexPlan,
+  ctx: BrainContextEvent | null,
+): BrainContextEvent {
+  const personaIds = new Set<string>()
+  const connectorSlugs = new Set<string>()
+  const pinIds = new Set<string>()
+  let usesFiles = false
+  for (const n of plan.nodes) {
+    if (n.context.persona_id) personaIds.add(n.context.persona_id)
+    for (const slug of n.context.connectors) if (slug) connectorSlugs.add(slug.toLowerCase())
+    for (const pin of n.context.pins) if (pin) pinIds.add(pin)
+    if (n.context.files.length > 0) usesFiles = true
+  }
+  return {
+    persona: personaIds.size === 0
+      ? null
+      : ctx?.persona ?? { persona_id: [...personaIds][0], avatar_url: undefined },
+    pins: [...pinIds].map((id) =>
+      ctx?.pins.find((p) => p.pin_id === id) ?? { pin_id: id, title: '' },
+    ),
+    // Node file refs are attachment ids while the event rows are named
+    // uploads of the same turn — membership is all-or-nothing per turn.
+    files: usesFiles ? ctx?.files ?? [] : [],
+    connectors: [...connectorSlugs].map((slug) =>
+      ctx?.connectors.find((c) => c.slug.toLowerCase() === slug) ?? { slug, display_name: slug },
+    ),
+  }
+}
+
 // One real-world side effect a connector write-tool performed during a run
 // (a sent email, a created Notion page, …). Mirrors core/sse_schemas.py
 // ExternalOutputAction exactly. `view_url`/`logo_url` are best-effort and may

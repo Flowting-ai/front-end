@@ -74,6 +74,7 @@ import {
   respondToPrompt,
   stopBrainChat,
   stopBrainRun,
+  buildContextPlan,
   parseBrainContextEvent,
   parseCortexPlan,
   parseRecoveryPrompt,
@@ -1452,6 +1453,8 @@ function BrainPageInner() {
   // files, connectors). Fired once at the start of each turn; drives the
   // ContextRail. Null until a turn runs → rail stays empty at idle.
   const [liveContext, setLiveContext] = useState<BrainContextEvent | null>(null)
+  // The active turn's typed plan — drives the ContextRail via buildContextPlan.
+  const [activeCortexPlan, setActiveCortexPlan] = useState<CortexPlan | null>(null)
   // Running per-thread accumulator of every pin/file/connector ever seen in a
   // `context` event this session — lets the rail show "Previously used" items
   // that dropped out of the current turn's context, alongside what's active now.
@@ -1769,6 +1772,7 @@ function BrainPageInner() {
     setActivePlanId(null)
     setPendingRemapId(null)
     setLiveContext(null)
+    setActiveCortexPlan(null)
     contextHistoryRef.current = { pins: new Map(), files: new Map(), connectors: new Map() }
     setHistoryMessages([])
     setLocalTurns([])
@@ -1802,7 +1806,9 @@ function BrainPageInner() {
           setActivePlanId(latestPlan.id)
           activeRunSeqRef.current = 0
           setActivePlanSteps(steps)
-          setActivePlanSummary(parseCortexPlan(latestPlan.plan_json)?.description ?? '')
+          const reattachedPlan = parseCortexPlan(latestPlan.plan_json)
+          setActiveCortexPlan(reattachedPlan)
+          setActivePlanSummary(reattachedPlan?.description ?? '')
           setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, s.status ?? 'pending' as StepStatus])))
           setStreamedContent(latestWithPlan.output ?? '')
           setReasoningState(createReasoningState(
@@ -1928,6 +1934,7 @@ function BrainPageInner() {
           .then((plan) => {
             const cortexPlan = parseCortexPlan(plan.plan_json)
             if (!cortexPlan) return
+            setActiveCortexPlan(cortexPlan)
             const steps = applyFlowGrouping(cortexPlan.nodes.map(mapCortexNode), cortexPlan.edges)
             // Record node titles/order + leaf set so step_content can split node
             // outputs between the reasoning block (non-leaf) and chat (sole leaf).
@@ -2256,6 +2263,7 @@ function BrainPageInner() {
       case 'plan_cancelled': {
         pendingPlanIdRef.current = null
         waitingForPlanApprovalRef.current = false
+        setActiveCortexPlan(null)
         setPhase('cancelled')
         break
       }
@@ -3887,6 +3895,7 @@ function BrainPageInner() {
     setActivePlanId(null)
     setPendingRemapId(null)
     setLiveContext(null)
+    setActiveCortexPlan(null)
     contextHistoryRef.current = { pins: new Map(), files: new Map(), connectors: new Map() }
     setHistoryMessages([])
     setLocalTurns([])
@@ -4635,7 +4644,14 @@ function BrainPageInner() {
         source: pin.folderName || (pin.tags?.length ? pin.tags.join(' · ') : undefined),
       }))
 
-    if (!liveContext) {
+    // Plan-driven context: when a typed plan is active it defines membership
+    // (buildContextPlan) and the SSE `context` event only supplies display
+    // rows. Without a plan, the event snapshot renders as before.
+    const railContext = activeCortexPlan
+      ? buildContextPlan(activeCortexPlan, liveContext)
+      : liveContext
+
+    if (!railContext) {
       // No turn has run yet — show the chip persona + staged pins so the rail
       // opens immediately when the user selects context before their first send.
       const initial: ContextRailData = {}
@@ -4653,16 +4669,16 @@ function BrainPageInner() {
 
     // Keys present in THIS turn's snapshot — everything else already seen this
     // session (contextHistoryRef) but not part of the active set is "previously used".
-    const activePinIds         = new Set((liveContext.pins ?? []).map((p) => p.pin_id))
-    const activeFileNames      = new Set((liveContext.files ?? []).map((f) => f.name))
-    const activeConnectorSlugs = new Set((liveContext.connectors ?? []).map((c) => c.slug))
+    const activePinIds         = new Set((railContext.pins ?? []).map((p) => p.pin_id))
+    const activeFileNames      = new Set((railContext.files ?? []).map((f) => f.name))
+    const activeConnectorSlugs = new Set((railContext.connectors ?? []).map((c) => c.slug))
     const hist = contextHistoryRef.current
 
     // Live SSE pins carry titles/tags. Reconstructed pins (chat reload) are
     // bare ids with empty titles — resolve display text from the loaded
     // pinboard, dropping any that no longer exist there.
-    const activePins = liveContext.pins?.length
-      ? liveContext.pins.flatMap((p) => {
+    const activePins = railContext.pins?.length
+      ? railContext.pins.flatMap((p) => {
           if (p.title) {
             return [{ id: p.pin_id, title: p.title, source: p.tags?.length ? p.tags.join(' · ') : undefined, active: true }]
           }
@@ -4683,7 +4699,7 @@ function BrainPageInner() {
         return [{ id, title: match.title, source: match.folderName || (match.tags?.length ? match.tags.join(' · ') : undefined), active: false }]
       })
 
-    const activeFiles = (liveContext.files ?? []).map((f) => ({
+    const activeFiles = (railContext.files ?? []).map((f) => ({
       name:   f.name,
       meta:   [f.mime_type, fmtSize(f.size)].filter(Boolean).join(' · ') || undefined,
       active: true,
@@ -4696,7 +4712,7 @@ function BrainPageInner() {
         active: false,
       }))
 
-    const activeConnectors = (liveContext.connectors ?? []).map((c) => ({ ...toConnector(c), active: true }))
+    const activeConnectors = (railContext.connectors ?? []).map((c) => ({ ...toConnector(c), active: true }))
     const previousConnectors = Array.from(hist.connectors.values())
       .filter((c) => !activeConnectorSlugs.has(c.slug))
       .map((c) => ({ ...c, active: false }))
@@ -4704,19 +4720,19 @@ function BrainPageInner() {
     return {
       // Prefer what Brain confirmed it loaded (SSE event); fall back to the
       // chip selection so the persona is never missing from the rail.
-      persona: liveContext.persona
+      persona: railContext.persona
         ? {
-            id:        liveContext.persona.persona_id,
-            name:      liveContext.persona.name || liveContext.persona.handler || 'Agent',
-            handle:    liveContext.persona.handler || '',
-            avatarUrl: liveContext.persona.avatar_url,
+            id:        railContext.persona.persona_id,
+            name:      railContext.persona.name || railContext.persona.handler || 'Agent',
+            handle:    railContext.persona.handler || '',
+            avatarUrl: railContext.persona.avatar_url,
           }
         : chipPersona,
       pins:       [...activePins, ...previousPins],
       files:      [...activeFiles, ...previousFiles],
       connectors: [...activeConnectors, ...previousConnectors],
     }
-  }, [liveContext, selectedPersona, selectedFolderPins, effectivePinIds, pinboardPins])
+  }, [liveContext, activeCortexPlan, selectedPersona, selectedFolderPins, effectivePinIds, pinboardPins])
 
   // ── Has any content to render ─────────────────────────────────────────────────
 
