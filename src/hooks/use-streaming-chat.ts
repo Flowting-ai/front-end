@@ -1397,6 +1397,10 @@ export function useStreamingChat({
 
         let headersHandled = false
         let processedLength = 0
+        // Set right before the HEADERS_RECEIVED branch rejects on a non-2xx
+        // status, so the DONE backstop below doesn't re-log/re-reject the
+        // same failure a second time.
+        let statusRejected = false
 
         // onprogress fires for every incoming chunk of streaming data and is
         // more reliable than relying on onreadystatechange LOADING events alone.
@@ -1426,6 +1430,7 @@ export function useStreamingChat({
                 endpoint: resolvedEndpoint,
                 responseText: xhr.responseText,
               })
+              statusRejected = true
               if (
                 xhr.status === 401 ||
                 lowerText.includes("token expired") ||
@@ -1463,6 +1468,20 @@ export function useStreamingChat({
                 chatId, isExistingChat, endpoint: resolvedEndpoint,
               })
               reject(new FriendlyStreamError(friendlyModelError("", 503)))
+            } else if (!statusRejected && xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)) {
+              // Backstop: HEADERS_RECEIVED should have already caught a non-2xx
+              // status, but if that branch was skipped/raced for any reason,
+              // this is the last chance to surface the real error instead of
+              // silently falling through to "Generation interrupted."
+              const rawText = xhr.responseText || `Request failed with status ${xhr.status}`
+              logger.error("[useStreamingChat] Stream request failed (caught at DONE)", {
+                status: xhr.status, chatId, isExistingChat, endpoint: resolvedEndpoint, responseText: xhr.responseText,
+              })
+              if (xhr.status === 401) {
+                reject(new AuthExpiredError())
+              } else {
+                reject(new FriendlyStreamError(friendlyModelError(rawText, xhr.status)))
+              }
             } else {
               resolve()
             }
