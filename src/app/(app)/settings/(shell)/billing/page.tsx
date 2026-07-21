@@ -429,9 +429,12 @@ export default function BillingPage() {
   const nextBilling      = display?.nextBilling      ?? '-'
   const periodEnd        = display?.periodEnd        ?? null
   const cancelAtPeriodEnd = display?.cancelAtPeriodEnd ?? false
-  // Cancel/Resume act on the personal Stripe subscription, so only individual
-  // paid plans expose them — team billing is managed at the org level.
-  const hasActiveSub      = Boolean(individualPlan)
+  // Cancel/Resume act on the Stripe subscription (DELETE /stripe/subscription),
+  // which cancels whichever plan the caller's account is tied to — individual
+  // or team. org/plans exposes the same "Cancel plan" flow to team accounts,
+  // gated to the org owner there; mirror that gate here so team owners get it
+  // on this page too instead of only being able to cancel from org/plans.
+  const hasActiveSub      = Boolean(individualPlan) || (isTeamAccount && isOrgOwner)
 
   const pm        = billing?.payment_method ?? null
   const hasPaymentMethod = Boolean(pm && pm.last4)
