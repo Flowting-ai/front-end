@@ -426,7 +426,7 @@ export const billingInfoSchema = z.object({
   payment_method: paymentMethodInfoSchema.nullable().default(null),
   invoices: z.array(invoiceInfoSchema).default([]),
   upcoming_invoice: upcomingInvoiceInfoSchema.nullable().default(null),
-  credits: creditSummarySchema.default({}),
+  credits: creditSummarySchema.prefault({}),
   billing_model: z.string().nullable().default(null),
   base_fee_usd: z.number().default(0),
   included_usage_usd: z.number().default(0),
