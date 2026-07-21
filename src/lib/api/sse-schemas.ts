@@ -87,8 +87,8 @@ export const namedEventSchemas = {
     ...toolProgressFields,
   }),
   docx_progress: z.looseObject({
-    step: z.string(),
     ...toolProgressFields,
+    step: z.string(),
   }),
   tool_connect_prompt: z.looseObject({
     connector_slug: z.string(),
@@ -213,10 +213,13 @@ export const inlineEventSchemas = {
   }),
   tool_call: z.looseObject({
     content: z.string().nullable().optional(),
+    label: z.string().nullable().optional(),
     tool_call: z.looseObject({}).nullable().optional(),
   }),
   tool_error: z.looseObject({
     content: z.string().nullable().optional(),
+    label: z.string().nullable().optional(),
+    tool_call: z.looseObject({}).nullable().optional(),
     error: z.string().nullable().optional(),
   }),
   done: z.looseObject({
