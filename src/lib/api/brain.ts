@@ -32,54 +32,66 @@ const BRAIN_STOP      = (chatId: string) => withBase(`/brain/${chatId}/stop`)
 const BRAIN_STAR      = (chatId: string) => withBase(`/brain/${chatId}/star`)
 const PROMPT_RESPOND  = (promptId: string) => withBase(`/chats/prompts/${promptId}`)
 
-// ── Backend types ─────────────────────────────────────────────────────────────
+// ── Cortex plan object ────────────────────────────────────────────────────────
+// Zod mirror of services/cortex/schema.py (Plan → Node → NodeContext, Edge).
+// plan_json on BrainPlanResponse is this graph, serialized by_alias ("from")
+// with a per-node `status` injected from the run's node_status map.
 
-export interface BackendPlanStep {
-  id:              string
-  title:           string
-  description?:    string
-  kind:            'skill' | 'connector' | 'tool' | 'synthesis'
-  model_id?:       string | null
-  model_name?:     string | null
-  model_company?:  string | null
-  tool?:           string
-  connector_slug?: string
-  depends_on?:     string[]
-  args_preview?:   Record<string, unknown>
-  status?:         'pending' | 'running' | 'completed' | 'failed'
-  result_preview?: string
-  error?:          string
-  started_at?:     string
-  completed_at?:   string
-}
+export const cortexNodeContextSchema = z.looseObject({
+  persona_id: z.string().nullable().default(null),
+  model_id: z.string().nullable().default(null),
+  connectors: z.array(z.string()).default([]),
+  pins: z.array(z.string()).default([]),
+  files: z.array(z.string()).default([]),
+})
 
-// Newer plans persist a node graph instead of a flat step list. Preserve its
-// model metadata so live execution can identify the model working on each node.
-export interface BackendPlanNode {
-  id:              string
-  kind:            string
-  title:           string
-  description?:    string
-  status?:         string
-  model_id?:       string | null
-  model_name?:     string | null
-  model_company?:  string | null
-  result_preview?: string
-  started_at?:     string
-  completed_at?:   string
-}
+export const cortexNodeSchema = z.looseObject({
+  id: z.string().min(1),
+  title: z.string(),
+  description: z.string().default(''),
+  context: cortexNodeContextSchema.prefault({}),
+  is_critical: z.boolean().default(false),
+  status: z.string().default('pending'),
+  result_preview: z.string().optional(),
+})
 
-export interface BackendPlanJson {
-  summary?:             string
-  // Cortex plans (services/cortex/schema.py Plan) carry title + description
-  // instead of summary.
-  title?:               string
-  description?:         string
-  steps?:               BackendPlanStep[]
-  nodes?:               BackendPlanNode[]
-  edges?:               unknown[]
-  plan_text?:           string
-  required_connectors?: string[]
+export const cortexEdgeSchema = z.looseObject({
+  from: z.string(),
+  to: z.string(),
+})
+
+export const cortexPlanSchema = z.looseObject({
+  title: z.string().default(''),
+  description: z.string().default(''),
+  nodes: z.array(cortexNodeSchema).min(1),
+  edges: z.array(cortexEdgeSchema).default([]),
+})
+
+export type CortexNodeContext = z.infer<typeof cortexNodeContextSchema>
+export type CortexNode = z.infer<typeof cortexNodeSchema>
+export type CortexEdge = z.infer<typeof cortexEdgeSchema>
+export type CortexPlan = z.infer<typeof cortexPlanSchema>
+
+/** Parse a plan_json payload into the typed cortex plan. The graph shape is
+ *  the only contract the backend serves — a failure here is drift, not a
+ *  legacy plan, so it logs loudly and returns null. Results are cached per
+ *  payload object: plans are parsed from render paths, and re-parsing the
+ *  same immutable response on every render would be wasted work. */
+const parsedPlans = new WeakMap<object, CortexPlan | null>()
+
+export function parseCortexPlan(planJson: unknown): CortexPlan | null {
+  const cacheable = typeof planJson === 'object' && planJson !== null
+  if (cacheable && parsedPlans.has(planJson)) return parsedPlans.get(planJson) ?? null
+  const result = cortexPlanSchema.safeParse(planJson)
+  let parsed: CortexPlan | null
+  if (result.success) {
+    parsed = result.data
+  } else {
+    console.error('[brain] plan_json failed cortex plan schema', result.error.issues)
+    parsed = null
+  }
+  if (cacheable) parsedPlans.set(planJson, parsed)
+  return parsed
 }
 
 export interface BrainChatListItem {
@@ -96,7 +108,7 @@ export interface BrainPlanResponse {
   status:         'proposed' | 'countered' | 'cancelled' | 'queued' | 'running' | 'summarizing' | 'completed' | 'failed' | string
   supersedes_id?: string | null
   counter_text?:  string | null
-  plan_json:      BackendPlanJson
+  plan_json:      unknown
   final_error?:   string | null
   started_at?:    string | null
   completed_at?:  string | null
@@ -112,7 +124,7 @@ export interface BrainPlanActionResponse {
 export interface BrainRunResponse {
   id:             string
   status:         BrainPlanResponse['status']
-  plan_json:      BackendPlanJson
+  plan_json:      unknown
   final_error?:   string | null
   latest_seq:     number
   started_at?:    string | null
@@ -474,14 +486,7 @@ export function parseRecoveryPrompt(data: unknown): RecoveryPrompt | null {
   return { promptId, meta: parsed.data }
 }
 
-export interface PlanProposedEvent {
-  plan_id:              string
-  summary:              string
-  steps:                BackendPlanStep[]
-  edges?:               Array<Record<string, unknown>>
-  plan_text?:           string
-  required_connectors?: string[]
-}
+export interface PlanReadyEvent { plan_id: string }
 
 export interface PlanApprovedEvent  { plan_id: string }
 export interface PlanCounteredEvent { plan_id: string; counter_text: string }
@@ -508,7 +513,7 @@ export interface BrainNamedEvents {
   tool_progress:       ToolProgressEvent
   tool_connect_prompt: ToolConnectPromptEvent
   user_prompt:         UserPromptEvent
-  plan_proposed:       PlanProposedEvent
+  plan_ready:          PlanReadyEvent
   plan_approved:       PlanApprovedEvent
   plan_countered:      PlanCounteredEvent
   plan_cancelled:      PlanCancelledEvent

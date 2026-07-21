@@ -75,10 +75,11 @@ import {
   stopBrainChat,
   stopBrainRun,
   parseBrainContextEvent,
+  parseCortexPlan,
   parseRecoveryPrompt,
+  type CortexNode,
+  type CortexPlan,
   type RecoveryPrompt,
-  type BackendPlanStep,
-  type BackendPlanNode,
   type BrainContextEvent,
   type ContextPersona,
   type ExternalOutputAction,
@@ -176,28 +177,13 @@ function mapBackendStepStatus(status?: string): StepStatus {
   }
 }
 
-function mapBackendStep(step: BackendPlanStep): PlanStep {
+function mapCortexNode(node: CortexNode): PlanStep {
   return {
-    id:           step.id,
-    label:        step.title,
-    modelId:      step.model_id ?? undefined,
-    modelName:    step.model_name ?? undefined,
-    modelCompany: step.model_company ?? undefined,
-    connector:    step.connector_slug,
-    isCritical:   false,
-    status:       mapBackendStepStatus(step.status),
-  }
-}
-
-function mapBackendNode(node: BackendPlanNode): PlanStep {
-  return {
-    id:           node.id,
-    label:        node.title,
-    modelId:      node.model_id ?? undefined,
-    modelName:    node.model_name ?? undefined,
-    modelCompany: node.model_company ?? undefined,
-    isCritical:   false,
-    status:       mapBackendStepStatus(node.status),
+    id:         node.id,
+    label:      node.title,
+    modelId:    node.context.model_id ?? undefined,
+    isCritical: node.is_critical,
+    status:     mapBackendStepStatus(node.status),
   }
 }
 
@@ -255,15 +241,9 @@ function applyFlowGrouping(steps: PlanStep[], edges: unknown): PlanStep[] {
 }
 
 function mapHistoryPlanSteps(plan: BrainPlanResponse): PlanStep[] {
-  // The OpenAPI spec marks plan_json + steps as required, but legacy rows
-  // and partially-saved plans can land here with either missing — guard so
-  // we don't crash when reopening an existing chat. Newer plans persist a
-  // `nodes`/`edges` graph instead of a flat `steps` list; fall back to nodes
-  // so node-format plans still render, and derive flow grouping from edges.
-  const pj = plan.plan_json
-  if (pj?.steps?.length) return applyFlowGrouping(pj.steps.map(mapBackendStep), pj.edges)
-  if (pj?.nodes?.length) return applyFlowGrouping(pj.nodes.map(mapBackendNode), pj.edges)
-  return []
+  const cortex = parseCortexPlan(plan.plan_json)
+  if (!cortex) return []
+  return applyFlowGrouping(cortex.nodes.map(mapCortexNode), cortex.edges)
 }
 
 // ── Plan node outputs → reasoning / chat split ────────────────────────────────
@@ -303,14 +283,10 @@ function buildNodeReasoningSections(
 // (each node carries a `result_preview`). The leaf's full output is already the
 // saved message body, so it stays in the chat bubble.
 function historyNodeReasoningSections(plan: BrainPlanResponse | null | undefined): ReasoningSection[] {
-  const pj = plan?.plan_json
-  // Newer plans persist `nodes`; older ones a flat `steps` list. Both carry
-  // id/title/result_preview, so handle either.
-  const nodes: Array<{ id: string; title: string; result_preview?: string }> =
-    (pj?.nodes?.length ? pj.nodes : pj?.steps) ?? []
-  if (nodes.length <= 1) return []
-  const leafIds = computeLeafIds(nodes.map((n) => n.id), pj?.edges)
-  return nodes
+  const cortex = plan ? parseCortexPlan(plan.plan_json) : null
+  if (!cortex || cortex.nodes.length <= 1) return []
+  const leafIds = computeLeafIds(cortex.nodes.map((n) => n.id), cortex.edges)
+  return cortex.nodes
     .filter((n) => !leafIds.has(n.id) && (n.result_preview ?? '').trim())
     .map((n) => ({ heading: n.title || 'Step', body: n.result_preview ?? '' }))
 }
@@ -376,18 +352,16 @@ function synthesizeContextFromMessages(
   const allPinIds = new Set<string>()
 
   for (const m of messages) {
-    // Plan nodes carry the persona_id (a version id), connector_slugs, and the
-    // pin_ids that were fed into the step as context.
-    const nodes = m.plan?.plan_json?.nodes ?? []
+    // Plan nodes carry their runner and material under `context`
+    // (services/cortex/schema.py NodeContext): persona_id/model_id,
+    // connectors, pins, files.
+    const nodes = m.plan ? parseCortexPlan(m.plan.plan_json)?.nodes ?? [] : []
     for (const n of nodes) {
-      const np = (n as unknown as Record<string, unknown>)
-      const pid = np.persona_id
-      if (typeof pid === 'string' && pid) personaPicks.push({ id: pid })
-      const cs = np.connector_slugs
-      if (Array.isArray(cs)) for (const s of cs) if (typeof s === 'string') connectorSlugs.add(s.toLowerCase())
-      const pins = np.pin_ids
-      if (Array.isArray(pins)) {
-        const ids = pins.filter((p): p is string => typeof p === 'string' && p.length > 0)
+      const pid = n.context.persona_id
+      if (pid) personaPicks.push({ id: pid })
+      for (const s of n.context.connectors) connectorSlugs.add(s.toLowerCase())
+      {
+        const ids = n.context.pins.filter((p) => p.length > 0)
         if (ids.length) pinIds = ids
         for (const id of ids) allPinIds.add(id)
       }
@@ -1506,7 +1480,7 @@ function BrainPageInner() {
   // planNodeMetaRef/planLeafIdsRef are set from the approved plan's nodes+edges.
   const [nodeOutputs, setNodeOutputs] = useState<Record<string, string>>({})
   // State drives the render; ref mirrors give the SSE handler a stale-free read
-  // (it isn't in the handler's dep list). Both are set together on plan_proposed.
+  // (it isn't in the handler's dep list). Both are set together on plan_ready.
   const [planNodeMeta, setPlanNodeMeta] = useState<Record<string, NodeMeta>>({})
   const [planLeafIds,  setPlanLeafIds]  = useState<Set<string>>(new Set())
   const planLeafIdsRef = useRef<Set<string>>(planLeafIds)
@@ -1524,7 +1498,7 @@ function BrainPageInner() {
   )
 
   // ── Plan-approval correlation ───────────────────────────────────────────────
-  // plan_proposed → user_prompt(kind='choice') is the plan approval gate.
+  // plan_ready → user_prompt(kind='plan') is the plan approval gate.
   // We stash plan_id on the ref so the next 'choice' prompt can be routed
   // to the plan-approval flow rather than the clarification flow. Cleared
   // once consumed or when the plan is resolved (approved/countered/cancelled).
@@ -1828,7 +1802,7 @@ function BrainPageInner() {
           setActivePlanId(latestPlan.id)
           activeRunSeqRef.current = 0
           setActivePlanSteps(steps)
-          setActivePlanSummary(latestPlan.plan_json?.summary ?? latestPlan.plan_json?.description ?? '')
+          setActivePlanSummary(parseCortexPlan(latestPlan.plan_json)?.description ?? '')
           setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, s.status ?? 'pending' as StepStatus])))
           setStreamedContent(latestWithPlan.output ?? '')
           setReasoningState(createReasoningState(
@@ -1847,7 +1821,7 @@ function BrainPageInner() {
         // messages (the backend doesn't persist a context payload). Only fetch
         // personas if a turn referenced one; skip the network call otherwise.
         const referencesPersona = messages.some((m) =>
-          (m.plan?.plan_json?.nodes ?? []).some((n) => Boolean((n as unknown as Record<string, unknown>).persona_id))
+          (m.plan ? parseCortexPlan(m.plan.plan_json)?.nodes ?? [] : []).some((n) => Boolean(n.context.persona_id))
           || (m.tool_calls ?? []).some((t) => {
             const tc = t as Record<string, unknown> | null
             return tc?.tool === 'ask_user'
@@ -1952,48 +1926,22 @@ function BrainPageInner() {
         setPhase('planning')
         void getBrainPlan(planId)
           .then((plan) => {
-            const pj = plan.plan_json
-            const rawNodes: Array<{ id: string; title?: string; task?: string }> =
-              (pj?.steps?.length ? pj.steps : pj?.nodes) ?? []
-            const steps = mapHistoryPlanSteps(plan)
+            const cortexPlan = parseCortexPlan(plan.plan_json)
+            if (!cortexPlan) return
+            const steps = applyFlowGrouping(cortexPlan.nodes.map(mapCortexNode), cortexPlan.edges)
+            // Record node titles/order + leaf set so step_content can split node
+            // outputs between the reasoning block (non-leaf) and chat (sole leaf).
             setPlanNodeMeta(Object.fromEntries(
-              rawNodes.map((s, i) => [s.id, { title: s.title ?? s.task ?? 'Step', order: i }]),
+              cortexPlan.nodes.map((n, i) => [n.id, { title: n.title, order: i }]),
             ))
-            setPlanLeafIds(computeLeafIds(rawNodes.map((s) => s.id), pj?.edges))
+            setPlanLeafIds(computeLeafIds(cortexPlan.nodes.map((n) => n.id), cortexPlan.edges))
             setActivePlanSteps(steps)
-            setActivePlanSummary(pj?.summary ?? pj?.description ?? '')
+            setActivePlanSummary(cortexPlan.description)
             setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, 'pending' as StepStatus])))
           })
           .catch((err) => {
             console.error('[brain] failed to fetch plan for plan_ready', err)
           })
-        break
-      }
-
-      case 'plan_proposed': {
-        // The event names the DAG nodes `steps` for FE-compat and ships the
-        // dependency `edges` alongside — fold both into flow-grouped steps so
-        // PlanCard renders parallel branches as "runs at the same time".
-        const rawSteps = ((d.steps ?? []) as BackendPlanStep[])
-        const steps    = applyFlowGrouping(rawSteps.map(mapBackendStep), d.edges)
-        const planId   = typeof d.plan_id === 'string' ? d.plan_id : null
-        const summary  = (d.summary as string) ?? ''
-        // Record node titles/order + leaf set so step_content can split node
-        // outputs between the reasoning block (non-leaf) and chat (sole leaf).
-        setPlanNodeMeta(Object.fromEntries(
-          rawSteps.map((s, i) => [s.id, { title: s.title, order: i }]),
-        ))
-        setPlanLeafIds(computeLeafIds(rawSteps.map((s) => s.id), d.edges))
-        setNodeOutputs({})
-        pendingPlanIdRef.current = planId
-        waitingForPlanApprovalRef.current = true
-        setActivePlanId(planId)
-        setActivePlanSteps(steps)
-        setActivePlanSummary(summary)
-        setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, 'pending' as StepStatus])))
-        setShowCounterInput(false)
-        setCounterText('')
-        setPhase('planning')
         break
       }
 
@@ -2028,7 +1976,7 @@ function BrainPageInner() {
         })
         const optionValues = options.map((o) => o.id)
 
-        // Plan-approval gate. Once plan_proposed has fired, the very next
+        // Plan-approval gate. Once plan_ready has fired, the very next
         // user_prompt is the approval gate — protocol-guaranteed, regardless
         // of `kind` or option shape. We also accept several backend-side
         // variations as a belt-and-braces fallback:
@@ -2298,7 +2246,7 @@ function BrainPageInner() {
       }
 
       case 'plan_countered': {
-        // Opus is revising; wait for the next plan_proposed
+        // The planner is revising; wait for the next plan_ready
         pendingPlanIdRef.current = null
         waitingForPlanApprovalRef.current = false
         setPhase('thinking')
@@ -2994,12 +2942,12 @@ function BrainPageInner() {
         response = await continueBrainChat(resolvedChatId, input, streamOpts, controller.signal)
       }
 
-      let durablePlanProposed = false
+      let durablePlanReady = false
       let terminalEventReceived = false
       let streamErrored = false
       await consumeBrainStream(response, {
         onNamed:  (name, data) => {
-          if (name === 'plan_proposed') durablePlanProposed = true
+          if (name === 'plan_ready') durablePlanReady = true
           if (isTerminalBrainEvent(name)) terminalEventReceived = true
           // Navigated to a different thread — let the background run keep
           // going (it's still persisting to the backend), but stop applying
@@ -3032,7 +2980,7 @@ function BrainPageInner() {
           }
           const current = phaseRef.current
           const safelyWaitingForUser = current === 'paused' || current === 'cancelled' || current === 'failed'
-          if (durablePlanProposed || safelyWaitingForUser || controller.signal.aborted) return
+          if (durablePlanReady || safelyWaitingForUser || controller.signal.aborted) return
           setStreamError('Brain stopped responding before the run finished. Please try again.')
           setPhase('failed')
         },
@@ -4045,7 +3993,7 @@ function BrainPageInner() {
           ) : (
             <LoopHistoryCard
               steps={planSteps}
-              summary={msg.plan?.plan_json?.summary}
+              summary={msg.plan ? parseCortexPlan(msg.plan.plan_json)?.description : undefined}
               completedAt={msg.created_at ? new Date(msg.created_at) : undefined}
             />
           )
