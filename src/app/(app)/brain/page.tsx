@@ -66,6 +66,7 @@ import {
   continueBrainChat,
   consumeBrainStream,
   getBrainMessages,
+  getBrainPlan,
   subscribeBrainRun,
   approveBrainPlan,
   counterBrainPlan,
@@ -1935,6 +1936,40 @@ function BrainPageInner() {
     }
 
     switch (name) {
+      case 'plan_ready': {
+        // Slim pointer replacing the fat plan_proposed event: the plan is
+        // persisted server-side and fetched by id. The approval gate refs are
+        // set synchronously — the gate user_prompt can arrive before the fetch
+        // resolves.
+        const planId = typeof d.plan_id === 'string' ? d.plan_id : null
+        if (!planId) break
+        pendingPlanIdRef.current = planId
+        waitingForPlanApprovalRef.current = true
+        setActivePlanId(planId)
+        setNodeOutputs({})
+        setShowCounterInput(false)
+        setCounterText('')
+        setPhase('planning')
+        void getBrainPlan(planId)
+          .then((plan) => {
+            const pj = plan.plan_json
+            const rawNodes: Array<{ id: string; title?: string; task?: string }> =
+              (pj?.steps?.length ? pj.steps : pj?.nodes) ?? []
+            const steps = mapHistoryPlanSteps(plan)
+            setPlanNodeMeta(Object.fromEntries(
+              rawNodes.map((s, i) => [s.id, { title: s.title ?? s.task ?? 'Step', order: i }]),
+            ))
+            setPlanLeafIds(computeLeafIds(rawNodes.map((s) => s.id), pj?.edges))
+            setActivePlanSteps(steps)
+            setActivePlanSummary(pj?.summary ?? '')
+            setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, 'pending' as StepStatus])))
+          })
+          .catch((err) => {
+            console.error('[brain] failed to fetch plan for plan_ready', err)
+          })
+        break
+      }
+
       case 'plan_proposed': {
         // The event names the DAG nodes `steps` for FE-compat and ships the
         // dependency `edges` alongside — fold both into flow-grouped steps so

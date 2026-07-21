@@ -1,6 +1,7 @@
 "use client";
 
 import { apiFetch, apiFetchJson } from "./client";
+import { validateInlineEvent, validateNamedEvent } from "./sse-schemas";
 import { parsePermissionPrompt, type ConnectorPermissionPrompt } from "./prompts";
 import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import { friendlyModelError } from "@/lib/model-error";
@@ -1193,7 +1194,9 @@ async function readPersonaSSEStream(
           if (!dataStr) continue;
           let parsed: Record<string, unknown>;
           try { parsed = JSON.parse(dataStr); } catch { continue; }
+          const isNamed = Boolean(eventName);
           if (!eventName && typeof parsed.type === "string") eventName = parsed.type;
+          parsed = isNamed ? validateNamedEvent(eventName, parsed) : validateInlineEvent(parsed);
           switch (eventName) {
             case "content":
               callbacks.onChunk?.(str(parsed.content));

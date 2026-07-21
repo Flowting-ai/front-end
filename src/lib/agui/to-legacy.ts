@@ -1,4 +1,5 @@
 import type { AguiEvent } from "./schemas"
+import { validateEventByName } from "@/lib/api/sse-schemas"
 
 // ── AG-UI → internal event adapter ────────────────────────────────────────────
 // use-streaming-chat's state machine consumes (eventName, parsed) pairs whose
@@ -43,7 +44,7 @@ export function aguiToInternal(event: AguiEvent): InternalEvent | null {
       }
 
     case "CUSTOM":
-      return { eventName: event.name, parsed: asRecord(event.value) }
+      return { eventName: event.name, parsed: validateEventByName(event.name, asRecord(event.value)) }
 
     case "RUN_ERROR":
       return { eventName: "error", parsed: { error: event.message } }

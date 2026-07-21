@@ -2,6 +2,7 @@
 
 import { z } from 'zod'
 import { apiFetch, apiFetchJson, ApiError } from './client'
+import { validateInlineEvent, validateNamedEvent } from './sse-schemas'
 import { API_BASE_URL, directUpload, shouldUseDirectBackend } from '../config'
 import type { ReasoningSection } from '../reasoning'
 
@@ -675,8 +676,8 @@ export async function consumeBrainStream(
       return
     }
 
-    if (eventName) callbacks.onNamed(eventName, data)
-    else           callbacks.onInline(data)
+    if (eventName) callbacks.onNamed(eventName, validateNamedEvent(eventName, data))
+    else           callbacks.onInline(validateInlineEvent(data))
   }
 
   const armWatchdog = () => {
@@ -865,6 +866,10 @@ export async function getBrainMessages(chatId: string): Promise<BrainMessage[]> 
 
 export async function getBrainPlans(chatId: string): Promise<BrainPlanResponse[]> {
   return apiFetchJson<BrainPlanResponse[]>(BRAIN_PLANS(chatId))
+}
+
+export async function getBrainPlan(planId: string): Promise<BrainPlanResponse> {
+  return apiFetchJson<BrainPlanResponse>(withBase(`/brain/plans/${planId}`))
 }
 
 export async function getBrainRun(planId: string): Promise<BrainRunResponse> {
