@@ -70,7 +70,11 @@ export interface BackendPlanNode {
 }
 
 export interface BackendPlanJson {
-  summary:              string
+  summary?:             string
+  // Cortex plans (services/cortex/schema.py Plan) carry title + description
+  // instead of summary.
+  title?:               string
+  description?:         string
   steps?:               BackendPlanStep[]
   nodes?:               BackendPlanNode[]
   edges?:               unknown[]

@@ -1828,7 +1828,7 @@ function BrainPageInner() {
           setActivePlanId(latestPlan.id)
           activeRunSeqRef.current = 0
           setActivePlanSteps(steps)
-          setActivePlanSummary(latestPlan.plan_json?.summary ?? '')
+          setActivePlanSummary(latestPlan.plan_json?.summary ?? latestPlan.plan_json?.description ?? '')
           setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, s.status ?? 'pending' as StepStatus])))
           setStreamedContent(latestWithPlan.output ?? '')
           setReasoningState(createReasoningState(
@@ -1961,7 +1961,7 @@ function BrainPageInner() {
             ))
             setPlanLeafIds(computeLeafIds(rawNodes.map((s) => s.id), pj?.edges))
             setActivePlanSteps(steps)
-            setActivePlanSummary(pj?.summary ?? '')
+            setActivePlanSummary(pj?.summary ?? pj?.description ?? '')
             setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, 'pending' as StepStatus])))
           })
           .catch((err) => {
@@ -2057,6 +2057,11 @@ function BrainPageInner() {
         if (isPlanApproval) {
           pendingPlanIdRef.current = null
           waitingForPlanApprovalRef.current = true
+          // A message_saved that slipped in before the gate may have queued
+          // the completion transition — cancel it or it flips the phase off
+          // 'planning' underneath the plan card.
+          if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
+          setStreamingComplete(false)
           setPromptId(promptId)
           // Make sure we don't leave a stale clarification on screen from a
           // previous prompt — the plan-approval gate replaces it.
@@ -2407,6 +2412,11 @@ function BrainPageInner() {
         // emits message_saved as it tears down — don't let it schedule the
         // success transition and flip the failure card to 'complete'.
         if (enteredNodeFailedRef.current) break
+        // The cortex flow saves the planner message right after plan_ready,
+        // before the approval gate opens — the turn isn't complete, and
+        // scheduling completion here would flip the phase off 'planning' and
+        // hide the plan card.
+        if (waitingForPlanApprovalRef.current || pendingPlanIdRef.current) break
         scheduleCompletion()
         break
       }
