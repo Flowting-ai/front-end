@@ -21,6 +21,43 @@ describe("HybridSSEDecoder", () => {
     }
   })
 
+  it("decodes the legacy inline wire (backends not yet on AG-UI) as 'inline', not 'agui'", () => {
+    // Reproduces a real production payload: named title/model_selected
+    // events, unnamed legacy `data:` frames carrying `{"type":"content",...}`
+    // and `{"type":"done",...}` — the exact shape a backend sends when it
+    // hasn't been upgraded to the AG-UI protocol yet.
+    const decoder = new HybridSSEDecoder()
+    const events = decoder.push(
+      'event: title\r\ndata: {"title":"Why Question"}\r\n\r\n' +
+      'event: model_selected\r\ndata: {"model_id":"m1","model_name":"Claude"}\r\n\r\n' +
+      'data: {"type": "content", "content": "I\'m"}\r\n\r\n' +
+      'data: {"type": "content", "content": " here"}\r\n\r\n' +
+      'data: {"type": "done", "finish_reason": "stop"}\r\n\r\n' +
+      'event: message_saved\r\ndata: {"message_id":"m2"}\r\n\r\n',
+    )
+
+    expect(events[0]).toEqual({ kind: "named", name: "title", data: { title: "Why Question" } })
+    expect(events[1]?.kind).toBe("named")
+    expect(events[1]).toMatchObject({ kind: "named", name: "model_selected" })
+
+    expect(events[2]).toEqual({
+      kind: "inline",
+      name: "content",
+      data: { type: "content", content: "I'm" },
+    })
+    expect(events[3]).toEqual({
+      kind: "inline",
+      name: "content",
+      data: { type: "content", content: " here" },
+    })
+    expect(events[4]).toEqual({
+      kind: "inline",
+      name: "done",
+      data: expect.objectContaining({ type: "done", finish_reason: "stop" }),
+    })
+    expect(events[5]).toEqual({ kind: "named", name: "message_saved", data: { message_id: "m2" } })
+  })
+
   it("retains partial frames and flushes an unterminated final frame", () => {
     const decoder = new HybridSSEDecoder()
     expect(decoder.push('event: questions\ndata: {"prompt_id":"p1",')).toEqual([])

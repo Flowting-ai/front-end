@@ -417,7 +417,11 @@ export function useStreamingChat({
           }
 
           if (eventName === "reasoning") {
-            const delta = typeof parsed.delta === "string" ? parsed.delta : ""
+            // AG-UI carries the text in `delta`; the legacy inline `reasoning`
+            // event (still sent by backends not yet on AG-UI) carries it in
+            // `content` instead — accept either.
+            const delta = typeof parsed.delta === "string" ? parsed.delta
+              : typeof parsed.content === "string" ? parsed.content : ""
             const wasEmpty = !reasoningContent
             reasoningContent = mergeStreamingText(reasoningContent, delta)
             queueUpdate({
@@ -465,8 +469,15 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "chunk") {
-            const delta = typeof parsed.delta === "string" ? parsed.delta : ""
+          if (eventName === "chunk" || eventName === "content") {
+            // AG-UI's TEXT_MESSAGE_CONTENT is normalized to eventName "chunk"
+            // with the text in `delta` (see agui/to-legacy.ts). The legacy
+            // inline event (still sent by backends not yet on AG-UI — see
+            // production's raw `{"type":"content",...}` frames) keeps its raw
+            // `type` as the eventName ("content") and carries the text in
+            // `content` instead — accept both the name and the field.
+            const delta = typeof parsed.delta === "string" ? parsed.delta
+              : typeof parsed.content === "string" ? parsed.content : ""
             const wasEmpty = !assistantContent
             assistantContent = mergeStreamingText(assistantContent, delta)
             const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
