@@ -57,6 +57,14 @@ const itemVariants = {
   closed: { opacity: 0, y: 5, transition: { duration: 0.12, ease: 'easeIn'  as const } },
 }
 
+// Layer 4 — tree guide line: grows/shrinks from the top in sync with the
+// stagger, instead of popping fully in/out the instant the folder toggles
+// (which read as an abrupt line cutting through content mid-collapse).
+const treeLineVariants = {
+  open:   { scaleY: 1, opacity: 1, transition: { duration: 0.24, ease: [0.4, 0, 0.2, 1] as const } },
+  closed: { scaleY: 0, opacity: 0, transition: { duration: 0.16, ease: [0.4, 0, 0.2, 1] as const } },
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -84,6 +92,13 @@ export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDi
   /** Whether to render the expand/collapse arrow — hide for rows with no expandable content. Defaults to true. */
   showExpandArrow?: boolean
   /**
+   * Renders the expand arrow inside a white/silver boxed button (matching
+   * TeamSwitcherRow's chevron treatment) instead of the plain rotating icon.
+   * Opt-in — used for top-level triggers like "Personal projects" that want
+   * visual parity with the Team Switcher row above/below them.
+   */
+  boxedChevron?: boolean
+  /**
    * Called when the user commits a rename (Enter or blur).
    * Receives the new label. Parent should update the label prop.
    */
@@ -92,13 +107,20 @@ export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDi
    * Called when the user cancels a rename (Escape).
    */
   onCancel?: () => void
+  /**
+   * Renders a vertical guide line down the left edge of the expanded child
+   * list, under the header icon — a visual cue for how long the expanded
+   * list runs. Opt-in (defaults to false) since not every consumer of this
+   * folder pattern wants it (e.g. the Agents list doesn't).
+   */
+  showTreeLine?: boolean
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarProjectsSectionProps>(
   function SidebarProjectsSection(
-    { label = 'Folder name', defaultOpen = false, active = false, expanded: expandedProp, onExpandedChange, fluid = false, icon, badge, showExpandArrow = true, children, className, onClick, onCommit, onCancel, ...props },
+    { label = 'Folder name', defaultOpen = false, active = false, expanded: expandedProp, onExpandedChange, fluid = false, icon, badge, showExpandArrow = true, boxedChevron = false, children, className, onClick, onCommit, onCancel, showTreeLine = false, ...props },
     ref,
   ) {
     // isExpanded — icon-driven; can be controlled via `expanded` prop
@@ -346,7 +368,21 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle() } }}
                   animate={{ rotate: isExpanded ? 0 : -90 }}
                   transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                  style={{
+                  style={boxedChevron ? {
+                    position:        'relative',
+                    display:         'flex',
+                    alignItems:      'center',
+                    justifyContent:  'center',
+                    width:           '20px',
+                    height:          '20px',
+                    borderRadius:    '4px',
+                    backgroundColor: 'var(--neutral-white)',
+                    boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)',
+                    flexShrink:      0,
+                    cursor:          'pointer',
+                    color:           'var(--neutral-600)',
+                    overflow:        'hidden',
+                  } : {
                     flexShrink:     0,
                     lineHeight:     0,
                     cursor:         'pointer',
@@ -385,8 +421,38 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
             >
               <motion.div
                 variants={staggerVariants}
-                style={{ paddingLeft: icon === null ? '6px' : '28px', display: 'flex', flexDirection: 'column', gap: '4px' }}
+                style={{
+                  position:      'relative',
+                  // Pins the z-index:-1 line's stacking comparison to just
+                  // this container's own children — without it, `position:
+                  // relative` + `z-index: auto` doesn't establish a stacking
+                  // context, so the negative z-index escapes to whichever
+                  // ancestor DOES establish one and compares against
+                  // unrelated content instead of these specific row siblings.
+                  isolation:     'isolate',
+                  paddingLeft:   icon === null ? '6px' : '22px',
+                  display:       'flex',
+                  flexDirection: 'column',
+                  gap:           '4px',
+                }}
               >
+                {showTreeLine && (
+                  <motion.div
+                    aria-hidden
+                    variants={treeLineVariants}
+                    style={{
+                      position:        'absolute',
+                      left:            icon === null ? '9px' : '14px',
+                      top:             0,
+                      bottom:          0,
+                      width:           '2px',
+                      backgroundColor: 'var(--neutral-200)',
+                      pointerEvents:   'none',
+                      zIndex:          -1,
+                      transformOrigin: 'top',
+                    }}
+                  />
+                )}
                 {React.Children.map(children, (child, i) => (
                   <motion.div key={i} variants={itemVariants}>
                     {child}

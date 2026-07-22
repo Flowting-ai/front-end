@@ -59,14 +59,19 @@ function NewProjectPageInner() {
         width:         '100%',
         height:        '100%',
         overflowY:     'auto',
-        padding:       '80px 24px 40px',
+        paddingTop:    80,
+        paddingBottom: 40,
         boxSizing:     'border-box',
       }}
     >
+      {/* Horizontal padding lives here, not on the scrolling element above —
+          keeps the scrollbar flush with the container's edge. */}
       <div
         style={{
           width:         '100%',
-          maxWidth:      '560px',
+          maxWidth:      '608px',
+          padding:       '0 24px',
+          boxSizing:     'border-box',
           display:       'flex',
           flexDirection: 'column',
           gap:           '32px',

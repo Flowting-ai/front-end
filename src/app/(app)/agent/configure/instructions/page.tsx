@@ -511,9 +511,9 @@ function ModelDropdown({
                       <div
                         className="kaya-scrollbar"
                         onScroll={handleScroll}
-                        style={{ position: 'absolute', inset: 0, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: 2, paddingRight: 8 }}
+                        style={{ position: 'absolute', inset: 0, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: 2 }}
                       >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginRight: -6 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           {groupedFiltered.map(({ company, items }) => (
                             <div key={company} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                               <div style={{ ...MODEL_PICKER_CAPTION_STYLE, padding: '2px 8px 2px 34px' }}>

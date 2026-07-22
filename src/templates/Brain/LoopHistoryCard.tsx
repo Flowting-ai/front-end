@@ -10,6 +10,7 @@ import {
   TickTwoIcon,
 } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
+import { ModelLogo } from '@/components/chat/ReasoningBlock'
 import type { PlanStep } from './lib/phase'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -53,19 +54,43 @@ function StepRow({ step }: { step: PlanStep }) {
       <div style={{ flexShrink: 0, paddingTop: 2, lineHeight: 0 }}>
         <StepStatusIcon status={step.status} />
       </div>
-      <span style={{
-        fontFamily: 'var(--font-body)',
-        fontSize:   'var(--font-size-caption)',
-        color:      step.status === 'failed'
-          ? 'var(--color-tag-Red-text)'
-          : step.status === 'skipped'
-            ? 'var(--neutral-400)'
-            : 'var(--neutral-700)',
-        lineHeight: 'var(--line-height-caption)',
-        textDecoration: step.status === 'skipped' ? 'line-through' : 'none',
-      }}>
-        {step.label}
-      </span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize:   'var(--font-size-caption)',
+          color:      step.status === 'failed'
+            ? 'var(--color-tag-Red-text)'
+            : step.status === 'skipped'
+              ? 'var(--neutral-400)'
+              : 'var(--neutral-700)',
+          lineHeight: 'var(--line-height-caption)',
+          textDecoration: step.status === 'skipped' ? 'line-through' : 'none',
+        }}>
+          {step.label}
+        </span>
+        {step.modelName && (
+          <span style={{
+            display:    'inline-flex',
+            alignItems: 'center',
+            gap:        5,
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            color:      'var(--neutral-400)',
+            lineHeight: 'var(--line-height-caption)',
+          }}>
+            <ModelLogo
+              modelName={step.modelName}
+              modelMeta={{
+                modelId: step.modelId ?? '',
+                modelName: step.modelName,
+                company: step.modelCompany,
+              }}
+              size={12}
+            />
+            {step.modelName}
+          </span>
+        )}
+      </div>
     </div>
   )
 }

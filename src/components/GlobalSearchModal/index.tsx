@@ -10,6 +10,8 @@ import {
   UserAiIcon,
   MessagePreviewOneIcon,
   DashboardSquareOneIcon,
+  BubbleChatIcon,
+  BrainTwoIcon,
 } from '@strange-huge/icons'
 import { InputField } from '@/components/InputField'
 import { TabItem }    from '@/components/TabItem'
@@ -22,7 +24,7 @@ const SHADOW_FOCUSED = '0px 0px 0px 1.5px var(--blue-400)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type SearchResultType = 'chat' | 'project' | 'persona' | 'pin' | 'page'
+export type SearchResultType = 'chat' | 'agent-chat' | 'brain-thread' | 'project' | 'persona' | 'pin' | 'page'
 
 export interface SearchResult {
   /** Unique stable id — also used as DOM id for aria-activedescendant */
@@ -59,37 +61,45 @@ export interface GlobalSearchModalProps {
 const EMPTY_SEARCH_RESULTS: SearchResult[] = []
 
 const TYPE_ICON_BG: Record<SearchResultType, string> = {
-  chat:    'var(--color-tag-Blue-bg)',
-  project: 'var(--color-tag-Purple-bg)',
-  persona: 'var(--color-tag-Green-bg-soft)',
-  pin:     'var(--color-tag-Yellow-bg)',
-  page:    'var(--color-tag-Neutral-bg)',
+  chat:          'var(--color-tag-Blue-bg)',
+  'agent-chat':  'var(--color-tag-Green-bg-soft)',
+  'brain-thread':'var(--color-tag-Blue-bg)',
+  project:       'var(--color-tag-Purple-bg)',
+  persona:       'var(--color-tag-Green-bg-soft)',
+  pin:           'var(--color-tag-Yellow-bg)',
+  page:          'var(--color-tag-Neutral-bg)',
 }
 
 const TYPE_ICON_COLOR: Record<SearchResultType, string> = {
-  chat:    'var(--color-tag-Blue-text)',
-  project: 'var(--color-tag-Purple-text)',
-  persona: 'var(--color-tag-Green-text)',
-  pin:     'var(--color-tag-Yellow-text)',
-  page:    'var(--color-tag-Neutral-text)',
+  chat:          'var(--color-tag-Blue-text)',
+  'agent-chat':  'var(--color-tag-Green-text)',
+  'brain-thread':'var(--color-tag-Blue-text)',
+  project:       'var(--color-tag-Purple-text)',
+  persona:       'var(--color-tag-Green-text)',
+  pin:           'var(--color-tag-Yellow-text)',
+  page:          'var(--color-tag-Neutral-text)',
 }
 
 // ── Icon map by type ──────────────────────────────────────────────────────────
 
 const TYPE_ICON: Record<SearchResultType, React.ComponentType<{ size: number; color: string }>> = {
-  chat:    MessagePreviewOneIcon,
-  project: FolderOneIcon,
-  persona: UserAiIcon,
-  pin:     PinIcon,
-  page:    DashboardSquareOneIcon,
+  chat:          MessagePreviewOneIcon,
+  'agent-chat':  BubbleChatIcon,
+  'brain-thread':BrainTwoIcon,
+  project:       FolderOneIcon,
+  persona:       UserAiIcon,
+  pin:           PinIcon,
+  page:          DashboardSquareOneIcon,
 }
 
 const TYPE_LABEL: Record<SearchResultType, string> = {
-  chat:    'Chats',
-  project: 'Projects',
-  persona: 'Agents',
-  pin:     'Pins',
-  page:    'Pages',
+  chat:          'Chats',
+  'agent-chat':  'Agent Chats',
+  'brain-thread':'Brain Threads',
+  project:       'Projects',
+  persona:       'Agents',
+  pin:           'Pins',
+  page:          'Pages',
 }
 
 // ── highlightMatch ────────────────────────────────────────────────────────────
@@ -330,18 +340,20 @@ function KbdHint({ keys, label }: { keys: string[]; label: string }) {
 
 // ── GlobalSearchModal ─────────────────────────────────────────────────────────
 
-const SECTION_ORDER: SearchResultType[] = ['chat', 'project', 'persona', 'pin', 'page']
+const SECTION_ORDER: SearchResultType[] = ['chat', 'agent-chat', 'brain-thread', 'project', 'persona', 'pin', 'page']
 const MAX_PER_SECTION = 4
 
 type FilterValue = 'all' | SearchResultType
 
 const FILTER_TABS: { value: FilterValue; label: string }[] = [
-  { value: 'all',     label: 'All' },
-  { value: 'chat',    label: 'Chats' },
-  { value: 'project', label: 'Projects' },
-  { value: 'persona', label: 'Agents' },
-  { value: 'pin',     label: 'Pins' },
-  { value: 'page',    label: 'Pages' },
+  { value: 'all',          label: 'All' },
+  { value: 'chat',         label: 'Chats' },
+  { value: 'agent-chat',   label: 'Agent Chats' },
+  { value: 'brain-thread', label: 'Brain Threads' },
+  { value: 'project',      label: 'Projects' },
+  { value: 'persona',      label: 'Agents' },
+  { value: 'pin',          label: 'Pins' },
+  { value: 'page',         label: 'Pages' },
 ]
 
 export function GlobalSearchModal({
@@ -557,7 +569,7 @@ export function GlobalSearchModal({
                 <InputField
                   ref={inputRef}
                   fluid
-                  placeholder="Search chats, projects, agents, pins, pages…"
+                  placeholder="Search chats, agent chats, brain threads, projects, pins…"
                   leftIcon={<SearchOneIcon size={16} color="var(--neutral-400)" />}
                   value={query}
                   onChange={handleQueryChange}

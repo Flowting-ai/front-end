@@ -11,7 +11,8 @@ Before creating or changing UI, review `C:\Users\kunals\may-day` for established
 # Analytics (Mixpanel)
 
 Product analytics is **Mixpanel** (`mixpanel-browser`), direct SDK. The spec is
-`docs/mixpanel-setup-notion.txt`; the backend half is `docs/mixpanel-backend-contract.md`.
+`docs/mixpanel-setup-notion.txt`; the backend half is `docs/mixpanel-backend-contract.md`;
+the first-party proxy (browser-proof ingestion) is `docs/mixpanel-browser-proof.md`.
 
 - **Where the code lives:** `src/lib/analytics/` (core `mixpanel.ts`, vocabulary
   `events.ts`, route→screen `screens.ts`, stamp keys `stamps.ts`) and
@@ -22,6 +23,14 @@ Product analytics is **Mixpanel** (`mixpanel-browser`), direct SDK. The spec is
   Track via the typed helpers: `trackScreenView`, `trackFeature`, `trackBrowserEvent`.
 - **Token:** read from env only (`NEXT_PUBLIC_MIXPANEL_TOKEN` dev / `NEXT_PUBLIC_MIXPANEL_TOKEN_PROD` prod)
   via `src/lib/config.ts`. Never hard-code a token. No token ⇒ full no-op.
+- **First-party proxy:** the SDK sends to `/dispatch` (`api_host` in `mixpanel.ts`), not
+  `api-js.mixpanel.com`, so ad/tracker blockers can't drop events. The proxy is the route
+  handler `src/app/dispatch/[...path]/route.ts` (forwards to Mixpanel, preserves client IP,
+  strips the session cookie). `dispatch` is excluded from the `src/proxy.ts` matcher so
+  beacons bypass the auth gate. `api_routes` is aliased (`track→evt`/`engage→usr`/`groups→grp`)
+  and must stay a **complete** object (the SDK shallow-merges it). **Keep the path + aliases
+  generic** — uBlock/EasyPrivacy match tracking paths (`/ingest`, `/e/`, `/track`) by path
+  regardless of domain, so never rename these to tracking-flavoured tokens.
 - **Identity:** `distinct_id` = Auth0 `sub` — **never email**. `GET /users/me` does not return
   `auth0_id`, so `MixpanelProvider` derives the `sub` from the JWT access token
   (`decodeJwtSub` in `jwt-utils.ts`). `identify` before `people.set`/`register`; `reset` on

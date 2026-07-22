@@ -115,9 +115,12 @@ export function CitationsPanel({
             style={{
               flex: 1,
               overflowY: "auto",
-              padding: "12px 16px",
             }}
           >
+            {/* Horizontal padding lives on this inner wrapper, not the
+                scrolling element above — keeps the scrollbar flush with the
+                panel's edge. */}
+            <div style={{ padding: "12px 16px" }}>
             {sources.length === 0 && (
               <p
                 style={{
@@ -242,6 +245,7 @@ export function CitationsPanel({
                 </a>
               );
             })}
+            </div>
           </div>
         </m.aside>
       )}

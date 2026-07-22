@@ -233,7 +233,7 @@ function TeamsPageSkeleton() {
   return (
     <>
       <style>{`@keyframes teamsSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
-      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 1114 }}>
+      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 1162, padding: '0 24px', boxSizing: 'border-box' }}>
 
         {/* Page header */}
         <div style={{ paddingLeft: 4, marginBottom: 4, display: 'flex', alignItems: 'flex-end', gap: 12 }}>
@@ -376,7 +376,7 @@ export default function OrgTeamsPage() {
 
   if (teamsLoading) {
     return (
-      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
+      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 64, paddingBottom: 48 }}>
         <TeamsPageSkeleton />
       </div>
     )
@@ -407,10 +407,13 @@ export default function OrgTeamsPage() {
         display:        'flex',
         alignItems:     'flex-start',
         justifyContent: 'center',
-        padding:        '64px 24px 48px',
+        paddingTop:     64,
+        paddingBottom:  48,
       }}
     >
-      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 1114 }}>
+      {/* Horizontal padding lives here, not on the scrolling element above —
+          keeps the scrollbar flush with the container's edge. */}
+      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 1162, padding: '0 24px', boxSizing: 'border-box' }}>
         <div style={{ paddingLeft: 4, marginBottom: 4, display: 'flex', alignItems: 'flex-end', gap: 12 }}>
           <div style={{ flex: '1 0 0', minWidth: 0 }}>
             <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>

@@ -649,7 +649,11 @@ function ManageRoleModal({
           </div>
         </div>
 
-        <div className="kaya-scrollbar" style={{ padding: '3px 27px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="kaya-scrollbar" style={{ paddingTop: 3, paddingBottom: 3, overflowY: 'auto' }}>
+          {/* Horizontal padding lives on this inner wrapper, not the
+              scrolling element above — keeps the scrollbar flush with the
+              modal's edge. */}
+          <div style={{ padding: '0 27px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {canPromoteToAdmin && (
               <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13, color: 'var(--neutral-600)' }}>
@@ -800,19 +804,19 @@ function ManageRoleModal({
                     <div
                       className="kaya-scrollbar"
                       style={{
-                        display:       'flex',
-                        flexDirection: 'column',
-                        gap:           MANAGE_ROLE_TEAM_ROW_GAP,
                         maxHeight:     MANAGE_ROLE_TEAM_LIST_MAX_HEIGHT,
                         overflowY:     'auto',
-                        // Horizontal padding here is the gap between each row
-                        // card's own border and this list's outer border — the
-                        // header's own padding is bumped by the same amount
-                        // (10px → 18px) so "Team"/"Role"/"Actions" stay lined
-                        // up with the row content despite the extra inset.
-                        padding:       '8px 8px',
+                        paddingTop:    8,
+                        paddingBottom: 8,
                       }}
                     >
+                    {/* Horizontal padding relocated here (was on the scrolling
+                        element above) so the scrollbar sits flush with the
+                        list's outer border. Same 8px inset as before, so the
+                        header's compensating 18px padding (10px → 18px, above)
+                        still lines "Team"/"Role"/"Actions" up with the row
+                        content unchanged. */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: MANAGE_ROLE_TEAM_ROW_GAP, padding: '0 8px' }}>
                     {nothingToShow ? (
                       <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)', margin: 0, padding: '8px 10px' }}>
                         {teamSearch.trim() ? `No teams match “${teamSearch}”.` : 'No teams to show.'}
@@ -928,11 +932,13 @@ function ManageRoleModal({
                       </>
                     )}
                     </div>
+                    </div>
                   </div>
                 </>
               )}
             </div>
           )}
+          </div>
         </div>
 
         {/* Actions */}
@@ -1537,7 +1543,11 @@ function RoleComparisonModal({ open, onClose }: { open: boolean; onClose: () => 
         </div>
 
         {/* Table */}
-        <div className="kaya-scrollbar" style={{ overflowX: 'auto', overflowY: 'auto', padding: '0 24px 24px' }}>
+        <div className="kaya-scrollbar" style={{ overflowX: 'auto', overflowY: 'auto', paddingBottom: 24 }}>
+          {/* Horizontal padding lives on this inner wrapper, not the
+              scrolling element above — keeps the scrollbar flush with the
+              modal's edge. */}
+          <div style={{ padding: '0 24px' }}>
           <div style={{ minWidth: 640 }}>
             {/* Column header — role icon + name, same colors as the stack above */}
             <div style={{ display: 'grid', gridTemplateColumns: ROLE_COMPARISON_GRID_COLUMNS, gap: 8, padding: '8px 0' }}>
@@ -1585,6 +1595,7 @@ function RoleComparisonModal({ open, onClose }: { open: boolean; onClose: () => 
               </div>
             ))}
           </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1609,7 +1620,7 @@ function MembersPageSkeleton() {
   return (
     <>
       <style>{`@keyframes membersSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
-      <div style={{ width: '100%', maxWidth: 960, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: '100%', maxWidth: 1008, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Page header */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -2171,7 +2182,7 @@ export default function OrgMembersPage() {
 
   if (membersLoading) {
     return (
-      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
+      <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 64, paddingBottom: 48 }}>
         <MembersPageSkeleton />
       </div>
     )
@@ -2188,10 +2199,13 @@ export default function OrgMembersPage() {
         display:        'flex',
         alignItems:     'flex-start',
         justifyContent: 'center',
-        padding:        '64px 24px 48px',
+        paddingTop:     64,
+        paddingBottom:  48,
       }}
     >
-      <div style={{ width: '100%', maxWidth: 960, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Horizontal padding lives here, not on the scrolling element above —
+          keeps the scrollbar flush with the container's edge. */}
+      <div style={{ width: '100%', maxWidth: 1008, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Page header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>

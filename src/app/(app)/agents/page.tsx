@@ -687,9 +687,15 @@ export default function PersonasPage() {
   // Re-fetch when another part of the app busts the personas cache (e.g. configure tab after save/delete).
   useEffect(() => {
     if (pathname !== '/agents') return
+    // Guards against out-of-order responses when multiple busts fire in quick
+    // succession (e.g. deleting several agents back-to-back): only the
+    // most-recently-triggered fetch's result is ever applied to state, so a
+    // slower, earlier response can't clobber a newer one.
+    let requestId = 0
     const handler = () => {
+      const thisRequest = ++requestId
       fetchPersonas()
-        .then(list => setPersonas(list))
+        .then(list => { if (thisRequest === requestId) setPersonas(list) })
         .catch(console.error)
     }
     window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, handler)
@@ -960,8 +966,11 @@ export default function PersonasPage() {
 
   async function handleDelete(id: string, name?: string) {
     try {
+      // deletePersona() already busts the cache itself — a second bust here
+      // was redundant and doubled the number of PERSONAS_LIST_UPDATED_EVENT
+      // re-fetches fired per delete, making the rapid-delete race easier to
+      // hit in the first place.
       await deletePersona(id)
-      bustPersonasCache()
       setPersonas(prev => prev.filter(p => p.id !== id))
       setReceivedShares(prev => prev.filter(s => s.persona_repo_id !== id))
       toast.success(name ? `"${name}" deleted` : 'Agent deleted')
@@ -1063,13 +1072,18 @@ export default function PersonasPage() {
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          padding: '36px 12px 24px',
+          paddingTop: 36,
+          paddingBottom: 24,
           boxSizing: 'border-box',
         }}
       >
+        {/* Horizontal padding lives here, not on the scrolling element above —
+            keeps the scrollbar flush with the card's edge. */}
         <div style={{
           width: '100%',
-          maxWidth: 967,
+          maxWidth: 991,
+          padding: '0 12px',
+          boxSizing: 'border-box',
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
