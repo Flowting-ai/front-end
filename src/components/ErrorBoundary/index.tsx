@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { Suspense } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/Button'
 import { AlertCircleIcon } from '@strange-huge/icons'
@@ -64,6 +64,22 @@ class ErrorBoundaryInner extends React.Component<ErrorBoundaryProps, ErrorBounda
   }
 }
 
+// useSearchParams() opts a page out of static prerendering unless it's
+// wrapped in Suspense — required here since ErrorBoundary sits in the
+// (app)-wide layout and would otherwise force every previously-static page
+// (org/analytics, settings/security, ...) to fail the build. The fallback
+// (an unkeyed boundary, no reset-on-navigation yet) only renders for the
+// brief static-shell moment before this resolves client-side.
+function ErrorBoundaryWithRouteKey({ children }: ErrorBoundaryProps) {
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  return (
+    <ErrorBoundaryInner key={`${pathname}?${searchParams.toString()}`}>
+      {children}
+    </ErrorBoundaryInner>
+  )
+}
+
 /**
  * Wraps ErrorBoundaryInner with a `key` derived from the current route
  * (pathname + search params). The boundary's `hasError` state has no other
@@ -76,12 +92,10 @@ class ErrorBoundaryInner extends React.Component<ErrorBoundaryProps, ErrorBounda
  * full-page reload.
  */
 export function ErrorBoundary({ children }: ErrorBoundaryProps) {
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
   return (
-    <ErrorBoundaryInner key={`${pathname}?${searchParams.toString()}`}>
-      {children}
-    </ErrorBoundaryInner>
+    <Suspense fallback={<ErrorBoundaryInner>{children}</ErrorBoundaryInner>}>
+      <ErrorBoundaryWithRouteKey>{children}</ErrorBoundaryWithRouteKey>
+    </Suspense>
   )
 }
 
