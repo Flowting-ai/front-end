@@ -57,6 +57,22 @@ export function reasoningSectionTitle(line: string): string | null {
   return null
 }
 
+// Reasoning models (e.g. gpt-5.5) frequently glue a section title to the end of
+// the previous paragraph — `…from there.**Creating a CSV file**\n\n…` — with no
+// newline before the `**`. The backend's line-based split_reasoning only detects
+// titles that occupy a whole line, so every glued title stays buried in the body
+// (a single giant section). Break a bold span onto its own line when it is glued
+// to preceding non-space text and immediately followed by a newline or end of
+// text, so the line-based classifier below can pick it up. Inline emphasis like
+// `I need **one** thing` is untouched — it is not followed by a newline.
+// Capture the preceding non-space char (group 1) rather than using a lookbehind,
+// which older Safari (<16.4) rejects at parse time.
+const INLINE_TITLE_RE = /(\S)(\*\*[^*\n]+\*\*)(?=[ \t]*(?:\n|$))/g
+
+function separateInlineTitles(text: string): string {
+  return text.replace(INLINE_TITLE_RE, '$1\n$2')
+}
+
 export function splitReasoningText(text: string): ReasoningSection[] {
   if (!text || !text.trim()) return []
 
@@ -71,7 +87,7 @@ export function splitReasoningText(text: string): ReasoningSection[] {
     body = []
   }
 
-  for (const line of text.split('\n')) {
+  for (const line of separateInlineTitles(text).split('\n')) {
     const title = reasoningSectionTitle(line)
     if (title === null) body.push(line)
     else {
@@ -83,17 +99,31 @@ export function splitReasoningText(text: string): ReasoningSection[] {
   return sections
 }
 
-// Prefer real streamed/persisted sections. When none exist (stale prod backend),
-// derive them from the raw text — but only if at least one genuine heading is
-// found, otherwise return [] so the caller falls back to plain text rendering.
+// Reconstruct the source reasoning text from persisted/streamed sections so it can
+// be re-split. Strips any `**` already on the heading before re-wrapping.
+function sectionsToText(sections: ReasoningSection[]): string {
+  return sections
+    .map((s) => {
+      const h = cleanReasoningHeading(s.heading)
+      return h ? `**${h}**\n\n${s.body}` : s.body
+    })
+    .join('\n\n')
+}
+
+// Turn whatever reasoning we have into clean collapsible sections. Always re-split
+// so the backend's under-split output (one section with glued titles in its body)
+// gets corrected — prefer the raw text when present (most complete), else rebuild
+// it from the sections. Falls back to the original sections / [] when no genuine
+// heading is found, so plain unstructured reasoning still renders as raw text.
 export function deriveReasoningSections(
   sections: ReasoningSection[],
   text: string,
 ): ReasoningSection[] {
-  if (sections.length > 0) return sections
-  const split = splitReasoningText(text)
+  const source = text.trim() ? text : sectionsToText(sections)
+  const split = splitReasoningText(source)
   const hasHeading = split.some((s) => cleanReasoningHeading(s.heading).length > 2)
-  return hasHeading ? split : []
+  if (hasHeading) return split
+  return sections.length > 0 ? sections : []
 }
 
 export function normalizeReasoningSections(value: unknown): ReasoningSection[] {

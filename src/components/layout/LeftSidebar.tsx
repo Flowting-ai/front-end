@@ -2282,7 +2282,12 @@ function LeftSidebarImpl({
       // On a brain page the brain page owns the imperative new-thread reset
       // (URL navigation alone is unsafe — see handleNewChat in brain/page). Emit
       // the event it listens for; fall back to navigation from anywhere else.
-      onNewBrainThread={() => { if (isBrainPage) emitBrainNewThread(); else push(BRAIN_ROUTE) }}
+      // Emit the event the brain page listens for (imperative reset + guard
+      // clearing) AND always push the URL. The push is the reliable path: the
+      // brain page fully resets whenever `?id=` changes (see the reset effect in
+      // brain/page.tsx), so a fresh thread is guaranteed even if the window
+      // event is missed. Matches the chat page's emit-and-navigate pattern.
+      onNewBrainThread={() => { if (isBrainPage) emitBrainNewThread(); push(BRAIN_ROUTE) }}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push(PROJECTS_ROUTE) }}
       onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push(AGENTS_ROUTE) }}
       onNewAgentChat={() => push(AGENTS_ROUTE)}
