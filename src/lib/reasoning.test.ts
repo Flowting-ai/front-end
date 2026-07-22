@@ -3,8 +3,10 @@ import {
   appendReasoningEvent,
   cleanReasoningHeading,
   createReasoningState,
+  deriveReasoningSections,
   normalizeReasoningSections,
   reasoningEventText,
+  splitReasoningText,
 } from '@/lib/reasoning'
 
 describe('reasoning stream accumulation', () => {
@@ -78,5 +80,47 @@ describe('reasoning normalization', () => {
     ])).toEqual([
       { heading: '**Step one**', body: 'Details' },
     ])
+  })
+})
+
+describe('reasoning inline-title splitting (stale prod backend)', () => {
+  it('splits bold-only title lines into sections, mirroring the backend', () => {
+    const text = [
+      '**Creating a CSV file**',
+      "I'm thinking about the need to create a CSV file.",
+      '**Producing CSV data**',
+      'I should use the xlsx_build function.',
+    ].join('\n')
+
+    expect(splitReasoningText(text)).toEqual([
+      { heading: 'Creating a CSV file', body: "I'm thinking about the need to create a CSV file." },
+      { heading: 'Producing CSV data', body: 'I should use the xlsx_build function.' },
+    ])
+  })
+
+  it('treats ATX headings as titles and keeps preamble bodies', () => {
+    const text = 'Some preamble.\n## Planning\nOutline the steps.'
+    expect(splitReasoningText(text)).toEqual([
+      { heading: '', body: 'Some preamble.' },
+      { heading: 'Planning', body: 'Outline the steps.' },
+    ])
+  })
+
+  it('does not treat inline bold or unbalanced markers as titles', () => {
+    expect(splitReasoningText('I need **one** thing here.')).toEqual([
+      { heading: '', body: 'I need **one** thing here.' },
+    ])
+  })
+
+  it('derives sections only when a real heading exists, else defers to raw text', () => {
+    const structured = deriveReasoningSections([], '**Analyzing data**\nLooking at revenue.')
+    expect(structured).toEqual([
+      { heading: 'Analyzing data', body: 'Looking at revenue.' },
+    ])
+
+    expect(deriveReasoningSections([], 'Just plain reasoning with no titles.')).toEqual([])
+
+    const existing = [{ heading: 'Real', body: 'kept' }]
+    expect(deriveReasoningSections(existing, '**ignored**\nx')).toBe(existing)
   })
 })

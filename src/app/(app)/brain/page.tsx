@@ -113,6 +113,7 @@ import { parsePermissionPrompt, type ConnectorPermissionPrompt } from '@/lib/api
 import {
   appendReasoningEvent,
   createReasoningState,
+  deriveReasoningSections,
   normalizeReasoningSections,
   reasoningEventText,
   type ReasoningEventType,
@@ -1665,7 +1666,10 @@ function BrainPageInner() {
   // Model commentary renders as Mayday narration. Node outputs belong to the
   // execution phase timeline, so keeping them out of this list avoids showing
   // the same work twice at completion.
-  const activeReasoningSections = reasoningSections
+  const activeReasoningSections = useMemo(
+    () => deriveReasoningSections(reasoningSections, reasoningText),
+    [reasoningSections, reasoningText],
+  )
 
   // ── Plan-approval correlation ───────────────────────────────────────────────
   // plan_ready → user_prompt(kind='plan') is the plan approval gate.
@@ -4272,7 +4276,10 @@ function BrainPageInner() {
     // the clean user text, not the full injected message).
     const cleanInput = stripDocumentBlocks(msg.input)
     const msgAttachments = storedHistoryAttachments[cleanInput]
-    const msgReasoningSections = normalizeReasoningSections(msg.reasoning_sections)
+    const msgReasoningSections = deriveReasoningSections(
+      normalizeReasoningSections(msg.reasoning_sections),
+      msg.reasoning ?? '',
+    )
 
     // Map persisted tool_calls into ActivityFeedItem[] for the history view.
     const rawToolCalls = (msg.tool_calls ?? []) as Array<Record<string, unknown>>
