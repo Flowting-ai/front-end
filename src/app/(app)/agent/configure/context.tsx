@@ -34,6 +34,7 @@ import { useFileUpload } from '@/hooks/use-file-upload'
 import type { PinFolder } from '@/lib/api/pins'
 import type { PendingAttachment } from '@/components/chat/AttachmentManager'
 import type { ActivityItem } from '@/hooks/use-chat-state'
+import type { ChatPrompt } from '@/lib/api/prompts'
 import { AGENT_CHAT_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE } from '@/lib/routes'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ export type ChatMsg = {
   isStreaming?: boolean
   connectPrompts?: PersonaConnectPrompt[]
   permissionPrompts?: PersonaPermissionPrompt[]
+  chatPrompts?: ChatPrompt[]
   activities?: ActivityItem[]
   attachments?: Array<{ file_name: string; mime_type: string; file_size?: number }>
 }
@@ -626,6 +628,16 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
       onError: (err)   => { setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, text: `⚠ ${err}`, isStreaming: false } : m)); chatStreamingRef.current = false; setIsStreaming(false) },
       onConnectPrompt:    (prompt) => setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, connectPrompts:    [...(m.connectPrompts    ?? []), prompt] } : m)),
       onPermissionPrompt: (prompt) => setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, permissionPrompts: [...(m.permissionPrompts ?? []), prompt] } : m)),
+      onChatPrompt:       (prompt) => setChatMessages(prev => prev.map(m => {
+        if (m.id !== asstMsgId || m.chatPrompts?.some(item => item.request_id === prompt.request_id)) return m
+        return { ...m, chatPrompts: [...(m.chatPrompts ?? []), prompt] }
+      })),
+      onPromptDecision:   (promptId, decision) => setChatMessages(prev => prev.map(m => m.id === asstMsgId ? {
+        ...m,
+        connectPrompts: m.connectPrompts?.filter(prompt => prompt.request_id !== promptId),
+        permissionPrompts: m.permissionPrompts?.map(prompt => prompt.request_id === promptId ? { ...prompt, decision } : prompt),
+        chatPrompts: m.chatPrompts?.map(prompt => prompt.request_id === promptId ? { ...prompt, decision } : prompt),
+      } : m)),
       onToolActivity: (item: PersonaActivityItem) => setChatMessages(prev => prev.map(m => {
         if (m.id !== asstMsgId) return m
         const acts = m.activities ?? []

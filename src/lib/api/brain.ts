@@ -2,9 +2,10 @@
 
 import { z } from 'zod'
 import { apiFetch, apiFetchJson, ApiError } from './client'
-import { validateInlineEvent, validateNamedEvent } from './sse-schemas'
 import { API_BASE_URL, CHAT_PENDING_PROMPTS_ENDPOINT, directUpload, shouldUseDirectBackend } from '../config'
 import type { ReasoningSection } from '../reasoning'
+import { HybridSSEDecoder, internalToInline, type DecodedSSEEvent } from '../sse-decoder'
+import type { NamedEventName, NamedEventPayload } from './sse-schemas'
 
 // ── Endpoint helpers ──────────────────────────────────────────────────────────
 
@@ -545,31 +546,12 @@ export interface StepCompletedEvent { plan_id: string; step_id: string }
 export interface StepFailedEvent    { plan_id: string; step_id: string; error: string }
 export interface StepSkippedEvent   { plan_id: string; step_id: string; reason?: string | null; seq?: number }
 
-// Map of named event name → payload shape. Add new events here; the
-// dispatcher in page.tsx is type-checked against this map.
-export interface BrainNamedEvents {
-  message_saved:       MessageSavedEvent
-  title:               TitleEvent
-  web_search:          WebSearchEvent
-  image:               ImageEvent
-  generated_file:      GeneratedFileEvent
-  tool_progress:       ToolProgressEvent
-  tool_connect_prompt: ToolConnectPromptEvent
-  user_prompt:         UserPromptEvent
-  plan_ready:          PlanReadyEvent
-  plan_approved:       PlanApprovedEvent
-  plan_countered:      PlanCounteredEvent
-  plan_cancelled:      PlanCancelledEvent
-  run_queued:          RunQueuedEvent
-  run_started:         RunStartedEvent
-  run_summarizing:     RunSummarizingEvent
-  run_completed:       RunCompletedEvent
-  run_failed:          RunFailedEvent
-  run_cancelled:       RunCancelledEvent
-  step_started:        StepStartedEvent
-  step_completed:      StepCompletedEvent
-  step_failed:         StepFailedEvent
-  step_skipped:        StepSkippedEvent
+// Brain receives every named event except the two chat-only additions. Derive
+// the map from the shared validator registry so this API cannot drift into a
+// second, partial event inventory.
+export type BrainNamedEventName = Exclude<NamedEventName, 'model_selected' | 'memory_updated'>
+export type BrainNamedEvents = {
+  [Name in BrainNamedEventName]: NamedEventPayload<Name>
 }
 
 // ── SSE event payloads (inline) ───────────────────────────────────────────────
@@ -698,38 +680,18 @@ export async function consumeBrainStream(
 
   const reader  = response.body.getReader()
   const decoder = new TextDecoder()
-  let buf = ''
+  const sseDecoder = new HybridSSEDecoder()
   let timedOut = false
   let watchdog: ReturnType<typeof setTimeout> | null = null
 
-  const dispatchBlock = (block: string) => {
-    if (!block.trim()) return
-
-    let eventName = ''
-    const dataLines: string[] = []
-    for (const rawLine of block.split(/\r\n|\r|\n/)) {
-      if (rawLine.startsWith('event:')) {
-        const v = rawLine.slice(6)
-        eventName = v.startsWith(' ') ? v.slice(1) : v
-      } else if (rawLine.startsWith('data:')) {
-        const v = rawLine.slice(5)
-        dataLines.push(v.startsWith(' ') ? v.slice(1) : v)
-      }
-      // `id:`, `retry:`, `:` comments, and blank lines are ignored.
+  const dispatch = (event: DecodedSSEEvent) => {
+    if (event.kind === 'named') {
+      callbacks.onNamed(event.name, event.data)
+    } else if (event.kind === 'inline') {
+      callbacks.onInline(event.data)
+    } else if (event.internal) {
+      callbacks.onInline(internalToInline(event.internal))
     }
-    if (dataLines.length === 0) return
-
-    const dataStr = dataLines.join('\n')
-    let data: unknown
-    try {
-      data = JSON.parse(dataStr)
-    } catch {
-      console.warn('[Brain SSE] failed to parse data block:', dataStr.slice(0, 200))
-      return
-    }
-
-    if (eventName) callbacks.onNamed(eventName, validateNamedEvent(eventName, data))
-    else           callbacks.onInline(validateInlineEvent(data))
   }
 
   const armWatchdog = () => {
@@ -741,30 +703,20 @@ export async function consumeBrainStream(
   }
   armWatchdog()
 
-  // Matches `\n\n`, `\r\n\r\n`, and the mixed forms — per the SSE spec, any
-  // of CR / LF / CRLF is a valid line terminator.
-  const boundaryRe = /\r\n\r\n|\n\n|\r\r/
-
   try {
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-      buf += decoder.decode(value, { stream: true })
-      armWatchdog()
-
-      let m: RegExpExecArray | null
-      while ((m = boundaryRe.exec(buf)) !== null) {
-        const block = buf.slice(0, m.index)
-        buf = buf.slice(m.index + m[0].length)
-        dispatchBlock(block)
+      for (const event of sseDecoder.push(decoder.decode(value, { stream: true }))) {
+        dispatch(event)
       }
+      armWatchdog()
     }
-    buf += decoder.decode()
+    for (const event of sseDecoder.push(decoder.decode())) dispatch(event)
     // Some streaming servers close immediately after the final event instead
     // of writing one more blank-line delimiter. Dispatch that complete tail
     // before onClose classifies the stream as terminal or disconnected.
-    dispatchBlock(buf)
-    buf = ''
+    for (const event of sseDecoder.flush()) dispatch(event)
   } catch (e) {
     // Cancelling via the watchdog resolves read() with {done:true}; only
     // genuine fetch/abort errors land here. AbortError (user-initiated stop)

@@ -30,6 +30,13 @@ export const aguiEventSchema = z.discriminatedUnion("type", [
     delta: z.string(),
   }),
   z.looseObject({ type: z.literal("TEXT_MESSAGE_END"), messageId: z.string() }),
+  z.looseObject({
+    type: z.literal("TEXT_MESSAGE_CHUNK"),
+    messageId: z.string().nullable().optional(),
+    role: z.string().nullable().optional(),
+    delta: z.string().nullable().optional(),
+    name: z.string().nullable().optional(),
+  }),
   // Run lifecycle — the detached cortex run brackets each node's stream with a
   // STEP_STARTED/STEP_FINISHED pair (stepName = node id) and streams node
   // reasoning as the standard REASONING_* lifecycle.
@@ -47,7 +54,18 @@ export const aguiEventSchema = z.discriminatedUnion("type", [
     delta: z.string(),
   }),
   z.looseObject({ type: z.literal("REASONING_MESSAGE_END"), messageId: z.string() }),
+  z.looseObject({
+    type: z.literal("REASONING_MESSAGE_CHUNK"),
+    messageId: z.string().nullable().optional(),
+    delta: z.string().nullable().optional(),
+  }),
   z.looseObject({ type: z.literal("REASONING_END"), messageId: z.string() }),
+  z.looseObject({
+    type: z.literal("REASONING_ENCRYPTED_VALUE"),
+    subtype: z.enum(["tool-call", "message"]),
+    entityId: z.string(),
+    encryptedValue: z.string(),
+  }),
   z.looseObject({ type: z.literal("THINKING_START"), title: z.string().optional() }),
   z.looseObject({ type: z.literal("THINKING_TEXT_MESSAGE_START") }),
   z.looseObject({
@@ -68,6 +86,13 @@ export const aguiEventSchema = z.discriminatedUnion("type", [
   }),
   z.looseObject({ type: z.literal("TOOL_CALL_END"), toolCallId: z.string() }),
   z.looseObject({
+    type: z.literal("TOOL_CALL_CHUNK"),
+    toolCallId: z.string().nullable().optional(),
+    toolCallName: z.string().nullable().optional(),
+    parentMessageId: z.string().nullable().optional(),
+    delta: z.string().nullable().optional(),
+  }),
+  z.looseObject({
     type: z.literal("TOOL_CALL_RESULT"),
     messageId: z.string(),
     toolCallId: z.string(),
@@ -77,6 +102,27 @@ export const aguiEventSchema = z.discriminatedUnion("type", [
     type: z.literal("CUSTOM"),
     name: z.string(),
     value: z.unknown(),
+  }),
+  z.looseObject({ type: z.literal("STATE_SNAPSHOT"), snapshot: z.unknown() }),
+  z.looseObject({ type: z.literal("STATE_DELTA"), delta: z.array(z.unknown()) }),
+  z.looseObject({ type: z.literal("MESSAGES_SNAPSHOT"), messages: z.array(z.unknown()) }),
+  z.looseObject({
+    type: z.literal("ACTIVITY_SNAPSHOT"),
+    messageId: z.string(),
+    activityType: z.string(),
+    content: z.unknown(),
+    replace: z.boolean().optional(),
+  }),
+  z.looseObject({
+    type: z.literal("ACTIVITY_DELTA"),
+    messageId: z.string(),
+    activityType: z.string(),
+    patch: z.array(z.unknown()),
+  }),
+  z.looseObject({
+    type: z.literal("RAW"),
+    event: z.unknown(),
+    source: z.string().nullable().optional(),
   }),
 ])
 

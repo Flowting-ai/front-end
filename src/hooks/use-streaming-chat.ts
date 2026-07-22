@@ -4,7 +4,7 @@ import { useRef } from "react"
 import { extractThinkingContent } from "@/lib/parsers/content-parser"
 import { mergeStreamingText } from "@/lib/streaming"
 import { apiFetch } from "@/lib/api/client"
-import { parsePermissionPrompt } from "@/lib/api/prompts"
+import { parseChatPrompt, parsePermissionPrompt } from "@/lib/api/prompts"
 import { friendlyModelError, MODEL_UNRESPONSIVE_MESSAGE } from "@/lib/model-error"
 import {
   CHAT_STOP_ENDPOINT,
@@ -15,8 +15,7 @@ import {
 } from "@/lib/config"
 import { ensureFreshToken } from "@/lib/jwt-utils"
 import { logger } from "@/lib/logger"
-import { parseAguiEvent } from "@/lib/agui/schemas"
-import { aguiToInternal } from "@/lib/agui/to-legacy"
+import { HybridSSEDecoder } from "@/lib/sse-decoder"
 import type { UIMessage } from "@/hooks/use-chat-state"
 import { registerStream, completeStream } from "@/lib/stream-registry"
 import type { ReasoningSection } from "@/lib/reasoning"
@@ -303,69 +302,33 @@ export function useStreamingChat({
       }
       options?.files?.forEach((f) => fd.append("files", f))
 
-      let buffer = ""
+      const sseDecoder = new HybridSSEDecoder()
 
       // ── SSE processor ─────────────────────────────────────────────────────
       // Called with each new text slice arriving from the XHR response stream.
 
-      const processSSEText = (text: string) => {
-        buffer += text
+      const processSSEText = (text: string, flush = false) => {
+        const decodedEvents = sseDecoder.push(text)
+        if (flush) decodedEvents.push(...sseDecoder.flush())
 
-        // SSE events are separated by a blank line (\n\n, \r\n\r\n, or \r\r).
-        // Split on any double-newline variant to handle all backends.
-        const rawChunks = buffer.split(/\r?\n\r?\n/)
-        buffer = rawChunks.pop() ?? ""
-
-        for (const eventStr of rawChunks) {
-          // AG-UI frames carry the event type inside the JSON payload, so only
-          // `data:` lines matter; comments/keepalives (":ready", ": ka") have
-          // none and fall through.
-          const dataLines: string[] = []
-          for (const line of eventStr.split(/\r?\n/)) {
-            if (line.startsWith("data:")) {
-              // Per SSE spec: strip exactly one leading space (the protocol separator), preserve all other whitespace
-              const raw = line.slice(5)
-              dataLines.push(raw.startsWith(" ") ? raw.slice(1) : raw)
-            }
-          }
-
-          // Per SSE spec: multiple data lines are joined with \n
-          const dataStr = dataLines.join("\n").trim()
-
-          if (!dataStr) continue
-
-          // ── AG-UI protocol decode ─────────────────────────────────────────
-          // The stream is AG-UI events (requested via ?protocol=agui). Each
-          // frame is zod-validated, then mapped onto the internal
-          // (eventName, parsed) contract the handlers below consume — see
-          // src/lib/agui/to-legacy.ts. Unknown/lifecycle-only events are
-          // skipped; state and rendering behave exactly as before the
-          // protocol swap.
-          let rawJson: unknown
-          try {
-            rawJson = JSON.parse(dataStr)
-          } catch {
-            continue // keepalives/comments — never content under AG-UI
-          }
-          const aguiEvent = parseAguiEvent(rawJson)
-          if (!aguiEvent) {
-            logger.warn("[useStreamingChat] Unrecognised stream event", rawJson)
-            continue
-          }
-          if (aguiEvent.type === "RUN_STARTED") {
+        for (const decoded of decodedEvents) {
+          if (decoded.kind === "agui" && decoded.event.type === "RUN_STARTED") {
             // threadId is the chat id. This is the primary id source for new
             // chats on direct streams: the X-Chat-Id response header is not
             // CORS-exposed, so cross-origin JS can't read it.
-            adoptChatId(aguiEvent.threadId)
+            adoptChatId(decoded.event.threadId)
             if (isActiveStream()) setStreamState?.("streaming")
           }
           // The reasoning phase is over (tool round or answer starting) —
           // clear the thinking indicator, as the legacy intermediate `done`
           // frames used to.
-          if (aguiEvent.type === "THINKING_END") {
+          if (decoded.kind === "agui" && decoded.event.type === "THINKING_END") {
             queueUpdate({ isThinkingInProgress: false }, true)
           }
-          const internal = aguiToInternal(aguiEvent)
+
+          const internal = decoded.kind === "agui"
+            ? decoded.internal
+            : { eventName: decoded.name, parsed: decoded.data }
           if (!internal) continue
           const { eventName, parsed } = internal
 
@@ -986,6 +949,23 @@ export function useStreamingChat({
             continue
           }
 
+          if (eventName === "user_prompt" || eventName === "questions" || eventName === "approval_prompt") {
+            const prompt = parseChatPrompt(eventName, parsed)
+            if (!prompt) continue
+            const promptId = prompt.request_id
+            const msgId = loadingMessageIdRef.current
+            if (msgId) {
+              setMessages((prev) => prev.map((msg) => {
+                if (msg.id !== msgId) return msg
+                const existing = msg.chatPrompts ?? []
+                return existing.some((item) => item.request_id === promptId)
+                  ? msg
+                  : { ...msg, chatPrompts: [...existing, prompt] }
+              }))
+            }
+            continue
+          }
+
           if (eventName === "permission_prompt" || eventName === "tool_permission_prompt") {
             // Backend emits `prompt_id` + `respond_url` (spec fields). POST to respond_url
             // (or /chats/prompts/{prompt_id}) with {"response":"allow"|"allow_once"|"block"}
@@ -1016,14 +996,18 @@ export function useStreamingChat({
               prev.map((msg) => {
                 const perms = msg.connectorPermissionPrompts
                 const connects = msg.connectorConnectPrompts
+                const prompts = msg.chatPrompts
                 if (!perms?.some((p) => p.request_id === promptId) &&
-                    !connects?.some((p) => p.request_id === promptId)) return msg
+                    !connects?.some((p) => p.request_id === promptId) &&
+                    !prompts?.some((p) => p.request_id === promptId)) return msg
                 const decision = eventName === "prompt_resolved" ? "resolved" : "timeout"
                 return {
                   ...msg,
                   connectorPermissionPrompts: perms?.map((p) =>
                     p.request_id === promptId ? { ...p, decision } : p),
                   connectorConnectPrompts: connects?.filter((p) => p.request_id !== promptId),
+                  chatPrompts: prompts?.map((p) =>
+                    p.request_id === promptId ? { ...p, decision } : p),
                 }
               }),
             )
@@ -1182,6 +1166,41 @@ export function useStreamingChat({
                 }),
               )
             }
+            continue
+          }
+
+          if (eventName === "external_output") {
+            const actions: import("@/hooks/use-chat-state").ExternalOutputAction[] =
+              Array.isArray(parsed.actions) ? parsed.actions.flatMap((action) => {
+                if (!action || typeof action !== "object") return []
+                const row = action as Record<string, unknown>
+                const verb = asString(row.verb)
+                const target = asString(row.target)
+                const connector = asString(row.connector)
+                if (!verb || !target || !connector) return []
+                return [{
+                  verb,
+                  target,
+                  connector,
+                  connector_slug: asString(row.connector_slug),
+                  logo_url: asString(row.logo_url),
+                  detail: asString(row.detail),
+                  view_url: asString(row.view_url),
+                }]
+              }) : []
+            const msgId = loadingMessageIdRef.current
+            if (msgId && actions.length > 0) {
+              setMessages((prev) => prev.map((msg) =>
+                msg.id === msgId ? { ...msg, externalOutputActions: actions } : msg,
+              ))
+            }
+            continue
+          }
+
+          if (eventName === "memory_updated") {
+            // Settings and memory-aware surfaces can refresh without coupling
+            // the stream hook to their cache implementation.
+            window.dispatchEvent(new CustomEvent("souvenir:memory-updated", { detail: parsed }))
             continue
           }
 
@@ -1461,8 +1480,9 @@ export function useStreamingChat({
                 processedLength = text.length
               }
             }
-            // Flush any incomplete SSE event still in the buffer
-            if (buffer.trim()) processSSEText("\n\n")
+            // Flush a complete final event even if the server omitted the
+            // trailing blank-line delimiter.
+            processSSEText("", true)
             if (xhr.status === 0 && !stopRequestedRef.current) {
               logger.error("[useStreamingChat] Connection dropped mid-stream", {
                 chatId, isExistingChat, endpoint: resolvedEndpoint,

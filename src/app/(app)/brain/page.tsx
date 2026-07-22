@@ -2094,6 +2094,7 @@ function BrainPageInner() {
       // id, then POST {response:{answers}} once on the final question so the
       // blocked stream resumes. Without this the stream stalls on heartbeats
       // until the 300s prompt_gate timeout.
+      case 'questions':
       case 'question_prompt': {
         const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
         const rawQs    = Array.isArray(d.questions) ? d.questions : []
@@ -2326,6 +2327,17 @@ function BrainPageInner() {
         break
       }
 
+      case 'step_reasoning': {
+        const content = typeof d.content === 'string' ? d.content : ''
+        if (content) {
+          handleReasoningEvent(
+            d.heading === true ? 'reasoning_heading' : 'reasoning_body',
+            { content },
+          )
+        }
+        break
+      }
+
       // Per-node output tokens. The sole leaf node is the final answer → stream
       // it into the chat bubble exactly like an inline `content` token. Every
       // other node's output accumulates for the reasoning block.
@@ -2467,8 +2479,11 @@ function BrainPageInner() {
         break
       }
 
+      case 'docx_progress':
       case 'tool_progress': {
-        const tool     = typeof d.tool     === 'string' ? d.tool     : ''
+        const tool     = typeof d.tool === 'string'
+          ? d.tool
+          : name === 'docx_progress' ? 'docx_execute' : ''
         const status   = typeof d.status   === 'string' ? d.status   : ''
         const filename = typeof d.filename === 'string' ? d.filename : ''
         if (tool) {
@@ -2554,6 +2569,11 @@ function BrainPageInner() {
         if (actions.length > 0) setExternalActions(actions)
         break
       }
+
+      // Transport keepalive. Receiving the frame is enough to reset the
+      // stream reader's watchdog; it intentionally has no visual reducer.
+      case 'stream_heartbeat':
+        break
 
       case 'stuck_prompt': {
         const promptId   = typeof d.prompt_id  === 'string' ? d.prompt_id  : ''
@@ -4791,10 +4811,28 @@ function BrainPageInner() {
         active: false,
       }))
 
-    const activeConnectors = (railContext.connectors ?? []).map((c) => ({ ...toConnector(c), active: true }))
+    // Backend catalog rows are the logo source of truth (logo_url per slug);
+    // rows built from bare slugs (run stream, reload synthesis, tool-call
+    // history) get decorated here — the single point every path flows through.
+    const catalogBySlug = new Map(connectorCatalog.map((k) => [k.slug.toLowerCase(), k]))
+    const withCatalogRow = (c: { slug: string; display_name?: string; logo_url?: string | null }) => {
+      const cat = catalogBySlug.get(c.slug.toLowerCase())
+      if (!cat) return c
+      return {
+        ...cat,
+        ...c,
+        display_name: c.display_name && c.display_name !== c.slug ? c.display_name : cat.display_name,
+        logo_url: c.logo_url ?? cat.logo_url,
+      }
+    }
+    const activeConnectors = (railContext.connectors ?? []).map((c) => ({ ...toConnector(withCatalogRow(c)), active: true }))
     const previousConnectors = Array.from(hist.connectors.values())
       .filter((c) => !activeConnectorSlugs.has(c.slug))
-      .map((c) => ({ ...c, active: false }))
+      .map((c) => ({
+        ...c,
+        logo: c.logo ?? catalogBySlug.get(c.slug.toLowerCase())?.logo_url ?? null,
+        active: false,
+      }))
 
     return {
       // Prefer what Brain confirmed it loaded (SSE event); fall back to the

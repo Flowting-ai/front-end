@@ -18,6 +18,7 @@ import { fetchModelsWithCache } from "@/lib/ai-models";
 import { MODELS_ENDPOINT } from "@/lib/config";
 import { getModelLlmId } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
+import { HybridSSEDecoder, type DecodedSSEEvent } from "@/lib/sse-decoder";
 import { usePinboardActions } from "@/context/pinboard-context";
 import { trackBrowserEvent } from "@/lib/analytics/events";
 import { ConnectPromptCard } from "@/components/chat/ConnectorPrompts";
@@ -992,12 +993,6 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
         return resolved.length > 0 ? resolved : null;
       };
 
-      const resolveEventType = (explicit: string, payload: Record<string, unknown>): string => {
-        if (explicit) return explicit;
-        const raw = payload.type;
-        return typeof raw === "string" ? raw.trim().toLowerCase() : "";
-      };
-
       const handleEvent = (eventType: string, payload: Record<string, unknown>, fallbackModelId?: string) => {
         const modelIdStr = resolveModelIdFromPayload(payload) ?? fallbackModelId ?? null;
         if (!modelIdStr || !selectedModelSet.has(modelIdStr)) return;
@@ -1045,6 +1040,10 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
               typeof payload.creditsUsed   === "number" ? payload.creditsUsed   :
               typeof payload.credits       === "number" ? payload.credits       :
               typeof payload.cost          === "number" ? payload.cost          :
+              typeof (payload.usage as Record<string, unknown> | undefined)?.total_cost === "number"
+                ? (payload.usage as Record<string, number>).total_cost :
+              typeof (payload.usage as Record<string, unknown> | undefined)?.cost === "number"
+                ? (payload.usage as Record<string, number>).cost :
               null;
             if (creditsRaw !== null) setTestCredits((prev) => ({ ...prev, [modelIdStr]: creditsRaw }));
             setStreamingModels((prev) => { const n = new Set(prev); n.delete(modelIdStr); return n; });
@@ -1084,26 +1083,22 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
         }
       };
 
-      const processChunk = (chunk: string, fallbackModelId?: string) => {
-        const lines = chunk.split("\n");
-        let explicitEvent = "";
-        const dataLines: string[] = [];
-        for (const line of lines) {
-          const trimmedLine = line.replace(/\r$/, "");
-          if (trimmedLine.startsWith("event:")) explicitEvent = trimmedLine.slice(6).trim().toLowerCase();
-          else if (trimmedLine.startsWith("data:")) dataLines.push(trimmedLine.slice(5));
+      const processDecodedEvent = (event: DecodedSSEEvent, fallbackModelId?: string) => {
+        if (event.kind === "agui") {
+          if (!event.internal) return;
+          handleEvent(
+            event.internal.eventName,
+            { ...event.raw, ...event.internal.parsed },
+            fallbackModelId,
+          );
+          return;
         }
-        if (dataLines.length === 0) return;
-        const dataStr = dataLines.join("\n").trim();
-        if (!dataStr || dataStr === "[DONE]") return;
-        try {
-          const payload = JSON.parse(dataStr) as Record<string, unknown>;
-          handleEvent(resolveEventType(explicitEvent, payload), payload, fallbackModelId);
-        } catch { /* ignore incomplete chunks */ }
+        handleEvent(event.name, event.data, fallbackModelId);
       };
 
       // Fire one request per model in parallel so all columns stream simultaneously
       await Promise.all(validModelIds.map(async (modelId) => {
+        const sseDecoder = new HybridSSEDecoder();
         const resp = await apiFetch(`${MODELS_ENDPOINT}/test`, {
           method: "POST",
           body: JSON.stringify({
@@ -1132,17 +1127,15 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
 
         try {
           const decoder = new TextDecoder();
-          let buffer = "";
           while (true) {
-            // eslint-disable-next-line no-await-in-loop -- sequential SSE stream reader; chunks must arrive in order
             const { done, value } = await reader.read();
             if (done) break;
-            buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-            const events = buffer.split("\n\n");
-            buffer = events.pop() || "";
-            for (const ev of events) processChunk(ev, modelId);
+            for (const event of sseDecoder.push(decoder.decode(value, { stream: true }))) {
+              processDecodedEvent(event, modelId);
+            }
           }
-          if (buffer.trim()) for (const ev of `${buffer}\n\n`.split("\n\n")) processChunk(ev, modelId);
+          for (const event of sseDecoder.push(decoder.decode())) processDecodedEvent(event, modelId);
+          for (const event of sseDecoder.flush()) processDecodedEvent(event, modelId);
         } finally {
           reader.cancel().catch(() => {});
         }

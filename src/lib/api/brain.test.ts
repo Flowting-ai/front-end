@@ -42,6 +42,27 @@ describe('consumeBrainStream', () => {
     expect(onNamed).not.toHaveBeenCalled()
     expect(onInline).toHaveBeenCalledWith({ type: 'done', finish_reason: 'stop' })
   })
+
+  it('normalizes native AG-UI content and completion events for the Brain reducer', async () => {
+    const onNamed = vi.fn()
+    const onInline = vi.fn()
+
+    await consumeBrainStream(
+      streamResponse(
+        'data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"m1","delta":"Hello"}\n\n',
+        'data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1","result":{"usage":{"total_tokens":3}}}\n\n',
+      ),
+      { onNamed, onInline },
+    )
+
+    expect(onNamed).not.toHaveBeenCalled()
+    expect(onInline).toHaveBeenNthCalledWith(1, { type: 'content', content: 'Hello' })
+    expect(onInline).toHaveBeenNthCalledWith(2, {
+      type: 'done',
+      finish_reason: 'stop',
+      usage: { total_tokens: 3 },
+    })
+  })
 })
 
 describe('parseBrainContextEvent', () => {

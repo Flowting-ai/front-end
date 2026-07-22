@@ -31,6 +31,7 @@ import { ChatAddMenu } from '@/components/chat/AddMenu'
 import { AttachmentManager } from '@/components/chat/AttachmentManager'
 import { ConnectPromptCard } from '@/components/chat/ConnectorPrompts'
 import { PermissionPromptCard } from '@/components/shared/PermissionPromptCard'
+import { ChatPromptCard } from '@/components/chat/ChatPromptCard'
 import { ActivitiesSection } from '@/components/chat/ActivityRow'
 import { BreathingDot } from '@/components/BreathingDot'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
@@ -609,6 +610,9 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
                       prompt={p}
                       onDecided={(policy) => { respondToChatPrompt(p.request_id, policy, p.respond_url).catch(() => {}) }}
                     />
+                  ))}
+                  {msg.chatPrompts?.map(prompt => (
+                    <ChatPromptCard key={prompt.request_id} prompt={prompt} />
                   ))}
                 </div>
               ) : (

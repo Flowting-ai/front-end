@@ -30,8 +30,23 @@ export interface ConnectorConnectPrompt {
 // Canonical permission-prompt shape — zod-parsed from the SSE event in
 // lib/api/prompts.ts; re-exported here so message-state consumers keep their
 // existing import path.
-import type { ConnectorPermissionPrompt } from '@/lib/api/prompts'
-export type { ConnectorPermissionPrompt }
+import type { ConnectorPermissionPrompt, ChatPrompt } from '@/lib/api/prompts'
+export type {
+  ConnectorPermissionPrompt,
+  ChatPrompt,
+  ChatPromptOption,
+  ChatPromptQuestion,
+} from '@/lib/api/prompts'
+
+export interface ExternalOutputAction {
+  verb: string
+  target: string
+  connector: string
+  connector_slug?: string | null
+  logo_url?: string | null
+  detail?: string | null
+  view_url?: string | null
+}
 
 /** Extends the API Message with transient streaming-only UI state. */
 export interface UIMessage extends Message {
@@ -63,6 +78,10 @@ export interface UIMessage extends Message {
   connectorConnectPrompts?: ConnectorConnectPrompt[]
   /** Connector "permission" prompts emitted mid-stream when a tool policy is "ask". */
   connectorPermissionPrompts?: ConnectorPermissionPrompt[]
+  /** Non-connector prompt-gate cards: clarifications, choices, and approvals. */
+  chatPrompts?: ChatPrompt[]
+  /** Confirmed external writes performed during this turn. */
+  externalOutputActions?: ExternalOutputAction[]
   /** @-mentioned pins attached to this user message (optimistic; not persisted across refresh). */
   mentionedPins?: Array<{ id: string; label: string }>
 }

@@ -896,6 +896,9 @@ export function ChatInterface({
             connectorPermissionPrompts: msg.connectorPermissionPrompts?.map((p) =>
               p.request_id === requestId ? { ...p, decision } : p,
             ),
+            chatPrompts: msg.chatPrompts?.map((p) =>
+              p.request_id === requestId ? { ...p, decision } : p,
+            ),
           }
         : msg,
     ));

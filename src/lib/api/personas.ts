@@ -1,8 +1,13 @@
 "use client";
 
 import { apiFetch, apiFetchJson } from "./client";
-import { validateInlineEvent, validateNamedEvent } from "./sse-schemas";
-import { parsePermissionPrompt, type ConnectorPermissionPrompt } from "./prompts";
+import {
+  parseChatPrompt,
+  parsePermissionPrompt,
+  type ChatPrompt,
+  type ConnectorPermissionPrompt,
+} from "./prompts";
+import { HybridSSEDecoder, internalToInline } from "@/lib/sse-decoder";
 import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import { friendlyModelError } from "@/lib/model-error";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
@@ -1065,6 +1070,9 @@ export interface PersonaConnectPrompt {
 export type PersonaPermissionPrompt = ConnectorPermissionPrompt
 
 export interface PersonaChatStreamCallbacks {
+  /** Receives every named application event, including ones without a
+   * surface-specific convenience callback below. */
+  onNamedEvent?: (name: string, data: Record<string, unknown>) => void;
   /** Called with the chatId extracted from the X-Chat-Id response header. */
   onChatId?: (chatId: string) => void;
   /** Called for each streamed assistant text token. */
@@ -1089,6 +1097,10 @@ export interface PersonaChatStreamCallbacks {
   onConnectPrompt?: (prompt: PersonaConnectPrompt) => void;
   /** Called when the backend requests permission to run a connector tool. */
   onPermissionPrompt?: (prompt: PersonaPermissionPrompt) => void;
+  /** Called for generic questions, choices, and non-connector approvals. */
+  onChatPrompt?: (prompt: ChatPrompt) => void;
+  /** Called when the server resolves or expires any prompt gate. */
+  onPromptDecision?: (promptId: string, decision: 'resolved' | 'timeout') => void;
   /** Called when the stream finishes successfully. Receives the `done` payload. */
   onDone?: (payload?: PersonaDoneEventPayload) => void;
   /** Called on error (network or stream-level). */
@@ -1159,13 +1171,10 @@ async function readPersonaSSEStream(
   callbacks: PersonaChatStreamCallbacks,
 ): Promise<void> {
   const decoder = new TextDecoder();
-  let buffer = "";
+  const sseDecoder = new HybridSSEDecoder();
   let doneSeen = false;
   const str = (v: unknown) => (typeof v === "string" ? v : "");
   const toolCallIdByName = new Map<string, string>();
-  // SSE spec: events terminated by a blank line — CR/LF/CRLF all valid.
-  const boundaryRe = /\r?\n\r?\n/;
-  const lineSplitRe = /\r?\n/;
   // After `done`, give the server a brief window to flush trailing events
   // (`message_saved`, `title`) and then cancel the reader so the fetch is
   // released even if the server keeps the SSE connection idle-open.
@@ -1178,25 +1187,26 @@ async function readPersonaSSEStream(
     while (true) {
       // eslint-disable-next-line no-await-in-loop -- sequential SSE stream reader; chunks must be processed in order
       const { done, value } = await reader.read();
-      if (value) {
-        buffer += decoder.decode(value, { stream: true });
-        let m: RegExpExecArray | null;
-        while ((m = boundaryRe.exec(buffer)) !== null) {
-          const chunk = buffer.slice(0, m.index);
-          buffer = buffer.slice(m.index + m[0].length);
-          const lines = chunk.split(lineSplitRe);
-          let eventName = "";
-          let dataStr = "";
-          for (const line of lines) {
-            if (line.startsWith("event:")) eventName = line.slice(6).trim();
-            else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+      const decodedEvents = value
+        ? sseDecoder.push(decoder.decode(value, { stream: true }))
+        : [];
+      if (done) {
+        decodedEvents.push(...sseDecoder.push(decoder.decode()), ...sseDecoder.flush());
+      }
+      for (const decodedEvent of decodedEvents) {
+          if (decodedEvent.kind === "named") {
+            callbacks.onNamedEvent?.(decodedEvent.name, decodedEvent.data);
           }
-          if (!dataStr) continue;
+          let eventName: string;
           let parsed: Record<string, unknown>;
-          try { parsed = JSON.parse(dataStr); } catch { continue; }
-          const isNamed = Boolean(eventName);
-          if (!eventName && typeof parsed.type === "string") eventName = parsed.type;
-          parsed = isNamed ? validateNamedEvent(eventName, parsed) : validateInlineEvent(parsed);
+          if (decodedEvent.kind === "agui") {
+            if (!decodedEvent.internal) continue;
+            parsed = internalToInline(decodedEvent.internal);
+            eventName = String(parsed.type ?? "message");
+          } else {
+            eventName = decodedEvent.name;
+            parsed = decodedEvent.data;
+          }
           switch (eventName) {
             case "content":
               callbacks.onChunk?.(str(parsed.content));
@@ -1268,8 +1278,9 @@ async function readPersonaSSEStream(
               })
               break
             }
+            case "docx_progress":
             case "tool_progress": {
-              const toolName = str(parsed.tool) || "unknown"
+              const toolName = str(parsed.tool) || (eventName === "docx_progress" ? "docx_execute" : "unknown")
               const label    = str(parsed.label) || undefined
               const status   = (str(parsed.status) || "executing") as PersonaActivityStatus
               const activityId = toolCallIdByName.get(toolName) ?? `tp-${toolName}-${str(parsed.filename) || "x"}`
@@ -1324,11 +1335,28 @@ async function readPersonaSSEStream(
               if (permPrompt) callbacks.onPermissionPrompt?.(permPrompt)
               break
             }
+            case "user_prompt":
+            case "questions":
+            case "approval_prompt": {
+              const prompt = parseChatPrompt(eventName, parsed)
+              if (prompt) callbacks.onChatPrompt?.(prompt)
+              break
+            }
+            case "prompt_resolved":
+            case "prompt_timeout": {
+              const promptId = str(parsed.prompt_id)
+              if (promptId) {
+                callbacks.onPromptDecision?.(
+                  promptId,
+                  eventName === "prompt_resolved" ? "resolved" : "timeout",
+                )
+              }
+              break
+            }
             case "error":
               callbacks.onError?.(friendlyModelError(str(parsed.error)));
               return;
           }
-        }
       }
       if (done) break;
     }
