@@ -6,7 +6,8 @@ import { Upload } from 'lucide-react'
 import { ChatInput, type ChatInputProps } from '@/components/chat/ChatInput'
 import { ExhaustionBanner } from '@/components/ExhaustionBanner'
 import { useFileDrop } from '@/hooks/use-file-drop'
-import { BrainHome } from './BrainHome'
+import { BrainHome, type BrainHomeProps } from './BrainHome'
+export { BrainHome, type BrainHomeProps, type ActiveSchedule } from './BrainHome'
 import { ClarificationCard, type ClarificationCardProps } from './ClarificationCard'
 export { ClarificationCard, type ClarificationCardProps }
 import { PlanCard, type PlanCardProps } from './PlanCard'
@@ -138,6 +139,8 @@ export interface BrainShellProps {
   onFilesDropped?: (files: File[]) => void
   /** Suppresses drag-and-drop, e.g. while streaming or credit-blocked. */
   dropDisabled?: boolean
+  /** Real scheduled-run data for the Mayday idle home. */
+  homeProps?: Omit<BrainHomeProps, 'onSuggestion'>
 }
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
@@ -168,6 +171,7 @@ export function BrainShell({
   initialInputKey,
   onFilesDropped,
   dropDisabled,
+  homeProps,
 }: BrainShellProps) {
   const normalizedInitialInputValue = initialInputValue ?? ''
   const normalizedInitialInputKey = `${initialInputKey ?? ''}:${normalizedInitialInputValue}`
@@ -326,7 +330,7 @@ export function BrainShell({
                 paddingRight: 28,
                 boxSizing:  'border-box',
               }}>
-                {children ?? (isIdle ? <BrainHome onSuggestion={handleSuggestion} /> : null)}
+                {children ?? (isIdle ? <BrainHome {...homeProps} onSuggestion={handleSuggestion} /> : null)}
               </div>
             </div>
 

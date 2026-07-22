@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useId } from 'react'
 import { m } from 'framer-motion'
 import {
   SearchOneIcon,
@@ -172,7 +172,7 @@ function DigestBanner({ items, onReview }: DigestBannerProps) {
 // ── ScheduleStrip ──────────────────────────────────────────────────────────
 // Slim next-run strip shown below hero for power users with active schedules.
 
-interface ActiveSchedule {
+export interface ActiveSchedule {
   id:      string
   name:    string
   nextRun: string
@@ -251,10 +251,9 @@ export function BrainHome({
   activeSchedules,
   onViewSchedules,
 }: BrainHomeProps) {
-  const headline = useMemo(
-    () => ROTATING_HEADLINES[Math.floor(Math.random() * ROTATING_HEADLINES.length)],
-    [],
-  )
+  const headlineSeed = useId()
+  const headlineIndex = Array.from(headlineSeed).reduce((sum, character) => sum + character.charCodeAt(0), 0)
+  const headline = ROTATING_HEADLINES[headlineIndex % ROTATING_HEADLINES.length]
 
   const hasDigest    = digestItems && digestItems.length > 0
   const hasSchedules = activeSchedules && activeSchedules.length > 0

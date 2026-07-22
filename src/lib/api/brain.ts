@@ -420,7 +420,7 @@ export interface MessageSavedEvent       { message_id: string }
 export interface TitleEvent              { title: string }
 export interface WebSearchEvent          { query: string; links: Array<Record<string, unknown> | string> }
 export interface ImageEvent              { url: string; s3_key: string }
-export interface GeneratedFileEvent      { url: string; s3_key: string; filename: string; mime_type: string }
+export interface GeneratedFileEvent      { url: string; s3_key: string; filename: string; mime_type: string; file_size?: number }
 
 export interface ToolProgressEvent {
   tool:            string
@@ -876,8 +876,8 @@ export async function getBrainPlan(planId: string): Promise<BrainPlanResponse> {
   return apiFetchJson<BrainPlanResponse>(withBase(`/brain/plans/${planId}`))
 }
 
-export async function getBrainRun(planId: string): Promise<BrainRunResponse> {
-  return apiFetchJson<BrainRunResponse>(BRAIN_RUN(planId))
+export async function getBrainRun(planId: string, signal?: AbortSignal): Promise<BrainRunResponse> {
+  return apiFetchJson<BrainRunResponse>(BRAIN_RUN(planId), { signal })
 }
 
 export async function approveBrainPlan(planId: string): Promise<BrainPlanActionResponse> {

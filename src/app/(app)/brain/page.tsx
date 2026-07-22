@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { Suspense, useMemo, useState, useEffect, useLayoutEffect, useRef, useCallback, Fragment, type CSSProperties } from 'react'
-import { m, AnimatePresence } from 'framer-motion'
+import { m } from 'framer-motion'
 import { springs } from '@/lib/springs'
 import { BRAIN_ROUTE } from '@/lib/routes'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -10,6 +10,8 @@ import {
   BrainShell,
   StreamingIndicator,
   BrainNarration,
+  BrainPhaseGroup,
+  BrainTimeline,
   PersonaSelectionCard,
   PersonaActiveBar,
   PinConfirmationCard,
@@ -30,10 +32,12 @@ import {
   LoopRecord,
   type ClarificationSummaryItem,
   type PersonaSelectionItem,
+  type ActiveSchedule,
+  type BrainTimelineItem,
+  type DigestItem,
 } from '@/templates/Brain'
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
-import { ReasoningContent } from '@/components/chat/ReasoningBlock'
 import { ChatMessagesSkeleton } from '@/components/chat/ChatMessagesSkeleton'
 import { useCreditStatus } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
@@ -68,6 +72,7 @@ import {
   consumeBrainStream,
   getBrainMessages,
   getBrainPlan,
+  getBrainRun,
   getPendingPrompts,
   subscribeBrainRun,
   approveBrainPlan,
@@ -101,7 +106,7 @@ import { ApiError } from '@/lib/api/client'
 import { registerStream, completeStream, getStreamCompletion } from '@/lib/stream-registry'
 import { isExtractable, extractText, stripDocumentBlocks } from '@/lib/brain-file-extract'
 import { linkScheduleToChat, consumePendingPrompt, remapScheduleLink } from '@/lib/scheduleLinks'
-import { listTasks } from '@/lib/api/tasks'
+import { getTask, listTasks, type Task } from '@/lib/api/tasks'
 import { toConnector, type Connector } from '@/lib/connector'
 import { PermissionPromptCard } from '@/components/shared/PermissionPromptCard'
 import { parsePermissionPrompt, type ConnectorPermissionPrompt } from '@/lib/api/prompts'
@@ -113,6 +118,13 @@ import {
   type ReasoningEventType,
   type ReasoningSection,
 } from '@/lib/reasoning'
+import {
+  enqueuePrompt,
+  executionPhaseTitle,
+  planTimelineItems,
+  reasoningNarrations,
+  retirePrompt,
+} from '@/lib/brain-presentation'
 import type { ContextRailData } from '@/templates/Brain/ContextRail'
 
 // ── Page (Suspense wrapper required for useSearchParams) ──────────────────────
@@ -182,12 +194,15 @@ function mapBackendStepStatus(status?: string): StepStatus {
 }
 
 function mapCortexNode(node: CortexNode): PlanStep {
+  const connectors = node.context.connectors.filter(Boolean)
   return {
-    id:         node.id,
-    label:      node.title,
-    modelId:    node.context.model_id ?? undefined,
-    isCritical: node.is_critical,
-    status:     mapBackendStepStatus(node.status),
+    id:                  node.id,
+    label:               node.title,
+    modelId:             node.context.model_id ?? undefined,
+    connector:           connectors[0],
+    connectorDisclosure: connectors,
+    isCritical:          node.is_critical,
+    status:              mapBackendStepStatus(node.status),
   }
 }
 
@@ -266,33 +281,6 @@ function computeLeafIds(stepIds: string[], edges: unknown): Set<string> {
     if (typeof from === 'string' && ids.has(from)) hasOutgoing.add(from)
   }
   return new Set(stepIds.filter((id) => !hasOutgoing.has(id)))
-}
-
-interface NodeMeta { title: string; order: number }
-
-// Live: build reasoning sections from accumulated non-leaf node outputs, in plan
-// order. The leaf's tokens go to the chat bubble, so it's excluded here.
-function buildNodeReasoningSections(
-  nodeOutputs: Record<string, string>,
-  meta: Record<string, NodeMeta>,
-  leafIds: Set<string>,
-): ReasoningSection[] {
-  return Object.entries(nodeOutputs)
-    .filter(([id, body]) => body.trim() && !leafIds.has(id))
-    .sort((a, b) => (meta[a[0]]?.order ?? 0) - (meta[b[0]]?.order ?? 0))
-    .map(([id, body]) => ({ heading: meta[id]?.title || 'Step', body }))
-}
-
-// Reload: rebuild the same non-leaf node sections from the persisted plan
-// (each node carries a `result_preview`). The leaf's full output is already the
-// saved message body, so it stays in the chat bubble.
-function historyNodeReasoningSections(plan: BrainPlanResponse | null | undefined): ReasoningSection[] {
-  const cortex = plan ? parseCortexPlan(plan.plan_json) : null
-  if (!cortex || cortex.nodes.length <= 1) return []
-  const leafIds = computeLeafIds(cortex.nodes.map((n) => n.id), cortex.edges)
-  return cortex.nodes
-    .filter((n) => !leafIds.has(n.id) && (n.result_preview ?? '').trim())
-    .map((n) => ({ heading: n.title || 'Step', body: n.result_preview ?? '' }))
 }
 
 // ── Synthesize a context snapshot from fetched messages ──────────────────────
@@ -512,6 +500,27 @@ function mimeLabel(mime: string): string {
   return 'File'
 }
 
+function artifactMeta(mime: string, size?: number): string {
+  const parts = [mimeLabel(mime)]
+  if (typeof size === 'number' && Number.isFinite(size) && size >= 0) {
+    if (size < 1024) parts.push(`${size} B`)
+    else if (size < 1024 * 1024) parts.push(`${Math.round(size / 1024)} KB`)
+    else parts.push(`${(size / (1024 * 1024)).toFixed(1)} MB`)
+  }
+  return parts.join(' · ')
+}
+
+function brainHomeTime(iso: string): string {
+  const value = new Date(iso)
+  if (Number.isNaN(value.getTime())) return ''
+  const now = new Date()
+  const sameDay = value.toDateString() === now.toDateString()
+  const day = sameDay
+    ? 'Today'
+    : value.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return `${day} · ${value.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+}
+
 // Extract a display filename from an S3 key (last path segment).
 function filenameFromS3Key(key: string): string {
   const segment = key.split('/').pop()
@@ -679,6 +688,47 @@ function Rise({
     >
       {children}
     </m.div>
+  )
+}
+
+function BrainNarrationStack({
+  thinkingContent,
+  reasoningSections,
+  isStreaming = false,
+}: {
+  thinkingContent: string
+  reasoningSections?: ReasoningSection[]
+  isStreaming?: boolean
+}) {
+  const narrations = reasoningNarrations(thinkingContent, reasoningSections)
+  if (narrations.length === 0) return null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {narrations.map((text, index) => (
+        <BrainNarration
+          key={`${index}:${text.slice(0, 48)}`}
+          text={text}
+          isStreaming={isStreaming && index === narrations.length - 1}
+        />
+      ))}
+    </div>
+  )
+}
+
+function ExecutionPhaseGroup({
+  steps,
+  nodeOutputs,
+  defaultCollapsed = true,
+}: {
+  steps: PlanStep[]
+  nodeOutputs?: Record<string, string>
+  defaultCollapsed?: boolean
+}) {
+  if (steps.length === 0) return null
+  return (
+    <BrainPhaseGroup title={executionPhaseTitle(steps)} defaultCollapsed={defaultCollapsed}>
+      <BrainTimeline items={planTimelineItems(steps, nodeOutputs)} />
+    </BrainPhaseGroup>
   )
 }
 
@@ -974,6 +1024,44 @@ type ActivityFeedItem =
   | { kind: 'tool';       data: ToolCallPreview;    id: string; status: 'streaming' | 'executing' | 'complete' | 'failed' }
   | { kind: 'progress';   data: ToolProgressEvent;  id: string }
 
+function activityTimelineItems(items: ActivityFeedItem[]): BrainTimelineItem[] {
+  return items.flatMap<BrainTimelineItem>((item) => {
+    if (item.kind === 'web_search') {
+      const count = item.data.links?.length ?? 0
+      return [{
+        id: item.id,
+        label: item.data.query ? `Searched “${item.data.query}”` : 'Searched the web',
+        result: count > 0
+          ? { label: `${count} result${count === 1 ? '' : 's'}`, variant: 'success' as const }
+          : undefined,
+      }]
+    }
+    if (item.kind === 'tool') {
+      const failed = item.status === 'failed'
+      return [{
+        id: item.id,
+        label: formatToolSlug(item.data.name ?? 'Tool action'),
+        variant: failed ? 'error' as const : undefined,
+        result: {
+          label: failed ? 'Failed' : item.status === 'complete' ? 'Completed' : 'Running',
+          details: item.data.result,
+          variant: failed ? 'error' as const : item.status === 'complete' ? 'success' as const : 'default' as const,
+        },
+      }]
+    }
+    if (item.kind === 'progress') {
+      return [{
+        id: item.id,
+        label: item.data.label ?? item.data.message ?? item.data.tool,
+        result: item.data.percent != null
+          ? { label: `${Math.round(item.data.percent)}%`, variant: 'default' as const }
+          : undefined,
+      }]
+    }
+    return []
+  })
+}
+
 // ── Turn timeline ─────────────────────────────────────────────────────────────
 // Ordered log of everything that streams into the active turn, so the thread
 // renders in arrival order (text segment → tool → text → permission → …) rather
@@ -1173,7 +1261,7 @@ function MessageImages({ images }: { images: { url: string }[] }) {
 // may-day ExternalOutputCard props: logo falls back to the bundled connector
 // asset, and view_url becomes an onView handler (omitted ⇒ no View button). No
 // `onUndo` — the backend never promises reversibility (see the schema docstring).
-function ExternalOutputBlock({ actions }: { actions: ExternalOutputAction[] }) {
+function ExternalOutputBlock({ actions, completedAt }: { actions: ExternalOutputAction[]; completedAt?: string }) {
   if (actions.length === 0) return null
   const cardActions = actions.map((a) => {
     const url = a.view_url
@@ -1186,7 +1274,7 @@ function ExternalOutputBlock({ actions }: { actions: ExternalOutputAction[] }) {
       onView:    url ? () => window.open(url, '_blank', 'noopener') : undefined,
     }
   })
-  return <ExternalOutputCard actions={cardActions} />
+  return <ExternalOutputCard actions={cardActions} completedAt={completedAt} />
 }
 
 // ── Inner page ────────────────────────────────────────────────────────────────
@@ -1197,6 +1285,64 @@ function BrainPageInner() {
   // Individual credit/topup status — hard send-gate when exhausted.
   const creditStatus = useCreditStatus()
   const chatIdFromUrl = searchParams.get('id')
+
+  const [homeSchedules, setHomeSchedules] = useState<ActiveSchedule[]>([])
+  const [homeDigest, setHomeDigest] = useState<DigestItem[]>([])
+
+  useEffect(() => {
+    if (chatIdFromUrl) return
+    let cancelled = false
+    const seenKey = 'brain_schedule_last_seen_at'
+    const now = Date.now()
+    const storedSeen = Number(window.localStorage.getItem(seenKey) ?? '')
+    const cutoff = Number.isFinite(storedSeen) && storedSeen > 0
+      ? storedSeen
+      : now - 24 * 60 * 60 * 1000
+
+    void listTasks()
+      .then(async (rawTasks) => {
+        if (cancelled) return
+        const tasks: Task[] = Array.isArray(rawTasks) ? rawTasks : []
+        setHomeSchedules(tasks
+          .filter((task) => task.is_active && task.next_run_at)
+          .sort((a, b) => new Date(a.next_run_at!).getTime() - new Date(b.next_run_at!).getTime())
+          .map((task) => ({
+            id: task.id,
+            name: task.title,
+            nextRun: brainHomeTime(task.next_run_at!),
+          })))
+
+        const recent = tasks
+          .filter((task) => task.last_run_at && new Date(task.last_run_at).getTime() > cutoff)
+          .sort((a, b) => new Date(b.last_run_at!).getTime() - new Date(a.last_run_at!).getTime())
+          .slice(0, 3)
+        const details = await Promise.all(recent.map((task) => getTask(task.id).catch(() => null)))
+        if (cancelled) return
+        setHomeDigest(details.flatMap((task): DigestItem[] => {
+          if (!task) return []
+          const run = [...(task.runs ?? [])]
+            .sort((a, b) => new Date(b.completed_at ?? b.started_at ?? b.created_at ?? 0).getTime()
+              - new Date(a.completed_at ?? a.started_at ?? a.created_at ?? 0).getTime())[0]
+          if (!run) return []
+          const ranAt = run.completed_at ?? run.started_at ?? run.created_at
+          return [{
+            scheduleId: task.id,
+            scheduleName: task.title,
+            ranAt: ranAt ? brainHomeTime(ranAt) : 'Recent run',
+            summary: run.synthesis || run.error || (run.status === 'completed' ? 'Run completed.' : 'Run needs review.'),
+            status: run.status === 'completed' ? 'complete' : run.status === 'failed' ? 'failed' : 'partial',
+          }]
+        }))
+        window.localStorage.setItem(seenKey, String(now))
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setHomeSchedules([])
+          setHomeDigest([])
+        }
+      })
+    return () => { cancelled = true }
+  }, [chatIdFromUrl])
 
   // The account menu, role badge, plan label, credits, search and sidebar-collapse
   // state all live in the shared LeftSidebar (owned by AppLayout) now — Brain renders
@@ -1288,7 +1434,8 @@ function BrainPageInner() {
   // Connector-tool permission ask (event: permission_prompt) — the connector is
   // linked but the tool's policy is `ask`. Rendered inline in the active turn
   // via the shared PermissionPromptCard.
-  const [activePermissionPrompt, setActivePermissionPrompt] = useState<ConnectorPermissionPrompt | null>(null)
+  const [permissionPrompts, setPermissionPrompts] = useState<ConnectorPermissionPrompt[]>([])
+  const activePermissionPrompt = permissionPrompts[0] ?? null
   const [permissionInFlight, setPermissionInFlight] = useState(false)
   // Prompts already answered (or resolved/expired server-side). The run-events
   // subscription replays persisted events on reconnect, so an already-decided
@@ -1453,6 +1600,7 @@ function BrainPageInner() {
   // External write actions ("Done in the world") surfaced once at run completion
   // via the `external_output` SSE event. Rendered at the end of the turn.
   const [externalActions,    setExternalActions]    = useState<ExternalOutputAction[]>([])
+  const [externalOutputCompletedAt, setExternalOutputCompletedAt] = useState<string | undefined>()
   const [toolProgress,       setToolProgress]       = useState<ToolProgressEvent | null>(null)
 
   // ── Live turn context (event: context) ────────────────────────────────────────
@@ -1485,7 +1633,7 @@ function BrainPageInner() {
   // `context` event this session — lets the rail show "Previously used" items
   // that dropped out of the current turn's context, alongside what's active now.
   // Reset alongside liveContext on new-thread / thread-switch.
-  const contextHistoryRef = useRef<{
+  const [contextHistory, setContextHistory] = useState<{
     pins:       Map<string, { title: string; source?: string }>
     files:      Map<string, { mime_type?: string; size?: number }>
     connectors: Map<string, Connector>
@@ -1506,25 +1654,18 @@ function BrainPageInner() {
   // ── Per-node plan outputs (step_content) ────────────────────────────────────
   // Intermediate (non-leaf) node outputs accumulate here and render in the
   // reasoning block; the sole leaf node's tokens stream to the chat bubble.
-  // planNodeMetaRef/planLeafIdsRef are set from the approved plan's nodes+edges.
+  // planLeafIdsRef is set from the approved plan's nodes and edges.
   const [nodeOutputs, setNodeOutputs] = useState<Record<string, string>>({})
-  // State drives the render; ref mirrors give the SSE handler a stale-free read
-  // (it isn't in the handler's dep list). Both are set together on plan_ready.
-  const [planNodeMeta, setPlanNodeMeta] = useState<Record<string, NodeMeta>>({})
+  // State drives the render; the ref mirror gives the SSE handler a stale-free
+  // read (it isn't in the handler's dependency list).
   const [planLeafIds,  setPlanLeafIds]  = useState<Set<string>>(new Set())
   const planLeafIdsRef = useRef<Set<string>>(planLeafIds)
   useEffect(() => { planLeafIdsRef.current = planLeafIds }, [planLeafIds])
 
-  // Non-leaf node outputs as reasoning sections, shown ahead of the model's own
-  // reasoning so the plan's intermediate work renders in the thinking block.
-  const liveNodeReasoningSections = useMemo(
-    () => buildNodeReasoningSections(nodeOutputs, planNodeMeta, planLeafIds),
-    [nodeOutputs, planNodeMeta, planLeafIds],
-  )
-  const activeReasoningSections = useMemo(
-    () => [...liveNodeReasoningSections, ...reasoningSections],
-    [liveNodeReasoningSections, reasoningSections],
-  )
+  // Model commentary renders as Mayday narration. Node outputs belong to the
+  // execution phase timeline, so keeping them out of this list avoids showing
+  // the same work twice at completion.
+  const activeReasoningSections = reasoningSections
 
   // ── Plan-approval correlation ───────────────────────────────────────────────
   // plan_ready → user_prompt(kind='plan') is the plan approval gate.
@@ -1776,12 +1917,12 @@ function BrainPageInner() {
     setStreamImages([])
     setStreamFiles([])
     setExternalActions([])
+    setExternalOutputCompletedAt(undefined)
     setNodeOutputs({})
-    setPlanNodeMeta({})
     setPlanLeafIds(new Set())
     setToolProgress(null)
     setToolConnectPrompt(null)
-    setActivePermissionPrompt(null)
+    setPermissionPrompts([])
     setActiveApprovalPrompt(null)
     setActiveRecoveryPrompt(null)
     setRecoveryInFlight(false)
@@ -1800,7 +1941,7 @@ function BrainPageInner() {
     setPendingRemapId(null)
     setLiveContext(null)
     setActiveCortexPlan(null)
-    contextHistoryRef.current = { pins: new Map(), files: new Map(), connectors: new Map() }
+    setContextHistory({ pins: new Map(), files: new Map(), connectors: new Map() })
     setHistoryMessages([])
     setLocalTurns([])
     setHistoryLoaded(!chatIdFromUrl)
@@ -1872,13 +2013,17 @@ function BrainPageInner() {
           // run in this session. Pin titles are left blank here — resolved
           // reactively against the loaded pinboard in the contextRailData memo,
           // same as the "active" pins already do.
-          const hist = contextHistoryRef.current
-          for (const id of synth.allPinIds) {
-            if (!hist.pins.has(id)) hist.pins.set(id, { title: '', source: undefined })
-          }
-          for (const c of synth.connectors ?? []) {
-            if (c.slug) hist.connectors.set(c.slug, toConnector(c))
-          }
+          setContextHistory((previous) => {
+            const pins = new Map(previous.pins)
+            const connectors = new Map(previous.connectors)
+            for (const id of synth.allPinIds) {
+              if (!pins.has(id)) pins.set(id, { title: '', source: undefined })
+            }
+            for (const c of synth.connectors ?? []) {
+              if (c.slug) connectors.set(c.slug, toConnector(c))
+            }
+            return { pins, files: new Map(previous.files), connectors }
+          })
         }
       })
       .catch(() => {
@@ -1906,18 +2051,38 @@ function BrainPageInner() {
   // ── Derived plan steps (base + live step statuses) ───────────────────────────
 
   const planSteps = useMemo<PlanStep[]>(
-    () => activePlanSteps.map((step) => {
+    () => {
+      const connectorBySlug = new Map(
+        connectorCatalog.map((connector) => [connector.slug.toLowerCase(), connector.display_name]),
+      )
+      const executingCount = activePlanSteps.filter(
+        (step) => (stepStatuses[step.id] ?? step.status) === 'executing',
+      ).length
+      return activePlanSteps.map((step) => {
       const model = step.modelId
         ? models.find((candidate) => String(candidate.modelId ?? candidate.id) === step.modelId)
         : undefined
+      const connectorDisclosure = step.connectorDisclosure?.map(
+        (slug) => connectorBySlug.get(slug.toLowerCase()) ?? slug,
+      )
+      const status = stepStatuses[step.id] ?? step.status
+      const streamDetail = status === 'executing' && executingCount === 1 && toolProgress
+        ? toolProgress.detail ?? toolProgress.message ?? toolProgress.label ?? toolProgress.status
+        : step.streamDetail
       return {
         ...step,
+        connector: step.connector
+          ? connectorBySlug.get(step.connector.toLowerCase()) ?? step.connector
+          : undefined,
+        connectorDisclosure,
         modelName:    step.modelName ?? model?.modelName,
         modelCompany: step.modelCompany ?? model?.companyName,
-        status:       stepStatuses[step.id] ?? step.status,
+        streamDetail,
+        status,
       }
-    }),
-    [activePlanSteps, stepStatuses, models],
+      })
+    },
+    [activePlanSteps, stepStatuses, models, connectorCatalog, toolProgress],
   )
 
   const handleReasoningEvent = useCallback((
@@ -1963,11 +2128,8 @@ function BrainPageInner() {
             if (!cortexPlan) return
             setActiveCortexPlan(cortexPlan)
             const steps = applyFlowGrouping(cortexPlan.nodes.map(mapCortexNode), cortexPlan.edges)
-            // Record node titles/order + leaf set so step_content can split node
-            // outputs between the reasoning block (non-leaf) and chat (sole leaf).
-            setPlanNodeMeta(Object.fromEntries(
-              cortexPlan.nodes.map((n, i) => [n.id, { title: n.title, order: i }]),
-            ))
+            // Record the leaf set so step_content can keep the final leaf in the
+            // chat answer while intermediate node output stays in execution.
             setPlanLeafIds(computeLeafIds(cortexPlan.nodes.map((n) => n.id), cortexPlan.edges))
             setActivePlanSteps(steps)
             setActivePlanSummary(cortexPlan.description)
@@ -2185,7 +2347,7 @@ function BrainPageInner() {
         const prompt = parsePermissionPrompt(d)
         if (!prompt) break
         if (resolvedPromptIdsRef.current.has(prompt.request_id)) break
-        setActivePermissionPrompt(prompt)
+        setPermissionPrompts((queue) => enqueuePrompt(queue, prompt))
         setPermissionInFlight(false)
         setTimeline((prev) => prev.some((it) => it.kind === 'permission' && it.promptId === prompt.request_id)
           ? prev
@@ -2201,7 +2363,7 @@ function BrainPageInner() {
         const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
         if (!promptId) break
         resolvedPromptIdsRef.current.add(promptId)
-        setActivePermissionPrompt((prev) => (prev && prev.request_id === promptId ? null : prev))
+        setPermissionPrompts((queue) => retirePrompt(queue, promptId))
         setActiveApprovalPrompt((prev) => (prev && prev.promptId === promptId ? null : prev))
         break
       }
@@ -2471,8 +2633,9 @@ function BrainPageInner() {
         const s3_key    = typeof d.s3_key    === 'string' ? d.s3_key    : ''
         const filename  = typeof d.filename  === 'string' ? d.filename  : ''
         const mime_type = typeof d.mime_type === 'string' ? d.mime_type : ''
+        const file_size = typeof d.file_size === 'number' ? d.file_size : undefined
         if (url && filename) {
-          const fileEvent: GeneratedFileEvent = { url, s3_key, filename, mime_type }
+          const fileEvent: GeneratedFileEvent = { url, s3_key, filename, mime_type, file_size }
           setStreamFiles((prev) => [...prev, fileEvent])
           setTimeline((prev) => [...prev, { kind: 'file', id: `file-${++timelineSeqRef.current}`, data: fileEvent }])
         }
@@ -2540,16 +2703,21 @@ function BrainPageInner() {
         // Fold this turn's items into the running accumulator so ones that drop
         // out of a later turn's context can still show up as "Previously used".
         {
-          const hist = contextHistoryRef.current
-          for (const p of context.pins) {
-            hist.pins.set(p.pin_id, { title: p.title, source: p.tags?.length ? p.tags.join(' · ') : undefined })
-          }
-          for (const f of context.files) {
-            hist.files.set(f.name, { mime_type: f.mime_type, size: f.size })
-          }
-          for (const c of context.connectors) {
-            hist.connectors.set(c.slug, toConnector(c))
-          }
+          setContextHistory((previous) => {
+            const pins = new Map(previous.pins)
+            const files = new Map(previous.files)
+            const connectors = new Map(previous.connectors)
+            for (const p of context.pins) {
+              pins.set(p.pin_id, { title: p.title, source: p.tags?.length ? p.tags.join(' · ') : undefined })
+            }
+            for (const f of context.files) {
+              files.set(f.name, { mime_type: f.mime_type, size: f.size })
+            }
+            for (const c of context.connectors) {
+              connectors.set(c.slug, toConnector(c))
+            }
+            return { pins, files, connectors }
+          })
         }
         break
       }
@@ -2567,6 +2735,9 @@ function BrainPageInner() {
             typeof (a as Record<string, unknown>).connector === 'string',
         )
         if (actions.length > 0) setExternalActions(actions)
+        if (typeof d.completed_at === 'string' && d.completed_at) {
+          setExternalOutputCompletedAt(new Date(d.completed_at).toLocaleString())
+        }
         break
       }
 
@@ -2777,12 +2948,12 @@ function BrainPageInner() {
     setStreamImages([])
     setStreamFiles([])
     setExternalActions([])
+    setExternalOutputCompletedAt(undefined)
     setNodeOutputs({})
-    setPlanNodeMeta({})
     setPlanLeafIds(new Set())
     setToolProgress(null)
     setToolConnectPrompt(null)
-    setActivePermissionPrompt(null)
+    setPermissionPrompts([])
     setActiveApprovalPrompt(null)
     setActiveRecoveryPrompt(null)
     setRecoveryInFlight(false)
@@ -2904,7 +3075,77 @@ function BrainPageInner() {
         activeRunAbortRef.current = null
       }
     }
-  }, [activePlanId, phase, chatId, handleNamedEvent, handleInlineEvent])
+  }, [activePlanId, phase, chatId, handleNamedEvent, handleInlineEvent, scheduleCompletion])
+
+  // The durable run owns the canonical per-node status map. Reconcile it while
+  // executing so the existing ActivityBlock spinner/check/error circles keep
+  // moving even when a run produces no step_* frames between model events.
+  useEffect(() => {
+    if (!activePlanId) return
+    if (
+      phase !== 'executing' &&
+      phase !== 'streaming' &&
+      phase !== 'paused' &&
+      phase !== 'node-failed' &&
+      phase !== 'fix-proposed'
+    ) return
+
+    let cancelled = false
+    let failureCount = 0
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const controller = new AbortController()
+
+    const reconcile = async () => {
+      try {
+        const run = await getBrainRun(activePlanId, controller.signal)
+        if (cancelled) return
+        failureCount = 0
+        // A response older than the last stream frame must never roll the UI
+        // backward. Equal seq is still useful: Cortex currently persists node
+        // status without always appending a corresponding step event.
+        if (run.latest_seq < activeRunSeqRef.current) return
+        const plan = parseCortexPlan(run.plan_json)
+        if (plan) {
+          const next = Object.fromEntries(
+            plan.nodes.map((node) => [node.id, mapBackendStepStatus(node.status)]),
+          )
+          setStepStatuses((current) => {
+            const keys = Object.keys(next)
+            const unchanged = keys.length === Object.keys(current).length &&
+              keys.every((key) => current[key] === next[key])
+            return unchanged ? current : next
+          })
+        }
+        if (run.status === 'completed' && phaseRef.current !== 'complete') {
+          scheduleCompletion()
+        } else if (run.status === 'cancelled' && phaseRef.current !== 'cancelled') {
+          setPhase('cancelled')
+        } else if (run.status === 'failed' && phaseRef.current !== 'failed' && !enteredNodeFailedRef.current) {
+          setStreamError(run.final_error || 'Brain run failed.')
+          setPhase('failed')
+        }
+      } catch (error) {
+        if ((error as Error)?.name === 'AbortError') return
+        failureCount += 1
+        // The SSE subscription remains authoritative for terminal failures;
+        // a transient reconciliation request must not fail the active run UI.
+        console.warn('[Brain] run status reconciliation failed', error)
+      } finally {
+        if (!cancelled) {
+          const normalDelay = document.hidden ? 3000 : 1000
+          const retryDelay = Math.min(5000, normalDelay * Math.max(1, 2 ** failureCount))
+          timer = setTimeout(reconcile, retryDelay)
+        }
+      }
+    }
+
+    void reconcile()
+    return () => {
+      cancelled = true
+      controller.abort()
+      if (timer) clearTimeout(timer)
+    }
+  }, [activePlanId, phase, scheduleCompletion])
 
   // ── Stream runner ─────────────────────────────────────────────────────────────
 
@@ -2971,12 +3212,12 @@ function BrainPageInner() {
     setStreamImages([])
     setStreamFiles([])
     setExternalActions([])
+    setExternalOutputCompletedAt(undefined)
     setNodeOutputs({})
-    setPlanNodeMeta({})
     setPlanLeafIds(new Set())
     setToolProgress(null)
     setToolConnectPrompt(null)
-    setActivePermissionPrompt(null)
+    setPermissionPrompts([])
     setActiveApprovalPrompt(null)
     setActiveRecoveryPrompt(null)
     setRecoveryInFlight(false)
@@ -3732,7 +3973,7 @@ function BrainPageInner() {
     void respondToPrompt(promptId, { response: decision })
       .then(() => {
         resolvedPromptIdsRef.current.add(promptId)
-        setActivePermissionPrompt(null)
+        setPermissionPrompts((queue) => retirePrompt(queue, promptId))
         // Mid-run permission asks must NOT leave the run phases: the
         // run-events subscription only stays connected in those phases, and
         // tearing it down forces a replay that re-delivers the prompt.
@@ -3972,12 +4213,12 @@ function BrainPageInner() {
     setStreamImages([])
     setStreamFiles([])
     setExternalActions([])
+    setExternalOutputCompletedAt(undefined)
     setNodeOutputs({})
-    setPlanNodeMeta({})
     setPlanLeafIds(new Set())
     setToolProgress(null)
     setToolConnectPrompt(null)
-    setActivePermissionPrompt(null)
+    setPermissionPrompts([])
     setActiveApprovalPrompt(null)
     setActiveRecoveryPrompt(null)
     setRecoveryInFlight(false)
@@ -3995,7 +4236,7 @@ function BrainPageInner() {
     setPendingRemapId(null)
     setLiveContext(null)
     setActiveCortexPlan(null)
-    contextHistoryRef.current = { pins: new Map(), files: new Map(), connectors: new Map() }
+    setContextHistory({ pins: new Map(), files: new Map(), connectors: new Map() })
     setHistoryMessages([])
     setLocalTurns([])
     setHistoryLoaded(true)
@@ -4017,6 +4258,12 @@ function BrainPageInner() {
 
   const historyElements = historyMessages.map((msg, msgIndex) => {
     const planSteps = msg.plan ? mapHistoryPlanSteps(msg.plan) : []
+    const historyPlan = msg.plan ? parseCortexPlan(msg.plan.plan_json) : null
+    const historyNodeOutputs = Object.fromEntries(
+      (historyPlan?.nodes ?? []).flatMap((node) => node.result_preview?.trim()
+        ? [[node.id, node.result_preview] as const]
+        : []),
+    )
     const allAttachments = msg.attachments ?? []
     const images       = allAttachments.filter((a) => a.mime_type?.startsWith('image/'))
     const genFiles     = allAttachments.filter((a) => !a.mime_type?.startsWith('image/') && a.origin === 'generated')
@@ -4025,13 +4272,7 @@ function BrainPageInner() {
     // the clean user text, not the full injected message).
     const cleanInput = stripDocumentBlocks(msg.input)
     const msgAttachments = storedHistoryAttachments[cleanInput]
-    // Merge the model's own reasoning sections with the plan's non-leaf node
-    // outputs (rebuilt from the persisted plan), so reloaded plan turns show the
-    // same "intermediate steps in reasoning, leaf in chat" split as the live run.
-    const msgReasoningSections = [
-      ...historyNodeReasoningSections(msg.plan),
-      ...normalizeReasoningSections(msg.reasoning_sections),
-    ]
+    const msgReasoningSections = normalizeReasoningSections(msg.reasoning_sections)
 
     // Map persisted tool_calls into ActivityFeedItem[] for the history view.
     const rawToolCalls = (msg.tool_calls ?? []) as Array<Record<string, unknown>>
@@ -4080,14 +4321,46 @@ function BrainPageInner() {
           <MessageBubble role="user" content={cleanInput} maxWidth="75%" />
         </div>
         {(msg.reasoning || msgReasoningSections.length > 0) && (
-          <ReasoningContent
+          <BrainNarrationStack
             thinkingContent={msg.reasoning ?? ''}
             reasoningSections={msgReasoningSections}
-            isStreaming={false}
           />
         )}
         {planSteps.length > 0 && (
-          msg.plan && !msg.output ? (
+          <ExecutionPhaseGroup steps={planSteps} nodeOutputs={historyNodeOutputs} />
+        )}
+        {historyToolItems.length > 0 && (
+          <BrainPhaseGroup title="Tool activity" defaultCollapsed>
+            <BrainTimeline items={activityTimelineItems(historyToolItems)} />
+          </BrainPhaseGroup>
+        )}
+        {msg.output && (
+          <div>
+            <BrainResultHeader summary={historyPlan?.description || 'Analysis complete'} />
+            <StreamingMessageBubble content={msg.output} isComplete />
+          </div>
+        )}
+        {images.length > 0 && <MessageImages images={images} />}
+        {genFiles.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {genFiles.map((f) => (
+              <ArtifactCard
+                key={f.id}
+                title={filenameFromS3Key(f.s3_key)}
+                meta={artifactMeta(f.mime_type, f.file_size)}
+                onClick={() => downloadArtifact(f.url, filenameFromS3Key(f.s3_key))}
+              />
+            ))}
+          </div>
+        )}
+        {msg.external_output && msg.external_output.length > 0 && (
+          <ExternalOutputBlock
+            actions={msg.external_output}
+            completedAt={msg.created_at ? new Date(msg.created_at).toLocaleString() : undefined}
+          />
+        )}
+        {planSteps.length > 0 && (
+          msg.plan?.status === 'proposed' && !msg.output ? (
             <LoopRecord
               loopIndex={msgIndex + 1}
               query={cleanInput}
@@ -4101,30 +4374,10 @@ function BrainPageInner() {
           ) : (
             <LoopHistoryCard
               steps={planSteps}
-              summary={msg.plan ? parseCortexPlan(msg.plan.plan_json)?.description : undefined}
+              summary={historyPlan?.description}
               completedAt={msg.created_at ? new Date(msg.created_at) : undefined}
             />
           )
-        )}
-        {historyToolItems.length > 0 && <ActivityFeed items={historyToolItems} />}
-        {images.length > 0 && <MessageImages images={images} />}
-        {msg.output && (
-          <StreamingMessageBubble content={msg.output} isComplete />
-        )}
-        {genFiles.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {genFiles.map((f) => (
-              <ArtifactCard
-                key={f.id}
-                title={filenameFromS3Key(f.s3_key)}
-                meta={mimeLabel(f.mime_type)}
-                onClick={() => downloadArtifact(f.url, filenameFromS3Key(f.s3_key))}
-              />
-            ))}
-          </div>
-        )}
-        {msg.external_output && msg.external_output.length > 0 && (
-          <ExternalOutputBlock actions={msg.external_output} />
         )}
       </m.div>
     )
@@ -4139,37 +4392,45 @@ function BrainPageInner() {
         <MessageBubble role="user" content={turn.userInput} maxWidth="75%" />
       </div>
       {(turn.reasoning || turn.reasoningSections?.length) && (
-        <ReasoningContent
+        <BrainNarrationStack
           thinkingContent={turn.reasoning ?? ''}
           reasoningSections={turn.reasoningSections}
-          isStreaming={false}
         />
       )}
       {turn.planSteps && turn.planSteps.length > 0 && (
-        <LoopHistoryCard
-          steps={turn.planSteps}
-          summary={turn.planSummary}
-          completedAt={turn.completedAt}
-        />
+        <ExecutionPhaseGroup steps={turn.planSteps} />
+      )}
+      {turn.output && (
+        <div>
+          <BrainResultHeader summary={turn.planSummary || 'Analysis complete'} />
+          <StreamingMessageBubble content={turn.output} isComplete />
+        </div>
       )}
       {turn.images && turn.images.length > 0 && <MessageImages images={turn.images} />}
-      {turn.output && (
-        <StreamingMessageBubble content={turn.output} isComplete />
-      )}
       {turn.generatedFiles && turn.generatedFiles.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {turn.generatedFiles.map((f) => (
             <ArtifactCard
               key={f.url}
               title={f.filename}
-              meta={mimeLabel(f.mime_type)}
+              meta={artifactMeta(f.mime_type, f.file_size)}
               onClick={() => downloadArtifact(f.url, f.filename)}
             />
           ))}
         </div>
       )}
       {turn.externalActions && turn.externalActions.length > 0 && (
-        <ExternalOutputBlock actions={turn.externalActions} />
+        <ExternalOutputBlock
+          actions={turn.externalActions}
+          completedAt={turn.completedAt?.toLocaleString()}
+        />
+      )}
+      {!turn.cancelled && turn.planSteps && turn.planSteps.length > 0 && (
+        <LoopHistoryCard
+          steps={turn.planSteps}
+          summary={turn.planSummary}
+          completedAt={turn.completedAt}
+        />
       )}
       {turn.cancelled && !turn.output && (
         <LoopCancelledCard
@@ -4281,7 +4542,7 @@ function BrainPageInner() {
           <ArtifactCard
             key={item.id}
             title={item.data.filename}
-            meta={mimeLabel(item.data.mime_type)}
+            meta={artifactMeta(item.data.mime_type, item.data.file_size)}
             onClick={() => downloadArtifact(item.data.url, item.data.filename)}
           />
         )
@@ -4325,6 +4586,18 @@ function BrainPageInner() {
     }
   }
 
+  const completedActivityItems: ActivityFeedItem[] = timeline.flatMap<ActivityFeedItem>((item) => {
+    if (item.kind === 'web_search') return [{ kind: 'web_search' as const, data: item.data, id: item.id }]
+    if (item.kind === 'tool') {
+      const tool = liveToolCalls[item.toolKey]
+      return tool ? [{ kind: 'tool' as const, data: tool.tool_call, id: item.id, status: tool.status }] : []
+    }
+    if (item.kind === 'progress' && toolProgress) {
+      return [{ kind: 'progress' as const, data: toolProgress, id: item.id }]
+    }
+    return []
+  })
+
   const activeTurnContent = userMessage ? (
     <div ref={activeTurnRef} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
 
@@ -4353,7 +4626,7 @@ function BrainPageInner() {
       {/* Brain and Chat share this structured reasoning presentation. */}
       {(reasoningText || activeReasoningSections.length > 0) && (
         <Rise>
-          <ReasoningContent
+          <BrainNarrationStack
             thinkingContent={reasoningText}
             reasoningSections={activeReasoningSections}
             isStreaming={reasoningActive}
@@ -4393,24 +4666,12 @@ function BrainPageInner() {
         <ActivityBlock steps={planSteps} interpretation={activePlanSummary} />
       )}
 
-      {/* Complete header sits above the transcript; plan recap is nested as
-          children so BrainResultHeader collapses it into a toggle. */}
-      {phase === 'complete' && (
-        <Rise>
-          <BrainResultHeader summary={activePlanSummary || 'Analysis complete'}>
-            {planSteps.length > 0 && (
-              <LoopHistoryCard steps={planSteps} completedAt={completedAt ?? undefined} />
-            )}
-          </BrainResultHeader>
-        </Rise>
-      )}
-
       {/* ── Ordered transcript ──────────────────────────────────────────────
           Text segments, tool calls, web searches, files, images, the connector
           permission/link cards — all rendered in the order they streamed in,
           so chat and tools interleave instead of bucketing. Each row rises into
           place as it streams in (consumer-driven KDS mount gesture). */}
-      {timeline.map((item, i) => {
+      {phase !== 'complete' && timeline.map((item, i) => {
         const node = renderTimelineItem(item, i === timeline.length - 1)
         if (!node) return null
         return (
@@ -4419,6 +4680,56 @@ function BrainPageInner() {
           </m.div>
         )
       })}
+
+      {phase === 'complete' && (
+        <>
+          {planSteps.length > 0 && (
+            <Rise><ExecutionPhaseGroup steps={planSteps} nodeOutputs={nodeOutputs} /></Rise>
+          )}
+          {completedActivityItems.length > 0 && (
+            <Rise>
+              <BrainPhaseGroup title="Tool activity" defaultCollapsed>
+                <BrainTimeline items={activityTimelineItems(completedActivityItems)} />
+              </BrainPhaseGroup>
+            </Rise>
+          )}
+          <Rise>
+            <div>
+              <BrainResultHeader summary={activePlanSummary || 'Analysis complete'} />
+              {streamedContent && <StreamingMessageBubble content={streamedContent} isComplete />}
+            </div>
+          </Rise>
+          {streamImages.length > 0 && <Rise><MessageImages images={streamImages} /></Rise>}
+          {streamFiles.length > 0 && (
+            <Rise>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {streamFiles.map((file) => (
+                  <ArtifactCard
+                    key={file.url}
+                    title={file.filename}
+                    meta={artifactMeta(file.mime_type, file.file_size)}
+                    onClick={() => downloadArtifact(file.url, file.filename)}
+                  />
+                ))}
+              </div>
+            </Rise>
+          )}
+          {externalActions.length > 0 && (
+            <Rise>
+              <ExternalOutputBlock actions={externalActions} completedAt={externalOutputCompletedAt} />
+            </Rise>
+          )}
+          {planSteps.length > 0 && (
+            <Rise>
+              <LoopHistoryCard
+                steps={planSteps}
+                summary={activePlanSummary || undefined}
+                completedAt={completedAt ?? undefined}
+              />
+            </Rise>
+          )}
+        </>
+      )}
 
       {/* Counter acknowledgement — while Brain re-plans (and beside the revised
           plan) show the user's revision request so the thread reads coherently. */}
@@ -4438,10 +4749,25 @@ function BrainPageInner() {
               steps={planSteps}
               interpretation={activePlanSummary}
               onApprove={handleApprove}
+              onCounter={handleCounter}
               onCancel={handlePlanCancel}
               actionsDisabled={(!activePlanId && !promptId) || actionInFlight}
             />
           </Rise>
+          {showCounterInput && (
+            <Rise>
+              <CounterInput
+                value={counterText}
+                onChange={setCounterText}
+                onSend={handleCounterSend}
+                onCancel={() => {
+                  setShowCounterInput(false)
+                  setCounterText('')
+                }}
+                disabled={actionInFlight}
+              />
+            </Rise>
+          )}
         </>
       )}
 
@@ -4523,12 +4849,6 @@ function BrainPageInner() {
             onCancel={stuckInFlight ? undefined : handleStuckCancel}
           />
         </Rise>
-      )}
-
-      {/* External writes recap ("Done in the world") — sits at the very end of
-          the completed turn, after the plan recap. */}
-      {phase === 'complete' && externalActions.length > 0 && (
-        <Rise><ExternalOutputBlock actions={externalActions} /></Rise>
       )}
 
       {/* Cancelled */}
@@ -4767,11 +5087,11 @@ function BrainPageInner() {
     }
 
     // Keys present in THIS turn's snapshot — everything else already seen this
-    // session (contextHistoryRef) but not part of the active set is "previously used".
+    // session (contextHistory) but not part of the active set is "previously used".
     const activePinIds         = new Set((railContext.pins ?? []).map((p) => p.pin_id))
     const activeFileNames      = new Set((railContext.files ?? []).map((f) => f.name))
     const activeConnectorSlugs = new Set((railContext.connectors ?? []).map((c) => c.slug))
-    const hist = contextHistoryRef.current
+    const hist = contextHistory
 
     // Live SSE pins carry titles/tags. Reconstructed pins (chat reload) are
     // bare ids with empty titles — resolve display text from the loaded
@@ -4849,7 +5169,7 @@ function BrainPageInner() {
       files:      [...activeFiles, ...previousFiles],
       connectors: [...activeConnectors, ...previousConnectors],
     }
-  }, [liveContext, activeCortexPlan, connectorCatalog, selectedPersona, selectedFolderPins, effectivePinIds, pinboardPins])
+  }, [liveContext, activeCortexPlan, connectorCatalog, selectedPersona, selectedFolderPins, effectivePinIds, pinboardPins, contextHistory])
 
   // ── Has any content to render ─────────────────────────────────────────────────
 
@@ -4880,6 +5200,12 @@ function BrainPageInner() {
       initialInputKey={inputSeed.key}
       onFilesDropped={(files) => setBrainAttachments((prev) => processFiles(files, prev))}
       dropDisabled={brainIsStreaming || creditStatus.blocked}
+      homeProps={{
+        digestItems: homeDigest,
+        activeSchedules: homeSchedules,
+        onViewRun: (scheduleId) => push(`/brain/schedules?selected=${encodeURIComponent(scheduleId)}`),
+        onViewSchedules: () => push('/brain/schedules'),
+      }}
       clarificationProps={activeClarification && !activePersonaPrompt && !activePinPrompt ? {
         // The backend's `title` is usually a generic preamble. The actual
         // model-generated question lives in `description`. Prefer the

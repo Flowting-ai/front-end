@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { Suspense, useState, useEffect, useId, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ScheduleListView,
@@ -191,6 +191,8 @@ function listItemToDetail(item: ScheduleListItem): ScheduleDetailItem {
 
 function BrainSchedulesPageInner() {
   const { push } = useRouter()
+  const searchParams = useSearchParams()
+  const requestedScheduleId = searchParams.get('selected')
   const idPrefix = useId()
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -225,7 +227,17 @@ function BrainSchedulesPageInner() {
         // would otherwise throw in .map and surface as a generic load failure.
         const list = Array.isArray(tasks) ? tasks : []
         const links = getAllScheduleLinks()
-        setSchedules(list.map(t => taskToListItem(t, links[t.id])))
+        const nextSchedules = list.map(t => taskToListItem(t, links[t.id]))
+        setSchedules(nextSchedules)
+        if (requestedScheduleId && nextSchedules.some((schedule) => schedule.id === requestedScheduleId)) {
+          setSelectedId(requestedScheduleId)
+          getTask(requestedScheduleId)
+            .then(detail => setSelectedDetail(taskDetailToDetail(detail, getChatForSchedule(requestedScheduleId))))
+            .catch(() => {
+              const item = nextSchedules.find(schedule => schedule.id === requestedScheduleId)
+              setSelectedDetail(item ? listItemToDetail(item) : null)
+            })
+        }
       })
       .catch((err: unknown) => {
         // Surface the real reason — the generic message hid backend/auth errors
@@ -235,7 +247,7 @@ function BrainSchedulesPageInner() {
         toast.error('Failed to load schedules', detail ? { description: detail } : undefined)
       })
       .finally(() => setIsLoadingList(false))
-  }, [])
+  }, [requestedScheduleId])
 
   // ── Select / open detail ───────────────────────────────────────────────────
 

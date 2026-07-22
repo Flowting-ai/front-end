@@ -1,18 +1,18 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, m } from 'framer-motion'
+import { m } from 'framer-motion'
 import {
   WorkflowSquareTenIcon,
   AlertCircleIcon,
   CheckmarkCircleTwoIcon,
   CancelCircleIcon,
   TickTwoIcon,
+  PenOneIcon,
   ArrowUpRightOneIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Spinner } from '@/components/Spinner'
-import { springs } from '@/lib/springs'
 import type { PlanStep, ConnectorRequirement } from './lib/phase'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -638,6 +638,15 @@ export function PlanCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Button variant="ghost" size="sm" onClick={onCancel} disabled={actionsDisabled}>Cancel</Button>
           <div style={{ flex: '1 0 0' }} />
+          <Button
+            variant="outline"
+            size="sm"
+            rightIcon={<PenOneIcon />}
+            onClick={onCounter}
+            disabled={actionsDisabled}
+          >
+            Counter
+          </Button>
           <Button
             variant="default"
             size="sm"
