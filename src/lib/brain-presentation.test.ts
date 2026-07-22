@@ -3,7 +3,6 @@ import {
   enqueuePrompt,
   executionPhaseTitle,
   planTimelineItems,
-  reasoningNarrations,
   retirePrompt,
 } from '@/lib/brain-presentation'
 import type { PlanStep } from '@/templates/Brain/lib/phase'
@@ -22,12 +21,6 @@ describe('Brain prompt queue', () => {
 })
 
 describe('Mayday Brain presentation adapters', () => {
-  it('uses structured backend reasoning and falls back to legacy text', () => {
-    expect(reasoningNarrations('legacy', [{ heading: '**Researching**', body: 'Checking ClickUp.' }]))
-      .toEqual(['Researching: Checking ClickUp.'])
-    expect(reasoningNarrations(' legacy ', [])).toEqual(['legacy'])
-  })
-
   it('maps canonical plan state into a result timeline', () => {
     const steps: PlanStep[] = [
       { id: 'one', label: 'Read tasks', isCritical: true, status: 'complete' },
