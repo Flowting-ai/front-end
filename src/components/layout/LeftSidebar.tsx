@@ -16,7 +16,7 @@ import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { fetchPersonaOwnerMap, resolveViewerUserId } from "@/lib/api/teams";
 import { listTasks, getTask } from "@/lib/api/tasks";
 import type { ScheduledTaskListItem, ScheduledTaskRunResponse } from "@/lib/api/tasks";
-import { CHAT_CREATED_EVENT, emitBrainNewThread } from "@/hooks/use-sidebar-events";
+import { CHAT_CREATED_EVENT, emitBrainNewThread, emitSidebarNewChat } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
 import { BrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
 import { ChatHistoryItem } from "./ChatHistoryItem";
@@ -2170,6 +2170,15 @@ function LeftSidebarImpl({
     toast.info("Opening new chat");
     if (onNewChat) {
       onNewChat();
+    } else if (pathname === CHAT_ROUTE) {
+      // Already mounted on the chat page (viewing an existing chat) — same
+      // event-bus pattern Brain uses for its "New thread" button (see
+      // BRAIN_NEW_THREAD_EVENT below): URL navigation alone isn't reliably
+      // picked up by the page's own reactive id-change detection, so the
+      // page resets itself directly off this event instead. Still push the
+      // URL too, so it correctly reflects the reset (history/bookmarking).
+      emitSidebarNewChat();
+      push(CHAT_ROUTE);
     } else {
       push(CHAT_ROUTE);
     }

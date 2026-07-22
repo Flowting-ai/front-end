@@ -1,7 +1,7 @@
 'use client'
 
-import React, { Suspense } from 'react'
-import { usePathname, useSearchParams } from 'next/navigation'
+import React from 'react'
+import { usePathname } from 'next/navigation'
 import { Button } from '@/components/Button'
 import { AlertCircleIcon } from '@strange-huge/icons'
 
@@ -64,39 +64,23 @@ class ErrorBoundaryInner extends React.Component<ErrorBoundaryProps, ErrorBounda
   }
 }
 
-// useSearchParams() opts a page out of static prerendering unless it's
-// wrapped in Suspense — required here since ErrorBoundary sits in the
-// (app)-wide layout and would otherwise force every previously-static page
-// (org/analytics, settings/security, ...) to fail the build. The fallback
-// (an unkeyed boundary, no reset-on-navigation yet) only renders for the
-// brief static-shell moment before this resolves client-side.
-function ErrorBoundaryWithRouteKey({ children }: ErrorBoundaryProps) {
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  return (
-    <ErrorBoundaryInner key={`${pathname}?${searchParams.toString()}`}>
-      {children}
-    </ErrorBoundaryInner>
-  )
-}
-
 /**
- * Wraps ErrorBoundaryInner with a `key` derived from the current route
- * (pathname + search params). The boundary's `hasError` state has no other
- * way to clear itself — without this, once a render error is caught, the
- * fallback occupies `{children}` forever, and navigating away (e.g. clicking
- * "New chat" while `/chat?id=xxx` is stuck on a caught error) changes the URL
- * but never actually remounts the page, so the click looks like it does
- * nothing. Giving React a new key on every route change forces a fresh
- * instance — and a fresh `hasError: false` — instead of requiring a manual
- * full-page reload.
+ * Wraps ErrorBoundaryInner with a `key` derived from the current pathname
+ * only (not search params). The boundary's `hasError` state has no other way
+ * to clear itself — without this, once a render error is caught, the
+ * fallback occupies `{children}` forever, and navigating to a different page
+ * never actually remounts it. Deliberately pathname-only, not pathname+search:
+ * keying on search params too seemed appealing (it would also reset on
+ * same-page id-only changes, e.g. "New chat"), but a chat's OWN first message
+ * assigns itself an id via router.replace() — same-page, self-initiated, not
+ * a real navigation — and that would remount the whole page mid-stream,
+ * wiping the in-flight response (see chat/page.tsx's handleChatCreated).
+ * usePathname() alone doesn't need a Suspense boundary, unlike
+ * useSearchParams(), so this stays simple.
  */
 export function ErrorBoundary({ children }: ErrorBoundaryProps) {
-  return (
-    <Suspense fallback={<ErrorBoundaryInner>{children}</ErrorBoundaryInner>}>
-      <ErrorBoundaryWithRouteKey>{children}</ErrorBoundaryWithRouteKey>
-    </Suspense>
-  )
+  const pathname = usePathname()
+  return <ErrorBoundaryInner key={pathname}>{children}</ErrorBoundaryInner>
 }
 
 export default ErrorBoundary

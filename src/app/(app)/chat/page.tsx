@@ -17,7 +17,7 @@ import { PinMentionDropdown } from "@/components/chat/PinMentionDropdown";
 import { PinChipStrip } from "@/components/chat/PinChipStrip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
-import { emitChatCreated } from "@/hooks/use-sidebar-events";
+import { emitChatCreated, useSidebarEvents } from "@/hooks/use-sidebar-events";
 import { useHighlight } from "@/context/highlight-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useFileDrop } from "@/hooks/use-file-drop";
@@ -228,25 +228,10 @@ function saveChatSettings(chatId: string, settings: ChatSettings): void {
 export default function ChatPage() {
   return (
     <Suspense fallback={null}>
-      <ChatPageRemountOnId />
+      <ChatPageInner />
       <WelcomeModal />
     </Suspense>
   );
-}
-
-// Forces a full remount of ChatPageInner whenever the `id` search param
-// changes (including disappearing entirely, e.g. clicking "New chat"). The
-// alternative — a useLayoutEffect inside ChatPageInner comparing against the
-// previous chatIdFromUrl — depends on that component actually re-rendering
-// with the new searchParams value in time to notice the change; when it
-// doesn't (observed: clicking "New chat" while viewing an existing chat left
-// the previous chat showing instead of resetting), the effect's dependency
-// array never sees a difference and silently no-ops. Keying by the id itself
-// sidesteps that: React remounts synchronously as part of the same render
-// that produces the new key, with no separate effect-timing window to miss.
-function ChatPageRemountOnId() {
-  const searchParams = useSearchParams();
-  return <ChatPageInner key={searchParams.get("id") ?? "new"} />;
 }
 
 function ChatPageInner() {
@@ -725,6 +710,21 @@ function ChatPageInner() {
       if (!liveId) setMuseAdvanced(true);
     }
   }, [chatIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Direct reset for the sidebar's "New chat" button (same event-bus pattern
+  // Brain uses for its "New thread" button — see BRAIN_NEW_THREAD_EVENT).
+  // The useLayoutEffect above depends on chatIdFromUrl (useSearchParams())
+  // reliably re-rendering this component when the URL's id param disappears;
+  // when it doesn't, "New chat" silently no-ops and the previous chat keeps
+  // showing. This event fires synchronously from the click handler itself,
+  // independent of URL-change detection.
+  const handleSidebarNewChat = useCallback(() => {
+    setActiveChatId(undefined);
+    setHasMessages(false);
+    setInitialPrompt(null);
+    setMuseAdvanced(true);
+  }, []);
+  useSidebarEvents({ onNewChat: handleSidebarNewChat });
 
   const isNewChat = !activeChatId && !hasMessages && !initialPrompt;
 
