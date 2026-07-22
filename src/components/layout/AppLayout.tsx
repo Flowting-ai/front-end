@@ -361,7 +361,7 @@ function ProjectPanelSidebar() {
           className="kaya-scrollbar"
           style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overflowX: "hidden", boxSizing: "border-box" }}
         >
-          <div style={{ padding: "14px 24px 24px", boxSizing: "border-box" }}>
+          <div style={{ padding: "14px 24px 24px", boxSizing: "border-box", height: "100%" }}>
             {panel?.content}
           </div>
         </div>

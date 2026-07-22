@@ -7,7 +7,7 @@ import { m, AnimatePresence } from "framer-motion"
 import { CancelOneIcon } from "@strange-huge/icons"
 import { usePinboard, type PinItem, type PinCategory, type PinComment } from "@/context/pinboard-context"
 import { useChatHistoryContext } from "@/context/chat-history-context"
-import { Pinboard, type PinboardPin } from "@/components/Pinboard"
+import { Pinboard, type PinboardPin, type PinboardView } from "@/components/Pinboard"
 import { PinboardSkeleton } from "@/components/PinboardSkeleton"
 import type { PinboardExpandedFolder } from "@/components/PinboardExpanded"
 import { exportSinglePin, exportPins } from "@/lib/export-pins"
@@ -81,8 +81,11 @@ function toPinboardPin(
     onDuplicate,
     onShowInChat,
     onSaveComment,
+    // Structured payload (id/title/content) so listeners can add this pin as
+    // a real @-mention, same as picking it from the PinMentionDropdown —
+    // NOT raw text splice into the input.
     onInsert: () => window.dispatchEvent(
-      new CustomEvent('pin:insert', { detail: { content: item.content } })
+      new CustomEvent('pin:insert', { detail: { id: item.id, title: item.title, content: item.content } })
     ),
   }
 }
@@ -299,11 +302,12 @@ function RightSidebarImpl() {
     return map
   }, [chats])
 
-  const handleViewChange = useCallback((viewId: string) => {
+  const handleViewChange = useCallback((viewId: string, view: PinboardView) => {
     setSelectedViewId(viewId)
     if (chatFilter) clearChatFilter()
     const isFolder = contextFolders.some((f) => f.id === viewId)
     setSelectedFolderId(isFolder ? viewId : null)
+    toast.info(`Showing "${view.label}"`)
   }, [contextFolders, chatFilter, clearChatFilter])
 
   // When opened via openForChat(), chatFilter overrides the URL-derived chat ID

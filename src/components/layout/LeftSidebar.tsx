@@ -222,7 +222,7 @@ function StarredSection({ activeChatId, onSelectChat, chatHistory }: SectionProp
                 isActive={chat.id === activeChatId}
                 onSelect={onSelectChat}
                 onRename={chatHistory.rename}
-                onDelete={chatHistory.remove}
+                onDelete={async (chatId) => { await chatHistory.remove(chatId) }}
                 onStar={chatHistory.star}
               />
             </m.div>
@@ -291,7 +291,7 @@ function RecentsList({ activeChatId, onSelectChat, chatHistory }: SectionProps) 
             isActive={chat.id === activeChatId}
             onSelect={onSelectChat}
             onRename={rename}
-            onDelete={remove}
+            onDelete={async (chatId) => { await remove(chatId) }}
             onStar={star}
           />
         </m.div>
@@ -481,7 +481,13 @@ function ProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }:
 // -- Projects section - reads from ProjectsContext ------------------------------
 
 const PROJECT_LIMIT = 2
-const CHAT_LIMIT    = 10
+// Sidebar folders only ever surface a quick-glance slice of a project's
+// chats — "See all chats" is the entry point for the rest.
+const CHAT_LIMIT    = 2
+
+function sortChatsByRecency(chats: ProjectChat[]): ProjectChat[] {
+  return [...chats].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+}
 
 interface ProjectsSectionProps {
   label?: string
@@ -634,7 +640,7 @@ function ProjectsSection({
             // A chat merely visible here via another member's project
             // activity — or a read-only share — isn't "yours"; it's surfaced
             // properly through the project page's own tabs instead.
-            const chats     = getChats(project.id).filter(c => c.canEdit !== false)
+            const chats     = sortChatsByRecency(getChats(project.id).filter(c => c.canEdit !== false))
             const isActive  = pathname.startsWith(PROJECT_ROUTE(project.id))
             const isExpanded = expandedIds.has(project.id)
 
@@ -649,35 +655,29 @@ function ProjectsSection({
                   onClick={() => toggleExpand(project.id, !isExpanded)}
                   onExpandedChange={(v) => toggleExpand(project.id, v)}
                 >
-                  {chats.length > 0 && (
-                  <>
-                    {chats.slice(0, CHAT_LIMIT).map(chat => (
-                      <ProjectChatItem
-                        key={chat.id}
-                        chat={chat}
-                        isActive={pathname === PROJECT_CHAT_ROUTE(project.id, chat.id)}
-                        href={PROJECT_CHAT_ROUTE(project.id, chat.id)}
-                        onSelect={() => push(PROJECT_CHAT_ROUTE(project.id, chat.id))}
-                        onRename={async (chatId, title) => {
-                          renameChat(project.id, chatId, title)
-                          await chatHistory.rename(chatId, title)
-                        }}
-                        onDelete={(chatId) => removeChat(project.id, chatId)}
-                      />
-                    ))}
-                    {chats.length > CHAT_LIMIT && (
-                      <SidebarMenuItem
-                        fluid
-                        variant="default"
-                        icon={<MoreHorizontalIcon size={20} animated />}
-                        label="View all Project Chats"
-                        selected={pathname === PROJECT_ROUTE(project.id)}
-                        href={PROJECT_ROUTE(project.id)}
-                        onClick={() => push(PROJECT_ROUTE(project.id))}
-                      />
-                    )}
-                  </>
-                )}
+                  {chats.slice(0, CHAT_LIMIT).map(chat => (
+                    <ProjectChatItem
+                      key={chat.id}
+                      chat={chat}
+                      isActive={pathname === PROJECT_CHAT_ROUTE(project.id, chat.id)}
+                      href={PROJECT_CHAT_ROUTE(project.id, chat.id)}
+                      onSelect={() => push(PROJECT_CHAT_ROUTE(project.id, chat.id))}
+                      onRename={async (chatId, title) => {
+                        renameChat(project.id, chatId, title)
+                        await chatHistory.rename(chatId, title)
+                      }}
+                      onDelete={(chatId) => removeChat(project.id, chatId)}
+                    />
+                  ))}
+                  <SidebarMenuItem
+                    fluid
+                    variant="default"
+                    icon={<MoreHorizontalIcon size={20} animated />}
+                    label="See all chats"
+                    selected={pathname === PROJECT_ROUTE(project.id)}
+                    href={PROJECT_ROUTE(project.id)}
+                    onClick={() => push(PROJECT_ROUTE(project.id))}
+                  />
                 </SidebarProjectsSection>
               </m.div>
             )
@@ -772,7 +772,7 @@ function PersonalProjectsMenu({ projects }: { projects: Project[] }) {
         </div>
       ) : (
         personalProjects.map(project => {
-          const chats = getChats(project.id).filter(c => c.canEdit !== false)
+          const chats = sortChatsByRecency(getChats(project.id).filter(c => c.canEdit !== false))
           const isActive = pathname.startsWith(PROJECT_ROUTE(project.id))
           const isExpanded = expandedProjectIds.has(project.id)
 
@@ -787,35 +787,7 @@ function PersonalProjectsMenu({ projects }: { projects: Project[] }) {
               onClick={() => toggleProjectExpand(project.id, !isExpanded)}
               onExpandedChange={(v) => toggleProjectExpand(project.id, v)}
             >
-              {chats.length > 0 ? (
-                <>
-                  {chats.slice(0, PERSONAL_PROJECT_CHAT_LIMIT).map(chat => (
-                    <ProjectChatItem
-                      key={chat.id}
-                      chat={chat}
-                      isActive={pathname === PROJECT_CHAT_ROUTE(project.id, chat.id)}
-                      href={PROJECT_CHAT_ROUTE(project.id, chat.id)}
-                      onSelect={() => push(PROJECT_CHAT_ROUTE(project.id, chat.id))}
-                      onRename={async (chatId, title) => {
-                        renameChat(project.id, chatId, title)
-                        await chatHistory.rename(chatId, title)
-                      }}
-                      onDelete={(chatId) => removeChat(project.id, chatId)}
-                    />
-                  ))}
-                  {chats.length > PERSONAL_PROJECT_CHAT_LIMIT && (
-                    <SidebarMenuItem
-                      fluid
-                      variant="default"
-                      icon={<MoreHorizontalIcon size={20} animated />}
-                      label="See all"
-                      selected={pathname === PROJECT_ROUTE(project.id)}
-                      href={PROJECT_ROUTE(project.id)}
-                      onClick={() => push(PROJECT_ROUTE(project.id))}
-                    />
-                  )}
-                </>
-              ) : (
+              {chats.length === 0 && (
                 <div style={{
                   padding:    '4px 6px',
                   fontFamily: 'var(--font-body)',
@@ -825,6 +797,29 @@ function PersonalProjectsMenu({ projects }: { projects: Project[] }) {
                   No chats yet
                 </div>
               )}
+              {chats.slice(0, PERSONAL_PROJECT_CHAT_LIMIT).map(chat => (
+                <ProjectChatItem
+                  key={chat.id}
+                  chat={chat}
+                  isActive={pathname === PROJECT_CHAT_ROUTE(project.id, chat.id)}
+                  href={PROJECT_CHAT_ROUTE(project.id, chat.id)}
+                  onSelect={() => push(PROJECT_CHAT_ROUTE(project.id, chat.id))}
+                  onRename={async (chatId, title) => {
+                    renameChat(project.id, chatId, title)
+                    await chatHistory.rename(chatId, title)
+                  }}
+                  onDelete={(chatId) => removeChat(project.id, chatId)}
+                />
+              ))}
+              <SidebarMenuItem
+                fluid
+                variant="default"
+                icon={<MoreHorizontalIcon size={20} animated />}
+                label="See all chats"
+                selected={pathname === PROJECT_ROUTE(project.id)}
+                href={PROJECT_ROUTE(project.id)}
+                onClick={() => push(PROJECT_ROUTE(project.id))}
+              />
             </SidebarProjectsSection>
           )
         })

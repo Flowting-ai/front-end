@@ -22,7 +22,9 @@ export interface UseChatHistoryResult {
   renameLocal: (chatId: string, title: string) => void;
   /** Move a chat to the top of the list without resetting its title. */
   moveToTop: (chatId: string) => void;
-  remove: (chatId: string) => Promise<void>;
+  /** Returns true on success, false on failure (already toasted internally) — lets
+   *  per-row callers show their own success toast only when the delete actually happened. */
+  remove: (chatId: string) => Promise<boolean>;
   /** Remove one or more chats from the local list without calling the backend delete API. */
   removeLocal: (...chatIds: string[]) => void;
   star: (chatId: string) => Promise<void>;
@@ -104,14 +106,16 @@ export function useChatHistory(): UseChatHistoryResult {
     }
   };
 
-  const handleDelete = async (chatId: string): Promise<void> => {
+  const handleDelete = async (chatId: string): Promise<boolean> => {
     const snapshot = chats;
     setChats((prev) => prev.filter((c) => c.id !== chatId));
     try {
       await deleteChat(chatId);
+      return true;
     } catch {
       setChats(snapshot);
       toast.error("Failed to delete chat");
+      return false;
     }
   };
 
@@ -124,6 +128,7 @@ export function useChatHistory(): UseChatHistoryResult {
     );
     try {
       await starChat(chatId);
+      toast.success(next ? "Chat starred" : "Chat unstarred");
     } catch {
       setChats((prev) =>
         prev.map((c) => (c.id === chatId ? { ...c, starred: !next } : c)),

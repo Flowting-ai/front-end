@@ -10,6 +10,7 @@ import { AnimatePresence, m } from "framer-motion";
 import {
   SearchOneIcon,
   CancelOneIcon,
+  AtomOneIcon,
   AtomTwoIcon,
   AiVisionRecognitionIcon,
   ImageTwoIcon,
@@ -17,8 +18,10 @@ import {
 } from "@strange-huge/icons";
 import { LlmIcon } from "@strange-huge/icons/llm";
 import { IconButton } from "@/components/IconButton";
+import { Button } from "@/components/Button";
 import { Tooltip } from "@/components/Tooltip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
+import { useCompare } from "@/context/compare-context";
 import { getModelLlmId } from "@/lib/model-icons";
 import type { AIModel } from "@/types/ai-model";
 import { ModelSelectItem } from "@/components/ModelSelectItem";
@@ -257,6 +260,7 @@ interface PresetModelSelectorContentProps {
    * near the right edge of the viewport (e.g. the project page's top-right
    * model button), leaving no room for them to open to the right. */
   preferLeftTooltips: boolean;
+  onClose: () => void;
 }
 
 function PresetModelSelectorContent({
@@ -268,7 +272,9 @@ function PresetModelSelectorContent({
   onMuseSelect,
   onAdvancedSelect,
   preferLeftTooltips,
+  onClose,
 }: PresetModelSelectorContentProps) {
+  const compare = useCompare();
   const [search, setSearch] = useState("");
   const [tier, setTier] = useState("all");
   const [category, setCategory] = useState("all");
@@ -437,26 +443,36 @@ function PresetModelSelectorContent({
           }}
         >
           {/* Category tabs */}
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
-            <div style={{ flex: "0 1 auto", minWidth: 0 }}>
-              <Tabs value={category} onValueChange={setCategory}>
-                <TabsList size="small" scrollable pillTopInset={0.5} pillBottomInset={1}>
-                  {CATEGORY_TABS.map((t) => (
-                    <TabsTrigger key={t.value} value={t.value} icon={t.icon}>
-                      {t.label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "2px", flex: "0 1 auto", minWidth: 0 }}>
+              <div style={{ flex: "0 1 auto", minWidth: 0 }}>
+                <Tabs value={category} onValueChange={setCategory}>
+                  <TabsList size="small" scrollable pillTopInset={0.5} pillBottomInset={1}>
+                    {CATEGORY_TABS.map((t) => (
+                      <TabsTrigger key={t.value} value={t.value} icon={t.icon}>
+                        {t.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+              </div>
+              <Tooltip content={<CategoryInfoContent />} side={preferLeftTooltips ? "left" : "right"} align="center" maxWidth={280}>
+                <IconButton
+                  size="xs"
+                  variant="ghost"
+                  icon={<InformationCircleIcon size={16} />}
+                  aria-label="What do All, Vision, and Image filter on?"
+                />
+              </Tooltip>
             </div>
-            <Tooltip content={<CategoryInfoContent />} side={preferLeftTooltips ? "left" : "right"} align="center" maxWidth={280}>
-              <IconButton
-                size="xs"
-                variant="ghost"
-                icon={<InformationCircleIcon size={16} />}
-                aria-label="What do All, Vision, and Image filter on?"
-              />
-            </Tooltip>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<AtomOneIcon size={16} />}
+              onClick={() => { compare.open(); onClose(); }}
+            >
+              Compare Models
+            </Button>
           </div>
 
           {/* Model list */}
@@ -769,6 +785,7 @@ export function PresetModelSelectorDialog() {
             onMuseSelect={() => { setMuseAdvanced(false); activateMuse() }}
             onAdvancedSelect={() => { setMuseAdvanced(true); close() }}
             preferLeftTooltips={preferLeftTooltips}
+            onClose={close}
           />
         </m.div>
       )}

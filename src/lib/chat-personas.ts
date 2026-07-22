@@ -10,27 +10,34 @@ import { fetchPersonaOwnerMap } from '@/lib/api/teams'
 export interface SelectedPersonaInfo {
   id:              string
   name:            string
+  handle:          string
   imageUrl:        string | null
   modelId:         string | null
   activeVersionId: string | null
   /** null = not yet fetched from the version; populated by the model-selector effect. */
   systemPrompt:    string | null
   temperature:     number | null
+  visibility:      'private' | 'team'
+  /** True when the viewer owns this persona outright (not a team-shared copy). */
+  ownedByViewer:   boolean
 }
 
 type CopyPersona = (repoId: string, sourceVersionId?: string | null) => Promise<PersonaRepoResponse>
 
 const copiedPersonaCache = new Map<string, SelectedPersonaInfo>()
 
-function toSelectedPersona(persona: Persona): SelectedPersonaInfo {
+function toSelectedPersona(persona: Persona, ownedByViewer: boolean): SelectedPersonaInfo {
   return {
     id: persona.id,
     name: persona.name,
+    handle: persona.handle,
     imageUrl: persona.imageUrl,
     modelId: persona.modelId,
     activeVersionId: persona.activeVersionId,
     systemPrompt: null,
     temperature: persona.temperature,
+    visibility: persona.visibility,
+    ownedByViewer,
   }
 }
 
@@ -47,8 +54,9 @@ export async function resolveSelectableChatPersonas(
   copyPersona: CopyPersona = usePersonaRepoDeduped,
 ): Promise<SelectedPersonaInfo[]> {
   return Promise.all(personas.map(async persona => {
-    const base = toSelectedPersona(persona)
-    if (isPersonaOwnedByViewer(persona, ownerMap, viewerUserId, fallbackOwned)) return base
+    const ownedByViewer = isPersonaOwnedByViewer(persona, ownerMap, viewerUserId, fallbackOwned)
+    const base = toSelectedPersona(persona, ownedByViewer)
+    if (ownedByViewer) return base
 
     const cached = copiedPersonaCache.get(persona.id)
     if (cached) return cached
@@ -59,11 +67,14 @@ export async function resolveSelectableChatPersonas(
       const selected: SelectedPersonaInfo = {
         id: copy.id,
         name: persona.name,
+        handle: persona.handle,
         imageUrl: version?.image_url ?? persona.imageUrl,
         modelId: version?.model_id ?? persona.modelId,
         activeVersionId: copy.published_version_id ?? null,
         systemPrompt: null,
         temperature: version?.temperature ?? persona.temperature,
+        visibility: persona.visibility,
+        ownedByViewer: false,
       }
       copiedPersonaCache.set(persona.id, selected)
       return selected

@@ -128,8 +128,11 @@ function pinItemToKDS(
     onExport,
     onDelete,
     onDuplicate,
+    // Structured payload (id/title/content) so listeners can add this pin as
+    // a real @-mention, same as picking it from the PinMentionDropdown —
+    // NOT raw text splice into the input.
     onInsert: () => window.dispatchEvent(
-      new CustomEvent('pin:insert', { detail: { content: item.content } })
+      new CustomEvent('pin:insert', { detail: { id: item.id, title: item.title, content: item.content } })
     ),
   }
 }

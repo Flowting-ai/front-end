@@ -242,10 +242,16 @@ function ChatRowInner(
     const [isRenaming,  setIsRenaming]  = useState(false)
     const [renameValue, setRenameValue] = useState('')
     const renameInputRef    = useRef<HTMLInputElement>(null)
-    const pendingRenameRef = useRef(false)
-    // Set alongside pendingRenameRef in the Rename onSelect, but consumed
+    // Set in every dropdown MenuItem's onSelect — Radix's DropdownMenu.Portal
+    // renders its content elsewhere in the DOM, but React still bubbles the
+    // click as a SYNTHETIC event up the component tree to this row's own
+    // onClick, which would otherwise also navigate to the chat right after
+    // Rename/Star/Move/Delete was selected. The row's onClick checks and
+    // resets this to swallow that one bubbled click.
+    const pendingMenuActionRef = useRef(false)
+    // Set alongside pendingMenuActionRef in the Rename onSelect, but consumed
     // separately in onCloseAutoFocus (which fires a tick after the row's own
-    // onClick guard already reset pendingRenameRef) — prevents Radix from
+    // onClick guard already reset pendingMenuActionRef) — prevents Radix from
     // yanking focus back to the trigger button right after the input focuses.
     const renameJustOpenedRef = useRef(false)
     // Set by Enter/Escape so the blur that follows setIsRenaming(false)
@@ -334,8 +340,8 @@ function ChatRowInner(
           selectionMode
             ? () => onSelect?.(!selected)
             : (e: React.MouseEvent<HTMLDivElement>) => {
-                if (isRenaming || pendingRenameRef.current) {
-                  pendingRenameRef.current = false
+                if (isRenaming || pendingMenuActionRef.current) {
+                  pendingMenuActionRef.current = false
                   return
                 }
                 onClick?.(e)
@@ -508,6 +514,11 @@ function ChatRowInner(
                 flexShrink: 0,
               }}
             >
+              {starred && !selectionMode && (
+                <span aria-label="Starred" style={{ display: 'inline-flex', flexShrink: 0 }}>
+                  <StarIcon size={18} color="var(--color-tag-Yellow-text)" />
+                </span>
+              )}
               {scheduled && !selectionMode && (
                 <Badge color="Purple" label="Scheduled" />
               )}
@@ -545,18 +556,18 @@ function ChatRowInner(
                       <MenuItem
                         label="Rename"
                         icon={<PenOneIcon animated size={14} color="var(--neutral-600)" />}
-                        onSelect={() => { pendingRenameRef.current = true; renameJustOpenedRef.current = true; setRenameValue(title); setIsRenaming(true) }}
+                        onSelect={() => { pendingMenuActionRef.current = true; renameJustOpenedRef.current = true; setRenameValue(title); setIsRenaming(true) }}
                       />
                       <MenuItem
                         label={starred ? 'Unstar' : 'Star'}
                         icon={<StarIcon animated size={14} color="var(--neutral-600)" />}
-                        onSelect={() => onStar?.()}
+                        onSelect={() => { pendingMenuActionRef.current = true; onStar?.() }}
                       />
                       {onMoveToProject && (
                         <MenuItem
                           label="Move to project"
                           icon={<FolderOneIcon size={14} color="var(--neutral-600)" variant="static" />}
-                          onSelect={() => onMoveToProject()}
+                          onSelect={() => { pendingMenuActionRef.current = true; onMoveToProject() }}
                         />
                       )}
                       <DropdownMenu.Separator
@@ -569,7 +580,7 @@ function ChatRowInner(
                       <MenuItem
                         label="Delete"
                         destructive
-                        onSelect={() => onDelete?.()}
+                        onSelect={() => { pendingMenuActionRef.current = true; onDelete?.() }}
                       />
                     </DropdownMenu.Content>
                   </DropdownMenu.Portal>

@@ -3,17 +3,20 @@
 import { Suspense, useMemo } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { PinIcon, AtomOneIcon, QuillWriteOneIcon } from '@strange-huge/icons'
+import { PinIcon, QuillWriteOneIcon, UserAiIcon } from '@strange-huge/icons'
 import { FloatingMenu } from '@/components/FloatingMenu'
 import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 import { JumpTimestampGutter, type GutterMark } from '@/components/JumpTimestampGutter'
 import { springs } from '@/lib/springs'
 import { usePinboard } from '@/context/pinboard-context'
 import { useHighlight } from '@/context/highlight-context'
-import { useCompare } from '@/context/compare-context'
+import { useProjectPanel } from '@/context/project-panel-context'
+import { AgentsPanelContent } from '@/components/AgentsPanel'
 import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
 import { sortHighlightsBySourcePosition } from '@/lib/highlight-order'
+
+const AGENTS_PANEL_TITLE = 'Agents'
 
 // Derives the active chat ID from the URL so the gutter can be filtered
 // per-chat. Handles both URL patterns used in the app:
@@ -30,17 +33,28 @@ function useCurrentChatId(): string | undefined {
 function FloatingPanelImpl() {
   const { isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard, prefetch: prefetchPinboard } = usePinboard()
   const { isOpen: highlightOpen, toggle: toggleHighlight, close: closeHighlight, highlights } = useHighlight()
-  const { isOpen: compareOpen, toggle: toggleCompare } = useCompare()
+  const { panel: sidePanel, setPanel: setSidePanel } = useProjectPanel()
+  const agentsOpen = sidePanel?.title === AGENTS_PANEL_TITLE
   const currentChatId = useCurrentChatId()
 
   const handleTogglePinboard = () => {
-    if (!pinboardOpen) closeHighlight()
+    if (!pinboardOpen) { closeHighlight(); if (agentsOpen) setSidePanel(null) }
     togglePinboard()
   }
 
   const handleToggleHighlight = () => {
-    if (!highlightOpen) closePinboard()
+    if (!highlightOpen) { closePinboard(); if (agentsOpen) setSidePanel(null) }
     toggleHighlight()
+  }
+
+  const handleToggleAgents = () => {
+    if (agentsOpen) {
+      setSidePanel(null)
+      return
+    }
+    closePinboard()
+    closeHighlight()
+    setSidePanel({ title: AGENTS_PANEL_TITLE, content: <AgentsPanelContent />, onClose: () => setSidePanel(null) })
   }
 
   const handleJump = (id: string) => {
@@ -107,10 +121,10 @@ function FloatingPanelImpl() {
             onMouseEnter={prefetchPinboard}
           />
           <FloatingMenuItem
-            icon={<AtomOneIcon size={20} />}
-            label="Compare Models"
-            active={compareOpen}
-            onClick={toggleCompare}
+            icon={<UserAiIcon size={20} />}
+            label="Agents"
+            active={agentsOpen}
+            onClick={handleToggleAgents}
           />
           <FloatingMenuItem
             icon={<QuillWriteOneIcon size={20} />}

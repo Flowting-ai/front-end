@@ -18,6 +18,7 @@ import { PinChipStrip } from "@/components/chat/PinChipStrip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { emitChatCreated, useSidebarEvents } from "@/hooks/use-sidebar-events";
+import { AGENT_SELECT_EVENT } from "@/components/AgentsPanel";
 import { useHighlight } from "@/context/highlight-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useFileDrop } from "@/hooks/use-file-drop";
@@ -337,17 +338,38 @@ function ChatPageInner() {
   }, [newChatFilteredPins]);
 
   // When no active chat is open, listen for pin:insert events from the Pinboard
-  // and append the pin's content to the new-chat input. ChatInterface handles
-  // the same event for active chats, so only register here when there's no chatId.
+  // sidebar / expanded modal's "Insert" button and add the pin as a real
+  // @-mention chip (same as picking it from the PinMentionDropdown) — not raw
+  // text spliced into the new-chat input. ChatInterface handles the same
+  // event for active chats, so only register here when there's no chatId.
   useEffect(() => {
     if (activeChatId) return;
     const handler = (e: Event) => {
-      const content = (e as CustomEvent<{ content: string }>).detail?.content;
-      if (content) setNewChatInput((prev) => prev ? `${prev}\n\n${content}` : content);
+      const pin = (e as CustomEvent<PinMentionable>).detail;
+      if (!pin?.id) return;
+      const label = (pin.title || pin.content).slice(0, 50) || pin.id;
+      if (newChatMentionedPins.some((m) => m.id === pin.id)) {
+        toast.info(`"${label}" is already added to this chat`);
+        return;
+      }
+      setNewChatMentionedPins((prev) => [...prev, { id: pin.id, label }]);
+      toast.success(`"${label}" added to chat`);
     };
     window.addEventListener("pin:insert", handler);
     return () => window.removeEventListener("pin:insert", handler);
-  }, [activeChatId]);
+  }, [activeChatId, newChatMentionedPins]);
+
+  // Listen for the Agents floating-panel's selection — same cross-tree
+  // pattern as pin:insert above (the panel renders via the shared AppLayout's
+  // ProjectPanelSidebar, outside this page's own component tree).
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const persona = (e as CustomEvent<SelectedPersonaInfo>).detail;
+      if (persona) setSelectedPersona(persona);
+    };
+    window.addEventListener(AGENT_SELECT_EVENT, handler);
+    return () => window.removeEventListener(AGENT_SELECT_EVENT, handler);
+  }, []);
 
   // Close pin dropdown on outside click
   useEffect(() => {

@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { AnimatePresence, m } from "framer-motion";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { X } from "lucide-react";
+import { toast } from "sonner";
 import { ArrowDownOneIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
 import { ORG_PLANS_ROUTE } from "@/lib/routes";
@@ -231,17 +232,6 @@ export function ChatInterface({
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [inputValue, setInputValue] = useState("");
 
-  // Listen for pin:insert events dispatched by the Pinboard sidebar / expanded modal.
-  // Appends the pin's content to the current input value.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const content = (e as CustomEvent<{ content: string }>).detail?.content;
-      if (content) setInputValue((prev) => prev ? `${prev}\n\n${content}` : content);
-    };
-    window.addEventListener("pin:insert", handler);
-    return () => window.removeEventListener("pin:insert", handler);
-  }, []);
-
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [citationsOpen, setCitationsOpen] = useState(false);
   const [citationsSources, setCitationsSources] = useState<Source[]>([]);
@@ -255,6 +245,26 @@ export function ChatInterface({
   const [highlightedPinIndex, setHighlightedPinIndex] = useState(0);
   const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
   const [atBottom, setAtBottom] = useState(true);
+
+  // Listen for pin:insert events dispatched by the Pinboard sidebar / expanded
+  // modal's "Insert" button. Adds the pin as a real @-mention chip — the same
+  // outcome as picking it from the PinMentionDropdown — rather than splicing
+  // its raw content into the input text.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const pin = (e as CustomEvent<PinMentionable>).detail;
+      if (!pin?.id) return;
+      const label = (pin.title || pin.content).slice(0, 50) || pin.id;
+      if (mentionedPins.some((m) => m.id === pin.id)) {
+        toast.info(`"${label}" is already added to this chat`);
+        return;
+      }
+      setMentionedPins((prev) => [...prev, { id: pin.id, label }]);
+      toast.success(`"${label}" added to chat`);
+    };
+    window.addEventListener("pin:insert", handler);
+    return () => window.removeEventListener("pin:insert", handler);
+  }, [mentionedPins]);
   // True during the brief window after messages load while the virtualizer
   // measures all rendered items. Keeps the spinner up and content hidden so
   // the first visible frame is already at settled positions (no jitter).

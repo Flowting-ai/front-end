@@ -468,7 +468,7 @@ export default function ChatsPage() {
                         onRename={(newTitle) => rename(chat.id, newTitle)}
                         onStar={() => star(chat.id)}
                         onMoveToProject={() => { setSelectedIds(new Set([chat.id])); setMoveModalOpen(true) }}
-                        onDelete={() => { remove(chat.id); toast.success('Chat deleted') }}
+                        onDelete={async () => { if (await remove(chat.id)) toast.success('Chat deleted') }}
                       />
                     </div>
                   )
