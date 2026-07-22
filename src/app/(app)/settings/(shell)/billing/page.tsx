@@ -91,6 +91,15 @@ function fmtDate(iso: string | null | undefined): string {
   }
 }
 
+// A stale/un-rolled-over current_period_end (backend hasn't advanced it yet)
+// must never be shown as an upcoming "Next billing"/"Resets" date — that
+// reads as a future promise, not a past fact.
+function isFutureIso(iso: string | null | undefined): boolean {
+  if (!iso) return false
+  const t = new Date(iso).getTime()
+  return !Number.isNaN(t) && t > Date.now()
+}
+
 const _fmtAmountCache = new Map<string, Intl.NumberFormat>()
 function fmtAmount(value: number, currency = 'usd'): string {
   const key = currency.toUpperCase()
@@ -194,7 +203,7 @@ function UsageRow({ label, used, total, value }: { label: string; used: number; 
 export default function BillingPage() {
   const router = useRouter()
   const { user, refreshUser, isHydrated, jwtToken } = useAuth()
-  const { plan: orgPlan, orgId, orgRole, orgReady, orgRoleResolved, orgPlanSettled } = useOrg()
+  const { org, plan: orgPlan, orgId, orgRole, orgReady, orgRoleResolved, orgPlanSettled } = useOrg()
 
   const portalMounted = useMounted()
   // Lazy-init from the cached snapshot (runs once; SSR-safe — readCache returns
@@ -277,9 +286,12 @@ export default function BillingPage() {
   // supply cancel/period state to a team view.
   const subSource = billing && (billing.entity === 'org') === liveIsTeamAccount ? billing : null
 
-  const nextBillingLive = fmtDate(
-    subSource?.upcoming_invoice?.next_payment_date ?? user?.nextBillingDate ?? user?.currentPeriodEnd,
-  )
+  const nextBillingRaw = subSource?.upcoming_invoice?.next_payment_date ?? user?.nextBillingDate ?? user?.currentPeriodEnd
+  // A date that isn't actually in the future (e.g. a currentPeriodEnd the
+  // backend hasn't rolled forward yet) is not a real "next billing" date —
+  // treat it the same as having none, rather than showing a past date as
+  // upcoming.
+  const nextBillingLive = isFutureIso(nextBillingRaw) ? fmtDate(nextBillingRaw) : '-'
 
   // Personal credit balance from the billing response (GET /stripe/billing).
   // Derived in lib/credits.ts (handles both the current explicit-fields shape
@@ -378,12 +390,16 @@ export default function BillingPage() {
   const nextBilling      = display?.nextBilling      ?? '-'
   const periodEnd        = display?.periodEnd        ?? null
   const cancelAtPeriodEnd = display?.cancelAtPeriodEnd ?? false
+  // Enterprise is a custom, sales-managed contract — org/plans deliberately
+  // gives it no self-service plan controls at all (EnterpriseHero has no
+  // Cancel/Upgrade/Contact buttons). Mirror that exclusion here.
+  const isEnterprise      = org.plan === 'enterprise'
   // Cancel/Resume act on the Stripe subscription (DELETE /stripe/subscription),
   // which cancels whichever plan the caller's account is tied to — individual
   // or team. org/plans exposes the same "Cancel plan" flow to team accounts,
   // gated to the org owner there; mirror that gate here so team owners get it
   // on this page too instead of only being able to cancel from org/plans.
-  const hasActiveSub      = Boolean(individualPlan) || (isTeamAccount && isOrgOwner)
+  const hasActiveSub      = Boolean(individualPlan) || (isTeamAccount && !isEnterprise && isOrgOwner)
 
   const pm        = subSource?.payment_method ?? null
   const hasPaymentMethod = Boolean(pm && pm.last4)
@@ -577,7 +593,7 @@ export default function BillingPage() {
                 <p style={titleH(24)}>{planName} Plan</p>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <p style={medLabel(14)}>{isTrialUser ? `${fmtNum(creditsRemaining)} of ${fmtNum(creditsTotal)} credits remaining` : nextBilling !== '-' ? `Next billing: ${nextBilling}` : 'No upcoming billing'}</p>
+                  <p style={medLabel(14)}>{isTrialUser ? `${fmtNum(creditsRemaining)} of ${fmtNum(creditsTotal)} credits remaining` : cancelAtPeriodEnd ? `Access ends ${fmtDate(periodEnd)}` : nextBilling !== '-' ? `Next billing: ${nextBilling}` : 'No upcoming billing'}</p>
                   {planPrice > 0 && (
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', padding: '2px 4px', borderRadius: 6,
@@ -670,7 +686,7 @@ export default function BillingPage() {
                 <div style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, padding: 12, borderRadius: 8, backgroundColor: C.white, boxShadow: CARD_RING }}>
                   <p style={medLabel(14)}>{isTrialUser ? 'Trial Credits' : 'Monthly Credits'}</p>
                   <p style={titleH(24)}>{fmtNum(creditsTotal)}</p>
-                  <p style={regMuted}>{isTrialUser ? 'One-time trial allowance' : `Resets ${resetDate}`}</p>
+                  <p style={regMuted}>{isTrialUser ? 'One-time trial allowance' : cancelAtPeriodEnd ? 'No further resets' : `Resets ${resetDate}`}</p>
                 </div>
                 <div style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, padding: 12, borderRadius: 8, backgroundColor: C.white, boxShadow: CARD_RING }}>
                   <p style={medLabel(14)}>Credits Remaining</p>
@@ -699,7 +715,7 @@ export default function BillingPage() {
             <SectionCard>
               <div style={{ display: 'flex', alignItems: 'center', padding: '12px 24px 24px', borderBottom: `1px solid ${C.hair}` }}>
                 <p style={{ ...medLabel(16), flex: '1 0 0', minWidth: 0 }}>This month&apos;s usage</p>
-                <p style={{ ...regMuted, whiteSpace: 'nowrap' }}>Resets {resetDate}</p>
+                <p style={{ ...regMuted, whiteSpace: 'nowrap' }}>{cancelAtPeriodEnd ? 'No further resets' : `Resets ${resetDate}`}</p>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 24px 24px' }}>
