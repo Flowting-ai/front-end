@@ -228,10 +228,25 @@ function saveChatSettings(chatId: string, settings: ChatSettings): void {
 export default function ChatPage() {
   return (
     <Suspense fallback={null}>
-      <ChatPageInner />
+      <ChatPageRemountOnId />
       <WelcomeModal />
     </Suspense>
   );
+}
+
+// Forces a full remount of ChatPageInner whenever the `id` search param
+// changes (including disappearing entirely, e.g. clicking "New chat"). The
+// alternative — a useLayoutEffect inside ChatPageInner comparing against the
+// previous chatIdFromUrl — depends on that component actually re-rendering
+// with the new searchParams value in time to notice the change; when it
+// doesn't (observed: clicking "New chat" while viewing an existing chat left
+// the previous chat showing instead of resetting), the effect's dependency
+// array never sees a difference and silently no-ops. Keying by the id itself
+// sidesteps that: React remounts synchronously as part of the same render
+// that produces the new key, with no separate effect-timing window to miss.
+function ChatPageRemountOnId() {
+  const searchParams = useSearchParams();
+  return <ChatPageInner key={searchParams.get("id") ?? "new"} />;
 }
 
 function ChatPageInner() {
