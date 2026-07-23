@@ -39,6 +39,7 @@ import {
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
 import { ChatMessagesSkeleton } from '@/components/chat/ChatMessagesSkeleton'
+import { ReasoningContent } from '@/components/chat/ReasoningBlock'
 import { useCreditStatus } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
 import type { Phase, PlanStep, StepStatus } from '@/templates/Brain/lib/phase'
@@ -51,7 +52,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { Chip } from '@/components/Chip'
 import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon, ImageDownloadTwoIcon, PinIcon } from '@strange-huge/icons'
 import { useFileUpload } from '@/hooks/use-file-upload'
-import { emitBrainThreadCreated, emitBrainThreadTitleUpdated, BRAIN_NEW_THREAD_EVENT } from '@/hooks/use-sidebar-events'
+import { emitBrainThreadCreated, emitBrainThreadTitleUpdated } from '@/hooks/use-sidebar-events'
 import { fetchPersonas, getVersion } from '@/lib/api/personas'
 import type { PinFolder } from '@/lib/api/pins'
 import { usePinboard } from '@/context/pinboard-context'
@@ -113,6 +114,7 @@ import { parsePermissionPrompt, type ConnectorPermissionPrompt } from '@/lib/api
 import {
   appendReasoningEvent,
   createReasoningState,
+  deriveReasoningSections,
   normalizeReasoningSections,
   reasoningEventText,
   type ReasoningEventType,
@@ -122,7 +124,6 @@ import {
   enqueuePrompt,
   executionPhaseTitle,
   planTimelineItems,
-  reasoningNarrations,
   retirePrompt,
 } from '@/lib/brain-presentation'
 import type { ContextRailData } from '@/templates/Brain/ContextRail'
@@ -691,7 +692,7 @@ function Rise({
   )
 }
 
-function BrainNarrationStack({
+function BrainReasoningStack({
   thinkingContent,
   reasoningSections,
   isStreaming = false,
@@ -700,18 +701,12 @@ function BrainNarrationStack({
   reasoningSections?: ReasoningSection[]
   isStreaming?: boolean
 }) {
-  const narrations = reasoningNarrations(thinkingContent, reasoningSections)
-  if (narrations.length === 0) return null
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {narrations.map((text, index) => (
-        <BrainNarration
-          key={`${index}:${text.slice(0, 48)}`}
-          text={text}
-          isStreaming={isStreaming && index === narrations.length - 1}
-        />
-      ))}
-    </div>
+    <ReasoningContent
+      thinkingContent={thinkingContent}
+      reasoningSections={reasoningSections}
+      isStreaming={isStreaming}
+    />
   )
 }
 
@@ -1285,6 +1280,7 @@ function BrainPageInner() {
   // Individual credit/topup status — hard send-gate when exhausted.
   const creditStatus = useCreditStatus()
   const chatIdFromUrl = searchParams.get('id')
+  const newThreadRequested = searchParams.get('new') === '1'
 
   const [homeSchedules, setHomeSchedules] = useState<ActiveSchedule[]>([])
   const [homeDigest, setHomeDigest] = useState<DigestItem[]>([])
@@ -1665,7 +1661,10 @@ function BrainPageInner() {
   // Model commentary renders as Mayday narration. Node outputs belong to the
   // execution phase timeline, so keeping them out of this list avoids showing
   // the same work twice at completion.
-  const activeReasoningSections = reasoningSections
+  const activeReasoningSections = useMemo(
+    () => deriveReasoningSections(reasoningSections, reasoningText),
+    [reasoningSections, reasoningText],
+  )
 
   // ── Plan-approval correlation ───────────────────────────────────────────────
   // plan_ready → user_prompt(kind='plan') is the plan approval gate.
@@ -1865,6 +1864,10 @@ function BrainPageInner() {
 
   // ── Sync chatId + full state reset when navigating between brain threads ──────
   useEffect(() => {
+    // `?new=1` is handled by the imperative reset below. Letting this generic
+    // navigation reset run first would detach and null the abort controllers,
+    // preventing the new-thread reset from stopping the active run.
+    if (newThreadRequested) return
     if (skipNextResetRef.current) {
       skipNextResetRef.current = false
       return
@@ -1945,7 +1948,7 @@ function BrainPageInner() {
     setHistoryMessages([])
     setLocalTurns([])
     setHistoryLoaded(!chatIdFromUrl)
-  }, [chatIdFromUrl])
+  }, [chatIdFromUrl, newThreadRequested])
 
   // ── Load history on mount (when chat_id is in URL) ───────────────────────────
 
@@ -4249,13 +4252,15 @@ function BrainPageInner() {
     if (chatIdFromUrl) push(BRAIN_ROUTE)
   }, [chatIdFromUrl, push])
 
-  // The "New thread" button lives in the shared LeftSidebar (AppLayout) now, so it
-  // can't call handleNewChat directly — it emits an event we run the reset from.
+  // The shared sidebar navigates to `?new=1` instead of relying on an in-memory
+  // window event. Unlike pushing bare `/brain`, this also changes the URL when an
+  // active unsaved thread is already on `/brain`, so the reset cannot be dropped.
   useEffect(() => {
-    const handle = () => handleNewChat()
-    window.addEventListener(BRAIN_NEW_THREAD_EVENT, handle)
-    return () => window.removeEventListener(BRAIN_NEW_THREAD_EVENT, handle)
-  }, [handleNewChat])
+    if (!newThreadRequested) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- this query param is an external navigation command that must reset the mounted page
+    handleNewChat()
+    replace(BRAIN_ROUTE)
+  }, [handleNewChat, newThreadRequested, replace])
 
   // ── Thread: history from server (reload path) ─────────────────────────────────
 
@@ -4275,7 +4280,10 @@ function BrainPageInner() {
     // the clean user text, not the full injected message).
     const cleanInput = stripDocumentBlocks(msg.input)
     const msgAttachments = storedHistoryAttachments[cleanInput]
-    const msgReasoningSections = normalizeReasoningSections(msg.reasoning_sections)
+    const msgReasoningSections = deriveReasoningSections(
+      normalizeReasoningSections(msg.reasoning_sections),
+      msg.reasoning ?? '',
+    )
 
     // Map persisted tool_calls into ActivityFeedItem[] for the history view.
     const rawToolCalls = (msg.tool_calls ?? []) as Array<Record<string, unknown>>
@@ -4324,7 +4332,7 @@ function BrainPageInner() {
           <MessageBubble role="user" content={cleanInput} maxWidth="75%" />
         </div>
         {(msg.reasoning || msgReasoningSections.length > 0) && (
-          <BrainNarrationStack
+          <BrainReasoningStack
             thinkingContent={msg.reasoning ?? ''}
             reasoningSections={msgReasoningSections}
           />
@@ -4395,7 +4403,7 @@ function BrainPageInner() {
         <MessageBubble role="user" content={turn.userInput} maxWidth="75%" />
       </div>
       {(turn.reasoning || turn.reasoningSections?.length) && (
-        <BrainNarrationStack
+        <BrainReasoningStack
           thinkingContent={turn.reasoning ?? ''}
           reasoningSections={turn.reasoningSections}
         />
@@ -4629,7 +4637,7 @@ function BrainPageInner() {
       {/* Brain and Chat share this structured reasoning presentation. */}
       {(reasoningText || activeReasoningSections.length > 0) && (
         <Rise>
-          <BrainNarrationStack
+          <BrainReasoningStack
             thinkingContent={reasoningText}
             reasoningSections={activeReasoningSections}
             isStreaming={reasoningActive}

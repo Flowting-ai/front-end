@@ -821,8 +821,24 @@ export async function startBrainChat(
     throw new ApiError(response.status, 'brain_create_failed', 'Failed to start Brain chat')
   }
 
-  const chatId = response.headers.get('X-Chat-Id') ?? ''
+  let chatId = response.headers.get('X-Chat-Id') ?? ''
+  if (!chatId) {
+    // Prod backend hotfix: older builds don't CORS-expose X-Chat-Id, so the
+    // browser hides it on deployed (cross-origin) requests and the chat looks
+    // orphaned. The row is already committed by the time these headers arrive,
+    // so recover the id from the freshly-ordered chat list (newest first).
+    chatId = await recoverNewestChatId()
+  }
   return { chatId, stream: response }
+}
+
+async function recoverNewestChatId(): Promise<string> {
+  try {
+    const chats = await listBrainChats()
+    return chats[0]?.id ?? ''
+  } catch {
+    return ''
+  }
 }
 
 // ── Continue existing Brain chat ──────────────────────────────────────────────

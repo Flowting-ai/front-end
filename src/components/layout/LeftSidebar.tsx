@@ -16,7 +16,7 @@ import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { fetchPersonaOwnerMap, resolveViewerUserId } from "@/lib/api/teams";
 import { listTasks, getTask } from "@/lib/api/tasks";
 import type { ScheduledTaskListItem, ScheduledTaskRunResponse } from "@/lib/api/tasks";
-import { CHAT_CREATED_EVENT, emitBrainNewThread, emitSidebarNewChat } from "@/hooks/use-sidebar-events";
+import { CHAT_CREATED_EVENT, emitSidebarNewChat } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
 import { BrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
 import { ChatHistoryItem } from "./ChatHistoryItem";
@@ -2274,10 +2274,10 @@ function LeftSidebarImpl({
       onChatsClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push(CHATS_ROUTE) }}
       onChatboardClick={() => { toast.info("Opening Chat Board", { id: 'nav' }); push(CHATS_ROUTE) }}
       onManageAllThreadsClick={() => { toast.info("Opening Brain Threads", { id: 'nav' }); push(BRAIN_THREADS_ROUTE) }}
-      // On a brain page the brain page owns the imperative new-thread reset
-      // (URL navigation alone is unsafe — see handleNewChat in brain/page). Emit
-      // the event it listens for; fall back to navigation from anywhere else.
-      onNewBrainThread={() => { if (isBrainPage) emitBrainNewThread(); else push(BRAIN_ROUTE) }}
+      // Use a URL command so this works even when the current thread is an
+      // unsaved session already at bare `/brain`. The page consumes `?new=1`,
+      // performs its complete imperative reset, then cleans the URL.
+      onNewBrainThread={() => push(`${BRAIN_ROUTE}?new=1`)}
       onProjectsClick={() => { toast.info("Opening Projects", { id: 'nav' }); push(PROJECTS_ROUTE) }}
       onPersonasClick={() => { toast.info("Opening Agents", { id: 'nav' }); push(AGENTS_ROUTE) }}
       onNewAgentChat={() => push(AGENTS_ROUTE)}

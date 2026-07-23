@@ -1,5 +1,3 @@
-import type { ReasoningSection } from '@/lib/reasoning'
-import { cleanReasoningHeading } from '@/lib/reasoning'
 import type { PlanStep } from '@/templates/Brain/lib/phase'
 import type { BrainTimelineItem } from '@/templates/Brain'
 
@@ -17,28 +15,6 @@ export function enqueuePrompt<T extends PromptIdentity>(queue: T[], prompt: T): 
 /** Retire only the prompt the server resolved/expired; the next item is promoted. */
 export function retirePrompt<T extends PromptIdentity>(queue: T[], promptId: string): T[] {
   return queue.filter((item) => item.request_id !== promptId)
-}
-
-/**
- * Mayday renders Brain's commentary as narration rather than Chat's expandable
- * reasoning widget. Preserve only backend-provided text: structured sections
- * become one narration each, while legacy raw reasoning remains the fallback.
- */
-export function reasoningNarrations(
-  raw: string,
-  sections: ReasoningSection[] | undefined,
-): string[] {
-  const structured = (sections ?? []).flatMap((section) => {
-    const heading = cleanReasoningHeading(section.heading)
-    const body = section.body.trim()
-    if (!heading && !body) return []
-    if (!body) return [heading]
-    if (!heading) return [body]
-    return [`${heading}: ${body}`]
-  })
-  if (structured.length > 0) return structured
-  const fallback = raw.trim()
-  return fallback ? [fallback] : []
 }
 
 /** Build Mayday's expandable execution timeline from the canonical plan state. */
@@ -85,4 +61,3 @@ export function executionPhaseTitle(steps: PlanStep[]): string {
   ].filter(Boolean)
   return parts.length > 0 ? `Execution — ${parts.join(' · ')}` : 'Execution details'
 }
-
