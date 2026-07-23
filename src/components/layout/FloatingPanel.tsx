@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useMemo } from 'react'
+import { Suspense, useEffect, useMemo } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { PinIcon, QuillWriteOneIcon, UserAiIcon } from '@strange-huge/icons'
@@ -15,6 +15,7 @@ import { AgentsPanelContent } from '@/components/AgentsPanel'
 import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
 import { sortHighlightsBySourcePosition } from '@/lib/highlight-order'
+import { CHAT_ROUTE } from '@/lib/routes'
 
 const AGENTS_PANEL_TITLE = 'Agents'
 
@@ -36,6 +37,20 @@ function FloatingPanelImpl() {
   const { panel: sidePanel, setPanel: setSidePanel } = useProjectPanel()
   const agentsOpen = sidePanel?.title === AGENTS_PANEL_TITLE
   const currentChatId = useCurrentChatId()
+  const pathname = usePathname()
+  // Agents only works on the regular chat page today (new chat + existing
+  // chat are the same /chat route, distinguished by ?id= — see
+  // useCurrentChatId above). Nowhere else listens for AGENT_SELECT_EVENT
+  // (project chat, /chats, persona chat, etc.), so the trigger would be a
+  // dead button there.
+  const isChatPage = pathname === CHAT_ROUTE
+
+  // If the panel is open and the user navigates off /chat, force it closed —
+  // otherwise the side panel context (global, outside this page) would keep
+  // showing "Agents" content on a page whose floating menu no longer offers it.
+  useEffect(() => {
+    if (!isChatPage && agentsOpen) setSidePanel(null)
+  }, [isChatPage, agentsOpen, setSidePanel])
 
   const handleTogglePinboard = () => {
     if (!pinboardOpen) { closeHighlight(); if (agentsOpen) setSidePanel(null) }
@@ -120,12 +135,14 @@ function FloatingPanelImpl() {
             onClick={handleTogglePinboard}
             onMouseEnter={prefetchPinboard}
           />
-          <FloatingMenuItem
-            icon={<UserAiIcon size={20} />}
-            label="Agents"
-            active={agentsOpen}
-            onClick={handleToggleAgents}
-          />
+          {isChatPage && (
+            <FloatingMenuItem
+              icon={<UserAiIcon size={20} />}
+              label="Agents"
+              active={agentsOpen}
+              onClick={handleToggleAgents}
+            />
+          )}
           <FloatingMenuItem
             icon={<QuillWriteOneIcon size={20} />}
             label="Highlights"

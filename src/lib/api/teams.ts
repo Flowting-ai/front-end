@@ -1,6 +1,7 @@
 'use client'
 
 import { apiFetch, apiFetchJson } from './client'
+import { PERSONAS_LIST_UPDATED_EVENT } from './personas'
 import {
   ORG_TEAMS_ENDPOINT,
   ORG_TEAM_ENDPOINT,
@@ -657,11 +658,47 @@ export async function listTeamPersonaShares(orgId: string, teamId: string): Prom
  * distinguish "my persona" from "a team-shared persona I don't own" (as
  * opposed to a coarse, wrong org-role guess) should fetch this.
  */
-export async function fetchPersonaOwnerMap(orgId: string, teamIds: string[]): Promise<Record<string, string>> {
-  const results = await Promise.all(teamIds.map(id => listTeamPersonaShares(orgId, id).catch(() => [] as TeamPersonaShare[])))
-  const map: Record<string, string> = {}
-  for (const shares of results) for (const s of shares) map[s.personaRepoId] = s.sharedByUserId
-  return map
+// 30-second TTL cache + in-flight dedup, same pattern as fetchPersonas() —
+// this was previously hit fresh on every call (every Agents panel open,
+// every /agents page load), even though the underlying team-persona-share
+// data rarely changes. Busted whenever personas' own list cache is busted
+// (sharing changes already trigger that event — see SharingTab.tsx) so it
+// can't go stale across an actual visibility/ownership change.
+const _ownerMapCache = new Map<string, { data: Record<string, string>; time: number }>()
+const _ownerMapInFlight = new Map<string, Promise<Record<string, string>>>()
+const OWNER_MAP_CACHE_TTL = 30_000
+
+if (typeof window !== 'undefined') {
+  window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, () => {
+    _ownerMapCache.clear()
+    _ownerMapInFlight.clear()
+  })
+}
+
+function ownerMapCacheKey(orgId: string, teamIds: string[]): string {
+  return `${orgId}:${[...teamIds].sort().join(',')}`
+}
+
+export function fetchPersonaOwnerMap(orgId: string, teamIds: string[]): Promise<Record<string, string>> {
+  const key = ownerMapCacheKey(orgId, teamIds)
+  const now = Date.now()
+  const cached = _ownerMapCache.get(key)
+  if (cached && now - cached.time < OWNER_MAP_CACHE_TTL) return Promise.resolve(cached.data)
+
+  const inFlight = _ownerMapInFlight.get(key)
+  if (inFlight) return inFlight
+
+  const promise = Promise.all(teamIds.map(id => listTeamPersonaShares(orgId, id).catch(() => [] as TeamPersonaShare[])))
+    .then(results => {
+      const map: Record<string, string> = {}
+      for (const shares of results) for (const s of shares) map[s.personaRepoId] = s.sharedByUserId
+      _ownerMapCache.set(key, { data: map, time: Date.now() })
+      return map
+    })
+    .finally(() => { _ownerMapInFlight.delete(key) })
+
+  _ownerMapInFlight.set(key, promise)
+  return promise
 }
 
 /**

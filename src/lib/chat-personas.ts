@@ -2,6 +2,7 @@ import {
   fetchPersonas,
   isPersonaOwnedByViewer,
   usePersonaRepoDeduped,
+  PERSONAS_LIST_UPDATED_EVENT,
   type Persona,
   type PersonaRepoResponse,
 } from '@/lib/api/personas'
@@ -84,21 +85,53 @@ export async function resolveSelectableChatPersonas(
   }))
 }
 
+// 30-second TTL cache + in-flight dedup — the Agents floating panel calls
+// fetchSelectableChatPersonas() fresh on every open, which previously re-ran
+// fetchPersonas() + fetchPersonaOwnerMap() + the copy-resolution pass every
+// single time. Busted whenever the personas list itself is busted (create/
+// edit/publish/delete/share), so a real mutation is never masked by a stale
+// cache hit.
+const _selectableCache = new Map<string, { data: SelectedPersonaInfo[]; time: number }>()
+const _selectableInFlight = new Map<string, Promise<SelectedPersonaInfo[]>>()
+const SELECTABLE_CACHE_TTL = 30_000
+
+if (typeof window !== 'undefined') {
+  window.addEventListener(PERSONAS_LIST_UPDATED_EVENT, () => {
+    _selectableCache.clear()
+    _selectableInFlight.clear()
+  })
+}
+
 /** The complete set of agents the backend says this viewer may access.
  *  Drafts are excluded — they aren't published/usable yet. */
-export async function fetchSelectableChatPersonas(
+export function fetchSelectableChatPersonas(
   orgId: string | null | undefined,
   viewerUserId: string | number | null | undefined,
   fallbackOwned: boolean,
 ): Promise<SelectedPersonaInfo[]> {
-  const allPersonas = await fetchPersonas()
-  const personas = allPersonas.filter(persona => persona.status !== 'draft')
-  const teamIds = [...new Set(
-    personas.flatMap(persona => persona.visibility === 'team' ? persona.teamIds : []),
-  )]
-  const ownerMap = orgId && teamIds.length > 0
-    ? await fetchPersonaOwnerMap(orgId, teamIds)
-    : {}
+  const key = `${orgId ?? ''}:${viewerUserId ?? ''}:${fallbackOwned}`
+  const now = Date.now()
+  const cached = _selectableCache.get(key)
+  if (cached && now - cached.time < SELECTABLE_CACHE_TTL) return Promise.resolve(cached.data)
 
-  return resolveSelectableChatPersonas(personas, ownerMap, viewerUserId, fallbackOwned)
+  const inFlight = _selectableInFlight.get(key)
+  if (inFlight) return inFlight
+
+  const promise = (async () => {
+    const allPersonas = await fetchPersonas()
+    const personas = allPersonas.filter(persona => persona.status !== 'draft')
+    const teamIds = [...new Set(
+      personas.flatMap(persona => persona.visibility === 'team' ? persona.teamIds : []),
+    )]
+    const ownerMap = orgId && teamIds.length > 0
+      ? await fetchPersonaOwnerMap(orgId, teamIds)
+      : {}
+
+    const resolved = await resolveSelectableChatPersonas(personas, ownerMap, viewerUserId, fallbackOwned)
+    _selectableCache.set(key, { data: resolved, time: Date.now() })
+    return resolved
+  })().finally(() => { _selectableInFlight.delete(key) })
+
+  _selectableInFlight.set(key, promise)
+  return promise
 }

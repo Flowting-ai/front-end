@@ -9,18 +9,33 @@ import {
   PlusSignIcon,
   SearchOneIcon,
   ArrowDownOneIcon,
+  ArrowUpRightOneIcon,
   CopyOneIcon,
   PenOneIcon,
   CancelOneIcon,
   FilterMailIcon,
   AlertCircleIcon,
   RedoIcon,
+  DeleteTwoIcon,
+  TickTwoIcon,
 } from '@strange-huge/icons'
 import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Spinner } from '@/components/Spinner'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
+import { Avatar } from '@/components/Avatar'
+import { Tooltip } from '@/components/Tooltip'
+import { DateRangePill } from '@/components/DateRangePill'
+import {
+  SettingsTable,
+  SettingsTableToolbar,
+  SettingsTableViewport,
+  SettingsTableHeader,
+  SettingsTableHeaderCell,
+  SettingsTableRow,
+  SettingsTableCell,
+} from '@/components/SettingsTable'
 import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, usePersonaRepoDeduped, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import type { AIModel } from '@/types/ai-model'
@@ -33,12 +48,10 @@ import { personaTagsKey, personaProfileKey } from '@/lib/storage-keys'
 import { AGENTS_TEMPLATES_ROUTE, AGENT_CHAT_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
 import Tabs from '@/components/Tabs'
 import { PersonaCard } from '@/components/PersonaCard'
-import { SuperLinkRow, type SuperLinkStatus } from '@/components/SuperLinkRow'
+import type { SuperLinkStatus } from '@/components/SuperLinkRow'
 import { SuperLinkDrawer, type SuperLinkDrawerLink } from '@/components/SuperLinkDrawer'
 import { SuperLinksEmpty } from '@/components/SuperLinksEmpty'
-import { StatCard } from '@/components/StatCard'
 import { Sparkline } from '@/components/Sparkline'
-import { DateRangePill } from '@/components/DateRangePill'
 import { TeamAgentsTab } from '@/app/(app)/agents/components/TeamAgentsTab'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
@@ -48,7 +61,7 @@ import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = 'my-personas' | 'team-agents' | 'super-links' | 'shared' | 'community'
+type TabId = 'my-personas' | 'team-agents' | 'super-links' | 'community'
 type SortKey = 'activity' | 'az' | 'za'
 
 type AgentFilters = {
@@ -320,176 +333,6 @@ function fmtExpiry(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-// ── SharedAgentCard ───────────────────────────────────────────────────────────
-
-function SharedAgentCard({
-  share,
-  persona,
-  onUseInChat,
-  onDelete,
-}: {
-  share:       ReceivedShareResponse
-  persona:     Persona | undefined
-  onUseInChat: () => void
-  onDelete:    () => void
-}) {
-  const status  = receivedShareStatus(share)
-  const badge   = RECEIVED_STATUS_BADGE[status]
-  const initial = share.shared_by_name.slice(0, 1).toUpperCase()
-  const avatarBg = colorFromName(share.shared_by_name)
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <PersonaCard
-        style={{ width: '100%' }}
-        variant="default"
-        avatarSeed={share.persona_id}
-        name={share.name}
-        handle={persona?.handle.replace(/^@/, '') ?? ''}
-        description={share.description ?? undefined}
-        avatarUrl={share.image_url ?? undefined}
-        shared
-        tags={persona?.tags}
-        paused={persona?.isPaused}
-        onUseInChat={onUseInChat}
-        onMenuDelete={onDelete}
-      />
-
-      {/* ── Share context strip ── */}
-      <div style={{
-        display:    'flex',
-        alignItems: 'center',
-        gap:        6,
-        padding:    '0 4px',
-        flexWrap:   'wrap',
-        rowGap:     4,
-      }}>
-        {/* Sharer initials bubble */}
-        <div style={{
-          width:           18,
-          height:          18,
-          borderRadius:    '50%',
-          background:      avatarBg,
-          display:         'flex',
-          alignItems:      'center',
-          justifyContent:  'center',
-          fontSize:        9,
-          fontWeight:      600,
-          color:           'white',
-          flexShrink:      0,
-          letterSpacing:   0,
-        }}>
-          {initial}
-        </div>
-        <span style={{
-          fontFamily: 'var(--font-body)',
-          fontSize:   12,
-          lineHeight: '16px',
-          color:      'var(--neutral-600)',
-          flexShrink: 0,
-        }}>
-          {share.shared_by_name}
-        </span>
-        <span style={{ color: 'var(--neutral-300)', fontSize: 12, flexShrink: 0 }}>·</span>
-        <Badge color={badge.color}>{badge.label}</Badge>
-        <span style={{
-          marginLeft:  'auto',
-          fontFamily:  'var(--font-body)',
-          fontSize:    11,
-          color:       'var(--neutral-400)',
-          flexShrink:  0,
-        }}>
-          {fmtExpiry(share.expires_at)}
-        </span>
-      </div>
-
-      {/* ── Credit bar — only when a cap is set ── */}
-      {share.credit_limit !== null && (
-        <div style={{ padding: '0 4px' }}>
-          <TokenBudgetBar
-            used={share.credit_used}
-            limit={share.credit_limit}
-            size="sm"
-            showLabel
-          />
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── SharedByMeCard — one card per agent the user has shared with others ───────
-
-function SharedByMeCard({
-  persona,
-  shares,
-  fallbackName,
-  onUseInChat,
-  onManage,
-}: {
-  persona:      Persona | undefined
-  shares:       PersonaShare[]
-  fallbackName: string
-  onUseInChat:  () => void
-  onManage:     () => void
-}) {
-  const activeShares = shares.filter(s => s.is_active)
-  const isActive     = activeShares.length > 0
-
-  // Aggregate credit usage across shares that carry a cap.
-  const capped       = shares.filter(s => s.credit_limit !== null)
-  const totalUsed    = capped.reduce((sum, s) => sum + s.credit_used, 0)
-  const totalLimit   = capped.reduce((sum, s) => sum + (s.credit_limit ?? 0), 0)
-
-  // Soonest upcoming expiry among active shares (else the latest seen).
-  const expiry = (isActive ? activeShares : shares)
-    .map(s => s.expires_at)
-    .sort()[isActive ? 0 : shares.length - 1]
-
-  const linkLabel = `${shares.length} link${shares.length === 1 ? '' : 's'} shared`
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <PersonaCard
-        style={{ width: '100%' }}
-        variant="default"
-        avatarSeed={persona?.activeVersionId ?? shares[0].persona_id}
-        name={persona?.name ?? shares[0].persona_name ?? fallbackName}
-        handle={persona?.handle.replace(/^@/, '') ?? ''}
-        description={persona?.description}
-        avatarUrl={persona?.imageUrl ?? undefined}
-        shared
-        tags={persona?.tags}
-        paused={persona?.isPaused}
-        onUseInChat={onUseInChat}
-        onLink={onManage}
-      />
-
-      {/* ── Share context strip ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px', flexWrap: 'wrap', rowGap: 4 }}>
-        <Badge color={isActive ? 'Green' : 'Neutral'}>{isActive ? 'Active' : 'Inactive'}</Badge>
-        <span style={{ color: 'var(--neutral-300)', fontSize: 12, flexShrink: 0 }}>·</span>
-        <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)', flexShrink: 0 }}>
-          {linkLabel}
-        </span>
-        {expiry && (
-          <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--neutral-400)', flexShrink: 0 }}>
-            {fmtExpiry(expiry)}
-          </span>
-        )}
-      </div>
-
-      {/* ── Credit bar — only when at least one share has a cap ── */}
-      {capped.length > 0 && totalLimit > 0 && (
-        <div style={{ padding: '0 4px' }}>
-          <TokenBudgetBar used={totalUsed} limit={totalLimit} size="sm" showLabel />
-        </div>
-      )}
-    </div>
-  )
-}
-
-
 // ── Super Links helpers ───────────────────────────────────────────────────────
 
 function fmtK(n: number): string {
@@ -512,18 +355,161 @@ function shareStatus(share: PersonaShare): SuperLinkStatus {
   return 'active'
 }
 
-// 90-point dummy sparkline — sliced to the selected range when no real usage exists
-const DUMMY_SPARK = [
-   45,  82,  61, 110,  94, 140, 128, 175, 163, 145,
-  190, 210, 185, 220, 245, 215, 255, 238, 280, 265,
-  290, 310, 285, 330, 315, 345, 360, 340, 375, 390,
-  410, 385, 425, 445, 420, 460, 478, 455, 490, 510,
-  485, 525, 545, 520, 560, 575, 550, 590, 610, 585,
-  625, 645, 620, 660, 678, 655, 690, 710, 685, 725,
-  745, 720, 760, 778, 755, 790, 810, 785, 825, 845,
-  820, 860, 878, 855, 890, 910, 885, 925, 940, 955,
-  930, 960, 975, 950, 990,1005, 980,1020,1010,1030,
-]
+const SENT_STATUS_BADGE: Record<SuperLinkStatus, { color: 'Green' | 'Neutral' | 'Red'; label: string }> = {
+  'active':        { color: 'Green',   label: 'Active'        },
+  'paused':        { color: 'Neutral', label: 'Paused'        },
+  'limit-reached': { color: 'Red',     label: 'Limit reached' },
+  'revoked':       { color: 'Neutral', label: 'Revoked'       },
+}
+
+function fmtRelative(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return ''
+  const diffMin = Math.floor((Date.now() - then) / 60_000)
+  if (diffMin < 1)  return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24)  return `${diffHr}h ago`
+  const diffDay = Math.floor(diffHr / 24)
+  if (diffDay < 30) return `${diffDay}d ago`
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// Self-contained copy-to-clipboard icon button — owns its own "copied" flash
+// state so table rows don't need per-row state tracking in the parent.
+function CopyUrlButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    try { void navigator.clipboard?.writeText(url) } catch { /* ignore */ }
+    setCopied(true)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <Tooltip content={copied ? 'Copied!' : 'Copy link URL'} side="top">
+      <IconButton
+        aria-label={copied ? 'Link copied' : 'Copy link URL'}
+        size="xs"
+        variant="ghost"
+        onClick={handleCopy}
+        icon={copied ? <TickTwoIcon size={14} /> : <CopyOneIcon size={14} />}
+      />
+    </Tooltip>
+  )
+}
+
+// ── /org/plans visual system — mirrored here so the Super Links tab reads as
+// one system with the rest of the org settings shell (SectionCard/StatTile,
+// same shadow constants, non-uppercase section titles) instead of the
+// generic StatCard/var(--shadow-surface-card) chrome used elsewhere. ────────
+
+const SHADOW_CARD = '0px 2px 2.8px 0px rgba(82,75,71,0.12)'                                    // bordered section card
+const SHADOW_TILE = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)' // white inner tile
+
+/** White stat tile — label / value / sub. Ditto /org/plans' StatTile. */
+function StatTile({
+  label,
+  value,
+  sub,
+}: {
+  label:  string
+  value?: string | number
+  sub?:   string
+}) {
+  return (
+    <div style={{
+      background:    'var(--neutral-white, #fff)',
+      borderRadius:  8,
+      padding:       12,
+      boxShadow:     SHADOW_TILE,
+      display:       'flex',
+      flexDirection: 'column',
+      gap:           6,
+      flex:          '1 1 200px',
+      minWidth:      160,
+    }}>
+      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+        {label}
+      </p>
+      {value !== undefined && (
+        <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+          {value}
+        </p>
+      )}
+      {sub && (
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+          {sub}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** Bordered section card with a header row (title / subtitle / action). Ditto /org/plans' SectionCard. */
+function SectionCard({
+  title,
+  subtitle,
+  action,
+  children,
+  bodyPadding = '12px 24px',
+  bodyGap,
+}: {
+  title:        string
+  subtitle?:    string
+  action?:      React.ReactNode
+  children:     React.ReactNode
+  bodyPadding?: string
+  bodyGap?:     number
+}) {
+  return (
+    <div style={{
+      border:        '1px solid var(--neutral-200)',
+      borderRadius:  16,
+      boxShadow:     SHADOW_CARD,
+      display:       'flex',
+      flexDirection: 'column',
+      gap:           12,
+      paddingTop:    12,
+      paddingBottom: 12,
+      overflow:      'hidden',
+      width:         '100%',
+    }}>
+      {/* Header padding-top is 12 (not 0) specifically to offset the outer
+          card's own paddingTop:12 above — so the total gap from the card's
+          top edge to the title (12+12=24) matches the gap from the title's
+          bottom edge to the divider (24), making the title/action row
+          actually centered in the header's visual space, not just centered
+          relative to whichever sibling (e.g. the Tabs) happens to be taller. */}
+      <div style={{
+        borderBottom: '1px solid var(--neutral-100)',
+        padding:      '12px 24px 24px',
+        display:      'flex',
+        alignItems:   'center',
+        gap:          12,
+      }}>
+        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+            {title}
+          </p>
+          {subtitle && (
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+              {subtitle}
+            </p>
+          )}
+        </div>
+        {action}
+      </div>
+      <div style={{ padding: bodyPadding, display: 'flex', flexDirection: 'column', gap: bodyGap }}>
+        {children}
+      </div>
+    </div>
+  )
+}
 
 function toDrawerLink(
   share: PersonaShare,
@@ -611,39 +597,47 @@ export default function PersonasPage() {
   const [allSharesForFilter, setAllSharesForFilter] = useState<PersonaShare[]>([])
   const [availableModels,    setAvailableModels]    = useState<AIModel[]>([])
   const filterSharesLoadedRef = useRef(false)
-  const [headerGenOpen, setHeaderGenOpen] = useState(false)
   const [panelGenOpen,  setPanelGenOpen]  = useState(false)
 
   // Super Links state
   const [dashboard,          setDashboard]          = useState<ShareDashboardResponse | null>(null)
-  const [sharesLoading,      setSharesLoading]      = useState(false)
+  // Defaults true (not false) so the tab's zero-links empty state can't flash
+  // on first mount before the fetch effect has a chance to set it — dashboard
+  // is null and totalLinks resolves to 0 on that very first render otherwise,
+  // which would incorrectly read as "confirmed empty" for a frame.
+  const [sharesLoading,      setSharesLoading]      = useState(true)
   const [dashboardRefreshing, setDashboardRefreshing] = useState(false)
   const [selectedShareId,    setSelectedShareId]    = useState<string | null>(null)
   const [slRange,            setSlRange]            = useState<'7d' | '30d' | '90d'>('30d')
+  // "My Superlinks" (outgoing) vs "Shared Superlinks" (incoming) sub-tab —
+  // replaces the old side-by-side two-column layout with a single switchable table.
+  const [superLinksView,     setSuperLinksView]     = useState<'mine' | 'shared'>('mine')
 
   // Derived from slRange — used in both the fetch effect and the chart section
   const slDays = slRange === '7d' ? 7 : slRange === '90d' ? 90 : 30
 
-  // Shared tab state — received shares from /persona-shares/received
+  // Received shares from /persona-shares/received — rendered as the "Shared
+  // with me" section inside the Super Links tab (merged in from the former
+  // standalone "Shared" tab; the "with-others" half of that tab was dropped
+  // entirely since it only duplicated the Links panel/table already on this
+  // page — same underlying GET /persona-shares data, just a simpler card view).
   const [receivedShares,   setReceivedShares]   = useState<ReceivedShareResponse[]>([])
   const [receivedLoading,  setReceivedLoading]  = useState(false)
-
-  // Shared tab filter — "with-me" (received) vs "with-others" (the user's own shares).
-  const [sharedFilter,     setSharedFilter]     = useState<'with-me' | 'with-others'>('with-me')
-  const [sharedFilterOpen, setSharedFilterOpen] = useState(false)
-  // Shares the user created (GET /persona-shares) — drives the "with-others" view.
-  const [sentShares,       setSentShares]       = useState<PersonaShare[]>([])
-  const [sentLoading,      setSentLoading]      = useState(false)
 
   // Close the pinboard whenever the personas page is mounted.
   useEffect(() => { closePinboard() }, [closePinboard])
 
   // Re-fetch whenever this page becomes the active route so navigating back
-  // from configure always shows the latest avatar / state.
+  // from configure always shows the latest avatar / state. No bustPersonasCache()
+  // here — every configure mutation (save/publish/delete/share) already busts
+  // the cache at its own call site and that bust already re-fetches via the
+  // PERSONAS_LIST_UPDATED_EVENT listener below, so forcing another bust on
+  // every mount just re-pays the fetch cost (incl. the owner-map + copy-
+  // resolution chain) even when nothing changed. The 30s TTL cache covers the
+  // "didn't mutate anything, just navigated back" case.
   useEffect(() => {
     if (pathname !== '/agents') return
     setIsLoading(true)
-    bustPersonasCache()
     ;(async () => {
       try {
         const list = await fetchPersonas()
@@ -703,10 +697,12 @@ export default function PersonasPage() {
   }, [pathname])
 
   // Fetch dashboard whenever the super-links tab is active or the date range changes.
+  // No bustPersonasCache() — same reasoning as the mount effect above; the
+  // TTL cache and the mutation-triggered event listener already keep
+  // `personas` fresh without forcing a full re-fetch on every tab switch.
   useEffect(() => {
     if (activeTab !== 'super-links') return
     setSharesLoading(true)
-    bustPersonasCache()
     Promise.all([fetchDashboard(slDays), fetchPersonas()])
       .then(([dash, allPersonas]) => {
         setDashboard(dash)
@@ -728,27 +724,16 @@ export default function PersonasPage() {
       .finally(() => setDashboardRefreshing(false))
   }, [slDays])
 
-  // Fetch received shares whenever the shared tab becomes active.
+  // Fetch received shares whenever the Super Links tab becomes active — they
+  // render as that tab's "Shared with me" section.
   useEffect(() => {
-    if (activeTab !== 'shared') return
+    if (activeTab !== 'super-links') return
     setReceivedLoading(true)
     listReceived()
       .then(setReceivedShares)
       .catch(console.error)
       .finally(() => setReceivedLoading(false))
   }, [activeTab, pathname])
-
-  // Fetch the user's own shares for the "with-others" view. Re-fetches whenever
-  // that filter is selected on the shared tab so the list stays fresh; personas
-  // (loaded by the main effect) supply the resolved name / handle / avatar.
-  useEffect(() => {
-    if (activeTab !== 'shared' || sharedFilter !== 'with-others') return
-    setSentLoading(true)
-    listShares()
-      .then(setSentShares)
-      .catch(console.error)
-      .finally(() => setSentLoading(false))
-  }, [activeTab, sharedFilter, pathname])
 
   // Silently load all shares + models once for the filter panel.
   // The super-links tab has its own loading effect that will overwrite shares on activation.
@@ -802,20 +787,6 @@ export default function PersonasPage() {
     for (const p of personas) map[p.id] = p
     return map
   }, [personas])
-
-  // "Shared with others" — group the user's own shares by the agent they belong
-  // to, so each shared agent shows once even when it has several links/emails.
-  const sharedByMeAgents = useMemo(() => {
-    const groups = new Map<string, { repoId: string; persona?: Persona; shares: PersonaShare[] }>()
-    for (const share of sentShares) {
-      const info   = versionToPersona[share.persona_id]
-      const repoId = info?.repoId ?? share.persona_id
-      const group  = groups.get(repoId) ?? { repoId, persona: personaByRepoId[repoId], shares: [] }
-      group.shares.push(share)
-      groups.set(repoId, group)
-    }
-    return Array.from(groups.values())
-  }, [sentShares, versionToPersona, personaByRepoId])
 
   // Set of persona repo IDs that have at least one active super link.
   const activeShareRepoIds = useMemo(() => {
@@ -1044,13 +1015,6 @@ export default function PersonasPage() {
     }
   }
 
-  // Super Links: date-range label for the DateRangePill header
-  const _slToday    = new Date()
-  const _slFromDate = new Date(_slToday)
-  _slFromDate.setDate(_slToday.getDate() - slDays)
-  const _fmtSl = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  const slDateRangeLabel = `${_fmtSl(_slFromDate)} – ${_fmtSl(_slToday)}`
-
   return (
     <>
       <div
@@ -1099,7 +1063,6 @@ export default function PersonasPage() {
                 <Tabs.Trigger value="my-personas">My Agents</Tabs.Trigger>
                 <Tabs.Trigger value="team-agents">Team Agents</Tabs.Trigger>
                 <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
-                <Tabs.Trigger value="shared">Shared with me</Tabs.Trigger>
                 {/* <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger> */}
               </Tabs.List>
             </Tabs>
@@ -1116,68 +1079,15 @@ export default function PersonasPage() {
               }}>
                 {activeTab === 'super-links'
                   ? 'Super Links'
-                  : activeTab === 'shared'
-                    ? (sharedFilter === 'with-others' ? 'Shared with others' : 'Shared with me')
-                    : activeTab === 'team-agents'
-                      ? 'Team Agents'
-                      : 'Agents'}
+                  : activeTab === 'team-agents'
+                    ? 'Team Agents'
+                    : 'Agents'}
               </h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {activeTab === 'super-links' && (
-                  <DateRangePill label={slDateRangeLabel} />
-                )}
-                {activeTab === 'super-links' ? (
-                  <Dropdown.Float
-                    open={headerGenOpen}
-                    onOpenChange={setHeaderGenOpen}
-                    placement="bottom-end"
-                    trigger={
-                      <Button variant="default" leftIcon={<PlusSignIcon size={16} />}>
-                        Generate link
-                      </Button>
-                    }
-                  >
-                    <Dropdown style={{ minWidth: 220 }}>
-                      {visiblePersonas.length === 0 ? (
-                        <Dropdown.Section>
-                          <Dropdown.Item label="No agents yet — create one first" disabled fluid />
-                        </Dropdown.Section>
-                      ) : (
-                        <Dropdown.Section label="Select an agent">
-                          {visiblePersonas.map(p => (
-                            <Dropdown.Item
-                              key={p.id}
-                              label={p.name}
-                              onClick={() => {
-                                setHeaderGenOpen(false)
-                                push(AGENT_CONFIGURE_SHARING_ROUTE(p.id, { name: p.name, versionId: p.activeVersionId }))
-                              }}
-                              fluid
-                            />
-                          ))}
-                        </Dropdown.Section>
-                      )}
-                    </Dropdown>
-                  </Dropdown.Float>
-                ) : activeTab === 'shared' ? (
-                  <Dropdown.Float
-                    open={sharedFilterOpen}
-                    onOpenChange={setSharedFilterOpen}
-                    placement="bottom-end"
-                    trigger={
-                      <Button variant="secondary" rightIcon={<ArrowDownOneIcon size={16} />}>
-                        {sharedFilter === 'with-others' ? 'Shared with others' : 'Shared with me'}
-                      </Button>
-                    }
-                  >
-                    <Dropdown style={{ minWidth: 200 }}>
-                      <Dropdown.Section>
-                        <Dropdown.Item label="Shared with me"     selected={sharedFilter === 'with-me'}     onClick={() => { setSharedFilter('with-me');     setSharedFilterOpen(false) }} fluid />
-                        <Dropdown.Item label="Shared with others" selected={sharedFilter === 'with-others'} onClick={() => { setSharedFilter('with-others'); setSharedFilterOpen(false) }} fluid />
-                      </Dropdown.Section>
-                    </Dropdown>
-                  </Dropdown.Float>
-                ) : activeTab === 'team-agents' ? null : (
+                {/* Super Links' own "Generate link" trigger now lives with the
+                    links list section below (where it's contextually useful),
+                    instead of being duplicated here too. */}
+                {activeTab === 'super-links' || activeTab === 'team-agents' ? null : (
                   <Button
                     variant="default"
                     leftIcon={<PlusSignIcon size={16} />}
@@ -1575,332 +1485,435 @@ export default function PersonasPage() {
 
           {/* ── Recommended for you ── (hidden) */}
 
-          {/* ── Shared tab · Shared with me ── */}
-          {activeTab === 'shared' && sharedFilter === 'with-me' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {receivedLoading ? (
-                /* Skeleton — card (140px) + strip (~30px) + gap (8px) = ~178px per cell */
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 314px))', justifyContent: 'center', gap: 16 }}>
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ height: 140, borderRadius: 16, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
-                      <div style={{ height: 18, borderRadius: 8, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite', width: '60%' }} />
-                    </div>
-                  ))}
-                </div>
-              ) : receivedShares.length === 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '64px 24px' }}>
-                  <p style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, textAlign: 'center' }}>
-                    No shared agents yet
-                  </p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: '22px', color: 'var(--neutral-500)', textAlign: 'center', maxWidth: 400, margin: 0 }}>
-                    When someone shares a Super Link and you accept it, their agent appears here.
-                  </p>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 314px))', justifyContent: 'center', gap: 16 }}>
-                  {receivedShares.map(share => {
-                    const persona = personaByRepoId[share.persona_repo_id]
-                    return (
-                      <SharedAgentCard
-                        key={share.share_id}
-                        share={share}
-                        persona={persona}
-                        onUseInChat={() => push(AGENT_CHAT_ROUTE(share.persona_repo_id))}
-                        onDelete={() => persona && setDeleteTarget(persona)}
-                      />
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Shared tab · Shared with others ── */}
-          {activeTab === 'shared' && sharedFilter === 'with-others' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {sentLoading ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 314px))', justifyContent: 'center', gap: 16 }}>
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ height: 140, borderRadius: 16, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
-                      <div style={{ height: 18, borderRadius: 8, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite', width: '60%' }} />
-                    </div>
-                  ))}
-                </div>
-              ) : sharedByMeAgents.length === 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '64px 24px' }}>
-                  <p style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, textAlign: 'center' }}>
-                    You haven&apos;t shared any agents
-                  </p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: '22px', color: 'var(--neutral-500)', textAlign: 'center', maxWidth: 400, margin: 0 }}>
-                    Generate a Super Link from any agent to share it with others — shared agents will show up here.
-                  </p>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 314px))', justifyContent: 'center', gap: 16 }}>
-                  {sharedByMeAgents.map(group => (
-                    <SharedByMeCard
-                      key={group.repoId}
-                      persona={group.persona}
-                      shares={group.shares}
-                      fallbackName="Agent"
-                      onUseInChat={() => push(AGENT_CHAT_ROUTE(group.repoId))}
-                      onManage={() => {
-                        const p = group.persona
-                        push(AGENT_CONFIGURE_SHARING_ROUTE(group.repoId, p ? { name: p.name, versionId: p.activeVersionId } : undefined))
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* ── Super Links tab ── */}
           {activeTab === 'super-links' && (() => {
             const summary      = dashboard?.summary
             const creditsMonth = summary?.credits_this_month ?? 0
             const estimatedCost = parseFloat((creditsMonth / 1_000_000 * 3).toFixed(2))
-            const sparkData: number[] = dashboard?.daily.length
+            const totalLinks   = summary?.total_links ?? shares.length
+            const isEmpty      = !sharesLoading && totalLinks === 0
+            // Honest placeholder when there isn't enough daily granularity yet
+            // (Sparkline needs >=2 points) — flat zeros, never fabricated
+            // activity. Only reached once the user has at least one real link
+            // (the fully-empty case short-circuits to the empty state below).
+            const sparkData: number[] = dashboard && dashboard.daily.length >= 2
               ? dashboard.daily.map(d => d.credits)
-              : DUMMY_SPARK.slice(0, slDays)
+              : Array(Math.max(slDays, 2)).fill(0)
 
-            function fmtDelta(pct: number | null | undefined): { delta: string; deltaTrend: 'up' | 'down' } | object {
-              if (pct == null) return {}
-              return {
-                delta:      `${pct >= 0 ? '+' : ''}${Math.abs(pct).toFixed(1)}%`,
-                deltaTrend: pct >= 0 ? 'up' : 'down',
-              }
-            }
+            // Widths sized to what each cell's content actually needs at
+            // minimum (e.g. "Limit reached" badge, "Jul 24, 2026" expiry,
+            // a single icon button) rather than arbitrary round numbers —
+            // the previous columns were tighter than their own content,
+            // which overflowed into neighboring cells instead of eliding.
+            const MY_LINKS_COLUMNS = 'minmax(220px, 1.6fr) 116px minmax(150px, 1fr) minmax(150px, 1fr) 112px 64px'
+            const SHARED_LINKS_COLUMNS = 'minmax(190px, 1.3fr) minmax(150px, 1fr) 116px minmax(150px, 1fr) 112px 196px'
+
+            // Date-range label for the stat box footer — dropped during the
+            // /org/plans revamp when the page-header DateRangePill was
+            // removed as a redundant duplicate of the 7d/30d/90d Tabs; it
+            // still belongs somewhere as a plain "as of" readout, just not
+            // duplicated next to an already-interactive control.
+            const slToday    = new Date()
+            const slFromDate = new Date(slToday)
+            slFromDate.setDate(slToday.getDate() - slDays)
+            const fmtSl = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            const slDateRangeLabel = `${fmtSl(slFromDate)} – ${fmtSl(slToday)}`
+
+            // "Most active agent" — fills the space the stat box leaves
+            // below it now that it's no longer stretched to match the
+            // chart's height. Ranked by conversation count (recipients),
+            // same data already used for each table row's activity column.
+            const topShare = shares.length > 0
+              ? [...shares].sort((a, b) => (b.recipients?.length ?? 0) - (a.recipients?.length ?? 0))[0]
+              : null
+            const topAgentInfo   = topShare ? versionToPersona[topShare.persona_id] : null
+            const topAgentName   = topShare ? (topShare.persona_name ?? topAgentInfo?.name ?? 'Agent') : null
+            const topAgentConvos = topShare?.recipients?.length ?? 0
 
             return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-                {/* ── Stat grid ── */}
-                <section style={{
-                  display:             'grid',
-                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-                  gap:                 12,
-                }}>
-                  <StatCard
-                    label="Credits this month"
-                    value={fmtK(creditsMonth)}
-                    {...fmtDelta(summary?.credits_delta_pct)}
-                    sub="across all links"
-                  />
-                  <StatCard
-                    label="Conversations"
-                    value={summary?.conversations ?? 0}
-                    {...fmtDelta(summary?.conversations_delta_pct)}
-                    sub="total sessions"
-                  />
-                  <StatCard
-                    label="Active links"
-                    value={summary?.active_links ?? 0}
-                    sub={`of ${summary?.total_links ?? 0} total`}
-                  />
-                  <StatCard
-                    label="Est. cost"
-                    value={`$${estimatedCost.toFixed(2)}`}
-                    {...fmtDelta(summary?.credits_delta_pct != null ? -summary.credits_delta_pct : null)}
-                    sub="creator-pays"
-                  />
-                </section>
-
-                {/* ── Main grid: 2fr chart | 1fr links panel ── */}
-                <section style={{
-                  display:             'grid',
-                  gridTemplateColumns: 'minmax(0, 2fr) minmax(320px, 1fr)',
-                  gap:                 12,
-                  flex:                1,
-                  minHeight:           420,
-                }}>
-
-                  {/* ── ChartCard ── */}
-                  <div style={{
-                    display:         'flex',
-                    flexDirection:   'column',
-                    borderRadius:    16,
-                    backgroundColor: 'var(--neutral-white)',
-                    border:          '1px solid var(--neutral-100)',
-                    boxShadow:       'var(--shadow-surface-card)',
-                    overflow:        'hidden',
-                  }}>
-                    {/* Header */}
-                    <div style={{
-                      display:        'flex',
-                      alignItems:     'flex-start',
-                      justifyContent: 'space-between',
-                      gap:            16,
-                      padding:        '18px 20px 0',
-                    }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <span style={{
-                          fontFamily:    'var(--font-body)',
-                          fontSize:      'var(--font-size-caption)',
-                          lineHeight:    'var(--line-height-caption)',
-                          fontWeight:    500,
-                          color:         'var(--neutral-500)',
-                          textTransform: 'uppercase' as const,
-                          letterSpacing: '0.06em',
-                        }}>
-                          Credit usage · daily
-                        </span>
-                        <span style={{
-                          fontFamily: 'var(--font-title)',
-                          fontSize:   'var(--font-size-heading)',
-                          lineHeight: 'var(--line-height-heading)',
-                          fontWeight: 'var(--font-weight-medium)',
-                          color:      'var(--neutral-900)',
-                        }}>
-                          {fmtK(creditsMonth)}
-                        </span>
+                {/* ── Stat tiles (2x2) on the left, chart on the right — "my"
+                    outgoing usage summary. Hidden entirely when there are no
+                    outgoing links yet, regardless of which sub-tab below is
+                    selected. ── */}
+                {!isEmpty && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'stretch' }}>
+                    {/* Left — one bordered box ditto /org/analytics' Credit
+                        Pool/Used/Members row (neutral-200 border, SHADOW_CARD,
+                        neutral-50 background, 12px padding), containing BOTH
+                        the 4-tile 2x2 grid and the "Most active agent" tile.
+                        alignItems: 'stretch' on the outer grid makes this
+                        whole box match the chart card's height — the agent
+                        tile grows (flex: 1) to absorb the difference instead
+                        of the StatTiles themselves being distorted taller. */}
+                    <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: SHADOW_CARD, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 9, flexShrink: 0 }}>
+                        <StatTile
+                          label="Credits this month"
+                          value={fmtK(creditsMonth)}
+                          sub="across all links"
+                        />
+                        <StatTile
+                          label="Conversations"
+                          value={summary?.conversations ?? 0}
+                          sub="total sessions"
+                        />
+                        <StatTile
+                          label="Active links"
+                          value={summary?.active_links ?? 0}
+                          sub={`of ${summary?.total_links ?? 0} total`}
+                        />
+                        <StatTile
+                          label="Est. cost"
+                          value={`$${estimatedCost.toFixed(2)}`}
+                          sub="creator-pays"
+                        />
                       </div>
-                      {/* Range selector */}
-                      <Tabs value={slRange} onValueChange={(v) => setSlRange(v as '7d' | '30d' | '90d')}>
-                        <Tabs.List size="small">
-                          <Tabs.Trigger value="7d">7d</Tabs.Trigger>
-                          <Tabs.Trigger value="30d">30d</Tabs.Trigger>
-                          <Tabs.Trigger value="90d">90d</Tabs.Trigger>
-                        </Tabs.List>
-                      </Tabs>
+
+                      {topShare && (
+                        <div style={{ backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+                            Most active agent
+                          </p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                            {topAgentInfo?.imageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element -- remote/user-supplied avatar URL
+                              <img src={topAgentInfo.imageUrl} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                            ) : (
+                              <Avatar name={topAgentName ?? 'Agent'} color={colorFromName(topAgentName ?? 'Agent')} size="xs" />
+                            )}
+                            <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {topAgentName}
+                            </p>
+                          </div>
+                          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
+                            {topAgentConvos} conversation{topAgentConvos === 1 ? '' : 's'} · {fmtK(topShare.credit_used)} credits
+                          </p>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Sparkline body */}
-                    <div style={{ flex: 1, padding: '16px 20px 20px' }}>
+                    {/* Right — chart, time-range readout sits in the header
+                        space alongside the 7d/30d/90d Tabs. */}
+                    <SectionCard
+                      title="Credit usage · daily"
+                      bodyPadding="0 24px 12px"
+                      bodyGap={12}
+                      action={
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <DateRangePill label={slDateRangeLabel} />
+                          <Tabs value={slRange} onValueChange={(v) => setSlRange(v as '7d' | '30d' | '90d')}>
+                            <Tabs.List size="small">
+                              <Tabs.Trigger value="7d">7d</Tabs.Trigger>
+                              <Tabs.Trigger value="30d">30d</Tabs.Trigger>
+                              <Tabs.Trigger value="90d">90d</Tabs.Trigger>
+                            </Tabs.List>
+                          </Tabs>
+                        </div>
+                      }
+                    >
+                      <span style={{
+                        fontFamily: 'var(--font-title)',
+                        fontSize:   'var(--font-size-heading)',
+                        lineHeight: 'var(--line-height-heading)',
+                        fontWeight: 'var(--font-weight-medium)',
+                        color:      'var(--neutral-900)',
+                      }}>
+                        {fmtK(creditsMonth)}
+                      </span>
+
                       {sharesLoading ? (
                         <div style={{ height: 180, borderRadius: 10, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
                       ) : (
                         <Sparkline data={sparkData} height={180} />
                       )}
-                    </div>
+                    </SectionCard>
                   </div>
+                )}
 
-                  {/* ── LinksSidePanel ── */}
-                  <div style={{
-                    display:         'flex',
-                    flexDirection:   'column',
-                    borderRadius:    16,
-                    backgroundColor: 'var(--neutral-white)',
-                    border:          '1px solid var(--neutral-100)',
-                    boxShadow:       'var(--shadow-surface-card)',
-                    overflow:        'hidden',
-                    alignSelf:       'start',
-                  }}>
-                    {/* Panel header */}
-                    <div style={{
-                      display:        'flex',
-                      alignItems:     'center',
-                      justifyContent: 'space-between',
-                      gap:            8,
-                      padding:        '12px 16px',
-                      borderBottom:   '1px solid var(--neutral-100)',
-                      flexShrink:     0,
-                    }}>
-                      <span style={{
-                        fontFamily: 'var(--font-body)',
-                        fontSize:   'var(--font-size-caption)',
-                        lineHeight: 'var(--line-height-caption)',
-                        color:      'var(--neutral-500)',
-                      }}>
-                        {sharesLoading ? 'Loading…' : `Super Links ${summary?.total_links ?? shares.length}`}
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <IconButton
-                        variant="ghost"
-                        size="sm"
-                        aria-label="Refresh usage"
-                        disabled={sharesLoading || dashboardRefreshing}
-                        icon={dashboardRefreshing ? <Spinner size={14} /> : <RedoIcon size={14} />}
-                        onClick={handleRefreshDashboard}
-                      />
-                      <Dropdown.Float
-                        open={panelGenOpen}
-                        onOpenChange={setPanelGenOpen}
-                        placement="bottom-end"
-                        trigger={
-                          <Button size="sm" variant="secondary" leftIcon={<PlusSignIcon size={14} />}>
-                            Generate link
-                          </Button>
-                        }
-                      >
-                        <Dropdown style={{ minWidth: 220 }}>
-                          {visiblePersonas.length === 0 ? (
-                            <Dropdown.Section>
-                              <Dropdown.Item label="No agents yet — create one first" disabled fluid />
-                            </Dropdown.Section>
-                          ) : (
-                            <Dropdown.Section label="Select an agent">
-                              {visiblePersonas.map(p => (
-                                <Dropdown.Item
-                                  key={p.id}
-                                  label={p.name}
-                                  onClick={() => {
-                                    setPanelGenOpen(false)
-                                    push(AGENT_CONFIGURE_SHARING_ROUTE(p.id, { name: p.name, versionId: p.activeVersionId }))
-                                  }}
-                                  fluid
-                                />
-                              ))}
-                            </Dropdown.Section>
-                          )}
-                        </Dropdown>
-                      </Dropdown.Float>
-                      </div>
-                    </div>
+                {/* ── My Superlinks / Shared Superlinks — replaces the old
+                    side-by-side two-column layout with a single switchable
+                    table. "Shared Superlinks" stays fully independent of
+                    whether you have any outgoing links yourself. ── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <Tabs value={superLinksView} onValueChange={(v) => setSuperLinksView(v as 'mine' | 'shared')}>
+                    <Tabs.List size="small">
+                      <Tabs.Trigger value="mine">My Superlinks</Tabs.Trigger>
+                      <Tabs.Trigger value="shared">Shared Superlinks</Tabs.Trigger>
+                    </Tabs.List>
+                  </Tabs>
 
-                    {/* Scrollable rows — max 4 visible at once */}
-                    <div
-                      className="kaya-scrollbar"
-                      style={{
-                        maxHeight:     424,
-                        overflowY:     'auto',
-                        padding:       8,
-                        display:       'flex',
-                        flexDirection: 'column',
-                        gap:           6,
-                      }}
-                    >
-                      {/* Skeleton */}
-                      {sharesLoading && Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} style={{ height: 96, borderRadius: 14, background: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
-                      ))}
-
-                      {/* Empty state */}
-                      {!sharesLoading && shares.length === 0 && (
-                        <SuperLinksEmpty onBrowsePersonas={() => setActiveTab('my-personas')} />
-                      )}
-
-                      {/* Rows */}
-                      {!sharesLoading && shares.map(share => {
-                        const personaInfo = versionToPersona[share.persona_id]
-                        const name        = share.persona_name ?? personaInfo?.name ?? 'Agent'
-                        const imageUrl    = personaInfo?.imageUrl ?? null
-                        const repoId      = personaInfo?.repoId ?? ''
-                        return (
-                          <SuperLinkRow
-                            key={share.id}
-                            personaName={name}
-                            avatarColor={colorFromName(name)}
-                            avatarUrl={imageUrl}
-                            url={canonicalShareUrl(share.share_url).replace(/^https?:\/\//, '')}
-                            tokenUsed={share.credit_used}
-                            tokenLimit={share.credit_limit ?? 0}
-                            status={shareStatus(share)}
-                            selected={selectedShareId === share.id}
-                            onClick={() => setSelectedShareId(prev => prev === share.id ? null : share.id)}
-                            onConfigure={repoId ? (e) => {
-                              e.stopPropagation()
-                              push(AGENT_CONFIGURE_SHARING_ROUTE(repoId, { name, versionId: share.persona_id }))
-                            } : undefined}
+                  {superLinksView === 'mine' ? (
+                    isEmpty ? (
+                      <SuperLinksEmpty onBrowsePersonas={() => setActiveTab('my-personas')} />
+                    ) : (
+                      <SettingsTable columns={MY_LINKS_COLUMNS} columnGap={16}>
+                        <SettingsTableToolbar title={sharesLoading ? 'Loading…' : `My Superlinks · ${totalLinks}`}>
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Refresh usage"
+                            disabled={sharesLoading || dashboardRefreshing}
+                            icon={dashboardRefreshing ? <Spinner size={14} /> : <RedoIcon size={14} />}
+                            onClick={handleRefreshDashboard}
                           />
-                        )
-                      })}
-                    </div>
-                  </div>
+                          <Dropdown.Float
+                            open={panelGenOpen}
+                            onOpenChange={setPanelGenOpen}
+                            placement="bottom-end"
+                            trigger={
+                              <Button size="sm" variant="secondary" leftIcon={<PlusSignIcon size={14} />}>
+                                Generate link
+                              </Button>
+                            }
+                          >
+                            <Dropdown style={{ minWidth: 220 }}>
+                              {visiblePersonas.length === 0 ? (
+                                <Dropdown.Section>
+                                  <Dropdown.Item label="No agents yet — create one first" disabled fluid />
+                                </Dropdown.Section>
+                              ) : (
+                                <Dropdown.Section label="Select an agent">
+                                  {visiblePersonas.map(p => (
+                                    <Dropdown.Item
+                                      key={p.id}
+                                      label={p.name}
+                                      onClick={() => {
+                                        setPanelGenOpen(false)
+                                        push(AGENT_CONFIGURE_SHARING_ROUTE(p.id, { name: p.name, versionId: p.activeVersionId }))
+                                      }}
+                                      fluid
+                                    />
+                                  ))}
+                                </Dropdown.Section>
+                              )}
+                            </Dropdown>
+                          </Dropdown.Float>
+                        </SettingsTableToolbar>
+                        <SettingsTableViewport minWidth={900} ariaLabel="My Super Links">
+                          <SettingsTableHeader>
+                            <SettingsTableHeaderCell>Agent</SettingsTableHeaderCell>
+                            <SettingsTableHeaderCell>Status</SettingsTableHeaderCell>
+                            <SettingsTableHeaderCell>Usage</SettingsTableHeaderCell>
+                            <SettingsTableHeaderCell>Activity</SettingsTableHeaderCell>
+                            <SettingsTableHeaderCell>Expires</SettingsTableHeaderCell>
+                            <SettingsTableHeaderCell align="end">Actions</SettingsTableHeaderCell>
+                          </SettingsTableHeader>
 
-                </section>
+                          {sharesLoading && [0, 1, 2].map(i => (
+                            <SettingsTableRow key={i} minHeight={64}>
+                              <SettingsTableCell>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: 1 - i * 0.25 }}>
+                                  <div className="kaya-skeleton" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+                                  <div className="kaya-skeleton" style={{ width: 120, height: 14, borderRadius: 4 }} />
+                                </div>
+                              </SettingsTableCell>
+                              {[0, 1, 2, 3, 4].map(ci => (
+                                <SettingsTableCell key={ci}><div className="kaya-skeleton" style={{ width: 70, height: 14, borderRadius: 4, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
+                              ))}
+                            </SettingsTableRow>
+                          ))}
+
+                          {!sharesLoading && shares.length === 0 && (
+                            <SettingsTableRow divider={false} minHeight={80}>
+                              <SettingsTableCell style={{ gridColumn: '1 / -1' }}>
+                                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
+                                  No Super Links yet — generate one from the button above.
+                                </p>
+                              </SettingsTableCell>
+                            </SettingsTableRow>
+                          )}
+
+                          {!sharesLoading && shares.map(share => {
+                            const personaInfo = versionToPersona[share.persona_id]
+                            const name        = share.persona_name ?? personaInfo?.name ?? 'Agent'
+                            const imageUrl    = personaInfo?.imageUrl ?? null
+                            const repoId      = personaInfo?.repoId ?? ''
+                            const recipients  = share.recipients ?? []
+                            const uniqueUsers = new Set(recipients.map(r => r.recipient_user_id)).size
+                            const status      = shareStatus(share)
+                            const badge       = SENT_STATUS_BADGE[status]
+                            const url         = canonicalShareUrl(share.share_url).replace(/^https?:\/\//, '')
+                            const pctUsed     = share.credit_limit ? Math.min(100, Math.round((share.credit_used / share.credit_limit) * 100)) : null
+
+                            return (
+                              <SettingsTableRow
+                                key={share.id}
+                                minHeight={64}
+                                onClick={() => setSelectedShareId(prev => prev === share.id ? null : share.id)}
+                              >
+                                <SettingsTableCell>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                                    {imageUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element -- remote/user-supplied avatar URL
+                                      <img src={imageUrl} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                    ) : (
+                                      <Avatar name={name} color={colorFromName(name)} size="xs" />
+                                    )}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '20px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {name}
+                                      </p>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                                        <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                          {url}
+                                        </p>
+                                        <CopyUrlButton url={url} />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </SettingsTableCell>
+                                <SettingsTableCell>
+                                  <Badge color={badge.color} label={badge.label} />
+                                </SettingsTableCell>
+                                <SettingsTableCell>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+                                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)' }}>
+                                      {pctUsed !== null ? `${pctUsed}% used` : `${share.credit_used.toLocaleString()} credits`}
+                                    </span>
+                                    <TokenBudgetBar used={share.credit_used} limit={share.credit_limit ?? 0} size="sm" />
+                                  </div>
+                                </SettingsTableCell>
+                                <SettingsTableCell>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, width: '100%' }}>
+                                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-700)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      {recipients.length} conversation{recipients.length === 1 ? '' : 's'} · {uniqueUsers} user{uniqueUsers === 1 ? '' : 's'}
+                                    </p>
+                                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      {recipients.length > 0 ? `Last used ${fmtRelative(share.updated_at ?? share.created_at)}` : `Created ${fmtRelative(share.created_at)}`}
+                                    </p>
+                                  </div>
+                                </SettingsTableCell>
+                                <SettingsTableCell>
+                                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {fmtExpiry(share.expires_at)}
+                                  </p>
+                                </SettingsTableCell>
+                                <SettingsTableCell align="end">
+                                  {repoId && (
+                                    <Tooltip content="Open sharing settings" side="top">
+                                      <IconButton
+                                        aria-label={`Open sharing settings for ${name}`}
+                                        size="xs"
+                                        variant="ghost"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          push(AGENT_CONFIGURE_SHARING_ROUTE(repoId, { name, versionId: share.persona_id }))
+                                        }}
+                                        icon={<ArrowUpRightOneIcon size={14} />}
+                                      />
+                                    </Tooltip>
+                                  )}
+                                </SettingsTableCell>
+                              </SettingsTableRow>
+                            )
+                          })}
+                        </SettingsTableViewport>
+                      </SettingsTable>
+                    )
+                  ) : (
+                    <SettingsTable columns={SHARED_LINKS_COLUMNS} columnGap={16}>
+                      <SettingsTableToolbar title={receivedLoading ? 'Loading…' : `Shared Superlinks · ${receivedShares.length}`} />
+                      <SettingsTableViewport minWidth={1000} ariaLabel="Shared with me">
+                        <SettingsTableHeader>
+                          <SettingsTableHeaderCell>Agent</SettingsTableHeaderCell>
+                          <SettingsTableHeaderCell>Shared by</SettingsTableHeaderCell>
+                          <SettingsTableHeaderCell>Status</SettingsTableHeaderCell>
+                          <SettingsTableHeaderCell>Usage</SettingsTableHeaderCell>
+                          <SettingsTableHeaderCell>Expires</SettingsTableHeaderCell>
+                          <SettingsTableHeaderCell align="end">Actions</SettingsTableHeaderCell>
+                        </SettingsTableHeader>
+
+                        {receivedLoading && [0, 1, 2].map(i => (
+                          <SettingsTableRow key={i} minHeight={64}>
+                            <SettingsTableCell>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: 1 - i * 0.25 }}>
+                                <div className="kaya-skeleton" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+                                <div className="kaya-skeleton" style={{ width: 120, height: 14, borderRadius: 4 }} />
+                              </div>
+                            </SettingsTableCell>
+                            {[0, 1, 2, 3, 4].map(ci => (
+                              <SettingsTableCell key={ci}><div className="kaya-skeleton" style={{ width: 70, height: 14, borderRadius: 4, opacity: 1 - i * 0.25 }} /></SettingsTableCell>
+                            ))}
+                          </SettingsTableRow>
+                        ))}
+
+                        {!receivedLoading && receivedShares.length === 0 && (
+                          <SettingsTableRow divider={false} minHeight={80}>
+                            <SettingsTableCell style={{ gridColumn: '1 / -1' }}>
+                              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
+                                When someone shares a Super Link and you accept it, their agent appears here.
+                              </p>
+                            </SettingsTableCell>
+                          </SettingsTableRow>
+                        )}
+
+                        {!receivedLoading && receivedShares.map(share => {
+                          const persona   = personaByRepoId[share.persona_repo_id]
+                          const status    = receivedShareStatus(share)
+                          const badge     = RECEIVED_STATUS_BADGE[status]
+                          const pctUsed   = share.credit_limit ? Math.min(100, Math.round((share.credit_used / share.credit_limit) * 100)) : null
+
+                          return (
+                            <SettingsTableRow key={share.share_id} minHeight={64}>
+                              <SettingsTableCell>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                                  {share.image_url ? (
+                                    // eslint-disable-next-line @next/next/no-img-element -- remote/user-supplied avatar URL
+                                    <img src={share.image_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                  ) : (
+                                    <Avatar name={share.name} color={colorFromName(share.name)} size="xs" />
+                                  )}
+                                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '20px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {share.name}
+                                  </p>
+                                </div>
+                              </SettingsTableCell>
+                              <SettingsTableCell>
+                                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {share.shared_by_name}
+                                </p>
+                              </SettingsTableCell>
+                              <SettingsTableCell>
+                                <Badge color={badge.color} label={badge.label} />
+                              </SettingsTableCell>
+                              <SettingsTableCell>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+                                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)' }}>
+                                    {pctUsed !== null ? `${pctUsed}% used` : `${share.credit_used.toLocaleString()} credits`}
+                                  </span>
+                                  <TokenBudgetBar used={share.credit_used} limit={share.credit_limit ?? 0} size="sm" />
+                                </div>
+                              </SettingsTableCell>
+                              <SettingsTableCell>
+                                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {fmtExpiry(share.expires_at)}
+                                </p>
+                              </SettingsTableCell>
+                              <SettingsTableCell align="end">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <Button size="sm" variant="secondary" onClick={() => push(AGENT_CHAT_ROUTE(share.persona_repo_id))}>
+                                    Use in chat
+                                  </Button>
+                                  <Tooltip content="Remove" side="top">
+                                    <IconButton
+                                      aria-label={`Remove ${share.name}`}
+                                      size="xs"
+                                      variant="ghost"
+                                      onClick={() => persona && setDeleteTarget(persona)}
+                                      icon={<DeleteTwoIcon size={14} />}
+                                    />
+                                  </Tooltip>
+                                </div>
+                              </SettingsTableCell>
+                            </SettingsTableRow>
+                          )
+                        })}
+                      </SettingsTableViewport>
+                    </SettingsTable>
+                  )}
+                </div>
               </div>
             )
           })()}

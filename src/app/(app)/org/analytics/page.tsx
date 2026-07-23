@@ -17,6 +17,7 @@ import {
   SettingsTableToolbar,
 } from '@/components/SettingsTable'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
+import { UsageBarChart } from '@/components/UsageBarChart'
 import { useOrg } from '@/context/org-context'
 import { getOrgPlanUsage } from '@/lib/api/organization'
 import type { OrgMember, TeamBurn } from '@/types/teams'
@@ -285,168 +286,17 @@ function UserAvatar() {
 }
 
 function FeatureChart({ days }: { days: ChartDay[] }) {
-  const [hovered, setHovered] = useState<{ day: string; metric: ChartMetric; x: number; y: number; value: number } | null>(null)
-  const chartWidth = 760
-  const chartHeight = 184
-  const chartPaddingX = 28
-  const chartPaddingY = 18
-  const plotWidth = chartWidth - chartPaddingX * 2
-  const maxValue = Math.max(1, ...days.flatMap(day => [day.chat, day.assistants, day.brain]))
-  const metrics = METRIC_KEYS
-
-  const getPoint = (dayIndex: number, metric: ChartMetric) => {
-    const day = days[dayIndex]
-    const value = day[metric]
-    const divisor = days.length > 1 ? days.length - 1 : 1
-    const x = chartPaddingX + (plotWidth / divisor) * dayIndex
-    const y = chartHeight - chartPaddingY - (value / maxValue) * (chartHeight - chartPaddingY * 2)
-
-    return { x, y, value, day: day.label }
-  }
-
-  const makeWavePath = (metric: ChartMetric) => {
-    const points = days.map((_, index) => getPoint(index, metric))
-
-    return points.reduce((path, point, index) => {
-      if (index === 0) return `M ${point.x} ${point.y}`
-
-      const previous = points[index - 1]
-      const controlX = (previous.x + point.x) / 2
-
-      return `${path} C ${controlX} ${previous.y}, ${controlX} ${point.y}, ${point.x} ${point.y}`
-    }, '')
-  }
+  const chartDays = days.map(d => d.label)
+  const series = METRIC_KEYS.map(metric => ({
+    id:    metric,
+    label: FEATURE_META[metric].label,
+    color: FEATURE_META[metric].color,
+    data:  days.map(d => d[metric]),
+  }))
 
   return (
-    <div style={{ padding: '24px 24px 28px' }} onMouseLeave={() => setHovered(null)}>
-      <div
-        style={{
-          position:      'relative',
-          height:        224,
-          display:       'flex',
-          flexDirection: 'column',
-          gap:           12,
-        }}
-      >
-        {hovered && (
-          <div
-            style={{
-              position:        'absolute',
-              top:             Math.max(0, hovered.y - 42),
-              left:            `${(hovered.x / chartWidth) * 100}%`,
-              transform:       'translateX(-50%)',
-              background:      'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)',
-              color:           'var(--neutral-white)',
-              borderRadius:    6,
-              padding:         '4px 6px',
-              display:         'flex',
-              alignItems:      'center',
-              justifyContent:  'center',
-              gap:             4,
-              boxShadow:       '0px 1px 4px rgba(59,54,50,0.5), 0px 0px 0px 0.5px var(--neutral-black), inset 0px 0.5px 0.1px rgba(247,242,237,0.3), inset 0px -0.5px 0.364px rgba(18,12,8,1), inset 0px -2px 4px -2.182px rgba(247,242,237,0.5)',
-              fontFamily:      'var(--font-body)',
-              fontSize:        11,
-              lineHeight:      '16px',
-              whiteSpace:      'nowrap',
-              zIndex:          2,
-              pointerEvents:   'none',
-            }}
-          >
-            <span style={{ width: 3, height: 16, borderRadius: 2, backgroundColor: FEATURE_META[hovered.metric].color, flexShrink: 0 }} />
-            <span style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <span style={{ fontWeight: 500 }}>{FEATURE_META[hovered.metric].label}</span>
-              <span style={{ fontWeight: 400 }}>{hovered.value.toLocaleString()} credits</span>
-            </span>
-          </div>
-        )}
-
-        <svg
-          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-          preserveAspectRatio="none"
-          style={{ width: '100%', height: 184, overflow: 'visible' }}
-          aria-label="Feature usage waveform chart"
-          role="img"
-        >
-          {[0.25, 0.5, 0.75].map(line => (
-            <line
-              key={line}
-              x1={chartPaddingX}
-              x2={chartWidth - chartPaddingX}
-              y1={chartPaddingY + (chartHeight - chartPaddingY * 2) * line}
-              y2={chartPaddingY + (chartHeight - chartPaddingY * 2) * line}
-              stroke="var(--neutral-100)"
-              strokeWidth={1}
-            />
-          ))}
-
-          {metrics.map(metric => (
-            <path
-              key={metric}
-              d={makeWavePath(metric)}
-              fill="none"
-              stroke={FEATURE_META[metric].color}
-              strokeWidth={4}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={hovered && hovered.metric !== metric ? 0.35 : 1}
-            />
-          ))}
-
-          {metrics.map(metric => (
-            <g key={`${metric}-points`}>
-              {days.map((_, index) => {
-                const point = getPoint(index, metric)
-
-                return (
-                  <g key={`${metric}-${index}`}>
-                    {hovered?.day === point.day && hovered.metric === metric && (
-                      <circle cx={point.x} cy={point.y} r={5} fill={FEATURE_META[metric].color} stroke="var(--neutral-white)" strokeWidth={2} />
-                    )}
-                    <circle
-                      cx={point.x}
-                      cy={point.y}
-                      r={10}
-                      fill="transparent"
-                      style={{ cursor: 'pointer' }}
-                      onMouseEnter={() => setHovered({ day: point.day, metric, x: point.x, y: point.y, value: point.value })}
-                    />
-                  </g>
-                )
-              })}
-            </g>
-          ))}
-        </svg>
-
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${days.length}, 1fr)`, gap: 18 }}>
-          {days.map((day, index) => (
-            <span
-              key={`${day.label}-${index}`}
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize:   11,
-                lineHeight: '16px',
-                color:      'var(--neutral-500)',
-                whiteSpace: 'nowrap',
-                textAlign:  'center',
-              }}
-            >
-              {day.label}
-            </span>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-          {metrics.map(metric => (
-            <div key={metric} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 16, height: 3, borderRadius: 999, backgroundColor: FEATURE_META[metric].color }} />
-              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)' }}>
-                {FEATURE_META[metric].label}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
+    <div style={{ padding: '24px 24px 28px' }}>
+      <UsageBarChart days={chartDays} series={series} mode="grouped" height={224} />
     </div>
   )
 }

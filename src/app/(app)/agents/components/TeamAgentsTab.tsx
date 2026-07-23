@@ -14,7 +14,6 @@ import {
   SettingsTableCell,
 } from '@/components/SettingsTable'
 import { Button } from '@/components/Button'
-import { Badge } from '@/components/Badge'
 import { Avatar } from '@/components/Avatar'
 import { Dropdown } from '@/components/Dropdown'
 import { useOrg } from '@/context/org-context'
@@ -23,7 +22,6 @@ import { listTeamPersonaShares, resolveViewerUserId } from '@/lib/api/teams'
 import {
   fetchPersonas,
   usePersonaRepoDeduped,
-  updatePersonaCopyToLatest,
   getTeamAgentCopyStatus,
   getExistingCopyId,
   type Persona,
@@ -130,7 +128,6 @@ interface RowActionState {
 function useTeamAgentRowActions(rows: TeamAgentRow[]) {
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
   const [statusTick, setStatusTick] = useState(0)
-  const [bulkUpdating, setBulkUpdating] = useState(false)
 
   const statuses = useMemo(() => {
     void statusTick
@@ -138,11 +135,6 @@ function useTeamAgentRowActions(rows: TeamAgentRow[]) {
     for (const { persona } of rows) map[persona.id] = getTeamAgentCopyStatus(persona.id, persona.activeVersionId)
     return map
   }, [rows, statusTick])
-
-  const updatableCount = useMemo(
-    () => rows.filter(({ persona }) => statuses[persona.id] === 'update_available').length,
-    [rows, statuses],
-  )
 
   function setBusy(id: string, busy: boolean) {
     setBusyIds(prev => {
@@ -171,53 +163,6 @@ function useTeamAgentRowActions(rows: TeamAgentRow[]) {
     }
   }
 
-  // Shared by the single-row update and the bulk "Update all" action — no
-  // toast here, callers own their own loading/result messaging so a bulk run
-  // doesn't spam one toast per agent.
-  async function updateOne(persona: Persona): Promise<boolean> {
-    setBusy(persona.id, true)
-    try {
-      await updatePersonaCopyToLatest(persona.id)
-      return true
-    } catch {
-      return false
-    } finally {
-      setBusy(persona.id, false)
-    }
-  }
-
-  async function handleUpdate(persona: Persona) {
-    const toastId = toast.loading(`Updating "${persona.name}"…`)
-    const ok = await updateOne(persona)
-    toast.dismiss(toastId)
-    if (ok) {
-      toast.success(`"${persona.name}" updated to the latest version`)
-      setStatusTick(t => t + 1)
-    } else {
-      toast.error('Failed to update agent. Please try again.')
-    }
-  }
-
-  async function handleUpdateAll() {
-    const stale = rows.filter(({ persona }) => statuses[persona.id] === 'update_available')
-    if (stale.length === 0) return
-    setBulkUpdating(true)
-    const toastId = toast.loading(`Updating ${stale.length} agent${stale.length === 1 ? '' : 's'}…`)
-    const results = await Promise.all(stale.map(({ persona }) => updateOne(persona)))
-    toast.dismiss(toastId)
-    const succeeded = results.filter(Boolean).length
-    const failed = results.length - succeeded
-    if (failed === 0) {
-      toast.success(`Updated ${succeeded} agent${succeeded === 1 ? '' : 's'} to the latest version`)
-    } else if (succeeded === 0) {
-      toast.error(`Failed to update ${failed} agent${failed === 1 ? '' : 's'}. Please try again.`)
-    } else {
-      toast.info(`Updated ${succeeded} agent${succeeded === 1 ? '' : 's'} — ${failed} failed, please try again.`)
-    }
-    setStatusTick(t => t + 1)
-    setBulkUpdating(false)
-  }
-
   function handleOpen(persona: Persona, isOwner: boolean) {
     // Owners chat on their own repo directly — no copy involved.
     if (isOwner) { push(AGENT_CHAT_ROUTE(persona.id)); return }
@@ -233,34 +178,24 @@ function useTeamAgentRowActions(rows: TeamAgentRow[]) {
     }
   }
 
-  return { getRowState, handleCopy, handleUpdate, handleOpen, handleUpdateAll, updatableCount, bulkUpdating }
+  return { getRowState, handleCopy, handleOpen }
 }
 
-// ── Status + Action cells — shared between both views ────────────────────────
-// Split into two columns: Status is purely informational (what state is this
-// agent's copy in), Action is the one thing you can actually do about it.
-
-function AgentStatusCell({ isOwner, status }: { isOwner: boolean; status: TeamAgentCopyStatus }) {
-  if (isOwner || status === 'not_copied') {
-    return <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-300)' }}>—</span>
-  }
-  if (status === 'update_available') {
-    return <Badge color="Yellow" label="Update found" />
-  }
-  return <Badge color="Green" label="Up to date" />
-}
+// ── Action cell — shared between both views ───────────────────────────────────
+// A standalone Status column used to sit next to this one, but once staleness
+// tracking (update_available vs up_to_date) was dropped it only distinguished
+// "copied" vs "not copied" — exactly what this button already communicates on
+// its own ("Copy agent for use" vs "Use this agent"), so it was pure duplication.
 
 function AgentActionCell({
   isOwner,
   state,
   onCopy,
-  onUpdate,
   onOpen,
 }: {
   isOwner: boolean
   state: RowActionState
   onCopy: () => void
-  onUpdate: () => void
   onOpen: () => void
 }) {
   if (isOwner) {
@@ -274,13 +209,6 @@ function AgentActionCell({
     return (
       <Button size="sm" variant="default" loading={state.busy} disabled={state.busy} onClick={onCopy}>
         Copy agent for use
-      </Button>
-    )
-  }
-  if (state.status === 'update_available') {
-    return (
-      <Button size="sm" variant="default" loading={state.busy} disabled={state.busy} onClick={onUpdate}>
-        Update to latest
       </Button>
     )
   }
@@ -329,17 +257,6 @@ function AgentIdentityCell({ persona }: { persona: Persona }) {
         </p>
       </div>
     </div>
-  )
-}
-
-// Bulk action — refreshes every not-owned agent currently flagged
-// "Update found" in one go. Hidden entirely when nothing needs it.
-function UpdateAllButton({ count, busy, onClick }: { count: number; busy: boolean; onClick: () => void }) {
-  if (count === 0) return null
-  return (
-    <Button size="sm" variant="secondary" loading={busy} disabled={busy} onClick={onClick}>
-      Update all ({count})
-    </Button>
   )
 }
 
@@ -446,29 +363,26 @@ function TeamsCounterDropdown({ teams }: { teams: Array<{ id: string; name: stri
 // ── Admin/Owner view — flat table, every team-shared agent across the org,
 // with a Teams column since one admin oversees potentially many teams. ──────
 
-const ADMIN_COLUMNS = 'minmax(190px, 1.4fr) 70px minmax(120px, 1fr) minmax(110px, 0.8fr) 100px 180px'
+const ADMIN_COLUMNS = 'minmax(190px, 1.4fr) 70px minmax(120px, 1fr) minmax(110px, 0.8fr) 180px'
 
 function AdminAgentsTable({ rows, isLoading, viewerId }: { rows: TeamAgentRow[]; isLoading: boolean; viewerId: string | number | null | undefined }) {
-  const { getRowState, handleCopy, handleUpdate, handleOpen, handleUpdateAll, updatableCount, bulkUpdating } = useTeamAgentRowActions(rows)
+  const { getRowState, handleCopy, handleOpen } = useTeamAgentRowActions(rows)
 
   if (!isLoading && rows.length === 0) return <EmptyState />
 
   return (
     <SettingsTable columns={ADMIN_COLUMNS} columnGap={10}>
-      <SettingsTableToolbar title="Shared with your teams">
-        <UpdateAllButton count={updatableCount} busy={bulkUpdating} onClick={() => void handleUpdateAll()} />
-      </SettingsTableToolbar>
+      <SettingsTableToolbar title="Shared with your teams" />
       <SettingsTableViewport minWidth={860} ariaLabel="Agents shared with your teams">
         <SettingsTableHeader>
           <SettingsTableHeaderCell>Agent</SettingsTableHeaderCell>
           <SettingsTableHeaderCell>Version</SettingsTableHeaderCell>
           <SettingsTableHeaderCell>Shared by</SettingsTableHeaderCell>
           <SettingsTableHeaderCell>Teams</SettingsTableHeaderCell>
-          <SettingsTableHeaderCell>Status</SettingsTableHeaderCell>
           <SettingsTableHeaderCell align="end">Action</SettingsTableHeaderCell>
         </SettingsTableHeader>
 
-        {isLoading && rows.length === 0 && <TableSkeletonRows columns={6} />}
+        {isLoading && rows.length === 0 && <TableSkeletonRows columns={5} />}
 
         {rows.map(({ persona, ownerUserId, ownerName, teams }) => {
           const state = getRowState(persona)
@@ -487,15 +401,11 @@ function AdminAgentsTable({ rows, isLoading, viewerId }: { rows: TeamAgentRow[];
               <SettingsTableCell>
                 <TeamsCounterDropdown teams={teams} />
               </SettingsTableCell>
-              <SettingsTableCell>
-                <AgentStatusCell isOwner={isOwner} status={state.status} />
-              </SettingsTableCell>
               <SettingsTableCell align="end">
                 <AgentActionCell
                   isOwner={isOwner}
                   state={state}
                   onCopy={() => void handleCopy(persona)}
-                  onUpdate={() => void handleUpdate(persona)}
                   onOpen={() => handleOpen(persona, isOwner)}
                 />
               </SettingsTableCell>
@@ -510,10 +420,10 @@ function AdminAgentsTable({ rows, isLoading, viewerId }: { rows: TeamAgentRow[];
 // ── Member/Editor view — sectioned by team, one block per team the viewer
 // actually belongs to (no Teams column — the section itself is the team). ───
 
-const MEMBER_COLUMNS = 'minmax(190px, 1.4fr) 70px minmax(120px, 1fr) 100px 180px'
+const MEMBER_COLUMNS = 'minmax(190px, 1.4fr) 70px minmax(120px, 1fr) 180px'
 
 function MemberAgentsSections({ rows, isLoading, viewerId }: { rows: TeamAgentRow[]; isLoading: boolean; viewerId: string | number | null | undefined }) {
-  const { getRowState, handleCopy, handleUpdate, handleOpen, handleUpdateAll, updatableCount, bulkUpdating } = useTeamAgentRowActions(rows)
+  const { getRowState, handleCopy, handleOpen } = useTeamAgentRowActions(rows)
 
   const sections = useMemo(() => {
     const byTeam = new Map<string, { name: string; rows: TeamAgentRow[] }>()
@@ -537,10 +447,9 @@ function MemberAgentsSections({ rows, isLoading, viewerId }: { rows: TeamAgentRo
             <SettingsTableHeaderCell>Agent</SettingsTableHeaderCell>
             <SettingsTableHeaderCell>Version</SettingsTableHeaderCell>
             <SettingsTableHeaderCell>Shared by</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell>Status</SettingsTableHeaderCell>
             <SettingsTableHeaderCell align="end">Action</SettingsTableHeaderCell>
           </SettingsTableHeader>
-          <TableSkeletonRows columns={5} />
+          <TableSkeletonRows columns={4} />
         </SettingsTableViewport>
       </SettingsTable>
     )
@@ -548,11 +457,6 @@ function MemberAgentsSections({ rows, isLoading, viewerId }: { rows: TeamAgentRo
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {updatableCount > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-          <UpdateAllButton count={updatableCount} busy={bulkUpdating} onClick={() => void handleUpdateAll()} />
-        </div>
-      )}
       {sections.map(section => (
         <SettingsTable key={section.id} columns={MEMBER_COLUMNS} columnGap={10}>
           <TeamSectionHeader teamId={section.id} teamName={section.name} />
@@ -561,7 +465,6 @@ function MemberAgentsSections({ rows, isLoading, viewerId }: { rows: TeamAgentRo
               <SettingsTableHeaderCell>Agent</SettingsTableHeaderCell>
               <SettingsTableHeaderCell>Version</SettingsTableHeaderCell>
               <SettingsTableHeaderCell>Shared by</SettingsTableHeaderCell>
-              <SettingsTableHeaderCell>Status</SettingsTableHeaderCell>
               <SettingsTableHeaderCell align="end">Action</SettingsTableHeaderCell>
             </SettingsTableHeader>
             {section.rows.map(({ persona, ownerUserId, ownerName }) => {
@@ -578,15 +481,11 @@ function MemberAgentsSections({ rows, isLoading, viewerId }: { rows: TeamAgentRo
                   <SettingsTableCell>
                     <SharedByCell isOwner={isOwner} ownerName={ownerName} />
                   </SettingsTableCell>
-                  <SettingsTableCell>
-                    <AgentStatusCell isOwner={isOwner} status={state.status} />
-                  </SettingsTableCell>
                   <SettingsTableCell align="end">
                     <AgentActionCell
                       isOwner={isOwner}
                       state={state}
                       onCopy={() => void handleCopy(persona)}
-                      onUpdate={() => void handleUpdate(persona)}
                       onOpen={() => handleOpen(persona, isOwner)}
                     />
                   </SettingsTableCell>

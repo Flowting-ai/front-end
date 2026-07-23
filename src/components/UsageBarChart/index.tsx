@@ -2,8 +2,9 @@
 
 import React from 'react'
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts'
+import type { TooltipContentProps } from 'recharts'
 import { useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -22,9 +23,13 @@ export interface UsageBarChartProps extends Omit<React.HTMLAttributes<HTMLDivEle
   days:     string[]
   /** One series per link (stacked) or a single series (all). */
   series:   UsageBarChartSeries[]
-  /** `all` → single colour, `per-link` → stacked. */
-  mode:     'all' | 'per-link'
-  /** Highlighted series in `per-link` mode — dimmed-out for the rest. */
+  /**
+   * `all` → single bar, no per-series breakdown.
+   * `per-link` → one bar per day, series stacked on top of each other.
+   * `grouped` → one bar per series per day, side by side.
+   */
+  mode:     'all' | 'per-link' | 'grouped'
+  /** Highlighted series in `per-link`/`grouped` mode — dimmed-out for the rest. */
   selectedId?: string | null
   height?:  number
 }
@@ -35,6 +40,45 @@ function fmtK(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
   if (n >= 1_000)     return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K'
   return String(n)
+}
+
+// Dark tooltip bubble matching the app's established convention (dark
+// gradient background, --tooltip-text foreground) — one row per series,
+// colour dot + label + value, sorted to match the legend/bar order.
+function ChartTooltip({ active, payload, label, series }: TooltipContentProps & { series: UsageBarChartSeries[] }) {
+  if (!active || !payload || payload.length === 0) return null
+
+  return (
+    <div
+      style={{
+        background:    'linear-gradient(180deg, var(--tooltip-bg-from) 0%, var(--tooltip-bg-to) 100%)',
+        color:         'var(--tooltip-text)',
+        borderRadius:  8,
+        padding:       '8px 10px',
+        display:       'flex',
+        flexDirection: 'column',
+        gap:           4,
+        minWidth:      120,
+        fontFamily:    'var(--font-body)',
+        fontSize:      11,
+        lineHeight:    '16px',
+        boxShadow:     '0px 1px 4px rgba(59,54,50,0.5), 0px 0px 0px 0.5px var(--neutral-black)',
+      }}
+    >
+      <span style={{ fontWeight: 500, opacity: 0.7 }}>{label}</span>
+      {series.map(s => {
+        const item = payload.find(p => p.dataKey === s.id)
+        if (!item || item.value == null) return null
+        return (
+          <span key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: s.color, flexShrink: 0 }} />
+            <span style={{ flex: 1 }}>{s.label}</span>
+            <span style={{ fontWeight: 500 }}>{Number(item.value).toLocaleString()}</span>
+          </span>
+        )
+      })}
+    </div>
+  )
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -83,6 +127,12 @@ export function UsageBarChart({ days, series, mode, selectedId, height = 180, cl
               width={36}
               tickFormatter={(v: number) => fmtK(v)}
             />
+            {mode !== 'all' && (
+              <Tooltip
+                cursor={{ fill: 'var(--neutral-100)' }}
+                content={(tooltipProps: TooltipContentProps) => <ChartTooltip {...tooltipProps} series={series} />}
+              />
+            )}
             {mode === 'all' ? (
               <Bar
                 dataKey="total"
@@ -98,7 +148,7 @@ export function UsageBarChart({ days, series, mode, selectedId, height = 180, cl
                   <Bar
                     key={s.id}
                     dataKey={s.id}
-                    stackId="a"
+                    stackId={mode === 'per-link' ? 'a' : undefined}
                     fill={s.color}
                     fillOpacity={dim ? 0.25 : 0.9}
                     radius={[3, 3, 0, 0]}

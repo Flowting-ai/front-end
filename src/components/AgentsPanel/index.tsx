@@ -37,6 +37,42 @@ const FILTER_LABEL: Record<AgentFilter, string> = {
   superlink: 'Superlink Agents',
 }
 
+// Loading placeholder shaped like a PersonaCard row (65px avatar, name/handle,
+// two description lines, a badge pill) so the list doesn't jump when real
+// cards swap in. Uses the shared .kaya-skeleton pulse utility (globals.css).
+function PersonaCardSkeleton() {
+  return (
+    <div
+      aria-hidden
+      style={{
+        width:        '100%',
+        minHeight:    132,
+        borderRadius: 16,
+        boxSizing:    'border-box',
+        padding:      12,
+        display:      'flex',
+        flexDirection: 'column',
+        gap:          10,
+        backgroundColor: 'var(--neutral-white)',
+        boxShadow:    '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="kaya-skeleton" style={{ width: 40, height: 40, borderRadius: 8, flexShrink: 0 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+          <div className="kaya-skeleton" style={{ height: 14, width: '55%', borderRadius: 6 }} />
+          <div className="kaya-skeleton" style={{ height: 11, width: '35%', borderRadius: 6 }} />
+        </div>
+      </div>
+      <div className="kaya-skeleton" style={{ height: 20, width: '40%', borderRadius: 20 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="kaya-skeleton" style={{ height: 11, width: '100%', borderRadius: 6 }} />
+        <div className="kaya-skeleton" style={{ height: 11, width: '70%', borderRadius: 6 }} />
+      </div>
+    </div>
+  )
+}
+
 /** Quick-add-an-agent-to-this-chat panel — same list this app already shows
  *  in the chat input's "Add agent" submenu (useSelectableChatPersonas), just
  *  surfaced as a full Pinboard-style side panel instead of a dropdown. */
@@ -261,9 +297,7 @@ export function AgentsPanelContent() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {loading ? (
-              <p style={{ margin: 0, padding: '8px 10px', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-500)' }}>
-                Loading…
-              </p>
+              Array.from({ length: 3 }).map((_, i) => <PersonaCardSkeleton key={i} />)
             ) : filtered.length > 0 ? (
               filtered.map(p => (
                 <PersonaCard
@@ -279,10 +313,43 @@ export function AgentsPanelContent() {
                   style={{ width: '100%' }}
                 />
               ))
-            ) : (
+            ) : search ? (
               <p style={{ margin: 0, padding: '8px 10px', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-500)' }}>
-                {search ? `No agents matching "${search}"` : 'No agents in this filter'}
+                No agents matching &quot;{search}&quot;
               </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '32px 16px', textAlign: 'center' }}>
+                <div
+                  aria-hidden
+                  style={{
+                    width: 48, height: 48, borderRadius: 12,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: 'var(--neutral-100)',
+                  }}
+                >
+                  <UserAiIcon size={22} color="var(--neutral-400)" />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <p style={{ margin: 0, fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: 16, lineHeight: '22px', color: 'var(--neutral-700)' }}>
+                    No agents yet
+                  </p>
+                  <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-500)' }}>
+                    {filter === 'team'
+                      ? 'No agents have been shared with your team yet.'
+                      : filter === 'superlink'
+                        ? "None of your agents have an active Superlink yet."
+                        : 'Create an agent to use it in this chat.'}
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<PlusSignIcon size={16} />}
+                  onClick={handleCreateNew}
+                >
+                  Create new agent
+                </Button>
+              </div>
             )}
           </div>
         </div>

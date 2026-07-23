@@ -6,12 +6,30 @@ import { CopyOneIcon, TickTwoIcon, ArrowUpRightOneIcon } from '@strange-huge/ico
 import { Avatar } from '@/components/Avatar'
 import { Badge, type BadgeColor } from '@/components/Badge'
 import { IconButton } from '@/components/IconButton'
+import { Tooltip } from '@/components/Tooltip'
 import { TokenBudgetBar } from '@/components/TokenBudgetBar'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
 
 function fmt(n: number): string {
   return n.toLocaleString('en-US')
+}
+
+function fmtRelative(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return ''
+  const diffMin = Math.floor((Date.now() - then) / 60_000)
+  if (diffMin < 1)  return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24)  return `${diffHr}h ago`
+  const diffDay = Math.floor(diffHr / 24)
+  if (diffDay < 30) return `${diffDay}d ago`
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function fmtShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 const COPIED_RESET_MS = 1500
@@ -37,6 +55,18 @@ export interface SuperLinkRowProps extends React.HTMLAttributes<HTMLDivElement> 
   tokenLimit:   number
   status:       SuperLinkStatus
   selected?:    boolean
+  /** Total conversations this link has ever seen. Omit to hide the usage line entirely. */
+  conversations?: number
+  /** Unique recipients across those conversations. */
+  uniqueUsers?:   number
+  /**
+   * ISO timestamp of the most recent activity (falls back to creation time
+   * when never used). Labeled "Created" instead of "Last used" when
+   * `conversations` is 0/undefined, since it isn't really usage in that case.
+   */
+  lastActivityAt?: string
+  /** ISO timestamp the link expires at, if it has an expiry. */
+  expiresAt?:      string
   onCopyUrl?:   (e: React.MouseEvent<HTMLButtonElement>) => void
   /** When provided, renders a configure button that navigates to the sharing tab. */
   onConfigure?: (e: React.MouseEvent<HTMLButtonElement>) => void
@@ -48,6 +78,7 @@ export function SuperLinkRow(
   {
     ref,
     personaName, avatarColor, avatarUrl, url, tokenUsed, tokenLimit, status,
+    conversations, uniqueUsers, lastActivityAt, expiresAt,
     selected = false, onCopyUrl, onConfigure, onClick,
     className, style, ...props
   }: SuperLinkRowProps & { ref?: React.Ref<HTMLDivElement> },
@@ -160,36 +191,70 @@ export function SuperLinkRow(
           {/* Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
             {onConfigure && (
+              <Tooltip content="Open sharing settings" side="top">
+                <IconButton
+                  aria-label={`Open sharing settings for ${personaName}`}
+                  size="xs"
+                  variant="ghost"
+                  onClick={(e) => { e.stopPropagation(); onConfigure(e) }}
+                  icon={<ArrowUpRightOneIcon size={14} />}
+                />
+              </Tooltip>
+            )}
+            <Tooltip content={copied ? 'Copied!' : 'Copy link URL'} side="top">
               <IconButton
-                aria-label={`Open sharing settings for ${personaName}`}
+                aria-label={copied ? 'Link copied' : 'Copy link URL'}
                 size="xs"
                 variant="ghost"
-                onClick={(e) => { e.stopPropagation(); onConfigure(e) }}
-                icon={<ArrowUpRightOneIcon size={14} />}
+                onClick={handleCopy}
+                icon={
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    <m.span
+                      key={copied ? 'check' : 'copy'}
+                      initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                      animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+                      exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                      transition={springs.fast}
+                      style={{ display: 'inline-flex', transformOrigin: 'center' }}
+                    >
+                      {copied ? <TickTwoIcon size={14} /> : <CopyOneIcon size={14} />}
+                    </m.span>
+                  </AnimatePresence>
+                }
               />
-            )}
-            <IconButton
-              aria-label={copied ? 'Link copied' : 'Copy link URL'}
-              size="xs"
-              variant="ghost"
-              onClick={handleCopy}
-              icon={
-                <AnimatePresence mode="popLayout" initial={false}>
-                  <m.span
-                    key={copied ? 'check' : 'copy'}
-                    initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-                    animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
-                    exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
-                    transition={springs.fast}
-                    style={{ display: 'inline-flex', transformOrigin: 'center' }}
-                  >
-                    {copied ? <TickTwoIcon size={14} /> : <CopyOneIcon size={14} />}
-                  </m.span>
-                </AnimatePresence>
-              }
-            />
+            </Tooltip>
           </div>
         </div>
+
+        {/* Usage + activity — only rendered when the caller supplies the data
+            (all optional, so existing consumers with no share/recipient info
+            are unaffected). */}
+        {(conversations !== undefined || lastActivityAt || expiresAt) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', rowGap: 2 }}>
+            {conversations !== undefined && (
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-500)' }}>
+                {conversations} conversation{conversations === 1 ? '' : 's'}
+                {uniqueUsers !== undefined && conversations > 0 ? ` · ${uniqueUsers} user${uniqueUsers === 1 ? '' : 's'}` : ''}
+              </span>
+            )}
+            {(conversations !== undefined && (lastActivityAt || expiresAt)) && (
+              <span style={{ color: 'var(--neutral-300)', fontSize: 12 }}>·</span>
+            )}
+            {lastActivityAt && (
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-500)' }}>
+                {conversations ? `Last used ${fmtRelative(lastActivityAt)}` : `Created ${fmtRelative(lastActivityAt)}`}
+              </span>
+            )}
+            {lastActivityAt && expiresAt && (
+              <span style={{ color: 'var(--neutral-300)', fontSize: 12 }}>·</span>
+            )}
+            {expiresAt && (
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-500)' }}>
+                Expires {fmtShortDate(expiresAt)}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Token usage — text line matching SuperLink component format */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

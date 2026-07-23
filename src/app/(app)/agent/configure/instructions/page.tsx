@@ -22,6 +22,8 @@ import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
+import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
+import { Tooltip } from '@/components/Tooltip'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
 import ExampleConversationModal from '@/app/(app)/agent/configure/components/ExampleConversationModal'
 import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModal'
@@ -337,14 +339,21 @@ function ModelDropdown({
     }
   }, [open])
 
+  // Agents shouldn't be built on Starter-tier models — same tier resolution
+  // as PresetModelSelectorDialog's "free" tab (planType ?? callType ?? modelType).
+  const selectableModels = React.useMemo(() => models.filter(m => {
+    const tier = ((m.planType ?? m.callType ?? m.modelType) as string ?? '').toLowerCase()
+    return tier !== 'free' && tier !== 'starter'
+  }), [models])
+
   // Sorted company list (most models first) — same derivation as ModelSelector.
   const companies = React.useMemo(() => {
     const counts: Record<string, number> = {}
-    for (const m of models) counts[m.companyName] = (counts[m.companyName] ?? 0) + 1
+    for (const m of selectableModels) counts[m.companyName] = (counts[m.companyName] ?? 0) + 1
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c]) => c)
-  }, [models])
+  }, [selectableModels])
 
-  const filtered = models.filter(m => {
+  const filtered = selectableModels.filter(m => {
     if (provider !== 'all' && m.companyName !== provider) return false
     if (search) {
       const q = search.toLowerCase()
@@ -477,6 +486,24 @@ function ModelDropdown({
                   onChange={setSearch}
                   fluid
                 />
+              </div>
+
+              {/* Souvenir Muse Advanced — mirrors chat's Muse "Advanced" featured
+                  card, but disabled: the persona backend only supports a fixed
+                  model_id today (use_algorithm exists for a single "base" tier,
+                  there is no "advanced"/pro tier for agents yet). Kept visible
+                  so the gap is obvious rather than silently missing. */}
+              <div style={{ flexShrink: 0 }}>
+                <Tooltip content="Coming soon — auto-routing for agents isn't available yet" side="top">
+                  <div style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                    <ModelFeaturedCard
+                      subtitle="Souvenir Muse"
+                      title="Advanced"
+                      description="Top-tier models for your agent's most demanding work."
+                      style={{ pointerEvents: 'none' }}
+                    />
+                  </div>
+                </Tooltip>
               </div>
 
               {/* Provider tabs */}

@@ -161,11 +161,15 @@ export function SettingsTableRow({
   divider = true,
   minHeight = 58,
   style,
-}: SettingsTableGridProps) {
+  onClick,
+}: SettingsTableGridProps & { onClick?: (e: React.MouseEvent<HTMLDivElement>) => void }) {
   const layout = React.useContext(SettingsTableLayoutContext)
   return (
     <div
-      role="row"
+      role={onClick ? 'button' : 'row'}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e as unknown as React.MouseEvent<HTMLDivElement>) } } : undefined}
       style={{
         display:             'grid',
         gridTemplateColumns: columns ?? layout.columns,
@@ -174,6 +178,7 @@ export function SettingsTableRow({
         minHeight,
         padding:             '0 24px',
         borderBottom:        divider ? '1px solid var(--neutral-100)' : undefined,
+        cursor:              onClick ? 'pointer' : undefined,
         ...style,
       }}
     >
