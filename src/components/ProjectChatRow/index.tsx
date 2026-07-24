@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { MoreVerticalIcon, PinIcon, PlusSignIcon } from '@strange-huge/icons'
+import { MoreVerticalIcon, PinIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
@@ -35,10 +35,9 @@ export interface ProjectChatRowProps {
 // Per-chat publish flow — mirrors the design's YourChatRow state machine.
 type PublishState = 'idle' | 'confirming' | 'published' | 'unpublishing'
 
-// Always a white card, matching ChatRow's rest/hover shadow treatment so chat
-// rows look consistent between the project page and /chats.
-const SHADOW_ROW_BASE     = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
-const SHADOW_ROW_ELEVATED = '0px 4px 10px 0px rgba(82,75,71,0.16), 0px 0px 0px 1px var(--neutral-200)'
+// Ghost-button treatment (see Button's `ghost` variant) for bg/hover — no
+// permanent border; row separation comes from a <Divider /> between rows
+// instead (see the project page's list rendering).
 
 // ── Empty-state row ────────────────────────────────────────────────────────────
 
@@ -128,23 +127,23 @@ export function ProjectChatRow(
     // Pin badge uses warm hover style when the row is active or hovered
     const showPinAction = hovered || menuOpen || !!active
 
-    const backgroundColor = 'var(--neutral-white)'
+    // Ghost bg: transparent at rest, ghost-hover fill on hover/menu-open —
+    // matches ChatRow's rowActive/bg treatment exactly.
+    const rowElevated = hovered || menuOpen
+    const backgroundColor = rowElevated ? 'var(--button-ghost-bg-hover)' : 'transparent'
 
     const boxShadow = (() => {
-      if (active && (hovered || menuOpen)) {
+      if (active && rowElevated) {
         return '0px 2px 2.8px 0px rgba(13,110,178,0.12), 0px 0px 0px 1.5px var(--blue-500)'
       }
-      if (active && !hovered && !menuOpen) {
-        return SHADOW_ROW_BASE
+      if (rowElevated) {
+        return 'var(--shadow-item-inner)'
       }
-      if (hovered || menuOpen) {
-        return SHADOW_ROW_ELEVATED
-      }
-      return SHADOW_ROW_BASE
+      return undefined
     })()
 
     // Active-but-not-hovered uses a dashed outline border
-    const outline = (active && !hovered && !menuOpen) ? '2px dashed var(--blue-500)' : 'none'
+    const outline = (active && !rowElevated) ? '2px dashed var(--blue-500)' : 'none'
 
     return (
       <div
@@ -159,7 +158,7 @@ export function ProjectChatRow(
           display:         'flex',
           alignItems:      'center',
           gap:             '8px',
-          padding:         '10px 14px 10px 16px',
+          padding:         '12px 16px',
           borderRadius:    '12px',
           backgroundColor,
           boxShadow,
@@ -346,9 +345,9 @@ export function ProjectChatRow(
           </div>
         )}
 
-        {/* + Publish — editor+ only, hidden once published or while confirming.
-            Always visible (not hover-gated) — it's the primary action on this row. */}
-        {!isEditing && !isConfirming && canPublish && !isPublished && (
+        {/* + Publish — editor+ only, hidden once published or while confirming,
+            and only shown on hover/menu-open like the row's other actions. */}
+        {!isEditing && !isConfirming && canPublish && !isPublished && showMoreMenu && (
           <div
             style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
             onClick={(e) => e.stopPropagation()}
@@ -356,7 +355,6 @@ export function ProjectChatRow(
             <Button
               variant="outline"
               size="sm"
-              leftIcon={<PlusSignIcon size={16} />}
               onClick={() => setPublishState('confirming')}
             >
               Publish

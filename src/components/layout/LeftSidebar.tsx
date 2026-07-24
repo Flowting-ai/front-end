@@ -649,10 +649,14 @@ function ProjectsSection({
                 <SidebarProjectsSection
                   fluid
                   label={project.name}
+                  // Not `isActive || isExpanded` here — unlike PersonalProjectsMenu,
+                  // this section's expandedIds starts pre-seeded with every project
+                  // id (see the useState above), so nearly every row is "expanded"
+                  // by default and highlighting on that would light up the whole
+                  // list instead of just the current route.
                   active={isActive}
                   expanded={isExpanded}
-                  showExpandArrow={false}
-                  onClick={() => toggleExpand(project.id, !isExpanded)}
+                  onClick={() => push(PROJECT_ROUTE(project.id))}
                   onExpandedChange={(v) => toggleExpand(project.id, v)}
                 >
                   {chats.slice(0, CHAT_LIMIT).map(chat => (
@@ -757,9 +761,8 @@ function PersonalProjectsMenu({ projects }: { projects: Project[] }) {
       label="Personal projects"
       expanded={expanded}
       showTreeLine
-      boxedChevron
       onExpandedChange={setExpanded}
-      onClick={() => setExpanded(e => !e)}
+      onClick={() => push(PROJECTS_ROUTE)}
     >
       {personalProjects.length === 0 ? (
         <div style={{
@@ -781,10 +784,9 @@ function PersonalProjectsMenu({ projects }: { projects: Project[] }) {
               key={project.id}
               fluid
               label={project.name}
-              active={isActive}
+              active={isActive || isExpanded}
               expanded={isExpanded}
-              showExpandArrow={false}
-              onClick={() => toggleProjectExpand(project.id, !isExpanded)}
+              onClick={() => push(PROJECT_ROUTE(project.id))}
               onExpandedChange={(v) => toggleProjectExpand(project.id, v)}
             >
               {chats.length === 0 && (
@@ -824,14 +826,6 @@ function PersonalProjectsMenu({ projects }: { projects: Project[] }) {
           )
         })
       )}
-      <SidebarMenuItem
-        fluid
-        variant="default"
-        icon={<MoreHorizontalIcon size={20} animated />}
-        label="See all projects"
-        href={PROJECTS_ROUTE}
-        onClick={() => push(PROJECTS_ROUTE)}
-      />
     </SidebarProjectsSection>
   )
 }

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from 'next/image';
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -36,6 +36,12 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
   // Track the real browser pathname — may differ from Next.js pathname when
   // window.history.replaceState is used (e.g. project chat new→real chatId).
   const [actualPathname,   setActualPathname]   = useState(pathname);
+  // Read inside the title-update listener below — that listener is
+  // registered once (mount-only effect) so a plain closure over
+  // `actualPathname` would go stale the moment the user navigates; the ref
+  // always has the latest value without re-subscribing the listener.
+  const actualPathnameRef = useRef(actualPathname);
+  useEffect(() => { actualPathnameRef.current = actualPathname; }, [actualPathname]);
   // Track the AI-generated chat title directly via event, independent of
   // the projects-context getChats lookup (which can be reset by loadProjectChats).
   const [dynamicChatTitle, setDynamicChatTitle] = useState<string | null>(null);
@@ -46,7 +52,18 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
       setDynamicChatTitle(null); // reset when a new chat is created
     };
     const titleHandler = (e: Event) => {
-      setDynamicChatTitle((e as CustomEvent<{ title: string }>).detail.title);
+      // The backend's auto-generated title arrives asynchronously (an SSE
+      // event well after send) — the user may have already navigated to a
+      // different project/chat by the time this fires. TopBar is mounted
+      // once at the app-layout level and never remounts across navigation,
+      // so without this check a late title from a chat the user has left
+      // would overwrite whatever chat is currently displayed (e.g. showing
+      // an unrelated previous chat's "Greeting" title next to the CURRENT
+      // project's name).
+      const detail = (e as CustomEvent<{ projectId?: string; chatId?: string; title: string }>).detail;
+      const match = actualPathnameRef.current.match(/^\/project\/([^/]+)\/chat\/([^/]+)$/);
+      if (!match || match[1] !== detail.projectId || match[2] !== detail.chatId) return;
+      setDynamicChatTitle(detail.title);
     };
     window.addEventListener('chat-url-updated',            urlHandler);
     window.addEventListener('project:chat-title-updated',  titleHandler);

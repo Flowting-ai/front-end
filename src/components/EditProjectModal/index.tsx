@@ -7,11 +7,9 @@ import { AnimatePresence, m } from 'framer-motion'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
-import { Badge, type BadgeColor } from '@/components/Badge'
+import { Badge } from '@/components/Badge'
 import { ChipInput } from '@/components/ChipInput'
-import type { ProjectTag } from '@/context/projects-context'
-
-const TAG_COLORS: BadgeColor[] = ['Blue', 'Green', 'Yellow', 'Purple', 'Red', 'Brown']
+import { TAG_COLORS, type ProjectTag } from '@/context/projects-context'
 
 const EMPTY_PROJECT_TAGS: ProjectTag[] = []
 
@@ -80,7 +78,9 @@ export function EditProjectModal({
     const label = tagInput.trim()
     if (!label || draftTags.some(t => t.label.toLowerCase() === label.toLowerCase())) return
     const color = TAG_COLORS[draftTags.length % TAG_COLORS.length]
-    setDraftTags(prev => [...prev, { id: crypto.randomUUID(), label, color }])
+    // id === label — matches tagsFromLabels' scheme (the backend only stores
+    // label strings), so a tag's identity/color stay stable across save+reload.
+    setDraftTags(prev => [...prev, { id: label, label, color }])
     setTagInput('')
   }
 
@@ -130,7 +130,10 @@ export function EditProjectModal({
           style={{
             position:        'fixed',
             inset:           0,
-            zIndex:          21,
+            // Dropdown panels sit at z-index 9998 (see Dropdown.Float) — this
+            // modal can be opened from a dropdown item (e.g. ProjectCard's
+            // "Edit"), so it must render above that layer, not below it.
+            zIndex:          10000,
             display:         'flex',
             alignItems:      'center',
             justifyContent:  'center',

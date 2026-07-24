@@ -31,6 +31,7 @@ export interface ProjectSummary {
   can_manage_visibility: boolean
   title:          string
   description:    string
+  tags:           string[]
   updated_at:     string
   chat_count:     number
   document_count: number
@@ -42,6 +43,7 @@ export interface ProjectResponse {
   title:              string
   description:        string
   system_instruction: string
+  tags:               string[]
   team_id?:           string | null
   visibility:         'private' | 'team'
   can_edit:           boolean
@@ -80,6 +82,7 @@ export interface ApiProjectSummary {
   canManageVisibility: boolean
   title:         string
   description:   string
+  tags:          string[]
   updatedAt:     string
   chatCount:     number
   documentCount: number
@@ -91,6 +94,7 @@ export interface ApiProject {
   title:             string
   description:       string
   systemInstruction: string
+  tags:              string[]
   teamId:            string | null
   visibility:        'private' | 'team'
   canEdit:           boolean
@@ -126,6 +130,7 @@ function normalizeProjectSummary(p: ProjectSummary): ApiProjectSummary {
     canManageVisibility: p.can_manage_visibility,
     title:         p.title,
     description:   p.description,
+    tags:          p.tags ?? [],
     updatedAt:     p.updated_at,
     chatCount:     p.chat_count,
     documentCount: p.document_count,
@@ -139,6 +144,7 @@ function normalizeProject(p: ProjectResponse): ApiProject {
     title:             p.title,
     description:       p.description,
     systemInstruction: p.system_instruction ?? '',
+    tags:              p.tags ?? [],
     teamId:            p.team_id ?? null,
     visibility:        p.visibility,
     canEdit:           p.can_edit,
@@ -179,6 +185,7 @@ export interface CreateProjectParams {
   title:              string
   description?:       string
   systemInstruction?: string
+  tags?:              string[]
   files?:             File[]
   teamId?:            string
 }
@@ -189,6 +196,7 @@ export async function createProjectApi(params: CreateProjectParams): Promise<Api
   form.append('title', params.title)
   if (params.description)       form.append('description', params.description)
   if (params.systemInstruction) form.append('system_instruction', params.systemInstruction)
+  if (params.tags)             form.append('tags', JSON.stringify(params.tags))
   if (params.teamId)           form.append('team_id', params.teamId)
   params.files?.forEach(f => form.append('files', f))
 
@@ -201,6 +209,8 @@ export interface UpdateProjectParams {
   title?:             string
   description?:       string
   systemInstruction?: string
+  /** Full replacement tag list — backend expects a JSON-encoded string array. Pass `[]` to clear. */
+  tags?:              string[]
 }
 
 /** PATCH /projects/{project_id} (application/x-www-form-urlencoded) */
@@ -209,6 +219,7 @@ export async function updateProjectApi(projectId: string, params: UpdateProjectP
   if (params.title !== undefined)             form.append('title', params.title)
   if (params.description !== undefined)       form.append('description', params.description)
   if (params.systemInstruction !== undefined) form.append('system_instruction', params.systemInstruction)
+  if (params.tags !== undefined)               form.append('tags', JSON.stringify(params.tags))
 
   const project = await apiFetchJson<ProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId), {
     method:  'PATCH',

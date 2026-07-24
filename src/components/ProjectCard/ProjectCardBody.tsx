@@ -8,6 +8,10 @@ import { Badge, type BadgeColor } from '@/components/Badge'
 export interface ProjectCardBodyProps {
   description?: string
   tags?:        Array<{ label: string; color?: BadgeColor }>
+  /** Team this project belongs to — omitted/undefined for personal projects.
+   *  Rendered by the parent ProjectCard in the top-right of the title row,
+   *  not here — kept on this props type since ProjectCardProps extends it. */
+  teamName?:    string
   updatedAt:    string
   chatCount:    number
 }

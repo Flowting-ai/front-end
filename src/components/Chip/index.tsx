@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { LogoIcon, CancelOneIcon, ExchangeOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
+import { LogoIcon, CancelOneIcon, ExchangeOneIcon, ArrowDownOneIcon, UserAiIcon } from '@strange-huge/icons'
 
 function useReducedMotion() {
   const [reduce, setReduce] = useState(() =>
@@ -156,6 +156,12 @@ export function Chip(
 ) {
     const cfg          = COLOR_CONFIG[color]
     const [isActive, setIsActive] = useState(false)
+    // Broken persona avatar (404 / bad URL) — fall back to a generic agent
+    // icon instead of leaving Next/Image's own broken-image glyph on screen.
+    // Reset whenever the URL itself changes so swapping to a working image
+    // (or a new persona) gets a fresh attempt.
+    const [imageError, setImageError] = useState(false)
+    useEffect(() => { setImageError(false) }, [personaImage])
     // Disabled freezes the Medium chip's hover-driven icon swap at rest,
     // ignores all click handlers (onRemove / onChange / onExpand), and
     // blocks the inner ChipButtons. Visual dimming (0.7 opacity) +
@@ -354,9 +360,11 @@ export function Chip(
               pointerEvents:   effectiveActive ? 'none' : undefined,
             }}
           >
-            {personaImage
-              ? <Image src={personaImage} alt="" width={24} height={24} unoptimized style={{ borderRadius: '6px', display: 'block' }} />
-              : (icon ?? <LogoIcon size={20} color="var(--chip-text)" />)
+            {personaImage && !imageError
+              ? <Image src={personaImage} alt="" width={24} height={24} unoptimized style={{ borderRadius: '6px', display: 'block' }} onError={() => setImageError(true)} />
+              : personaImage
+                ? <UserAiIcon size={20} color="var(--chip-text)" animated />
+                : (icon ?? <LogoIcon size={20} color="var(--chip-text)" />)
             }
           </span>
 

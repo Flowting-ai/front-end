@@ -94,8 +94,8 @@ export const TeamChip = React.forwardRef<HTMLSpanElement, TeamChipProps>(
             style={{
               fontFamily:  'var(--font-body)',
               fontWeight:  isSmall ? 400 : 500,
-              fontSize:    'var(--font-size-caption)',
-              lineHeight:  'var(--line-height-caption)',
+              fontSize:    isSmall ? 'var(--font-size-caption)' : 'var(--font-size-body)',
+              lineHeight:  isSmall ? 'var(--line-height-caption)' : 'var(--line-height-body)',
               color:       'var(--neutral-500)',
               whiteSpace:  'nowrap',
             }}

@@ -197,6 +197,7 @@ function ProjectChatPageInner() {
     addChat,
     renameChat,
     loadProjectChats,
+    loadProject,
   } = useProjects()
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
@@ -209,6 +210,19 @@ function ProjectChatPageInner() {
   // ── Chat-loading state ────────────────────────────────────────────────────
   // Start as true so we never flash "Chat not found" before data arrives.
   const [chatsLoading, setChatsLoading] = useState(true)
+
+  // ── Project-loading state ─────────────────────────────────────────────────
+  // getProject() only reads whatever's already in the shared ProjectsContext
+  // list — populated by the app-wide fetchProjects() bootstrap, which isn't
+  // guaranteed to include every project (e.g. team-shared ones, or ones
+  // created after that bootstrap already ran). The parent /project/[id] page
+  // covers this with its own loadProject(id) call; this route read the
+  // project passively and had no equivalent, so `projectsContextLoading`
+  // (tied only to the bootstrap fetch, not this specific project) could
+  // already be false while this project still hadn't been fetched — showing
+  // "Project not found." for a project that genuinely exists. Mirrors the
+  // chats-loading pattern directly above.
+  const [projectLoading, setProjectLoading] = useState(true)
 
   // Track a chat ID we just created in THIS render session.  Using a ref
   // (not state) avoids a second render cycle and survives the URL replace
@@ -251,6 +265,11 @@ function ProjectChatPageInner() {
     setChatsLoading(true)
     loadProjectChats(params.id).finally(() => setChatsLoading(false))
   }, [params.id, loadProjectChats])
+
+  useEffect(() => {
+    setProjectLoading(true)
+    loadProject(params.id).finally(() => setProjectLoading(false))
+  }, [params.id, loadProject])
 
   const [hasMessages,        setHasMessages]        = useState(!!qParam)
   const [initialPrompt,      setInitialPrompt]      = useState<string | null>(qParam)
@@ -568,14 +587,15 @@ function ProjectChatPageInner() {
   // ── Route guard — with loading gates to prevent instant "not found" ───────
   //
   // Priority:
-  //   1. Project still loading from context bootstrap → show spinner.
+  //   1. Project still loading (either the app-wide bootstrap list, or this
+  //      route's own loadProject(id) call) → show spinner.
   //   2. Project definitively not found → show error.
   //   3. Existing chat: chats still loading → show spinner.
   //   4. Existing chat: just created in this session (race-condition window) → let through.
   //   5. Existing chat: definitively not found after chats loaded → show error.
 
   if (!project) {
-    if (projectsContextLoading) {
+    if (projectsContextLoading || projectLoading) {
       return <CentredMessage>Loading…</CentredMessage>
     }
     return <CentredMessage>Project not found.</CentredMessage>
@@ -784,12 +804,37 @@ function ProjectChatPageInner() {
                 // router.replace() changes params.chatId (path param), which causes
                 // Next.js App Router to remount this page — resetting justCreatedChatIdRef
                 // and optimisticChatIdsRef mid-stream and clearing streaming messages.
-                window.history.replaceState(null, '', `/project/${params.id}/chat/${newChatId}`)
+                //
+                // Next.js 16 patches window.history.replaceState to sync usePathname()/
+                // useSearchParams() with ANY url argument — unless the history `data` we
+                // pass already carries `__NA` (its internal marker for "app-router-owned
+                // entry"), in which case it skips that sync and calls the native
+                // replaceState directly (see node_modules/next/dist/client/components/
+                // app-router.js, patched replaceState + copyNextJsInternalHistoryState).
+                // Without this, the plain URL change here (new → real chatId, an actual
+                // pathname change) still re-syncs usePathname(), which changes
+                // ErrorBoundary's `key={pathname}` and remounts this whole page — and the
+                // remount lands on a STALE router tree where params.chatId is still "new"
+                // and the ?q= param is gone, so it re-renders as an empty "new chat" state
+                // until a hard reload. Spreading the current history.state preserves its
+                // existing __NA/__PRIVATE_NEXTJS_INTERNALS_TREE so back/forward navigation
+                // still behaves exactly as Next.js itself would set it up.
+                window.history.replaceState(
+                  { ...window.history.state, __NA: true },
+                  '',
+                  `/project/${params.id}/chat/${newChatId}`,
+                )
                 window.dispatchEvent(new Event('chat-url-updated'))
               }}
               onTitleUpdate={(chatId, title) => {
                 renameChat(params.id, chatId, title)
-                window.dispatchEvent(new CustomEvent('project:chat-title-updated', { detail: { title } }))
+                // projectId + chatId ride along so TopBar (mounted once at
+                // the app-layout level, never remounted across navigation)
+                // can ignore this if the user has since navigated away —
+                // this fires async whenever the backend's auto-generated
+                // title SSE event arrives, which can be well after the user
+                // has left this chat/project entirely.
+                window.dispatchEvent(new CustomEvent('project:chat-title-updated', { detail: { projectId: params.id, chatId, title } }))
               }}
               onChatMoveToTop={() => {}}
               selectedModel={modelButtonLabel}

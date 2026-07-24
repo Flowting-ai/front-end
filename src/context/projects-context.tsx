@@ -27,6 +27,15 @@ export interface ProjectTag {
   color: BadgeColor
 }
 
+// Backend stores tags as a flat `string[]` (label only) — color/id are
+// frontend-only presentation, derived deterministically from position so a
+// tag's color stays stable across loads/saves without needing its own storage.
+export const TAG_COLORS: BadgeColor[] = ['Blue', 'Green', 'Yellow', 'Purple', 'Red', 'Brown']
+
+export function tagsFromLabels(labels: string[]): ProjectTag[] {
+  return labels.map((label, i) => ({ id: label, label, color: TAG_COLORS[i % TAG_COLORS.length] }))
+}
+
 export interface ProjectFile {
   id:         string
   name:       string
@@ -94,21 +103,6 @@ function saveStoredSizes(projectId: string, sizes: Map<string, number>) {
   try { localStorage.setItem(storageSizesKey(projectId), JSON.stringify([...sizes])) } catch {}
 }
 
-function storageTagsKey(projectId: string) { return `project-tags:${projectId}` }
-
-function loadStoredTags(projectId: string): ProjectTag[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = localStorage.getItem(storageTagsKey(projectId))
-    return raw ? JSON.parse(raw) as ProjectTag[] : []
-  } catch { return [] }
-}
-
-function saveStoredTags(projectId: string, tags: ProjectTag[]) {
-  if (typeof window === 'undefined') return
-  try { localStorage.setItem(storageTagsKey(projectId), JSON.stringify(tags)) } catch {}
-}
-
 function formatBytes(bytes: number): string {
   if (bytes <= 0)          return ''
   if (bytes < 1024)        return `${bytes} B`
@@ -142,7 +136,7 @@ function summaryToProject(s: ApiProjectSummary): Project {
     visibility:   s.visibility,
     canEdit:      s.canEdit,
     canManageVisibility: s.canManageVisibility,
-    tags:         loadStoredTags(s.id),
+    tags:         tagsFromLabels(s.tags),
     files:        [],
     chatCount:    s.chatCount,
     updatedAt:    s.updatedAt,
@@ -181,7 +175,7 @@ function apiToProject(
     visibility:   api.visibility,
     canEdit:      api.canEdit,
     canManageVisibility: api.canManageVisibility,
-    tags:         existing?.tags ?? loadStoredTags(api.id),
+    tags:         tagsFromLabels(api.tags),
     files,
     chatCount:    existing?.chatCount ?? 0,
     updatedAt:    api.updatedAt,
@@ -291,12 +285,11 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p,
     ))
 
-    if (patch.tags !== undefined) saveStoredTags(id, patch.tags)
-
     const apiPatch: Parameters<typeof updateProjectApi>[1] = {}
     if (patch.name !== undefined)         apiPatch.title = patch.name
     if (patch.description !== undefined)  apiPatch.description = patch.description
     if (patch.instructions !== undefined) apiPatch.systemInstruction = patch.instructions
+    if (patch.tags !== undefined)         apiPatch.tags = patch.tags.map(t => t.label)
 
     if (Object.keys(apiPatch).length > 0) {
       try {

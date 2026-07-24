@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { MoreVerticalIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
+import { TeamChip } from '@/components/TeamChip'
 import { ProjectCardBody, type ProjectCardBodyProps } from './ProjectCardBody'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -27,7 +28,7 @@ export interface ProjectCardProps extends ProjectCardBodyProps {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 function ProjectCardInner(
-  { title, description, tags, updatedAt, chatCount, active, onEdit, onArchive, onDelete, onClick, body, ref }: ProjectCardProps & { ref?: React.Ref<HTMLDivElement> },
+  { title, description, tags, teamName, updatedAt, chatCount, active, onEdit, onArchive, onDelete, onClick, body, ref }: ProjectCardProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
     const [hovered,  setHovered]  = useState(false)
     const [focused,  setFocused]  = useState(false)
@@ -96,6 +97,13 @@ function ProjectCardInner(
             {title}
           </p>
 
+          {/* Team attribution — top-right, always visible for team-owned projects */}
+          {teamName && (
+            <div style={{ flexShrink: 0, marginLeft: '8px' }}>
+              <TeamChip teamName={teamName} size="md" />
+            </div>
+          )}
+
           {/* ⋮ menu - fades in on hover/focus */}
           {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
           {hasActions && <div
@@ -122,11 +130,11 @@ function ProjectCardInner(
             >
               <Dropdown size="md">
                 <Dropdown.Section fluid>
-                  <Dropdown.Item label="Edit"    onClick={onEdit}    fluid />
-                  <Dropdown.Item label="Archive" onClick={onArchive} disabled fluid />
+                  <Dropdown.Item label="Edit"    onClick={() => { setMenuOpen(false); onEdit?.() }}    fluid />
+                  <Dropdown.Item label="Archive" onClick={() => { setMenuOpen(false); onArchive?.() }} disabled fluid />
                 </Dropdown.Section>
                 <Dropdown.Section divider fluid>
-                  <Dropdown.Item label="Delete"  variant="danger" onClick={onDelete} fluid />
+                  <Dropdown.Item label="Delete"  variant="danger" onClick={() => { setMenuOpen(false); onDelete?.() }} fluid />
                 </Dropdown.Section>
               </Dropdown>
             </Dropdown.Float>
@@ -138,6 +146,7 @@ function ProjectCardInner(
           <ProjectCardBody
             description={description}
             tags={tags}
+            teamName={teamName}
             updatedAt={updatedAt}
             chatCount={chatCount}
           />

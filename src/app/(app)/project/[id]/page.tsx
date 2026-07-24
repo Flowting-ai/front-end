@@ -3,8 +3,11 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
+import Image from 'next/image'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserIcon, InformationCircleIcon, TickTwoIcon, CancelOneIcon } from '@strange-huge/icons'
+import { LlmIcon } from '@strange-huge/icons/llm'
+import { getModelLlmId } from '@/lib/model-icons'
 import { Button } from '@/components/Button'
 import { Chip } from '@/components/Chip'
 import { Badge } from '@/components/Badge'
@@ -17,6 +20,7 @@ import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useModelSelectorContext } from '@/context/model-selector-context'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow'
+import { Divider } from '@/components/Divider'
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
 import { ProjectTeamPanel } from '@/components/ProjectTeamPanel'
@@ -37,9 +41,6 @@ import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/comp
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
 import type { PinFolder } from '@/lib/api/pins'
 import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
-import { LlmIcon } from '@strange-huge/icons/llm'
-import { getModelLlmId } from '@/lib/model-icons'
-import Image from 'next/image'
 import { resolveViewerUserId } from '@/lib/api/teams'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
 import { IconButton } from '@/components/IconButton'
@@ -69,6 +70,12 @@ const tooltipDividerStyle: React.CSSProperties = {
   backgroundColor: 'rgba(255,255,255,0.15)',
 }
 
+// Row separation comes from a divider between items, not a per-row border —
+// intersperses one before every row after the first.
+function withDividers(rows: React.ReactNode[]): React.ReactNode[] {
+  return rows.flatMap((row, i) => (i === 0 ? [row] : [<Divider key={`divider-${i}`} />, row]))
+}
+
 export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
   const { push }  = useRouter()
@@ -76,7 +83,7 @@ export default function ProjectPage() {
   const { pins, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const { setPanel: setProjectPanel } = useProjectPanel()
   const chatHistory = useChatHistoryContext()
-  const { open: openModelSelector, setPersonaActive, museActive, museAdvanced, selectedModel, personaActive, isOpen: modelSelectorOpen } = useModelSelectorContext()
+  const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
   const modelLlmId = museActive ? null : getModelLlmId(selectedModel?.companyName, selectedModel?.modelName)
 
@@ -462,7 +469,7 @@ export default function ProjectPage() {
   const privateChatList = chats.length === 0 ? (
     <ProjectChatEmptyRow />
   ) : (
-    chats.map((chat) => (
+    withDividers(chats.map((chat) => (
       <ProjectChatRow
         key={chat.id}
         title={chat.title}
@@ -476,7 +483,7 @@ export default function ProjectPage() {
         } : undefined}
         onDelete={chat.canEdit ? () => removeChat(projectId, chat.id) : undefined}
       />
-    ))
+    )))
   )
 
   // Loading / error / empty notice shared by the "Shared with you" and
@@ -505,14 +512,14 @@ export default function ProjectPage() {
   }
 
   return (
-    <div style={{ position: 'relative', display: 'flex', width: '100%', height: '100%', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', display: 'flex', width: '100%', flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }}>
 
       {/* Back button - anchored in the TopBar zone, top-left */}
       <button
         onClick={() => push(PROJECTS_ROUTE)}
         style={{
           position:     'absolute',
-          top:          26,
+          top:          6,
           left:         8,
           zIndex:       10,
           display:      'flex',
@@ -520,7 +527,7 @@ export default function ProjectPage() {
           background:   'transparent',
           border:       'none',
           cursor:       'pointer',
-          padding:      '8px',
+          padding:      '4px',
           borderRadius: '10px',
           flexShrink:   0,
         }}
@@ -528,38 +535,6 @@ export default function ProjectPage() {
       >
         <ArrowLeftOneIcon style={{ width: 20, height: 20, color: '#524b47' }} />
       </button>
-
-      {/* Model selector - top-right, same row as back button */}
-      <div style={{ position: 'absolute', top: 26, right: 16, zIndex: 10 }}>
-        <Button
-          variant="default"
-          size="sm"
-          rightIcon={<ArrowDownOneIcon />}
-          onClick={(e) => {
-            if (personaActive) {
-              toast.info('Model locked to agent', {
-                description: "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
-              })
-              return
-            }
-            openModelSelector(e.currentTarget)
-          }}
-          aria-haspopup="listbox"
-          aria-expanded={modelSelectorOpen && !personaActive}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: personaActive ? 'var(--button-default-text-disabled)' : undefined }}>
-            {(museActive || modelLlmId) && (
-              <span style={{ width: 16, height: 16, borderRadius: 4, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {museActive
-                  ? <Image src="/icons/souvenir-logo-white.svg" width={16} height={16} alt="" unoptimized style={{ display: 'block' }} />
-                  : <LlmIcon id={modelLlmId!} variant={modelLlmId === 'OpenAI' ? 'color' : 'avatar'} size={16} style={modelLlmId === 'OpenAI' ? { filter: 'brightness(0) invert(1)' } : undefined} />
-                }
-              </span>
-            )}
-            {modelButtonLabel ?? 'Souvenir AI · Muse'}
-          </span>
-        </Button>
-      </div>
 
       {/* ── Left column - fixed header + scrollable chat list ─────────── */}
       <div
@@ -577,7 +552,7 @@ export default function ProjectPage() {
             display:       'flex',
             flexDirection: 'column',
             alignItems:    'center',
-            padding:       '87px 24px 40px',
+            padding:       '32px 16px 8px',
             boxSizing:     'border-box',
             gap:           '12px',
             height:        '100%',
@@ -612,13 +587,21 @@ export default function ProjectPage() {
               </h1>
 
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                {project.canManageVisibility && <IconButton
+                  variant="outline"
+                  size="md"
+                  icon={<ShareOneIcon animated />}
+                  aria-label="Share project"
+                  onClick={handleOpenShare}
+                />}
+
                 {project.canEdit && <Dropdown.Float
                   open={menuOpen}
                   onOpenChange={setMenuOpen}
                   placement="bottom-end"
                   trigger={
                     <IconButton
-                      variant="secondary"
+                      variant="outline"
                       size="md"
                       icon={<MoreVerticalIcon triggered={menuOpen} />}
                       aria-label="Project options"
@@ -649,14 +632,33 @@ export default function ProjectPage() {
                   </Dropdown>
                 </Dropdown.Float>}
 
-                {project.canManageVisibility && <Button
-                  variant="outline"
-                  size="md"
-                  rightIcon={<ShareOneIcon size={16} />}
-                  onClick={handleOpenShare}
+                <Button
+                  variant="default"
+                  size="sm"
+                  rightIcon={<ArrowDownOneIcon />}
+                  onClick={(e) => {
+                    if (personaActive) {
+                      toast.info('Model locked to agent', {
+                        description: "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
+                      })
+                      return
+                    }
+                    openModelSelector(e.currentTarget)
+                  }}
+                  aria-haspopup="listbox"
                 >
-                  Share
-                </Button>}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: personaActive ? 'var(--button-default-text-disabled)' : undefined }}>
+                    {(museActive || modelLlmId) && (
+                      <span style={{ width: 16, height: 16, borderRadius: 4, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {museActive
+                          ? <Image src="/icons/souvenir-logo-white.svg" width={16} height={16} alt="" unoptimized style={{ display: 'block' }} />
+                          : <LlmIcon id={modelLlmId!} variant={modelLlmId === 'OpenAI' ? 'color' : 'avatar'} size={16} style={modelLlmId === 'OpenAI' ? { filter: 'brightness(0) invert(1)' } : undefined} />
+                        }
+                      </span>
+                    )}
+                    {modelButtonLabel ?? 'Souvenir AI · Muse'}
+                  </span>
+                </Button>
               </div>
             </div>
 
@@ -674,18 +676,29 @@ export default function ProjectPage() {
               </div>
             )}
 
+            {project.tags.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: project.description ? 6 : 0 }}>
+                {project.tags.map(tag => (
+                  <Badge key={tag.id} label={tag.label} color={tag.color} />
+                ))}
+              </div>
+            )}
+
             {project.description && (
               <p
                 style={{
-                  fontFamily:   'var(--font-body)',
-                  fontWeight:   'var(--font-weight-regular)',
-                  fontSize:     '16px',
-                  lineHeight:   '22px',
-                  color:        '#1a1714',
-                  margin:       0,
-                  overflow:     'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace:   'nowrap',
+                  width:            '60%',
+                  fontFamily:       'var(--font-body)',
+                  fontWeight:       'var(--font-weight-regular)',
+                  fontSize:         '16px',
+                  lineHeight:       '22px',
+                  color:            '#1a1714',
+                  margin:           0,
+                  overflow:         'hidden',
+                  textOverflow:     'ellipsis',
+                  display:          '-webkit-box',
+                  WebkitBoxOrient:  'vertical',
+                  WebkitLineClamp:  2,
                 }}
               >
                 {project.description}
@@ -839,9 +852,14 @@ export default function ProjectPage() {
                 onValueChange={(v: string) => setActiveTab(v as TeamTab)}
                 style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0 }}
               >
-                {/* All 4 tabs in one row; the info button explains what each covers. */}
-                <div style={tabsRowStyle}>
-                  <TabsList>
+                {/* All 4 tabs in one row, centered; the info button explains what
+                    each covers. A spacer matching the info button's width (32px,
+                    IconButton size="sm") balances it out so the tabs land dead
+                    center in the row instead of shifted left by the button. */}
+                <div style={{ ...tabsRowStyle, justifyContent: 'center' }}>
+                  <div style={{ width: 32, flexShrink: 0 }} aria-hidden />
+
+                  <TabsList size="small">
                     <TabsTrigger value="personal">Personal</TabsTrigger>
                     <TabsTrigger value="publish">
                       <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -888,15 +906,15 @@ export default function ProjectPage() {
 
                 {/* Personal — everything in this project you can see: your own
                     chats plus published-to-team ones (blue "Published" badge). */}
-                <TabsContent value="personal" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3 }}>
-                    {personalChats.length === 0 ? <ProjectChatEmptyRow /> : personalChats.map(teamChatRow)}
+                <TabsContent value="personal" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 24 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
+                    {personalChats.length === 0 ? <ProjectChatEmptyRow /> : withDividers(personalChats.map(teamChatRow))}
                   </div>
                 </TabsContent>
 
                 {/* Published to team — the published-only subset, visible to and manageable by editor+ */}
-                <TabsContent value="publish" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3 }}>
+                <TabsContent value="publish" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 24 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
                     {publishedChats.length === 0 ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 4px', color: 'var(--neutral-500)' }}>
                         <AlertCircleIcon size={16} />
@@ -904,25 +922,25 @@ export default function ProjectPage() {
                           {canPublishChat ? 'Hover a chat under “Personal” to publish it to the team.' : 'No chats have been published to the team yet.'}
                         </span>
                       </div>
-                    ) : publishedChats.map(teamChatRow)}
+                    ) : withDividers(publishedChats.map(teamChatRow))}
                   </div>
                 </TabsContent>
 
                 {/* Shared with you — editable AND view-only shares (red "View only"
                     badge marks the latter); click an editable one to fork it. */}
-                <TabsContent value="shared" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3 }}>
+                <TabsContent value="shared" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 24 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
                     {sharedNotice(sharedItemsSorted, 'No chats have been shared with you in this project yet.') ?? (
-                      sharedItemsSorted.map(sharedChatRow)
+                      withDividers(sharedItemsSorted.map(sharedChatRow))
                     )}
                   </div>
                 </TabsContent>
 
                 {/* View only — the view-only-only subset; open the shared view, no forking */}
-                <TabsContent value="view-only" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 8 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 3 }}>
+                <TabsContent value="view-only" className="kaya-scrollbar" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', paddingTop: 24 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 3 }}>
                     {sharedNotice(sharedReadOnly, 'No view-only chats in this project yet.') ?? (
-                      sharedReadOnly.map(sharedChatRow)
+                      withDividers(sharedReadOnly.map(sharedChatRow))
                     )}
                   </div>
                 </TabsContent>
@@ -931,7 +949,7 @@ export default function ProjectPage() {
           ) : (
             <div
               className="kaya-scrollbar"
-              style={{ width: '100%', maxWidth: '679px', display: 'flex', flexDirection: 'column', gap: '2px', flex: '1 1 0', minHeight: 0, overflowY: 'auto', padding: 3 }}
+              style={{ width: '100%', maxWidth: '679px', display: 'flex', flexDirection: 'column', gap: 0, flex: '1 1 0', minHeight: 0, overflowY: 'auto', padding: 3 }}
             >
               {privateChatList}
             </div>

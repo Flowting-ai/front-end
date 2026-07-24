@@ -19,6 +19,7 @@ import { useOrg } from '@/context/org-context'
 import { PROJECT_ROUTE } from '@/lib/routes'
 
 type SortKey = 'recent' | 'alphabetical' | 'active'
+type ScopeFilter = 'all' | 'personal' | 'team'
 
 function sortProjects(projects: Project[], key: SortKey): Project[] {
   const copy = [...projects]
@@ -49,16 +50,7 @@ export default function ProjectsPage() {
   const { orgId, activeTeamId, teams }                                        = useOrg()
   const mounted                                                               = useMounted()
   const syncedRef = useRef(false)
-  const activeTeam = teams.find(team => team.id === activeTeamId) ?? null
   const newProjectHref = orgId && activeTeamId ? `/projects/new?teamId=${activeTeamId}` : '/projects/new'
-  const scopeLabel = orgId && activeTeam
-    ? activeTeam.name
-    : orgId
-      ? 'All workspace'
-      : 'Projects'
-  const emptyLabel = orgId && activeTeam
-    ? `No projects in ${activeTeam.name} yet.`
-    : 'No projects yet. Create your first one to get started.'
 
   // Sync accurate chat counts once after the project list finishes loading.
   // Runs only on this page — not on every app boot — so the API is only hit
@@ -68,12 +60,23 @@ export default function ProjectsPage() {
     syncedRef.current = true
     Promise.allSettled(projects.map(p => loadProjectChats(p.id)))
   }, [loading, projects, loadProjectChats])
-  const [query,        setQuery]                  = useState('')
-  const [sort,         setSort]                   = useState<SortKey>('recent')
-  const [sortOpen,     setSortOpen]               = useState(false)
-  const [editTarget,   setEditTarget]             = useState<Project | null>(null)
-  const [deleteTarget, setDeleteTarget]           = useState<Project | null>(null)
-  const [isDeleting,   setIsDeleting]             = useState(false)
+  const [query,          setQuery]          = useState('')
+  const [sort,           setSort]           = useState<SortKey>('recent')
+  const [sortOpen,       setSortOpen]       = useState(false)
+  const [scopeFilter,    setScopeFilter]    = useState<ScopeFilter>('all')
+  const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(() => new Set())
+  const [filterOpen,     setFilterOpen]     = useState(false)
+  const [editTarget,     setEditTarget]     = useState<Project | null>(null)
+  const [deleteTarget,   setDeleteTarget]   = useState<Project | null>(null)
+  const [isDeleting,     setIsDeleting]     = useState(false)
+
+  function toggleTeam(teamId: string) {
+    setSelectedTeamIds(prev => {
+      const next = new Set(prev)
+      next.has(teamId) ? next.delete(teamId) : next.add(teamId)
+      return next
+    })
+  }
 
   async function handleDelete(project: Project) {
     if (project.chatCount > 0) {
@@ -103,10 +106,19 @@ export default function ProjectsPage() {
     }
   }
 
+  // Explicit filter instead of implicit team-scoping — "All" shows everything
+  // (personal + every team merged), "Personal"/"Team" narrow to just one kind.
+  // Team projects are never auto-hidden just because a different team is active
+  // elsewhere in the app. Checking one or more teams additionally narrows the
+  // team-project portion down to just those teams (no checkboxes checked =
+  // no extra narrowing, i.e. every team).
   const scopedProjects = useMemo(() => {
-    if (!orgId || !activeTeamId) return projects
-    return projects.filter(project => project.teamId === activeTeamId)
-  }, [orgId, activeTeamId, projects])
+    return projects.filter(p => {
+      if (p.teamId === null) return scopeFilter !== 'team'
+      if (scopeFilter === 'personal') return false
+      return selectedTeamIds.size === 0 || selectedTeamIds.has(p.teamId)
+    })
+  }, [projects, scopeFilter, selectedTeamIds])
 
   // Split into two memos: sort doesn't re-run when query changes, filter doesn't
   // re-run when sort order changes.
@@ -123,6 +135,25 @@ export default function ProjectsPage() {
     alphabetical: 'Alphabetical',
     active:       'Most active',
   }
+
+  const filterLabels: Record<ScopeFilter, string> = {
+    all:      'All',
+    personal: 'Personal',
+    team:     'Team',
+  }
+
+  // Trigger/badge text — reflects the specific teams checked, when any are,
+  // otherwise falls back to the coarse All/Personal/Team label.
+  const selectedTeamNames = teams.filter(t => selectedTeamIds.has(t.id)).map(t => t.name)
+  const filterDisplayLabel = scopeFilter !== 'personal' && selectedTeamNames.length > 0
+    ? selectedTeamNames.length === 1 ? selectedTeamNames[0] : `${selectedTeamNames.length} Teams`
+    : filterLabels[scopeFilter]
+
+  const emptyLabel = scopeFilter === 'personal'
+    ? 'No personal projects yet. Create your first one to get started.'
+    : scopeFilter === 'team'
+      ? 'No team projects yet.'
+      : 'No projects yet. Create your first one to get started.'
 
   return (
     <div
@@ -161,11 +192,64 @@ export default function ProjectsPage() {
                 Projects
               </h1>
               <div style={{ alignSelf: 'flex-start' }}>
-                <Badge label={`${scopeLabel} · ${scopedProjects.length} ${scopedProjects.length === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+                <Badge label={`${filterDisplayLabel} · ${scopedProjects.length} ${scopedProjects.length === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+              {/* Filter dropdown — All / Personal / Team, only meaningful for org members */}
+              {orgId && (
+                <Dropdown.Float
+                  open={filterOpen}
+                  onOpenChange={setFilterOpen}
+                  placement="bottom-end"
+                  trigger={
+                    <Button variant="outline" rightIcon={<ArrowDownOneIcon animated />}>
+                      {filterDisplayLabel}
+                    </Button>
+                  }
+                >
+                  {/* Popover's own scroll cap wraps ALL children in one shared
+                      scroll area by default — disable it here so only the
+                      inner Teams list (its own overflow below) ever scrolls,
+                      never the All/Personal/Team rows above it. */}
+                  <Dropdown maxHeight={false}>
+                    <Dropdown.Section>
+                      {(['all', 'personal', 'team'] as ScopeFilter[]).map((k) => (
+                        <Dropdown.Item
+                          key={k}
+                          label={filterLabels[k]}
+                          selected={scopeFilter === k}
+                          onClick={() => { setScopeFilter(k); setFilterOpen(false) }}
+                          fluid
+                        />
+                      ))}
+                    </Dropdown.Section>
+                    {/* Per-team narrowing — only meaningful alongside All/Team,
+                        multi-select so it stays open while toggling. */}
+                    {scopeFilter !== 'personal' && teams.length > 0 && (
+                      <Dropdown.Section divider label="Teams">
+                        <div
+                          className="kaya-scrollbar"
+                          style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 362, overflowY: 'auto', padding: 3 }}
+                        >
+                          {teams.map(team => (
+                            <Dropdown.Item
+                              key={team.id}
+                              label={team.name}
+                              showCheckbox
+                              checkboxChecked={selectedTeamIds.has(team.id)}
+                              onCheckboxChange={() => toggleTeam(team.id)}
+                              fluid
+                            />
+                          ))}
+                        </div>
+                      </Dropdown.Section>
+                    )}
+                  </Dropdown>
+                </Dropdown.Float>
+              )}
+
               {/* Sort dropdown */}
               <Dropdown.Float
                 open={sortOpen}
@@ -324,6 +408,7 @@ export default function ProjectsPage() {
                 title={project.name}
                 description={project.description}
                 tags={project.tags}
+                teamName={project.teamId ? teams.find(t => t.id === project.teamId)?.name : undefined}
                 updatedAt={formatUpdated(project.updatedAt)}
                 chatCount={project.chatCount}
                 onClick={() => push(PROJECT_ROUTE(project.id))}
