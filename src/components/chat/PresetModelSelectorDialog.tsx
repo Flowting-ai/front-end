@@ -20,6 +20,7 @@ import { LlmIcon } from "@strange-huge/icons/llm";
 import { IconButton } from "@/components/IconButton";
 import { Button } from "@/components/Button";
 import { Tooltip } from "@/components/Tooltip";
+import { Popover } from "@/components/Popover";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useCompare } from "@/context/compare-context";
 import { getModelLlmId } from "@/lib/model-icons";
@@ -751,11 +752,33 @@ export function PresetModelSelectorDialog() {
     };
   }, [isOpen, anchorEl, close]);
 
+  // NOTE on Dropdown.Float: this dialog is intentionally NOT presented via
+  // `Dropdown.Float`. That component clones and renders its own `trigger`
+  // element (wrapping it in a ref'd <span> to compute position) — it has no
+  // prop for an externally-supplied anchor element. Every real trigger for
+  // this dialog (TopBar, chat page, project chat page, agent-configure) lives
+  // in a completely different part of the tree and calls
+  // `useModelSelectorContext().open(anchorEl)` imperatively from its own
+  // button's onClick, while this dialog is mounted once, globally, in
+  // `app/(app)/layout.tsx`. There is no way to hand that external `anchorEl`
+  // to `Dropdown.Float` without rendering a second, fake trigger element in
+  // its place — which would diverge from its real click/focus semantics
+  // rather than reuse them. So positioning + outside-click/Escape stay
+  // hand-rolled here (computed from `anchorEl` above), and only the *visual
+  // chrome* is shared: the panel now renders through `<Popover>` — the same
+  // surface primitive `<Dropdown>` itself wraps — instead of hand-styled
+  // background/radius/shadow, so it matches the design system's popover
+  // surfaces. `variant="modal"` (18 px radius) is used rather than
+  // `Dropdown`'s default `"dropdown"` (12 px) because this panel is a rich,
+  // multi-section surface (search + tabs + featured cards + scrollable list)
+  // rather than a simple menu — per Popover's own documented guidance for
+  // when to use each variant. `maxHeight={false}` disables Popover's own
+  // internal scroll-cap since `PresetModelSelectorContent` already manages
+  // its own fixed-height scroll area with custom fade overlays.
   return (
     <AnimatePresence initial={false}>
       {isOpen && (
         <m.div
-          ref={dropdownRef}
           key="dropdown"
           role="dialog"
           aria-modal
@@ -767,26 +790,31 @@ export function PresetModelSelectorDialog() {
           style={{
             position: "fixed",
             zIndex: 51,
-            width: `${DROPDOWN_WIDTH}px`,
-            maxWidth: `calc(100vw - 32px)`,
-            backgroundColor: "var(--popover-bg)",
-            borderRadius: "18px",
-            boxShadow: "var(--shadow-popover)",
-            isolation: "isolate",
             ...style,
           }}
         >
-          <PresetModelSelectorContent
-            models={models}
-            selectedModel={selectedModel}
-            onSelect={selectModel}
-            museActive={museActive}
-            museAdvanced={museAdvanced}
-            onMuseSelect={() => { setMuseAdvanced(false); activateMuse() }}
-            onAdvancedSelect={() => { setMuseAdvanced(true); close() }}
-            preferLeftTooltips={preferLeftTooltips}
-            onClose={close}
-          />
+          <Popover
+            ref={dropdownRef}
+            variant="modal"
+            maxHeight={false}
+            style={{
+              width: `${DROPDOWN_WIDTH}px`,
+              maxWidth: `calc(100vw - 32px)`,
+              isolation: "isolate",
+            }}
+          >
+            <PresetModelSelectorContent
+              models={models}
+              selectedModel={selectedModel}
+              onSelect={selectModel}
+              museActive={museActive}
+              museAdvanced={museAdvanced}
+              onMuseSelect={() => { setMuseAdvanced(false); activateMuse() }}
+              onAdvancedSelect={() => { setMuseAdvanced(true); close() }}
+              preferLeftTooltips={preferLeftTooltips}
+              onClose={close}
+            />
+          </Popover>
         </m.div>
       )}
     </AnimatePresence>

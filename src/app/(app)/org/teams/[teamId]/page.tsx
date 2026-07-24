@@ -1,10 +1,9 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
+  ArrowDownOneIcon,
   ExchangeOneIcon,
   FilterMailIcon,
   PlusSignIcon,
@@ -13,10 +12,9 @@ import {
 } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
-import { DropdownMenuItem } from '@/components/DropdownMenuItem'
+import { Dropdown } from '@/components/Dropdown'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
-import { Popover } from '@/components/Popover'
 import { SettingsPageShell } from '@/components/SettingsPageShell'
 import { Switch } from '@/components/Switch'
 import {
@@ -132,40 +130,6 @@ function SkeletonCard({ children }: { children: React.ReactNode }) {
   )
 }
 
-function useDropdownAnchorPosition(
-  open: boolean,
-  triggerRef: React.RefObject<HTMLButtonElement | null>,
-) {
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
-
-  useEffect(() => {
-    if (!open) {
-      setPos(null)
-      return
-    }
-
-    const updatePosition = () => {
-      const trigger = triggerRef.current
-      if (!trigger) {
-        setPos(null)
-        return
-      }
-      const rect = trigger.getBoundingClientRect()
-      setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width })
-    }
-
-    updatePosition()
-    window.addEventListener('resize', updatePosition)
-    window.addEventListener('scroll', updatePosition, true)
-    return () => {
-      window.removeEventListener('resize', updatePosition)
-      window.removeEventListener('scroll', updatePosition, true)
-    }
-  }, [open, triggerRef])
-
-  return pos
-}
-
 /** Role/status chip shown beside a member's name in the roster. */
 function RoleBadge({ member }: { member: RosterMember }) {
   if (member.pending)            return <Badge color="Neutral" label="Invite sent" />
@@ -238,24 +202,12 @@ function InvitePanel({ availableRoles, orgMembers, rosterIds, projects, onInvite
   const [sending,  setSending]  = useState(false)
   const [selected, setSelected] = useState<OrgMember[]>([])
   const [dropOpen, setDropOpen] = useState(false)
-  const triggerRef  = useRef<HTMLButtonElement>(null)
-  const dropPanelRef = useRef<HTMLDivElement>(null)
-  const pos = useDropdownAnchorPosition(dropOpen, triggerRef)
+  const [projectDropOpen, setProjectDropOpen] = useState(false)
 
   const eligible = useMemo(() =>
     orgMembers.filter(m => m.inviteStatus !== 'invite_sent' && !rosterIds.has(m.id)),
     [orgMembers, rosterIds]
   )
-
-  useEffect(() => {
-    if (!dropOpen) return
-    const handler = (e: MouseEvent) => {
-      if (triggerRef.current?.contains(e.target as Node) || dropPanelRef.current?.contains(e.target as Node)) return
-      setDropOpen(false)
-    }
-    document.addEventListener('mousedown', handler, true)
-    return () => document.removeEventListener('mousedown', handler, true)
-  }, [dropOpen])
 
   useEffect(() => {
     if (role !== 'member' && projectId) setProjectId('')
@@ -303,46 +255,47 @@ function InvitePanel({ availableRoles, orgMembers, rosterIds, projects, onInvite
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
             Or add from workspace
           </p>
-          <button
-            ref={triggerRef}
-            type="button"
-            onClick={() => setDropOpen(o => !o)}
-            style={{
-              fontFamily: 'var(--font-body)', fontSize: 14,
-              color: selected.length > 0 ? 'var(--neutral-900)' : 'var(--neutral-400)',
-              border: '1px solid var(--neutral-200)', borderRadius: 8,
-              padding: '8px 12px', backgroundColor: 'white', cursor: 'pointer',
-              width: '100%', textAlign: 'left',
-            }}
-          >
-            {selected.length > 0
-              ? `${selected.length} member${selected.length > 1 ? 's' : ''} selected`
-              : 'Select workspace members…'}
-          </button>
-          {dropOpen && pos && createPortal(
-            <AnimatePresence>
-              <motion.div
-                ref={dropPanelRef}
-                style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 300 }}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0, transition: { duration: 0.12 } }}
+          <Dropdown.Float
+            open={dropOpen}
+            onOpenChange={setDropOpen}
+            placement="bottom-start"
+            trigger={
+              <button
+                type="button"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                  fontFamily: 'var(--font-body)', fontSize: 14,
+                  color: selected.length > 0 ? 'var(--neutral-900)' : 'var(--neutral-400)',
+                  border: '1px solid var(--neutral-200)', borderRadius: 8,
+                  padding: '8px 12px', backgroundColor: 'white', cursor: 'pointer',
+                  width: '100%', textAlign: 'left',
+                }}
               >
-                <Popover variant="dropdown" className="kaya-scrollbar" style={{ width: '100%', maxHeight: 220, overflowY: 'auto' }}>
-                  {eligible.map(m => (
-                    <DropdownMenuItem
-                      key={m.id}
-                      fluid
-                      label={m.name || m.email}
-                      subLabel={m.name ? (m.email ?? undefined) : undefined}
-                      selected={selected.some(s => s.id === m.id)}
-                      onClick={() => toggleMember(m)}
-                    />
-                  ))}
-                </Popover>
-              </motion.div>
-            </AnimatePresence>,
-            document.body
-          )}
+                <span>
+                  {selected.length > 0
+                    ? `${selected.length} member${selected.length > 1 ? 's' : ''} selected`
+                    : 'Select workspace members…'}
+                </span>
+                <ArrowDownOneIcon size={12} color="var(--neutral-400)" animated={dropOpen} />
+              </button>
+            }
+          >
+            <Dropdown className="kaya-scrollbar" style={{ width: 280, maxHeight: 220, overflowY: 'auto' }}>
+              <Dropdown.Section fluid>
+                {eligible.map(m => (
+                  <Dropdown.Item
+                    key={m.id}
+                    fluid
+                    label={m.name || m.email}
+                    subLabel={m.name ? (m.email ?? undefined) : undefined}
+                    showCheckbox
+                    checkboxChecked={selected.some(s => s.id === m.id)}
+                    onCheckboxChange={() => toggleMember(m)}
+                  />
+                ))}
+              </Dropdown.Section>
+            </Dropdown>
+          </Dropdown.Float>
           {selected.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {selected.map(m => (
@@ -405,29 +358,54 @@ function InvitePanel({ availableRoles, orgMembers, rosterIds, projects, onInvite
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-600)', margin: 0 }}>
             Project access (optional)
           </p>
-          <select
-            aria-label="Project access"
-            value={projectId}
-            onChange={event => setProjectId(event.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid var(--neutral-200)',
-              borderRadius: 8,
-              backgroundColor: 'white',
-              fontFamily: 'var(--font-body)',
-              fontSize: 14,
-              color: projectId ? 'var(--neutral-900)' : 'var(--neutral-500)',
-              outline: 'none',
-            }}
+          <Dropdown.Float
+            open={projectDropOpen}
+            onOpenChange={setProjectDropOpen}
+            placement="bottom-start"
+            trigger={
+              <button
+                type="button"
+                aria-label="Project access"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid var(--neutral-200)',
+                  borderRadius: 8,
+                  backgroundColor: 'white',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 14,
+                  color: projectId ? 'var(--neutral-900)' : 'var(--neutral-500)',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <span>{projects.find(p => p.id === projectId)?.title ?? 'No project access'}</span>
+                <ArrowDownOneIcon size={12} color="var(--neutral-400)" animated={projectDropOpen} />
+              </button>
+            }
           >
-            <option value="">No project access</option>
-            {projects.map(project => (
-              <option key={project.id} value={project.id}>
-                {project.title}
-              </option>
-            ))}
-          </select>
+            <Dropdown style={{ width: 280 }}>
+              <Dropdown.Section fluid>
+                <Dropdown.Item
+                  label="No project access"
+                  selected={projectId === ''}
+                  onClick={() => { setProjectId(''); setProjectDropOpen(false) }}
+                  fluid
+                />
+                {projects.map(project => (
+                  <Dropdown.Item
+                    key={project.id}
+                    label={project.title}
+                    selected={projectId === project.id}
+                    onClick={() => { setProjectId(project.id); setProjectDropOpen(false) }}
+                    fluid
+                  />
+                ))}
+              </Dropdown.Section>
+            </Dropdown>
+          </Dropdown.Float>
         </div>
       )}
 
@@ -453,22 +431,6 @@ function AddEditorPanel({ rosterMembers, onAdd, onClose }: {
   const [selected, setSelected] = useState<RosterMember | null>(null)
   const [saving, setSaving] = useState(false)
   const [dropOpen, setDropOpen] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const pos = useDropdownAnchorPosition(dropOpen, triggerRef)
-
-  useEffect(() => {
-    if (!dropOpen) return
-    const handler = (e: MouseEvent) => {
-      if (
-        triggerRef.current?.contains(e.target as Node) ||
-        panelRef.current?.contains(e.target as Node)
-      ) return
-      setDropOpen(false)
-    }
-    document.addEventListener('mousedown', handler, true)
-    return () => document.removeEventListener('mousedown', handler, true)
-  }, [dropOpen])
 
   const handleAdd = async () => {
     if (!selected) return
@@ -494,44 +456,42 @@ function AddEditorPanel({ rosterMembers, onAdd, onClose }: {
         </p>
       ) : (
         <>
-          <button
-            ref={triggerRef}
-            type="button"
-            onClick={() => setDropOpen(o => !o)}
-            style={{
-              fontFamily: 'var(--font-body)', fontSize: 14,
-              color: selected ? 'var(--neutral-900)' : 'var(--neutral-400)',
-              border: '1px solid var(--neutral-200)', borderRadius: 8,
-              padding: '8px 12px', backgroundColor: 'white', cursor: 'pointer',
-              width: '100%', textAlign: 'left',
-            }}
-          >
-            {selected ? (selected.name || selected.email) : 'Select a team member…'}
-          </button>
-          {dropOpen && pos && createPortal(
-            <AnimatePresence>
-              <motion.div
-                ref={panelRef}
-                style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 300 }}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0, transition: { duration: 0.12 } }}
+          <Dropdown.Float
+            open={dropOpen}
+            onOpenChange={setDropOpen}
+            placement="bottom-start"
+            trigger={
+              <button
+                type="button"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                  fontFamily: 'var(--font-body)', fontSize: 14,
+                  color: selected ? 'var(--neutral-900)' : 'var(--neutral-400)',
+                  border: '1px solid var(--neutral-200)', borderRadius: 8,
+                  padding: '8px 12px', backgroundColor: 'white', cursor: 'pointer',
+                  width: '100%', textAlign: 'left',
+                }}
               >
-                <Popover variant="dropdown" style={{ width: '100%' }}>
-                  {eligible.map(m => (
-                    <DropdownMenuItem
-                      key={m.userId}
-                      fluid
-                      label={m.name || m.email || undefined}
-                      subLabel={m.name ? (m.email ?? undefined) : undefined}
-                      selected={selected?.userId === m.userId}
-                      onClick={() => { setSelected(m); setDropOpen(false) }}
-                    />
-                  ))}
-                </Popover>
-              </motion.div>
-            </AnimatePresence>,
-            document.body
-          )}
+                <span>{selected ? (selected.name || selected.email) : 'Select a team member…'}</span>
+                <ArrowDownOneIcon size={12} color="var(--neutral-400)" animated={dropOpen} />
+              </button>
+            }
+          >
+            <Dropdown style={{ width: 280 }}>
+              <Dropdown.Section fluid>
+                {eligible.map(m => (
+                  <Dropdown.Item
+                    key={m.userId}
+                    fluid
+                    label={m.name || m.email || undefined}
+                    subLabel={m.name ? (m.email ?? undefined) : undefined}
+                    selected={selected?.userId === m.userId}
+                    onClick={() => { setSelected(m); setDropOpen(false) }}
+                  />
+                ))}
+              </Dropdown.Section>
+            </Dropdown>
+          </Dropdown.Float>
         </>
       )}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

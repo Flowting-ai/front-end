@@ -1,9 +1,23 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useForm, ValidationError } from '@formspree/react'
 import { toast } from 'sonner'
-import { CancelOneIcon } from '@strange-huge/icons'
+import { CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
+import { Button } from '@/components/Button'
+import { Dropdown } from '@/components/Dropdown'
+
+const TEAM_SIZE_OPTIONS = [
+  { value: '1-5', label: '1 – 5' },
+  { value: '6-20', label: '6 – 20' },
+  { value: '21-50', label: '21 – 50' },
+  { value: '51-200', label: '51 – 200' },
+  { value: '201+', label: '201+' },
+] as const
+
+const TEAM_SIZE_LABELS: Record<string, string> = Object.fromEntries(
+  TEAM_SIZE_OPTIONS.map(o => [o.value, o.label])
+)
 
 const SHADOW_MODAL = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)'
 const SHADOW_INPUT = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
@@ -50,6 +64,8 @@ const S = {
 
 export function ContactSalesModal({ onClose }: { onClose: () => void }) {
   const [state, handleSubmit] = useForm('xgojalnr')
+  const [teamSize, setTeamSize] = useState<string>('1-5')
+  const [teamSizeOpen, setTeamSizeOpen] = useState(false)
 
   // Success: toast + close
   useEffect(() => {
@@ -185,20 +201,41 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
                     <label htmlFor="cs-team-size" style={S.label}>Team size</label>
-                    <div style={{ display: 'flex', alignItems: 'center', background: 'white', borderRadius: 10, padding: '7px 10px', boxShadow: SHADOW_INPUT }}>
-                      <select
-                        id="cs-team-size"
-                        name="team_size"
-                        defaultValue="1-5"
-                        style={{ flex: '1 0 0', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', cursor: 'pointer' }}
-                      >
-                        <option value="1-5">1 – 5</option>
-                        <option value="6-20">6 – 20</option>
-                        <option value="21-50">21 – 50</option>
-                        <option value="51-200">51 – 200</option>
-                        <option value="201+">201+</option>
-                      </select>
-                    </div>
+                    <Dropdown.Float
+                      open={teamSizeOpen}
+                      onOpenChange={setTeamSizeOpen}
+                      placement="bottom-start"
+                      trigger={
+                        <Button
+                          id="cs-team-size"
+                          type="button"
+                          variant="outline"
+                          fluid
+                          rightIcon={<ArrowDownOneIcon animated />}
+                        >
+                          {TEAM_SIZE_LABELS[teamSize]}
+                        </Button>
+                      }
+                    >
+                      <Dropdown>
+                        <Dropdown.Section>
+                          {TEAM_SIZE_OPTIONS.map(o => (
+                            <Dropdown.Item
+                              key={o.value}
+                              label={o.label}
+                              selected={teamSize === o.value}
+                              onClick={() => { setTeamSize(o.value); setTeamSizeOpen(false) }}
+                              fluid
+                            />
+                          ))}
+                        </Dropdown.Section>
+                      </Dropdown>
+                    </Dropdown.Float>
+                    {/* @formspree/react's handleSubmit builds a FormData from the native
+                        <form> element, so the selected value only reaches the Formspree
+                        payload if a native form field carries it — the Dropdown/Button
+                        pair above has no native form participation. */}
+                    <input type="hidden" name="team_size" value={teamSize} />
                     <span style={S.fieldError}>
                       <ValidationError field="team_size" errors={state.errors} />
                     </span>

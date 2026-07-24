@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { PlusSignIcon } from '@strange-huge/icons'
+import { PlusSignIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
+import { Dropdown } from '@/components/Dropdown'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
 import { listMembers } from '@/lib/api/organization'
@@ -28,6 +29,7 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([])
   const [selected,   setSelected]   = useState('')
   const [saving,     setSaving]     = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   useEffect(() => {
     if (!orgId) return
@@ -61,6 +63,7 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
   const handleOpenAdd = () => {
     if (!orgId) return
     setAddOpen(true)
+    setPickerOpen(false)
     const memberIds = new Set(members.map(m => m.userId))
     Promise.all([listMembers(orgId), listTeamEditors(orgId, teamId)])
       .then(([all, editors]) => {
@@ -103,6 +106,9 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
     }
   }
 
+  const selectedMember      = orgMembers.find(m => m.id === selected)
+  const selectedMemberLabel = selectedMember ? (selectedMember.name || selectedMember.email) : 'Select member...'
+
   return (
     <div style={{ backgroundColor: 'var(--neutral-50)' }}>
       <div style={{
@@ -131,28 +137,36 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
               Everyone eligible is already in this project.
             </p>
           ) : (
-            <select
-              value={selected}
-              onChange={e => setSelected(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                border: '1px solid var(--neutral-300)',
-                borderRadius: 8,
-                backgroundColor: 'var(--neutral-white)',
-                fontFamily: 'var(--font-body)',
-                fontSize: 14,
-                lineHeight: '22px',
-                color: 'var(--neutral-900)',
-              }}
+            <Dropdown.Float
+              open={pickerOpen}
+              onOpenChange={setPickerOpen}
+              placement="bottom-start"
+              trigger={
+                <Button variant="outline" fluid rightIcon={<ArrowDownOneIcon animated />}>
+                  {selectedMemberLabel}
+                </Button>
+              }
             >
-              <option value="">Select member...</option>
-              {orgMembers.map(m => (
-                <option key={m.id} value={m.id}>
-                  {m.name || m.email}{m.name && m.email ? ` (${m.email})` : ''}
-                </option>
-              ))}
-            </select>
+              <Dropdown>
+                <Dropdown.Section>
+                  <div
+                    className="kaya-scrollbar"
+                    style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 362, overflowY: 'auto', padding: 3 }}
+                  >
+                    {orgMembers.map(m => (
+                      <Dropdown.Item
+                        key={m.id}
+                        label={m.name || m.email}
+                        subLabel={m.name && m.email ? m.email : undefined}
+                        selected={selected === m.id}
+                        onClick={() => { setSelected(m.id); setPickerOpen(false) }}
+                        fluid
+                      />
+                    ))}
+                  </div>
+                </Dropdown.Section>
+              </Dropdown>
+            </Dropdown.Float>
           )}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <Button variant="outline" size="sm" onClick={() => setAddOpen(false)}>Cancel</Button>

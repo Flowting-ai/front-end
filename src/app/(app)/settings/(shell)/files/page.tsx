@@ -1,6 +1,9 @@
 'use client'
 
 import React, { useState } from 'react'
+import { ArrowDownOneIcon } from '@strange-huge/icons'
+import { Button } from '@/components/Button'
+import { Dropdown } from '@/components/Dropdown'
 import { useAuth } from '@/context/auth-context'
 import { FilesSkeleton } from '../SettingsSkeleton'
 
@@ -185,7 +188,7 @@ function BrownBadge({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Styled native <select> matching InputField appearance
+// Dropdown-based select matching InputField appearance
 function SelectField({
   value,
   onChange,
@@ -195,51 +198,34 @@ function SelectField({
   onChange: (v: string) => void
   options: string[]
 }) {
+  const [open, setOpen] = useState(false)
+
   return (
-    <div style={{ position: 'relative', width: 327, flexShrink: 0 }}>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        style={{
-          width:           '100%',
-          appearance:      'none',
-          WebkitAppearance:'none',
-          backgroundColor: 'var(--neutral-white)',
-          border:          'none',
-          borderRadius:    10,
-          boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-          padding:         '7px 32px 7px 12px',
-          fontFamily:      'var(--font-body)',
-          fontWeight:      400,
-          fontSize:        14,
-          lineHeight:      '22px',
-          color:           'var(--neutral-600)',
-          cursor:          'pointer',
-          outline:         'none',
-        }}
+    <div style={{ width: 327, flexShrink: 0 }}>
+      <Dropdown.Float
+        open={open}
+        onOpenChange={setOpen}
+        placement="bottom-end"
+        trigger={
+          <Button variant="outline" fluid rightIcon={<ArrowDownOneIcon animated />}>
+            {value}
+          </Button>
+        }
       >
-        {options.map(opt => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-      </select>
-      {/* Chevron icon */}
-      <svg
-        aria-hidden
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        style={{
-          position:     'absolute',
-          right:        10,
-          top:          '50%',
-          transform:    'translateY(-50%)',
-          pointerEvents:'none',
-          flexShrink:   0,
-        }}
-      >
-        <path d="M4 6L8 10L12 6" stroke="var(--neutral-500)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
+        <Dropdown>
+          <Dropdown.Section>
+            {options.map(opt => (
+              <Dropdown.Item
+                key={opt}
+                label={opt}
+                selected={value === opt}
+                onClick={() => { onChange(opt); setOpen(false) }}
+                fluid
+              />
+            ))}
+          </Dropdown.Section>
+        </Dropdown>
+      </Dropdown.Float>
     </div>
   )
 }

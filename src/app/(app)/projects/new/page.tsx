@@ -3,10 +3,12 @@
 import React, { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
+import { ArrowDownOneIcon } from '@strange-huge/icons'
 import { useProjects } from '@/context/projects-context'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
+import { Dropdown } from '@/components/Dropdown'
 import { useOrg } from '@/context/org-context'
 import { PROJECT_ROUTE } from '@/lib/routes'
 
@@ -19,6 +21,7 @@ function NewProjectPageInner() {
   const [description,  setDescription]   = useState('')
   const [loading,      setLoading]        = useState(false)
   const [teamId,       setTeamId]         = useState('')
+  const [teamMenuOpen, setTeamMenuOpen]   = useState(false)
   const editableTeams = useMemo(() => teams.filter(team => !team.archived && team.canEdit), [teams])
   const canCreateTeamProject = Boolean(orgId && editableTeams.length > 0)
   const requestedTeamId = searchParams.get('teamId') ?? ''
@@ -126,17 +129,36 @@ function NewProjectPageInner() {
               <label htmlFor="new-project-team" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#524b47' }}>
                 Access
               </label>
-              <select
-                id="new-project-team"
-                value={teamId}
-                onChange={(event) => setTeamId(event.target.value)}
-                style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)', border: '1px solid var(--neutral-300)', borderRadius: 10, padding: '9px 12px', backgroundColor: 'white', width: '100%' }}
+              <Dropdown.Float
+                open={teamMenuOpen}
+                onOpenChange={setTeamMenuOpen}
+                placement="bottom-start"
+                trigger={
+                  <Button id="new-project-team" variant="outline" fluid rightIcon={<ArrowDownOneIcon animated />}>
+                    {teamId ? `Team: ${editableTeams.find(team => team.id === teamId)?.name ?? ''}` : 'Private project'}
+                  </Button>
+                }
               >
-                <option value="">Private project</option>
-                {editableTeams.map(team => (
-                  <option key={team.id} value={team.id}>Team: {team.name}</option>
-                ))}
-              </select>
+                <Dropdown>
+                  <Dropdown.Section>
+                    <Dropdown.Item
+                      label="Private project"
+                      selected={teamId === ''}
+                      onClick={() => { setTeamId(''); setTeamMenuOpen(false) }}
+                      fluid
+                    />
+                    {editableTeams.map(team => (
+                      <Dropdown.Item
+                        key={team.id}
+                        label={`Team: ${team.name}`}
+                        selected={teamId === team.id}
+                        onClick={() => { setTeamId(team.id); setTeamMenuOpen(false) }}
+                        fluid
+                      />
+                    ))}
+                  </Dropdown.Section>
+                </Dropdown>
+              </Dropdown.Float>
             </div>
           )}
 

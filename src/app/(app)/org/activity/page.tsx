@@ -1,10 +1,12 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { SearchOneIcon } from '@strange-huge/icons'
+import { SearchOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Badge } from '@/components/Badge'
 import type { BadgeColor } from '@/components/Badge'
+import { Button } from '@/components/Button'
+import { Dropdown } from '@/components/Dropdown'
 import { InputField } from '@/components/InputField'
 import {
   SettingsTable,
@@ -113,6 +115,7 @@ export default function OrgActivityPage() {
   const [loading,      setLoading]      = useState(true)
   const [filterAction, setFilterAction] = useState('all')
   const [search,       setSearch]       = useState('')
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -188,15 +191,30 @@ export default function OrgActivityPage() {
                   onChange={setSearch}
                 />
               </div>
-              <select
-                value={filterAction}
-                onChange={e => setFilterAction(e.target.value)}
-                style={{ height: 32, borderRadius: 8, border: 'none', boxShadow: '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)', padding: '0 10px', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-700)', outline: 'none', backgroundColor: 'var(--text-field-bg)', cursor: 'pointer' }}
+              <Dropdown.Float
+                open={filterMenuOpen}
+                onOpenChange={setFilterMenuOpen}
+                placement="bottom-end"
+                trigger={
+                  <Button variant="outline" size="sm" rightIcon={<ArrowDownOneIcon animated />}>
+                    {filterAction === 'all' ? 'All actions' : humanizeAction(filterAction)}
+                  </Button>
+                }
               >
-                {actionTypes.map(t => (
-                  <option key={t} value={t}>{t === 'all' ? 'All actions' : humanizeAction(t)}</option>
-                ))}
-              </select>
+                <Dropdown>
+                  <Dropdown.Section>
+                    {actionTypes.map(t => (
+                      <Dropdown.Item
+                        key={t}
+                        label={t === 'all' ? 'All actions' : humanizeAction(t)}
+                        selected={filterAction === t}
+                        onClick={() => { setFilterAction(t); setFilterMenuOpen(false) }}
+                        fluid
+                      />
+                    ))}
+                  </Dropdown.Section>
+                </Dropdown>
+              </Dropdown.Float>
             </div>
           </SettingsTableToolbar>
 

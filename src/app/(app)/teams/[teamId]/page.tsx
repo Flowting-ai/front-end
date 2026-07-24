@@ -3,9 +3,10 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { PlusSignIcon } from '@strange-huge/icons'
+import { PlusSignIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
+import { Dropdown } from '@/components/Dropdown'
 import { InputField } from '@/components/InputField'
 import { ConnectorStatusBadge } from '@/components/ConnectorStatusBadge'
 import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
@@ -193,6 +194,7 @@ function ConnectorsTab({ orgId, teamId, canLink }: { orgId: string; teamId: stri
   const [busy, setBusy] = useState<string | null>(null)
   const [picking, setPicking] = useState<string | null>(null)
   const [selectedAccount, setSelectedAccount] = useState('')
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
 
   const reload = useCallback(() => {
     listTeamConnections(orgId, teamId)
@@ -283,7 +285,7 @@ function ConnectorsTab({ orgId, teamId, canLink }: { orgId: string; teamId: stri
                       {busy === c.slug ? 'Working…' : 'Disable'}
                     </Button>
                   ) : canLink ? (
-                    <Button variant="secondary" size="sm" disabled={attachable.length === 0} onClick={() => { setPicking(picking === c.slug ? null : c.slug); setSelectedAccount('') }}>
+                    <Button variant="secondary" size="sm" disabled={attachable.length === 0} onClick={() => { setPicking(picking === c.slug ? null : c.slug); setSelectedAccount(''); setAccountMenuOpen(false) }}>
                       {attachable.length === 0 ? 'No accounts' : 'Link account'}
                     </Button>
                   ) : (
@@ -295,18 +297,43 @@ function ConnectorsTab({ orgId, teamId, canLink }: { orgId: string; teamId: stri
               </SettingsTableRow>
               {canLink && picking === c.slug && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '0 24px 14px' }}>
-                  <select
-                    value={selectedAccount}
-                    onChange={e => setSelectedAccount(e.target.value)}
-                    style={{ flex: 1, fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-900)', border: '1px solid var(--neutral-200)', borderRadius: 8, padding: '7px 10px', backgroundColor: 'white' }}
-                  >
-                    <option value="">Select shared account…</option>
-                    {attachable.map(a => (
-                      <option key={a.id} value={a.id}>
-                        {a.accountLabel}{a.accountIdentifier ? ` (${a.accountIdentifier})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Dropdown.Float
+                      open={accountMenuOpen}
+                      onOpenChange={setAccountMenuOpen}
+                      placement="bottom-start"
+                      trigger={
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          fluid
+                          rightIcon={<ArrowDownOneIcon size={14} />}
+                          style={{ justifyContent: 'space-between', minWidth: 220 }}
+                        >
+                          {selectedAccount
+                            ? (() => {
+                                const a = attachable.find(x => x.id === selectedAccount)
+                                return a ? `${a.accountLabel}${a.accountIdentifier ? ` (${a.accountIdentifier})` : ''}` : 'Select shared account…'
+                              })()
+                            : 'Select shared account…'}
+                        </Button>
+                      }
+                    >
+                      <Dropdown>
+                        <Dropdown.Section>
+                          {attachable.map(a => (
+                            <Dropdown.Item
+                              key={a.id}
+                              label={`${a.accountLabel}${a.accountIdentifier ? ` (${a.accountIdentifier})` : ''}`}
+                              selected={selectedAccount === a.id}
+                              onClick={() => { setSelectedAccount(a.id); setAccountMenuOpen(false) }}
+                              fluid
+                            />
+                          ))}
+                        </Dropdown.Section>
+                      </Dropdown>
+                    </Dropdown.Float>
+                  </div>
                   <Button size="sm" disabled={!selectedAccount || busy === c.slug} onClick={() => handleAttach(c.slug)}>
                     {busy === c.slug ? 'Linking…' : 'Link'}
                   </Button>
@@ -331,6 +358,7 @@ function RequestsTab({ orgId, teamId }: { orgId: string; teamId: string }) {
   const [slug, setSlug] = useState('')
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
+  const [connectorMenuOpen, setConnectorMenuOpen] = useState(false)
 
   const reload = useCallback(() => {
     Promise.all([listTeamConnectors(orgId, teamId), listTeamConnectorCatalog(orgId, teamId)])
@@ -367,14 +395,43 @@ function RequestsTab({ orgId, teamId }: { orgId: string; teamId: string }) {
       <SettingsTableToolbar title="Connector requests" />
       <SettingsTableFooter style={{ paddingTop: 0, paddingBottom: 4 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <select
-            value={slug}
-            onChange={e => setSlug(e.target.value)}
-            style={{ flex: '1 1 220px', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-900)', border: '1px solid var(--neutral-200)', borderRadius: 8, padding: '8px 10px', backgroundColor: 'white' }}
-          >
-            <option value="">Select a connector…</option>
-            {catalog.map(c => <option key={c.slug} value={c.slug}>{c.displayName}</option>)}
-          </select>
+          <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+            <Dropdown.Float
+              open={connectorMenuOpen}
+              onOpenChange={setConnectorMenuOpen}
+              placement="bottom-start"
+              trigger={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  fluid
+                  rightIcon={<ArrowDownOneIcon size={14} />}
+                  style={{ justifyContent: 'space-between', minWidth: 220 }}
+                >
+                  {slug ? (catalog.find(c => c.slug === slug)?.displayName ?? 'Select a connector…') : 'Select a connector…'}
+                </Button>
+              }
+            >
+              <Dropdown>
+                <Dropdown.Section>
+                  <div
+                    className="kaya-scrollbar"
+                    style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 362, overflowY: 'auto', padding: 3 }}
+                  >
+                    {catalog.map(c => (
+                      <Dropdown.Item
+                        key={c.slug}
+                        label={c.displayName}
+                        selected={slug === c.slug}
+                        onClick={() => { setSlug(c.slug); setConnectorMenuOpen(false) }}
+                        fluid
+                      />
+                    ))}
+                  </div>
+                </Dropdown.Section>
+              </Dropdown>
+            </Dropdown.Float>
+          </div>
           <div style={{ flex: '1 1 200px' }}>
             <InputField label="" value={note} onChange={setNote} placeholder="Optional note for admins" />
           </div>

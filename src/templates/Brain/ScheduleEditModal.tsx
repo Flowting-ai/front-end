@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
+import { ArrowDownOneIcon, SearchOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
+import { Dropdown } from '@/components/Dropdown'
+import { InputField } from '@/components/InputField'
 import { springs } from '@/lib/springs'
 import { trackFeature } from '@/lib/analytics/events'
 
@@ -126,18 +129,6 @@ const labelStyle: React.CSSProperties = {
   display:    'block',
 }
 
-const selectStyle: React.CSSProperties = {
-  ...inputStyle,
-  width:    'auto',
-  padding:  '7px 10px',
-  cursor:   'pointer',
-  appearance: 'none' as React.CSSProperties['appearance'],
-  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-  backgroundRepeat:   'no-repeat',
-  backgroundPosition: 'right 8px center',
-  paddingRight:       28,
-}
-
 // ── ScheduleEditModal ─────────────────────────────────────────────────────────
 
 export function ScheduleEditModal({
@@ -155,6 +146,9 @@ export function ScheduleEditModal({
   const [minute,       setMinute]       = useState('')   // 0–59, free text (placeholder "Mins")
   const [day,          setDay]          = useState<DayOfWeek>('Monday')
   const [timezone,     setTimezone]     = useState(detectTimezone())
+  const [dayOpen,      setDayOpen]      = useState(false)
+  const [tzOpen,       setTzOpen]       = useState(false)
+  const [tzSearch,     setTzSearch]     = useState('')
 
   // Reset form when modal opens/schedule changes
   useEffect(() => {
@@ -204,6 +198,12 @@ export function ScheduleEditModal({
   }
 
   const canSave = name.trim().length > 0 && timeValid
+
+  // Case-insensitive substring match against the raw zone id (matching
+  // behavior is agnostic to the underscore-to-space display formatting).
+  const filteredTimezones = tzSearch.trim()
+    ? TIMEZONES.filter(tz => tz.toLowerCase().includes(tzSearch.trim().toLowerCase()))
+    : TIMEZONES
 
   return (
     <AnimatePresence initial={false}>
@@ -347,15 +347,37 @@ export function ScheduleEditModal({
               {/* Day picker (weekly only) */}
               {freqType === 'weekly' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <label htmlFor="schedule-day" style={{ ...labelStyle, margin: 0 }}>Day</label>
-                  <select
-                    id="schedule-day"
-                    value={day}
-                    onChange={e => setDay(e.target.value as DayOfWeek)}
-                    style={selectStyle}
+                  <label id="schedule-day-label" style={{ ...labelStyle, margin: 0 }}>Day</label>
+                  <Dropdown.Float
+                    open={dayOpen}
+                    onOpenChange={setDayOpen}
+                    placement="bottom-start"
+                    trigger={
+                      <Button
+                        id="schedule-day"
+                        variant="outline"
+                        size="sm"
+                        aria-labelledby="schedule-day-label"
+                        rightIcon={<ArrowDownOneIcon animated />}
+                      >
+                        {day}
+                      </Button>
+                    }
                   >
-                    {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
+                    <Dropdown>
+                      <Dropdown.Section>
+                        {DAYS.map(d => (
+                          <Dropdown.Item
+                            key={d}
+                            label={d}
+                            selected={day === d}
+                            onClick={() => { setDay(d); setDayOpen(false) }}
+                            fluid
+                          />
+                        ))}
+                      </Dropdown.Section>
+                    </Dropdown>
+                  </Dropdown.Float>
                 </div>
               )}
 
@@ -393,15 +415,82 @@ export function ScheduleEditModal({
 
               {/* Timezone picker — the zone the time above is in; sent to the backend */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <label htmlFor="schedule-timezone" style={{ ...labelStyle, margin: 0 }}>Timezone</label>
-                <select
-                  id="schedule-timezone"
-                  value={timezone}
-                  onChange={e => setTimezone(e.target.value)}
-                  style={{ ...selectStyle, maxWidth: 280 }}
+                <label id="schedule-timezone-label" style={{ ...labelStyle, margin: 0 }}>Timezone</label>
+                <Dropdown.Float
+                  open={tzOpen}
+                  onOpenChange={(next) => {
+                    setTzOpen(next)
+                    if (!next) setTzSearch('') // reset search each time the popover closes
+                  }}
+                  placement="bottom-start"
+                  trigger={
+                    <Button
+                      id="schedule-timezone"
+                      variant="outline"
+                      size="sm"
+                      aria-labelledby="schedule-timezone-label"
+                      rightIcon={<ArrowDownOneIcon animated />}
+                      style={{ maxWidth: 280, minWidth: 0 }}
+                    >
+                      <span style={{
+                        overflow:     'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace:   'nowrap',
+                        maxWidth:     220,
+                      }}>
+                        {timezone.replace(/_/g, ' ')}
+                      </span>
+                    </Button>
+                  }
                 >
-                  {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>)}
-                </select>
+                  {/* Popover's own scroll cap wraps ALL children in one shared
+                      scroll area by default — disable it here so only the
+                      inner zone list (its own overflow below) ever scrolls,
+                      never the search input above it. */}
+                  <Dropdown maxHeight={false} size="lg">
+                    <div style={{ padding: '8px 8px 0' }}>
+                      <InputField
+                        size="small"
+                        showLabel={false}
+                        label="Search timezone"
+                        showSubtitle={false}
+                        leftIcon={<SearchOneIcon size={16} />}
+                        placeholder="Search timezone…"
+                        value={tzSearch}
+                        onChange={setTzSearch}
+                        fluid
+                      />
+                    </div>
+                    <Dropdown.Section fluid>
+                      <div
+                        className="kaya-scrollbar"
+                        style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 280, overflowY: 'auto', padding: 3 }}
+                      >
+                        {filteredTimezones.length > 0 ? (
+                          filteredTimezones.map(tz => (
+                            <Dropdown.Item
+                              key={tz}
+                              label={tz.replace(/_/g, ' ')}
+                              selected={timezone === tz}
+                              onClick={() => { setTimezone(tz); setTzOpen(false) }}
+                              fluid
+                            />
+                          ))
+                        ) : (
+                          <div style={{
+                            padding:    '8px 6px',
+                            fontFamily: 'var(--font-body)',
+                            fontSize:   'var(--font-size-caption)',
+                            color:      'var(--neutral-500)',
+                            textAlign:  'center',
+                          }}>
+                            {`No timezones matching "${tzSearch}"`}
+                          </div>
+                        )}
+                      </div>
+                    </Dropdown.Section>
+                  </Dropdown>
+                </Dropdown.Float>
               </div>
             </div>
 

@@ -2989,6 +2989,7 @@ function MemberBrowseView({
   const { search, setSearch, filtered } = useConnectorSearch(connectors, initialSearch)
   const browse = useConnectorBrowse(filtered, connectorEntrySlug, { resetKey: search })
   const [selectedTeamId, setSelectedTeamId] = useState('')
+  const [teamTargetOpen, setTeamTargetOpen] = useState(false)
   const [busySlug, setBusySlug] = useState<string | null>(null)
   const [teamConnections, setTeamConnections] = useState<TeamConnectionEntry[]>([])
   const [loadingTeamConnections, setLoadingTeamConnections] = useState(false)
@@ -3063,23 +3064,37 @@ function MemberBrowseView({
       {teams.length > 0 && (
         <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', alignItems: 'center', gap: 12 }}>
           <BodyText weight={500} color="var(--neutral-900)">Team request target</BodyText>
-          <select
-            value={resolvedTeamId}
-            onChange={event => setSelectedTeamId(event.target.value)}
-            style={{
-              height: 34,
-              border: 'none',
-              borderRadius: 8,
-              backgroundColor: 'white',
-              boxShadow: '0px 0px 0px 1px var(--neutral-100)',
-              padding: '0 10px',
-              fontFamily: 'var(--font-body)',
-              fontSize: 13,
-              color: 'var(--neutral-900)',
-            }}
+          <Dropdown.Float
+            open={teamTargetOpen}
+            onOpenChange={setTeamTargetOpen}
+            placement="bottom-end"
+            offset={4}
+            trigger={
+              <Button
+                variant="secondary"
+                size="sm"
+                rightIcon={<ArrowDownOneIcon size={12} />}
+                aria-label="Team request target"
+              >
+                {selectedTeam?.name ?? 'Select team'}
+              </Button>
+            }
           >
-            {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
-          </select>
+            <Dropdown>
+              <Dropdown.Section fluid>
+                {teams.map(team => (
+                  <Dropdown.Item
+                    key={team.id}
+                    fluid
+                    label={team.name}
+                    selected={team.id === resolvedTeamId}
+                    icon={team.id === resolvedTeamId ? <TickTwoIcon size={14} /> : undefined}
+                    onClick={() => { setSelectedTeamId(team.id); setTeamTargetOpen(false) }}
+                  />
+                ))}
+              </Dropdown.Section>
+            </Dropdown>
+          </Dropdown.Float>
         </div>
       )}
 
