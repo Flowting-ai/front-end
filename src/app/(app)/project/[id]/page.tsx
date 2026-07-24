@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import Image from 'next/image'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, UserIcon, InformationCircleIcon, TickTwoIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, MentoringIcon, UserAiIcon, InformationCircleIcon, TickTwoIcon, CancelOneIcon } from '@strange-huge/icons'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
 import { Button } from '@/components/Button'
@@ -24,6 +24,7 @@ import { Divider } from '@/components/Divider'
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
 import { ProjectTeamPanel } from '@/components/ProjectTeamPanel'
+import { ProjectAgentsPanel } from '@/components/ProjectAgentsPanel'
 import { TeamChip } from '@/components/TeamChip'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { setProjectVisibility } from '@/lib/api/projects'
@@ -83,7 +84,7 @@ export default function ProjectPage() {
   const { pins, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const { setPanel: setProjectPanel } = useProjectPanel()
   const chatHistory = useChatHistoryContext()
-  const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel } = useModelSelectorContext()
+  const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel, setMuseAdvanced } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
   const modelLlmId = museActive ? null : getModelLlmId(selectedModel?.companyName, selectedModel?.modelName)
 
@@ -114,6 +115,7 @@ export default function ProjectPage() {
   const [chatInputValue,   setChatInputValue]   = useState('')
   const [panelOpen,        setPanelOpen]        = useState(true)
   const [teamPanelOpen,    setTeamPanelOpen]    = useState(false)
+  const [agentsPanelOpen,  setAgentsPanelOpen]  = useState(false)
   const [webSearchEnabled, setWebSearchEnabled] = useState(false)
   const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null)
   const [styleChipOpen,    setStyleChipOpen]    = useState(false)
@@ -182,12 +184,20 @@ export default function ProjectPage() {
     setPersonaActive(!!selectedPersona)
   }, [selectedPersona, setPersonaActive])
 
+  // This page is always a "start a new chat" surface — reset the global model
+  // preference back to Souvenir Muse (Advanced) on arrival, same as the regular
+  // chat page's blank-landing reset, so a model picked in a previous chat
+  // doesn't silently carry over. Mount-only: doesn't touch whatever the user
+  // explicitly picks afterward on this same page before sending.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setMuseAdvanced(true) }, [])
+
   // Hand the Instructions/Files/Team panel to AppLayout's shared slot so it
   // renders as its own flex sibling (like Pinboard) instead of living inside
   // this page's own rounded content border. Cleared on close and on unmount
   // so it never lingers after navigating away.
   useEffect(() => {
-    if (!project || (!panelOpen && !teamPanelOpen)) {
+    if (!project || (!panelOpen && !teamPanelOpen && !agentsPanelOpen)) {
       setProjectPanel(null)
       return
     }
@@ -254,7 +264,7 @@ export default function ProjectPage() {
                 margin:     '-6px 0 0',
               }}
             >
-              Everyone on this project&apos;s team, and the agents shared with it.
+              Everyone on this project&apos;s team, and its project members.
             </p>
             <ProjectTeamPanel
               teamId={project.teamId}
@@ -265,8 +275,32 @@ export default function ProjectPage() {
           </div>
         ),
       })
+      return
     }
-  }, [project, panelOpen, teamPanelOpen, pendingFiles, setProjectPanel, updateProject, uploadFiles, removeFile])
+    if (agentsPanelOpen && project.teamId) {
+      setProjectPanel({
+        title:   'Agents',
+        onClose: () => setAgentsPanelOpen(false),
+        content: (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-regular)',
+                fontSize:   12,
+                lineHeight: '16px',
+                color:      'var(--neutral-500)',
+                margin:     '-6px 0 0',
+              }}
+            >
+              Agents shared with this project&apos;s team.
+            </p>
+            <ProjectAgentsPanel teamId={project.teamId} />
+          </div>
+        ),
+      })
+    }
+  }, [project, panelOpen, teamPanelOpen, agentsPanelOpen, pendingFiles, setProjectPanel, updateProject, uploadFiles, removeFile])
 
   useEffect(() => () => setProjectPanel(null), [setProjectPanel])
 
@@ -662,26 +696,35 @@ export default function ProjectPage() {
               </div>
             </div>
 
-            {project.teamId && (projectTeam || ownerName) && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, marginBottom: project.description ? 6 : 0 }}>
-                {ownerName && (
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
-                    Created by {ownerName}
-                  </span>
-                )}
-                {ownerName && projectTeam && (
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-300)' }}>·</span>
-                )}
-                {projectTeam && <TeamChip teamName={projectTeam.name} size="sm" />}
-              </div>
-            )}
-
-            {project.tags.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: project.description ? 6 : 0 }}>
-                {project.tags.map(tag => (
-                  <Badge key={tag.id} label={tag.label} color={tag.color} />
-                ))}
-              </div>
+            {project.teamId ? (
+              (projectTeam || ownerName) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, marginBottom: project.description ? 6 : 0 }}>
+                  {ownerName && (
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
+                      Created by {ownerName}
+                    </span>
+                  )}
+                  {ownerName && projectTeam && (
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-300)' }}>·</span>
+                  )}
+                  {projectTeam && <TeamChip teamName={projectTeam.name} size="sm" />}
+                </div>
+              )
+            ) : (
+              <p
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 400,
+                  fontSize:   11,
+                  lineHeight: '16px',
+                  color:      'var(--neutral-500)',
+                  margin:     0,
+                  marginTop:  2,
+                  marginBottom: project.description ? 6 : 0,
+                }}
+              >
+                Personal Project
+              </p>
             )}
 
             {project.description && (
@@ -690,8 +733,8 @@ export default function ProjectPage() {
                   width:            '60%',
                   fontFamily:       'var(--font-body)',
                   fontWeight:       'var(--font-weight-regular)',
-                  fontSize:         '16px',
-                  lineHeight:       '22px',
+                  fontSize:         '14px',
+                  lineHeight:       '20px',
                   color:            '#1a1714',
                   margin:           0,
                   overflow:         'hidden',
@@ -980,6 +1023,7 @@ export default function ProjectPage() {
               if (!panelOpen) {
                 closePinboard()
                 setTeamPanelOpen(false)
+                setAgentsPanelOpen(false)
               }
               setPanelOpen(v => !v)
             }}
@@ -992,21 +1036,38 @@ export default function ProjectPage() {
               if (!pinboardOpen) {
                 setPanelOpen(false)
                 setTeamPanelOpen(false)
+                setAgentsPanelOpen(false)
               }
               togglePinboard()
             }}
           />
           {project.teamId && (
             <FloatingMenuItem
-              icon={<UserIcon size={20} />}
+              icon={<MentoringIcon size={20} animated />}
               label="Team"
               active={teamPanelOpen}
               onClick={() => {
                 if (!teamPanelOpen) {
                   closePinboard()
                   setPanelOpen(false)
+                  setAgentsPanelOpen(false)
                 }
                 setTeamPanelOpen(v => !v)
+              }}
+            />
+          )}
+          {project.teamId && (
+            <FloatingMenuItem
+              icon={<UserAiIcon size={20} animated />}
+              label="Agents"
+              active={agentsPanelOpen}
+              onClick={() => {
+                if (!agentsPanelOpen) {
+                  closePinboard()
+                  setPanelOpen(false)
+                  setTeamPanelOpen(false)
+                }
+                setAgentsPanelOpen(v => !v)
               }}
             />
           )}

@@ -301,7 +301,7 @@ export function AccountMenu({
       avatarSrc={avatarSrc}
       roleBadge={roleBadge}
       {...(collapsed ? { collapsed: true } : { fluid: true })}
-      onSettingsClick={() => { onSettings?.(); handleOpenChange(true) }}
+      onSettingsClick={() => handleOpenChange(!open)}
     />
   )
 

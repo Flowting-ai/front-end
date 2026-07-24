@@ -474,6 +474,7 @@ export function XmlWeather({ xml }: { xml: string }) {
 
       {weather.days.length > 0 && (
         <div
+          className="kaya-scrollbar"
           style={{
             display: "grid",
             gridTemplateColumns: `repeat(${weather.days.length}, minmax(88px, 1fr))`,

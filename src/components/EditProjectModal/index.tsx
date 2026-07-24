@@ -12,6 +12,7 @@ import { ChipInput } from '@/components/ChipInput'
 import { TAG_COLORS, type ProjectTag } from '@/context/projects-context'
 
 const EMPTY_PROJECT_TAGS: ProjectTag[] = []
+const MAX_TAGS = 5
 
 // ── Shared input style ────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ export function EditProjectModal({
 
   function commitTag() {
     const label = tagInput.trim()
-    if (!label || draftTags.some(t => t.label.toLowerCase() === label.toLowerCase())) return
+    if (!label || draftTags.length >= MAX_TAGS || draftTags.some(t => t.label.toLowerCase() === label.toLowerCase())) return
     const color = TAG_COLORS[draftTags.length % TAG_COLORS.length]
     // id === label — matches tagsFromLabels' scheme (the backend only stores
     // label strings), so a tag's identity/color stay stable across save+reload.
@@ -143,6 +144,7 @@ export function EditProjectModal({
         >
           <m.div
             key="edit-project-modal"
+            className="kaya-scrollbar"
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1,    y: 0 }}
             exit={{    opacity: 0, scale: 0.96, y: 8 }}
@@ -154,9 +156,11 @@ export function EditProjectModal({
               boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
               width:         '480px',
               maxWidth:      'calc(100vw - 32px)',
+              maxHeight:     'calc(100dvh - 64px)',
               display:       'flex',
               flexDirection: 'column',
-              overflow:      'hidden',
+              overflowY:     'auto',
+              overflowX:     'hidden',
             }}
           >
             {/* ── Header ── */}
@@ -217,6 +221,7 @@ export function EditProjectModal({
                 <label htmlFor="edit-project-desc" style={LABEL_STYLE}>Description</label>
                 <textarea
                   id="edit-project-desc"
+                  className="kaya-chat-textarea"
                   value={draftDesc}
                   onChange={(e) => setDraftDesc(e.target.value)}
                   placeholder="e.g. All discovery and design work for the V2 redesign"
@@ -265,15 +270,17 @@ export function EditProjectModal({
                       </m.div>
                     ))}
                   </AnimatePresence>
-                  <ChipInput
-                    placeholder="Add tag…"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') { e.preventDefault(); commitTag() }
-                    }}
-                    aria-label="New tag"
-                  />
+                  {draftTags.length < MAX_TAGS && (
+                    <ChipInput
+                      placeholder="Add tag…"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); commitTag() }
+                      }}
+                      aria-label="New tag"
+                    />
+                  )}
                 </div>
                 <p
                   style={{
@@ -285,7 +292,7 @@ export function EditProjectModal({
                     margin:     0,
                   }}
                 >
-                  Press Enter to add a tag
+                  {draftTags.length >= MAX_TAGS ? `Maximum of ${MAX_TAGS} tags reached` : 'Press Enter to add a tag'}
                 </p>
               </div>
             </div>

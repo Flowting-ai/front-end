@@ -159,14 +159,6 @@ const sectionItemVariants = {
   closed: { opacity: 0, y: 5, transition: { duration: 0.12, ease: "easeIn"  as const } },
 };
 
-// Layer 4 - tree guide line: grows/shrinks from the top in sync with the
-// stagger, instead of popping fully in/out the instant the section toggles
-// (which read as an abrupt line cutting through content mid-collapse).
-const sectionTreeLineVariants = {
-  open:   { scaleY: 1, opacity: 1, transition: { duration: 0.24, ease: [0.4, 0, 0.2, 1] as const } },
-  closed: { scaleY: 0, opacity: 0, transition: { duration: 0.16, ease: [0.4, 0, 0.2, 1] as const } },
-};
-
 // -- Shared section props ------------------------------------------------------
 
 interface SectionProps {
@@ -515,7 +507,7 @@ function ProjectsSection({
     () => projectsFilter ? allProjects.filter(projectsFilter) : allProjects,
     [allProjects, projectsFilter],
   )
-  const [expandedIds,  setExpandedIds]  = useState<Set<string>>(() => new Set(projects.map(p => p.id)))
+  const [expandedIds,  setExpandedIds]  = useState<Set<string>>(() => new Set())
 
   const visibleProjects = useMemo(() => projects.slice(0, PROJECT_LIMIT), [projects])
 
@@ -570,38 +562,13 @@ function ProjectsSection({
           initial="closed"
           variants={sectionStaggerVariants}
           style={{
-            position:      'relative',
-            // Pins the z-index:-1 line's stacking comparison to just this
-            // container's own children — without it, `position: relative` +
-            // `z-index: auto` doesn't establish a stacking context, so the
-            // negative z-index escapes to whichever ancestor DOES establish
-            // one and compares against unrelated content instead of these
-            // specific row siblings.
-            isolation:     'isolate',
             paddingTop:    "4px",
-            // Indents rows clear of the guide line (matches the 14px line /
-            // 22px content-start gap used elsewhere for this tree pattern).
-            paddingLeft:   '22px',
+            paddingLeft:   "6px",
             display:       "flex",
             flexDirection: "column",
             gap:           "4px",
           }}
         >
-          <m.div
-            aria-hidden
-            variants={sectionTreeLineVariants}
-            style={{
-              position:        'absolute',
-              left:            '14px',
-              top:             0,
-              bottom:          0,
-              width:           '2px',
-              backgroundColor: 'var(--neutral-200)',
-              pointerEvents:   'none',
-              zIndex:          -1,
-              transformOrigin: 'top',
-            }}
-          />
           {showNewProject && (
             <m.div variants={sectionItemVariants}>
               <SidebarMenuItem
@@ -649,12 +616,7 @@ function ProjectsSection({
                 <SidebarProjectsSection
                   fluid
                   label={project.name}
-                  // Not `isActive || isExpanded` here — unlike PersonalProjectsMenu,
-                  // this section's expandedIds starts pre-seeded with every project
-                  // id (see the useState above), so nearly every row is "expanded"
-                  // by default and highlighting on that would light up the whole
-                  // list instead of just the current route.
-                  active={isActive}
+                  active={isActive || isExpanded}
                   expanded={isExpanded}
                   onClick={() => push(PROJECT_ROUTE(project.id))}
                   onExpandedChange={(v) => toggleExpand(project.id, v)}
@@ -760,10 +722,18 @@ function PersonalProjectsMenu({ projects }: { projects: Project[] }) {
       fluid
       label="Personal projects"
       expanded={expanded}
-      showTreeLine
       onExpandedChange={setExpanded}
       onClick={() => push(PROJECTS_ROUTE)}
     >
+      <SidebarMenuItem
+        fluid
+        variant="default"
+        label="New project"
+        icon={<FolderAddIcon size={20} />}
+        href={PROJECTS_NEW_ROUTE}
+        onClick={() => push(PROJECTS_NEW_ROUTE)}
+      />
+
       {personalProjects.length === 0 ? (
         <div style={{
           padding:    '8px 6px',

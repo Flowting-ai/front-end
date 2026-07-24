@@ -404,7 +404,17 @@ function ProjectChatPageInner() {
 
   // ── Model selector ────────────────────────────────────────────────────────
 
-  const { models, selectedModel, selectModel, open: openModelSelector, museActive, museAdvanced, enableReasoning, setPersonaActive } = useModelSelectorContext()
+  const { models, selectedModel, selectModel, open: openModelSelector, museActive, museAdvanced, setMuseAdvanced, enableReasoning, setPersonaActive } = useModelSelectorContext()
+
+  // Reset to Souvenir Muse (Advanced) on a genuinely blank "new chat" landing —
+  // matches the regular chat page's reset-on-new-chat behaviour, so a model
+  // picked in a previous chat doesn't silently carry over. Gated on
+  // `initialPrompt` being empty AT MOUNT (not reactive) so this does NOT fire
+  // when arriving here with a `?q=` from the project page's own input — that
+  // transition already reflects a deliberate model pick made one click earlier
+  // on that page, which this must not clobber.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (isNewChat && !initialPrompt) setMuseAdvanced(true) }, [])
 
   const modelButtonLabel = museActive
     ? museAdvanced ? 'Souvenir AI Muse (Advanced)' : 'Souvenir AI Muse (Basic)'

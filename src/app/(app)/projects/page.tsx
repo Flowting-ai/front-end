@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelOneIcon, AlertCircleIcon } from '@strange-huge/icons'
+import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelOneIcon, AlertCircleIcon, UserIcon, BubbleChatAddIcon, MoreVerticalIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
 import { ProjectCard } from '@/components/ProjectCard'
@@ -12,20 +12,240 @@ import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
+import Tabs from '@/components/Tabs'
+import { Tooltip } from '@/components/Tooltip'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { useMounted } from '@/hooks/use-mounted'
 import type { Project } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
+import type { OrgMember } from '@/types/teams'
 import { PROJECT_ROUTE } from '@/lib/routes'
 
 type SortKey = 'recent' | 'alphabetical' | 'active'
 type ScopeFilter = 'all' | 'personal' | 'team'
+type ViewMode = 'grid' | 'list'
+
+// ── Gradient palette — seeded by team name, matching TeamChip/TeamSwitcherRow/
+// TeamSwitcherDropdown/ProjectCard exactly, so a project's avatar is the same
+// colour everywhere else it appears.
+
+const TEAM_GRADIENTS = [
+  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',  // teal-blue
+  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',  // purple
+  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',  // orange
+  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',  // green
+  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',  // red-brown
+  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',  // blue
+]
+
+function getGradient(seed: string): string {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) {
+    h = ((h << 5) - h) + seed.charCodeAt(i)
+    h |= 0
+  }
+  return TEAM_GRADIENTS[Math.abs(h) % TEAM_GRADIENTS.length]!
+}
+
+// ── Grid/List toggle — same Tabs+glyph pattern as ConnectorViewToggle
+// (org/connectors, settings/connectors) for visual/interaction consistency. ──
+
+function GridViewGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  )
+}
+
+function ListViewGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="3"    width="12" height="2.2" rx="1.1" fill="currentColor" />
+      <rect x="2" y="6.9"  width="12" height="2.2" rx="1.1" fill="currentColor" />
+      <rect x="2" y="10.8" width="12" height="2.2" rx="1.1" fill="currentColor" />
+    </svg>
+  )
+}
+
+function ProjectViewToggle({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
+  return (
+    <Tabs value={value} onValueChange={v => onChange(v as ViewMode)}>
+      <Tabs.List size="small" collapse pillTopInset={0.5} pillBottomInset={1}>
+        <Tooltip content="Grid view" side="top">
+          <Tabs.Trigger value="grid" icon={<GridViewGlyph />}>Grid</Tabs.Trigger>
+        </Tooltip>
+        <Tooltip content="List view" side="top">
+          <Tabs.Trigger value="list" icon={<ListViewGlyph />}>List</Tabs.Trigger>
+        </Tooltip>
+      </Tabs.List>
+    </Tabs>
+  )
+}
+
+// ── Compact list-view row ────────────────────────────────────────────────────
+
+function ProjectListRow({
+  project, teamName, ownerName, memberCount, updatedAt, onClick, onEdit, onArchive, onDelete,
+}: {
+  project:      Project
+  teamName?:    string
+  ownerName?:   string
+  memberCount:  number
+  updatedAt:    string
+  onClick:      () => void
+  onEdit?:      () => void
+  onArchive?:   () => void
+  onDelete?:    () => void
+}) {
+  const [hovered,  setHovered]  = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const hasActions = Boolean(onEdit || onArchive || onDelete)
+  const showMenu   = hovered || menuOpen
+  const scopeLabel = teamName ?? 'Personal'
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick() }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display:         'flex',
+        alignItems:      'center',
+        gap:             12,
+        padding:         '10px 16px',
+        borderRadius:    12,
+        backgroundColor: hovered || menuOpen ? 'var(--neutral-50)' : 'var(--neutral-white)',
+        boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+        cursor:          'pointer',
+        transition:      'background-color 120ms ease',
+        width:           '100%',
+        boxSizing:       'border-box',
+      }}
+    >
+      {/* Scope avatar */}
+      <span
+        aria-hidden
+        style={{
+          display:         'inline-flex',
+          alignItems:      'center',
+          justifyContent:  'center',
+          width:           'calc(var(--line-height-body) + var(--line-height-caption))',
+          height:          'calc(var(--line-height-body) + var(--line-height-caption))',
+          borderRadius:    '3px',
+          background:      getGradient(scopeLabel),
+          flexShrink:      0,
+          fontFamily:      'var(--font-title)',
+          fontWeight:      500,
+          fontSize:        '16px',
+          color:           'var(--neutral-white)',
+          lineHeight:      1,
+          boxShadow:       'inset 0px 4px 4px rgba(0,0,0,0.25), inset 0px -1px 0.4px rgba(18,60,95,0.65)',
+          userSelect:      'none',
+        }}
+      >
+        {scopeLabel.charAt(0).toUpperCase()}
+      </span>
+
+      {/* Title + meta */}
+      <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span
+          style={{
+            fontFamily:   'var(--font-body)',
+            fontWeight:   'var(--font-weight-medium)',
+            fontSize:     14,
+            lineHeight:   '20px',
+            color:        'var(--neutral-900)',
+            overflow:     'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace:   'nowrap',
+          }}
+        >
+          {project.name}
+        </span>
+        <span
+          style={{
+            fontFamily:   'var(--font-body)',
+            fontWeight:   400,
+            fontSize:     11,
+            lineHeight:   '16px',
+            color:        'var(--neutral-500)',
+            overflow:     'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace:   'nowrap',
+          }}
+        >
+          {scopeLabel}{ownerName ? ` · Created by ${ownerName}` : ''} · {updatedAt}
+        </span>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, color: 'var(--neutral-400)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <UserIcon size={14} />
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }}>{memberCount}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <BubbleChatAddIcon size={14} />
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }}>{project.chatCount}</span>
+        </div>
+      </div>
+
+      {/* ⋮ menu - fades in on hover/focus */}
+      {hasActions && (
+        <div
+          style={{ opacity: showMenu ? 1 : 0, transition: 'opacity 120ms ease', flexShrink: 0 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Dropdown.Float
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+            placement="bottom-end"
+            trigger={
+              <IconButton
+                variant="ghost"
+                size="xs"
+                icon={<MoreVerticalIcon size={16} triggered={showMenu} />}
+                aria-label="Project options"
+              />
+            }
+          >
+            <Dropdown size="md">
+              <Dropdown.Section fluid>
+                <Dropdown.Item label="Edit"    onClick={() => { setMenuOpen(false); onEdit?.() }}    fluid />
+                <Dropdown.Item label="Archive" onClick={() => { setMenuOpen(false); onArchive?.() }} disabled fluid />
+              </Dropdown.Section>
+              <Dropdown.Section divider fluid>
+                <Dropdown.Item label="Delete"  variant="danger" onClick={() => { setMenuOpen(false); onDelete?.() }} fluid />
+              </Dropdown.Section>
+            </Dropdown>
+          </Dropdown.Float>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function sortProjects(projects: Project[], key: SortKey): Project[] {
   const copy = [...projects]
   if (key === 'alphabetical') return copy.sort((a, b) => a.name.localeCompare(b.name))
   if (key === 'active')       return copy.sort((a, b) => b.chatCount - a.chatCount)
   return copy.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+}
+
+// A team project's member count is its team's roster (everyone who can reach
+// it); a personal project's is just its owner — there's no separate
+// per-project membership list distinct from team membership.
+function projectMemberCount(project: Project, members: OrgMember[]): number {
+  if (!project.teamId) return 1
+  const count = members.filter(m => m.teamMemberships.some(tm => tm.teamId === project.teamId)).length
+  return count || 1
 }
 
 function formatUpdated(iso: string) {
@@ -47,7 +267,7 @@ function formatUpdated(iso: string) {
 export default function ProjectsPage() {
   const { push }                                                              = useRouter()
   const { projects, loading, updateProject, deleteProject, loadProjectChats } = useProjects()
-  const { orgId, activeTeamId, teams }                                        = useOrg()
+  const { orgId, activeTeamId, teams, members }                               = useOrg()
   const mounted                                                               = useMounted()
   const syncedRef = useRef(false)
   const newProjectHref = orgId && activeTeamId ? `/projects/new?teamId=${activeTeamId}` : '/projects/new'
@@ -60,6 +280,7 @@ export default function ProjectsPage() {
     syncedRef.current = true
     Promise.allSettled(projects.map(p => loadProjectChats(p.id)))
   }, [loading, projects, loadProjectChats])
+  const [viewMode,       setViewMode]       = useState<ViewMode>('grid')
   const [query,          setQuery]          = useState('')
   const [sort,           setSort]           = useState<SortKey>('recent')
   const [sortOpen,       setSortOpen]       = useState(false)
@@ -112,6 +333,11 @@ export default function ProjectsPage() {
   // elsewhere in the app. Checking one or more teams additionally narrows the
   // team-project portion down to just those teams (no checkboxes checked =
   // no extra narrowing, i.e. every team).
+  // Standing personal/team split — independent of the scope filter below, so
+  // the heading badges always summarize the whole list at a glance.
+  const personalCount = useMemo(() => projects.filter(p => p.teamId === null).length, [projects])
+  const teamCount      = useMemo(() => projects.filter(p => p.teamId !== null).length, [projects])
+
   const scopedProjects = useMemo(() => {
     return projects.filter(p => {
       if (p.teamId === null) return scopeFilter !== 'team'
@@ -191,91 +417,18 @@ export default function ProjectsPage() {
               >
                 Projects
               </h1>
-              <div style={{ alignSelf: 'flex-start' }}>
-                <Badge label={`${filterDisplayLabel} · ${scopedProjects.length} ${scopedProjects.length === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', alignSelf: 'flex-start' }}>
+                <Badge label={`${personalCount} Personal ${personalCount === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+                {orgId && (
+                  <>
+                    <span style={{ color: 'var(--neutral-300)', fontSize: 12 }}>|</span>
+                    <Badge label={`${teamCount} Team ${teamCount === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+                  </>
+                )}
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-              {/* Filter dropdown — All / Personal / Team, only meaningful for org members */}
-              {orgId && (
-                <Dropdown.Float
-                  open={filterOpen}
-                  onOpenChange={setFilterOpen}
-                  placement="bottom-end"
-                  trigger={
-                    <Button variant="outline" rightIcon={<ArrowDownOneIcon animated />}>
-                      {filterDisplayLabel}
-                    </Button>
-                  }
-                >
-                  {/* Popover's own scroll cap wraps ALL children in one shared
-                      scroll area by default — disable it here so only the
-                      inner Teams list (its own overflow below) ever scrolls,
-                      never the All/Personal/Team rows above it. */}
-                  <Dropdown maxHeight={false}>
-                    <Dropdown.Section>
-                      {(['all', 'personal', 'team'] as ScopeFilter[]).map((k) => (
-                        <Dropdown.Item
-                          key={k}
-                          label={filterLabels[k]}
-                          selected={scopeFilter === k}
-                          onClick={() => { setScopeFilter(k); setFilterOpen(false) }}
-                          fluid
-                        />
-                      ))}
-                    </Dropdown.Section>
-                    {/* Per-team narrowing — only meaningful alongside All/Team,
-                        multi-select so it stays open while toggling. */}
-                    {scopeFilter !== 'personal' && teams.length > 0 && (
-                      <Dropdown.Section divider label="Teams">
-                        <div
-                          className="kaya-scrollbar"
-                          style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 362, overflowY: 'auto', padding: 3 }}
-                        >
-                          {teams.map(team => (
-                            <Dropdown.Item
-                              key={team.id}
-                              label={team.name}
-                              showCheckbox
-                              checkboxChecked={selectedTeamIds.has(team.id)}
-                              onCheckboxChange={() => toggleTeam(team.id)}
-                              fluid
-                            />
-                          ))}
-                        </div>
-                      </Dropdown.Section>
-                    )}
-                  </Dropdown>
-                </Dropdown.Float>
-              )}
-
-              {/* Sort dropdown */}
-              <Dropdown.Float
-                open={sortOpen}
-                onOpenChange={setSortOpen}
-                placement="bottom-end"
-                trigger={
-                  <Button variant="outline" rightIcon={<ArrowDownOneIcon animated />}>
-                    {sortLabels[sort]}
-                  </Button>
-                }
-              >
-                <Dropdown>
-                  <Dropdown.Section>
-                    {(['recent', 'alphabetical', 'active'] as SortKey[]).map((k) => (
-                      <Dropdown.Item
-                        key={k}
-                        label={sortLabels[k]}
-                        selected={sort === k}
-                        onClick={() => { setSort(k); setSortOpen(false) }}
-                        fluid
-                      />
-                    ))}
-                  </Dropdown.Section>
-                </Dropdown>
-              </Dropdown.Float>
-
               {/* New Project */}
               <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => push(newProjectHref)}>
                 New Project
@@ -284,47 +437,137 @@ export default function ProjectsPage() {
           </div>
         </div>
 
-        {/* Search */}
-        <div
-          style={{
-            display:         'flex',
-            alignItems:      'center',
-            gap:             '6px',
-            padding:         '7px 10px',
-            borderRadius:    '10px',
-            background:      'var(--neutral-white)',
-            boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-            width:           '100%',
-            boxSizing:       'border-box',
-          }}
-        >
-          <SearchOneIcon style={{ width: 16, height: 16, color: '#6a625d', flexShrink: 0 }} />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search Projects..."
+        {/* Search + filter row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+          {/* Search */}
+          <div
             style={{
-              flex:        '1 0 0',
-              border:      'none',
-              outline:     'none',
-              background:  'transparent',
-              fontFamily:  'var(--font-body)',
-              fontWeight:  'var(--font-weight-regular)',
-              fontSize:    '14px',
-              lineHeight:  '22px',
-              color:       '#1a1714',
+              display:         'flex',
+              alignItems:      'center',
+              gap:             '6px',
+              padding:         '7px 10px',
+              borderRadius:    '10px',
+              background:      'var(--neutral-white)',
+              boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+              flex:            '0 1 320px',
+              minWidth:        0,
+              boxSizing:       'border-box',
             }}
-          />
-          {query && (
-            <IconButton
-              variant="ghost"
-              size="sm"
-              aria-label="Clear search"
-              icon={<CancelOneIcon size={14} />}
-              onClick={() => setQuery('')}
+          >
+            <SearchOneIcon style={{ width: 16, height: 16, color: '#6a625d', flexShrink: 0 }} />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search Projects..."
+              style={{
+                flex:        '1 0 0',
+                minWidth:    0,
+                border:      'none',
+                outline:     'none',
+                background:  'transparent',
+                fontFamily:  'var(--font-body)',
+                fontWeight:  'var(--font-weight-regular)',
+                fontSize:    '14px',
+                lineHeight:  '22px',
+                color:       '#1a1714',
+              }}
             />
-          )}
+            {query && (
+              <IconButton
+                variant="ghost"
+                size="sm"
+                aria-label="Clear search"
+                icon={<CancelOneIcon size={14} />}
+                onClick={() => setQuery('')}
+              />
+            )}
+          </div>
+
+          {/* Filter / view / sort controls — to the right of the search bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, marginLeft: 'auto' }}>
+            {/* Filter dropdown — All / Personal / Team, only meaningful for org members */}
+            {orgId && (
+              <Dropdown.Float
+                open={filterOpen}
+                onOpenChange={setFilterOpen}
+                placement="bottom-end"
+                trigger={
+                  <Button variant="outline" rightIcon={<ArrowDownOneIcon animated />}>
+                    {filterDisplayLabel}
+                  </Button>
+                }
+              >
+                {/* Popover's own scroll cap wraps ALL children in one shared
+                    scroll area by default — disable it here so only the
+                    inner Teams list (its own overflow below) ever scrolls,
+                    never the All/Personal/Team rows above it. */}
+                <Dropdown maxHeight={false}>
+                  <Dropdown.Section>
+                    {(['all', 'personal', 'team'] as ScopeFilter[]).map((k) => (
+                      <Dropdown.Item
+                        key={k}
+                        label={filterLabels[k]}
+                        selected={scopeFilter === k}
+                        onClick={() => { setScopeFilter(k); setFilterOpen(false) }}
+                        fluid
+                      />
+                    ))}
+                  </Dropdown.Section>
+                  {/* Per-team narrowing — only meaningful alongside All/Team,
+                      multi-select so it stays open while toggling. */}
+                  {scopeFilter !== 'personal' && teams.length > 0 && (
+                    <Dropdown.Section divider label="Teams">
+                      <div
+                        className="kaya-scrollbar"
+                        style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 362, overflowY: 'auto', padding: 3 }}
+                      >
+                        {teams.map(team => (
+                          <Dropdown.Item
+                            key={team.id}
+                            label={team.name}
+                            showCheckbox
+                            checkboxChecked={selectedTeamIds.has(team.id)}
+                            onCheckboxChange={() => toggleTeam(team.id)}
+                            fluid
+                          />
+                        ))}
+                      </div>
+                    </Dropdown.Section>
+                  )}
+                </Dropdown>
+              </Dropdown.Float>
+            )}
+
+            {/* Grid/List view toggle */}
+            <ProjectViewToggle value={viewMode} onChange={setViewMode} />
+
+            {/* Sort dropdown */}
+            <Dropdown.Float
+              open={sortOpen}
+              onOpenChange={setSortOpen}
+              placement="bottom-end"
+              trigger={
+                <Button variant="outline" rightIcon={<ArrowDownOneIcon animated />}>
+                  {sortLabels[sort]}
+                </Button>
+              }
+            >
+              <Dropdown>
+                <Dropdown.Section>
+                  {(['recent', 'alphabetical', 'active'] as SortKey[]).map((k) => (
+                    <Dropdown.Item
+                      key={k}
+                      label={sortLabels[k]}
+                      selected={sort === k}
+                      onClick={() => { setSort(k); setSortOpen(false) }}
+                      fluid
+                    />
+                  ))}
+                </Dropdown.Section>
+              </Dropdown>
+            </Dropdown.Float>
+          </div>
         </div>
 
         {/* Project grid */}
@@ -393,6 +636,23 @@ export default function ProjectsPage() {
               </Button>
             </div>
           )
+        ) : viewMode === 'list' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+            {filtered.map((project) => (
+              <ProjectListRow
+                key={project.id}
+                project={project}
+                teamName={project.teamId ? teams.find(t => t.id === project.teamId)?.name : undefined}
+                ownerName={members.find(m => m.id === project.ownerUserId)?.name}
+                memberCount={projectMemberCount(project, members)}
+                updatedAt={formatUpdated(project.updatedAt)}
+                onClick={() => push(PROJECT_ROUTE(project.id))}
+                onEdit={project.canEdit ? () => setEditTarget(project) : undefined}
+                onArchive={project.canEdit ? () => {/* archive flow - backlog */} : undefined}
+                onDelete={project.canEdit ? () => handleDelete(project) : undefined}
+              />
+            ))}
+          </div>
         ) : (
           <div
             style={{
@@ -409,6 +669,8 @@ export default function ProjectsPage() {
                 description={project.description}
                 tags={project.tags}
                 teamName={project.teamId ? teams.find(t => t.id === project.teamId)?.name : undefined}
+                ownerName={members.find(m => m.id === project.ownerUserId)?.name}
+                memberCount={projectMemberCount(project, members)}
                 updatedAt={formatUpdated(project.updatedAt)}
                 chatCount={project.chatCount}
                 onClick={() => push(PROJECT_ROUTE(project.id))}
