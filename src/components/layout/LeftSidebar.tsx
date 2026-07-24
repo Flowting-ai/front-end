@@ -42,6 +42,7 @@ import {
   PROJECT_ROUTE,
   PROJECT_CHAT_ROUTE,
   PROJECTS_ROUTE,
+  PROJECTS_PERSONAL_ROUTE,
   PROJECTS_NEW_ROUTE,
   ORG_TEAM_ROUTE,
   TEAM_ROUTE,
@@ -723,7 +724,7 @@ function PersonalProjectsMenu({ projects }: { projects: Project[] }) {
       label="Personal projects"
       expanded={expanded}
       onExpandedChange={setExpanded}
-      onClick={() => push(PROJECTS_ROUTE)}
+      onClick={() => push(PROJECTS_PERSONAL_ROUTE)}
     >
       <SidebarMenuItem
         fluid

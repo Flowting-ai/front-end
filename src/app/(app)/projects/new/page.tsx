@@ -3,14 +3,14 @@
 import React, { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowDownOneIcon } from '@strange-huge/icons'
+import { ArrowDownOneIcon, ArrowLeftOneIcon } from '@strange-huge/icons'
 import { useProjects } from '@/context/projects-context'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { Dropdown } from '@/components/Dropdown'
 import { useOrg } from '@/context/org-context'
-import { PROJECT_ROUTE } from '@/lib/routes'
+import { PROJECT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 
 function NewProjectPageInner() {
   const { push, back }                    = useRouter()
@@ -20,6 +20,10 @@ function NewProjectPageInner() {
   const [name,         setName]           = useState('')
   const [description,  setDescription]   = useState('')
   const [loading,      setLoading]        = useState(false)
+  // Defaults to Private. Only pre-set to a team below when this page was
+  // reached via a team-scoped "New project" entry point (?teamId=...) — the
+  // generic /projects and Personal-projects "New project" buttons never pass
+  // that param, so they always land here on Private.
   const [teamId,       setTeamId]         = useState('')
   const [teamMenuOpen, setTeamMenuOpen]   = useState(false)
   const editableTeams = useMemo(() => teams.filter(team => !team.archived && team.canEdit), [teams])
@@ -27,18 +31,10 @@ function NewProjectPageInner() {
   const requestedTeamId = searchParams.get('teamId') ?? ''
 
   useEffect(() => {
-    if (!canCreateTeamProject) {
-      setTeamId('')
-      return
-    }
     if (requestedTeamId && editableTeams.some(team => team.id === requestedTeamId)) {
       setTeamId(requestedTeamId)
-      return
     }
-    if (requestedTeamId && !editableTeams.some(team => team.id === requestedTeamId)) {
-      setTeamId('')
-    }
-  }, [canCreateTeamProject, editableTeams, requestedTeamId])
+  }, [editableTeams, requestedTeamId])
 
   async function handleCreate() {
     if (!name.trim()) return
@@ -56,6 +52,7 @@ function NewProjectPageInner() {
     <div
       className="kaya-scrollbar"
       style={{
+        position:      'relative',
         display:       'flex',
         flexDirection: 'column',
         alignItems:    'center',
@@ -67,6 +64,28 @@ function NewProjectPageInner() {
         boxSizing:     'border-box',
       }}
     >
+      {/* Back button - anchored top-left, matches /project/[id]'s back button */}
+      <button
+        onClick={() => push(PROJECTS_ROUTE)}
+        style={{
+          position:     'absolute',
+          top:          6,
+          left:         8,
+          zIndex:       10,
+          display:      'flex',
+          alignItems:   'center',
+          background:   'transparent',
+          border:       'none',
+          cursor:       'pointer',
+          padding:      '4px',
+          borderRadius: '10px',
+          flexShrink:   0,
+        }}
+        aria-label="Back to Projects"
+      >
+        <ArrowLeftOneIcon style={{ width: 20, height: 20, color: '#524b47' }} />
+      </button>
+
       {/* Horizontal padding lives here, not on the scrolling element above —
           keeps the scrollbar flush with the container's edge. */}
       <div

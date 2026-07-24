@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useEffect, useRef, useMemo, useState } from 'react'
+import React, { Suspense, useEffect, useRef, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelOneIcon, AlertCircleIcon, UserIcon, BubbleChatAddIcon, MoreVerticalIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
@@ -19,7 +19,7 @@ import { useMounted } from '@/hooks/use-mounted'
 import type { Project } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
 import type { OrgMember } from '@/types/teams'
-import { PROJECT_ROUTE } from '@/lib/routes'
+import { PROJECT_ROUTE, PROJECTS_NEW_ROUTE } from '@/lib/routes'
 
 type SortKey = 'recent' | 'alphabetical' | 'active'
 type ScopeFilter = 'all' | 'personal' | 'team'
@@ -264,13 +264,18 @@ function formatUpdated(iso: string) {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-export default function ProjectsPage() {
+function ProjectsPageInner() {
   const { push }                                                              = useRouter()
+  const searchParams                                                          = useSearchParams()
   const { projects, loading, updateProject, deleteProject, loadProjectChats } = useProjects()
-  const { orgId, activeTeamId, teams, members }                               = useOrg()
+  const { orgId, teams, members }                                             = useOrg()
   const mounted                                                               = useMounted()
   const syncedRef = useRef(false)
-  const newProjectHref = orgId && activeTeamId ? `/projects/new?teamId=${activeTeamId}` : '/projects/new'
+  // Always plain — this page's own "New Project" button should default to
+  // Private regardless of which team happens to be active in the workspace
+  // switcher elsewhere. Only the team-scoped "New project" entry points
+  // (inside a specific team's project list) pass ?teamId= to pre-select it.
+  const newProjectHref = PROJECTS_NEW_ROUTE
 
   // Sync accurate chat counts once after the project list finishes loading.
   // Runs only on this page — not on every app boot — so the API is only hit
@@ -284,12 +289,22 @@ export default function ProjectsPage() {
   const [query,          setQuery]          = useState('')
   const [sort,           setSort]           = useState<SortKey>('recent')
   const [sortOpen,       setSortOpen]       = useState(false)
-  const [scopeFilter,    setScopeFilter]    = useState<ScopeFilter>('all')
+  // Seeded from ?scope= (e.g. the sidebar's "Personal projects" link lands
+  // here with scope=personal pre-applied) — read once at mount, not reactive
+  // to later URL changes, same as the rest of this page's local filter state.
+  const [scopeFilter,    setScopeFilter]    = useState<ScopeFilter>(() =>
+    searchParams.get('scope') === 'personal' ? 'personal' : 'all'
+  )
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(() => new Set())
   const [filterOpen,     setFilterOpen]     = useState(false)
   const [editTarget,     setEditTarget]     = useState<Project | null>(null)
   const [deleteTarget,   setDeleteTarget]   = useState<Project | null>(null)
   const [isDeleting,     setIsDeleting]     = useState(false)
+
+  // Archived teams aren't "existing" teams anymore — exclude them from the
+  // filter's per-team checklist (same convention as /projects/new's own
+  // team picker).
+  const filterableTeams = useMemo(() => teams.filter(t => !t.archived), [teams])
 
   function toggleTeam(teamId: string) {
     setSelectedTeamIds(prev => {
@@ -486,6 +501,9 @@ export default function ProjectsPage() {
 
           {/* Filter / view / sort controls — to the right of the search bar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, marginLeft: 'auto' }}>
+            {/* Grid/List view toggle */}
+            <ProjectViewToggle value={viewMode} onChange={setViewMode} />
+
             {/* Filter dropdown — All / Personal / Team, only meaningful for org members */}
             {orgId && (
               <Dropdown.Float
@@ -516,13 +534,13 @@ export default function ProjectsPage() {
                   </Dropdown.Section>
                   {/* Per-team narrowing — only meaningful alongside All/Team,
                       multi-select so it stays open while toggling. */}
-                  {scopeFilter !== 'personal' && teams.length > 0 && (
+                  {scopeFilter !== 'personal' && filterableTeams.length > 0 && (
                     <Dropdown.Section divider label="Teams">
                       <div
                         className="kaya-scrollbar"
                         style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 362, overflowY: 'auto', padding: 3 }}
                       >
-                        {teams.map(team => (
+                        {filterableTeams.map(team => (
                           <Dropdown.Item
                             key={team.id}
                             label={team.name}
@@ -538,9 +556,6 @@ export default function ProjectsPage() {
                 </Dropdown>
               </Dropdown.Float>
             )}
-
-            {/* Grid/List view toggle */}
-            <ProjectViewToggle value={viewMode} onChange={setViewMode} />
 
             {/* Sort dropdown */}
             <Dropdown.Float
@@ -853,5 +868,13 @@ export default function ProjectsPage() {
         document.body
       )}
     </div>
+  )
+}
+
+export default function ProjectsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProjectsPageInner />
+    </Suspense>
   )
 }

@@ -18,6 +18,7 @@ export const BRAIN_THREADS_ROUTE = "/brain/threads";
 export const BRAIN_SCHEDULES_ROUTE = "/brain/schedules";
 export const WELCOME_ROUTE = "/welcome";
 export const PROJECTS_ROUTE = "/projects";
+export const PROJECTS_PERSONAL_ROUTE = "/projects?scope=personal";
 export const PROJECTS_NEW_ROUTE = "/projects/new";
 
 export const ORG_BASE_ROUTE = "/org";

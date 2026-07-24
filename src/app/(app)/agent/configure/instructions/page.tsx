@@ -22,8 +22,6 @@ import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
-import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
-import { Tooltip } from '@/components/Tooltip'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
 import ExampleConversationModal from '@/app/(app)/agent/configure/components/ExampleConversationModal'
 import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModal'
@@ -486,24 +484,6 @@ function ModelDropdown({
                   onChange={setSearch}
                   fluid
                 />
-              </div>
-
-              {/* Souvenir Muse Advanced — mirrors chat's Muse "Advanced" featured
-                  card, but disabled: the persona backend only supports a fixed
-                  model_id today (use_algorithm exists for a single "base" tier,
-                  there is no "advanced"/pro tier for agents yet). Kept visible
-                  so the gap is obvious rather than silently missing. */}
-              <div style={{ flexShrink: 0 }}>
-                <Tooltip content="Coming soon — auto-routing for agents isn't available yet" side="top">
-                  <div style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                    <ModelFeaturedCard
-                      subtitle="Souvenir Muse"
-                      title="Advanced"
-                      description="Top-tier models for your agent's most demanding work."
-                      style={{ pointerEvents: 'none' }}
-                    />
-                  </div>
-                </Tooltip>
               </div>
 
               {/* Provider tabs */}
