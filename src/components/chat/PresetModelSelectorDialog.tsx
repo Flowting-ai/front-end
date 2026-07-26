@@ -10,95 +10,30 @@ import { AnimatePresence, m } from "framer-motion";
 import {
   SearchOneIcon,
   CancelOneIcon,
-  AtomOneIcon,
-  AtomTwoIcon,
   AiVisionRecognitionIcon,
   ImageTwoIcon,
-  InformationCircleIcon,
 } from "@strange-huge/icons";
 import { LlmIcon } from "@strange-huge/icons/llm";
 import { IconButton } from "@/components/IconButton";
-import { Button } from "@/components/Button";
 import { Tooltip } from "@/components/Tooltip";
 import { Popover } from "@/components/Popover";
 import { useModelSelectorContext } from "@/context/model-selector-context";
-import { useCompare } from "@/context/compare-context";
 import { getModelLlmId } from "@/lib/model-icons";
 import type { AIModel } from "@/types/ai-model";
 import { ModelSelectItem } from "@/components/ModelSelectItem";
 import { trackFeature } from "@/lib/analytics/events";
-import { ModelFeaturedCard } from "@/components/ModelFeaturedCard";
-import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
 import { InputField } from "@/components/InputField";
 import { Badge, type BadgeColor } from "@/components/Badge";
 import { Divider } from "@/components/Divider";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TIER_TABS = [
-  { value: "all",   label: "All"     },
-  { value: "free",  label: "Starter" },
-  { value: "pro",   label: "Pro"     },
-  { value: "power", label: "Power"   },
-] as const;
+// Scroll cap for the model list itself — the dialog around it has no fixed
+// height anymore (see PresetModelSelectorContent's inner container), so this
+// is what actually stops it from growing unbounded with a long result set.
+const MODEL_LIST_MAX_HEIGHT = 360;
 
-const CATEGORY_TABS = [
-  { value: "all",    label: "All",    icon: <AtomTwoIcon             size={16} /> },
-  { value: "vision", label: "Vision", icon: <AiVisionRecognitionIcon size={16} /> },
-  { value: "image",  label: "Image",  icon: <ImageTwoIcon            size={16} /> },
-] as const;
-
-// Mirrors the actual filter predicate below (inputModalities/outputModalities
-// checks) so this copy never drifts from what the tabs really do.
-const CATEGORY_INFO = [
-  {
-    value: "all",
-    label: "All",
-    description: "Every model in the catalog — no input/output filter applied.",
-  },
-  {
-    value: "vision",
-    label: "Vision",
-    description: "Input modalities include image or vision — the model can see images you attach, like screenshots or photos.",
-  },
-  {
-    value: "image",
-    label: "Image",
-    description: "Output modalities include image — a dedicated image-generation model, not a chat model with an extra output.",
-  },
-] as const;
-
-function CategoryInfoContent() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "2px" }}>
-      {CATEGORY_INFO.map((c, i) => (
-        <React.Fragment key={c.value}>
-          {i > 0 && <Divider decorative />}
-          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-            <span style={{ ...CAPTION_STYLE, fontWeight: 700, whiteSpace: "normal", color: "var(--tooltip-text)" }}>
-              {c.label}
-            </span>
-            <span style={{ ...CAPTION_STYLE, fontWeight: 400, whiteSpace: "normal", color: "var(--tooltip-text)", opacity: 0.8 }}>
-              {c.description}
-            </span>
-          </div>
-        </React.Fragment>
-      ))}
-    </div>
-  );
-}
-
-const CAPTION_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: "var(--font-weight-medium)",
-  fontSize: "var(--font-size-caption)",
-  lineHeight: "var(--line-height-caption)",
-  color: "var(--neutral-500)",
-  whiteSpace: "nowrap",
-};
-
-// Same modality checks as the category filter (kept in sync deliberately) —
-// rendered as the model row's own right-end badges instead of a filter.
+// Small vision/image indicator icons rendered at the right end of a model row.
 function ModelModalityIcons({ model }: { model: AIModel }) {
   const inputs = model.inputModalities ?? [];
   const outputs = model.outputModalities ?? [];
@@ -209,59 +144,20 @@ function modelInfoContent(model: AIModel): React.ReactNode {
   );
 }
 
-// ── Featured mode row (Muse / Advanced) ──────────────────────────────────────
-// Two ModelFeaturedCards side-by-side, behaving as a radio pair.
-// One card is always selected; initialMode seeds local state on mount.
-
-type FeaturedMode = "muse" | "advanced"
-
-interface FeaturedModeRowProps {
-  /** null means neither card is selected (a specific model is active) */
-  mode: FeaturedMode | null
-  onMuseSelect: () => void
-  onAdvancedSelect: () => void
-}
-
-function FeaturedModeRow({ mode, onMuseSelect, onAdvancedSelect }: FeaturedModeRowProps) {
-  return (
-    <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", width: "100%", flexShrink: 0 }}>
-      <div style={{ flex: "1 0 0", minWidth: 0 }}>
-        <ModelFeaturedCard
-          subtitle="Souvenir Muse"
-          title="Basic"
-          description="Cost-efficient routing for everyday tasks. Fast, smart, and easy on your credits."
-          selected={mode === "muse"}
-          onSelectedChange={(next) => { if (next) onMuseSelect() }}
-        />
-      </div>
-      <div style={{ flex: "1 0 0", minWidth: 0 }}>
-        <ModelFeaturedCard
-          subtitle="Souvenir Muse"
-          title="Advanced"
-          description="Top-tier models for your most demanding work. Maximum quality, no compromises."
-          selected={mode === "advanced"}
-          onSelectedChange={(next) => { if (next) onAdvancedSelect() }}
-        />
-      </div>
-    </div>
-  )
-}
-
 // ── PresetModelSelectorContent ────────────────────────────────────────────────
 
 interface PresetModelSelectorContentProps {
   models: AIModel[];
   selectedModel: AIModel | null;
   onSelect: (model: AIModel) => void;
+  /** Still needed to keep a model row from showing as "selected" while Muse
+   *  is active from elsewhere — this dialog no longer has its own Muse
+   *  toggle, but Muse itself hasn't been removed from the app. */
   museActive: boolean;
-  museAdvanced: boolean;
-  onMuseSelect: () => void;
-  onAdvancedSelect: () => void;
   /** Flip info tooltips to open leftward — set when the anchor trigger sits
    * near the right edge of the viewport (e.g. the project page's top-right
    * model button), leaving no room for them to open to the right. */
   preferLeftTooltips: boolean;
-  onClose: () => void;
 }
 
 function PresetModelSelectorContent({
@@ -269,19 +165,9 @@ function PresetModelSelectorContent({
   selectedModel,
   onSelect,
   museActive,
-  museAdvanced,
-  onMuseSelect,
-  onAdvancedSelect,
   preferLeftTooltips,
-  onClose,
 }: PresetModelSelectorContentProps) {
-  const compare = useCompare();
   const [search, setSearch] = useState("");
-  const [tier, setTier] = useState("all");
-  const [category, setCategory] = useState("all");
-  const [provider, setProvider] = useState("all");
-  const [atTop, setAtTop] = useState(true);
-  const [atBottom, setAtBottom] = useState(false);
   // Tracks the panel's own rendered width so each row's info tooltip can be
   // capped to match it (the dialog's width can shrink below DROPDOWN_WIDTH
   // via its `calc(100vw - 32px)` clamp on narrow viewports).
@@ -298,50 +184,14 @@ function PresetModelSelectorContent({
     return () => ro.disconnect();
   }, []);
 
-  // Derive sorted company list (most models first) — same logic as CompareModels
-  const companies = React.useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const m of models) counts[m.companyName] = (counts[m.companyName] ?? 0) + 1;
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c]) => c);
-  }, [models]);
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    setAtTop(el.scrollTop < 34);
-    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8);
-  };
-
-  // Filter models by search + tier + category + provider
+  // Filter models by search only — tier/category/provider tabs were removed.
   const filtered = models.filter((m) => {
-    if (provider !== "all" && m.companyName !== provider) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      if (
-        !m.modelName.toLowerCase().includes(q) &&
-        !m.companyName.toLowerCase().includes(q)
-      )
-        return false;
-    }
-    // Mirror CompareModels tierLabel logic: planType is the raw backend value.
-    const tl = ((m.planType ?? m.callType ?? m.modelType) as string ?? "").toLowerCase();
-    if (tier === "free"  && tl !== "free"  && tl !== "starter") return false;
-    if (tier === "pro"   && tl !== "paid"  && tl !== "pro")     return false;
-    if (tier === "power" && tl !== "power")                     return false;
-
-    if (category !== "all") {
-      const inputs  = m.inputModalities  ?? [];
-      const outputs = m.outputModalities ?? [];
-      switch (category) {
-        case "vision":
-          if (!inputs.some((v) => v === "image" || v === "vision")) return false;
-          break;
-        case "image":
-          if (!outputs.some((v) => v === "image")) return false;
-          break;
-      }
-    }
-
-    return true;
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      m.modelName.toLowerCase().includes(q) ||
+      m.companyName.toLowerCase().includes(q)
+    );
   });
 
   return (
@@ -352,316 +202,113 @@ function PresetModelSelectorContent({
           display: "flex",
           flexDirection: "column",
           gap: "16px",
-          height: "500px",
-          maxHeight: "500px",
+          // No fixed height — the dialog now sizes to its actual content
+          // (search + however many rows match), instead of always reserving
+          // the same tall block regardless of result count. The scroll cap
+          // lives on the model list itself (MODEL_LIST_MAX_HEIGHT below).
         }}
       >
-        {/* ── Header: search + tier tabs ── */}
-        <div
-          style={{
-            display: "flex",
-            gap: "16px",
-            alignItems: "center",
-            width: "100%",
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ flex: "1 1 0", minWidth: 100 }}>
-            <InputField
-              size="small"
-              showLabel={false}
-              label="Search models"
-              showSubtitle={false}
-              leftIcon={<SearchOneIcon size={16} />}
-              rightIcon={search ? (
-                <IconButton
-                  size="xs"
-                  variant="ghost"
-                  aria-label="Clear search"
-                  icon={<CancelOneIcon size={12} />}
-                  onClick={() => setSearch("")}
-                />
-              ) : undefined}
-              placeholder="Look up your model…"
-              value={search}
-              onChange={setSearch}
-              fluid
-            />
-          </div>
-          <Tabs value={tier} onValueChange={setTier}>
-            <TabsList size="small">
-              {TIER_TABS.map((t) => (
-                <TabsTrigger key={t.value} value={t.value}>
-                  {t.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+        {/* ── Header: search ── */}
+        <div style={{ width: "100%", flexShrink: 0 }}>
+          <InputField
+            size="small"
+            showLabel={false}
+            label="Search models"
+            showSubtitle={false}
+            leftIcon={<SearchOneIcon size={16} />}
+            rightIcon={search ? (
+              <IconButton
+                size="xs"
+                variant="ghost"
+                aria-label="Clear search"
+                icon={<CancelOneIcon size={12} />}
+                onClick={() => setSearch("")}
+              />
+            ) : undefined}
+            placeholder="Look up your model…"
+            value={search}
+            onChange={setSearch}
+            fluid
+          />
         </div>
 
-        {/* ── Featured: Muse + Advanced radio pair ── */}
-        <FeaturedModeRow
-          mode={museActive ? (museAdvanced ? "advanced" : "muse") : null}
-          onMuseSelect={onMuseSelect}
-          onAdvancedSelect={onAdvancedSelect}
-        />
-
-        {/* ── Provider / company filter tabs (below Muse buttons) ── */}
-        {companies.length > 0 && (
-          <div style={{ flexShrink: 0 }}>
-            <Tabs value={provider} onValueChange={setProvider}>
-              <TabsList size="small" scrollable justify="space-evenly" pillTopInset={0.5} pillBottomInset={1}>
-                <TabsTrigger value="all" icon={<AtomTwoIcon size={16} />}>
-                  All
-                </TabsTrigger>
-                {companies.map((company) => {
-                  const rep   = models.find((m) => m.companyName === company);
-                  const llmId = rep ? (getModelLlmId(rep.companyName, rep.modelName) ?? "") : "";
-                  return (
-                    <TabsTrigger
-                      key={company}
-                      value={company}
-                      icon={llmId ? <LlmIcon id={llmId} variant="color" size={16} /> : undefined}
-                    >
-                      {company}
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-            </Tabs>
-          </div>
-        )}
-
-        {/* ── Category tabs + model list ── */}
+        {/* ── Model list ── */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             gap: "8px",
-            flex: "1 0 0",
-            minHeight: 0,
             width: "100%",
           }}
         >
-          {/* Category tabs */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexShrink: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "2px", flex: "0 1 auto", minWidth: 0 }}>
-              <div style={{ flex: "0 1 auto", minWidth: 0 }}>
-                <Tabs value={category} onValueChange={setCategory}>
-                  <TabsList size="small" scrollable pillTopInset={0.5} pillBottomInset={1}>
-                    {CATEGORY_TABS.map((t) => (
-                      <TabsTrigger key={t.value} value={t.value} icon={t.icon}>
-                        {t.label}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
-              </div>
-              <Tooltip content={<CategoryInfoContent />} side={preferLeftTooltips ? "left" : "right"} align="center" maxWidth={280}>
-                <IconButton
-                  size="xs"
-                  variant="ghost"
-                  icon={<InformationCircleIcon size={16} />}
-                  aria-label="What do All, Vision, and Image filter on?"
-                />
-              </Tooltip>
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={<AtomOneIcon size={16} />}
-              onClick={() => { compare.open(); onClose(); }}
-            >
-              Compare Models
-            </Button>
-          </div>
-
-          {/* Model list */}
           {filtered.length > 0 && (
-            <div
-              style={{
-                flex: "1 0 0",
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              {/* Section header - outside scroll so gradient doesn't affect it */}
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {/* Scrollable content — sizes to content up to
+                  MODEL_LIST_MAX_HEIGHT, then scrolls, instead of always
+                  stretching to fill a fixed-height dialog. */}
               <div
+                className="kaya-scrollbar"
                 style={{
-                  display: "flex",
-                  gap: "8px",
-                  alignItems: "center",
-                  padding: "4px 38px 2px 34px",
-                  flexShrink: 0,
+                  maxHeight: `${MODEL_LIST_MAX_HEIGHT}px`,
+                  overflowY: "auto",
+                  overscrollBehaviorY: "contain",
+                  padding: "2px",
                 }}
               >
-                <span style={{ ...CAPTION_STYLE, flex: "1 0 0" }}>
-                  Top Models
-                </span>
-              </div>
-
-              {/* Scroll area + gradient overlays */}
-              <div
-                style={{ position: "relative", flex: "1 0 0", minHeight: 0 }}
-              >
-                {/* Scrollable content */}
                 <div
-                  className="kaya-scrollbar"
-                  onScroll={handleScroll}
                   style={{
-                    position: "absolute",
-                    inset: 0,
-                    overflowY: "auto",
-                    overscrollBehaviorY: "contain",
-                    padding: "2px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "4px",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "4px",
-                    }}
-                  >
-                    {filtered.map((model) => {
-                      const isSelected =
-                        !museActive &&
-                        selectedModel?.id === model.id &&
-                        selectedModel?.modelId === model.modelId;
-                      return (
-                        <ModelSelectItem
-                          key={`${model.id}-${model.modelId}`}
-                          role="button"
-                          tabIndex={0}
-                          aria-pressed={isSelected}
-                          llm={getModelLlmId(model.companyName, model.modelName) ?? undefined}
-                          label={model.modelName}
-                          icons={<ModelModalityIcons model={model} />}
-                          info={modelInfoContent(model)}
-                          infoSide={preferLeftTooltips ? "left" : "right"}
-                          infoMaxWidth={dropdownWidth}
-                          selected={isSelected}
-                          onClick={() => {
+                  {filtered.map((model) => {
+                    const isSelected =
+                      !museActive &&
+                      selectedModel?.id === model.id &&
+                      selectedModel?.modelId === model.modelId;
+                    return (
+                      <ModelSelectItem
+                        key={`${model.id}-${model.modelId}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={isSelected}
+                        llm={getModelLlmId(model.companyName, model.modelName) ?? undefined}
+                        label={model.modelName}
+                        icons={<ModelModalityIcons model={model} />}
+                        info={modelInfoContent(model)}
+                        infoSide={preferLeftTooltips ? "left" : "right"}
+                        infoMaxWidth={dropdownWidth}
+                        selected={isSelected}
+                        onClick={() => {
+                          trackFeature("model_selector_manual", { model_id: String(model.modelId), model_type: model.modelType });
+                          onSelect(model);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
                             trackFeature("model_selector_manual", { model_id: String(model.modelId), model_type: model.modelType });
                             onSelect(model);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              trackFeature("model_selector_manual", { model_id: String(model.modelId), model_type: model.modelType });
-                              onSelect(model);
-                            }
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
+                          }
+                        }}
+                      />
+                    );
+                  })}
                 </div>
-
-                {/* ── Top fade: progressive blur + color ── */}
-                {[
-                  { height: 40, blur: 2 },
-                  { height: 28, blur: 3 },
-                  { height: 18, blur: 5 },
-                  { height: 10, blur: 6 },
-                ].map(({ height, blur }) => (
-                  <div
-                    key={blur}
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: `${height}px`,
-                      backdropFilter: `blur(${blur}px)`,
-                      WebkitBackdropFilter: `blur(${blur}px)`,
-                      maskImage:
-                        "linear-gradient(to bottom, black 0%, transparent 100%)",
-                      WebkitMaskImage:
-                        "linear-gradient(to bottom, black 0%, transparent 100%)",
-                      pointerEvents: "none",
-                      zIndex: 10,
-                      opacity: atTop ? 0 : 1,
-                      transition: "opacity 150ms ease",
-                    }}
-                  />
-                ))}
-                <div
-                  aria-hidden
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: "40px",
-                    background:
-                      "linear-gradient(to bottom, white 0%, transparent 100%)",
-                    pointerEvents: "none",
-                    zIndex: 11,
-                    opacity: atTop ? 0 : 1,
-                    transition: "opacity 150ms ease",
-                  }}
-                />
-
-                {/* ── Bottom fade: progressive blur + color ── */}
-                {[
-                  { height: 40, blur: 2 },
-                  { height: 28, blur: 3 },
-                  { height: 18, blur: 5 },
-                  { height: 10, blur: 6 },
-                ].map(({ height, blur }) => (
-                  <div
-                    key={blur}
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      height: `${height}px`,
-                      backdropFilter: `blur(${blur}px)`,
-                      WebkitBackdropFilter: `blur(${blur}px)`,
-                      maskImage:
-                        "linear-gradient(to top, black 0%, transparent 100%)",
-                      WebkitMaskImage:
-                        "linear-gradient(to top, black 0%, transparent 100%)",
-                      pointerEvents: "none",
-                      zIndex: 10,
-                      opacity: atBottom ? 0 : 1,
-                      transition: "opacity 150ms ease",
-                    }}
-                  />
-                ))}
-                <div
-                  aria-hidden
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: "40px",
-                    background:
-                      "linear-gradient(to top, white 0%, transparent 100%)",
-                    pointerEvents: "none",
-                    zIndex: 11,
-                    opacity: atBottom ? 0 : 1,
-                    transition: "opacity 150ms ease",
-                  }}
-                />
               </div>
             </div>
           )}
 
-          {/* Empty state */}
+          {/* Empty state — fixed height rather than flex:1 (nothing to grow
+              into now that the dialog sizes to content) so the message
+              isn't squashed to near-zero height. */}
           {filtered.length === 0 && (
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                flex: "1 0 0",
+                height: "120px",
                 fontFamily: "var(--font-body)",
                 fontSize: "var(--font-size-caption)",
                 color: "var(--neutral-500)",
@@ -678,8 +325,13 @@ function PresetModelSelectorContent({
 
 // ── PresetModelSelectorDialog ──────────────────────────────────────────────────
 
-// Approximate rendered height of PresetModelSelectorContent (500px inner + 16px padding)
-const DROPDOWN_HEIGHT = 516;
+// Worst-case rendered height of PresetModelSelectorContent, used only to decide
+// whether to flip the dropdown above the anchor when there isn't enough room
+// below. The dialog itself is fluid (no fixed height) — this is a conservative
+// upper estimate (search row + section header + MODEL_LIST_MAX_HEIGHT + gaps/
+// padding), so it stays safe even though the actual rendered height is usually
+// shorter.
+const DROPDOWN_HEIGHT = 16 /* outer padding */ + 40 /* search row */ + 16 /* gap */ + 30 /* section header */ + MODEL_LIST_MAX_HEIGHT;
 const DROPDOWN_WIDTH = 432;
 const GAP = 8;
 
@@ -692,10 +344,6 @@ export function PresetModelSelectorDialog() {
     anchorEl,
     close,
     museActive,
-    museAdvanced,
-    activateMuse,
-    deactivateMuse,
-    setMuseAdvanced,
   } = useModelSelectorContext();
 
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -770,8 +418,8 @@ export function PresetModelSelectorDialog() {
   // background/radius/shadow, so it matches the design system's popover
   // surfaces. `variant="modal"` (18 px radius) is used rather than
   // `Dropdown`'s default `"dropdown"` (12 px) because this panel is a rich,
-  // multi-section surface (search + tabs + featured cards + scrollable list)
-  // rather than a simple menu — per Popover's own documented guidance for
+  // multi-section surface (search + scrollable list) rather than a simple
+  // menu — per Popover's own documented guidance for
   // when to use each variant. `maxHeight={false}` disables Popover's own
   // internal scroll-cap since `PresetModelSelectorContent` already manages
   // its own fixed-height scroll area with custom fade overlays.
@@ -808,11 +456,7 @@ export function PresetModelSelectorDialog() {
               selectedModel={selectedModel}
               onSelect={selectModel}
               museActive={museActive}
-              museAdvanced={museAdvanced}
-              onMuseSelect={() => { setMuseAdvanced(false); activateMuse() }}
-              onAdvancedSelect={() => { setMuseAdvanced(true); close() }}
               preferLeftTooltips={preferLeftTooltips}
-              onClose={close}
             />
           </Popover>
         </m.div>

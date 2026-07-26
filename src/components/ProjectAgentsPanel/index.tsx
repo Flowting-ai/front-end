@@ -9,7 +9,9 @@ import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped, type Pers
 import { AGENT_CHAT_ROUTE } from '@/lib/routes'
 
 export interface ProjectAgentsPanelProps {
-  teamId: string
+  /** null/undefined for a personal (non-team) project — the panel then lists
+   *  the viewer's own agents instead of agents shared with a team. */
+  teamId?: string | null
 }
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
@@ -43,13 +45,15 @@ export function ProjectAgentsPanel({ teamId }: ProjectAgentsPanelProps) {
   // dedicated chat route 404s on them directly (chat creation is owner-only on
   // the backend). Clone into the member's own account first (deduped — repeat
   // clicks reuse the same copy, never pile up duplicates), then open its chat.
+  // A personal project has no team, so every agent listed here is already the
+  // viewer's own private one — open its chat directly, no clone needed.
   async function handleUseAgent(agent: Persona) {
     setUsingId(agent.id)
     const toastId = toast.loading(`Opening "${agent.name}"…`)
     try {
-      const copy = await usePersonaRepoDeduped(agent.id, agent.activeVersionId)
+      const targetId = teamId ? (await usePersonaRepoDeduped(agent.id, agent.activeVersionId)).id : agent.id
       toast.dismiss(toastId)
-      push(AGENT_CHAT_ROUTE(copy.id))
+      push(AGENT_CHAT_ROUTE(targetId))
     } catch {
       toast.dismiss(toastId)
       toast.error('Failed to open agent. Please try again.')
@@ -65,7 +69,11 @@ export function ProjectAgentsPanel({ teamId }: ProjectAgentsPanelProps) {
       .then(list => {
         if (cancelled) return
         // Draft agents aren't ready for use yet — only surface published ones here.
-        setAgents(personasForTeamContext(list, teamId).filter(p => p.status !== 'draft'))
+        // Outside a team, personasForTeamContext returns the list unchanged, so
+        // filter to the viewer's own private agents explicitly — otherwise
+        // team-shared agents from the viewer's other teams would leak in here.
+        const scoped = teamId ? personasForTeamContext(list, teamId) : list.filter(p => p.visibility === 'private')
+        setAgents(scoped.filter(p => p.status !== 'draft'))
       })
       .catch(() => { if (!cancelled) setAgents([]) })
       .finally(() => { if (!cancelled) setAgentsLoading(false) })
@@ -74,9 +82,13 @@ export function ProjectAgentsPanel({ teamId }: ProjectAgentsPanelProps) {
 
   return (
     <div style={{ backgroundColor: 'var(--neutral-50)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--neutral-200)' }}>
-      <SectionHeader title="Shared agents" subtitle="Agents shared with this team." />
+      {teamId
+        ? <SectionHeader title="Shared agents" subtitle="Agents shared with this team." />
+        : <SectionHeader title="My agents" subtitle="Your agents, ready to use in this project." />}
       {agentsLoading && <EmptyRow text="Loading…" />}
-      {!agentsLoading && agents.length === 0 && <EmptyRow text="No shared agents for this team." />}
+      {!agentsLoading && agents.length === 0 && (
+        <EmptyRow text={teamId ? 'No shared agents for this team.' : 'No agents yet. Create one to use it here.'} />
+      )}
       {agents.map(agent => (
         <div
           key={agent.id}

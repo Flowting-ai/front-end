@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { fetchModelsWithCache } from "@/lib/ai-models";
+import { useState, useEffect, useRef } from "react";
+import { fetchModelsWithCache, MODELS_CACHE_BUSTED_EVENT } from "@/lib/ai-models";
 import type { AIModel } from "@/types/ai-model";
 import { logger } from "@/lib/logger";
 
@@ -134,6 +134,18 @@ export function useModelSelection(): UseModelSelectionResult {
 
   useEffect(() => {
     loadModels();
+  }, []);
+
+  // ModelSelectorProvider mounts this hook once for the whole app (see
+  // (app)/layout.tsx), so a model blocked/unblocked from /settings/ai in the
+  // same SPA session would otherwise never be reflected here — this `models`
+  // state was fetched once on mount and nothing else re-triggers loadModels.
+  const loadModelsRef = useRef(loadModels);
+  loadModelsRef.current = loadModels;
+  useEffect(() => {
+    const onCacheBusted = () => { void loadModelsRef.current(true); };
+    window.addEventListener(MODELS_CACHE_BUSTED_EVENT, onCacheBusted);
+    return () => window.removeEventListener(MODELS_CACHE_BUSTED_EVENT, onCacheBusted);
   }, []);
 
   const selectModel = (model: AIModel) => {

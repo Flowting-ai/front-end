@@ -12,7 +12,8 @@ import { Button } from "@/components/Button";
 import { ArrowDownOneIcon, PenOneIcon } from "@strange-huge/icons";
 import { getPersona } from "@/lib/api/personas";
 import type { Persona } from "@/lib/api/personas";
-import { fetchModelsWithCache } from "@/lib/ai-models";
+import { fetchModelsWithCache, normalizeModels, MODELS_CACHE_BUSTED_EVENT } from "@/lib/ai-models";
+import { fetchAllModels } from "@/lib/api/models";
 import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE } from "@/lib/routes";
 import type { AIModel } from "@/types/ai-model";
 
@@ -92,15 +93,36 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
   const [personaModel, setPersonaModel] = useState<AIModel | null>(null);
   useEffect(() => {
     if (!personaId) { setPersona(null); setPersonaModel(null); return; }
-    Promise.all([getPersona(personaId), fetchModelsWithCache()])
-      .then(([p, models]) => {
-        setPersona(p);
-        const matched = p.modelId
-          ? models.find(m => String(m.modelId ?? m.id) === p.modelId) ?? null
-          : null;
-        setPersonaModel(matched);
-      })
-      .catch(console.error);
+    let cancelled = false;
+
+    function resolve() {
+      Promise.all([getPersona(personaId!), fetchModelsWithCache()])
+        .then(([p, models]) => {
+          if (cancelled) return;
+          setPersona(p);
+          const matched = p.modelId
+            ? models.find(m => String(m.modelId ?? m.id) === p.modelId) ?? null
+            : null;
+          if (matched || !p.modelId) { setPersonaModel(matched); return; }
+          // Not in the selectable (non-blocked) list — could be disabled in
+          // Settings or fully retired. Look it up in the full catalog so the
+          // tag still shows a real name instead of falling back to the raw id.
+          fetchAllModels()
+            .then(all => {
+              if (cancelled) return;
+              const found = all.find(m => m.model_id === p.modelId);
+              setPersonaModel(found ? normalizeModels([found])[0] : null);
+            })
+            .catch(() => { if (!cancelled) setPersonaModel(null); });
+        })
+        .catch(console.error);
+    }
+
+    resolve();
+    // Re-resolve if a model gets blocked/unblocked in the same SPA session
+    // (e.g. /settings/ai in another tab-switch) without needing a reload.
+    window.addEventListener(MODELS_CACHE_BUSTED_EVENT, resolve);
+    return () => { cancelled = true; window.removeEventListener(MODELS_CACHE_BUSTED_EVENT, resolve); };
   }, [personaId]);
 
   const modelLlmId = museActive
@@ -259,8 +281,8 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
             {(personaModel || persona?.modelId) && (() => {
               const llmId     = personaModel
                 ? getModelLlmId(personaModel.companyName, personaModel.modelName)
-                : getModelLlmId(null, persona!.modelId);
-              const modelName = personaModel?.modelName ?? persona!.modelId;
+                : null;
+              const modelName = personaModel?.modelName ?? "Model unavailable";
               return (
                 <Button
                   variant="default"

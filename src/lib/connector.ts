@@ -9,8 +9,9 @@ import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
 export const connectorSchema = z.object({
   slug:   z.string(),
   name:   z.string(),
-  /** Bundled brand asset when curated, else the backend's provider-hosted
-   *  logo_url/icon_url, else null — callers render a letter fallback. */
+  /** The backend's provider-hosted logo_url/icon_url when present, else a
+   *  bundled brand asset as a fallback, else null — callers render a letter
+   *  fallback. */
   logo:   z.string().nullable(),
   status: z.enum(['connected', 'disconnected', 'failed', 'pending']),
 })
@@ -41,7 +42,9 @@ export function toConnector(input: string | object): Connector {
   return connectorSchema.parse({
     slug,
     name,
-    logo:   connectorLogoSrc(slug) ?? connectorLogoSrc(name) ?? (raw.logo_url || raw.icon_url || null),
+    // Prefer the backend-hosted image directly; only fall back to a bundled
+    // local asset when the backend doesn't send one for this connector.
+    logo:   (raw.logo_url || raw.icon_url || null) ?? connectorLogoSrc(slug) ?? connectorLogoSrc(name),
     status: statusSchema.parse(raw.status || 'connected'),
   })
 }

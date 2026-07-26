@@ -277,7 +277,7 @@ export default function ProjectPage() {
       })
       return
     }
-    if (agentsPanelOpen && project.teamId) {
+    if (agentsPanelOpen) {
       setProjectPanel({
         title:   'Agents',
         onClose: () => setAgentsPanelOpen(false),
@@ -293,7 +293,7 @@ export default function ProjectPage() {
                 margin:     '-6px 0 0',
               }}
             >
-              Agents shared with this project&apos;s team.
+              {project.teamId ? "Agents shared with this project's team." : 'Your agents, ready to use in this project.'}
             </p>
             <ProjectAgentsPanel teamId={project.teamId} />
           </div>
@@ -1056,21 +1056,19 @@ export default function ProjectPage() {
               }}
             />
           )}
-          {project.teamId && (
-            <FloatingMenuItem
-              icon={<UserAiIcon size={20} animated />}
-              label="Agents"
-              active={agentsPanelOpen}
-              onClick={() => {
-                if (!agentsPanelOpen) {
-                  closePinboard()
-                  setPanelOpen(false)
-                  setTeamPanelOpen(false)
-                }
-                setAgentsPanelOpen(v => !v)
-              }}
-            />
-          )}
+          <FloatingMenuItem
+            icon={<UserAiIcon size={20} animated />}
+            label="Agents"
+            active={agentsPanelOpen}
+            onClick={() => {
+              if (!agentsPanelOpen) {
+                closePinboard()
+                setPanelOpen(false)
+                setTeamPanelOpen(false)
+              }
+              setAgentsPanelOpen(v => !v)
+            }}
+          />
         </FloatingMenu>
       </div>
 

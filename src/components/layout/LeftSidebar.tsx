@@ -112,8 +112,6 @@ const ADMIN_SECTION_ROUTES: Record<string, string> = {
   connectors:        "/org/connectors",
   "souvenir-slack":  "/org/souvenir-slack",
   "activity-log":    "/org/activity",
-  // Models ? AI & Models
-  "model-providers": "/settings/ai",
 };
 
 // Items with no page yet — surfaced as "coming soon" (id ? toast label).

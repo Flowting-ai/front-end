@@ -109,10 +109,53 @@ let _modelsFetchPromise: Promise<AIModel[]> | null = null;
 const MODELS_CACHE_TTL = 60_000;
 let _modelsCacheTime = 0;
 
+// Fired whenever the cache is busted so already-mounted consumers (the model
+// selector is a single instance shared app-wide via ModelSelectorProvider,
+// mounted once in the (app) layout) know to refetch instead of keeping their
+// already-loaded — now stale — model list for the rest of the SPA session.
+export const MODELS_CACHE_BUSTED_EVENT = "models:cache-busted";
+
 /** Force the next fetchModelsWithCache call to bypass the TTL and re-fetch. */
 export function bustModelsCache(): void {
   _modelsCache = null;
   _modelsCacheTime = 0;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(MODELS_CACHE_BUSTED_EVENT));
+  }
+}
+
+// Tier keywords used only to break ties between same-company candidates —
+// e.g. prefer another "Sonnet"-class model over an "Opus"/"Haiku" one so a
+// persona's cost/capability tier survives a forced model swap where possible.
+const MODEL_TIER_WORDS = ['opus', 'sonnet', 'haiku', 'pro', 'mini', 'flash']
+
+/**
+ * Picks a replacement for a model that's no longer usable (blocked or
+ * retired), preferring — in order — the same provider, then the same
+ * pricing tier (free/paid), then the same size/tier class (Sonnet vs Opus
+ * vs Haiku, etc.) as the model being replaced. Falls back to the first
+ * available model when nothing about the original is known.
+ */
+export function pickReplacementModel(
+  available: AIModel[],
+  deprecated?: Pick<AIModel, 'companyName' | 'modelName' | 'modelType'> | null,
+): AIModel | null {
+  if (!available.length) return null
+  if (!deprecated) return available[0]
+
+  const dep = deprecated
+  const deprecatedName = dep.modelName.toLowerCase()
+  const deprecatedTier = MODEL_TIER_WORDS.find(w => deprecatedName.includes(w))
+
+  function score(m: AIModel): number {
+    let s = 0
+    if (m.companyName === dep.companyName) s += 4
+    if (m.modelType === dep.modelType) s += 2
+    if (deprecatedTier && m.modelName.toLowerCase().includes(deprecatedTier)) s += 1
+    return s
+  }
+
+  return [...available].sort((a, b) => score(b) - score(a))[0]
 }
 
 export async function fetchModelsWithCache(

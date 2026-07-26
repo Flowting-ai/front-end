@@ -37,7 +37,8 @@ import {
   SettingsTableCell,
 } from '@/components/SettingsTable'
 import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, usePersonaRepoDeduped, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
-import { fetchModelsWithCache } from '@/lib/ai-models'
+import { normalizeModels } from '@/lib/ai-models'
+import { fetchAllModels } from '@/lib/api/models'
 import type { AIModel } from '@/types/ai-model'
 import { fetchDashboard, listShares, listReceived, revokeShare, type PersonaShare, type ReceivedShareResponse, type ShareDashboardResponse } from '@/lib/api/persona-shares'
 import type { SuperLinkDrawerSession } from '@/components/SuperLinkDrawer'
@@ -52,6 +53,7 @@ import type { SuperLinkStatus } from '@/components/SuperLinkRow'
 import { SuperLinkDrawer, type SuperLinkDrawerLink } from '@/components/SuperLinkDrawer'
 import { SuperLinksEmpty } from '@/components/SuperLinksEmpty'
 import { Sparkline } from '@/components/Sparkline'
+import { ChangeAgentModelModal } from '@/components/ChangeAgentModelModal'
 import { TeamAgentsTab } from '@/app/(app)/agents/components/TeamAgentsTab'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
@@ -86,7 +88,10 @@ function modelDisplayName(modelId: string | null): string | null {
   if (id.includes('gemini'))  return 'Gemini'
   if (id.includes('llama'))   return 'Llama'
   if (id.includes('mistral')) return 'Mistral'
-  return modelId
+  // Backend model ids are opaque UUIDs, not slugs — none of the checks above
+  // can ever match one, so this must never fall through to the raw id itself
+  // (that's the literal bug that shows a UUID in the model badge).
+  return null
 }
 
 // ── Mock recommended personas (community templates) ───────────────────────────
@@ -593,9 +598,13 @@ export default function PersonasPage() {
   const [allOpen,       setAllOpen]       = useState(false)
   const [filterOpen,    setFilterOpen]    = useState(false)
   const [deleteTarget,  setDeleteTarget]  = useState<Persona | null>(null)
+  const [changeModelTarget, setChangeModelTarget] = useState<Persona | null>(null)
   const mounted = useMounted()
   const [allSharesForFilter, setAllSharesForFilter] = useState<PersonaShare[]>([])
-  const [availableModels,    setAvailableModels]    = useState<AIModel[]>([])
+  // Full catalog (blocked models included) so a persona whose model was disabled
+  // in Settings, or retired by the provider, still resolves to a real name here
+  // instead of falling through to the raw model id.
+  const [modelsForNameLookup, setModelsForNameLookup] = useState<AIModel[]>([])
   const filterSharesLoadedRef = useRef(false)
   const [panelGenOpen,  setPanelGenOpen]  = useState(false)
 
@@ -743,8 +752,8 @@ export default function PersonasPage() {
     listShares()
       .then(setAllSharesForFilter)
       .catch(() => {})
-    fetchModelsWithCache()
-      .then(setAvailableModels)
+    fetchAllModels()
+      .then(list => setModelsForNameLookup(normalizeModels(list)))
       .catch(() => {})
   }, [activeTab])
 
@@ -810,19 +819,64 @@ export default function PersonasPage() {
     return map
   }, [personas])
 
-  // Map from stable model ID → human-readable model name (from the API models list).
+  // Team count for the card's visibility footer badge ("N teams").
+  const teamCountForPersona = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const p of personas) {
+      if (p.visibility === 'team') map[p.id] = p.teamIds.length
+    }
+    return map
+  }, [personas])
+
+  // "Created by" footer attribution — "You" for agents the viewer owns,
+  // otherwise the actual owner's name resolved via personaOwnerMap + org members.
+  const createdByForPersona = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const p of personas) {
+      if (isOwnedByMe(p)) { map[p.id] = 'You'; continue }
+      const ownerId = personaOwnerMap[p.id]
+      const owner = ownerId ? members.find(m => m.id === ownerId) : undefined
+      if (owner) map[p.id] = owner.name
+    }
+    return map
+  }, [personas, personaOwnerMap, members, viewerUserId, currentUserRole])
+
+  // Map from stable model ID → human-readable model name (from the full API
+  // models list, including blocked ones — see modelsForNameLookup above).
   const modelIdToName = useMemo(() => {
     const map = new Map<string, string>()
-    for (const m of availableModels) {
+    for (const m of modelsForNameLookup) {
       const key = String(m.modelId ?? m.id ?? '')
       if (key) map.set(key, m.modelName)
     }
     return map
-  }, [availableModels])
+  }, [modelsForNameLookup])
 
   function resolveModelName(modelId: string | null): string | null {
     if (!modelId) return null
     return modelIdToName.get(modelId) ?? modelDisplayName(modelId)
+  }
+
+  // Map from stable model ID → whether the user has disabled it in Settings.
+  // Absence from the map (rather than false) means it's gone from the catalog
+  // entirely — deprecated/retired by the provider.
+  const modelIdToBlocked = useMemo(() => {
+    const map = new Map<string, boolean>()
+    for (const m of modelsForNameLookup) {
+      const key = String(m.modelId ?? m.id ?? '')
+      if (key) map.set(key, !!m.blocked)
+    }
+    return map
+  }, [modelsForNameLookup])
+
+  // True when the persona's configured model is disabled in Settings or no
+  // longer exists in the catalog at all (deprecated/retired). Requires the
+  // full catalog to have loaded at least once — otherwise every persona would
+  // flash as unavailable during the initial fetch.
+  function isModelUnavailable(modelId: string | null): boolean {
+    if (!modelId || !modelsForNameLookup.length) return false
+    const blocked = modelIdToBlocked.get(modelId)
+    return blocked === undefined ? true : blocked
   }
 
   // Unique model display names present in the current persona list.
@@ -1423,12 +1477,12 @@ export default function PersonasPage() {
                       {gridRows[vRow.index].map(persona => (
                         <PersonaCard
                           key={persona.id}
-                          // Fill the grid cell (the DS default is a fixed 314px,
-                          // which overflows the 1fr cells) and stretch to the
-                          // row's height so every card in a row is uniform — this
-                          // also keeps the hover action bar over empty space
-                          // instead of clipping the description.
-                          style={{ width: '100%', height: '100%' }}
+                          // Fill the grid cell width (the DS default is a fixed
+                          // 314px, which overflows the 1fr cells) — height is no
+                          // longer stretched here since PersonaCard now enforces
+                          // its own fixed height directly, so every card lines up
+                          // without depending on row-mates.
+                          style={{ width: '100%' }}
                           variant={persona.status === 'draft' || !persona.hasSystemInstructions || unpublishedMap[persona.id] ? 'draft' : 'default'}
                           avatarSeed={persona.activeVersionId ?? persona.workingVersionId ?? persona.id}
                           name={persona.name}
@@ -1442,10 +1496,18 @@ export default function PersonasPage() {
                           tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
                           shared={persona.sourceShareId !== null || (persona.visibility === 'team' && !isOwnedByMe(persona))}
-                          modelVisible={Boolean(resolveModelName(persona.modelId))}
-                          modelName={resolveModelName(persona.modelId) ?? undefined}
+                          createdBy={createdByForPersona[persona.id]}
+                          useInChatLabel="Chat with agent"
+                          // Draft cards already have their own "finish setup" treatment —
+                          // only live/published agents get the model-unavailable overlay.
+                          modelUnavailable={
+                            !(persona.status === 'draft' || !persona.hasSystemInstructions || unpublishedMap[persona.id]) &&
+                            isModelUnavailable(persona.modelId)
+                          }
+                          onChangeModel={() => setChangeModelTarget(persona)}
                           superlink={activeShareRepoIds.has(persona.id)}
                           visibility={visibilityForPersona[persona.id] === 'team' ? 'team' : visibilityForPersona[persona.id] === 'private' ? 'private' : undefined}
+                          teamCount={teamCountForPersona[persona.id]}
                           {...(() => {
                             // Team-shared originals not created by this user (regardless of
                             // their own org role) — they cannot edit/delete/share the
@@ -1939,6 +2001,22 @@ export default function PersonasPage() {
           }
         }}
       />
+
+      {/* ── Change model (disabled/deprecated persona card) ──
+          activeVersionId is the common case (published agent); workingVersionId
+          covers the edge case of a paused agent that was never published. */}
+      {changeModelTarget && (changeModelTarget.activeVersionId ?? changeModelTarget.workingVersionId) && (
+        <ChangeAgentModelModal
+          open
+          onClose={() => setChangeModelTarget(null)}
+          personaId={changeModelTarget.id}
+          versionId={(changeModelTarget.activeVersionId ?? changeModelTarget.workingVersionId)!}
+          agentName={changeModelTarget.name}
+          onSaved={({ modelId }) => {
+            setPersonas(prev => prev.map(p => p.id === changeModelTarget.id ? { ...p, modelId } : p))
+          }}
+        />
+      )}
 
       {/* ── Delete confirmation ── */}
       {mounted && createPortal(

@@ -3,8 +3,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowDownOneIcon, TickTwoIcon } from '@strange-huge/icons'
+import { ArrowDownOneIcon, TickTwoIcon, DeleteTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
+import { IconButton } from '@/components/IconButton'
 import { Dropdown, DropdownFloat } from '@/components/Dropdown'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { useOrg } from '@/context/org-context'
@@ -95,7 +96,9 @@ function CardHeader({
   return (
     <div style={{
       borderBottom: '1px solid var(--neutral-100)',
-      padding:      '12px 24px 24px',
+      // Symmetric top/bottom — was '12px 24px 24px', which left the title
+      // cramped against the card's top border compared to the space below it.
+      padding:      '24px',
       display:      'flex',
       alignItems:   'flex-start',
       gap:          12,
@@ -341,7 +344,7 @@ function GeneralPageSkeleton() {
       {/* Workspace Identity */}
       <SkeletonCard>
         {/* Card header */}
-        <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <SkeletonBlock width={170} height={16} radius={5} />
           <SkeletonBlock width={260} height={13} radius={4} />
         </div>
@@ -778,142 +781,149 @@ export default function OrgGeneralPage() {
             subtitle="Set your workspace name, logo, and URL."
           />
 
-          {/* Avatar row */}
-          <div style={{
-            display:      'flex',
-            alignItems:   'center',
-            gap:          12,
-            padding:      '12px 24px',
-            borderBottom: '1px solid var(--neutral-100)',
-          }}>
-            <div style={{
-              width:           65,
-              height:          65,
-              borderRadius:    '50%',
-              backgroundColor: 'var(--neutral-200)',
-              flexShrink:      0,
-              overflow:        'hidden',
-              display:         'flex',
-              alignItems:      'center',
-              justifyContent:  'center',
-            }}>
-              {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt="Workspace logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="32" height="32" rx="16" fill="var(--neutral-300)" />
-                  <path d="M16 8a5 5 0 1 1 0 10A5 5 0 0 1 16 8zM8 26c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="var(--neutral-500)" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              )}
-            </div>
-            <div style={{ flex: '1 0 0', minWidth: 0 }}>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize:   14,
-                lineHeight: '22px',
-                color:      'var(--neutral-900)',
-                margin:     0,
-              }}>
-                Workspace logo
-              </p>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize: 12,
-                lineHeight: '16px',
-                color:      'var(--neutral-400)',
-                margin:     0,
-              }}>
-                PNG, JPG or GIF. Recommended 512×512px.
-              </p>
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={avatarUploading}
-              onClick={() => logoInputRef.current?.click()}
-            >
-              {avatarUploading ? 'Uploading…' : logoUrl ? 'Change Logo' : 'Upload Logo'}
-            </Button>
-            <input
-              ref={logoInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = '' }}
-            />
-          </div>
+          {/* Content — its own bordered box, separate from the header above
+              and the Save button below. */}
+          <div style={{ padding: '16px 24px' }}>
+            <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 12, overflow: 'hidden' }}>
 
-          {/* Workspace name */}
-          <div style={{
-            padding:      '12px 24px',
-            borderBottom: '1px solid var(--neutral-100)',
-            opacity:      identityLoading ? 0.6 : 1,
-          }}>
-            <FieldRow label="Workspace name">
-              <TextInput
-                value={workspaceName}
-                onChange={setWorkspaceName}
-                style={{ width: 521 }}
-              />
-            </FieldRow>
-          </div>
-
-          {/* Slug + ID side by side */}
-          <div style={{
-            padding:      '12px 24px',
-            borderBottom: '1px solid var(--neutral-100)',
-            display:      'flex',
-            gap:          16,
-            opacity:      identityLoading ? 0.6 : 1,
-          }}>
-            {/* commenting out worksspace slug to make it dynamic with url in the future. */}
-            {/* <div style={{ flex: '1 0 0', minWidth: 0 }}>
-              <FieldRow
-                label="Workspace URL slug"
-                helper={slugValue ? `souvenir.ai/workspace/${slugValue}` : undefined}
-              >
-                <TextInput
-                  value={slugValue}
-                  onChange={setSlugValue}
-                />
-              </FieldRow>
-            </div> */}
-            <div style={{ flex: '1 0 0', minWidth: 0 }}>
-              <FieldRow label="Workspace ID" helper="Read-only identifier">
-                <div style={{ position: 'relative' }}>
-                  <TextInput
-                    value={orgIdValue}
-                    readOnly
-                    style={{ width: '100%', paddingRight: 32 }}
-                  />
-                  <button
-                    onClick={copyOrgId}
-                    style={{
-                      position:        'absolute',
-                      right:           8,
-                      top:             '50%',
-                      transform:       'translateY(-50%)',
-                      background:      'none',
-                      border:          'none',
-                      cursor:          'pointer',
-                      padding:         0,
-                      display:         'flex',
-                      alignItems:      'center',
-                      justifyContent:  'center',
-                    }}
-                  >
-                    <CopyIcon />
-                  </button>
+              {/* Avatar row */}
+              <div style={{
+                display:      'flex',
+                alignItems:   'center',
+                gap:          12,
+                padding:      '12px 24px',
+                borderBottom: '1px solid var(--neutral-100)',
+              }}>
+                <div style={{
+                  width:           65,
+                  height:          65,
+                  borderRadius:    '50%',
+                  backgroundColor: 'var(--neutral-200)',
+                  flexShrink:      0,
+                  overflow:        'hidden',
+                  display:         'flex',
+                  alignItems:      'center',
+                  justifyContent:  'center',
+                }}>
+                  {logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={logoUrl} alt="Workspace logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect width="32" height="32" rx="16" fill="var(--neutral-300)" />
+                      <path d="M16 8a5 5 0 1 1 0 10A5 5 0 0 1 16 8zM8 26c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="var(--neutral-500)" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  )}
                 </div>
-              </FieldRow>
+                <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                  <p style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 500,
+                    fontSize:   14,
+                    lineHeight: '22px',
+                    color:      'var(--neutral-900)',
+                    margin:     0,
+                  }}>
+                    Workspace logo
+                  </p>
+                  <p style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 400,
+                    fontSize: 12,
+                    lineHeight: '16px',
+                    color:      'var(--neutral-400)',
+                    margin:     0,
+                  }}>
+                    PNG, JPG or GIF. Recommended 512×512px.
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={avatarUploading}
+                  onClick={() => logoInputRef.current?.click()}
+                >
+                  {avatarUploading ? 'Uploading…' : logoUrl ? 'Change Logo' : 'Upload Logo'}
+                </Button>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = '' }}
+                />
+              </div>
+
+              {/* Workspace name */}
+              <div style={{
+                padding:      '12px 24px',
+                borderBottom: '1px solid var(--neutral-100)',
+                opacity:      identityLoading ? 0.6 : 1,
+              }}>
+                <FieldRow label="Workspace name">
+                  <TextInput
+                    value={workspaceName}
+                    onChange={setWorkspaceName}
+                    style={{ width: 521 }}
+                  />
+                </FieldRow>
+              </div>
+
+              {/* Slug + ID side by side */}
+              <div style={{
+                padding:      '12px 24px',
+                display:      'flex',
+                gap:          16,
+                opacity:      identityLoading ? 0.6 : 1,
+              }}>
+                {/* commenting out worksspace slug to make it dynamic with url in the future. */}
+                {/* <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                  <FieldRow
+                    label="Workspace URL slug"
+                    helper={slugValue ? `souvenir.ai/workspace/${slugValue}` : undefined}
+                  >
+                    <TextInput
+                      value={slugValue}
+                      onChange={setSlugValue}
+                    />
+                  </FieldRow>
+                </div> */}
+                <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                  <FieldRow label="Workspace ID" helper="Read-only identifier">
+                    <div style={{ position: 'relative' }}>
+                      <TextInput
+                        value={orgIdValue}
+                        readOnly
+                        style={{ width: '100%', paddingRight: 32 }}
+                      />
+                      <button
+                        onClick={copyOrgId}
+                        style={{
+                          position:        'absolute',
+                          right:           8,
+                          top:             '50%',
+                          transform:       'translateY(-50%)',
+                          background:      'none',
+                          border:          'none',
+                          cursor:          'pointer',
+                          padding:         0,
+                          display:         'flex',
+                          alignItems:      'center',
+                          justifyContent:  'center',
+                        }}
+                      >
+                        <CopyIcon />
+                      </button>
+                    </div>
+                  </FieldRow>
+                </div>
+              </div>
+
             </div>
           </div>
 
-          {/* Save changes */}
-          <div style={{ padding: '12px 24px', display: 'flex', justifyContent: 'flex-end' }}>
+          {/* Save changes — outside the bordered content box. */}
+          <div style={{ padding: '6px 24px 20px', display: 'flex', justifyContent: 'flex-end' }}>
             <Button
               variant="default"
               size="sm"
@@ -955,70 +965,76 @@ export default function OrgGeneralPage() {
             }
           />
 
-          <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 10, opacity: settingsLoading ? 0.6 : 1 }}>
-            <textarea
-              value={aiInstructions}
-              onChange={e => setAiInstructions(e.target.value.slice(0, 3000))}
-              placeholder={`e.g. "Always cite sources", "Keep responses under 200 words", "Use bullet points for lists"`}
-              style={{
-                width:           '100%',
-                height:          96,
-                resize:          'none',
-                backgroundColor: 'white',
-                borderRadius:    10,
-                boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-                border:          'none',
-                padding:         '7px 10px',
-                fontFamily:      'var(--font-body)',
-                fontWeight:      400,
-                fontSize:        14,
-                lineHeight:      '22px',
-                color:           'var(--neutral-600)',
-                boxSizing:       'border-box',
-                outline:         'none',
-              }}
-            />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize: 12,
-                lineHeight: '16px',
-                color:      'var(--neutral-400)',
-                margin:     0,
-              }}>
-                Changes take up to 1 hour to propagate across active sessions.
-              </p>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize:   14,
-                lineHeight: '22px',
-                color:      'var(--neutral-500)',
-                margin:     0,
-                flexShrink: 0,
-              }}>
-                {aiInstructions.length}/3000
-              </p>
+          {/* Content — its own bordered box, separate from the header above
+              and the Save/Clear buttons below. */}
+          <div style={{ padding: '16px 24px', opacity: settingsLoading ? 0.6 : 1 }}>
+            <div style={{ border: '1px solid var(--neutral-200)', borderRadius: 12, padding: '12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <textarea
+                value={aiInstructions}
+                onChange={e => setAiInstructions(e.target.value.slice(0, 3000))}
+                placeholder={`e.g. "Always cite sources", "Keep responses under 200 words", "Use bullet points for lists"`}
+                style={{
+                  width:           '100%',
+                  height:          96,
+                  resize:          'none',
+                  backgroundColor: 'white',
+                  borderRadius:    10,
+                  boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+                  border:          'none',
+                  padding:         '7px 10px',
+                  fontFamily:      'var(--font-body)',
+                  fontWeight:      400,
+                  fontSize:        14,
+                  lineHeight:      '22px',
+                  color:           'var(--neutral-600)',
+                  boxSizing:       'border-box',
+                  outline:         'none',
+                }}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 400,
+                  fontSize: 12,
+                  lineHeight: '16px',
+                  color:      'var(--neutral-400)',
+                  margin:     0,
+                }}>
+                  Changes take up to 1 hour to propagate across active sessions.
+                </p>
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 400,
+                  fontSize:   14,
+                  lineHeight: '22px',
+                  color:      'var(--neutral-500)',
+                  margin:     0,
+                  flexShrink: 0,
+                }}>
+                  {aiInstructions.length}/3000
+                </p>
+              </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleClearInstructions}
-                disabled={!aiInstructions || settingsSaving || settingsLoading}
-              >
-                Clear
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleSaveInstructions}
-                disabled={settingsSaving || settingsLoading}
-              >
-                {settingsSaving ? 'Saving…' : 'Save instructions'}
-              </Button>
-            </div>
+          </div>
+
+          {/* Clear / Save — outside the bordered content box. */}
+          <div style={{ padding: '6px 24px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleClearInstructions}
+              disabled={!aiInstructions || settingsSaving || settingsLoading}
+            >
+              Clear
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleSaveInstructions}
+              disabled={settingsSaving || settingsLoading}
+            >
+              {settingsSaving ? 'Saving…' : 'Save instructions'}
+            </Button>
           </div>
         </Card>
 
@@ -1046,24 +1062,48 @@ export default function OrgGeneralPage() {
             <Button variant="secondary" size="sm" onClick={() => { setShowAddDomain(true); setAddDomainInput('') }}>+ Add domain</Button>
           </div>
 
-          <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 8, opacity: settingsLoading ? 0.6 : 1 }}>
+          <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 12, opacity: settingsLoading ? 0.6 : 1 }}>
             {allowedDomains.length === 0 && !showAddDomain ? (
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
                 No allowed domains configured.
               </p>
-            ) : allowedDomains.map(domain => (
-              <div key={domain} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-900)' }}>
-                  {domain}
-                </span>
-                <button
-                  onClick={() => setAllowedDomains(ds => ds.filter(d => d !== domain))}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red-500)', fontFamily: 'var(--font-body)', fontSize: 13 }}
-                >
-                  Remove
-                </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {allowedDomains.map(domain => (
+                  <div key={domain} style={{
+                    display:         'flex',
+                    alignItems:      'center',
+                    justifyContent:  'space-between',
+                    gap:             8,
+                    padding:         '10px 8px 10px 14px',
+                    borderRadius:    10,
+                    border:          '1px solid var(--neutral-200)',
+                    backgroundColor: 'var(--neutral-white)',
+                  }}>
+                    <span style={{
+                      flex:         '1 0 0',
+                      minWidth:     0,
+                      fontFamily:   'var(--font-body)',
+                      fontWeight:   500,
+                      fontSize:     14,
+                      color:        'var(--neutral-900)',
+                      overflow:     'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace:   'nowrap',
+                    }}>
+                      {domain}
+                    </span>
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Remove ${domain}`}
+                      icon={<DeleteTwoIcon size={16} />}
+                      onClick={() => setAllowedDomains(ds => ds.filter(d => d !== domain))}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
             {showAddDomain && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <TextInput

@@ -25,7 +25,6 @@ import {
   ExchangeOneIcon,
   GlobalSearchIcon,
   RadarThreeIcon,
-  BrainTwoIcon,
   ViewIcon,
   DashboardSquareOneIcon,
   CourtHouseIcon,
@@ -191,13 +190,6 @@ export const DEFAULT_ADMIN_GROUPS: SidebarAdminGroup[] = [
       { id: 'triggers',       label: 'Triggers' },
     ],
   },
-  {
-    id: 'models',
-    label: 'Models',
-    items: [
-      { id: 'model-providers', label: 'Model Providers' },
-    ],
-  },
 ]
 
 // Provisional icon map (see note on DEFAULT_ADMIN_GROUPS). Keyed by item id.
@@ -216,7 +208,6 @@ const ADMIN_ITEM_ICONS: Record<string, React.ReactElement<{ triggered?: boolean 
   'websites':       <GlobalSearchIcon size={20} />,         // provisional — no plain globe
   'tools':          <ShapesOneIcon size={20} />,
   'triggers':       <RadarThreeIcon size={20} />,           // provisional — no lightning
-  'model-providers':   <BrainTwoIcon size={20} />,
   // Team settings sections (editor /teams/[id] nav)
   'team-projects':    <DashboardSquareOneIcon size={20} animated />,
   'team-connectors':  <LinkSixIcon size={20} animated />,
