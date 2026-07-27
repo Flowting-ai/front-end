@@ -6,8 +6,9 @@
 // When the consumer page is a server component, pass an instance of this as the
 // `body` prop to ProjectCard so the static subtree is pre-rendered server-side.
 
-import { Badge, type BadgeColor } from '@/components/Badge'
+import { type BadgeColor } from '@/components/Badge'
 import { UserIcon, BubbleChatAddIcon } from '@strange-huge/icons'
+import { ProjectCardTagRow } from './ProjectCardTagRow'
 
 export interface ProjectCardBodyProps {
   title:        string
@@ -70,27 +71,9 @@ export function ProjectCardBody({ title, description, tags, ownerName, memberCou
         {title}
       </p>
 
-      {/* Tags — capped at 2 rows: Badge is 20px tall (16px line-height-caption
-          + 2px×2 padding), so 2 rows + the 4px row gap + this container's own
-          2px×2 padding = 48px. Anything beyond 2 rows is clipped. */}
-      {tags && tags.length > 0 && (
-        <div
-          style={{
-            display:    'flex',
-            gap:        '4px',
-            flexWrap:   'wrap',
-            overflow:   'hidden',
-            maxHeight:  '48px',
-            flexShrink: 0,
-            marginTop:  '10px',
-            padding:    '2px 1px',
-          }}
-        >
-          {tags.map((tag) => (
-            <Badge key={tag.label} label={tag.label} color={tag.color ?? 'Blue'} />
-          ))}
-        </div>
-      )}
+      {/* Tags — single-line, horizontally scrollable with drag-to-scroll and
+          edge fades, same pattern as PersonaCard's badge row. */}
+      {tags && tags.length > 0 && <ProjectCardTagRow tags={tags} />}
 
       {/* Description — 3 lines max, truncated with an ellipsis. Fixed maxHeight
           (3 × line-height) alongside line-clamp: `flex: 1 1 0` let this grow
@@ -118,11 +101,16 @@ export function ProjectCardBody({ title, description, tags, ownerName, memberCou
         {description ?? ''}
       </p>
 
-      {/* Divider — marginTop: auto pins this (and the footer below it) to the
-          bottom of the card regardless of how much content sits above it, so
-          every card's footer lines up at the same height. Requires the card
-          itself to have a fixed height, not just a minHeight. */}
-      <div style={{ height: 1, width: '100%', backgroundColor: 'var(--divider-color)', marginTop: 'auto', flexShrink: 0 }} />
+      {/* Spacer — grows to push the divider/footer to the bottom of the card
+          regardless of how much content sits above it (so every card's
+          footer lines up at the same height), while guaranteeing a minimum
+          gap above the divider via minHeight. The card's fixed height is
+          bumped by the same amount so this is added space, not space taken
+          from anything else. */}
+      <div style={{ flex: '1 1 auto', minHeight: 12 }} />
+
+      {/* Divider */}
+      <div style={{ height: 1, width: '100%', backgroundColor: 'var(--divider-color)', flexShrink: 0 }} />
 
       {/* Footer — updated time (left), member + chat counts (right) */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexShrink: 0, marginTop: '10px' }}>

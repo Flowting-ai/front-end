@@ -4,25 +4,26 @@ import React, { Suspense, useEffect, useRef, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelOneIcon, AlertCircleIcon, UserIcon, BubbleChatAddIcon, MoreVerticalIcon } from '@strange-huge/icons'
+import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelOneIcon, CancelCircleIcon, AlertCircleIcon, UserIcon, BubbleChatAddIcon, MoreVerticalIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
 import { ProjectCard } from '@/components/ProjectCard'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
+import { InputField } from '@/components/InputField'
 import { Dropdown } from '@/components/Dropdown'
-import Tabs from '@/components/Tabs'
 import { Tooltip } from '@/components/Tooltip'
+import Tabs from '@/components/Tabs'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { useMounted } from '@/hooks/use-mounted'
 import type { Project } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
 import type { OrgMember } from '@/types/teams'
-import { PROJECT_ROUTE, PROJECTS_NEW_ROUTE } from '@/lib/routes'
+import { PROJECT_ROUTE, PROJECTS_NEW_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 
 type SortKey = 'recent' | 'alphabetical' | 'active'
-type ScopeFilter = 'all' | 'personal' | 'team'
+type ScopeFilter = 'personal' | 'team'
 type ViewMode = 'grid' | 'list'
 
 // ── Gradient palette — seeded by team name, matching TeamChip/TeamSwitcherRow/
@@ -47,12 +48,17 @@ function getGradient(seed: string): string {
   return TEAM_GRADIENTS[Math.abs(h) % TEAM_GRADIENTS.length]!
 }
 
-// ── Grid/List toggle — same Tabs+glyph pattern as ConnectorViewToggle
-// (org/connectors, settings/connectors) for visual/interaction consistency. ──
+// ── Grid/List toggle — single secondary button + Dropdown, same "view filter"
+// pattern as Pinboard's own view switcher (in-place label swap included). ──
 
-function GridViewGlyph() {
+const VIEW_LABELS: Record<ViewMode, string> = { grid: 'Grid', list: 'List' }
+
+// Both accept `size` — DropdownMenuItem clones its `icon` prop with a fixed
+// size (20) to fill the row's icon slot; without accepting it these stayed a
+// hardcoded 16×16 inside that 20×20 slot, sitting off-center from the label.
+function GridViewGlyph({ size = 16 }: { size?: number }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
       <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
       <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
       <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" />
@@ -61,9 +67,9 @@ function GridViewGlyph() {
   )
 }
 
-function ListViewGlyph() {
+function ListViewGlyph({ size = 16 }: { size?: number }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
       <rect x="2" y="3"    width="12" height="2.2" rx="1.1" fill="currentColor" />
       <rect x="2" y="6.9"  width="12" height="2.2" rx="1.1" fill="currentColor" />
       <rect x="2" y="10.8" width="12" height="2.2" rx="1.1" fill="currentColor" />
@@ -72,17 +78,49 @@ function ListViewGlyph() {
 }
 
 function ProjectViewToggle({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
+  const [open, setOpen] = useState(false)
   return (
-    <Tabs value={value} onValueChange={v => onChange(v as ViewMode)}>
-      <Tabs.List size="small" collapse pillTopInset={0.5} pillBottomInset={1}>
-        <Tooltip content="Grid view" side="top">
-          <Tabs.Trigger value="grid" icon={<GridViewGlyph />}>Grid</Tabs.Trigger>
-        </Tooltip>
-        <Tooltip content="List view" side="top">
-          <Tabs.Trigger value="list" icon={<ListViewGlyph />}>List</Tabs.Trigger>
-        </Tooltip>
-      </Tabs.List>
-    </Tabs>
+    <Dropdown.Float
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottom-end"
+      trigger={
+        <Button variant="secondary" size="sm" rightIcon={<ArrowDownOneIcon size={16} />}>
+          {/* In-place text swap — same pattern as Pinboard's view-filter trigger. */}
+          <AnimatePresence mode="popLayout" initial={false}>
+            <m.span
+              key={value}
+              initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+              animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+              exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              style={{ display: 'block', transformOrigin: 'left center' }}
+            >
+              {VIEW_LABELS[value]}
+            </m.span>
+          </AnimatePresence>
+        </Button>
+      }
+    >
+      <Dropdown size="md">
+        <Dropdown.Section fluid>
+          <Dropdown.Item
+            label="Grid"
+            icon={<GridViewGlyph />}
+            selected={value === 'grid'}
+            onClick={() => { onChange('grid'); setOpen(false) }}
+            fluid
+          />
+          <Dropdown.Item
+            label="List"
+            icon={<ListViewGlyph />}
+            selected={value === 'list'}
+            onClick={() => { onChange('list'); setOpen(false) }}
+            fluid
+          />
+        </Dropdown.Section>
+      </Dropdown>
+    </Dropdown.Float>
   )
 }
 
@@ -185,49 +223,55 @@ function ProjectListRow({
         </span>
       </div>
 
-      {/* Stats */}
+      {/* Stats — each count gets a fixed-width slot (not just min-width) so a
+          1-, 2-, or 3-digit number never nudges either icon's position;
+          tabular-nums keeps the digits themselves a constant width too. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, color: 'var(--neutral-400)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <UserIcon size={14} />
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }}>{memberCount}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <UserIcon size={18} />
+          <span style={{ width: 22, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '20px', color: 'var(--neutral-500)', fontVariantNumeric: 'tabular-nums' }}>{memberCount}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <BubbleChatAddIcon size={14} />
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }}>{project.chatCount}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <BubbleChatAddIcon size={18} />
+          <span style={{ width: 22, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '20px', color: 'var(--neutral-500)', fontVariantNumeric: 'tabular-nums' }}>{project.chatCount}</span>
         </div>
       </div>
 
-      {/* ⋮ menu - fades in on hover/focus */}
-      {hasActions && (
-        <div
-          style={{ opacity: showMenu ? 1 : 0, transition: 'opacity 120ms ease', flexShrink: 0 }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Dropdown.Float
-            open={menuOpen}
-            onOpenChange={setMenuOpen}
-            placement="bottom-end"
-            trigger={
-              <IconButton
-                variant="ghost"
-                size="xs"
-                icon={<MoreVerticalIcon size={16} triggered={showMenu} />}
-                aria-label="Project options"
-              />
-            }
-          >
-            <Dropdown size="md">
-              <Dropdown.Section fluid>
-                <Dropdown.Item label="Edit"    onClick={() => { setMenuOpen(false); onEdit?.() }}    fluid />
-                <Dropdown.Item label="Archive" onClick={() => { setMenuOpen(false); onArchive?.() }} disabled fluid />
-              </Dropdown.Section>
-              <Dropdown.Section divider fluid>
-                <Dropdown.Item label="Delete"  variant="danger" onClick={() => { setMenuOpen(false); onDelete?.() }} fluid />
-              </Dropdown.Section>
-            </Dropdown>
-          </Dropdown.Float>
-        </div>
-      )}
+      {/* ⋮ menu slot - fixed 24×24 footprint always reserved (even when this
+          row has no actions) so Stats' icons land at the same horizontal
+          position on every row, regardless of hasActions. */}
+      <div
+        style={{ width: 24, height: 24, flexShrink: 0 }}
+        onClick={hasActions ? (e) => e.stopPropagation() : undefined}
+      >
+        {hasActions && (
+          <div style={{ opacity: showMenu ? 1 : 0, transition: 'opacity 120ms ease' }}>
+            <Dropdown.Float
+              open={menuOpen}
+              onOpenChange={setMenuOpen}
+              placement="bottom-end"
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  size="xs"
+                  icon={<MoreVerticalIcon size={16} triggered={showMenu} />}
+                  aria-label="Project options"
+                />
+              }
+            >
+              <Dropdown size="md">
+                <Dropdown.Section fluid>
+                  <Dropdown.Item label="Edit"    onClick={() => { setMenuOpen(false); onEdit?.() }}    fluid />
+                  <Dropdown.Item label="Archive" onClick={() => { setMenuOpen(false); onArchive?.() }} disabled fluid />
+                </Dropdown.Section>
+                <Dropdown.Section divider fluid>
+                  <Dropdown.Item label="Delete"  variant="danger" onClick={() => { setMenuOpen(false); onDelete?.() }} fluid />
+                </Dropdown.Section>
+              </Dropdown>
+            </Dropdown.Float>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -265,7 +309,7 @@ function formatUpdated(iso: string) {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 function ProjectsPageInner() {
-  const { push }                                                              = useRouter()
+  const { push, replace }                                                     = useRouter()
   const searchParams                                                          = useSearchParams()
   const { projects, loading, updateProject, deleteProject, loadProjectChats } = useProjects()
   const { orgId, teams, members }                                             = useOrg()
@@ -287,32 +331,29 @@ function ProjectsPageInner() {
   }, [loading, projects, loadProjectChats])
   const [viewMode,       setViewMode]       = useState<ViewMode>('grid')
   const [query,          setQuery]          = useState('')
+  const [searchOpen,     setSearchOpen]     = useState(false)
   const [sort,           setSort]           = useState<SortKey>('recent')
   const [sortOpen,       setSortOpen]       = useState(false)
   // Seeded from ?scope= (e.g. the sidebar's "Personal projects" link lands
-  // here with scope=personal pre-applied) — read once at mount, not reactive
-  // to later URL changes, same as the rest of this page's local filter state.
+  // here with scope=personal pre-applied) — read once at mount. handleScopeChange
+  // below writes back to ?scope= on every tab switch so the URL stays in sync,
+  // but the state itself doesn't re-read the URL after mount (e.g. on back-nav).
   const [scopeFilter,    setScopeFilter]    = useState<ScopeFilter>(() =>
-    searchParams.get('scope') === 'personal' ? 'personal' : 'all'
+    searchParams.get('scope') === 'team' ? 'team' : 'personal'
   )
-  const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(() => new Set())
-  const [filterOpen,     setFilterOpen]     = useState(false)
+  // Keep the URL's ?scope= in sync with the tab so the current scope survives
+  // a reload/back-nav and links to this page can point at a specific tab.
+  // replace (not push) — switching tabs shouldn't pile up history entries.
+  function handleScopeChange(next: ScopeFilter) {
+    setScopeFilter(next)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('scope', next)
+    replace(`${PROJECTS_ROUTE}?${params.toString()}`, { scroll: false })
+  }
+
   const [editTarget,     setEditTarget]     = useState<Project | null>(null)
   const [deleteTarget,   setDeleteTarget]   = useState<Project | null>(null)
   const [isDeleting,     setIsDeleting]     = useState(false)
-
-  // Archived teams aren't "existing" teams anymore — exclude them from the
-  // filter's per-team checklist (same convention as /projects/new's own
-  // team picker).
-  const filterableTeams = useMemo(() => teams.filter(t => !t.archived), [teams])
-
-  function toggleTeam(teamId: string) {
-    setSelectedTeamIds(prev => {
-      const next = new Set(prev)
-      next.has(teamId) ? next.delete(teamId) : next.add(teamId)
-      return next
-    })
-  }
 
   async function handleDelete(project: Project) {
     if (project.chatCount > 0) {
@@ -342,24 +383,16 @@ function ProjectsPageInner() {
     }
   }
 
-  // Explicit filter instead of implicit team-scoping — "All" shows everything
-  // (personal + every team merged), "Personal"/"Team" narrow to just one kind.
-  // Team projects are never auto-hidden just because a different team is active
-  // elsewhere in the app. Checking one or more teams additionally narrows the
-  // team-project portion down to just those teams (no checkboxes checked =
-  // no extra narrowing, i.e. every team).
-  // Standing personal/team split — independent of the scope filter below, so
-  // the heading badges always summarize the whole list at a glance.
+  // Standing personal/team split — independent of the scope tab below, so
+  // the heading badges always summarize the whole list at a glance. Team
+  // projects are never auto-hidden just because a different team is active
+  // elsewhere in the app — the Team tab always covers every team at once.
   const personalCount = useMemo(() => projects.filter(p => p.teamId === null).length, [projects])
   const teamCount      = useMemo(() => projects.filter(p => p.teamId !== null).length, [projects])
 
   const scopedProjects = useMemo(() => {
-    return projects.filter(p => {
-      if (p.teamId === null) return scopeFilter !== 'team'
-      if (scopeFilter === 'personal') return false
-      return selectedTeamIds.size === 0 || selectedTeamIds.has(p.teamId)
-    })
-  }, [projects, scopeFilter, selectedTeamIds])
+    return projects.filter(p => scopeFilter === 'personal' ? p.teamId === null : p.teamId !== null)
+  }, [projects, scopeFilter])
 
   // Split into two memos: sort doesn't re-run when query changes, filter doesn't
   // re-run when sort order changes.
@@ -377,24 +410,9 @@ function ProjectsPageInner() {
     active:       'Most active',
   }
 
-  const filterLabels: Record<ScopeFilter, string> = {
-    all:      'All',
-    personal: 'Personal',
-    team:     'Team',
-  }
-
-  // Trigger/badge text — reflects the specific teams checked, when any are,
-  // otherwise falls back to the coarse All/Personal/Team label.
-  const selectedTeamNames = teams.filter(t => selectedTeamIds.has(t.id)).map(t => t.name)
-  const filterDisplayLabel = scopeFilter !== 'personal' && selectedTeamNames.length > 0
-    ? selectedTeamNames.length === 1 ? selectedTeamNames[0] : `${selectedTeamNames.length} Teams`
-    : filterLabels[scopeFilter]
-
   const emptyLabel = scopeFilter === 'personal'
     ? 'No personal projects yet. Create your first one to get started.'
-    : scopeFilter === 'team'
-      ? 'No team projects yet.'
-      : 'No projects yet. Create your first one to get started.'
+    : 'No team projects yet.'
 
   return (
     <div
@@ -454,108 +472,82 @@ function ProjectsPageInner() {
 
         {/* Search + filter row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
-          {/* Search */}
-          <div
-            style={{
-              display:         'flex',
-              alignItems:      'center',
-              gap:             '6px',
-              padding:         '7px 10px',
-              borderRadius:    '10px',
-              background:      'var(--neutral-white)',
-              boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-              flex:            '0 1 320px',
-              minWidth:        0,
-              boxSizing:       'border-box',
-            }}
-          >
-            <SearchOneIcon style={{ width: 16, height: 16, color: '#6a625d', flexShrink: 0 }} />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search Projects..."
-              style={{
-                flex:        '1 0 0',
-                minWidth:    0,
-                border:      'none',
-                outline:     'none',
-                background:  'transparent',
-                fontFamily:  'var(--font-body)',
-                fontWeight:  'var(--font-weight-regular)',
-                fontSize:    '14px',
-                lineHeight:  '22px',
-                color:       '#1a1714',
-              }}
-            />
-            {query && (
-              <IconButton
-                variant="ghost"
-                size="sm"
-                aria-label="Clear search"
-                icon={<CancelOneIcon size={14} />}
-                onClick={() => setQuery('')}
-              />
-            )}
-          </div>
+          {/* Personal / Team scope — big tabs, anchored to the left. Only
+              meaningful once there's an org to have team projects in at all. */}
+          {orgId && (
+            <Tabs value={scopeFilter} onValueChange={v => handleScopeChange(v as ScopeFilter)}>
+              <Tabs.List pillTopInset={0.5} pillBottomInset={1}>
+                <Tabs.Trigger value="personal">Personal</Tabs.Trigger>
+                <Tabs.Trigger value="team">Team</Tabs.Trigger>
+              </Tabs.List>
+            </Tabs>
+          )}
 
-          {/* Filter / view / sort controls — to the right of the search bar */}
+          {/* Search + view + sort — grouped to the right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, marginLeft: 'auto' }}>
+            {/* Search — same collapse-to-icon pattern as PinboardHeader's own
+                search: ghost IconButton expands into an InputField in place. */}
+            <Tooltip content="Search" disabled={searchOpen}>
+              <div style={{ display: 'flex', alignItems: 'center', flex: searchOpen ? '1 0 0' : undefined, minWidth: 0, maxWidth: searchOpen ? 320 : undefined }}>
+                <AnimatePresence initial={false} mode="popLayout">
+                  {!searchOpen ? (
+                    <m.span
+                      key="search-btn"
+                      layout
+                      initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
+                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
+                      exit={{ opacity: 0, scale: 0.25, filter: 'blur(4px)', transition: { type: 'spring', duration: 0.2, bounce: 0 } }}
+                      style={{ display: 'inline-flex', flexShrink: 0 }}
+                    >
+                      <IconButton
+                        variant="ghost"
+                        size="sm"
+                        icon={<SearchOneIcon size={20} />}
+                        aria-label="Search projects"
+                        onClick={() => setSearchOpen(true)}
+                      />
+                    </m.span>
+                  ) : (
+                    <m.div
+                      key="search-input"
+                      initial={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
+                      animate={{ opacity: 1, scale: 1, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
+                      exit={{ opacity: 0, scale: 0.95, filter: 'blur(4px)', transition: { duration: 0.15, ease: 'easeIn' } }}
+                      style={{ flex: '1 0 0', minWidth: 0 }}
+                    >
+                      <InputField
+                        label="Search projects"
+                        showLabel={false}
+                        leftIcon={<SearchOneIcon size={16} />}
+                        rightIcon={
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            aria-label="Close search"
+                            onClick={() => { setSearchOpen(false); setQuery('') }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSearchOpen(false); setQuery('') } }}
+                            className="kds-icon-in-field"
+                            style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
+                          >
+                            <CancelCircleIcon size={16} />
+                          </span>
+                        }
+                        placeholder="Search projects…"
+                        value={query}
+                        onChange={setQuery}
+                        fluid
+                        // eslint-disable-next-line jsx-a11y/no-autofocus -- focus moves into search on user-triggered open
+                        autoFocus
+                        aria-label="Search projects"
+                      />
+                    </m.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </Tooltip>
+
             {/* Grid/List view toggle */}
             <ProjectViewToggle value={viewMode} onChange={setViewMode} />
-
-            {/* Filter dropdown — All / Personal / Team, only meaningful for org members */}
-            {orgId && (
-              <Dropdown.Float
-                open={filterOpen}
-                onOpenChange={setFilterOpen}
-                placement="bottom-end"
-                trigger={
-                  <Button variant="outline" rightIcon={<ArrowDownOneIcon animated />}>
-                    {filterDisplayLabel}
-                  </Button>
-                }
-              >
-                {/* Popover's own scroll cap wraps ALL children in one shared
-                    scroll area by default — disable it here so only the
-                    inner Teams list (its own overflow below) ever scrolls,
-                    never the All/Personal/Team rows above it. */}
-                <Dropdown maxHeight={false}>
-                  <Dropdown.Section>
-                    {(['all', 'personal', 'team'] as ScopeFilter[]).map((k) => (
-                      <Dropdown.Item
-                        key={k}
-                        label={filterLabels[k]}
-                        selected={scopeFilter === k}
-                        onClick={() => { setScopeFilter(k); setFilterOpen(false) }}
-                        fluid
-                      />
-                    ))}
-                  </Dropdown.Section>
-                  {/* Per-team narrowing — only meaningful alongside All/Team,
-                      multi-select so it stays open while toggling. */}
-                  {scopeFilter !== 'personal' && filterableTeams.length > 0 && (
-                    <Dropdown.Section divider label="Teams">
-                      <div
-                        className="kaya-scrollbar"
-                        style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 362, overflowY: 'auto', padding: 3 }}
-                      >
-                        {filterableTeams.map(team => (
-                          <Dropdown.Item
-                            key={team.id}
-                            label={team.name}
-                            showCheckbox
-                            checkboxChecked={selectedTeamIds.has(team.id)}
-                            onCheckboxChange={() => toggleTeam(team.id)}
-                            fluid
-                          />
-                        ))}
-                      </div>
-                    </Dropdown.Section>
-                  )}
-                </Dropdown>
-              </Dropdown.Float>
-            )}
 
             {/* Sort dropdown */}
             <Dropdown.Float
@@ -563,7 +555,7 @@ function ProjectsPageInner() {
               onOpenChange={setSortOpen}
               placement="bottom-end"
               trigger={
-                <Button variant="outline" rightIcon={<ArrowDownOneIcon animated />}>
+                <Button variant="secondary" size="sm" rightIcon={<ArrowDownOneIcon size={16} animated />}>
                   {sortLabels[sort]}
                 </Button>
               }

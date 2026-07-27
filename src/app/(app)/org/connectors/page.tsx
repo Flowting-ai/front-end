@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -21,7 +21,7 @@ import {
 } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
-import { Dropdown, DropdownFloat } from '@/components/Dropdown'
+import { Dropdown, DropdownFloat, type DropdownPlacement } from '@/components/Dropdown'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
@@ -50,7 +50,7 @@ import {
   updateOrgCatalog,
 } from '@/lib/api/connectors'
 import { toolPolicyFromTool, toolPermissionFromPolicy } from '@/lib/api/connectors'
-import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool, ToolPolicy } from '@/lib/api/connectors'
+import type { ApiKeyField, ConnectorAccount, ConnectorCatalogEntry, ConnectorTool, ToolPolicy } from '@/lib/api/connectors'
 import {
   createOrgConnectorAccount,
   createPersonalRequest,
@@ -61,7 +61,7 @@ import {
   reviewPersonalRequest,
   updateOrgConnectorAccount,
 } from '@/lib/api/org-connectors'
-import type { OrgConnectorAccount, PersonalConnectorRequest } from '@/lib/api/org-connectors'
+import type { AccountStatus, OrgConnectorAccount, PersonalConnectorRequest } from '@/lib/api/org-connectors'
 import {
   attachSharedAccount,
   createTeamConnectionAccount,
@@ -660,11 +660,94 @@ function statusBadge(status: ConnectorRequestStatus) {
   return <Badge label="Pending" color="Yellow" />
 }
 
-function accountBadge(account: OrgConnectorAccount) {
+function accountBadge(account: { connected: boolean; status: AccountStatus }) {
   if (!account.connected) return <Badge label="Pending" color="Yellow" />
   if (account.status === 'active') return <Badge label="Active" color="Green" />
   if (account.status === 'disabled') return <Badge label="Disabled" color="Neutral" />
   return <Badge label="Expired" color="Red" />
+}
+
+// Shows at most 5 accounts before the menu scrolls — same "N visible, then
+// overflow" idea as CONNECTOR_TEAMS_VISIBLE_MAX below, just sized per-row
+// instead of a flat row height since a row is 38px with a subLabel (identifier
+// line present) or 22px without.
+const SHARED_ACCOUNTS_VISIBLE_MAX = 5
+
+function sharedAccountRowHeight(account: ConnectorAccount): number {
+  return account.account_label && account.account_identifier ? 38 : 22
+}
+
+// Height of the first N (capped) rows + inter-row gaps + Dropdown.Section's
+// own 16px padding — used both to cap the menu at 5 visible rows and (in
+// handlePrepareOpen below) to judge whether it'll need more room than is
+// available on whichever side it would open toward.
+function sharedAccountsMenuHeight(accounts: ConnectorAccount[]): number {
+  const visible = accounts.slice(0, SHARED_ACCOUNTS_VISIBLE_MAX)
+  const rows = visible.reduce((sum, a) => sum + sharedAccountRowHeight(a), 0) + 4 * Math.max(0, visible.length - 1)
+  return rows + 16
+}
+
+// "Shared accounts" cell (Org access table) — a secondary button that opens a
+// dropdown to its left listing every account shared with this connector, so
+// the table row doesn't need to grow to fit account names inline. Flips
+// between anchoring at the trigger's top (grows down) and its bottom (grows
+// up) depending on which side actually has room, same idea as PersonaCard's
+// ··· menu — computed fresh right before each open, not just once on mount.
+function SharedAccountsCell({ accounts }: { accounts: ConnectorAccount[] }) {
+  const [open, setOpen] = useState(false)
+  const [placement, setPlacement] = useState<DropdownPlacement>('left-start')
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  if (accounts.length === 0) {
+    return <BodyText size={14} color="var(--neutral-400)">—</BodyText>
+  }
+
+  function handlePrepareOpen() {
+    if (open) return // closing — no need to recompute
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    const needed      = sharedAccountsMenuHeight(accounts)
+    setPlacement(spaceBelow < needed + 8 && spaceAbove > spaceBelow ? 'left-end' : 'left-start')
+  }
+
+  return (
+    <DropdownFloat
+      open={open}
+      onOpenChange={setOpen}
+      placement={placement}
+      offset={8}
+      trigger={
+        <Button
+          ref={triggerRef}
+          variant="secondary"
+          size="sm"
+          rightIcon={<ArrowDownOneIcon size={12} />}
+          onClick={handlePrepareOpen}
+        >
+          {accounts.length} shared
+        </Button>
+      }
+    >
+      <Dropdown
+        size="md"
+        maxHeight={accounts.length > SHARED_ACCOUNTS_VISIBLE_MAX ? sharedAccountsMenuHeight(accounts) : false}
+      >
+        <Dropdown.Section fluid>
+          {accounts.map(account => (
+            <DropdownMenuItem
+              key={account.id}
+              fluid
+              label={account.account_label || account.account_identifier || 'Untitled account'}
+              subLabel={account.account_label && account.account_identifier ? account.account_identifier : undefined}
+              badge={accountBadge(account)}
+            />
+          ))}
+        </Dropdown.Section>
+      </Dropdown>
+    </DropdownFloat>
+  )
 }
 
 const connectorEntrySlug = (entry: ConnectorCatalogEntry): string => entry.slug
@@ -985,7 +1068,6 @@ function OrgAccessTab({
 
   function renderConnectorRow(connector: ConnectorCatalogEntry, index: number) {
     const orgEnabled = connector.org_enabled === true
-    const accountCount = connector.accounts?.length ?? 0
     return (
       <motion.div
         key={`${connector.slug}-${viewMode}`}
@@ -1001,11 +1083,7 @@ function OrgAccessTab({
             <BodyText size={14} color="var(--neutral-500)">{connectorCategory(connector.slug)}</BodyText>
           </SettingsTableCell>
           <SettingsTableCell>
-            {accountCount > 0 ? (
-              <BodyText size={14} color="var(--neutral-500)">{accountCount} shared</BodyText>
-            ) : (
-              <BodyText size={14} color="var(--neutral-400)">—</BodyText>
-            )}
+            <SharedAccountsCell accounts={connector.accounts ?? []} />
           </SettingsTableCell>
           <SettingsTableCell align="end">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
