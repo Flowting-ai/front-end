@@ -1,6 +1,6 @@
 // The "postcard stamps" — the identity/context properties attached to every event
-// as Mixpanel super properties (see docs/mixpanel-setup-notion.txt and
-// docs/mixpanel-backend-contract.md). Values are IDs / enumerated types only — never
+// as Mixpanel super properties (see docs/analytics/mixpanel-setup-notion.txt and
+// docs/analytics/mixpanel-backend-contract.md). Values are IDs / enumerated types only — never
 // free text — matching the doc's privacy rule and the Mixpanel skill's naming rules
 // (snake_case keys, lowercase enum values, no `$`/`mp_` prefixes).
 

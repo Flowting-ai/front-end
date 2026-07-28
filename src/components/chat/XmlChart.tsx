@@ -10,7 +10,7 @@
  *   line → pathLength draw animation + crosshair hover + dark tooltip
  *   histogram → bins raw observations (Sturges rule), renders as bar chart style
  *
- * See: docs/frontend-rendering.md - Charts section.
+ * See: docs/ui/frontend-rendering.md - Charts section.
  */
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"

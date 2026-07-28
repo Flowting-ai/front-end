@@ -17,7 +17,7 @@
  * status: "draft" | "sent" | "received" (default). Reading-pane anatomy:
  * subject + status up top, sender avatar row, labeled To/Cc/Bcc lines, body
  * (clamped with Show more), attachment chips. Drafts get a copy button.
- * See: docs/frontend-rendering.md - Email section.
+ * See: docs/ui/frontend-rendering.md - Email section.
  */
 
 import React, { useState } from "react"

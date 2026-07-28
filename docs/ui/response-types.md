@@ -47,7 +47,7 @@ done
 1. `routing` → Souvenir logo animates
 2. `model_chosen` → model chip in TopBar
 3. `research_start` → show ResearchPanel above input, transition to `researching`
-4. `research_source` × N → each source card animates in sequentially (see `docs/animation-states.md → Pattern 5`)
+4. `research_source` × N → each source card animates in sequentially (see `animation-states.md → Pattern 5`)
 5. `research_end` → ResearchPanel collapses to a pill (height + opacity transition)
 6. `text_start` → create assistant MessageBubble with StreamingCursor
 7. `text_delta` × N → stream text
@@ -93,7 +93,7 @@ done
 - User can re-expand at any time (toggle)
 - Header: "Reasoning · {N} steps"
 - Content: monospace font, scrollable, raw thinking text
-- Use expand/collapse Pattern 1 from `docs/animation-states.md`
+- Use expand/collapse Pattern 1 from `animation-states.md`
 
 ---
 

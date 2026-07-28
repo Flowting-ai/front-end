@@ -15,7 +15,7 @@
  *     </column>
  *   </kanban>
  *
- * See: docs/frontend-rendering.md - Kanban section.
+ * See: docs/ui/frontend-rendering.md - Kanban section.
  */
 
 import React from "react"

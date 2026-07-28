@@ -10,7 +10,7 @@
  *   - Rows: col-0 neutral-900/medium, others neutral-700/regular
  *   - Footer: row/col count + "Copy markdown" + "Export CSV"
  *
- * See: docs/frontend-rendering.md - Tables section.
+ * See: docs/ui/frontend-rendering.md - Tables section.
  */
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"

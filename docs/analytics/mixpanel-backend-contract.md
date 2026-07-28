@@ -1,7 +1,7 @@
 # Mixpanel — Backend Contract & Implementation Spec
 
 **Audience:** the backend / workflow-engine team.
-**Companion to:** `docs/mixpanel-setup-notion.txt` (the product spec / tracking plan) and the
+**Companion to:** `docs/analytics/mixpanel-setup-notion.txt` (the product spec / tracking plan) and the
 frontend foundation now shipped under `src/lib/analytics/` + `src/components/Analytics/`.
 
 This is the "backend door" of the two-door model. The browser door (screen views,

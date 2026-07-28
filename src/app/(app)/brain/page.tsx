@@ -648,6 +648,10 @@ interface LocalTurn {
   completedAt?:    Date
   cancelled:       boolean
   attachments?:    UserAttachment[]
+  // Ordered tool-call/text timeline, frozen at snapshot time (see
+  // freezeTimeline) so this turn keeps rendering in true chronological order
+  // even after liveToolCalls/timeline reset for the next turn.
+  timeline?:       FrozenTimelineItem[]
 }
 
 interface BrainTurnRequest {
@@ -1084,6 +1088,63 @@ type TimelineItem =
   | { kind: 'permission'; id: string; promptId: string }
   | { kind: 'approval';   id: string; promptId: string }
   | { kind: 'connect';    id: string; slug: string }
+
+// A `TimelineItem[]` frozen at turn-completion time, once a turn is snapshotted
+// into same-session history and its live state (liveToolCalls, toolProgress,
+// prompts) resets for the next turn. Tool entries carry their resolved data
+// instead of a `toolKey` lookup; ephemeral kinds (progress/permission/approval/
+// connect) are already resolved or meaningless after the fact, so they're
+// dropped rather than frozen.
+type FrozenTimelineItem =
+  | { kind: 'text';       id: string; text: string }
+  | { kind: 'tool';       id: string; data: ToolCallPreview; status: 'streaming' | 'executing' | 'complete' }
+  | { kind: 'web_search'; id: string; data: WebSearchEvent }
+  | { kind: 'file';       id: string; data: GeneratedFileEvent }
+  | { kind: 'image';      id: string; url: string }
+
+function freezeTimeline(
+  items: TimelineItem[],
+  liveToolCalls: Record<string, { status: 'streaming' | 'executing' | 'complete'; tool_call: ToolCallPreview }>,
+): FrozenTimelineItem[] {
+  return items.flatMap<FrozenTimelineItem>((item) => {
+    switch (item.kind) {
+      case 'text':
+        return item.text ? [item] : []
+      case 'tool': {
+        const tool = liveToolCalls[item.toolKey]
+        return tool ? [{ kind: 'tool', id: item.id, data: tool.tool_call, status: tool.status }] : []
+      }
+      case 'web_search':
+      case 'file':
+      case 'image':
+        return [item]
+      default:
+        return []
+    }
+  })
+}
+
+function renderFrozenTimelineItem(item: FrozenTimelineItem) {
+  switch (item.kind) {
+    case 'text':
+      return <StreamingMessageBubble key={item.id} content={item.text} isComplete />
+    case 'tool':
+      return <ActivityFeed key={item.id} items={[{ kind: 'tool', data: item.data, id: item.id, status: item.status }]} />
+    case 'web_search':
+      return <ActivityFeed key={item.id} items={[{ kind: 'web_search', data: item.data, id: item.id }]} />
+    case 'file':
+      return (
+        <ArtifactCard
+          key={item.id}
+          title={item.data.filename}
+          meta={artifactMeta(item.data.mime_type, item.data.file_size)}
+          onClick={() => downloadArtifact(item.data.url, item.data.filename)}
+        />
+      )
+    case 'image':
+      return <MessageImages key={item.id} images={[{ url: item.url }]} />
+  }
+}
 
 function ActivityFeed({ items }: { items: ActivityFeedItem[] }) {
   if (items.length === 0) return null
@@ -2916,6 +2977,7 @@ function BrainPageInner() {
     currentAttachments: UserAttachment[] = [],
     currentStreamFiles: GeneratedFileEvent[] = [],
     currentExternalActions: ExternalOutputAction[] = [],
+    currentTimeline: FrozenTimelineItem[] = [],
   ) => {
     const key = `turn-${++turnCounterRef.current}`
     setLocalTurns((prev) => [
@@ -2934,6 +2996,7 @@ function BrainPageInner() {
         completedAt:    currentCompletedAt ?? undefined,
         cancelled:      opts.cancelled ?? false,
         attachments:    currentAttachments.length > 0 ? currentAttachments : undefined,
+        timeline:       currentTimeline.length > 0 ? currentTimeline : undefined,
       },
     ])
 
@@ -3432,6 +3495,7 @@ function BrainPageInner() {
         userAttachments,
         streamFiles,
         externalActions,
+        freezeTimeline(timeline, liveToolCalls),
       )
     }
 
@@ -3486,7 +3550,7 @@ function BrainPageInner() {
     phase, chatId, planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections,
     activePlanSummary, completedAt, streamImages, streamFiles, externalActions, snapshotAndReset, runBrainStream,
     brainAttachments, userAttachments, creditStatus.blocked, selectedPersona, effectivePinIds,
-    selectedFolders.length, pinboardLoading,
+    selectedFolders.length, pinboardLoading, timeline, liveToolCalls,
   ])
 
   // ── Plan decisions ────────────────────────────────────────────────────────────
@@ -4150,12 +4214,14 @@ function BrainPageInner() {
       userAttachments,
       streamFiles,
       externalActions,
+      freezeTimeline(timeline, liveToolCalls),
     )
     seedBrainInput(userMessage)
     setPhase('idle')
   }, [
     planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections, activePlanSummary, completedAt,
     streamImages, userAttachments, streamFiles, externalActions, snapshotAndReset, seedBrainInput,
+    timeline, liveToolCalls,
   ])
 
   // ── Restart ───────────────────────────────────────────────────────────────────
@@ -4174,9 +4240,10 @@ function BrainPageInner() {
       userAttachments,
       streamFiles,
       externalActions,
+      freezeTimeline(timeline, liveToolCalls),
     )
     setPhase('idle')
-  }, [phase, planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles, externalActions])
+  }, [phase, planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles, externalActions, timeline, liveToolCalls])
 
   // ── New chat ─────────────────────────────────────────────────────────────────
   // Used by both the sidebar's "Brain" button and the "+ New chat" entry.
@@ -4424,24 +4491,33 @@ function BrainPageInner() {
       {turn.planSteps && turn.planSteps.length > 0 && (
         <ExecutionPhaseGroup steps={turn.planSteps} />
       )}
-      {turn.output && (
-        <div>
-          <BrainResultHeader summary={turn.planSummary || 'Analysis complete'} />
-          <StreamingMessageBubble content={turn.output} isComplete />
-        </div>
-      )}
-      {turn.images && turn.images.length > 0 && <MessageImages images={turn.images} />}
-      {turn.generatedFiles && turn.generatedFiles.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {turn.generatedFiles.map((f) => (
-            <ArtifactCard
-              key={f.url}
-              title={f.filename}
-              meta={artifactMeta(f.mime_type, f.file_size)}
-              onClick={() => downloadArtifact(f.url, f.filename)}
-            />
-          ))}
-        </div>
+      {turn.timeline && turn.timeline.length > 0 ? (
+        <>
+          {turn.output && <BrainResultHeader summary={turn.planSummary || 'Analysis complete'} />}
+          {turn.timeline.map((item) => renderFrozenTimelineItem(item))}
+        </>
+      ) : (
+        <>
+          {turn.output && (
+            <div>
+              <BrainResultHeader summary={turn.planSummary || 'Analysis complete'} />
+              <StreamingMessageBubble content={turn.output} isComplete />
+            </div>
+          )}
+          {turn.images && turn.images.length > 0 && <MessageImages images={turn.images} />}
+          {turn.generatedFiles && turn.generatedFiles.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {turn.generatedFiles.map((f) => (
+                <ArtifactCard
+                  key={f.url}
+                  title={f.filename}
+                  meta={artifactMeta(f.mime_type, f.file_size)}
+                  onClick={() => downloadArtifact(f.url, f.filename)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
       {turn.externalActions && turn.externalActions.length > 0 && (
         <ExternalOutputBlock
@@ -4610,18 +4686,6 @@ function BrainPageInner() {
     }
   }
 
-  const completedActivityItems: ActivityFeedItem[] = timeline.flatMap<ActivityFeedItem>((item) => {
-    if (item.kind === 'web_search') return [{ kind: 'web_search' as const, data: item.data, id: item.id }]
-    if (item.kind === 'tool') {
-      const tool = liveToolCalls[item.toolKey]
-      return tool ? [{ kind: 'tool' as const, data: tool.tool_call, id: item.id, status: tool.status }] : []
-    }
-    if (item.kind === 'progress' && toolProgress) {
-      return [{ kind: 'progress' as const, data: toolProgress, id: item.id }]
-    }
-    return []
-  })
-
   const activeTurnContent = userMessage ? (
     <div ref={activeTurnRef} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
 
@@ -4695,7 +4759,14 @@ function BrainPageInner() {
           permission/link cards — all rendered in the order they streamed in,
           so chat and tools interleave instead of bucketing. Each row rises into
           place as it streams in (consumer-driven KDS mount gesture). */}
-      {phase !== 'complete' && timeline.map((item, i) => {
+      {phase === 'complete' && planSteps.length > 0 && (
+        <Rise><ExecutionPhaseGroup steps={planSteps} nodeOutputs={nodeOutputs} /></Rise>
+      )}
+      {phase === 'complete' && (
+        <Rise><BrainResultHeader summary={activePlanSummary || 'Analysis complete'} /></Rise>
+      )}
+
+      {timeline.map((item, i) => {
         const node = renderTimelineItem(item, i === timeline.length - 1)
         if (!node) return null
         return (
@@ -4707,37 +4778,6 @@ function BrainPageInner() {
 
       {phase === 'complete' && (
         <>
-          {planSteps.length > 0 && (
-            <Rise><ExecutionPhaseGroup steps={planSteps} nodeOutputs={nodeOutputs} /></Rise>
-          )}
-          {completedActivityItems.length > 0 && (
-            <Rise>
-              <BrainPhaseGroup title="Tool activity" defaultCollapsed>
-                <BrainTimeline items={activityTimelineItems(completedActivityItems)} />
-              </BrainPhaseGroup>
-            </Rise>
-          )}
-          <Rise>
-            <div>
-              <BrainResultHeader summary={activePlanSummary || 'Analysis complete'} />
-              {streamedContent && <StreamingMessageBubble content={streamedContent} isComplete />}
-            </div>
-          </Rise>
-          {streamImages.length > 0 && <Rise><MessageImages images={streamImages} /></Rise>}
-          {streamFiles.length > 0 && (
-            <Rise>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {streamFiles.map((file) => (
-                  <ArtifactCard
-                    key={file.url}
-                    title={file.filename}
-                    meta={artifactMeta(file.mime_type, file.file_size)}
-                    onClick={() => downloadArtifact(file.url, file.filename)}
-                  />
-                ))}
-              </div>
-            </Rise>
-          )}
           {externalActions.length > 0 && (
             <Rise>
               <ExternalOutputBlock actions={externalActions} completedAt={externalOutputCompletedAt} />

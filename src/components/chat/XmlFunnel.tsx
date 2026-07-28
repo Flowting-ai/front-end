@@ -14,7 +14,7 @@
  *   </funnel>
  *
  * Values must be plain numbers (same rule as <chart>).
- * See: docs/frontend-rendering.md - Funnel section.
+ * See: docs/ui/frontend-rendering.md - Funnel section.
  */
 
 import React from "react"

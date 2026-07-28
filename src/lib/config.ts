@@ -24,7 +24,7 @@ export const audience = process.env.AUTH0_AUDIENCE ?? "";
 // ── Analytics (Mixpanel) ───────────────────────────────────────────────────────
 // Additive only — new exports; nothing above/below is changed.
 // Environment-scoped project token, read from env (never hard-coded) — same secret
-// convention as `audience` above. Per docs/mixpanel-setup-notion.txt we keep the DEV
+// convention as `audience` above. Per docs/analytics/mixpanel-setup-notion.txt we keep the DEV
 // and PROD Mixpanel projects separate so "all testing lands in DEV, production stays
 // clean". Local dev and Vercel preview builds talk to the DEV project; only true
 // production talks to the PROD project.

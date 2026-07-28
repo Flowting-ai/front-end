@@ -3,7 +3,7 @@
 // Thin, fail-safe wrapper around mixpanel-browser. This is the ONLY module that
 // imports the SDK directly — everything else calls these helpers.
 //
-// Design guarantees (see the plan / docs/mixpanel-setup-notion.txt):
+// Design guarantees (see the plan / docs/analytics/mixpanel-setup-notion.txt):
 //  - No-op unless a project token is present (`analyticsEnabled`). Production sends
 //    nothing until a PROD token is provisioned, so nothing breaks and prod stays clean.
 //  - Browser-only. Server/SSR calls are ignored.
@@ -38,7 +38,7 @@ export function initAnalytics(): void {
       // api-js.mixpanel.com, so tracker/ad blockers (uBlock, Brave, Dia,
       // EasyPrivacy, …) have no third-party domain to block. The server route at
       // src/app/dispatch/[...path]/route.ts forwards to Mixpanel and preserves the
-      // client IP for geolocation. See docs/mixpanel-frontend-implementation.md.
+      // client IP for geolocation. See docs/analytics/mixpanel-frontend-implementation.md.
       //
       // The path is deliberately generic. Same-origin alone is NOT enough — uBlock
       // /EasyPrivacy also match by PATH regardless of domain, and `/ingest`, `/e/`,
