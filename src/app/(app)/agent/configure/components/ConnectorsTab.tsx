@@ -52,7 +52,6 @@ function workspaceAccountsOf(entry: ConnectorCatalogEntry): ConnectorAccountOpti
   // Fallback: the single workspace summary on the entry.
   if (entry.workspace_linked) {
     return [{
-      account_ref:        entry.shared_account_id ? `shared:${entry.shared_account_id}` : 'shared',
       connector_slug:     entry.slug,
       scope:              'shared_team',
       account_label:      entry.account_label ?? 'Shared',
@@ -382,7 +381,7 @@ export default function ConnectorsTab({
               <p style={{ ...SECTION_LABEL, marginBottom: 4, paddingLeft: 12 }}>Workspace connectors</p>
               {workspaceRows.map(({ entry, account }) => (
                 <ConnectorRow
-                  key={`${entry.slug}:${account.account_ref}`}
+                  key={`${entry.slug}:${account.shared_account_id ?? 'shared'}`}
                   name={entry.display_name}
                   description={entry.description}
                   iconUrl={logoFor(entry)}

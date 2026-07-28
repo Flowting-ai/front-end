@@ -588,19 +588,6 @@ export async function attachSharedAccount(
   return normalizeConnection(data)
 }
 
-export async function updateTeamConnectionPermissions(
-  orgId: string,
-  teamId: string,
-  slug: string,
-  permissions: ConnectorTool[],
-): Promise<TeamConnectionEntry> {
-  const data = await apiFetchJson<TeamConnectionResponse>(ORG_TEAM_CONNECTION_ENDPOINT(orgId, teamId, slug), {
-    method: 'PATCH',
-    body: JSON.stringify({ permissions }),
-  })
-  return normalizeConnection(data)
-}
-
 export async function unlinkTeamConnection(orgId: string, teamId: string, slug: string): Promise<void> {
   await apiFetch(ORG_TEAM_CONNECTION_ENDPOINT(orgId, teamId, slug), { method: 'DELETE' })
 }
