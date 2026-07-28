@@ -184,6 +184,15 @@ function isTerminalBrainEvent(name: string): boolean {
   )
 }
 
+// Phases where the run is genuinely still in flight, so a stream that closes
+// without a terminal event really did drop something. Every other phase is
+// either settled or parked on a card waiting for the user — most importantly
+// 'planning', where the backend ends turn 1 at the approval gate WITHOUT a
+// terminal event by design, so a missing one proves nothing.
+const IN_FLIGHT_PHASES: ReadonlySet<Phase> = new Set<Phase>([
+  'user-sent', 'thinking', 'souvenir', 'executing', 'streaming',
+])
+
 function mapBackendStepStatus(status?: string): StepStatus {
   switch (status) {
     case 'running':   return 'executing'
@@ -3050,6 +3059,10 @@ function BrainPageInner() {
             return
           }
           if (!terminalEventReceived && !streamErrored && !controller.signal.aborted) {
+            // Mirrors the guard the send path has always had: only a run that
+            // was mid-flight can have been cut short. Without this, a plan
+            // sitting at its approval gate got a failure card stacked under it.
+            if (!IN_FLIGHT_PHASES.has(phaseRef.current)) return
             setStreamError('Brain disconnected before the run finished. Please try again.')
             setPhase('failed')
           }
