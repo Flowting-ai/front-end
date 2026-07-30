@@ -406,7 +406,7 @@ function ProjectChatPageInner() {
 
   const { models, selectedModel, selectModel, open: openModelSelector, museActive, museAdvanced, setMuseAdvanced, enableReasoning, setPersonaActive } = useModelSelectorContext()
 
-  // Reset to Souvenir Muse (Advanced) on a genuinely blank "new chat" landing —
+  // Reset to Souvenir Muse (Auto) on a genuinely blank "new chat" landing —
   // matches the regular chat page's reset-on-new-chat behaviour, so a model
   // picked in a previous chat doesn't silently carry over. Gated on
   // `initialPrompt` being empty AT MOUNT (not reactive) so this does NOT fire
@@ -417,7 +417,7 @@ function ProjectChatPageInner() {
   useEffect(() => { if (isNewChat && !initialPrompt) setMuseAdvanced(true) }, [])
 
   const modelButtonLabel = museActive
-    ? museAdvanced ? 'Souvenir AI Muse (Advanced)' : 'Souvenir AI Muse (Basic)'
+    ? museAdvanced ? 'Souvenir AI Muse (Auto)' : 'Souvenir AI Muse (Basic)'
     : selectedModel?.modelName
 
   const handleModelClick = (e: React.MouseEvent<HTMLButtonElement>) => { if (selectedPersona) return; openModelSelector(e.currentTarget) }
@@ -867,6 +867,7 @@ function ProjectChatPageInner() {
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
               readOnly={activeChatReadOnly}
+              chatOwnershipConfirmed={activeChatRecord?.canEdit === true}
             />
           </m.div>
         )}

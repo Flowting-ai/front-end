@@ -96,7 +96,7 @@ function HighlightSidebarImpl() {
           text:        pending.text,
           startOffset: pending.startOffset,
         })
-        toast.success('Jumped to highlight')
+        toast.success(hasMark ? 'Jumped to highlight' : 'Jumped to message')
         return
       }
 

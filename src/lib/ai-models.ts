@@ -48,6 +48,23 @@ const normalizeModelType = (
   return "paid";
 };
 
+/**
+ * Souvenir's user-facing name for each of the 3 real underlying models —
+ * there is no separate "Muse algorithm" model, just Anthropic's Claude
+ * Haiku/Sonnet/Opus relabeled. Matches by substring on the raw provider name
+ * (case-insensitive) so it survives version bumps ("Claude Haiku 4.5",
+ * "Claude 3 Haiku", etc. all match); anything that isn't one of the 3 is
+ * returned unchanged.
+ */
+export function toSouvenirModelLabel(rawName: string | null | undefined): string {
+  if (!rawName) return rawName ?? "";
+  const n = rawName.toLowerCase();
+  if (n.includes("haiku")) return "Souvenir Muse: Basic";
+  if (n.includes("opus")) return "Souvenir Muse: Advanced";
+  if (n.includes("sonnet")) return "Souvenir Muse: Standard";
+  return rawName;
+}
+
 const toNumber = (value: unknown, fallback = 0): number => {
   const parsed =
     typeof value === "number"
@@ -68,8 +85,9 @@ const normalizeModel = (model: BackendModel): AIModel => ({
     model.providerName ??
     model.provider ??
     "Unknown",
-  modelName:
+  modelName: toSouvenirModelLabel(
     model.model_name ?? model.modelName ?? model.name ?? "Unknown Model",
+  ),
   modelType: normalizeModelType(
     model.model_plan_type ?? model.planType ?? model.plan,
     model.callType,
@@ -125,9 +143,12 @@ export function bustModelsCache(): void {
 }
 
 // Tier keywords used only to break ties between same-company candidates —
-// e.g. prefer another "Sonnet"-class model over an "Opus"/"Haiku" one so a
-// persona's cost/capability tier survives a forced model swap where possible.
-const MODEL_TIER_WORDS = ['opus', 'sonnet', 'haiku', 'pro', 'mini', 'flash']
+// e.g. prefer another "Standard"-class model over an "Advanced"/"Basic" one
+// so a persona's cost/capability tier survives a forced model swap where
+// possible. Matches both the pre-rename provider words (in case a raw name
+// ever reaches this function without going through normalizeModel/
+// toSouvenirModelLabel first) and the post-rename Souvenir Muse tier words.
+const MODEL_TIER_WORDS = ['advanced', 'standard', 'basic', 'opus', 'sonnet', 'haiku', 'pro', 'mini', 'flash']
 
 /**
  * Picks a replacement for a model that's no longer usable (blocked or
@@ -183,8 +204,13 @@ export async function fetchModelsWithCache(
       });
       if (!response.ok) return _modelsCache ?? [];
       const data = await response.json();
-      // Filter out models the user has disabled — they should not appear in the chat selector.
-      const models = normalizeModels(data).filter((m) => !m.blocked);
+      // Previously filtered out models the user had blocked in /settings/ai.
+      // That page is no longer reachable from nav, so a model someone blocked
+      // in the past would otherwise vanish from every picker with no way back —
+      // include every model here regardless of its blocked flag. (`blocked`
+      // itself is left intact on each AIModel for the surfaces that still use
+      // it to show an accurate "this assigned model is disabled" warning.)
+      const models = normalizeModels(data);
       _modelsCache = models;
       _modelsCacheTime = Date.now();
       return models;

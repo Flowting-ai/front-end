@@ -2093,6 +2093,7 @@ function AddSharedAccountModal({
           connected = false
           popup?.close()
           toast.warning('OAuth flow timed out. The account was created; refresh the account list after finishing auth.')
+          return
         } finally {
           setPolling(false)
         }
@@ -2712,6 +2713,7 @@ function TeamScopedAccountModal({
         } catch {
           popup?.close()
           toast.warning('OAuth flow timed out. The account was created; retry after finishing auth.')
+          return
         } finally {
           setPolling(false)
         }

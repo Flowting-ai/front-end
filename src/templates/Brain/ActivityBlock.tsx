@@ -10,7 +10,8 @@ import {
 } from '@strange-huge/icons'
 import { Spinner } from '@/components/Spinner'
 import { StreamingIndicator as ModelStreamingIndicator } from '@/components/StreamingIndicator'
-import { getModelLlmId } from '@/lib/model-icons'
+import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
+import { toSouvenirModelLabel } from '@/lib/ai-models'
 import { springs } from '@/lib/springs'
 import type { PlanStep } from './lib/phase'
 
@@ -80,8 +81,7 @@ interface LiveStepRowProps {
 
 function NodeModelIndicator({ step }: { step: PlanStep }) {
   const [phase, setPhase] = useState<'choosing' | 'streaming'>('choosing')
-  const modelName = step.modelName || 'Model'
-  const llmId = getModelLlmId(step.modelCompany, step.modelName)
+  const modelName = toSouvenirModelLabel(step.modelName) || 'Model'
 
   useEffect(() => {
     const timer = window.setTimeout(() => setPhase('streaming'), 420)
@@ -92,7 +92,7 @@ function NodeModelIndicator({ step }: { step: PlanStep }) {
     <ModelStreamingIndicator
       phase={phase}
       label={phase === 'choosing' ? `Selecting ${modelName}…` : `${modelName} · Working…`}
-      llmId={llmId ?? undefined}
+      logo={<SouvenirModelIcon size={16} />}
       style={{ marginTop: 2 }}
     />
   )

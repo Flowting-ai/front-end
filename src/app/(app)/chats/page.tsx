@@ -42,7 +42,7 @@ function formatTimestamp(iso: string | undefined | null): string {
 
 export default function ChatsPage() {
   const { push }                       = useRouter()
-  const { chats, isLoading, rename, remove, removeLocal, star } = useChatHistoryContext()
+  const { chats, isLoading, hasMore, loadMore, rename, remove, removeLocal, star } = useChatHistoryContext()
   const { projects, addChat }                     = useProjects()
   const { pins, isOpen, chatFilter, openForChat } = usePinboard()
 
@@ -117,6 +117,17 @@ export default function ChatsPage() {
   const handleOpenChat = useCallback((chatId: string) => {
     push(`${CHAT_ROUTE}?id=${chatId}`)
   }, [push])
+
+  // Infinite scroll: fetch the next cursor-based page once the user nears the
+  // bottom of the virtualized list. loadMore's own loadingRef guard (inside
+  // use-chat-history) dedupes overlapping calls, so hasMore is the only guard
+  // needed here to avoid firing once there is nothing left to fetch.
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el || !hasMore || isLoading) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (distanceFromBottom < 400) loadMore()
+  }, [hasMore, isLoading, loadMore])
 
   const handleDelete = useCallback(async () => {
     if (selectedIds.size === 0) return
@@ -202,6 +213,7 @@ export default function ChatsPage() {
     <div
       ref={scrollRef}
       className="kaya-scrollbar"
+      onScroll={handleScroll}
       style={{
         display:       'flex',
         flexDirection: 'column',

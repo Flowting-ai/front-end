@@ -378,7 +378,7 @@ function DefaultAddMenu({
 }
 
 const DEFAULT_MOST_USED_MODELS = [
-  { id: 'claude',   llm: 'Claude',   label: 'Claude Opus 4.5' },
+  { id: 'claude',   llm: 'Claude',   label: 'Souvenir Muse: Advanced' },
   { id: 'gpt5',     llm: 'OpenAI',   label: 'GPT-5' },
   { id: 'gemini',   llm: 'Gemini',   label: 'Gemini 2.5 Pro' },
   { id: 'deepseek', llm: 'DeepSeek', label: 'DeepSeek V3' },
@@ -386,8 +386,8 @@ const DEFAULT_MOST_USED_MODELS = [
 ] as const
 
 const DEFAULT_RECENT_MODELS = [
-  { id: 'sonnet',    llm: 'Claude',  label: 'Claude Sonnet 4.5' },
-  { id: 'haiku',     llm: 'Claude',  label: 'Claude Haiku 4.5' },
+  { id: 'sonnet',    llm: 'Claude',  label: 'Souvenir Muse: Standard' },
+  { id: 'haiku',     llm: 'Claude',  label: 'Souvenir Muse: Basic' },
   { id: 'gpt5-mini', llm: 'OpenAI',  label: 'GPT-5 Mini' },
   { id: 'mistral',   llm: 'Mistral', label: 'Mistral Large' },
   { id: 'qwen',      llm: 'Qwen',    label: 'Qwen 3 Max' },

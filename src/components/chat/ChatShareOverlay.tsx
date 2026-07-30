@@ -63,7 +63,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied }: Chat
       setSharesLoading(true)
       listChatShares(chatId)
         .then(setExistingShares)
-        .catch(console.error)
+        .catch((err) => toast.error(err instanceof Error ? err.message : 'Failed to load active shares'))
         .finally(() => setSharesLoading(false))
     }
   }

@@ -335,12 +335,20 @@ function ProjectsPageInner() {
   const [sort,           setSort]           = useState<SortKey>('recent')
   const [sortOpen,       setSortOpen]       = useState(false)
   // Seeded from ?scope= (e.g. the sidebar's "Personal projects" link lands
-  // here with scope=personal pre-applied) — read once at mount. handleScopeChange
-  // below writes back to ?scope= on every tab switch so the URL stays in sync,
-  // but the state itself doesn't re-read the URL after mount (e.g. on back-nav).
+  // here with scope=personal pre-applied). handleScopeChange below writes back
+  // to ?scope= on every tab switch so the URL stays in sync, and the effect
+  // further down re-syncs this state whenever the URL's ?scope= changes out
+  // from under it (e.g. browser Back/Forward), so the visible tab never
+  // drifts from the address bar.
   const [scopeFilter,    setScopeFilter]    = useState<ScopeFilter>(() =>
     searchParams.get('scope') === 'team' ? 'team' : 'personal'
   )
+  // Re-sync the tab any time the URL's ?scope= changes — including via
+  // popstate (Back/Forward), not just the initial mount.
+  useEffect(() => {
+    const urlScope: ScopeFilter = searchParams.get('scope') === 'team' ? 'team' : 'personal'
+    setScopeFilter(prev => (prev === urlScope ? prev : urlScope))
+  }, [searchParams])
   // Keep the URL's ?scope= in sync with the tab so the current scope survives
   // a reload/back-nav and links to this page can point at a specific tab.
   // replace (not push) — switching tabs shouldn't pile up history entries.

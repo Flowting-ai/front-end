@@ -20,7 +20,7 @@ export function ModelMenu() {
     <Dropdown size="md">
       <Dropdown.Section fluid>
         <Dropdown.Item
-          label="Souvenir Muse: Advanced"
+          label="Souvenir Muse: Auto"
           subLabel="Most capable for ambitious work"
           showSwitch
           switchChecked={museActive && museAdvanced}
@@ -52,6 +52,6 @@ export function ModelMenu() {
 export function useModelButtonLabel(): string | undefined {
   const { selectedModel, museActive, museAdvanced } = useModelSelectorContext()
   return museActive
-    ? museAdvanced ? 'Souvenir AI Muse (Advanced)' : 'Souvenir AI Muse (Basic)'
+    ? museAdvanced ? 'Souvenir AI Muse (Auto)' : 'Souvenir AI Muse (Basic)'
     : selectedModel?.modelName
 }

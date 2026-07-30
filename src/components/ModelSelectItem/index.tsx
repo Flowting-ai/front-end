@@ -7,8 +7,15 @@ import { BookmarkTwoIcon, BookmarkTwoSolidIcon, InformationCircleIcon } from '@s
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip, type TooltipSide } from '@/components/Tooltip'
-import { ModelSelectorContext } from '@/components/ModelSelector'
 import { cn } from '@/lib/utils'
+
+// Lets descendants (this component) react to the active category without the
+// consumer having to thread props — used to suppress the per-row bookmark
+// IconButton when a Favorites category is active elsewhere in the tree (the
+// whole list IS the favorites set in that case, so the toggle is redundant).
+// Only ever provided by a category-aware model list; unprovided consumers
+// (e.g. PresetModelSelectorDialog) simply see `null` and skip the check.
+export const ModelSelectorContext = React.createContext<{ category: string; provider: string; tier: string; search: string } | null>(null)
 
 // ── Shadow constants ───────────────────────────────────────────────────────────
 // Identical shadow system to DropdownMenuItem - shares the same warm-neutral hover language.

@@ -3,12 +3,10 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
-import Image from 'next/image'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, MentoringIcon, UserAiIcon, InformationCircleIcon, TickTwoIcon, CancelOneIcon } from '@strange-huge/icons'
-import { LlmIcon } from '@strange-huge/icons/llm'
-import { getModelLlmId } from '@/lib/model-icons'
 import { Button } from '@/components/Button'
+import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
 import { Chip } from '@/components/Chip'
 import { Badge } from '@/components/Badge'
 import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
@@ -86,7 +84,6 @@ export default function ProjectPage() {
   const chatHistory = useChatHistoryContext()
   const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel, setMuseAdvanced } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
-  const modelLlmId = museActive ? null : getModelLlmId(selectedModel?.companyName, selectedModel?.modelName)
 
   const { caps, members, teams: orgTeams } = useOrg()
   const { user } = useAuth()
@@ -185,7 +182,7 @@ export default function ProjectPage() {
   }, [selectedPersona, setPersonaActive])
 
   // This page is always a "start a new chat" surface — reset the global model
-  // preference back to Souvenir Muse (Advanced) on arrival, same as the regular
+  // preference back to Souvenir Muse (Auto) on arrival, same as the regular
   // chat page's blank-landing reset, so a model picked in a previous chat
   // doesn't silently carry over. Mount-only: doesn't touch whatever the user
   // explicitly picks afterward on this same page before sending.
@@ -682,12 +679,11 @@ export default function ProjectPage() {
                   aria-haspopup="listbox"
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: personaActive ? 'var(--button-default-text-disabled)' : undefined }}>
-                    {(museActive || modelLlmId) && (
+                    {/* Always the Souvenir mark — every model behind this
+                        button is one of the 3 Souvenir Muse tiers. */}
+                    {(museActive || !!selectedModel) && (
                       <span style={{ width: 16, height: 16, borderRadius: 4, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {museActive
-                          ? <Image src="/icons/souvenir-logo-white.svg" width={16} height={16} alt="" unoptimized style={{ display: 'block' }} />
-                          : <LlmIcon id={modelLlmId!} variant={modelLlmId === 'OpenAI' ? 'color' : 'avatar'} size={16} style={modelLlmId === 'OpenAI' ? { filter: 'brightness(0) invert(1)' } : undefined} />
-                        }
+                        <SouvenirModelIcon size={16} />
                       </span>
                     )}
                     {modelButtonLabel ?? 'Souvenir AI · Muse'}

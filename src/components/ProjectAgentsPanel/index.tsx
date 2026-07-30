@@ -75,7 +75,11 @@ export function ProjectAgentsPanel({ teamId }: ProjectAgentsPanelProps) {
         const scoped = teamId ? personasForTeamContext(list, teamId) : list.filter(p => p.visibility === 'private')
         setAgents(scoped.filter(p => p.status !== 'draft'))
       })
-      .catch(() => { if (!cancelled) setAgents([]) })
+      .catch(() => {
+        if (cancelled) return
+        setAgents([])
+        toast.error('Failed to load agents. Please try again.')
+      })
       .finally(() => { if (!cancelled) setAgentsLoading(false) })
     return () => { cancelled = true }
   }, [teamId])

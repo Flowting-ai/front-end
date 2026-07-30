@@ -9,7 +9,6 @@ import {
   ArrowRightOneIcon,
   ArrowDownOneIcon,
   AtomOneIcon,
-  AtomTwoIcon,
   PlusSignIcon,
   CancelOneIcon,
   QuillWriteOneIcon,
@@ -20,7 +19,6 @@ import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
-import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
 import ExampleConversationModal from '@/app/(app)/agent/configure/components/ExampleConversationModal'
@@ -46,8 +44,7 @@ import { fetchModelsWithCache } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
 import { recordModelUsage, sortModelsByUsage } from '@/lib/model-usage'
 import type { AIModel } from '@/types/ai-model'
-import { LlmIcon } from '@strange-huge/icons/llm'
-import { getModelLlmId } from '@/lib/model-icons'
+import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { personaProfileKey } from '@/lib/storage-keys'
 import { AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
@@ -195,9 +192,9 @@ function UndoRedoGroup({
 // minus the Muse/Advanced cards and category tabs (not applicable to picking
 // one fixed model for an agent).
 
-// Deterministic tag → Badge color, same hash as ModelSelector.tsx's local
-// tagColor (not exported there, so duplicated here rather than forcing a
-// shared-utils extraction for a 4-line pure function).
+// Deterministic tag → Badge color, same hash as PresetModelSelectorDialog's
+// local tagColor (not exported there, so duplicated here rather than forcing
+// a shared-utils extraction for a 4-line pure function).
 const TAG_PALETTE: BadgeColor[] = ['Green', 'Blue', 'Purple', 'Brown', 'Yellow']
 function tagColor(tag: string): BadgeColor {
   let h = 0
@@ -217,9 +214,9 @@ function modelTagBadges(model: AIModel): React.ReactNode {
 }
 
 // The tooltip renders on the dark gradient background (--tooltip-bg-from/to),
-// unlike MODEL_PICKER_CAPTION_STYLE's dropdown-panel captions below — headers
-// and empty-state copy here dim the light --tooltip-text color via opacity
-// instead of using a light-mode neutral shade that would read low-contrast.
+// so headers and empty-state copy here dim the light --tooltip-text color via
+// opacity instead of using a light-mode neutral shade that would read
+// low-contrast.
 const TOOLTIP_SECTION_HEADER_STYLE: React.CSSProperties = {
   fontFamily: 'var(--font-body)',
   fontWeight: 'var(--font-weight-medium)',
@@ -250,14 +247,6 @@ function modelInfoContent(model: AIModel): React.ReactNode {
   return (
     <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {modelInfoSection(
-        'Description',
-        'No information on this model yet.',
-        model.description ? <span>{model.description}</span> : null,
-      )}
-
-      <Divider decorative />
-
-      {modelInfoSection(
         'Reasoning effort',
         'No reasoning effort levels for this model yet.',
         hasEfforts ? (
@@ -272,20 +261,11 @@ function modelInfoContent(model: AIModel): React.ReactNode {
   )
 }
 
-const MODEL_PICKER_CAPTION_STYLE: React.CSSProperties = {
-  fontFamily: 'var(--font-body)',
-  fontWeight: 'var(--font-weight-medium)',
-  fontSize:   'var(--font-size-caption)',
-  lineHeight: 'var(--line-height-caption)',
-  color:      'var(--neutral-500)',
-  whiteSpace: 'nowrap',
-}
-
 // ── Inline anchored model dropdown ───────────────────────────────────────────
-// The chat-style ModelSelector renders a centered modal — wrong for this page,
-// where the dropdown must drop under its trigger and span the trigger's width.
-// Panel content mirrors ModelSelector/PresetModelSelectorDialog (search + tier
-// + provider tabs, ModelSelectItem rows).
+// The chat-style PresetModelSelectorDialog renders a centered popover — wrong
+// for this page, where the dropdown must drop under its trigger and span the
+// trigger's width. Panel content otherwise mirrors it: search + flat
+// ModelSelectItem rows, no provider grouping (there's only ever one company).
 
 function ModelDropdown({
   models,
@@ -302,7 +282,6 @@ function ModelDropdown({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [search,   setSearch]   = useState('')
-  const [provider, setProvider] = useState('all')
   const [atTop,    setAtTop]    = useState(true)
   const [atBottom, setAtBottom] = useState(false)
   // Tracks the dropdown's own rendered width so each row's info tooltip can
@@ -344,37 +323,18 @@ function ModelDropdown({
     return tier !== 'free' && tier !== 'starter'
   }), [models])
 
-  // Sorted company list (most models first) — same derivation as ModelSelector.
-  const companies = React.useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const m of selectableModels) counts[m.companyName] = (counts[m.companyName] ?? 0) + 1
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c]) => c)
-  }, [selectableModels])
-
+  // No provider grouping/filter — every model here is one of the 3 Souvenir
+  // Muse tiers under a single company, so a company tab/header would just
+  // read "Anthropic" and reveal the underlying provider for no benefit.
   const filtered = selectableModels.filter(m => {
-    if (provider !== 'all' && m.companyName !== provider) return false
-    if (search) {
-      const q = search.toLowerCase()
-      if (!m.modelName.toLowerCase().includes(q) && !m.companyName.toLowerCase().includes(q)) return false
-    }
-    return true
+    if (!search) return true
+    const q = search.toLowerCase()
+    return m.modelName.toLowerCase().includes(q)
   })
 
-  // Clump models by company, most-populous company first (same order as the
-  // provider tabs), so switching tabs doesn't reshuffle groups already seen.
-  // Within each company, this browser's most-used models float to the top —
-  // models never picked here or in chat keep their original relative order.
-  const groupedFiltered = React.useMemo(() => {
-    const byCompany = new Map<string, AIModel[]>()
-    for (const m of filtered) {
-      const list = byCompany.get(m.companyName)
-      if (list) list.push(m)
-      else byCompany.set(m.companyName, [m])
-    }
-    return companies
-      .filter(c => byCompany.has(c))
-      .map(c => ({ company: c, items: sortModelsByUsage(byCompany.get(c)!) }))
-  }, [filtered, companies])
+  // This browser's most-used models float to the top — models never picked
+  // here or in chat keep their original relative order.
+  const sortedFiltered = React.useMemo(() => sortModelsByUsage(filtered), [filtered])
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget
@@ -414,11 +374,9 @@ function ModelDropdown({
         aria-invalid={!selectedModel}
         leftIcon={
           selectedModel ? (
-            <LlmIcon
-              id={getModelLlmId(selectedModel.companyName, selectedModel.modelName) ?? ''}
-              variant="color"
-              size={16}
-            />
+            // Always the Souvenir mark — every model is one of the 3
+            // Souvenir Muse tiers, never a raw third-party brand.
+            <SouvenirModelIcon size={16} />
           ) : (
             <AtomOneIcon size={16} />
           )
@@ -486,30 +444,6 @@ function ModelDropdown({
                 />
               </div>
 
-              {/* Provider tabs */}
-              {companies.length > 0 && (
-                <div style={{ flexShrink: 0 }}>
-                  <Tabs value={provider} onValueChange={setProvider}>
-                    <TabsList size="small" scrollable>
-                      <TabsTrigger value="all" icon={<AtomTwoIcon size={16} />}>All</TabsTrigger>
-                      {companies.map(company => {
-                        const rep   = models.find(m => m.companyName === company)
-                        const llmId = rep ? (getModelLlmId(rep.companyName, rep.modelName) ?? '') : ''
-                        return (
-                          <TabsTrigger
-                            key={company}
-                            value={company}
-                            icon={llmId ? <LlmIcon id={llmId} variant="color" size={16} /> : undefined}
-                          >
-                            {company}
-                          </TabsTrigger>
-                        )
-                      })}
-                    </TabsList>
-                  </Tabs>
-                </div>
-              )}
-
               {/* Model list */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: '1 0 0', minHeight: 0, width: '100%' }}>
                 {filtered.length > 0 ? (
@@ -520,34 +454,27 @@ function ModelDropdown({
                         onScroll={handleScroll}
                         style={{ position: 'absolute', inset: 0, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: 2 }}
                       >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          {groupedFiltered.map(({ company, items }) => (
-                            <div key={company} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                              <div style={{ ...MODEL_PICKER_CAPTION_STYLE, padding: '2px 8px 2px 34px' }}>
-                                {company}
-                              </div>
-                              {items.map(m => {
-                                const isSelected = !!selectedModel && (m.modelId ?? m.id) === (selectedModel.modelId ?? selectedModel.id)
-                                return (
-                                  <ModelSelectItem
-                                    key={String(m.modelId ?? m.id)}
-                                    role="button"
-                                    tabIndex={0}
-                                    aria-pressed={isSelected}
-                                    llm={getModelLlmId(m.companyName, m.modelName) ?? undefined}
-                                    label={m.modelName}
-                                    icons={modelTagBadges(m)}
-                                    info={modelInfoContent(m)}
-                                    alwaysShowInfo
-                                    infoMaxWidth={dropdownWidth}
-                                    selected={isSelected}
-                                    onClick={() => onSelect(m)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(m) } }}
-                                  />
-                                )
-                              })}
-                            </div>
-                          ))}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {sortedFiltered.map(m => {
+                            const isSelected = !!selectedModel && (m.modelId ?? m.id) === (selectedModel.modelId ?? selectedModel.id)
+                            return (
+                              <ModelSelectItem
+                                key={String(m.modelId ?? m.id)}
+                                role="button"
+                                tabIndex={0}
+                                aria-pressed={isSelected}
+                                image={<SouvenirModelIcon size={18} />}
+                                label={m.modelName}
+                                icons={modelTagBadges(m)}
+                                info={modelInfoContent(m)}
+                                alwaysShowInfo
+                                infoMaxWidth={dropdownWidth}
+                                selected={isSelected}
+                                onClick={() => onSelect(m)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(m) } }}
+                              />
+                            )
+                          })}
                         </div>
                       </div>
 
@@ -1333,6 +1260,7 @@ function PersonaConfigureInstructionsContent() {
       toast.success('Changes autosaved')
     } catch (err) {
       console.error('[InstructionsPage] auto-save error:', err)
+      toast.error('Failed to autosave changes')
     }
   }
 

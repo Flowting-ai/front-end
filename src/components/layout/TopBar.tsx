@@ -1,14 +1,12 @@
 ﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
-import Image from 'next/image';
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useProjects } from "@/context/projects-context";
-import { LlmIcon } from "@strange-huge/icons/llm";
-import { getModelLlmId } from "@/lib/model-icons";
 import { Button } from "@/components/Button";
+import { SouvenirModelIcon } from "@/components/SouvenirModelIcon";
 import { ArrowDownOneIcon, PenOneIcon } from "@strange-huge/icons";
 import { getPersona } from "@/lib/api/personas";
 import type { Persona } from "@/lib/api/personas";
@@ -125,13 +123,9 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
     return () => { cancelled = true; window.removeEventListener(MODELS_CACHE_BUSTED_EVENT, resolve); };
   }, [personaId]);
 
-  const modelLlmId = museActive
-    ? null
-    : getModelLlmId(selectedModel?.companyName, selectedModel?.modelName);
-
   const label = museActive
     ? museAdvanced
-      ? "Souvenir Muse (Advanced)"
+      ? "Souvenir Muse (Auto)"
       : "Souvenir Muse (Basic)"
     : selectedModel?.modelName ?? "Souvenir AI · Muse";
 
@@ -154,7 +148,9 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
       aria-expanded={isOpen && !personaActive}
     >
       <span style={{ display: "flex", alignItems: "center", gap: "8px", color: personaActive ? "var(--button-default-text-disabled)" : undefined }}>
-        {(museActive || modelLlmId) && (
+        {/* Always the Souvenir mark — every model behind this button is one
+            of the 3 Souvenir Muse tiers, never a raw third-party brand. */}
+        {(museActive || !!selectedModel) && (
           <span
             style={{
               width:          "16px",
@@ -167,16 +163,7 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
               justifyContent: "center",
             }}
           >
-            {museActive ? (
-              <Image src="/icons/souvenir-logo-white.svg" width={16} height={16} alt="" unoptimized style={{ display: "block" }} />
-            ) : (
-              <LlmIcon
-                id={modelLlmId!}
-                variant={modelLlmId === 'OpenAI' ? 'color' : 'avatar'}
-                size={16}
-                style={modelLlmId === 'OpenAI' ? { filter: 'brightness(0) invert(1)' } : undefined}
-              />
-            )}
+            <SouvenirModelIcon size={16} />
           </span>
         )}
         {label}
@@ -279,9 +266,6 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
 
             {/* Model tag — same visual as model selector button, no arrow, not interactive */}
             {(personaModel || persona?.modelId) && (() => {
-              const llmId     = personaModel
-                ? getModelLlmId(personaModel.companyName, personaModel.modelName)
-                : null;
               const modelName = personaModel?.modelName ?? "Model unavailable";
               return (
                 <Button
@@ -290,7 +274,8 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
                   disabled
                 >
                   <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    {llmId && (
+                    {/* Always the Souvenir mark — see modelSelectorButton above. */}
+                    {personaModel && (
                       <span
                         style={{
                           width:          "16px",
@@ -303,12 +288,7 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
                           justifyContent: "center",
                         }}
                       >
-                        <LlmIcon
-                          id={llmId}
-                          variant={llmId === "OpenAI" ? "color" : "avatar"}
-                          size={16}
-                          style={llmId === "OpenAI" ? { filter: "brightness(0) invert(1)" } : undefined}
-                        />
+                        <SouvenirModelIcon size={16} />
                       </span>
                     )}
                     {modelName}

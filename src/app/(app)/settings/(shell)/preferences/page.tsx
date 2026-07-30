@@ -113,10 +113,10 @@ const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
 export default function PreferencesPage() {
   const [mounted, setMounted] = useState(false)
   const [themeMode,           setThemeMode]           = useState<ThemeMode>('system')
-  useEffect(() => { setMounted(true) }, [])
-  if (!mounted) return <PreferencesSkeleton />
   const [tonePreset,          setTonePreset]          = useState<TonePreset>('Balanced')
   const [customInstructions,  setCustomInstructions]  = useState('')
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return <PreferencesSkeleton />
 
   return (
     <div

@@ -98,7 +98,7 @@ function ProjectsTab({ teamId, userId }: { teamId: string; userId: string }) {
     let cancelled = false
     fetchProjects()
       .then(all => { if (!cancelled) setProjects(all.filter(p => p.teamId === teamId)) })
-      .catch(console.error)
+      .catch(err => { console.error(err); toast.error('Failed to load projects') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [teamId])
@@ -199,7 +199,7 @@ function ConnectorsTab({ orgId, teamId, canLink }: { orgId: string; teamId: stri
   const reload = useCallback(() => {
     listTeamConnections(orgId, teamId)
       .then(setConnections)
-      .catch(console.error)
+      .catch(err => { console.error(err); toast.error('Failed to load connections') })
       .finally(() => setLoading(false))
   }, [orgId, teamId])
   useEffect(() => { reload() }, [reload])
@@ -366,7 +366,7 @@ function RequestsTab({ orgId, teamId }: { orgId: string; teamId: string }) {
         setRequests(reqs)
         setCatalog(cat.map(c => ({ slug: c.slug, displayName: c.display_name ?? c.slug })))
       })
-      .catch(console.error)
+      .catch(err => { console.error(err); toast.error('Failed to load requests') })
       .finally(() => setLoading(false))
   }, [orgId, teamId])
   useEffect(() => { reload() }, [reload])
@@ -515,7 +515,7 @@ function ActivityTab({ orgId, teamId }: { orgId: string; teamId: string }) {
     let cancelled = false
     listAudit(orgId, { limit: 50 })
       .then(rows => { if (!cancelled) setEntries(rows.filter(entry => belongsToTeam(entry, teamId))) })
-      .catch(console.error)
+      .catch(err => { console.error(err); toast.error('Failed to load activity') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [orgId, teamId])
@@ -593,7 +593,7 @@ function TeamEditorPageContent() {
     getTeam(orgId, teamId)
       .then(async t => {
         if (cancelled) return
-        if (!t.canEdit) { setDenied(true); router.replace(CHAT_ROUTE); return }
+        if (!t.canEdit) { toast.error("You don't have access to this team"); setDenied(true); router.replace(CHAT_ROUTE); return }
         setTeam(t)
         const isAdmin = currentUserRole === 'admin'
         if (isAdmin) {

@@ -8,23 +8,32 @@ import React, {
 } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import {
-  SearchOneIcon,
-  CancelOneIcon,
   AiVisionRecognitionIcon,
   ImageTwoIcon,
 } from "@strange-huge/icons";
-import { LlmIcon } from "@strange-huge/icons/llm";
-import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
 import { Popover } from "@/components/Popover";
 import { useModelSelectorContext } from "@/context/model-selector-context";
-import { getModelLlmId } from "@/lib/model-icons";
 import type { AIModel } from "@/types/ai-model";
 import { ModelSelectItem } from "@/components/ModelSelectItem";
+import { ModelFeaturedCard } from "@/components/ModelFeaturedCard";
+import { SouvenirModelIcon } from "@/components/SouvenirModelIcon";
 import { trackFeature } from "@/lib/analytics/events";
-import { InputField } from "@/components/InputField";
 import { Badge, type BadgeColor } from "@/components/Badge";
 import { Divider } from "@/components/Divider";
+
+// Basic → Standard → Advanced, regardless of whatever order the backend
+// returns the catalog in. Anything that doesn't match one of the 3 known
+// tier labels (shouldn't happen — see toSouvenirModelLabel) sorts last
+// instead of throwing, so an unexpected/future model still renders.
+const TIER_ORDER: Record<string, number> = {
+  "Souvenir Muse: Basic": 0,
+  "Souvenir Muse: Standard": 1,
+  "Souvenir Muse: Advanced": 2,
+};
+function tierRank(modelName: string): number {
+  return TIER_ORDER[modelName] ?? 99;
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -122,14 +131,6 @@ function modelInfoContent(model: AIModel): React.ReactNode {
       <Divider decorative />
 
       {modelInfoSection(
-        "Description",
-        "No information on this model yet.",
-        model.description ? <span>{model.description}</span> : null,
-      )}
-
-      <Divider decorative />
-
-      {modelInfoSection(
         "Reasoning effort",
         "No reasoning effort levels for this model yet.",
         hasEfforts ? (
@@ -150,10 +151,13 @@ interface PresetModelSelectorContentProps {
   models: AIModel[];
   selectedModel: AIModel | null;
   onSelect: (model: AIModel) => void;
-  /** Still needed to keep a model row from showing as "selected" while Muse
-   *  is active from elsewhere — this dialog no longer has its own Muse
-   *  toggle, but Muse itself hasn't been removed from the app. */
+  /** Whether the Muse auto-router is the active selection — drives both the
+   *  Muse card's own selected state and suppresses "selected" on every
+   *  manual tier row below it. */
   museActive: boolean;
+  /** Activates Muse in Auto mode (sets museActive + museAdvanced, closes the
+   *  dialog) — fired by the big Muse card at the top of the list. */
+  onSelectMuseAuto: () => void;
   /** Flip info tooltips to open leftward — set when the anchor trigger sits
    * near the right edge of the viewport (e.g. the project page's top-right
    * model button), leaving no room for them to open to the right. */
@@ -165,9 +169,9 @@ function PresetModelSelectorContent({
   selectedModel,
   onSelect,
   museActive,
+  onSelectMuseAuto,
   preferLeftTooltips,
 }: PresetModelSelectorContentProps) {
-  const [search, setSearch] = useState("");
   // Tracks the panel's own rendered width so each row's info tooltip can be
   // capped to match it (the dialog's width can shrink below DROPDOWN_WIDTH
   // via its `calc(100vw - 32px)` clamp on narrow viewports).
@@ -184,15 +188,10 @@ function PresetModelSelectorContent({
     return () => ro.disconnect();
   }, []);
 
-  // Filter models by search only — tier/category/provider tabs were removed.
-  const filtered = models.filter((m) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      m.modelName.toLowerCase().includes(q) ||
-      m.companyName.toLowerCase().includes(q)
-    );
-  });
+  // No search — just the 3 tiers, Basic → Standard → Advanced.
+  const filtered = [...models].sort(
+    (a, b) => tierRank(a.modelName) - tierRank(b.modelName),
+  );
 
   return (
     <div ref={containerRef} style={{ padding: "8px" }}>
@@ -203,34 +202,25 @@ function PresetModelSelectorContent({
           flexDirection: "column",
           gap: "16px",
           // No fixed height — the dialog now sizes to its actual content
-          // (search + however many rows match), instead of always reserving
-          // the same tall block regardless of result count. The scroll cap
-          // lives on the model list itself (MODEL_LIST_MAX_HEIGHT below).
+          // (however many rows match), instead of always reserving the same
+          // tall block regardless of result count. The scroll cap lives on
+          // the model list itself (MODEL_LIST_MAX_HEIGHT below).
         }}
       >
-        {/* ── Header: search ── */}
+        {/* ── Muse: Auto — the auto-routing framework, always shown above the
+             3 manual tiers. Selecting it deactivates a manual pick the same
+             way picking a manual tier deactivates Muse. ── */}
         <div style={{ width: "100%", flexShrink: 0 }}>
-          <InputField
-            size="small"
-            showLabel={false}
-            label="Search models"
-            showSubtitle={false}
-            leftIcon={<SearchOneIcon size={16} />}
-            rightIcon={search ? (
-              <IconButton
-                size="xs"
-                variant="ghost"
-                aria-label="Clear search"
-                icon={<CancelOneIcon size={12} />}
-                onClick={() => setSearch("")}
-              />
-            ) : undefined}
-            placeholder="Look up your model…"
-            value={search}
-            onChange={setSearch}
-            fluid
+          <ModelFeaturedCard
+            subtitle="Souvenir Muse"
+            title="Auto"
+            description="Automatically routes each message to the best-fit tier — Basic, Standard, or Advanced."
+            selected={museActive}
+            onSelectedChange={(next) => { if (next) onSelectMuseAuto(); }}
           />
         </div>
+
+        <Divider decorative />
 
         {/* ── Model list ── */}
         <div
@@ -273,7 +263,7 @@ function PresetModelSelectorContent({
                         role="button"
                         tabIndex={0}
                         aria-pressed={isSelected}
-                        llm={getModelLlmId(model.companyName, model.modelName) ?? undefined}
+                        image={<SouvenirModelIcon size={18} />}
                         label={model.modelName}
                         icons={<ModelModalityIcons model={model} />}
                         info={modelInfoContent(model)}
@@ -314,7 +304,7 @@ function PresetModelSelectorContent({
                 color: "var(--neutral-500)",
               }}
             >
-              {search ? `No models matching "${search}"` : "No models available"}
+              No models available
             </div>
           )}
         </div>
@@ -328,10 +318,10 @@ function PresetModelSelectorContent({
 // Worst-case rendered height of PresetModelSelectorContent, used only to decide
 // whether to flip the dropdown above the anchor when there isn't enough room
 // below. The dialog itself is fluid (no fixed height) — this is a conservative
-// upper estimate (search row + section header + MODEL_LIST_MAX_HEIGHT + gaps/
-// padding), so it stays safe even though the actual rendered height is usually
-// shorter.
-const DROPDOWN_HEIGHT = 16 /* outer padding */ + 40 /* search row */ + 16 /* gap */ + 30 /* section header */ + MODEL_LIST_MAX_HEIGHT;
+// upper estimate (outer padding + Muse featured card + divider + gaps +
+// MODEL_LIST_MAX_HEIGHT), so it stays safe even though the actual rendered
+// height is usually shorter.
+const DROPDOWN_HEIGHT = 16 /* outer padding */ + 110 /* Muse card */ + 16 /* gap */ + 9 /* divider */ + 16 /* gap */ + MODEL_LIST_MAX_HEIGHT;
 const DROPDOWN_WIDTH = 432;
 const GAP = 8;
 
@@ -344,7 +334,16 @@ export function PresetModelSelectorDialog() {
     anchorEl,
     close,
     museActive,
+    setMuseAdvanced,
   } = useModelSelectorContext();
+
+  // Auto is the only Muse mode reachable from this dialog — museAdvanced
+  // just means "Muse is in its one and only mode", not a separate tier.
+  const selectMuseAuto = () => {
+    trackFeature("model_selector_manual", { model_id: "muse-auto", model_type: "muse" });
+    setMuseAdvanced(true);
+    close();
+  };
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({});
@@ -456,6 +455,7 @@ export function PresetModelSelectorDialog() {
               selectedModel={selectedModel}
               onSelect={selectModel}
               museActive={museActive}
+              onSelectMuseAuto={selectMuseAuto}
               preferLeftTooltips={preferLeftTooltips}
             />
           </Popover>

@@ -13,6 +13,7 @@ import type { PinboardExpandedFolder } from "@/components/PinboardExpanded"
 import { exportSinglePin, exportPins } from "@/lib/export-pins"
 import { CHAT_ROUTE } from "@/lib/routes"
 import { createPinFolder, validateFolderName, movePinToFolder, renamePinFolder, deletePinFolder } from "@/lib/api/pins"
+import { toSouvenirModelLabel } from "@/lib/ai-models"
 import { Button } from "@/components/Button"
 import { IconButton } from "@/components/IconButton"
 import { InputField } from "@/components/InputField"
@@ -74,7 +75,7 @@ function toPinboardPin(
     comments:    item.comments as PinComment[] | undefined,
     labels: [
       ...tagLabels,
-      ...(item.modelName ? [{ color: "Neutral" as BadgeColor, text: item.modelName }] : []),
+      ...(item.modelName ? [{ color: "Neutral" as BadgeColor, text: toSouvenirModelLabel(item.modelName) }] : []),
     ],
     onExport,
     onDelete,
@@ -199,7 +200,7 @@ function RightSidebarImpl() {
 
   const handleDeleteSelected = useCallback(
     (pinIds: string[]) => {
-      for (const id of pinIds) removePin(id)
+      for (const id of pinIds) removePin(id, { silent: true })
       const count = pinIds.length
       toast(count === 1 ? "Pin deleted" : `Deleted ${count} pins`)
       setLastActivityAt(new Date())

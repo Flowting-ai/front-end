@@ -37,7 +37,8 @@ import { usePinboard, type PinItem, type PinCategory } from '@/context/pinboard-
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { exportSinglePin } from '@/lib/export-pins'
 import type { BadgeColor } from '@/components/Badge'
-import { createPinFolder, movePinToFolder, validateFolderName } from '@/lib/api/pins'
+import { createPinFolder, movePinToFolder, renamePinFolder, deletePinFolder, validateFolderName } from '@/lib/api/pins'
+import { toSouvenirModelLabel } from '@/lib/ai-models'
 import { toast } from 'sonner'
 import { EnterChunk, PINBOARD_EXPANDED_ENTER_DEFAULT } from './pinboardEnterAnimation'
 import { PinboardExpandedSkeleton } from '@/components/PinboardExpandedSkeleton'
@@ -123,7 +124,7 @@ function pinItemToKDS(
     chatName,
     labels: [
       ...tagLabels,
-      ...(item.modelName ? [{ color: 'Neutral' as BadgeColor, text: item.modelName }] : []),
+      ...(item.modelName ? [{ color: 'Neutral' as BadgeColor, text: toSouvenirModelLabel(item.modelName) }] : []),
     ],
     onExport,
     onDelete,
@@ -357,21 +358,48 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
     }
   }
 
-  const handleRenameFolder = (folderId: string) => {
+  const handleRenameFolder = async (folderId: string) => {
     const name = editingFolderName.trim()
     setEditingFolderId(null)
     if (!name) return
     const otherNames = folders.flatMap(f => f.id !== folderId ? [f.name] : [])
     const error = validateFolderName(name, otherNames)
     if (error) { toast.error(error); return }
+    const prevName = folders.find(f => f.id === folderId)?.name
+    // Optimistic update
     setFolders(prev => prev.map(f => f.id === folderId ? { ...f, name } : f))
     renameFolder(folderId, name)
+    try {
+      await renamePinFolder(folderId, name)
+    } catch (err) {
+      console.error('[PinboardExpanded] Failed to rename folder', folderId, err)
+      // Rollback on failure
+      if (prevName !== undefined) {
+        setFolders(prev => prev.map(f => f.id === folderId ? { ...f, name: prevName } : f))
+        renameFolder(folderId, prevName)
+      }
+      toast.error('Failed to rename folder.')
+    }
   }
 
-  const handleDeleteFolder = (folderId: string) => {
+  const handleDeleteFolder = async (folderId: string) => {
+    const folder = folders.find(f => f.id === folderId)
+    const affectedPins = pins.filter(p => p.folderId === folderId).map(p => ({ id: p.id, folderName: p.folderName }))
+    const prevActiveFolderId = activeFolderId
+    // Optimistic update
     setFolders(prev => prev.filter(f => f.id !== folderId))
     if (activeFolderId === folderId) setActiveFolderId('all')
     removeFolder(folderId)
+    try {
+      await deletePinFolder(folderId)
+    } catch (err) {
+      console.error('[PinboardExpanded] Failed to delete folder', folderId, err)
+      // Rollback on failure
+      if (folder) setFolders(prev => [...prev, folder])
+      setActiveFolderId(prevActiveFolderId)
+      for (const p of affectedPins) updatePinFolder(p.id, folderId, p.folderName)
+      toast.error('Failed to delete folder.')
+    }
   }
 
   // ── Pin tag operations ────────────────────────────────────────────────────
@@ -427,8 +455,10 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
   }
 
   const handleDeleteSelected = () => {
-    selectedPinIds.forEach(id => removePin(id))
+    const count = selectedPinIds.size
+    selectedPinIds.forEach(id => removePin(id, { silent: true }))
     setSelectedPinIds(new Set())
+    toast(count === 1 ? 'Pin deleted' : `Deleted ${count} pins`)
   }
 
   const handleExport = () => {

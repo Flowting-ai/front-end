@@ -333,6 +333,7 @@ function PersonaConfigureProfileContent() {
       toast.success('Changes autosaved')
     } catch (err) {
       console.error('[ProfilePage] auto-save error:', err)
+      toast.error('Failed to autosave changes')
     }
   }
 

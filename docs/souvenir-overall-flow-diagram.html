@@ -528,6 +528,10 @@
   .bug-badge.sev-toast { color: var(--hidden); }
   .bug-badge.sev-dead { color: var(--dead); }
   .bug-badge.sev-minor { color: var(--ink-faint); }
+  .bug-fixed-badge {
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .03em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 999px; color: #fff; background: #2D8F58;
+  }
   .bug-loc { font-family: var(--font-mono); font-size: 11px; color: var(--route-chip-fg); background: var(--route-chip-bg); padding: 2px 7px; border-radius: 5px; margin-left: auto; }
   .bug-desc { font-size: 12.8px; line-height: 1.55; color: var(--ink-mute); }
   .bug-desc code { font-family: var(--font-mono); font-size: 11.5px; }
@@ -765,7 +769,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">Hello: save failure silently strands the user</span>
+              <span class="bug-title">Hello: save failure silently strands the user</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">hello/page.tsx:149-167</span>
             </div>
             <p class="bug-desc"><code>handleContinue</code> has a <code>finally</code> but no <code>catch</code>. If <code>updateUser</code>/
@@ -784,7 +788,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">Team Invite Profile: identical silent-stuck failure</span>
+              <span class="bug-title">Team Invite Profile: identical silent-stuck failure</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">team/[inviteId]/profile/page.tsx:175-187</span>
             </div>
             <p class="bug-desc">Same pattern as Hello — try/<code>finally</code>, no <code>catch</code>, no toast. Compare against
@@ -802,7 +806,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">Workspace: org rename can fail with zero indication</span>
+              <span class="bug-title">Workspace: org rename can fail with zero indication</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">workspace/page.tsx:88-103</span>
             </div>
             <p class="bug-desc"><code>catch {}</code> around the org-rename call, comment says “non-fatal” — but the user’s company name
@@ -819,7 +823,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">Import: the individual path’s completion step fails silently</span>
+              <span class="bug-title">Import: the individual path’s completion step fails silently</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">import/page.tsx:93-97</span>
             </div>
             <p class="bug-desc"><code>catch (err) { console.error(...) }</code>, no toast. This is the completion step for the entire
@@ -836,7 +840,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">WelcomeModal: trial activation failure is invisible</span>
+              <span class="bug-title">WelcomeModal: trial activation failure is invisible</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">WelcomeModal.tsx:370-378</span>
             </div>
             <p class="bug-desc">Both failure branches of <code>handleStartTrial</code> (bad response status, thrown error) only
@@ -924,7 +928,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">Chats list never loads a second page</span>
+              <span class="bug-title">Chats list never loads a second page</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">chats/page.tsx + use-chat-history.ts</span>
             </div>
             <p class="bug-desc">The data hook exposes cursor-based <code>hasMore</code>/<code>loadMore</code>, but the page destructures only <code>{ chats, isLoading, rename, remove, removeLocal, star }</code> — never calls <code>loadMore</code>. Despite using a virtualizer (typically paired with infinite scroll), only the first page of chats can ever be seen from this list.</p>
@@ -940,7 +944,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">A failed send just makes the message disappear</span>
+              <span class="bug-title">A failed send just makes the message disappear</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">ChatInterface.tsx — handleSend</span>
             </div>
             <p class="bug-desc"><code>catch { rollbackLast(2) }</code> — removes the optimistic user message and loading placeholder with no toast, no log, no explanation. The user sees their message vanish.</p>
@@ -956,7 +960,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">Denied microphone permission is invisible</span>
+              <span class="bug-title">Denied microphone permission is invisible</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">ChatInput.tsx — startRecording</span>
             </div>
             <p class="bug-desc">Permission failure is caught silently; the mic button just resets to its idle state with no indication of what went wrong or how to fix it.</p>
@@ -972,7 +976,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">A failed “Active shares” fetch is invisible</span>
+              <span class="bug-title">A failed “Active shares” fetch is invisible</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">ChatShareOverlay.tsx</span>
             </div>
             <p class="bug-desc"><code>.catch(console.error)</code> only — every other action in this same component (create/revoke/copy) shows a toast on failure; this one just leaves the list empty with no indication anything went wrong.</p>
@@ -1089,7 +1093,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">Projects list: scope tab can drift from the URL</span>
+              <span class="bug-title">Projects list: scope tab can drift from the URL</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">projects/page.tsx</span>
             </div>
             <p class="bug-desc"><code>?scope=</code> is read only once at mount (a <code>useState</code> initializer) and written via
@@ -1108,7 +1112,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">New Project: Back icon and Cancel button exit differently</span>
+              <span class="bug-title">New Project: Back icon and Cancel button exit differently</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">projects/new/page.tsx</span>
             </div>
             <p class="bug-desc">The top-left Back icon hard-navigates to <code>/projects</code>. The footer’s “Cancel” button instead
@@ -1126,7 +1130,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">New Project: an invalid <code>?teamId=</code> fails without a word</span>
+              <span class="bug-title">New Project: an invalid <code>?teamId=</code> fails without a word</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">projects/new/page.tsx</span>
             </div>
             <p class="bug-desc">If the pre-seeded team id doesn’t match an editable, non-archived team, the effect’s condition just fails
@@ -1143,7 +1147,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">Agents panel: a fetch failure just looks like “no agents”</span>
+              <span class="bug-title">Agents panel: a fetch failure just looks like “no agents”</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">ProjectAgentsPanel/index.tsx</span>
             </div>
             <p class="bug-desc">On fetch failure the component sets an empty agent list with no toast and no visible error text — it
@@ -1160,7 +1164,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">Team panel: roster load failure is console-only</span>
+              <span class="bug-title">Team panel: roster load failure is console-only</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">ProjectTeamPanel/index.tsx</span>
             </div>
             <p class="bug-desc">A failed <code>listTeamEditors</code> call is caught and logged only — the panel resolves straight to
@@ -1177,7 +1181,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">Members panel: “Remove” gives no success confirmation</span>
+              <span class="bug-title">Members panel: “Remove” gives no success confirmation</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">ProjectMembersPanel/index.tsx</span>
             </div>
             <p class="bug-desc"><code>handleAdd</code> shows <code>toast.success('Member added to project')</code>, but the matching
@@ -1272,7 +1276,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">Cross-chat jump can report success when it only reached the message</span>
+              <span class="bug-title">Cross-chat jump can report success when it only reached the message</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">layout/HighlightSidebar.tsx</span>
             </div>
             <p class="bug-desc">The two-phase poll (message element, then highlight mark) caps at ~10s combined and falls back to
@@ -1291,7 +1295,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">Selection-popover Copy never confirms, unlike the saved-highlight Copy</span>
+              <span class="bug-title">Selection-popover Copy never confirms, unlike the saved-highlight Copy</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">chat/ChatMessage.tsx (handleCopySelection)</span>
             </div>
             <p class="bug-desc">Copying a raw text selection from the popover writes to the clipboard with no success or failure toast.
@@ -1348,7 +1352,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">Category/folder edits are local-only despite matching API endpoints existing</span>
+              <span class="bug-title">Category/folder edits are local-only despite matching API endpoints existing</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">context/pinboard-context.tsx</span>
             </div>
             <p class="bug-desc"><code>updatePinCategory</code>, <code>updatePinFolder</code>, <code>addFolder</code>, <code>removeFolder</code>,
@@ -1368,7 +1372,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">Deleting or duplicating a single pin gives no confirmation</span>
+              <span class="bug-title">Deleting or duplicating a single pin gives no confirmation</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">context/pinboard-context.tsx</span>
             </div>
             <p class="bug-desc"><code>removePin</code>/<code>removePinByMessage</code> fire-and-forget the delete API call with no toast
@@ -1385,7 +1389,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">export-pins.ts has no unescaped-content or popup-failure feedback</span>
+              <span class="bug-title">export-pins.ts has no unescaped-content or popup-failure feedback</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">lib/export-pins.ts</span>
             </div>
             <p class="bug-desc">Pin title/content/tags/chat-name are interpolated into the export HTML without escaping — low risk since
@@ -1476,7 +1480,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">Tab-switch autosave failures are console-only, on every configure tab</span>
+              <span class="bug-title">Tab-switch autosave failures are console-only, on every configure tab</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">Instructions / Profile / Knowledge / Connectors / Sharing pages</span>
             </div>
             <p class="bug-desc">Every tab’s registered autosave shows <code>toast.success('Changes autosaved')</code> on success but only
@@ -1494,7 +1498,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">Profile avatar: non-image files are rejected with no message</span>
+              <span class="bug-title">Profile avatar: non-image files are rejected with no message</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">agent/configure/components/ProfileTab.tsx</span>
             </div>
             <p class="bug-desc"><code>if (!file.type.startsWith("image/")) return;</code> — a non-image drop/paste/pick just does nothing, no error toast telling the user why.</p>
@@ -1627,7 +1631,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">TeamScopedAccountModal shows “connected” after an OAuth timeout it just warned about</span>
+              <span class="bug-title">TeamScopedAccountModal shows “connected” after an OAuth timeout it just warned about</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">org/connectors/page.tsx</span>
             </div>
             <p class="bug-desc">On OAuth timeout, the catch block shows <code>toast.warning('OAuth flow timed out...')</code> — but
@@ -1646,7 +1650,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">Activity Log’s subtitle claims role-scoped data that doesn’t exist</span>
+              <span class="bug-title">Activity Log’s subtitle claims role-scoped data that doesn’t exist</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">org/activity/page.tsx</span>
             </div>
             <p class="bug-desc">Copy switches between “All workspace actions across all members” (admin) and “Your activity in this
@@ -1664,7 +1668,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">A member can vanish from the UI with no API call at all</span>
+              <span class="bug-title">A member can vanish from the UI with no API call at all</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">org/members/page.tsx</span>
             </div>
             <p class="bug-desc"><code>handleRemove</code>/<code>handleRevokeInvite</code> run their optimistic local removal, THEN check
@@ -1682,7 +1686,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">Role-change cleanup failures are fully swallowed, not even logged</span>
+              <span class="bug-title">Role-change cleanup failures are fully swallowed, not even logged</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">org/members/page.tsx (handleManageRole)</span>
             </div>
             <p class="bug-desc">Every <code>removeTeamEditor</code>/<code>removeProjectMember</code> cleanup call inside a role change
@@ -1700,7 +1704,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Contradictory toasts</span>
-              <span class="bug-title">AddSharedAccountModal can stack a warning and a success toast for the same action</span>
+              <span class="bug-title">AddSharedAccountModal can stack a warning and a success toast for the same action</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">org/connectors/page.tsx</span>
             </div>
             <p class="bug-desc">On OAuth timeout with teams selected, a warning toast fires (correctly — the connection didn’t
@@ -1884,7 +1888,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">A plain team member gets bounced from /teams/[teamId] with zero feedback</span>
+              <span class="bug-title">A plain team member gets bounced from /teams/[teamId] with zero feedback</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">teams/[teamId]/page.tsx</span>
             </div>
             <p class="bug-desc">The <code>canEdit</code> gate redirects to <code>/chat</code> before first paint on failure — no toast,
@@ -1902,7 +1906,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-toast">Missing toast</span>
-              <span class="bug-title">Every read/list failure across the 4 team-settings tabs is console-only</span>
+              <span class="bug-title">Every read/list failure across the 4 team-settings tabs is console-only</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">teams/[teamId]/page.tsx</span>
             </div>
             <p class="bug-desc">Mutating actions (create project, link/unlink account, send request) all toast both ways — but the
@@ -2005,7 +2009,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">The org entry point is missing an analytics call the settings entry point has</span>
+              <span class="bug-title">The org entry point is missing an analytics call the settings entry point has</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">(standalone)/org/change-plan/page.tsx</span>
             </div>
             <p class="bug-desc"><code>trackBrowserEvent('checkout_started', {...})</code> fires in both handlers of
@@ -2082,7 +2086,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">Preferences violates React’s rules of hooks</span>
+              <span class="bug-title">Preferences violates React’s rules of hooks</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">settings/preferences/page.tsx</span>
             </div>
             <p class="bug-desc">Two <code>useState</code> calls execute unconditionally, then an early <code>if (!mounted) return
@@ -2102,7 +2106,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug</span>
-              <span class="bug-title">Notifications’ “Mute all” can desync a switch the UI says is permanently locked</span>
+              <span class="bug-title">Notifications’ “Mute all” can desync a switch the UI says is permanently locked</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">settings/notifications/page.tsx</span>
             </div>
             <p class="bug-desc">The Billing card’s bulk “Mute all” sets <code>email: false</code> for every id in its group, including
@@ -2864,7 +2868,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">Hello: save failure silently strands the user</span>
+            <span class="bug-title">Hello: save failure silently strands the user</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">hello/page.tsx:149-167</span>
           </div>
           <p class="bug-desc">
@@ -2879,7 +2883,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">Team Invite Profile: identical silent-stuck failure</span>
+            <span class="bug-title">Team Invite Profile: identical silent-stuck failure</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">team/[inviteId]/profile/page.tsx:175-187</span>
           </div>
           <p class="bug-desc">
@@ -2900,7 +2904,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">Workspace: org rename can fail with zero indication</span>
+            <span class="bug-title">Workspace: org rename can fail with zero indication</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">workspace/page.tsx:88-103</span>
           </div>
           <p class="bug-desc">
@@ -2913,7 +2917,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">Import: the individual path’s completion step fails silently</span>
+            <span class="bug-title">Import: the individual path’s completion step fails silently</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">import/page.tsx:93-97</span>
           </div>
           <p class="bug-desc">
@@ -2926,7 +2930,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">WelcomeModal: trial activation failure is invisible</span>
+            <span class="bug-title">WelcomeModal: trial activation failure is invisible</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">WelcomeModal.tsx:370-378</span>
           </div>
           <p class="bug-desc">
@@ -3571,7 +3575,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">Chats list never loads a second page</span>
+            <span class="bug-title">Chats list never loads a second page</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">chats/page.tsx + use-chat-history.ts</span>
           </div>
           <p class="bug-desc">The data hook exposes cursor-based <code>hasMore</code>/<code>loadMore</code>, but the page destructures only <code>{ chats, isLoading, rename, remove, removeLocal, star }</code> — never calls <code>loadMore</code>. Despite using a virtualizer (typically paired with infinite scroll), only the first page of chats can ever be seen from this list.</p>
@@ -3586,7 +3590,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">A failed send just makes the message disappear</span>
+            <span class="bug-title">A failed send just makes the message disappear</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">ChatInterface.tsx — handleSend</span>
           </div>
           <p class="bug-desc"><code>catch { rollbackLast(2) }</code> — removes the optimistic user message and loading placeholder with no toast, no log, no explanation. The user sees their message vanish.</p>
@@ -3595,7 +3599,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">Denied microphone permission is invisible</span>
+            <span class="bug-title">Denied microphone permission is invisible</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">ChatInput.tsx — startRecording</span>
           </div>
           <p class="bug-desc">Permission failure is caught silently; the mic button just resets to its idle state with no indication of what went wrong or how to fix it.</p>
@@ -3604,7 +3608,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">A failed “Active shares” fetch is invisible</span>
+            <span class="bug-title">A failed “Active shares” fetch is invisible</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">ChatShareOverlay.tsx</span>
           </div>
           <p class="bug-desc"><code>.catch(console.error)</code> only — every other action in this same component (create/revoke/copy) shows a toast on failure; this one just leaves the list empty with no indication anything went wrong.</p>
@@ -4319,7 +4323,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">Projects list: scope tab can drift from the URL</span>
+            <span class="bug-title">Projects list: scope tab can drift from the URL</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">projects/page.tsx</span>
           </div>
           <p class="bug-desc">
@@ -4334,7 +4338,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">New Project: Back icon and Cancel button exit differently</span>
+            <span class="bug-title">New Project: Back icon and Cancel button exit differently</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">projects/new/page.tsx</span>
           </div>
           <p class="bug-desc">
@@ -4355,7 +4359,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">New Project: an invalid <code>?teamId=</code> fails without a word</span>
+            <span class="bug-title">New Project: an invalid <code>?teamId=</code> fails without a word</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">projects/new/page.tsx</span>
           </div>
           <p class="bug-desc">
@@ -4368,7 +4372,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">Agents panel: a fetch failure just looks like “no agents”</span>
+            <span class="bug-title">Agents panel: a fetch failure just looks like “no agents”</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">ProjectAgentsPanel/index.tsx</span>
           </div>
           <p class="bug-desc">
@@ -4381,7 +4385,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">Team panel: roster load failure is console-only</span>
+            <span class="bug-title">Team panel: roster load failure is console-only</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">ProjectTeamPanel/index.tsx</span>
           </div>
           <p class="bug-desc">
@@ -4394,7 +4398,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">Members panel: “Remove” gives no success confirmation</span>
+            <span class="bug-title">Members panel: “Remove” gives no success confirmation</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">ProjectMembersPanel/index.tsx</span>
           </div>
           <p class="bug-desc">
@@ -4762,7 +4766,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">Cross-chat jump can report success when it only reached the message</span>
+            <span class="bug-title">Cross-chat jump can report success when it only reached the message</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">layout/HighlightSidebar.tsx</span>
           </div>
           <p class="bug-desc">
@@ -4782,7 +4786,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">Selection-popover Copy never confirms, unlike the saved-highlight Copy</span>
+            <span class="bug-title">Selection-popover Copy never confirms, unlike the saved-highlight Copy</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">chat/ChatMessage.tsx (handleCopySelection)</span>
           </div>
           <p class="bug-desc">
@@ -5190,7 +5194,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">Category/folder edits are local-only despite matching API endpoints existing</span>
+            <span class="bug-title">Category/folder edits are local-only despite matching API endpoints existing</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">context/pinboard-context.tsx</span>
           </div>
           <p class="bug-desc">
@@ -5211,7 +5215,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">Deleting or duplicating a single pin gives no confirmation</span>
+            <span class="bug-title">Deleting or duplicating a single pin gives no confirmation</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">context/pinboard-context.tsx</span>
           </div>
           <p class="bug-desc">
@@ -5223,7 +5227,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">export-pins.ts has no unescaped-content or popup-failure feedback</span>
+            <span class="bug-title">export-pins.ts has no unescaped-content or popup-failure feedback</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">lib/export-pins.ts</span>
           </div>
           <p class="bug-desc">
@@ -5809,7 +5813,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">Tab-switch autosave failures are console-only, on every configure tab</span>
+            <span class="bug-title">Tab-switch autosave failures are console-only, on every configure tab</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">Instructions / Profile / Knowledge / Connectors / Sharing pages</span>
           </div>
           <p class="bug-desc">
@@ -5822,7 +5826,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">Profile avatar: non-image files are rejected with no message</span>
+            <span class="bug-title">Profile avatar: non-image files are rejected with no message</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">agent/configure/components/ProfileTab.tsx</span>
           </div>
           <p class="bug-desc"><code>if (!file.type.startsWith("image/")) return;</code> — a non-image drop/paste/pick just does nothing, no error toast telling the user why.</p>
@@ -6308,7 +6312,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">TeamScopedAccountModal shows “connected” after an OAuth timeout it just warned about</span>
+            <span class="bug-title">TeamScopedAccountModal shows “connected” after an OAuth timeout it just warned about</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">org/connectors/page.tsx</span>
           </div>
           <p class="bug-desc">
@@ -6323,7 +6327,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">Activity Log’s subtitle claims role-scoped data that doesn’t exist</span>
+            <span class="bug-title">Activity Log’s subtitle claims role-scoped data that doesn’t exist</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">org/activity/page.tsx</span>
           </div>
           <p class="bug-desc">
@@ -6337,7 +6341,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">A member can vanish from the UI with no API call at all</span>
+            <span class="bug-title">A member can vanish from the UI with no API call at all</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">org/members/page.tsx</span>
           </div>
           <p class="bug-desc">
@@ -6358,7 +6362,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">Role-change cleanup failures are fully swallowed, not even logged</span>
+            <span class="bug-title">Role-change cleanup failures are fully swallowed, not even logged</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">org/members/page.tsx (handleManageRole)</span>
           </div>
           <p class="bug-desc">
@@ -6372,7 +6376,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Contradictory toasts</span>
-            <span class="bug-title">AddSharedAccountModal can stack a warning and a success toast for the same action</span>
+            <span class="bug-title">AddSharedAccountModal can stack a warning and a success toast for the same action</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">org/connectors/page.tsx</span>
           </div>
           <p class="bug-desc">
@@ -6772,7 +6776,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">A plain team member gets bounced from /teams/[teamId] with zero feedback</span>
+            <span class="bug-title">A plain team member gets bounced from /teams/[teamId] with zero feedback</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">teams/[teamId]/page.tsx</span>
           </div>
           <p class="bug-desc">
@@ -6791,7 +6795,7 @@
         <div class="bug-card sev-toast">
           <div class="bug-head">
             <span class="bug-badge sev-toast">Missing toast</span>
-            <span class="bug-title">Every read/list failure across the 4 team-settings tabs is console-only</span>
+            <span class="bug-title">Every read/list failure across the 4 team-settings tabs is console-only</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">teams/[teamId]/page.tsx</span>
           </div>
           <p class="bug-desc">
@@ -7084,7 +7088,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">The org entry point is missing an analytics call the settings entry point has</span>
+            <span class="bug-title">The org entry point is missing an analytics call the settings entry point has</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">(standalone)/org/change-plan/page.tsx</span>
           </div>
           <p class="bug-desc">
@@ -7547,7 +7551,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">Preferences violates React’s rules of hooks</span>
+            <span class="bug-title">Preferences violates React’s rules of hooks</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">settings/preferences/page.tsx</span>
           </div>
           <p class="bug-desc">
@@ -7563,7 +7567,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug</span>
-            <span class="bug-title">Notifications’ “Mute all” can desync a switch the UI says is permanently locked</span>
+            <span class="bug-title">Notifications’ “Mute all” can desync a switch the UI says is permanently locked</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">settings/notifications/page.tsx</span>
           </div>
           <p class="bug-desc">
@@ -7686,8 +7690,33 @@
   var overlay = document.getElementById('bugs-tracker-overlay');
   var totalCount = 81;
 
+  // Fixed in the pass that went through this doc's Real-bugs + Missing-toast tiers.
+  // Seeded into localStorage on first-ever visit only — after that this file behaves
+  // exactly as before, and any manual toggle (including un-resolving one of these) sticks.
+  var BASELINE_RESOLVED = [
+    's1-01','s1-02','s1-03','s1-04','s1-05',
+    's2-01','s2-02','s2-03','s2-04',
+    's3-01','s3-02','s3-03','s3-04','s3-05','s3-06',
+    's4-01','s4-02',
+    's5-01','s5-02','s5-03',
+    's6-02','s6-03',
+    's7-01','s7-02','s7-03','s7-04','s7-05',
+    's8-01','s8-02',
+    's9-01',
+    's10-02','s10-03'
+  ];
+
   function loadResolved() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { return {}; }
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw === null) {
+        var seeded = {};
+        BASELINE_RESOLVED.forEach(function (id) { seeded[id] = true; });
+        saveResolved(seeded);
+        return seeded;
+      }
+      return JSON.parse(raw || '{}');
+    } catch (e) { return {}; }
   }
   function saveResolved(map) {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(map)); } catch (e) {}

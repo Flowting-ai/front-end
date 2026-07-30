@@ -8,7 +8,6 @@ import {
   ArrowLeftOneIcon,
   UserAiIcon,
   AbacusIcon,
-  NeuralNetworkIcon,
   FolderOneIcon,
   LinkSixIcon,
 } from '@strange-huge/icons'
@@ -26,7 +25,7 @@ import { useOrg } from '@/context/org-context'
 import { useSettingsGuard } from '@/context/settings-guard-context'
 import { useMounted } from '@/hooks/use-mounted'
 import { toast } from 'sonner'
-import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_BILLING_ROUTE, SETTINGS_AI_ROUTE, SETTINGS_CONNECTORS_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
+import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_BILLING_ROUTE, SETTINGS_CONNECTORS_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
 
 // -- Item stagger animation - same three-layer pattern as LeftSidebar/Sidebar --
 const sectionStaggerVariants = {
@@ -47,7 +46,7 @@ const MY_SETTINGS_ITEMS = [
   { id: 'account',       label: 'Account',         href: SETTINGS_ACCOUNT_ROUTE,    icon: <UserAiIcon        size={20} />, disabled: false },
   { id: 'billing',       label: 'Usage & Billing',  href: SETTINGS_BILLING_ROUTE,    icon: <AbacusIcon        size={20} />, disabled: false },
   // { id: 'files',         label: 'Files & Data',     href: '/settings/files',         icon: <FolderLibraryIcon size={20} />, disabled: true  },
-  { id: 'ai',            label: 'AI & Models',      href: SETTINGS_AI_ROUTE,         icon: <NeuralNetworkIcon size={20} />, disabled: false },
+  // { id: 'ai',            label: 'AI & Models',      href: SETTINGS_AI_ROUTE,         icon: <NeuralNetworkIcon size={20} />, disabled: false },
   // { id: 'notifications', label: 'Notifications',    href: '/settings/notifications', icon: <BubbleChatIcon    size={20} />, disabled: true  },
   // { id: 'preferences',   label: 'Preference',       href: '/settings/preferences',   icon: <FolderOneIcon     size={20} />, disabled: true  },
   // { id: 'security',      label: 'Security',         href: '/settings/security',      icon: <FolderOneIcon     size={20} />, disabled: true  },

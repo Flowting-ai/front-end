@@ -6,6 +6,7 @@ import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
 import { m, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/lib/api/client";
+import { toast } from "sonner";
 import { STRIPE_TRIAL_ENDPOINT } from "@/lib/config";
 import { SETTINGS_BILLING_CHANGE_PLAN_ROUTE } from "@/lib/routes";
 
@@ -372,9 +373,11 @@ function WelcomeModalImpl() {
         setStep("credits-added");
       } else {
         console.error("[WelcomeModal] Trial activation failed", res.status);
+        toast.error("Couldn't start your free trial — please try again.");
       }
     } catch (err) {
       console.error("[WelcomeModal] Trial activation error", err);
+      toast.error("Couldn't start your free trial — please try again.");
     } finally {
       setTrialLoading(false);
     }

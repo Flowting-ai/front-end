@@ -187,6 +187,15 @@ interface ChatInterfaceProps {
   /** Readable shared chat whose original is owned by somebody else. */
   readOnly?: boolean;
   /**
+   * True only once the caller has positively confirmed (e.g. via the chat
+   * list's own `can_edit` field) that this chat belongs to the current user.
+   * `undefined`/omitted means "unknown" (e.g. this chat hasn't loaded into
+   * the sidebar's chat-history list yet) — NOT the same as `false`. Gates
+   * whether the streaming hook is allowed to bypass the proxy and hit the
+   * backend directly; see `chatOwnershipConfirmed` in use-streaming-chat.ts.
+   */
+  chatOwnershipConfirmed?: boolean;
+  /**
    * When true, model_selected SSE events are ignored so the agent's pre-seeded
    * model is not overwritten by the backend during streaming. Pass when a persona
    * is active so the model name/logo in the reasoning section stays correct.
@@ -227,6 +236,7 @@ export function ChatInterface({
   loadMessages,
   hidePinActions = false,
   readOnly = false,
+  chatOwnershipConfirmed,
   skipModelSelected,
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
@@ -383,7 +393,7 @@ export function ChatInterface({
       let complexity: string | undefined;
       if (isMuse) {
         complexity = museAdvanced ? 'advanced' : 'basic';
-        modelName  = museAdvanced ? 'Souvenir Muse (Advanced)' : 'Souvenir Muse (Basic)';
+        modelName  = museAdvanced ? 'Souvenir Muse (Auto)' : 'Souvenir Muse (Basic)';
         modelId    = `muse-${complexity}`;
         company    = 'Souvenir';
       } else {
@@ -835,6 +845,7 @@ export function ChatInterface({
         temperature: selectedPersonaTemperature ?? undefined,
         toneId: selectedStyleId ?? undefined,
         connectorSlugs: connectorSlugs && connectorSlugs.length > 0 ? connectorSlugs : undefined,
+        chatOwnershipConfirmed,
         onUploadProgress: allFiles.length > 0 ? (pct) => {
           setMessages((prev) => prev.map((msg) =>
             msg.id !== userMsgId ? msg : {
@@ -850,6 +861,7 @@ export function ChatInterface({
       });
     } catch {
       rollbackLast(2);
+      toast.error("Failed to send message. Please try again.");
     } finally {
       isSendingRef.current = false;
     }
@@ -889,7 +901,7 @@ export function ChatInterface({
       chatId ?? null,
       loadingId,
       algorithm ? null : selectedModelId,
-      algorithm ? { algorithm } : undefined,
+      { ...(algorithm ? { algorithm } : {}), chatOwnershipConfirmed },
     ).finally(() => {
       isSendingRef.current = false;
     });
@@ -963,6 +975,7 @@ export function ChatInterface({
       temperature: selectedPersonaTemperature ?? undefined,
       toneId: selectedStyleId ?? undefined,
       connectorSlugs: connectorSlugs && connectorSlugs.length > 0 ? connectorSlugs : undefined,
+      chatOwnershipConfirmed,
       ...(replaceMessageId ? { replaceMessageId } : {}),
     })
   }

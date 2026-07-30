@@ -119,6 +119,7 @@ function PersonaConfigureSharingContent() {
       toast.success('Changes autosaved')
     } catch (err) {
       console.error('[SharingPage] auto-save error:', err)
+      toast.error('Failed to autosave changes')
     }
   }
 

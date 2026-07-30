@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Suspense, useEffect, useMemo, useState } from 'react'
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { ArrowDownOneIcon, ArrowLeftOneIcon } from '@strange-huge/icons'
@@ -13,10 +13,10 @@ import { useOrg } from '@/context/org-context'
 import { PROJECT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 
 function NewProjectPageInner() {
-  const { push, back }                    = useRouter()
+  const { push }                           = useRouter()
   const searchParams                      = useSearchParams()
   const { projects, createProject }       = useProjects()
-  const { orgId, teams } = useOrg()
+  const { orgId, teams, teamsLoading } = useOrg()
   const [name,         setName]           = useState('')
   const [description,  setDescription]   = useState('')
   const [loading,      setLoading]        = useState(false)
@@ -29,12 +29,19 @@ function NewProjectPageInner() {
   const editableTeams = useMemo(() => teams.filter(team => !team.archived && team.canEdit), [teams])
   const canCreateTeamProject = Boolean(orgId && editableTeams.length > 0)
   const requestedTeamId = searchParams.get('teamId') ?? ''
+  const requestedTeamWarnedRef = useRef(false)
 
   useEffect(() => {
-    if (requestedTeamId && editableTeams.some(team => team.id === requestedTeamId)) {
+    // Wait for teams to finish loading before judging the requested id —
+    // otherwise a still-empty `teams` list would look like a rejection.
+    if (!requestedTeamId || teamsLoading) return
+    if (editableTeams.some(team => team.id === requestedTeamId)) {
       setTeamId(requestedTeamId)
+    } else if (!requestedTeamWarnedRef.current) {
+      requestedTeamWarnedRef.current = true
+      toast.warning("Couldn't preselect that team", { description: 'The requested team is unavailable or not editable, so this project will default to Private.' })
     }
-  }, [editableTeams, requestedTeamId])
+  }, [editableTeams, requestedTeamId, teamsLoading])
 
   async function handleCreate() {
     if (!name.trim()) return
@@ -246,7 +253,7 @@ function NewProjectPageInner() {
 
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-          <Button variant="ghost" onClick={() => back()}>
+          <Button variant="ghost" onClick={() => push(PROJECTS_ROUTE)}>
             Cancel
           </Button>
           <Button

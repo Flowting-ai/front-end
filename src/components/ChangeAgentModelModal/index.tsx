@@ -10,8 +10,8 @@ import { stableKey } from '@/hooks/use-model-selection'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
+import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
 import { fetchModelsWithCache } from '@/lib/ai-models'
-import { getModelLlmId } from '@/lib/model-icons'
 import { updateVersion } from '@/lib/api/personas'
 import type { AIModel } from '@/types/ai-model'
 
@@ -190,7 +190,7 @@ export function ChangeAgentModelModal({
                         role="button"
                         tabIndex={0}
                         aria-pressed={isSelected}
-                        llm={getModelLlmId(model.companyName, model.modelName) ?? undefined}
+                        image={<SouvenirModelIcon size={18} />}
                         label={model.modelName}
                         selected={isSelected}
                         onClick={() => setSelectedId(key)}

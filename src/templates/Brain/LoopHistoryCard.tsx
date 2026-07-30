@@ -11,6 +11,7 @@ import {
 } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
 import { ModelLogo } from '@/components/chat/ReasoningBlock'
+import { toSouvenirModelLabel } from '@/lib/ai-models'
 import type { PlanStep } from './lib/phase'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ function StepRow({ step }: { step: PlanStep }) {
               }}
               size={12}
             />
-            {step.modelName}
+            {toSouvenirModelLabel(step.modelName)}
           </span>
         )}
       </div>

@@ -135,6 +135,7 @@ function PersonaConfigureConnectorsContent() {
       toast.success('Changes autosaved')
     } catch (err) {
       console.error('[ConnectorsPage] auto-save error:', err)
+      toast.error('Failed to autosave changes')
     }
   }
 

@@ -693,7 +693,7 @@ function ChatPageInner() {
 
   const modelButtonLabel = museActive
     ? museAdvanced
-      ? "Souvenir AI Muse (Advanced)"
+      ? "Souvenir AI Muse (Auto)"
       : "Souvenir AI Muse (Basic)"
     : selectedModel?.modelName;
 
@@ -728,7 +728,7 @@ function ChatPageInner() {
       setActiveChatId(liveId);
       setHasMessages(!!liveId);
       setInitialPrompt(null);
-      // Reset to Souvenir Muse Advanced whenever switching to a new chat
+      // Reset to Souvenir Muse Auto whenever switching to a new chat
       if (!liveId) setMuseAdvanced(true);
     }
   }, [chatIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1113,6 +1113,7 @@ function ChatPageInner() {
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
               scrollToMessageId={msgFromUrl}
               readOnly={activeChatReadOnly}
+              chatOwnershipConfirmed={activeChatRecord?.can_edit === true}
             />
           </m.div>
         )}

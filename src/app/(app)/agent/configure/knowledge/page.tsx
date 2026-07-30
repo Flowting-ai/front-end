@@ -440,6 +440,7 @@ function PersonaConfigureKnowledgeContent() {
       toast.success('Changes autosaved')
     } catch (err) {
       console.error('[KnowledgePage] auto-save error:', err)
+      toast.error('Failed to autosave changes')
     }
   }
 

@@ -8,6 +8,7 @@ import { useTeamInviteOnboarding } from "@/context/team-invite-onboarding-contex
 import { InputField } from "@/components/InputField";
 import { Dropdown, DropdownFloat } from "@/components/Dropdown";
 import { createUser, updateUser, updateOnboarding } from "@/lib/api/user";
+import { toast } from "sonner";
 import { OnboardingScreen, OnboardingFooter } from "../../../_components/onboarding-shell";
 import { InviteStateScreen } from "../_components/invite-ui";
 import { CHAT_ROUTE, AUTH_LOGIN_ROUTE, ONBOARDING_TEAM_CONFIRM_ROUTE, ONBOARDING_TEAM_JOIN_ROUTE } from "@/lib/routes";
@@ -180,10 +181,13 @@ export default function TeamInviteProfilePage() {
         updateUser({ first_name: firstValue.trim(), last_name: lastValue.trim() }),
         updateOnboarding({ user_role: role }),
       ]);
+      push(isStandalone ? CHAT_ROUTE : ONBOARDING_TEAM_CONFIRM_ROUTE(params.inviteId));
+    } catch (err) {
+      console.error("Onboarding submission failed", err);
+      toast.error("Something went wrong — please try again.");
     } finally {
       setIsSaving(false);
     }
-    push(isStandalone ? CHAT_ROUTE : ONBOARDING_TEAM_CONFIRM_ROUTE(params.inviteId));
   };
 
   const greetingName = firstValue.trim() || user?.firstName || "there";

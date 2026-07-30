@@ -1,6 +1,15 @@
 import { toast } from "sonner"
 import type { PinItem } from "@/context/pinboard-context"
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 function stripMarkdown(text: string): string {
   return text
     .replace(/```[\s\S]*?```/g, "")
@@ -17,16 +26,16 @@ function buildPinCard(pin: PinItem, chatNameById: Map<string, string>): string {
   const chatName = (pin.chatId ? chatNameById.get(pin.chatId) : undefined) ?? pin.chatName ?? ""
   const tags =
     pin.tags && pin.tags.length
-      ? `<div style="margin-top:6px;font-size:11px;color:#444;">Tags: ${pin.tags.join(", ")}</div>`
+      ? `<div style="margin-top:6px;font-size:11px;color:#444;">Tags: ${pin.tags.map(escapeHtml).join(", ")}</div>`
       : ""
-  const category = `<div style="margin-top:4px;font-size:11px;color:#888;">${pin.category}</div>`
+  const category = `<div style="margin-top:4px;font-size:11px;color:#888;">${escapeHtml(pin.category)}</div>`
   const chat = chatName
-    ? `<div style="margin-top:4px;font-size:11px;color:#666;">Chat: ${chatName}</div>`
+    ? `<div style="margin-top:4px;font-size:11px;color:#666;">Chat: ${escapeHtml(chatName)}</div>`
     : ""
   return `
     <div style="padding:12px 14px;border:1px solid #e1e1e1;border-radius:10px;margin-bottom:10px;break-inside:avoid;">
-      <div style="font-weight:600;font-size:14px;color:#111;margin-bottom:4px;">${stripMarkdown(pin.title || pin.content)}</div>
-      <div style="font-size:12px;color:#222;white-space:pre-wrap;">${stripMarkdown(pin.content)}</div>
+      <div style="font-weight:600;font-size:14px;color:#111;margin-bottom:4px;">${escapeHtml(stripMarkdown(pin.title || pin.content))}</div>
+      <div style="font-size:12px;color:#222;white-space:pre-wrap;">${escapeHtml(stripMarkdown(pin.content))}</div>
       ${category}
       ${chat}
       ${tags}
@@ -92,6 +101,17 @@ function openPrintWindow(docHtml: string): void {
   printWindow.document.write(docHtml)
   printWindow.document.close()
   toast("Export window opened", { description: "Use the toolbar to print your pins." })
+
+  // Some browsers (and browser extensions) let window.open() return a handle
+  // but then close the window a moment later instead of returning null
+  // synchronously. Catch that delayed-block case too.
+  setTimeout(() => {
+    if (printWindow.closed) {
+      toast.error("Popup blocked", {
+        description: "Your browser likely blocked the export window. Allow popups and try again.",
+      })
+    }
+  }, 500)
 }
 
 /**
