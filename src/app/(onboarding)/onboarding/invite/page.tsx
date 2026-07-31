@@ -14,6 +14,15 @@ import { Dropdown, DropdownFloat } from "@/components/Dropdown";
 import { OnboardingScreen } from "../_components/onboarding-shell";
 import { WELCOME_ROUTE } from "@/lib/routes";
 import { toast } from "sonner";
+import { Tooltip } from "@/components/Tooltip";
+import { InformationCircleIcon } from "@strange-huge/icons";
+
+const ROLE_INFO = (
+  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div><strong>Member</strong> — Baseline access through assigned projects. Cannot change organization settings, manage other members, or edit teams.</div>
+    <div><strong>Admin</strong> — Everything an owner can do, except manage billing or payments.</div>
+  </div>
+);
 
 const INVITE_ROLES = ["Member", "Admin"] as const;
 type InviteRole = (typeof INVITE_ROLES)[number];
@@ -148,31 +157,11 @@ export default function OnboardingInvitePage() {
       style={{
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
+        justifyContent: "flex-end",
         width: "100%",
         gap: 16,
       }}
     >
-      {/* Left: role info link */}
-      <button
-        type="button"
-        style={{
-          background: "none",
-          border: "none",
-          padding: 0,
-          cursor: "pointer",
-          fontFamily: "var(--font-body)",
-          fontWeight: 600,
-          fontSize: 14,
-          lineHeight: "22px",
-          color: "var(--neutral-700, #524b47)",
-        }}
-        onClick={() => { /* placeholder: open role info */ }}
-      >
-        Know more about Role
-      </button>
-
-      {/* Right: logout + skip + invite + continue */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <Button variant="default" size="sm" onClick={() => void logout()} leftIcon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M13 3v10M6.5 10.5 3.5 8l3-2.5M3.5 8H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
           Log out
@@ -354,22 +343,23 @@ export default function OnboardingInvitePage() {
             }}
           >
             Can use and create privately in conversations.{" "}
-            <button
-              type="button"
-              style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                fontFamily: "var(--font-body)",
-                fontWeight: 600,
-                fontSize: 14,
-                color: "var(--neutral-700, #524b47)",
-              }}
-              onClick={() => { /* placeholder: open role info */ }}
-            >
-              Know more about Role
-            </button>
+            <Tooltip content={ROLE_INFO} side="top" maxWidth={260}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  cursor: "default",
+                  fontFamily: "var(--font-body)",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  color: "var(--neutral-700, #524b47)",
+                }}
+              >
+                Know more about Role
+                <InformationCircleIcon size={14} />
+              </span>
+            </Tooltip>
           </p>
         </div>
       </div>

@@ -532,6 +532,10 @@
     font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .03em; text-transform: uppercase;
     padding: 2px 7px; border-radius: 999px; color: #fff; background: #2D8F58;
   }
+  .bug-skipped-badge {
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .03em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 999px; color: #fff; background: var(--n600);
+  }
   .bug-loc { font-family: var(--font-mono); font-size: 11px; color: var(--route-chip-fg); background: var(--route-chip-bg); padding: 2px 7px; border-radius: 5px; margin-left: auto; }
   .bug-desc { font-size: 12.8px; line-height: 1.55; color: var(--ink-mute); }
   .bug-desc code { font-family: var(--font-mono); font-size: 11.5px; }
@@ -875,7 +879,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead control</span>
-              <span class="bug-title">“Know more about Role” — both copies are no-ops</span>
+              <span class="bug-title">“Know more about Role” — both copies are no-ops</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">invite/page.tsx</span>
             </div>
             <p class="bug-desc">Two separate instances of this link (footer-left and inline helper text) have empty placeholder <code>onClick</code> handlers.</p>
@@ -891,7 +895,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead control</span>
-              <span class="bug-title">“Finish setup,” “Change image,” both kebab menus</span>
+              <span class="bug-title">“Finish setup,” “Change image,” both kebab menus</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">workspace-setup/page.tsx</span>
             </div>
             <p class="bug-desc">All four have no handler at all. Moot in practice since this whole page is unreachable — see the Unreachable-page tab — but worth noting these would still do nothing even if a link to the page existed.</p>
@@ -907,7 +911,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead code</span>
-              <span class="bug-title">Back button’s team-branch ternary is unreachable</span>
+              <span class="bug-title">Back button’s team-branch ternary is unreachable</span><span class="bug-skipped-badge">Skipped</span>
               <span class="bug-loc">import/page.tsx</span>
             </div>
             <p class="bug-desc">Checks <code>data.accountType === "team"</code> to route Back to <code>/onboarding/workspace</code>, but the page’s own guard means team users never reach this page’s UI in the first place — always resolves to account-type.</p>
@@ -992,7 +996,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead component</span>
-              <span class="bug-title">ModelSelector.tsx — entirely unused</span>
+              <span class="bug-title">ModelSelector.tsx — entirely unused</span><span class="bug-skipped-badge">Skipped</span>
               <span class="bug-loc">components/chat/ModelSelector.tsx</span>
             </div>
             <p class="bug-desc">No import anywhere in the codebase. See the Unused Component tab for detail.</p>
@@ -1008,7 +1012,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead state</span>
-              <span class="bug-title"><code>highlightedCitation</code> can never become non-null</span>
+              <span class="bug-title"><code>highlightedCitation</code> can never become non-null</span><span class="bug-skipped-badge">Skipped</span>
               <span class="bug-loc">ChatInterface.tsx</span>
             </div>
             <p class="bug-desc">Initialized to <code>null</code>, passed to CitationsPanel, but no setter call exists anywhere in the file.</p>
@@ -1040,7 +1044,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Vestigial</span>
-              <span class="bug-title">A trailing StreamingCursor is hardcoded invisible</span>
+              <span class="bug-title">A trailing StreamingCursor is hardcoded invisible</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">ChatMessage.tsx</span>
             </div>
             <p class="bug-desc"><code>&lt;StreamingCursor isVisible={false} /&gt;</code> renders whenever the message isn’t actively streaming — i.e. always invisible. Left over from an earlier version.</p>
@@ -1072,7 +1076,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-minor">Minor</span>
-              <span class="bug-title">No error state for a failed attachment upload</span>
+              <span class="bug-title">No error state for a failed attachment upload</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">AttachmentManager.tsx</span>
             </div>
             <p class="bug-desc">This component has no visibility into upload failures at all — no error badge, no icon, no toast path exists here. A disabled strip also still shows drag-hover feedback that silently does nothing on drop. Chips themselves aren’t clickable to preview either.</p>
@@ -1199,7 +1203,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-minor">Minor</span>
-              <span class="bug-title">Edit modal: no confirmed success toast for name/description/tag edits</span>
+              <span class="bug-title">Edit modal: no confirmed success toast for name/description/tag edits</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">EditProjectModal/index.tsx</span>
             </div>
             <p class="bug-desc">The modal itself fires no toast on save — it hands straight to the caller’s <code>onSave</code>
@@ -1217,7 +1221,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-minor">Minor</span>
-              <span class="bug-title">Files panel: no client-side size/type validation</span>
+              <span class="bug-title">Files panel: no client-side size/type validation</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">ProjectFilesPanel/index.tsx</span>
             </div>
             <p class="bug-desc">The raw <code>FileList</code> is forwarded to <code>onUpload</code> as-is — any size or type limits are
@@ -1234,7 +1238,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead control</span>
-              <span class="bug-title">“Archive” is disabled everywhere it appears</span>
+              <span class="bug-title">“Archive” is disabled everywhere it appears</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">ProjectCard, ProjectListRow, project/[id] ⋮ menu</span>
             </div>
             <p class="bug-desc">Every Archive menu item shares one wiring: <code>onArchive={project.canEdit ? () =&gt; {/* backlog */} : undefined}</code>
@@ -1252,7 +1256,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead code</span>
-              <span class="bug-title">Instructions panel’s inline edit mode is unreachable</span>
+              <span class="bug-title">Instructions panel’s inline edit mode is unreachable</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">ProjectInstructionsPanel/index.tsx</span>
             </div>
             <p class="bug-desc">The component supports local inline editing (textarea + Save/Cancel) when given <code>onSave</code>
@@ -1330,7 +1334,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead control</span>
-              <span class="bug-title">SelectionPopover’s “Reply” action is fully built but never wired</span>
+              <span class="bug-title">SelectionPopover’s “Reply” action is fully built but never wired</span><span class="bug-skipped-badge">Skipped</span>
               <span class="bug-loc">SelectionPopover/index.tsx</span>
             </div>
             <p class="bug-desc">The component supports an <code>onReply</code> prop with its own button/icon, but the single live call
@@ -1407,7 +1411,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead code</span>
-              <span class="bug-title"><code>PinCommentItem</code> is defined but never rendered</span>
+              <span class="bug-title"><code>PinCommentItem</code> is defined but never rendered</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">Pin/index.tsx</span>
             </div>
             <p class="bug-desc">No comment-history list exists anywhere despite <code>PinComment[]</code> typing implying multiple entries — only <code>comments[0]</code> is ever read.</p>
@@ -1423,7 +1427,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Vestigial</span>
-              <span class="bug-title">export filename is computed but never actually used to save a file</span>
+              <span class="bug-title">export filename is computed but never actually used to save a file</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">lib/export-pins.ts</span>
             </div>
             <p class="bug-desc"><code>pin-export-&lt;date&gt;.pdf</code> only ends up in the popup’s <code>&lt;title&gt;</code> tag — there’s no <code>&lt;a download&gt;</code> or Blob save, so whether a PDF results at all depends entirely on the user’s own OS print dialog.</p>
@@ -1439,7 +1443,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Unused components</span>
-              <span class="bug-title">2,370 lines of dead code across 3 files</span>
+              <span class="bug-title">2,370 lines of dead code across 3 files</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">layout/PinboardExpanded.tsx, layout/pinboardEnterAnimation.tsx, PinboardExpandedSkeleton/index.tsx</span>
             </div>
             <p class="bug-desc">See the dedicated Unused components tab — an earlier, self-sufficient rewrite of the expanded view, superseded but never removed.</p>
@@ -1530,7 +1534,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-minor">Minor</span>
-              <span class="bug-title">Super Links empty-state copy references a menu action that no longer exists</span>
+              <span class="bug-title">Super Links empty-state copy references a menu action that no longer exists</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">SuperLinksEmpty component</span>
             </div>
             <p class="bug-desc">Tells the user to choose “Generate Super Link” from a card’s menu — the current menu item is labeled “Share.”</p>
@@ -1546,7 +1550,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead control</span>
-              <span class="bug-title">RepublishModal is wired on three tabs and opened by none of them</span>
+              <span class="bug-title">RepublishModal is wired on three tabs and opened by none of them</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">Instructions, Profile, Knowledge configure tabs</span>
             </div>
             <p class="bug-desc"><code>republishModalOpen</code> state and the modal’s render block exist on all three pages, but nothing ever calls the setter with <code>true</code> — <code>handlePublish</code> on every tab bypasses it and navigates straight to <code>/agents/published</code>.</p>
@@ -1562,7 +1566,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead UI</span>
-              <span class="bug-title">Knowledge’s “Connected” section can never render</span>
+              <span class="bug-title">Knowledge’s “Connected” section can never render</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">agent/configure/components/KnowledgeTab.tsx</span>
             </div>
             <p class="bug-desc">Drive/Slack/Onedrive filter chips and a whole section are gated on <code>type === 'connected'</code> items that the page’s own data mapping never produces.</p>
@@ -1578,7 +1582,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead control</span>
-              <span class="bug-title">Knowledge file preview has no trigger element</span>
+              <span class="bug-title">Knowledge file preview has no trigger element</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">agent/configure/knowledge/page.tsx</span>
             </div>
             <p class="bug-desc">A full 3-tier blob-resolution preview handler is implemented and passed down as a prop, but <code>FileRow</code> never renders anything that calls it.</p>
@@ -1594,7 +1598,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead field</span>
-              <span class="bug-title">Every template’s <code>modelHint</code> is defined and never read</span>
+              <span class="bug-title">Every template’s <code>modelHint</code> is defined and never read</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">agents/_data/template-presets.ts</span>
             </div>
             <p class="bug-desc">The Tone step’s repo-creation call always picks <code>models[0]</code> regardless of the picked template’s <code>modelHint</code>.</p>
@@ -1610,7 +1614,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Unused / dead UI</span>
-              <span class="bug-title">One orphaned file, one dead tab</span>
+              <span class="bug-title">One orphaned file, one dead tab</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">ExampleConversationDialog.tsx · Agents hub “Community” tab</span>
             </div>
             <p class="bug-desc">See the dedicated tab — a fully unimported component, and a fully-built tab experience with its trigger commented out of the JSX.</p>
@@ -1723,7 +1727,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-minor">Minor</span>
-              <span class="bug-title">“Export all” invoices is a fake action</span>
+              <span class="bug-title">“Export all” invoices is a fake action</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">org/plans/page.tsx</span>
             </div>
             <p class="bug-desc">Fires <code>toast.success('Exporting all invoices…')</code> with no actual export logic behind it.</p>
@@ -1787,7 +1791,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead feature</span>
-              <span class="bug-title">Danger Zone (delete org, transfer ownership) is fully wired and never rendered</span>
+              <span class="bug-title">Danger Zone (delete org, transfer ownership) is fully wired and never rendered</span><span class="bug-skipped-badge">Skipped</span>
               <span class="bug-loc">org/general/page.tsx</span>
             </div>
             <p class="bug-desc">Every piece of state, every loader, every handler (type-to-confirm delete, ownership transfer) exists and works — no card in the returned JSX ever shows them. Only the loading skeleton depicts what this card would look like.</p>
@@ -1803,7 +1807,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead feature</span>
-              <span class="bug-title">“Workspace defaults” card is hardcoded off</span>
+              <span class="bug-title">“Workspace defaults” card is hardcoded off</span><span class="bug-skipped-badge">Skipped</span>
               <span class="bug-loc">org/general/page.tsx</span>
             </div>
             <p class="bug-desc">Default chat/agent visibility controls are wrapped in <code>{false &amp;&amp; (...)}</code> — a literal kill-switch left in source, not a role or feature-flag gate.</p>
@@ -1819,7 +1823,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead control</span>
-              <span class="bug-title">“Archive team” has a working handler and no button</span>
+              <span class="bug-title">“Archive team” has a working handler and no button</span><span class="bug-skipped-badge">Skipped</span>
               <span class="bug-loc">org/teams/[teamId]/page.tsx</span>
             </div>
             <p class="bug-desc"><code>handleArchive</code>/<code>archiveTeam</code> are imported, guarded by the same permission check as Delete, and fully functional — nothing in the JSX ever calls them.</p>
@@ -1835,7 +1839,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Orphaned function</span>
-              <span class="bug-title"><code>approveOverflow()</code> has zero callers anywhere</span>
+              <span class="bug-title"><code>approveOverflow()</code> has zero callers anywhere</span><span class="bug-skipped-badge">Skipped</span>
               <span class="bug-loc">lib/api/organization.ts</span>
             </div>
             <p class="bug-desc">The request side of the credit-overflow feature works (<code>OverflowRequestModal</code> posts directly to the endpoint, bypassing this API module entirely) — the approval side exists in the API layer with no admin-facing UI calling it anywhere in the app.</p>
@@ -1851,7 +1855,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Recurring dead UI</span>
-              <span class="bug-title">Unwired Search/Filter icon buttons appear identically dead in two separate tables</span>
+              <span class="bug-title">Unwired Search/Filter icon buttons appear identically dead in two separate tables</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">org/analytics/page.tsx · org/teams/[teamId]/page.tsx</span>
             </div>
             <p class="bug-desc">Both the analytics per-member table and a team’s members table render Search and Filter icon buttons with no <code>onClick</code>, no state, no effect whatsoever — the same copy-pasted dead pattern in two unrelated files.</p>
@@ -1956,7 +1960,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Orphaned</span>
-              <span class="bug-title"><code>setTeamEditorLink</code> — the update half of a create/update/delete triad, unused</span>
+              <span class="bug-title"><code>setTeamEditorLink</code> — the update half of a create/update/delete triad, unused</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">lib/api/teams.ts</span>
             </div>
             <p class="bug-desc"><code>addTeamEditor</code> and <code>removeTeamEditor</code> are both used; the PATCH to toggle an existing editor’s <code>canLinkAccounts</code> flag has zero callers anywhere.</p>
@@ -1972,7 +1976,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Orphaned</span>
-              <span class="bug-title"><code>getTeamInvitePreview</code> — superseded by a function that bypasses it</span>
+              <span class="bug-title"><code>getTeamInvitePreview</code> — superseded by a function that bypasses it</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">lib/api/teams.ts</span>
             </div>
             <p class="bug-desc"><code>getTeamInviteOnboarding</code> hits the exact same endpoint directly rather than calling this one — a rename/refactor that left the old function in place.</p>
@@ -1988,7 +1992,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Orphaned</span>
-              <span class="bug-title"><code>deleteTeamConnector</code> — zero callers</span>
+              <span class="bug-title"><code>deleteTeamConnector</code> — zero callers</span><span class="bug-fixed-badge">✓ Fixed</span>
               <span class="bug-loc">lib/api/teams.ts</span>
             </div>
             <p class="bug-desc">The connector-request approval UI only ever transitions status via <code>setTeamConnectorStatus</code>; nothing calls this DELETE.</p>
@@ -2065,7 +2069,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-bug">Bug — marquee finding</span>
-              <span class="bug-title">Four of nine personal-settings pages are invisible from the app, and none of them work</span>
+              <span class="bug-title">Four of nine personal-settings pages are invisible from the app, and none of them work</span><span class="bug-skipped-badge">Skipped</span>
               <span class="bug-loc">SettingsSidebar.tsx (MY_SETTINGS_ITEMS array) + tabs F/G/H/I</span>
             </div>
             <p class="bug-desc">Files &amp; Data, Notifications, Preferences, and Security are all commented out of the sidebar’s nav
@@ -2173,7 +2177,7 @@
           <div class="bts-card-body">
             <div class="bug-head">
               <span class="bug-badge sev-dead">Dead control</span>
-              <span class="bug-title">“Delete account” is a fully stubbed, permanently disabled button</span>
+              <span class="bug-title">“Delete account” is a fully stubbed, permanently disabled button</span><span class="bug-skipped-badge">Skipped</span>
               <span class="bug-loc">settings/account/page.tsx</span>
             </div>
             <p class="bug-desc">Hardcoded <code>disabled</code>, a “Coming soon” badge, and a click handler whose entire body is <code>// TODO: open confirmation dialog before proceeding</code> — the click is unreachable regardless.</p>
@@ -2971,7 +2975,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead control</span>
-            <span class="bug-title">“Know more about Role” — both copies are no-ops</span>
+            <span class="bug-title">“Know more about Role” — both copies are no-ops</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">invite/page.tsx</span>
           </div>
           <p class="bug-desc">Two separate instances of this link (footer-left and inline helper text) have empty placeholder <code>onClick</code> handlers.</p>
@@ -2981,7 +2985,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead control</span>
-            <span class="bug-title">“Finish setup,” “Change image,” both kebab menus</span>
+            <span class="bug-title">“Finish setup,” “Change image,” both kebab menus</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">workspace-setup/page.tsx</span>
           </div>
           <p class="bug-desc">All four have no handler at all. Moot in practice since this whole page is unreachable — see the Unreachable-page tab — but worth noting these would still do nothing even if a link to the page existed.</p>
@@ -2991,7 +2995,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead code</span>
-            <span class="bug-title">Back button’s team-branch ternary is unreachable</span>
+            <span class="bug-title">Back button’s team-branch ternary is unreachable</span><span class="bug-skipped-badge">Skipped</span>
             <span class="bug-loc">import/page.tsx</span>
           </div>
           <p class="bug-desc">Checks <code>data.accountType === "team"</code> to route Back to <code>/onboarding/workspace</code>, but the page’s own guard means team users never reach this page’s UI in the first place — always resolves to account-type.</p>
@@ -3623,7 +3627,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead component</span>
-            <span class="bug-title">ModelSelector.tsx — entirely unused</span>
+            <span class="bug-title">ModelSelector.tsx — entirely unused</span><span class="bug-skipped-badge">Skipped</span>
             <span class="bug-loc">components/chat/ModelSelector.tsx</span>
           </div>
           <p class="bug-desc">No import anywhere in the codebase. See the Unused Component tab for detail.</p>
@@ -3632,7 +3636,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead state</span>
-            <span class="bug-title"><code>highlightedCitation</code> can never become non-null</span>
+            <span class="bug-title"><code>highlightedCitation</code> can never become non-null</span><span class="bug-skipped-badge">Skipped</span>
             <span class="bug-loc">ChatInterface.tsx</span>
           </div>
           <p class="bug-desc">Initialized to <code>null</code>, passed to CitationsPanel, but no setter call exists anywhere in the file.</p>
@@ -3650,7 +3654,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Vestigial</span>
-            <span class="bug-title">A trailing StreamingCursor is hardcoded invisible</span>
+            <span class="bug-title">A trailing StreamingCursor is hardcoded invisible</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">ChatMessage.tsx</span>
           </div>
           <p class="bug-desc"><code>&lt;StreamingCursor isVisible={false} /&gt;</code> renders whenever the message isn’t actively streaming — i.e. always invisible. Left over from an earlier version.</p>
@@ -3674,7 +3678,7 @@
         <div class="bug-card sev-minor">
           <div class="bug-head">
             <span class="bug-badge sev-minor">Minor</span>
-            <span class="bug-title">No error state for a failed attachment upload</span>
+            <span class="bug-title">No error state for a failed attachment upload</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">AttachmentManager.tsx</span>
           </div>
           <p class="bug-desc">This component has no visibility into upload failures at all — no error badge, no icon, no toast path exists here. A disabled strip also still shows drag-hover feedback that silently does nothing on drop. Chips themselves aren’t clickable to preview either.</p>
@@ -4419,7 +4423,7 @@
         <div class="bug-card sev-minor">
           <div class="bug-head">
             <span class="bug-badge sev-minor">Minor</span>
-            <span class="bug-title">Edit modal: no confirmed success toast for name/description/tag edits</span>
+            <span class="bug-title">Edit modal: no confirmed success toast for name/description/tag edits</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">EditProjectModal/index.tsx</span>
           </div>
           <p class="bug-desc">
@@ -4433,7 +4437,7 @@
         <div class="bug-card sev-minor">
           <div class="bug-head">
             <span class="bug-badge sev-minor">Minor</span>
-            <span class="bug-title">Files panel: no client-side size/type validation</span>
+            <span class="bug-title">Files panel: no client-side size/type validation</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">ProjectFilesPanel/index.tsx</span>
           </div>
           <p class="bug-desc">
@@ -4453,7 +4457,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead control</span>
-            <span class="bug-title">“Archive” is disabled everywhere it appears</span>
+            <span class="bug-title">“Archive” is disabled everywhere it appears</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">ProjectCard, ProjectListRow, project/[id] ⋮ menu</span>
           </div>
           <p class="bug-desc">
@@ -4467,7 +4471,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead code</span>
-            <span class="bug-title">Instructions panel’s inline edit mode is unreachable</span>
+            <span class="bug-title">Instructions panel’s inline edit mode is unreachable</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">ProjectInstructionsPanel/index.tsx</span>
           </div>
           <p class="bug-desc">
@@ -4823,7 +4827,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead control</span>
-            <span class="bug-title">SelectionPopover’s “Reply” action is fully built but never wired</span>
+            <span class="bug-title">SelectionPopover’s “Reply” action is fully built but never wired</span><span class="bug-skipped-badge">Skipped</span>
             <span class="bug-loc">SelectionPopover/index.tsx</span>
           </div>
           <p class="bug-desc">
@@ -5246,7 +5250,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead code</span>
-            <span class="bug-title"><code>PinCommentItem</code> is defined but never rendered</span>
+            <span class="bug-title"><code>PinCommentItem</code> is defined but never rendered</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">Pin/index.tsx</span>
           </div>
           <p class="bug-desc">No comment-history list exists anywhere despite <code>PinComment[]</code> typing implying multiple entries — only <code>comments[0]</code> is ever read.</p>
@@ -5255,7 +5259,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Vestigial</span>
-            <span class="bug-title">export filename is computed but never actually used to save a file</span>
+            <span class="bug-title">export filename is computed but never actually used to save a file</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">lib/export-pins.ts</span>
           </div>
           <p class="bug-desc"><code>pin-export-&lt;date&gt;.pdf</code> only ends up in the popup’s <code>&lt;title&gt;</code> tag — there’s no <code>&lt;a download&gt;</code> or Blob save, so whether a PDF results at all depends entirely on the user’s own OS print dialog.</p>
@@ -5264,7 +5268,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Unused components</span>
-            <span class="bug-title">2,370 lines of dead code across 3 files</span>
+            <span class="bug-title">2,370 lines of dead code across 3 files</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">layout/PinboardExpanded.tsx, layout/pinboardEnterAnimation.tsx, PinboardExpandedSkeleton/index.tsx</span>
           </div>
           <p class="bug-desc">See the dedicated Unused components tab — an earlier, self-sufficient rewrite of the expanded view, superseded but never removed.</p>
@@ -5850,7 +5854,7 @@
         <div class="bug-card sev-minor">
           <div class="bug-head">
             <span class="bug-badge sev-minor">Minor</span>
-            <span class="bug-title">Super Links empty-state copy references a menu action that no longer exists</span>
+            <span class="bug-title">Super Links empty-state copy references a menu action that no longer exists</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">SuperLinksEmpty component</span>
           </div>
           <p class="bug-desc">Tells the user to choose “Generate Super Link” from a card’s menu — the current menu item is labeled “Share.”</p>
@@ -5865,7 +5869,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead control</span>
-            <span class="bug-title">RepublishModal is wired on three tabs and opened by none of them</span>
+            <span class="bug-title">RepublishModal is wired on three tabs and opened by none of them</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">Instructions, Profile, Knowledge configure tabs</span>
           </div>
           <p class="bug-desc"><code>republishModalOpen</code> state and the modal’s render block exist on all three pages, but nothing ever calls the setter with <code>true</code> — <code>handlePublish</code> on every tab bypasses it and navigates straight to <code>/agents/published</code>.</p>
@@ -5874,7 +5878,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead UI</span>
-            <span class="bug-title">Knowledge’s “Connected” section can never render</span>
+            <span class="bug-title">Knowledge’s “Connected” section can never render</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">agent/configure/components/KnowledgeTab.tsx</span>
           </div>
           <p class="bug-desc">Drive/Slack/Onedrive filter chips and a whole section are gated on <code>type === 'connected'</code> items that the page’s own data mapping never produces.</p>
@@ -5883,7 +5887,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead control</span>
-            <span class="bug-title">Knowledge file preview has no trigger element</span>
+            <span class="bug-title">Knowledge file preview has no trigger element</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">agent/configure/knowledge/page.tsx</span>
           </div>
           <p class="bug-desc">A full 3-tier blob-resolution preview handler is implemented and passed down as a prop, but <code>FileRow</code> never renders anything that calls it.</p>
@@ -5892,7 +5896,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead field</span>
-            <span class="bug-title">Every template’s <code>modelHint</code> is defined and never read</span>
+            <span class="bug-title">Every template’s <code>modelHint</code> is defined and never read</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">agents/_data/template-presets.ts</span>
           </div>
           <p class="bug-desc">The Tone step’s repo-creation call always picks <code>models[0]</code> regardless of the picked template’s <code>modelHint</code>.</p>
@@ -5901,7 +5905,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Unused / dead UI</span>
-            <span class="bug-title">One orphaned file, one dead tab</span>
+            <span class="bug-title">One orphaned file, one dead tab</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">ExampleConversationDialog.tsx · Agents hub “Community” tab</span>
           </div>
           <p class="bug-desc">See the dedicated tab — a fully unimported component, and a fully-built tab experience with its trigger commented out of the JSX.</p>
@@ -6398,7 +6402,7 @@
         <div class="bug-card sev-minor">
           <div class="bug-head">
             <span class="bug-badge sev-minor">Minor</span>
-            <span class="bug-title">“Export all” invoices is a fake action</span>
+            <span class="bug-title">“Export all” invoices is a fake action</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">org/plans/page.tsx</span>
           </div>
           <p class="bug-desc">Fires <code>toast.success('Exporting all invoices…')</code> with no actual export logic behind it.</p>
@@ -6445,7 +6449,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead feature</span>
-            <span class="bug-title">Danger Zone (delete org, transfer ownership) is fully wired and never rendered</span>
+            <span class="bug-title">Danger Zone (delete org, transfer ownership) is fully wired and never rendered</span><span class="bug-skipped-badge">Skipped</span>
             <span class="bug-loc">org/general/page.tsx</span>
           </div>
           <p class="bug-desc">Every piece of state, every loader, every handler (type-to-confirm delete, ownership transfer) exists and works — no card in the returned JSX ever shows them. Only the loading skeleton depicts what this card would look like.</p>
@@ -6455,7 +6459,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead feature</span>
-            <span class="bug-title">“Workspace defaults” card is hardcoded off</span>
+            <span class="bug-title">“Workspace defaults” card is hardcoded off</span><span class="bug-skipped-badge">Skipped</span>
             <span class="bug-loc">org/general/page.tsx</span>
           </div>
           <p class="bug-desc">Default chat/agent visibility controls are wrapped in <code>{false &amp;&amp; (...)}</code> — a literal kill-switch left in source, not a role or feature-flag gate.</p>
@@ -6465,7 +6469,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead control</span>
-            <span class="bug-title">“Archive team” has a working handler and no button</span>
+            <span class="bug-title">“Archive team” has a working handler and no button</span><span class="bug-skipped-badge">Skipped</span>
             <span class="bug-loc">org/teams/[teamId]/page.tsx</span>
           </div>
           <p class="bug-desc"><code>handleArchive</code>/<code>archiveTeam</code> are imported, guarded by the same permission check as Delete, and fully functional — nothing in the JSX ever calls them.</p>
@@ -6475,7 +6479,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Orphaned function</span>
-            <span class="bug-title"><code>approveOverflow()</code> has zero callers anywhere</span>
+            <span class="bug-title"><code>approveOverflow()</code> has zero callers anywhere</span><span class="bug-skipped-badge">Skipped</span>
             <span class="bug-loc">lib/api/organization.ts</span>
           </div>
           <p class="bug-desc">The request side of the credit-overflow feature works (<code>OverflowRequestModal</code> posts directly to the endpoint, bypassing this API module entirely) — the approval side exists in the API layer with no admin-facing UI calling it anywhere in the app.</p>
@@ -6485,7 +6489,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Recurring dead UI</span>
-            <span class="bug-title">Unwired Search/Filter icon buttons appear identically dead in two separate tables</span>
+            <span class="bug-title">Unwired Search/Filter icon buttons appear identically dead in two separate tables</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">org/analytics/page.tsx · org/teams/[teamId]/page.tsx</span>
           </div>
           <p class="bug-desc">Both the analytics per-member table and a team’s members table render Search and Filter icon buttons with no <code>onClick</code>, no state, no effect whatsoever — the same copy-pasted dead pattern in two unrelated files.</p>
@@ -6838,7 +6842,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Orphaned</span>
-            <span class="bug-title"><code>setTeamEditorLink</code> — the update half of a create/update/delete triad, unused</span>
+            <span class="bug-title"><code>setTeamEditorLink</code> — the update half of a create/update/delete triad, unused</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">lib/api/teams.ts</span>
           </div>
           <p class="bug-desc"><code>addTeamEditor</code> and <code>removeTeamEditor</code> are both used; the PATCH to toggle an existing editor’s <code>canLinkAccounts</code> flag has zero callers anywhere.</p>
@@ -6847,7 +6851,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Orphaned</span>
-            <span class="bug-title"><code>getTeamInvitePreview</code> — superseded by a function that bypasses it</span>
+            <span class="bug-title"><code>getTeamInvitePreview</code> — superseded by a function that bypasses it</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">lib/api/teams.ts</span>
           </div>
           <p class="bug-desc"><code>getTeamInviteOnboarding</code> hits the exact same endpoint directly rather than calling this one — a rename/refactor that left the old function in place.</p>
@@ -6856,7 +6860,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Orphaned</span>
-            <span class="bug-title"><code>deleteTeamConnector</code> — zero callers</span>
+            <span class="bug-title"><code>deleteTeamConnector</code> — zero callers</span><span class="bug-fixed-badge">✓ Fixed</span>
             <span class="bug-loc">lib/api/teams.ts</span>
           </div>
           <p class="bug-desc">The connector-request approval UI only ever transitions status via <code>setTeamConnectorStatus</code>; nothing calls this DELETE.</p>
@@ -7534,7 +7538,7 @@
         <div class="bug-card sev-bug">
           <div class="bug-head">
             <span class="bug-badge sev-bug">Bug — marquee finding</span>
-            <span class="bug-title">Four of nine personal-settings pages are invisible from the app, and none of them work</span>
+            <span class="bug-title">Four of nine personal-settings pages are invisible from the app, and none of them work</span><span class="bug-skipped-badge">Skipped</span>
             <span class="bug-loc">SettingsSidebar.tsx (MY_SETTINGS_ITEMS array) + tabs F/G/H/I</span>
           </div>
           <p class="bug-desc">
@@ -7625,7 +7629,7 @@
         <div class="bug-card sev-dead">
           <div class="bug-head">
             <span class="bug-badge sev-dead">Dead control</span>
-            <span class="bug-title">“Delete account” is a fully stubbed, permanently disabled button</span>
+            <span class="bug-title">“Delete account” is a fully stubbed, permanently disabled button</span><span class="bug-skipped-badge">Skipped</span>
             <span class="bug-loc">settings/account/page.tsx</span>
           </div>
           <p class="bug-desc">Hardcoded <code>disabled</code>, a “Coming soon” badge, and a click handler whose entire body is <code>// TODO: open confirmation dialog before proceeding</code> — the click is unreachable regardless.</p>
@@ -7694,14 +7698,14 @@
   // Seeded into localStorage on first-ever visit only — after that this file behaves
   // exactly as before, and any manual toggle (including un-resolving one of these) sticks.
   var BASELINE_RESOLVED = [
-    's1-01','s1-02','s1-03','s1-04','s1-05',
-    's2-01','s2-02','s2-03','s2-04',
-    's3-01','s3-02','s3-03','s3-04','s3-05','s3-06',
+    's1-01','s1-02','s1-03','s1-04','s1-05','s1-07','s1-08',
+    's2-01','s2-02','s2-03','s2-04','s2-08','s2-10',
+    's3-01','s3-02','s3-03','s3-04','s3-05','s3-06','s3-07','s3-08','s3-09','s3-10',
     's4-01','s4-02',
-    's5-01','s5-02','s5-03',
-    's6-02','s6-03',
-    's7-01','s7-02','s7-03','s7-04','s7-05',
-    's8-01','s8-02',
+    's5-01','s5-02','s5-03','s5-04','s5-05','s5-06',
+    's6-02','s6-03','s6-05','s6-06','s6-07','s6-08','s6-09','s6-10',
+    's7-01','s7-02','s7-03','s7-04','s7-05','s7-06','s7-14',
+    's8-01','s8-02','s8-05','s8-06','s8-07',
     's9-01',
     's10-02','s10-03'
   ];

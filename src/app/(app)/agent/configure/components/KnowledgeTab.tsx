@@ -2,13 +2,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
-import { Plus, Search, Upload, MoreHorizontal, ChevronDown, ArrowUp } from "lucide-react";
+import { Plus, Search, Upload, MoreHorizontal, ArrowUp } from "lucide-react";
 import { FILE_ACCEPT } from "@/hooks/use-file-upload";
 
 export type KnowledgeFile = {
   id: string;
   name: string;
-  type: "file" | "url" | "connected";
+  type: "file" | "url";
   fileType?: string;
   size?: string;
   date?: string;
@@ -34,11 +34,20 @@ const ALLOWED_EXTENSIONS = new Set([
   "tiff", "tif", "avif", "png", "jpg", "jpeg", "webp", "epub", "zip",
 ]);
 
-const SOURCE_BUTTONS = [
-  { label: "Google Drive", key: "drive" },
-  { label: "Slack", key: "slack" },
-  { label: "Onedrive", key: "onedrive" },
-];
+// Extensions the browser can render natively in a tab when opened as a blob
+// URL — everything else (Word, PowerPoint, Excel, CSV, RTF, ZIP, EPUB) has no
+// built-in viewer, so opening it triggers a download instead, regardless of
+// what the code asks for. Used only to label the action correctly.
+const PREVIEWABLE_EXTENSIONS = new Set([
+  "pdf", "png", "jpg", "jpeg", "webp", "avif", "tiff", "tif", "svg",
+  "txt", "md", "html", "htm", "xml", "json",
+]);
+
+function isPreviewable(file: KnowledgeFile): boolean {
+  if (file.type === "url") return true; // best-effort — depends on the fetched resource's real content type
+  const ext = (file.fileType ?? file.name.split(".").pop() ?? "").toLowerCase();
+  return PREVIEWABLE_EXTENSIONS.has(ext);
+}
 
 const FILE_BADGE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   PDF:  { bg: "#cadcf1", border: "rgba(13,110,178,0.5)", text: "#135487" },
@@ -207,6 +216,28 @@ function FileRow({ file, onRemove, onPreview, isDeleting }: {
                 overflow: "hidden",
               }}
             >
+              {onPreview && (
+                <button
+                  type="button"
+                  onClick={() => { onPreview(file); setShowActionMenu(false); }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(59,54,50,0.06)" }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent" }}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "8px 12px",
+                    fontSize: 14,
+                    fontFamily: "var(--font-body)",
+                    color: "#3b3632",
+                    backgroundColor: "transparent",
+                    border: "none",
+                    borderBottom: "1px solid #ede1d7",
+                    cursor: "pointer",
+                  }}
+                >
+                  {isPreviewable(file) ? "Preview" : "Download"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => { onRemove(file.id); setShowActionMenu(false); }}
@@ -283,7 +314,6 @@ function DropOverlay({ visible }: { visible: boolean }) {
 export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected, onRemoveFile, onPreviewFile }: KnowledgeTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
-  const [activeConnectorFilter, setActiveConnectorFilter] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   // Inject keyframe animation once for the uploading progress bar
@@ -441,16 +471,13 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
     }
   };
 
-  const filteredFiles = files.filter((f) => {
-    const matchSearch = !searchQuery || f.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchConnector = !activeConnectorFilter || f.source === activeConnectorFilter;
-    return matchSearch && matchConnector;
-  });
+  const filteredFiles = files.filter((f) =>
+    !searchQuery || f.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
-  const regularFiles   = filteredFiles.filter((f) => f.type === "file");
-  const urlFiles       = filteredFiles.filter((f) => f.type === "url");
-  const connectedFiles = filteredFiles.filter((f) => f.type === "connected");
-  const updatedAgo     = files.length > 0 ? "Updated just now" : null;
+  const regularFiles = filteredFiles.filter((f) => f.type === "file");
+  const urlFiles      = filteredFiles.filter((f) => f.type === "url");
+  const updatedAgo    = files.length > 0 ? "Updated just now" : null;
   const docCount       = files.filter((f) => f.type === "file").length;
   const linkCount      = files.filter((f) => f.type === "url").length;
 
@@ -747,54 +774,6 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
           <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Web pages - URLs</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {urlFiles.map((f) => (
-              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPreview={onPreviewFile} isDeleting={deletingIds.has(f.id)} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {connectedFiles.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Connected</p>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            {SOURCE_BUTTONS.map((src) => {
-              const active = activeConnectorFilter === src.key;
-              return (
-                <button
-                  key={src.key}
-                  type="button"
-                  onClick={() => setActiveConnectorFilter(active ? null : src.key)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                    height: 32,
-                    padding: "5px 8px",
-                    borderRadius: 8,
-                    fontFamily: "var(--font-body)",
-                    fontSize: 14,
-                    fontWeight: 500,
-                    border: active ? "1px solid #524b47" : "1px solid rgba(59,54,50,0.3)",
-                    backgroundColor: active ? "#524b47" : "transparent",
-                    color: active ? "white" : "#524b47",
-                    cursor: "pointer",
-                    transition: "border 150ms, background-color 150ms, color 150ms",
-                  }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <circle cx="12" cy="12" r="10" />
-                  </svg>
-                  {src.label}
-                  <ChevronDown size={16} />
-                </button>
-              );
-            })}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {(activeConnectorFilter
-              ? connectedFiles.filter((f) => f.source === activeConnectorFilter)
-              : connectedFiles
-            ).map((f) => (
               <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPreview={onPreviewFile} isDeleting={deletingIds.has(f.id)} />
             ))}
           </div>

@@ -646,11 +646,6 @@ export default function ProjectPage() {
                         onClick={() => { setMenuOpen(false); setEditOpen(true) }}
                         fluid
                       />
-                      <Dropdown.Item
-                        label="Archive"
-                        disabled
-                        fluid
-                      />
                     </Dropdown.Section>
                     <Dropdown.Section divider fluid>
                       <Dropdown.Item
@@ -683,7 +678,7 @@ export default function ProjectPage() {
                         button is one of the 3 Souvenir Muse tiers. */}
                     {(museActive || !!selectedModel) && (
                       <span style={{ width: 16, height: 16, borderRadius: 4, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <SouvenirModelIcon size={16} />
+                        <SouvenirModelIcon size={16} variant="light" />
                       </span>
                     )}
                     {modelButtonLabel ?? 'Souvenir AI · Muse'}

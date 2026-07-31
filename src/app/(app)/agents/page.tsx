@@ -63,7 +63,7 @@ import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = 'my-personas' | 'team-agents' | 'super-links' | 'community'
+type TabId = 'my-personas' | 'team-agents' | 'super-links'
 type SortKey = 'activity' | 'az' | 'za'
 
 type AgentFilters = {
@@ -93,80 +93,6 @@ function modelDisplayName(modelId: string | null): string | null {
   // (that's the literal bug that shows a UUID in the model badge).
   return null
 }
-
-// ── Mock recommended personas (community templates) ───────────────────────────
-
-const RECOMMENDED: Persona[] = [
-  {
-    id: 'rec-1',
-    name: 'General Assistant',
-    handle: '@general_assistant',
-    description: 'Example: The key distinction is that replicants possess artificial intelligence. It\'s all there. Let me walk you through what\'s built.',
-    imageUrl: null,
-    modelId: null,
-    tags: [],
-    temperature: 0.5,
-    isActive: true,
-    isPaused: false,
-    status: 'active',
-    activeVersionId: null,
-    workingVersionId: null,
-    publishedAt: null,
-    versionCount: 1,
-    visibility: 'private',
-    teamIds: [],
-    hasSystemInstructions: true,
-    sourceShareId: null,
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    id: 'rec-2',
-    name: 'Research Analyst',
-    handle: '@research_analyst',
-    description: 'Example: The key distinction is that replicants possess artificial intelligence. It\'s all there. Let me walk you through what\'s built.',
-    imageUrl: null,
-    modelId: null,
-    tags: [],
-    temperature: 0.3,
-    isActive: true,
-    isPaused: false,
-    status: 'active',
-    activeVersionId: null,
-    workingVersionId: null,
-    publishedAt: null,
-    versionCount: 1,
-    visibility: 'private',
-    teamIds: [],
-    hasSystemInstructions: true,
-    sourceShareId: null,
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    id: 'rec-3',
-    name: 'Code Reviewer',
-    handle: '@code_reviewer',
-    description: 'Example: The key distinction is that replicants possess artificial intelligence. It\'s all there. Let me walk you through what\'s built.',
-    imageUrl: null,
-    modelId: null,
-    tags: [],
-    temperature: 0.3,
-    isActive: true,
-    isPaused: false,
-    status: 'active',
-    activeVersionId: null,
-    workingVersionId: null,
-    publishedAt: null,
-    versionCount: 1,
-    visibility: 'private',
-    teamIds: [],
-    hasSystemInstructions: true,
-    sourceShareId: null,
-    createdAt: '',
-    updatedAt: '',
-  },
-]
 
 // ── PersonaAvatar ─────────────────────────────────────────────────────────────
 
@@ -1117,7 +1043,6 @@ export default function PersonasPage() {
                 <Tabs.Trigger value="my-personas">My Agents</Tabs.Trigger>
                 <Tabs.Trigger value="team-agents">Team Agents</Tabs.Trigger>
                 <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
-                {/* <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger> */}
               </Tabs.List>
             </Tabs>
 

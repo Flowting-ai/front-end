@@ -141,7 +141,7 @@ const ALLOWED_EXTENSIONS = new Set([
   "tif", "avif", "png", "jpg", "jpeg", "webp",
 ]);
 
-function isAllowedType(file: File): boolean {
+export function isAllowedType(file: File): boolean {
   const mime = file.type.toLowerCase();
   if (mime.startsWith("image/")) return true;
   if ((FILE_CONSTRAINTS.allowedMimeTypes as readonly string[]).some((t) => mime === t)) return true;

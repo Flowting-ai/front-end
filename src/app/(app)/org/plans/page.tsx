@@ -453,6 +453,18 @@ export default function OrgBillingPage() {
     else toast.error('Could not open billing portal.')
   }
 
+  const handleExportAllInvoices = () => {
+    const urls = (billing?.invoices ?? [])
+      .map(inv => inv.invoice_pdf ?? inv.invoice_url)
+      .filter((url): url is string => !!url)
+    if (urls.length === 0) {
+      toast.error('No invoices to export.')
+      return
+    }
+    urls.forEach(url => window.open(url, '_blank', 'noopener,noreferrer'))
+    toast.success(urls.length === 1 ? 'Opened 1 invoice' : `Opened ${urls.length} invoices`)
+  }
+
   const reloadBilling = () => fetchBilling().then(setBilling).catch(console.error)
 
   // Cancel / resume the organization subscription — same flow as Settings → Billing.
@@ -729,7 +741,7 @@ export default function OrgBillingPage() {
         {canSeeInvoices && (
           <SectionCard
             title="Invoice history"
-            action={<Button variant="secondary" onClick={() => toast.success('Exporting all invoices…')}>Export all</Button>}
+            action={<Button variant="secondary" onClick={handleExportAllInvoices}>Export all</Button>}
             bodyPadding="0 24px 12px"
           >
             <InvoiceTable billing={billing} loading={billingLoading} />

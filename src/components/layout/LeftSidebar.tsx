@@ -2,7 +2,8 @@
 
 import React, { useCallback, useRef, useMemo, useState, useEffect, Suspense } from "react";
 import { m } from "framer-motion";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useGuardedRouter, useNavGuard } from "@/context/nav-guard-context";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { AlertTwoIcon, BubbleChatAddIcon, CircleIcon, FolderAddIcon, FolderOneIcon, MoreHorizontalIcon, PlusSignIcon, SettingsOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
@@ -495,7 +496,7 @@ function ProjectsSection({
   newProjectHref = PROJECTS_NEW_ROUTE,
   emptyLabel = "No projects yet",
 }: ProjectsSectionProps) {
-  const { push }    = useRouter()
+  const { push }    = useGuardedRouter()
   const pathname    = usePathname()
   const chatHistory = useChatHistoryContext()
   const { projects: allProjects, loading: projectsLoading, getChats, removeChat, renameChat, loadProjectChats } = useProjects()
@@ -688,7 +689,7 @@ const PERSONAL_PROJECT_CHAT_LIMIT = 2
 //    chats + a "See all" link, mirroring ProjectsSection's team-project rows. ─
 
 function PersonalProjectsMenu({ projects }: { projects: Project[] }) {
-  const { push } = useRouter()
+  const { push } = useGuardedRouter()
   const pathname = usePathname()
   const chatHistory = useChatHistoryContext()
   const { getChats, loadProjectChats, removeChat, renameChat } = useProjects()
@@ -810,7 +811,7 @@ interface WorkspaceSwitcherProps {
 }
 
 function WorkspaceSwitcher({ teams, projects, activeTeamId, role, onTeamSelect }: WorkspaceSwitcherProps) {
-  const { push }    = useRouter()
+  const { push }    = useGuardedRouter()
   const [open, setOpen] = useState(false)
 
   // Only show active (non-archived) teams — mirrors the /org/teams page filter.
@@ -1079,7 +1080,7 @@ function PersonaChatItem({
 // -- Personas section - all personas, each collapsible with their chats -------
 
 function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
-  const { push }            = useRouter()
+  const { push }            = useGuardedRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
   const { orgId, teams, currentUserRole, members } = useOrg()
@@ -1371,7 +1372,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
 // sourceShareId: shared agents (accepted via Super Link) vs owned agents.
 
 function PersonasSectionIndividual() {
-  const { push }            = useRouter()
+  const { push }            = useGuardedRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
 
@@ -1661,7 +1662,7 @@ function PersonasSectionIndividual() {
 type AgentChat = PersonaChat & { personaId: string }
 
 function RecentAgentChatsSection() {
-  const { push }            = useRouter()
+  const { push }            = useGuardedRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
 
@@ -1851,7 +1852,7 @@ interface BrainScheduledTasksSectionProps {
 const SCHEDULE_PREVIEW_LIMIT = 5;
 
 function BrainScheduledTasksSection({ tasks, loading, runInfo, onTaskOpened }: BrainScheduledTasksSectionProps) {
-  const { push } = useRouter();
+  const { push } = useGuardedRouter();
   const [shown, setShown] = useState(true);
   const [overflow, setOverflow] = useState<"visible" | "hidden">("visible");
   const visibleTasks = tasks.slice(0, SCHEDULE_PREVIEW_LIMIT);
@@ -1942,7 +1943,8 @@ function LeftSidebarImpl({
   onSelectChat,
   onNewChat,
 }: LeftSidebarProps) {
-  const { push } = useRouter();
+  const { push } = useGuardedRouter();
+  const { guardedNavigate } = useNavGuard();
   const pathname = usePathname();
   const chatSearchParams = useSearchParams();
   const { user, logout, isAuthenticated } = useAuth();
@@ -2317,7 +2319,7 @@ function LeftSidebarImpl({
             onHelp={() => push(SETTINGS_HELP_ROUTE)}
             onManageConnectors={() => push(SETTINGS_CONNECTORS_ROUTE)}
             onReportBug={() => setReportBugOpen(true)}
-            onLogOut={() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } }}
+            onLogOut={() => guardedNavigate(() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } })}
           />
         )
       }}

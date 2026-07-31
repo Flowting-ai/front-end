@@ -127,7 +127,7 @@ function ProjectViewToggle({ value, onChange }: { value: ViewMode; onChange: (v:
 // ── Compact list-view row ────────────────────────────────────────────────────
 
 function ProjectListRow({
-  project, teamName, ownerName, memberCount, updatedAt, onClick, onEdit, onArchive, onDelete,
+  project, teamName, ownerName, memberCount, updatedAt, onClick, onEdit, onDelete,
 }: {
   project:      Project
   teamName?:    string
@@ -136,12 +136,11 @@ function ProjectListRow({
   updatedAt:    string
   onClick:      () => void
   onEdit?:      () => void
-  onArchive?:   () => void
   onDelete?:    () => void
 }) {
   const [hovered,  setHovered]  = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const hasActions = Boolean(onEdit || onArchive || onDelete)
+  const hasActions = Boolean(onEdit || onDelete)
   const showMenu   = hovered || menuOpen
   const scopeLabel = teamName ?? 'Personal'
 
@@ -261,8 +260,7 @@ function ProjectListRow({
             >
               <Dropdown size="md">
                 <Dropdown.Section fluid>
-                  <Dropdown.Item label="Edit"    onClick={() => { setMenuOpen(false); onEdit?.() }}    fluid />
-                  <Dropdown.Item label="Archive" onClick={() => { setMenuOpen(false); onArchive?.() }} disabled fluid />
+                  <Dropdown.Item label="Edit" onClick={() => { setMenuOpen(false); onEdit?.() }} fluid />
                 </Dropdown.Section>
                 <Dropdown.Section divider fluid>
                   <Dropdown.Item label="Delete"  variant="danger" onClick={() => { setMenuOpen(false); onDelete?.() }} fluid />
@@ -663,7 +661,6 @@ function ProjectsPageInner() {
                 updatedAt={formatUpdated(project.updatedAt)}
                 onClick={() => push(PROJECT_ROUTE(project.id))}
                 onEdit={project.canEdit ? () => setEditTarget(project) : undefined}
-                onArchive={project.canEdit ? () => {/* archive flow - backlog */} : undefined}
                 onDelete={project.canEdit ? () => handleDelete(project) : undefined}
               />
             ))}
@@ -690,7 +687,6 @@ function ProjectsPageInner() {
                 chatCount={project.chatCount}
                 onClick={() => push(PROJECT_ROUTE(project.id))}
                 onEdit={project.canEdit ? () => setEditTarget(project) : undefined}
-                onArchive={project.canEdit ? () => {/* archive flow - backlog */} : undefined}
                 onDelete={project.canEdit ? () => handleDelete(project) : undefined}
               />
             ))}

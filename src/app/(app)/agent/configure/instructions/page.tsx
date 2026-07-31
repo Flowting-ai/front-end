@@ -22,7 +22,6 @@ import { InputField } from '@/components/InputField'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
 import ExampleConversationModal from '@/app/(app)/agent/configure/components/ExampleConversationModal'
-import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModal'
 import { useInstructionHistory } from '@/app/(app)/agent/configure/hooks/use-instruction-history'
 import {
   createVersion,
@@ -681,7 +680,6 @@ function PersonaConfigureInstructionsContent() {
   const [exampleConvOpen, setExampleConvOpen] = useState(false)
   const [exampleConvExpanded, setExampleConvExpanded] = useState(false)
   const [exampleConversations, setExampleConversations] = useState<Array<{ id: string; userSays: string; personaReplies: string }>>([])
-  const [republishModalOpen,   setRepublishModalOpen]   = useState(false)
   const [maxVersionsModalOpen, setMaxVersionsModalOpen] = useState(false)
   const [isDeletingOldest,     setIsDeletingOldest]     = useState(false)
 
@@ -1759,18 +1757,6 @@ function PersonaConfigureInstructionsContent() {
         onClose={() => setExampleConvOpen(false)}
         onAdd={handleAddConversation}
       />
-      {republishModalOpen && (
-        <RepublishModal
-          personaName={personaName || 'Agent'}
-          superLinkActive={false}
-          onClose={() => setRepublishModalOpen(false)}
-          onDone={() => {
-            setRepublishModalOpen(false)
-            push(AGENTS_ROUTE)
-          }}
-        />
-      )}
-
       {/* ── Max versions confirmation modal ────────────────────────────────── */}
       {maxVersionsModalOpen && (
         <div

@@ -1556,44 +1556,6 @@ function ExpandedMeta({ chatName, createdAt }: { chatName: string; modelName?: s
   )
 }
 
-function PinCommentItem({ comment }: { comment: PinComment }) {
-  return (
-    <div
-      style={{
-        padding:         '6px 8px',
-        borderRadius:    8,
-        backgroundColor: 'var(--neutral-50)',
-        display:         'flex',
-        flexDirection:   'column',
-        gap:             2,
-      }}
-    >
-      <p
-        style={{
-          fontFamily:  'var(--font-body)',
-          fontSize:    'var(--font-size-caption)',
-          lineHeight:  'var(--line-height-caption)',
-          color:       'var(--color-text-primary)',
-          margin:      0,
-          wordBreak:   'break-word',
-          whiteSpace:  'pre-wrap',
-        }}
-      >
-        {comment.content}
-      </p>
-      <span
-        style={{
-          fontFamily: 'var(--font-body)',
-          fontSize:   'var(--font-size-caption)',
-          color:      'var(--neutral-400)',
-        }}
-      >
-        {formatRelativeTime(comment.created_at)}
-      </span>
-    </div>
-  )
-}
-
 // ── AbsoluteActionBar ─────────────────────────────────────────────────────────
 // Dedicated component so useIsPresent can be called inside AnimatePresence.
 // Article rule: useIsPresent must live in a child of AnimatePresence, not the

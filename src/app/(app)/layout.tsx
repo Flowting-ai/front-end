@@ -16,6 +16,7 @@ import { ConnectorAuthResultToast } from "@/components/shared/ConnectorAuthResul
 import { SearchProvider } from "@/context/search-context";
 import { OrgProvider } from "@/context/org-context";
 import { OrgStamps } from "@/components/Analytics/OrgStamps";
+import { NavGuardProvider, NavGuardModal } from "@/context/nav-guard-context";
 
 export default function AppGroupLayout({
   children,
@@ -24,6 +25,8 @@ export default function AppGroupLayout({
 }) {
   return (
     <OnboardingGuard>
+      <NavGuardProvider>
+      <NavGuardModal />
       <OrgProvider>
       <OrgStamps />
       <ProjectsProvider>
@@ -49,6 +52,7 @@ export default function AppGroupLayout({
         </ChatHistoryProvider>
       </ProjectsProvider>
       </OrgProvider>
+      </NavGuardProvider>
     </OnboardingGuard>
   );
 }

@@ -163,7 +163,7 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
               justifyContent: "center",
             }}
           >
-            <SouvenirModelIcon size={16} />
+            <SouvenirModelIcon size={16} variant="light" />
           </span>
         )}
         {label}
@@ -288,7 +288,7 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
                           justifyContent: "center",
                         }}
                       >
-                        <SouvenirModelIcon size={16} />
+                        <SouvenirModelIcon size={16} variant="light" />
                       </span>
                     )}
                     {modelName}

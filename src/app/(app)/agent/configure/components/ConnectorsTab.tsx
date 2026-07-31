@@ -222,9 +222,22 @@ export default function ConnectorsTab({
 
   const visible = connectors.filter(matchesSearch)
 
+  // A connector should only ever be usable through ONE scope at a time for a
+  // given agent — never both a personal account and a shared workspace
+  // account simultaneously. The backend has no ordering signal (no creation
+  // timestamp on personal links) to determine which was actually linked
+  // first, so this defers to the backend's own documented precedence for
+  // which account executes tool calls (see connector_account_option_schema:
+  // "the server picks personal-first, else the team's shared one") — the
+  // personal account stays live and toggleable; the workspace account(s)
+  // render as a locked, informational row instead of a second active switch.
+  const conflictedSlugs = new Set(
+    visible.filter(entry => hasPersonalAccount(entry) && workspaceAccountsOf(entry).length > 0).map(entry => entry.slug),
+  )
+
   // Workspace rows: one per connected shared account (a connector may have many).
   const workspaceRows = visible.flatMap(entry =>
-    workspaceAccountsOf(entry).map(account => ({ entry, account })),
+    workspaceAccountsOf(entry).map(account => ({ entry, account, overridden: conflictedSlugs.has(entry.slug) })),
   )
   // Personal rows: one per connector the viewer personally linked.
   const personalRows = visible.filter(hasPersonalAccount)
@@ -379,17 +392,19 @@ export default function ConnectorsTab({
           {workspaceRows.length > 0 && (
             <section data-help-id="help-connectors-workspace" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <p style={{ ...SECTION_LABEL, marginBottom: 4, paddingLeft: 12 }}>Workspace connectors</p>
-              {workspaceRows.map(({ entry, account }) => (
+              {workspaceRows.map(({ entry, account, overridden }) => (
                 <ConnectorRow
                   key={`${entry.slug}:${account.shared_account_id ?? 'shared'}`}
                   name={entry.display_name}
-                  description={entry.description}
+                  description={overridden
+                    ? 'Your personal account is used instead — disconnect it in Settings to use this workspace account.'
+                    : entry.description}
                   iconUrl={logoFor(entry)}
                   status="connected-workspace"
                   accountLabel={account.account_label}
-                  active={!blockedSlugs.has(entry.slug)}
-                  onActiveChange={enabled => void setEnabled(entry.slug, enabled)}
-                  disabled={savingSlug === entry.slug}
+                  active={overridden ? false : !blockedSlugs.has(entry.slug)}
+                  onActiveChange={overridden ? undefined : enabled => void setEnabled(entry.slug, enabled)}
+                  disabled={overridden || savingSlug === entry.slug}
                 />
               ))}
             </section>

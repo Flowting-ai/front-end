@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { ReasoningBlock, ModelLogo, AnimatedLogo } from "./ReasoningBlock";
 import { BreathingDot } from "@/components/BreathingDot";
 import { ActivitiesSection } from "./ActivityRow";
-import { StreamingCursor } from "./StreamingCursor";
 import { BlockSequenceRenderer, SourceList } from "./ResponseBlocks";
 import { ConnectPromptCard } from "./ConnectorPrompts";
 import { PermissionPromptCard } from "@/components/shared/PermissionPromptCard";
@@ -798,9 +797,6 @@ export function ChatMessage({
             {isNewMessage && message.isLoading
               ? <StreamingTextContent content={message.content} citations={message.webCitations} />
               : <ContentRenderer content={message.content} webCitations={message.webCitations} />}
-            {!(isNewMessage && message.isLoading) && (
-              <StreamingCursor isVisible={false} />
-            )}
           </m.div>
         ) : null}
         {/* Structural blocks (tables, charts, steps, follow-ups, tags, etc.) come

@@ -36,6 +36,7 @@ import type { PendingAttachment } from '@/components/chat/AttachmentManager'
 import type { ActivityItem } from '@/hooks/use-chat-state'
 import type { ChatPrompt } from '@/lib/api/prompts'
 import { AGENT_CHAT_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE } from '@/lib/routes'
+import { useNavGuard } from '@/context/nav-guard-context'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -780,6 +781,18 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
   useEffect(() => {
     tagsCountOnTabArrivalRef.current = pendingChangeTagsRef.current.length
   }, [pathname])
+
+  // Forward combined dirtiness to the app-wide nav guard so triggers OUTSIDE
+  // this route subtree (LeftSidebar, rendered as a sibling — see
+  // nav-guard-context.tsx) can intercept navigation with a confirmation
+  // instead of silently discarding an unpublished version. Cleared on
+  // unmount so leaving the configure route entirely doesn't leave the rest
+  // of the app permanently guarded.
+  const { setIsDirty: setGlobalDirty } = useNavGuard()
+  useEffect(() => {
+    setGlobalDirty(pendingChangeTags.length > 0 || Object.values(tabDirtyFlags).some(Boolean))
+  }, [pendingChangeTags, tabDirtyFlags, setGlobalDirty])
+  useEffect(() => () => setGlobalDirty(false), [setGlobalDirty])
 
   const addPendingChangeTag = useCallback((tag: string) => {
     // New (never-published) personas have no prior version to diff against, so

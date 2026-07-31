@@ -12,7 +12,6 @@ import { IconButton } from '@/components/IconButton'
 import { Badge } from '@/components/Badge'
 import { toast } from 'sonner'
 import ProfileTab from '@/app/(app)/agent/configure/components/ProfileTab'
-import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModal'
 import {
   getPersonaRepo, updateVersion, publishPersonaVersion,
   bustPersonasCache,
@@ -75,7 +74,6 @@ function PersonaConfigureProfileContent() {
   const [showInfo,             setShowInfo]             = useState(false)
   const [isPublishing,         setIsPublishing]         = useState(false)
   const [isDirty,              setIsDirty]              = useState(false)
-  const [republishModalOpen,   setRepublishModalOpen]   = useState(false)
   const isDirtyRef = useRef(false)
 
   // ProfileTab state — initialise from sessionStorage on first render
@@ -596,14 +594,6 @@ function PersonaConfigureProfileContent() {
         </div>
       </div>
 
-      {republishModalOpen && (
-        <RepublishModal
-          personaName={personaName || 'Agent'}
-          superLinkActive={false}
-          onClose={() => setRepublishModalOpen(false)}
-          onDone={() => { setRepublishModalOpen(false); push(AGENTS_ROUTE) }}
-        />
-      )}
     </div>
   )
 }

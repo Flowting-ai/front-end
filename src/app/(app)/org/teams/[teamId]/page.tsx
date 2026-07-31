@@ -738,6 +738,10 @@ export default function TeamSettingsPage() {
   const [deleteInput, setDeleteInput] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [allowedDomains, setAllowedDomains] = useState<string[]>([])
+  const [memberSearchOpen, setMemberSearchOpen] = useState(false)
+  const [memberSearch, setMemberSearch] = useState('')
+  const [memberFilterOpen, setMemberFilterOpen] = useState(false)
+  const [memberRoleFilter, setMemberRoleFilter] = useState<'all' | OrgRole>('all')
 
   useEffect(() => {
     if (!orgId) return
@@ -875,6 +879,15 @@ export default function TeamSettingsPage() {
   }, [orgMembers, editors, editorIds, membershipsByUser, identityByUser, team?.id])
 
   const rosterIds = useMemo(() => new Set(roster.map(m => m.userId)), [roster])
+
+  const visibleRoster = useMemo(() => {
+    const q = memberSearch.trim().toLowerCase()
+    return roster.filter(m => {
+      if (memberRoleFilter !== 'all' && m.orgRole !== memberRoleFilter) return false
+      if (q && !m.name.toLowerCase().includes(q) && !(m.email ?? '').toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [roster, memberSearch, memberRoleFilter])
 
   const rosterLoading = editorsLoading || membersLoading
 
@@ -1089,8 +1102,56 @@ export default function TeamSettingsPage() {
           <SettingsTableToolbar title="Team Members">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <IconButton variant="ghost" size="sm" aria-label="Search members" icon={<SearchOneIcon size={20} />} />
-                <IconButton variant="ghost" size="sm" aria-label="Filter members" icon={<FilterMailIcon size={20} />} />
+                {memberSearchOpen && (
+                  <div style={{ width: 200 }}>
+                    <InputField
+                      label="Search members"
+                      showLabel={false}
+                      showSubtitle={false}
+                      size="small"
+                      fluid
+                      autoFocus
+                      leftIcon={<SearchOneIcon size={16} />}
+                      placeholder="Search by name or email…"
+                      value={memberSearch}
+                      onChange={setMemberSearch}
+                    />
+                  </div>
+                )}
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Search members"
+                  icon={<SearchOneIcon size={20} />}
+                  onClick={() => setMemberSearchOpen(o => !o)}
+                />
+                <Dropdown.Float
+                  open={memberFilterOpen}
+                  onOpenChange={setMemberFilterOpen}
+                  placement="bottom-end"
+                  trigger={
+                    <IconButton variant="ghost" size="sm" aria-label="Filter members by role" icon={<FilterMailIcon size={20} />} />
+                  }
+                >
+                  <Dropdown style={{ width: 160 }}>
+                    <Dropdown.Section fluid>
+                      {([
+                        { id: 'all',    label: 'All roles' },
+                        { id: 'owner',  label: 'Owner' },
+                        { id: 'admin',  label: 'Admin' },
+                        { id: 'member', label: 'Member' },
+                      ] as const).map(f => (
+                        <Dropdown.Item
+                          key={f.id}
+                          fluid
+                          label={f.label}
+                          selected={memberRoleFilter === f.id}
+                          onClick={() => { setMemberRoleFilter(f.id); setMemberFilterOpen(false) }}
+                        />
+                      ))}
+                    </Dropdown.Section>
+                  </Dropdown>
+                </Dropdown.Float>
               </div>
               <Button variant="ghost" size="sm" leftIcon={<ExchangeOneIcon animated={refreshing} size={16} />} disabled={refreshing} onClick={() => void refreshRoster()}>
                 Refresh
@@ -1122,12 +1183,18 @@ export default function TeamSettingsPage() {
             </div>
           )}
 
-          {!rosterLoading && roster.map((member, index) => (
+          {!rosterLoading && roster.length > 0 && visibleRoster.length === 0 && (
+            <div style={{ padding: '24px', textAlign: 'center' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>No members match your search.</p>
+            </div>
+          )}
+
+          {!rosterLoading && visibleRoster.map((member, index) => (
             <SettingsTableRow
               key={member.userId}
               columns={EDITOR_COLUMNS}
               columnGap={EDITOR_COLUMN_GAP}
-              divider={index < roster.length - 1}
+              divider={index < visibleRoster.length - 1}
             >
               <SettingsTableCell>
                 <MemberCell member={member} />
