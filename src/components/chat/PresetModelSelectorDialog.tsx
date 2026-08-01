@@ -21,19 +21,7 @@ import { SouvenirModelIcon } from "@/components/SouvenirModelIcon";
 import { trackFeature } from "@/lib/analytics/events";
 import { Badge, type BadgeColor } from "@/components/Badge";
 import { Divider } from "@/components/Divider";
-
-// Basic → Standard → Advanced, regardless of whatever order the backend
-// returns the catalog in. Anything that doesn't match one of the 3 known
-// tier labels (shouldn't happen — see toSouvenirModelLabel) sorts last
-// instead of throwing, so an unexpected/future model still renders.
-const TIER_ORDER: Record<string, number> = {
-  "Souvenir Muse: Basic": 0,
-  "Souvenir Muse: Standard": 1,
-  "Souvenir Muse: Advanced": 2,
-};
-function tierRank(modelName: string): number {
-  return TIER_ORDER[modelName] ?? 99;
-}
+import { sortModelsByTier } from "@/lib/ai-models";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -188,10 +176,8 @@ function PresetModelSelectorContent({
     return () => ro.disconnect();
   }, []);
 
-  // No search — just the 3 tiers, Basic → Standard → Advanced.
-  const filtered = [...models].sort(
-    (a, b) => tierRank(a.modelName) - tierRank(b.modelName),
-  );
+  // No search — just the 3 tiers, Advanced → Standard → Basic.
+  const filtered = sortModelsByTier(models);
 
   return (
     <div ref={containerRef} style={{ padding: "8px" }}>

@@ -17,7 +17,7 @@ import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { fetchPersonaOwnerMap, resolveViewerUserId } from "@/lib/api/teams";
 import { listTasks, getTask } from "@/lib/api/tasks";
 import type { ScheduledTaskListItem, ScheduledTaskRunResponse } from "@/lib/api/tasks";
-import { CHAT_CREATED_EVENT, emitSidebarNewChat } from "@/hooks/use-sidebar-events";
+import { CHAT_CREATED_EVENT, emitSidebarNewChat, emitAgentsSeeAll } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
 import { BrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
 import { ChatHistoryItem } from "./ChatHistoryItem";
@@ -1084,6 +1084,23 @@ function PersonaChatItem({
 // projects/chats/schedules above.
 const AGENT_LIST_LIMIT = 10
 
+// Shared by every "See all agents" row below — same already-there guard as
+// handleNewChat's "Already on new chat" toast, so clicking it while already
+// on /agents surfaces feedback instead of a silent no-op navigation. Always
+// lands on the "My Agents" tab specifically: a fresh /agents mount already
+// defaults there, but an already-mounted page won't reset its own tab state
+// from a same-URL push, so that case also emits AGENTS_SEE_ALL_EVENT for the
+// page to act on (same pattern as BRAIN_NEW_THREAD_EVENT).
+function goToAgentsLibrary(pathname: string | null, push: (href: string) => void) {
+  if (pathname === AGENTS_ROUTE) {
+    toast.info("Already showing agent library", { id: 'nav' })
+    emitAgentsSeeAll()
+    return
+  }
+  toast.info("Opening Agents", { id: 'nav' })
+  push(AGENTS_ROUTE)
+}
+
 function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   const { push }            = useGuardedRouter()
   const pathname            = usePathname()
@@ -1375,7 +1392,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
                 icon={<MoreHorizontalIcon size={20} animated />}
                 label="See all agents"
                 href={AGENTS_ROUTE}
-                onClick={() => push(AGENTS_ROUTE)}
+                onClick={() => goToAgentsLibrary(pathname, push)}
               />
             </m.div>
           )}
@@ -1631,7 +1648,7 @@ function PersonasSectionIndividual() {
                     icon={<MoreHorizontalIcon size={20} animated />}
                     label="See all agents"
                     href={AGENTS_ROUTE}
-                    onClick={() => push(AGENTS_ROUTE)}
+                    onClick={() => goToAgentsLibrary(pathname, push)}
                   />
                 </m.div>
               )}
@@ -1686,7 +1703,7 @@ function PersonasSectionIndividual() {
                 icon={<MoreHorizontalIcon size={20} animated />}
                 label="See all agents"
                 href={AGENTS_ROUTE}
-                onClick={() => push(AGENTS_ROUTE)}
+                onClick={() => goToAgentsLibrary(pathname, push)}
               />
             </m.div>
           )}

@@ -8,7 +8,7 @@ import { stableKey } from '@/hooks/use-model-selection'
 import { Badge } from '@/components/Badge'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
 import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
-import { fetchModelsWithCache } from '@/lib/ai-models'
+import { fetchModelsWithCache, sortModelsByTier } from '@/lib/ai-models'
 import type { AIModel } from '@/types/ai-model'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
@@ -56,8 +56,10 @@ export function useModelCatalog(open: boolean) {
     return () => { cancelled = true }
   }, [open])
 
+  // Advanced → Standard → Basic, same fixed order as every other model
+  // selector in the app (chat switcher, Instructions tab).
   const available = useMemo(
-    () => (all ?? EMPTY_MODELS).filter(model => !model.blocked && !!stableKey(model)),
+    () => sortModelsByTier((all ?? EMPTY_MODELS).filter(model => !model.blocked && !!stableKey(model))),
     [all],
   )
 

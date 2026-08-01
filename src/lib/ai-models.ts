@@ -142,6 +142,28 @@ export function bustModelsCache(): void {
   }
 }
 
+// Canonical display order for the 3 Souvenir Muse tiers — Advanced, then
+// Standard, then Basic — used by every model-selector dropdown in the app
+// (the chat/global switcher, the agent Instructions tab, and the Change/Fix
+// model modals) so the list order never drifts between surfaces. Anything
+// that doesn't match one of the 3 known tier labels (shouldn't happen — see
+// toSouvenirModelLabel) sorts last instead of throwing, so an unexpected or
+// future model still renders.
+const MODEL_TIER_RANK: Record<string, number> = {
+  "Souvenir Muse: Advanced": 0,
+  "Souvenir Muse: Standard": 1,
+  "Souvenir Muse: Basic": 2,
+};
+
+export function modelTierRank(modelName: string): number {
+  return MODEL_TIER_RANK[modelName] ?? 99;
+}
+
+/** Sorts a model list Advanced → Standard → Basic. Stable, non-mutating. */
+export function sortModelsByTier<T extends Pick<AIModel, "modelName">>(models: T[]): T[] {
+  return [...models].sort((a, b) => modelTierRank(a.modelName) - modelTierRank(b.modelName));
+}
+
 // Tier keywords used only to break ties between same-company candidates —
 // e.g. prefer another "Standard"-class model over an "Advanced"/"Basic" one
 // so a persona's cost/capability tier survives a forced model swap where

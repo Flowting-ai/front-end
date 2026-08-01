@@ -39,9 +39,8 @@ import {
   derivePublicationState,
   pickVersionToEdit,
 } from '@/lib/persona-version-logic'
-import { fetchModelsWithCache } from '@/lib/ai-models'
+import { fetchModelsWithCache, sortModelsByTier } from '@/lib/ai-models'
 import { stableKey } from '@/hooks/use-model-selection'
-import { recordModelUsage, sortModelsByUsage } from '@/lib/model-usage'
 import type { AIModel } from '@/types/ai-model'
 import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
@@ -266,6 +265,12 @@ function modelInfoContent(model: AIModel): React.ReactNode {
 // trigger's width. Panel content otherwise mirrors it: search + flat
 // ModelSelectItem rows, no provider grouping (there's only ever one company).
 
+// Panel hugs its content (search box + however many rows match) instead of
+// always reserving a tall fixed block — only the row list itself scrolls,
+// capped at this height, same "size to content, cap the list" split as
+// PresetModelSelectorDialog's MODEL_LIST_MAX_HEIGHT.
+const MODEL_LIST_MAX_HEIGHT = 320
+
 function ModelDropdown({
   models,
   selectedModel,
@@ -280,6 +285,7 @@ function ModelDropdown({
   onSelect:      (model: AIModel) => void
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const scrollRef     = useRef<HTMLDivElement | null>(null)
   const [search,   setSearch]   = useState('')
   const [atTop,    setAtTop]    = useState(true)
   const [atBottom, setAtBottom] = useState(false)
@@ -331,15 +337,32 @@ function ModelDropdown({
     return m.modelName.toLowerCase().includes(q)
   })
 
-  // This browser's most-used models float to the top — models never picked
-  // here or in chat keep their original relative order.
-  const sortedFiltered = React.useMemo(() => sortModelsByUsage(filtered), [filtered])
+  // Advanced → Standard → Basic, same fixed order as every other model
+  // selector in the app (chat switcher, Change/Fix model modals).
+  const sortedFiltered = React.useMemo(() => sortModelsByTier(filtered), [filtered])
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget
+  const updateScrollEdges = () => {
+    const el = scrollRef.current
+    if (!el) return
     setAtTop(el.scrollTop < 34)
     setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8)
   }
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setAtTop(e.currentTarget.scrollTop < 34)
+    setAtBottom(e.currentTarget.scrollHeight - e.currentTarget.scrollTop - e.currentTarget.clientHeight < 8)
+  }
+
+  // Recompute the fade edges whenever the panel opens or the result set
+  // changes size — otherwise a short list (the common case now that the
+  // panel hugs its content) would keep showing a stale bottom fade with
+  // nothing left to scroll to, since that only used to update on an actual
+  // scroll event.
+  useEffect(() => {
+    if (!open) return
+    updateScrollEdges()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sortedFiltered.length])
 
   return (
     <div
@@ -417,7 +440,7 @@ function ModelDropdown({
               isolation:       'isolate',
             }}
           >
-            <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 16, height: 380, maxHeight: 380 }}>
+            <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
               {/* Search */}
               <div style={{ display: 'flex', width: '100%', flexShrink: 0 }}>
@@ -443,55 +466,56 @@ function ModelDropdown({
                 />
               </div>
 
-              {/* Model list */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: '1 0 0', minHeight: 0, width: '100%' }}>
+              {/* Model list — hugs its content up to MODEL_LIST_MAX_HEIGHT,
+                  then scrolls; the panel above never reserves more space than
+                  the actual row count needs. */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
                 {filtered.length > 0 ? (
-                  <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ position: 'relative', flex: '1 0 0', minHeight: 0 }}>
-                      <div
-                        className="kaya-scrollbar"
-                        onScroll={handleScroll}
-                        style={{ position: 'absolute', inset: 0, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: 2 }}
-                      >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {sortedFiltered.map(m => {
-                            const isSelected = !!selectedModel && (m.modelId ?? m.id) === (selectedModel.modelId ?? selectedModel.id)
-                            return (
-                              <ModelSelectItem
-                                key={String(m.modelId ?? m.id)}
-                                role="button"
-                                tabIndex={0}
-                                aria-pressed={isSelected}
-                                image={<SouvenirModelIcon size={18} />}
-                                label={m.modelName}
-                                icons={modelTagBadges(m)}
-                                info={modelInfoContent(m)}
-                                alwaysShowInfo
-                                infoMaxWidth={dropdownWidth}
-                                selected={isSelected}
-                                onClick={() => onSelect(m)}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(m) } }}
-                              />
-                            )
-                          })}
-                        </div>
+                  <div style={{ position: 'relative' }}>
+                    <div
+                      ref={scrollRef}
+                      className="kaya-scrollbar"
+                      onScroll={handleScroll}
+                      style={{ maxHeight: MODEL_LIST_MAX_HEIGHT, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: 2 }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {sortedFiltered.map(m => {
+                          const isSelected = !!selectedModel && (m.modelId ?? m.id) === (selectedModel.modelId ?? selectedModel.id)
+                          return (
+                            <ModelSelectItem
+                              key={String(m.modelId ?? m.id)}
+                              role="button"
+                              tabIndex={0}
+                              aria-pressed={isSelected}
+                              image={<SouvenirModelIcon size={18} />}
+                              label={m.modelName}
+                              icons={modelTagBadges(m)}
+                              info={modelInfoContent(m)}
+                              alwaysShowInfo
+                              infoMaxWidth={dropdownWidth}
+                              selected={isSelected}
+                              onClick={() => onSelect(m)}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(m) } }}
+                            />
+                          )
+                        })}
                       </div>
-
-                      {/* Top fade: progressive blur + color */}
-                      {[{ height: 40, blur: 2 }, { height: 28, blur: 3 }, { height: 18, blur: 5 }, { height: 10, blur: 6 }].map(({ height, blur }) => (
-                        <div key={`top-${blur}`} aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height, backdropFilter: `blur(${blur}px)`, WebkitBackdropFilter: `blur(${blur}px)`, maskImage: 'linear-gradient(to bottom, black 0%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, transparent 100%)', pointerEvents: 'none', zIndex: 10, opacity: atTop ? 0 : 1, transition: 'opacity 150ms ease' }} />
-                      ))}
-                      <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, background: 'linear-gradient(to bottom, white 0%, transparent 100%)', pointerEvents: 'none', zIndex: 11, opacity: atTop ? 0 : 1, transition: 'opacity 150ms ease' }} />
-
-                      {/* Bottom fade: progressive blur + color */}
-                      {[{ height: 40, blur: 2 }, { height: 28, blur: 3 }, { height: 18, blur: 5 }, { height: 10, blur: 6 }].map(({ height, blur }) => (
-                        <div key={`bottom-${blur}`} aria-hidden style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height, backdropFilter: `blur(${blur}px)`, WebkitBackdropFilter: `blur(${blur}px)`, maskImage: 'linear-gradient(to top, black 0%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to top, black 0%, transparent 100%)', pointerEvents: 'none', zIndex: 10, opacity: atBottom ? 0 : 1, transition: 'opacity 150ms ease' }} />
-                      ))}
-                      <div aria-hidden style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 40, background: 'linear-gradient(to top, white 0%, transparent 100%)', pointerEvents: 'none', zIndex: 11, opacity: atBottom ? 0 : 1, transition: 'opacity 150ms ease' }} />
                     </div>
+
+                    {/* Top fade: progressive blur + color */}
+                    {[{ height: 40, blur: 2 }, { height: 28, blur: 3 }, { height: 18, blur: 5 }, { height: 10, blur: 6 }].map(({ height, blur }) => (
+                      <div key={`top-${blur}`} aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height, backdropFilter: `blur(${blur}px)`, WebkitBackdropFilter: `blur(${blur}px)`, maskImage: 'linear-gradient(to bottom, black 0%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, transparent 100%)', pointerEvents: 'none', zIndex: 10, opacity: atTop ? 0 : 1, transition: 'opacity 150ms ease' }} />
+                    ))}
+                    <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, background: 'linear-gradient(to bottom, white 0%, transparent 100%)', pointerEvents: 'none', zIndex: 11, opacity: atTop ? 0 : 1, transition: 'opacity 150ms ease' }} />
+
+                    {/* Bottom fade: progressive blur + color */}
+                    {[{ height: 40, blur: 2 }, { height: 28, blur: 3 }, { height: 18, blur: 5 }, { height: 10, blur: 6 }].map(({ height, blur }) => (
+                      <div key={`bottom-${blur}`} aria-hidden style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height, backdropFilter: `blur(${blur}px)`, WebkitBackdropFilter: `blur(${blur}px)`, maskImage: 'linear-gradient(to top, black 0%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to top, black 0%, transparent 100%)', pointerEvents: 'none', zIndex: 10, opacity: atBottom ? 0 : 1, transition: 'opacity 150ms ease' }} />
+                    ))}
+                    <div aria-hidden style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 40, background: 'linear-gradient(to top, white 0%, transparent 100%)', pointerEvents: 'none', zIndex: 11, opacity: atBottom ? 0 : 1, transition: 'opacity 150ms ease' }} />
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '1 0 0', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-500)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 0', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-500)' }}>
                     {search ? `No models matching "${search}"` : 'No models available'}
                   </div>
                 )}
@@ -1590,7 +1614,7 @@ function PersonaConfigureInstructionsContent() {
                   selectedModel={selectedModel}
                   open={modelSelectorOpen}
                   onOpenChange={setModelSelectorOpen}
-                  onSelect={(m) => { setSelectedModel(m); setModelSelectorOpen(false); markTouched('model'); recordModelUsage(m) }}
+                  onSelect={(m) => { setSelectedModel(m); setModelSelectorOpen(false); markTouched('model') }}
                 />
               </div>
 

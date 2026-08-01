@@ -1,9 +1,9 @@
 ﻿'use client'
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import {
   PlusSignIcon,
@@ -41,13 +41,14 @@ import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, usePerson
 import { normalizeModels } from '@/lib/ai-models'
 import { fetchAllModels } from '@/lib/api/models'
 import type { AIModel } from '@/types/ai-model'
+import { AGENTS_SEE_ALL_EVENT } from '@/hooks/use-sidebar-events'
 import { fetchDashboard, listShares, listReceived, revokeShare, type PersonaShare, type ReceivedShareResponse, type ShareDashboardResponse } from '@/lib/api/persona-shares'
 import type { SuperLinkDrawerSession } from '@/components/SuperLinkDrawer'
 import { Badge } from '@/components/Badge'
 import { TokenBudgetBar } from '@/components/TokenBudgetBar'
 import { canonicalShareUrl } from '@/lib/share-url'
 import { personaTagsKey, personaProfileKey } from '@/lib/storage-keys'
-import { AGENTS_TEMPLATES_ROUTE, AGENT_CHAT_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
+import { AGENTS_ROUTE, AGENTS_TEMPLATES_ROUTE, AGENT_CHAT_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
 import Tabs from '@/components/Tabs'
 import { PersonaCard } from '@/components/PersonaCard'
 import type { SuperLinkStatus } from '@/components/SuperLinkRow'
@@ -66,6 +67,12 @@ import { toast } from 'sonner'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type TabId = 'my-personas' | 'team-agents' | 'super-links'
+const TAB_IDS: TabId[] = ['my-personas', 'team-agents', 'super-links']
+/** Reads `?tab=` — anything missing or unrecognized falls back to "My Agents". */
+function parseTabParam(value: string | null): TabId {
+  return (TAB_IDS as string[]).includes(value ?? '') ? (value as TabId) : 'my-personas'
+}
+
 type SortKey = 'activity' | 'az' | 'za'
 
 type AgentFilters = {
@@ -483,9 +490,10 @@ function toDrawerLink(
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function PersonasPage() {
-  const { push } = useRouter()
+function PersonasPageInner() {
+  const { push, replace } = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { close: closePinboard } = usePinboard()
   const { currentUserRole, orgId, teams, members } = useOrg()
   const { user } = useAuth()
@@ -512,7 +520,36 @@ export default function PersonasPage() {
     return isPersonaOwnedByViewer(persona, personaOwnerMap, viewerUserId, currentUserRole === 'admin')
   }
 
-  const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')
+  // Seeded from the URL so a reload, a shared link, or Back/Forward lands on
+  // the same tab the user was looking at — not always back at "My Agents".
+  const [activeTab, setActiveTabState] = useState<TabId>(() => parseTabParam(searchParams.get('tab')))
+
+  // Re-sync any time the URL's ?tab= changes from outside a click on this
+  // page's own Tabs (Back/Forward, or a link landing here with a tab param).
+  useEffect(() => {
+    const urlTab = parseTabParam(searchParams.get('tab'))
+    setActiveTabState(prev => (prev === urlTab ? prev : urlTab))
+  }, [searchParams])
+
+  // Sets the tab AND keeps the URL's ?tab= in sync, so the current tab
+  // survives a reload/back-nav and links to this page can target a specific
+  // tab. `replace` (not `push`) — switching tabs isn't a new history entry.
+  function setActiveTab(next: TabId) {
+    setActiveTabState(next)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', next)
+    replace(`${AGENTS_ROUTE}?${params.toString()}`, { scroll: false })
+  }
+
+  // The sidebar's "See all agents" row emits this while this page is already
+  // mounted (a same-URL push wouldn't reset activeTab on its own) — always
+  // land back on "My Agents", regardless of which tab was active.
+  useEffect(() => {
+    const handler = () => setActiveTab('my-personas')
+    window.addEventListener(AGENTS_SEE_ALL_EVENT, handler)
+    return () => window.removeEventListener(AGENTS_SEE_ALL_EVENT, handler)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [personas,     setPersonas]     = useState<Persona[]>([])
   const [draftAvatarMap,   setDraftAvatarMap]   = useState<Record<string, string>>({})
   const [draftTagsMap,     setDraftTagsMap]     = useState<Record<string, string[]>>({})
@@ -2181,5 +2218,13 @@ export default function PersonasPage() {
         document.body
       )}
     </>
+  )
+}
+
+export default function PersonasPage() {
+  return (
+    <Suspense fallback={null}>
+      <PersonasPageInner />
+    </Suspense>
   )
 }
