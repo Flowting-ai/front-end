@@ -246,12 +246,27 @@ export interface PersonaCardProps extends React.HTMLAttributes<HTMLDivElement> {
 
   /**
    * The agent's configured model is disabled, missing, or deprecated — dims
-   * the card, suppresses its normal hover actions and ··· menu (nothing on
-   * it can run right now), and shows a centered "Change model" ghost button
-   * instead. Applies to the 'default' variant only.
+   * the card, suppresses its normal hover actions, and shows a centered
+   * message with a "Change model" ghost button instead. Applies to the
+   * 'default' variant only.
+   *
+   * The ··· menu stays live: only inference is broken, so renaming,
+   * duplicating, pausing and deleting the agent must all still work.
    */
   modelUnavailable?: boolean
-  /** "Change model" button shown when `modelUnavailable` is true. */
+  /**
+   * Why it's unavailable, which changes the copy — 'blocked' is something
+   * this account did (turned the model off), 'retired' is the provider
+   * dropping it. Defaults to 'retired' phrasing.
+   */
+  modelUnavailableReason?: 'retired' | 'blocked'
+  /** Display name of the unavailable model, so the message can name it. */
+  unavailableModelName?: string | null
+  /**
+   * "Change model" button shown when `modelUnavailable` is true. Omit it when
+   * the agent has no version to patch — the message renders without a button
+   * rather than showing one that can't do anything.
+   */
   onChangeModel?: () => void
 
   /**
@@ -475,6 +490,8 @@ function PersonaCardInner({
       paused         = false,
       superlink      = false,
       modelUnavailable = false,
+      modelUnavailableReason = 'retired',
+      unavailableModelName,
       onChangeModel,
       createdBy,
       visibility,
@@ -651,7 +668,9 @@ function PersonaCardInner({
             height:        (!isTemplate && !isCommunity) ? '100%' : undefined,
             boxSizing:     'border-box' as const,
             padding:       12,
-            opacity:       modelUnavailable ? 0.5 : 1,
+            // No opacity here when unavailable — the scrim below already dims
+            // the content, and `opacity < 1` would create a stacking context
+            // that traps the ··· menu underneath it.
             pointerEvents: modelUnavailable ? 'none' : undefined,
             transition:    'opacity 0.2s ease',
           }}
@@ -739,12 +758,19 @@ function PersonaCardInner({
                   </div>
                 )}
 
-                {/* ··· menu trigger + dropdown (default variant only) */}
-                {!isTemplate && !isCommunity && !modelUnavailable && (
+                {/* ··· menu trigger + dropdown (default variant only).
+                    Stays interactive when the model is unavailable — the
+                    surrounding content sets pointerEvents:none and the scrim
+                    paints over it, so this opts both back in for itself. */}
+                {!isTemplate && !isCommunity && (
                   // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
                   <div
                     ref={menuTriggerRef}
-                    style={{ position: 'relative', flexShrink: 0 }}
+                    style={{
+                      position:      'relative',
+                      flexShrink:    0,
+                      ...(modelUnavailable ? { zIndex: 3, pointerEvents: 'auto' as const } : null),
+                    }}
                     onMouseDown={e => e.stopPropagation()}
                     onClick={e => e.stopPropagation()}
                   >
@@ -1035,8 +1061,8 @@ function PersonaCardInner({
         {/* ── Model unavailable — muted scrim + centered "Change model" over
             the dimmed content (kept faintly visible so the card still reads
             as "this agent", just not usable right now). The card body above
-            has pointerEvents:none, so this is the only interactive surface
-            left on the card. ── */}
+            has pointerEvents:none, so this and the ··· menu (which lifts
+            itself to zIndex 3) are the only interactive surfaces left. ── */}
         {modelUnavailable && (
           <>
             <div
@@ -1046,7 +1072,9 @@ function PersonaCardInner({
                 inset:           0,
                 borderRadius:    16,
                 backgroundColor: isDraft ? 'var(--neutral-50)' : 'var(--neutral-white)',
-                opacity:         0.6,
+                // Carries the whole dim now that the content div no longer
+                // fades itself (see the pointerEvents note above).
+                opacity:         0.72,
                 zIndex:          1,
               }}
             />
@@ -1074,11 +1102,19 @@ function PersonaCardInner({
                   color:      'var(--neutral-500)',
                 }}
               >
-                This agent&apos;s model is unavailable.
+                {unavailableModelName
+                  ? modelUnavailableReason === 'blocked'
+                    ? `${unavailableModelName} is turned off.`
+                    : `${unavailableModelName} is no longer available.`
+                  : modelUnavailableReason === 'blocked'
+                    ? 'This agent’s model is turned off.'
+                    : 'This agent’s model is no longer available.'}
               </p>
-              <Button variant="ghost" size="sm" onClick={onChangeModel}>
-                Change model
-              </Button>
+              {onChangeModel && (
+                <Button variant="ghost" size="sm" onClick={onChangeModel}>
+                  Change model
+                </Button>
+              )}
             </div>
           </>
         )}

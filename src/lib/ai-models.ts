@@ -159,19 +159,22 @@ const MODEL_TIER_WORDS = ['advanced', 'standard', 'basic', 'opus', 'sonnet', 'ha
  */
 export function pickReplacementModel(
   available: AIModel[],
-  deprecated?: Pick<AIModel, 'companyName' | 'modelName' | 'modelType'> | null,
+  // Partial, not the full triple: a fully retired model is gone from the
+  // catalog, so the only thing the caller can still supply about it is the
+  // display name cached elsewhere. Each field is scored only when present.
+  deprecated?: Partial<Pick<AIModel, 'companyName' | 'modelName' | 'modelType'>> | null,
 ): AIModel | null {
   if (!available.length) return null
   if (!deprecated) return available[0]
 
   const dep = deprecated
-  const deprecatedName = dep.modelName.toLowerCase()
+  const deprecatedName = (dep.modelName ?? '').toLowerCase()
   const deprecatedTier = MODEL_TIER_WORDS.find(w => deprecatedName.includes(w))
 
   function score(m: AIModel): number {
     let s = 0
-    if (m.companyName === dep.companyName) s += 4
-    if (m.modelType === dep.modelType) s += 2
+    if (dep.companyName && m.companyName === dep.companyName) s += 4
+    if (dep.modelType && m.modelType === dep.modelType) s += 2
     if (deprecatedTier && m.modelName.toLowerCase().includes(deprecatedTier)) s += 1
     return s
   }

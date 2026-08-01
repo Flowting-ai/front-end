@@ -1,23 +1,20 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { m, AnimatePresence } from 'framer-motion'
+import React, { useCallback, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { useMounted } from '@/hooks/use-mounted'
 import { stableKey } from '@/hooks/use-model-selection'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
-import { ModelSelectItem } from '@/components/ModelSelectItem'
-import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
-import { fetchModelsWithCache } from '@/lib/ai-models'
+import { pickReplacementModel } from '@/lib/ai-models'
 import { updateVersion } from '@/lib/api/personas'
-import type { AIModel } from '@/types/ai-model'
-
-// ── Shadows ───────────────────────────────────────────────────────────────────
-
-const SHADOW_MODAL = '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1px var(--neutral-100)'
+import {
+  ModalHeader,
+  ModalShell,
+  ModelPickerList,
+  useModelCatalog,
+  type ModelUnavailableReason,
+} from './shared'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,6 +27,12 @@ export interface ChangeAgentModelModalProps {
   versionId: string
   /** Shown in the modal header. */
   agentName: string
+  /** Stable id of the model that stopped working — used to pick a close match. */
+  currentModelId?: string | null
+  /** Display name of that model, so the copy can name it. */
+  currentModelName?: string | null
+  /** Drives the copy: a model the user turned off reads differently to a retired one. */
+  reason?: ModelUnavailableReason
   /** Fires after the model is saved successfully. */
   onSaved: (model: { modelId: string; modelName: string }) => void
 }
@@ -39,6 +42,9 @@ export interface ChangeAgentModelModalProps {
 // but reachable directly from a disabled persona card on the agents list —
 // no navigation away, and Save calls the same updateVersion() persistence
 // path that tab uses, so both surfaces write to the same place.
+//
+// For fixing several agents at once, see FixAgentModelsModal — it shares this
+// modal's catalog hook and picker list.
 
 export function ChangeAgentModelModal({
   open,
@@ -46,34 +52,39 @@ export function ChangeAgentModelModal({
   personaId,
   versionId,
   agentName,
+  currentModelId,
+  currentModelName,
+  reason,
   onSaved,
 }: ChangeAgentModelModalProps) {
-  const mounted = useMounted()
-  const [models, setModels] = useState<AIModel[]>([])
-  const [modelsLoading, setModelsLoading] = useState(true)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const { all, available, loading } = useModelCatalog(open)
+  const [pickedId, setPickedId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  // Reset + (re)load the selectable model list every time the modal opens.
-  useEffect(() => {
-    if (!open) return
-    let cancelled = false
-    setSelectedId(null)
-    setModelsLoading(true)
-    fetchModelsWithCache()
-      .then(list => { if (!cancelled) setModels(list) })
-      .catch(() => { if (!cancelled) setModels([]) })
-      .finally(() => { if (!cancelled) setModelsLoading(false) })
-    return () => { cancelled = true }
-  }, [open])
+  // Closest match to the model being replaced — same provider, then tier.
+  // For a retired model there's no catalog entry left, so fall back to the
+  // display name the caller passed down from the card.
+  const recommendedId = useMemo(() => {
+    if (!available.length) return null
+    const entry = currentModelId ? all.find(m => stableKey(m) === currentModelId) : undefined
+    const hint = entry ?? (currentModelName ? { modelName: currentModelName } : null)
+    const pick = pickReplacementModel(available, hint)
+    return pick ? stableKey(pick) : null
+  }, [all, available, currentModelId, currentModelName])
 
-  function handleClose() {
+  // Derived, not seeded by an effect: the recommendation stands in until the
+  // user picks something, so Save is one click as soon as the catalog lands.
+  // Callers mount this per agent (see the `key` at the call site), so there's
+  // no stale pick to reset between agents.
+  const selectedId = pickedId ?? recommendedId
+
+  const handleClose = useCallback(() => {
     if (saving) return
     onClose()
-  }
+  }, [saving, onClose])
 
   async function handleSave() {
-    const model = models.find(m => stableKey(m) === selectedId)
+    const model = available.find(m => stableKey(m) === selectedId)
     const modelId = model ? stableKey(model) : null
     if (!model || !modelId) return
     setSaving(true)
@@ -89,138 +100,37 @@ export function ChangeAgentModelModal({
     }
   }
 
-  if (!mounted) return null
+  const subtitle = currentModelName
+    ? reason === 'blocked'
+      ? `${currentModelName} is turned off for this account — pick a replacement for ${agentName}.`
+      : `${currentModelName} is no longer available — pick a replacement for ${agentName}.`
+    : `${agentName}'s current model is unavailable — pick a replacement.`
 
-  return createPortal(
-    <AnimatePresence>
-      {open && (
-        <>
-          {/* Backdrop */}
-          <m.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={handleClose}
-            style={{
-              position:        'fixed',
-              inset:           0,
-              backgroundColor: 'rgba(0,0,0,0.28)',
-              backdropFilter:  'blur(2px)',
-              zIndex:          60,
-            }}
-          />
+  return (
+    <ModalShell open={open} onClose={handleClose} ariaLabel={`Change model for ${agentName}`}>
+      <ModalHeader
+        title="Change model"
+        subtitle={subtitle}
+        right={<IconButton variant="ghost" size="sm" aria-label="Close" icon={<CancelOneIcon size={16} />} onClick={handleClose} />}
+      />
 
-          {/* Centering wrapper */}
-          <div
-            style={{
-              position:       'fixed',
-              inset:          0,
-              display:        'flex',
-              alignItems:     'center',
-              justifyContent: 'center',
-              zIndex:         61,
-              pointerEvents:  'none',
-            }}
-          >
-            <m.div
-              key="modal"
-              role="dialog"
-              aria-modal="true"
-              aria-label={`Change model for ${agentName}`}
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              style={{
-                pointerEvents:   'auto',
-                width:           420,
-                maxWidth:        'calc(100vw - 32px)',
-                borderRadius:    16,
-                backgroundColor: 'var(--neutral-white)',
-                boxShadow:       SHADOW_MODAL,
-                overflow:        'hidden',
-                display:         'flex',
-                flexDirection:   'column',
-              }}
-            >
-              {/* ── Header ── */}
-              <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--neutral-100)', position: 'relative' }}>
-                <p style={{ margin: 0, fontFamily: 'var(--font-title)', fontSize: '1.5rem', fontWeight: 400, lineHeight: '2rem', color: 'var(--neutral-900)' }}>
-                  Change model
-                </p>
-                <p style={{ margin: '3px 0 0', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', fontWeight: 400, lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-400)' }}>
-                  {agentName}&apos;s current model is unavailable — pick a replacement.
-                </p>
-                <div style={{ position: 'absolute', top: 14, right: 14 }}>
-                  <IconButton variant="ghost" size="sm" aria-label="Close" icon={<CancelOneIcon size={16} />} onClick={handleClose} />
-                </div>
-              </div>
+      <ModelPickerList
+        models={available}
+        loading={loading}
+        selectedId={selectedId}
+        recommendedId={recommendedId}
+        onSelect={setPickedId}
+      />
 
-              {/* ── Model list ── */}
-              <div
-                className="kaya-scrollbar"
-                style={{
-                  display:             'flex',
-                  flexDirection:       'column',
-                  gap:                 '4px',
-                  margin:              '16px 16px 0',
-                  padding:             '2px',
-                  maxHeight:           320,
-                  overflowY:           'auto',
-                  overscrollBehaviorY: 'contain',
-                }}
-              >
-                {modelsLoading ? (
-                  <p style={{ margin: '20px 0', textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-400)' }}>
-                    Loading models…
-                  </p>
-                ) : models.length === 0 ? (
-                  <p style={{ margin: '20px 0', textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', color: 'var(--neutral-400)' }}>
-                    No models available
-                  </p>
-                ) : (
-                  models.map(model => {
-                    const key = stableKey(model)
-                    const isSelected = !!key && key === selectedId
-                    return (
-                      <ModelSelectItem
-                        key={`${model.id}-${model.modelId}`}
-                        role="button"
-                        tabIndex={0}
-                        aria-pressed={isSelected}
-                        image={<SouvenirModelIcon size={18} />}
-                        label={model.modelName}
-                        selected={isSelected}
-                        onClick={() => setSelectedId(key)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            setSelectedId(key)
-                          }
-                        }}
-                      />
-                    )
-                  })
-                )}
-              </div>
-
-              {/* ── Footer ── */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, padding: '16px' }}>
-                <Button variant="ghost" onClick={handleClose} disabled={saving}>
-                  Cancel
-                </Button>
-                <Button variant="default" disabled={!selectedId || saving} loading={saving} onClick={() => void handleSave()}>
-                  Save
-                </Button>
-              </div>
-            </m.div>
-          </div>
-        </>
-      )}
-    </AnimatePresence>,
-    document.body,
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, padding: '16px' }}>
+        <Button variant="ghost" onClick={handleClose} disabled={saving}>
+          Cancel
+        </Button>
+        <Button variant="default" disabled={!selectedId || saving} loading={saving} onClick={() => void handleSave()}>
+          Save
+        </Button>
+      </div>
+    </ModalShell>
   )
 }
 

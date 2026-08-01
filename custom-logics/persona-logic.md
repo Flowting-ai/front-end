@@ -942,3 +942,53 @@ When implementing or reviewing any UI copy, do a final pass: replace every visib
 - **Problem (part B — tags never saved to backend):** The Profile tab's `registerAutoSave` callback was a no-op. When users set tags and navigated to another tab (or `/agents`), tags were only in `sessionStorage`. After a browser refresh (sessionStorage cleared), the API returned `persona_tags: []` (never persisted) so cards showed no tags.
 - **Fix (part B):** The Profile tab's tab-switch auto-save now calls `updateVersion({ name, prompt, persona_tags })` — the same fields as an explicit Save Version, but skipping image upload (expensive; only done on explicit save). `isDirty` is cleared after auto-save unless the avatar is a pending `data:` URL, in which case the Save Version button stays enabled.
 - **Invariant:** After any tab switch away from Profile, `persona_tags` is always durably saved to the backend. The `/agents` enrichment (`listVersions` + `getVersion`) will return the correct tags on the next visit.
+
+---
+
+## Session — Unavailable-Model Recovery on `/agents`
+
+> **Context:** When an agent's configured model stops working, `/agents` previously showed a single generic overlay — *"This agent's model is unavailable."* — that locked the entire card and offered one modal with no context. This session made the state specific, recoverable in bulk, and consistent with how the chat surface already classifies the same condition (`PersonaChatInterface` tiers, `pickReplacementModel`).
+
+**Two causes, never one boolean.** A model is unusable for one of two reasons, and they need different copy because only one of them is something the account did:
+- **`blocked`** — still in the catalog, but turned off for this account.
+- **`retired`** — absent from the catalog entirely (deprecated by the provider).
+
+`agents/page.tsx` exposes this as `modelUnavailableReason(modelId): 'retired' | 'blocked' | null`, replacing the old `isModelUnavailable()` boolean. Both the card overlay and both modals name the model and phrase the reason.
+
+**Fix 39 — Pickers could hand out another unusable model**
+- **Files:** `components/ChangeAgentModelModal/shared.tsx` (new `useModelCatalog`), `components/ChangeAgentModelModal/index.tsx`
+- **Problem:** `fetchModelsWithCache()` deliberately returns blocked models (so name lookups still resolve for an agent pinned to one). The Change-model modal rendered that list unfiltered, so a user could "fix" an agent by selecting a model that is itself blocked — success toast, still-broken card.
+- **Fix:** `useModelCatalog(open)` returns `all` (for name/provider lookups) and `available` (`!blocked` and has a stable key). Every picker renders `available` only. The catalog is force-refetched on each open — these modals exist to recover from a stale assignment, so a cached catalog is the wrong input. A previously loaded list stays on screen during the refetch, so only the first open ever shows a spinner.
+
+**Fix 40 — "Change model" button that did nothing**
+- **Files:** `components/PersonaCard/index.tsx`, `agents/page.tsx`
+- **Problem:** The card always rendered the button, but the modal only mounted when `activeVersionId ?? workingVersionId` existed. An agent with neither showed a button whose click was silently a no-op.
+- **Fix:** `onChangeModel` is passed only when `patchableVersionId(persona)` is non-null, and `PersonaCard` renders the button only when the callback is present — the message stands alone otherwise. Agents with no patchable version are likewise excluded from the bulk list, since there'd be nothing to write the replacement to.
+
+**Fix 41 — The whole card was locked, including its ··· menu**
+- **File:** `components/PersonaCard/index.tsx`
+- **Problem:** `modelUnavailable` set `pointerEvents: none` on the card body AND suppressed the ··· menu. Only inference is broken — the agent's name, instructions, Super Links and history are all intact — so this left the user unable to rename, duplicate, pause, or even delete an affected agent from this page.
+- **Fix:** The menu now renders regardless and opts itself back in with `pointerEvents: 'auto'` + `zIndex: 3` (above the scrim at 1 and the message overlay at 2). The content wrapper's `opacity: 0.5` was removed and the scrim raised to `0.72` to compensate — `opacity < 1` creates a stacking context, which would have trapped the menu underneath the scrim no matter its z-index.
+
+**Fix 42 — No recommendation, no context in the single-agent modal**
+- **File:** `components/ChangeAgentModelModal/index.tsx`
+- **Problem:** The modal opened with nothing selected and a flat list, so the user had to guess which model was closest to the one they lost.
+- **Fix:** `pickReplacementModel(available, hint)` — the same helper the chat surface uses — supplies a recommendation, tagged **Recommended** in the list and used as the selection until the user picks something else (derived as `pickedId ?? recommendedId`, not seeded by an effect). The `hint` is the full catalog entry when the model is merely blocked, or just the cached display name when it's fully retired. The header names the outgoing model and its reason.
+- **Related:** `pickReplacementModel`'s `deprecated` param was widened from `Pick<...>` to `Partial<Pick<...>>` — a retired model is gone from the catalog, so a caller may only be able to supply its name. Each field is scored only when present.
+
+**Fix 43 — One blocked model breaks N agents, with N separate recovery flows**
+- **Files:** `components/FixAgentModelsModal/index.tsx` (new), `agents/page.tsx`
+- **Problem:** Turning off a model breaks every agent using it at once. The only recovery was per-card, with no way to see the full set.
+- **Fix:** A **Fix N agents** button sits to the left of **New agent** in the `/agents` header, appearing only when something is actually broken. It opens a modal listing every affected agent (avatar, name, reason badge, `old model → new model`) with three ways to resolve them:
+  1. **Auto-recommend for each** — runs `pickReplacementModel` per agent, so each keeps its own provider/tier.
+  2. **Apply one model to all** — one pick applied to every row.
+  3. **Per-row Choose/Change** — the same picker scoped to one agent.
+- Saving fans out `updateVersion` via `Promise.allSettled`. Successes are applied to the list optimistically and reported to the parent; failures keep the modal open, mark their rows, and toast the partial count. The counted set is deliberately NOT narrowed by the toolbar filters — "3 agents are broken" must stay true regardless of what the user is filtering by.
+
+**Shared internals:** `ChangeAgentModelModal/shared.tsx` holds `ModalShell` (portal + backdrop + **Escape-to-close** + initial focus, all previously missing), `ModalHeader`, `ModelPickerList`, and `useModelCatalog`. Both modals compose them, so the blocked-model filter and the recommendation logic can't drift apart.
+
+**Invariants:**
+- A model picker never offers a blocked or retired model.
+- A "Change model" affordance is only rendered when there is a version to patch.
+- The ··· menu is reachable on every default-variant card, whatever the model's state.
+- The bulk count reflects all visible non-draft agents with an unusable model, independent of active filters.

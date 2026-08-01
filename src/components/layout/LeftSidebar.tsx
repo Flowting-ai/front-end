@@ -1079,6 +1079,11 @@ function PersonaChatItem({
 
 // -- Personas section - all personas, each collapsible with their chats -------
 
+// The sidebar shows a quick-glance slice of the agent list, not the whole
+// library — /agents is where the full set lives, same "See all" pattern as
+// projects/chats/schedules above.
+const AGENT_LIST_LIMIT = 10
+
 function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
   const { push }            = useGuardedRouter()
   const pathname            = usePathname()
@@ -1276,7 +1281,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
             </div>
           )}
 
-          {personas.map(persona => {
+          {personas.slice(0, AGENT_LIST_LIMIT).map(persona => {
             const isExpanded = expandedIds.has(persona.id)
             const isActive   = activePersonaId === persona.id
             const isDraft    = persona.status === 'draft'
@@ -1361,6 +1366,19 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
               </m.div>
             )
           })}
+
+          {personas.length > AGENT_LIST_LIMIT && (
+            <m.div variants={sectionItemVariants}>
+              <SidebarMenuItem
+                fluid
+                variant="default"
+                icon={<MoreHorizontalIcon size={20} animated />}
+                label="See all agents"
+                href={AGENTS_ROUTE}
+                onClick={() => push(AGENTS_ROUTE)}
+              />
+            </m.div>
+          )}
         </m.div>
       </m.div>
     </>
@@ -1604,7 +1622,19 @@ function PersonasSectionIndividual() {
               {isLoading && Array.from({ length: 2 }).map((_, i) => (
                 <SidebarMenuSkeleton key={i} index={i} fluid />
               ))}
-              {!isLoading && sharedPersonas.map(renderPersonaRow)}
+              {!isLoading && sharedPersonas.slice(0, AGENT_LIST_LIMIT).map(renderPersonaRow)}
+              {sharedPersonas.length > AGENT_LIST_LIMIT && (
+                <m.div variants={sectionItemVariants}>
+                  <SidebarMenuItem
+                    fluid
+                    variant="default"
+                    icon={<MoreHorizontalIcon size={20} animated />}
+                    label="See all agents"
+                    href={AGENTS_ROUTE}
+                    onClick={() => push(AGENTS_ROUTE)}
+                  />
+                </m.div>
+              )}
             </m.div>
           </m.div>
         </>
@@ -1647,7 +1677,19 @@ function PersonasSectionIndividual() {
               No agents yet
             </div>
           )}
-          {!isLoading && ownedPersonas.map(renderPersonaRow)}
+          {!isLoading && ownedPersonas.slice(0, AGENT_LIST_LIMIT).map(renderPersonaRow)}
+          {ownedPersonas.length > AGENT_LIST_LIMIT && (
+            <m.div variants={sectionItemVariants}>
+              <SidebarMenuItem
+                fluid
+                variant="default"
+                icon={<MoreHorizontalIcon size={20} animated />}
+                label="See all agents"
+                href={AGENTS_ROUTE}
+                onClick={() => push(AGENTS_ROUTE)}
+              />
+            </m.div>
+          )}
         </m.div>
       </m.div>
     </>

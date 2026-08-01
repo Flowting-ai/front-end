@@ -18,6 +18,7 @@ import {
   RedoIcon,
   DeleteTwoIcon,
   TickTwoIcon,
+  AlertTwoIcon,
 } from '@strange-huge/icons'
 import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/Button'
@@ -54,6 +55,7 @@ import { SuperLinkDrawer, type SuperLinkDrawerLink } from '@/components/SuperLin
 import { SuperLinksEmpty } from '@/components/SuperLinksEmpty'
 import { Sparkline } from '@/components/Sparkline'
 import { ChangeAgentModelModal } from '@/components/ChangeAgentModelModal'
+import { FixAgentModelsModal, type UnavailableModelAgent } from '@/components/FixAgentModelsModal'
 import { TeamAgentsTab } from '@/app/(app)/agents/components/TeamAgentsTab'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
@@ -525,6 +527,7 @@ export default function PersonasPage() {
   const [filterOpen,    setFilterOpen]    = useState(false)
   const [deleteTarget,  setDeleteTarget]  = useState<Persona | null>(null)
   const [changeModelTarget, setChangeModelTarget] = useState<Persona | null>(null)
+  const [fixModelsOpen,     setFixModelsOpen]     = useState(false)
   const mounted = useMounted()
   const [allSharesForFilter, setAllSharesForFilter] = useState<PersonaShare[]>([])
   // Full catalog (blocked models included) so a persona whose model was disabled
@@ -795,14 +798,30 @@ export default function PersonasPage() {
     return map
   }, [modelsForNameLookup])
 
-  // True when the persona's configured model is disabled in Settings or no
-  // longer exists in the catalog at all (deprecated/retired). Requires the
-  // full catalog to have loaded at least once — otherwise every persona would
-  // flash as unavailable during the initial fetch.
-  function isModelUnavailable(modelId: string | null): boolean {
-    if (!modelId || !modelsForNameLookup.length) return false
+  // Why a persona's configured model can't be used, or null when it's fine.
+  // 'blocked' — still in the catalog but turned off for this account.
+  // 'retired' — absent from the catalog entirely (deprecated by the provider).
+  // The two get different copy, so they can't collapse into one boolean here.
+  // Requires the full catalog to have loaded at least once — otherwise every
+  // persona would flash as unavailable during the initial fetch.
+  function modelUnavailableReason(modelId: string | null): 'retired' | 'blocked' | null {
+    if (!modelId || !modelsForNameLookup.length) return null
     const blocked = modelIdToBlocked.get(modelId)
-    return blocked === undefined ? true : blocked
+    if (blocked === undefined) return 'retired'
+    return blocked ? 'blocked' : null
+  }
+
+  // Draft/unpublished cards already have their own "finish setup" treatment,
+  // so they never get the model-unavailable overlay on top of it.
+  function isDraftLike(persona: Persona): boolean {
+    return persona.status === 'draft' || !persona.hasSystemInstructions || !!unpublishedMap[persona.id]
+  }
+
+  // The version a model reassignment would patch. activeVersionId is the
+  // common case (published agent); workingVersionId covers a paused agent
+  // that was never published. Without either there is nothing to write to.
+  function patchableVersionId(persona: Persona): string | null {
+    return persona.activeVersionId ?? persona.workingVersionId ?? null
   }
 
   // Unique model display names present in the current persona list.
@@ -836,6 +855,33 @@ export default function PersonasPage() {
     () => personas.filter(p => p.visibility !== 'team' || isOwnedByMe(p)),
     [personas, currentUserRole, personaOwnerMap, viewerUserId],
   )
+
+  // Every agent that can't run because of its model, in the exact same set the
+  // cards mark as unavailable. Deliberately NOT narrowed by the toolbar
+  // filters — "3 agents are broken" has to stay true regardless of what the
+  // user is currently filtering by. Agents with no patchable version are left
+  // out: there'd be nothing to write the replacement to.
+  const unavailableAgents = useMemo(() => {
+    const rows: UnavailableModelAgent[] = []
+    for (const persona of visiblePersonas) {
+      if (isDraftLike(persona)) continue
+      const reason = modelUnavailableReason(persona.modelId)
+      if (!reason) continue
+      const versionId = patchableVersionId(persona)
+      if (!versionId) continue
+      rows.push({
+        id:        persona.id,
+        name:      persona.name,
+        avatarUrl: draftAvatarMap[persona.id] ?? persona.imageUrl,
+        versionId,
+        modelId:   persona.modelId,
+        modelName: resolveModelName(persona.modelId),
+        reason,
+      })
+    }
+    return rows
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visiblePersonas, modelIdToBlocked, modelIdToName, unpublishedMap, draftAvatarMap])
 
   // Filter + sort — split into three chained memos so a sort change doesn't
   // re-run filtering, and a filter change doesn't re-run the sort.
@@ -1067,13 +1113,28 @@ export default function PersonasPage() {
                     links list section below (where it's contextually useful),
                     instead of being duplicated here too. */}
                 {activeTab === 'super-links' || activeTab === 'team-agents' ? null : (
-                  <Button
-                    variant="default"
-                    leftIcon={<PlusSignIcon size={16} />}
-                    onClick={() => push(AGENTS_TEMPLATES_ROUTE)}
-                  >
-                    New agent
-                  </Button>
+                  <>
+                    {/* Only appears when something is actually broken — a
+                        standing button here would read as a permanent chore. */}
+                    {unavailableAgents.length > 0 && (
+                      <Button
+                        variant="secondary"
+                        leftIcon={<AlertTwoIcon size={16} color="var(--color-tag-Yellow-text)" />}
+                        onClick={() => setFixModelsOpen(true)}
+                      >
+                        {unavailableAgents.length === 1
+                          ? 'Fix 1 agent'
+                          : `Fix ${unavailableAgents.length} agents`}
+                      </Button>
+                    )}
+                    <Button
+                      variant="default"
+                      leftIcon={<PlusSignIcon size={16} />}
+                      onClick={() => push(AGENTS_TEMPLATES_ROUTE)}
+                    >
+                      New agent
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
@@ -1408,12 +1469,12 @@ export default function PersonasPage() {
                           // its own fixed height directly, so every card lines up
                           // without depending on row-mates.
                           style={{ width: '100%' }}
-                          variant={persona.status === 'draft' || !persona.hasSystemInstructions || unpublishedMap[persona.id] ? 'draft' : 'default'}
+                          variant={isDraftLike(persona) ? 'draft' : 'default'}
                           avatarSeed={persona.activeVersionId ?? persona.workingVersionId ?? persona.id}
                           name={persona.name}
                           handle={persona.handle.replace(/^@/, '')}
                           description={
-                            (persona.status === 'draft' || !persona.hasSystemInstructions || unpublishedMap[persona.id]) && !persona.description
+                            isDraftLike(persona) && !persona.description
                               ? 'Tap Edit to add a system instruction and publish this agent.'
                               : persona.description
                           }
@@ -1425,11 +1486,16 @@ export default function PersonasPage() {
                           useInChatLabel="Chat with agent"
                           // Draft cards already have their own "finish setup" treatment —
                           // only live/published agents get the model-unavailable overlay.
-                          modelUnavailable={
-                            !(persona.status === 'draft' || !persona.hasSystemInstructions || unpublishedMap[persona.id]) &&
-                            isModelUnavailable(persona.modelId)
+                          modelUnavailable={!isDraftLike(persona) && !!modelUnavailableReason(persona.modelId)}
+                          modelUnavailableReason={modelUnavailableReason(persona.modelId) ?? undefined}
+                          unavailableModelName={resolveModelName(persona.modelId)}
+                          // Withheld when there's no version to patch, so the
+                          // button can never render as a no-op.
+                          onChangeModel={
+                            patchableVersionId(persona)
+                              ? () => setChangeModelTarget(persona)
+                              : undefined
                           }
-                          onChangeModel={() => setChangeModelTarget(persona)}
                           superlink={activeShareRepoIds.has(persona.id)}
                           visibility={visibilityForPersona[persona.id] === 'team' ? 'team' : visibilityForPersona[persona.id] === 'private' ? 'private' : undefined}
                           teamCount={teamCountForPersona[persona.id]}
@@ -1927,21 +1993,35 @@ export default function PersonasPage() {
         }}
       />
 
-      {/* ── Change model (disabled/deprecated persona card) ──
-          activeVersionId is the common case (published agent); workingVersionId
-          covers the edge case of a paused agent that was never published. */}
-      {changeModelTarget && (changeModelTarget.activeVersionId ?? changeModelTarget.workingVersionId) && (
+      {/* ── Change model — single card ── */}
+      {changeModelTarget && patchableVersionId(changeModelTarget) && (
         <ChangeAgentModelModal
+          // Fresh instance per agent — the picker's selection is per-agent state.
+          key={changeModelTarget.id}
           open
           onClose={() => setChangeModelTarget(null)}
           personaId={changeModelTarget.id}
-          versionId={(changeModelTarget.activeVersionId ?? changeModelTarget.workingVersionId)!}
+          versionId={patchableVersionId(changeModelTarget)!}
           agentName={changeModelTarget.name}
+          currentModelId={changeModelTarget.modelId}
+          currentModelName={resolveModelName(changeModelTarget.modelId)}
+          reason={modelUnavailableReason(changeModelTarget.modelId) ?? undefined}
           onSaved={({ modelId }) => {
             setPersonas(prev => prev.map(p => p.id === changeModelTarget.id ? { ...p, modelId } : p))
           }}
         />
       )}
+
+      {/* ── Fix models — every affected agent at once ── */}
+      <FixAgentModelsModal
+        open={fixModelsOpen}
+        onClose={() => setFixModelsOpen(false)}
+        agents={unavailableAgents}
+        onSaved={(updates) => {
+          const byId = new Map(updates.map(u => [u.id, u.modelId]))
+          setPersonas(prev => prev.map(p => byId.has(p.id) ? { ...p, modelId: byId.get(p.id)! } : p))
+        }}
+      />
 
       {/* ── Delete confirmation ── */}
       {mounted && createPortal(
