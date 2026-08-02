@@ -22,7 +22,7 @@ import {
   type BrainThreadDeletedEventDetail,
 } from '@/hooks/use-sidebar-events'
 import { BRAIN_ROUTE } from '@/lib/routes'
-import { listTasks } from '@/lib/api/tasks'
+import { listAutomations } from '@/lib/api/automations'
 import { getAllScheduleLinks } from '@/lib/scheduleLinks'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ function BrainThreadsPageInner() {
   }, [])
 
   useEffect(() => {
-    listTasks()
+    listAutomations()
       .then(tasks => {
         const links = getAllScheduleLinks()
         const chatIds = tasks.map(t => links[t.id]).filter((id): id is string => !!id)

@@ -107,7 +107,7 @@ import { ApiError } from '@/lib/api/client'
 import { registerStream, completeStream, getStreamCompletion } from '@/lib/stream-registry'
 import { isExtractable, extractText, stripDocumentBlocks } from '@/lib/brain-file-extract'
 import { linkScheduleToChat, consumePendingPrompt, remapScheduleLink } from '@/lib/scheduleLinks'
-import { getTask, listTasks, type Task } from '@/lib/api/tasks'
+import { getAutomation, listAutomations, type Automation } from '@/lib/api/automations'
 import { toConnector, type Connector } from '@/lib/connector'
 import { PermissionPromptCard } from '@/components/shared/PermissionPromptCard'
 import { parsePermissionPrompt, type ConnectorPermissionPrompt } from '@/lib/api/prompts'
@@ -1365,16 +1365,16 @@ function BrainPageInner() {
       ? storedSeen
       : now - 24 * 60 * 60 * 1000
 
-    void listTasks()
+    void listAutomations()
       .then(async (rawTasks) => {
         if (cancelled) return
-        const tasks: Task[] = Array.isArray(rawTasks) ? rawTasks : []
+        const tasks: Automation[] = Array.isArray(rawTasks) ? rawTasks : []
         setHomeSchedules(tasks
           .filter((task) => task.is_active && task.next_run_at)
           .sort((a, b) => new Date(a.next_run_at!).getTime() - new Date(b.next_run_at!).getTime())
           .map((task) => ({
             id: task.id,
-            name: task.title,
+            name: task.name,
             nextRun: brainHomeTime(task.next_run_at!),
           })))
 
@@ -1382,21 +1382,21 @@ function BrainPageInner() {
           .filter((task) => task.last_run_at && new Date(task.last_run_at).getTime() > cutoff)
           .sort((a, b) => new Date(b.last_run_at!).getTime() - new Date(a.last_run_at!).getTime())
           .slice(0, 3)
-        const details = await Promise.all(recent.map((task) => getTask(task.id).catch(() => null)))
+        const details = await Promise.all(recent.map((task) => getAutomation(task.id).catch(() => null)))
         if (cancelled) return
         setHomeDigest(details.flatMap((task): DigestItem[] => {
           if (!task) return []
           const run = [...(task.runs ?? [])]
-            .sort((a, b) => new Date(b.completed_at ?? b.started_at ?? b.created_at ?? 0).getTime()
-              - new Date(a.completed_at ?? a.started_at ?? a.created_at ?? 0).getTime())[0]
+            .sort((a, b) => new Date(b.finished_at ?? b.started_at ?? 0).getTime()
+              - new Date(a.finished_at ?? a.started_at ?? 0).getTime())[0]
           if (!run) return []
-          const ranAt = run.completed_at ?? run.started_at ?? run.created_at
+          const ranAt = run.finished_at ?? run.started_at
           return [{
             scheduleId: task.id,
-            scheduleName: task.title,
+            scheduleName: task.name,
             ranAt: ranAt ? brainHomeTime(ranAt) : 'Recent run',
-            summary: run.synthesis || run.error || (run.status === 'completed' ? 'Run completed.' : 'Run needs review.'),
-            status: run.status === 'completed' ? 'complete' : run.status === 'failed' ? 'failed' : 'partial',
+            summary: run.answer || run.error || (run.status === 'succeeded' ? 'Run completed.' : 'Run needs review.'),
+            status: run.status === 'succeeded' ? 'complete' : run.status === 'failed' ? 'failed' : 'partial',
           }]
         }))
         window.localStorage.setItem(seenKey, String(now))
@@ -3433,7 +3433,7 @@ function BrainPageInner() {
   useEffect(() => {
     if (phase !== 'complete' || !pendingRemapId) return
     const localId = pendingRemapId
-    listTasks()
+    listAutomations()
       .then(tasks => {
         const now = Date.now()
         const recent = tasks

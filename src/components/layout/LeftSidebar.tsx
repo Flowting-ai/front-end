@@ -15,8 +15,8 @@ import { useProjects } from "@/context/projects-context";
 import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { fetchPersonaOwnerMap, resolveViewerUserId } from "@/lib/api/teams";
-import { listTasks, getTask } from "@/lib/api/tasks";
-import type { ScheduledTaskListItem, ScheduledTaskRunResponse } from "@/lib/api/tasks";
+import { listAutomations, getAutomation } from "@/lib/api/automations";
+import type { Automation, AutomationRun } from "@/lib/api/automations";
 import { CHAT_CREATED_EVENT, emitSidebarNewChat, emitAgentsSeeAll } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
 import { BrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
@@ -1860,19 +1860,19 @@ function markScheduleSeen(taskId: string): void {
   }
 }
 
-function scheduleRunTimestamp(run: ScheduledTaskRunResponse): number {
-  const iso = run.completed_at ?? run.started_at ?? run.created_at;
+function scheduleRunTimestamp(run: AutomationRun): number {
+  const iso = run.finished_at ?? run.started_at;
   const ms = iso ? new Date(iso).getTime() : NaN;
   return Number.isFinite(ms) ? ms : 0;
 }
 
 /** Never-seen schedules count every existing run as "new" — there's nothing
  *  more correct to compare against than "you haven't looked at this yet". */
-function computeScheduleRunInfo(runs: ScheduledTaskRunResponse[], lastSeenAt: number | null): ScheduleRunInfo {
+function computeScheduleRunInfo(runs: AutomationRun[], lastSeenAt: number | null): ScheduleRunInfo {
   if (runs.length === 0) return { lastRunStatus: null, newRunsCount: 0 };
   const sorted = [...runs].sort((a, b) => scheduleRunTimestamp(b) - scheduleRunTimestamp(a));
   const latestStatus = sorted[0].status;
-  const lastRunStatus = latestStatus === "completed" ? "success" : latestStatus === "failed" ? "failed" : null;
+  const lastRunStatus = latestStatus === "succeeded" ? "success" : latestStatus === "failed" ? "failed" : null;
   const newRunsCount = lastSeenAt == null
     ? runs.length
     : sorted.filter((r) => scheduleRunTimestamp(r) > lastSeenAt).length;
@@ -1900,7 +1900,7 @@ function scheduleStatusIcon(status: ScheduleRunInfo["lastRunStatus"]): React.Rea
 }
 
 interface BrainScheduledTasksSectionProps {
-  tasks: ScheduledTaskListItem[];
+  tasks: Automation[];
   loading: boolean;
   runInfo: Record<string, ScheduleRunInfo>;
   onTaskOpened: (taskId: string) => void;
@@ -1954,7 +1954,7 @@ function BrainScheduledTasksSection({ tasks, loading, runInfo, onTaskOpened }: B
                       fluid
                       variant="default"
                       icon={scheduleStatusIcon(info?.lastRunStatus ?? null)}
-                      label={task.title}
+                      label={task.name}
                       trailing={info && info.newRunsCount > 0 ? <Badge color="Neutral" label={`${info.newRunsCount} new`} /> : undefined}
                       onClick={() => { onTaskOpened(task.id); push(BRAIN_SCHEDULES_ROUTE); }}
                     />
@@ -2087,7 +2087,7 @@ function LeftSidebarImpl({
 
   // -- Brain scheduled tasks — fetched once when first visiting a brain page --
   // Lifted here so the list survives brain-tab switches without re-fetching.
-  const [brainTasks, setBrainTasks] = useState<ScheduledTaskListItem[]>([]);
+  const [brainTasks, setBrainTasks] = useState<Automation[]>([]);
   const [brainTasksLoading, setBrainTasksLoading] = useState(false);
   const [brainTaskRunInfo, setBrainTaskRunInfo] = useState<Record<string, ScheduleRunInfo>>({});
   const brainTasksFetchedRef = useRef(false);
@@ -2095,19 +2095,19 @@ function LeftSidebarImpl({
     if (!isBrainPage || brainTasksFetchedRef.current) return;
     brainTasksFetchedRef.current = true;
     setBrainTasksLoading(true);
-    listTasks()
+    listAutomations()
       .then(async (tasks) => {
         setBrainTasks(tasks);
         // Per-task run history isn't on the list payload — fetch each task's
         // detail (already-existing endpoint) to derive the status dot + badge.
         const entries = await Promise.all(tasks.map(async (task) => {
           try {
-            const detail = await getTask(task.id);
+            const detail = await getAutomation(task.id);
             const lastSeenAt = getScheduleLastSeenAt(task.id);
             const info = computeScheduleRunInfo(detail.runs ?? [], lastSeenAt);
             if (process.env.NODE_ENV !== "production") {
               // eslint-disable-next-line no-console
-              console.debug("[BrainSchedules] run info", { taskId: task.id, title: task.title, runs: detail.runs?.length ?? 0, info });
+              console.debug("[BrainSchedules] run info", { taskId: task.id, name: task.name, runs: detail.runs?.length ?? 0, info });
             }
             return [task.id, info] as const;
           } catch (err) {
