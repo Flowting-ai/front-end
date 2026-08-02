@@ -7,7 +7,6 @@ import dynamic from "next/dynamic";
 import { X } from "lucide-react";
 const WelcomeModal = dynamic(() => import("@/components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })), { ssr: false, loading: () => null });
 import { ChatInterface } from "@/components/chat/ChatInterface";
-import { pickDefaultModel } from "@/lib/ai-models";
 import { JoinedGreeting, JoinedTodos } from "@/components/onboarding/JoinedLanding";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ExhaustionBanner } from "@/components/ExhaustionBanner";
@@ -627,6 +626,9 @@ function ChatPageInner() {
     selectedModel,
     selectModel,
     open: openModelSelector,
+    museActive,
+    museAdvanced,
+    setMuseAdvanced,
     enableReasoning,
     setPersonaActive,
   } = useModelSelectorContext();
@@ -635,11 +637,6 @@ function ChatPageInner() {
   // due to the context function being recreated on each render.
   const selectModelRef = useRef(selectModel)
   selectModelRef.current = selectModel
-  // Same reasoning for models — handleSidebarNewChat below is a `[]`-dep
-  // useCallback (its identity must stay stable for useSidebarEvents), so it
-  // reads the latest list via ref rather than closing over a stale one.
-  const modelsRef = useRef(models)
-  modelsRef.current = models
 
   // Push persona-active state into the model selector context so the dialog is
   // locked from ALL entry points (not just the button in ChatInput) while a
@@ -694,7 +691,11 @@ function ChatPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
   }, [selectedPersona, models])
 
-  const modelButtonLabel = selectedModel?.modelName;
+  const modelButtonLabel = museActive
+    ? museAdvanced
+      ? "Souvenir AI Muse (Auto)"
+      : "Souvenir AI Muse (Basic)"
+    : selectedModel?.modelName;
 
   const { chats: chatHistory, renameLocal, addOptimistic, moveToTop, refreshChatTitle } = useChatHistoryContext();
   const activeChatRecord = activeChatId
@@ -727,11 +728,8 @@ function ChatPageInner() {
       setActiveChatId(liveId);
       setHasMessages(!!liveId);
       setInitialPrompt(null);
-      // Reset to the Advanced model whenever switching to a new chat
-      if (!liveId) {
-        const advanced = pickDefaultModel(models);
-        if (advanced) selectModel(advanced);
-      }
+      // Reset to Souvenir Muse Auto whenever switching to a new chat
+      if (!liveId) setMuseAdvanced(true);
     }
   }, [chatIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -746,36 +744,11 @@ function ChatPageInner() {
     setActiveChatId(undefined);
     setHasMessages(false);
     setInitialPrompt(null);
-    // Read via ref, not the models/selectModel closed over at first render —
-    // this callback's identity must stay stable ([] deps) for useSidebarEvents.
-    const advanced = pickDefaultModel(modelsRef.current);
-    if (advanced) selectModelRef.current(advanced);
+    setMuseAdvanced(true);
   }, []);
   useSidebarEvents({ onNewChat: handleSidebarNewChat });
 
   const isNewChat = !activeChatId && !hasMessages && !initialPrompt;
-
-  // Reset to the Advanced model on a genuinely blank "new chat" landing —
-  // e.g. the first page load after login, or navigating straight to /chat
-  // from a bookmark/external link. The layoutEffect above and
-  // handleSidebarNewChat only reset on a *transition* into a new chat (an
-  // existing chatIdFromUrl disappearing, or the sidebar's New Chat click);
-  // neither fires when this component's very first render already has no id,
-  // so without this, whatever model a previous session left in
-  // ModelSelectorProvider (restored from localStorage) would silently carry
-  // over. isNewChat is snapshotted at mount only (it's reactive and must not
-  // re-fire this once the chat is underway); `models` stays a real dep so
-  // this retries until the catalog finishes its first load, applying the
-  // reset exactly once via the ref guard.
-  const isNewChatAtMountRef = useRef(isNewChat);
-  const advancedAppliedRef = useRef(false);
-  useEffect(() => {
-    if (!isNewChatAtMountRef.current || advancedAppliedRef.current) return;
-    const advanced = pickDefaultModel(models);
-    if (!advanced) return;
-    advancedAppliedRef.current = true;
-    selectModel(advanced);
-  }, [models, selectModel]);
 
   // Drag-and-drop on the new-chat landing page
   const { isDragging: isNewChatDragging } = useFileDrop({

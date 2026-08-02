@@ -209,7 +209,7 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean },
+    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean },
   ): Promise<void> => {
     stopRequestedRef.current = false
     xhrRef.current = null
@@ -288,6 +288,7 @@ export function useStreamingChat({
         // Backend-native field names — this request skips /api/chat entirely,
         // so nothing renames these camelCase → snake_case on the way through.
         if (modelId !== null && modelId !== undefined) fd.append("model_id", String(modelId))
+        if (options?.algorithm) fd.append("algorithm", options.algorithm)
         if (options?.webSearch) fd.append("web_search", "true")
         if (options?.pinIds && options.pinIds.length > 0) fd.append("pin_ids", JSON.stringify(options.pinIds))
         if (options?.personaId) fd.append("persona_id", options.personaId)
@@ -300,6 +301,7 @@ export function useStreamingChat({
       } else {
         if (chatId) fd.append("chatId", chatId)
         if (modelId !== null && modelId !== undefined) fd.append("modelId", String(modelId))
+        if (options?.algorithm) fd.append("algorithm", options.algorithm)
         if (options?.webSearch) fd.append("webSearch", "true")
         if (options?.enableReasoning) fd.append("enable_thinking", "true")
         if (options?.pinIds && options.pinIds.length > 0) fd.append("pinIds", JSON.stringify(options.pinIds))

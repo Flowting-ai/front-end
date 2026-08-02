@@ -26,7 +26,7 @@ interface TopBarProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpen: _citationsOpen, onCitationsToggle: _onCitationsToggle }: TopBarProps) {
-  const { selectedModel, isOpen, open, personaActive } =
+  const { selectedModel, isOpen, open, museActive, museAdvanced, personaActive } =
     useModelSelectorContext();
   const { getProject, getChats } = useProjects();
   const pathname = usePathname();
@@ -123,7 +123,11 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
     return () => { cancelled = true; window.removeEventListener(MODELS_CACHE_BUSTED_EVENT, resolve); };
   }, [personaId]);
 
-  const label = selectedModel?.modelName ?? "Souvenir AI · Muse";
+  const label = museActive
+    ? museAdvanced
+      ? "Souvenir Muse (Auto)"
+      : "Souvenir Muse (Basic)"
+    : selectedModel?.modelName ?? "Souvenir AI · Muse";
 
   const modelSelectorButton = (
     <Button
@@ -146,7 +150,7 @@ export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpe
       <span style={{ display: "flex", alignItems: "center", gap: "8px", color: personaActive ? "var(--button-default-text-disabled)" : undefined }}>
         {/* Always the Souvenir mark — every model behind this button is one
             of the 3 Souvenir Muse tiers, never a raw third-party brand. */}
-        {!!selectedModel && (
+        {(museActive || !!selectedModel) && (
           <span
             style={{
               width:          "16px",
