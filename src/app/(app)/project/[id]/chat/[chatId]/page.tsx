@@ -14,6 +14,8 @@ import { PinMentionDropdown }                              from '@/components/ch
 import { ChatShareOverlay }                                from '@/components/chat/ChatShareOverlay'
 import { useModelSelectorContext }                         from '@/context/model-selector-context'
 import { pickDefaultModel }                                from '@/lib/ai-models'
+import { useWorkspaceCreditNotice }                        from '@/hooks/use-workspace-credit-notice'
+import { InlineCreditNotice }                              from '@/components/InlineCreditNotice'
 import { useProjects }                                     from '@/context/projects-context'
 import { useFileUpload }                                   from '@/hooks/use-file-upload'
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
@@ -406,8 +408,9 @@ function ProjectChatPageInner() {
   // ── Model selector ────────────────────────────────────────────────────────
 
   const { models, selectedModel, selectModel, open: openModelSelector, museActive, museAdvanced, enableReasoning, setPersonaActive } = useModelSelectorContext()
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
 
-  // Reset to the Advanced tier on a genuinely blank "new chat" landing —
+  // Reset to the default model tier on a genuinely blank "new chat" landing —
   // matches the regular chat page's reset-on-new-chat behaviour, so a model
   // picked in a previous chat doesn't silently carry over. Gated on
   // `initialPrompt` being empty AT MOUNT (not reactive) so this does NOT fire
@@ -712,6 +715,17 @@ function ProjectChatPageInner() {
                   style={{ width: '100%', maxWidth: '640px', margin: '0 auto' }}
                   exit={{ opacity: 0, y: 36, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
+                  <AnimatePresence>
+                    {creditNoticeStatus && (
+                      <InlineCreditNotice
+                        key={creditNoticeStatus}
+                        status={creditNoticeStatus}
+                        isAdmin={isOrgAdmin}
+                        onAdminAction={goToPlans}
+                        onDismiss={dismissCreditNotice}
+                      />
+                    )}
+                  </AnimatePresence>
                   <div ref={newChatInputWrapperRef} style={{ width: '100%', position: 'relative' }}>
                     <PinMentionDropdown
                       isOpen={showPinDropdown}

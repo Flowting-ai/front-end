@@ -36,6 +36,8 @@ import { useSelectableChatPersonas } from "@/hooks/use-selectable-chat-personas"
 import { ModelMenu } from "@/components/chat/ModelMenu";
 import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
+import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
+import { InlineCreditNotice } from "@/components/InlineCreditNotice";
 import { useOrg } from "@/context/org-context";
 import {
   GlobalSearchIcon,
@@ -241,6 +243,7 @@ function ChatPageInner() {
   const { replace } = useRouter();
   const { org, teams: orgTeams, activeTeamId } = useOrg();
   const creditStatus = useCreditStatus();
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
   // First-time landing after finishing the team-invite flow (/chat?joined=<team>).
@@ -730,7 +733,7 @@ function ChatPageInner() {
       setActiveChatId(liveId);
       setHasMessages(!!liveId);
       setInitialPrompt(null);
-      // Reset to the Advanced tier whenever switching to a new chat
+      // Reset to the default model tier whenever switching to a new chat
       if (!liveId) {
         const defaultModel = pickDefaultModel(modelsRef.current);
         if (defaultModel) selectModelRef.current(defaultModel);
@@ -950,6 +953,17 @@ function ChatPageInner() {
                   style={{ width: "100%", maxWidth: "640px", margin: "0 auto" }}
                   exit={{ opacity: 0, y: 36, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
+                  <AnimatePresence>
+                    {creditNoticeStatus && (
+                      <InlineCreditNotice
+                        key={creditNoticeStatus}
+                        status={creditNoticeStatus}
+                        isAdmin={isOrgAdmin}
+                        onAdminAction={goToPlans}
+                        onDismiss={dismissCreditNotice}
+                      />
+                    )}
+                  </AnimatePresence>
                   <ExhaustionBanner>
                   {/* Pin mention dropdown wrapper - position:relative anchor */}
                   <div ref={newChatInputWrapperRef} style={{ width: "100%", position: "relative" }}>

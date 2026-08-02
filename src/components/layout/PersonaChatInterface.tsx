@@ -35,7 +35,10 @@ import { getStreamCompletion, consumeInterruptedStreamMarker } from "@/lib/strea
 import { logger } from "@/lib/logger";
 import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
+import { AnimatePresence } from "framer-motion";
 import { CreditStatusBanner } from "@/components/CreditStatusBanner";
+import { InlineCreditNotice } from "@/components/InlineCreditNotice";
+import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -585,6 +588,9 @@ export function PersonaChatInterface({
 
   // Individual credit/topup status — warning banner + hard send-gate.
   const creditStatus = useCreditStatus();
+  // Org/team shared-credit-pool status — the same InlineCreditNotice shown
+  // above every other chat surface's input.
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
   // A Super Link agent (source_share_id set) is billed to the SHARER's credit
   // pool, not this user's balance — the backend's require_persona_budget preflight
   // resolves the sharer for this /persona/{repoId}/chats path. So the individual
@@ -775,6 +781,17 @@ export function PersonaChatInterface({
               </p>
             </div>
           )}
+          <AnimatePresence>
+            {creditNoticeStatus && !shareFunded && !personaLoadError && (
+              <InlineCreditNotice
+                key={creditNoticeStatus}
+                status={creditNoticeStatus}
+                isAdmin={isOrgAdmin}
+                onAdminAction={goToPlans}
+                onDismiss={dismissCreditNotice}
+              />
+            )}
+          </AnimatePresence>
           <CreditStatusBanner suppress={shareFunded || !!personaLoadError} />
           <ChatInput
             value={input}

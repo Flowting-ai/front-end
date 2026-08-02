@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { ArrowRightOneIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ArrowRightOneIcon, CancelOneIcon, AlertTwoIcon, AlertCircleIcon } from '@strange-huge/icons'
 import { motion } from 'framer-motion'
 
 export type CreditNoticeStatus = 'warning_95' | 'grace' | 'locked'
@@ -14,42 +14,47 @@ export interface InlineCreditNoticeProps {
   onDismiss?:           () => void
 }
 
+// Same warning/error surface the KDS Toast uses (`--toast-{level}-*` in
+// aliases.css, wired up for sonner in globals.css) — the semantic family
+// meant for alert banners, as opposed to the `--color-tag-*` chip tokens
+// which are sized for small pill labels.
+type Level = 'warning' | 'error'
+
+const LEVEL_TOKENS: Record<Level, { bg: string; text: string; border: string; Icon: typeof AlertTwoIcon }> = {
+  warning: { bg: 'var(--toast-warning-bg)', text: 'var(--toast-warning-text)', border: 'var(--toast-warning-border)', Icon: AlertTwoIcon },
+  error:   { bg: 'var(--toast-error-bg)',   text: 'var(--toast-error-text)',   border: 'var(--toast-error-border)',   Icon: AlertCircleIcon },
+}
+
+// Mirrors `.kds-toast`'s elevation recipe (globals.css) — soft drop-shadow
+// plus a hairline ring in the level's own border color, instead of a flat
+// CSS border.
+const elevation = (border: string) =>
+  `0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 6px 16px -4px rgba(38,33,30,0.10), 0px 0px 0px 1px ${border}`
+
 interface NoticeConfig {
-  bg:       string
-  border:   string
-  dot:      string
-  text:     string
-  message:  (days?: number) => string
-  adminCta: string
+  level:     Level
+  message:   (days?: number) => string
+  adminCta:  string
   memberCta: string
 }
 
 const NOTICE_CONFIG: Record<CreditNoticeStatus, NoticeConfig> = {
   warning_95: {
-    bg:       'var(--color-tag-Yellow-bg-soft)',
-    border:   'var(--color-tag-Yellow-text)',
-    dot:      'var(--color-tag-Yellow-text)',
-    text:     'var(--color-tag-Yellow-text)',
-    message:  () => 'Running low on credits',
-    adminCta: 'View usage',
+    level:     'warning',
+    message:   () => 'Running low on credits',
+    adminCta:  'View usage',
     memberCta: 'Contact admin',
   },
   grace: {
-    bg:       'var(--color-tag-Red-bg-soft)',
-    border:   'var(--color-tag-Red-text)',
-    dot:      'var(--color-tag-Red-text)',
-    text:     'var(--color-tag-Red-text)',
-    message:  (days) => `Access limited · ${days ?? 0} day${days === 1 ? '' : 's'} to add credits`,
-    adminCta: 'Add credits',
+    level:     'error',
+    message:   (days) => `Access limited · ${days ?? 0} day${days === 1 ? '' : 's'} to add credits`,
+    adminCta:  'Add credits',
     memberCta: 'Contact admin',
   },
   locked: {
-    bg:       'var(--color-tag-Red-bg-soft)',
-    border:   'var(--color-tag-Red-text)',
-    dot:      'var(--color-tag-Red-text)',
-    text:     'var(--color-tag-Red-text)',
-    message:  () => 'Workspace locked · no new activity until credits are added',
-    adminCta: 'Unlock',
+    level:     'error',
+    message:   () => 'Workspace locked · no new activity until credits are added',
+    adminCta:  'Unlock',
     memberCta: 'Contact your admin',
   },
 }
@@ -62,7 +67,9 @@ export function InlineCreditNotice({
   onDismiss,
 }: InlineCreditNoticeProps) {
   const cfg = NOTICE_CONFIG[status]
+  const tokens = LEVEL_TOKENS[cfg.level]
   const dismissible = status !== 'locked'
+  const Icon = tokens.Icon
 
   return (
     <motion.div
@@ -72,32 +79,28 @@ export function InlineCreditNotice({
       style={{
         display:         'flex',
         alignItems:      'center',
-        gap:             8,
-        padding:         '8px 12px',
-        borderRadius:    10,
-        backgroundColor: cfg.bg,
-        border:          `1px solid ${cfg.border}`,
+        gap:             10,
+        padding:         '10px 14px',
+        borderRadius:    'var(--toast-radius)',
+        backgroundColor: tokens.bg,
+        boxShadow:       elevation(tokens.border),
         margin:          '0 12px 8px',
       }}
     >
-      {/* Status dot */}
-      <span style={{
-        width:           6,
-        height:          6,
-        borderRadius:    '50%',
-        backgroundColor: cfg.dot,
-        flexShrink:      0,
-      }} />
+      {/* Icon */}
+      <span style={{ display: 'flex', flexShrink: 0, color: tokens.text }}>
+        <Icon size={16} color={tokens.text} />
+      </span>
 
       {/* Message */}
       <p style={{
         flex:       '1 0 0',
         minWidth:   0,
         fontFamily: 'var(--font-body)',
-        fontWeight: 400,
-        fontSize:   13,
-        lineHeight: '20px',
-        color:      cfg.text,
+        fontWeight: 'var(--font-weight-medium)',
+        fontSize:   'var(--font-size-body)',
+        lineHeight: 'var(--line-height-body)',
+        color:      tokens.text,
         margin:     0,
       }}>
         {cfg.message(graceDaysRemaining)}
@@ -109,58 +112,62 @@ export function InlineCreditNotice({
           type="button"
           onClick={onAdminAction}
           style={{
-            display:    'inline-flex',
-            alignItems: 'center',
-            gap:        4,
-            background: 'none',
-            border:     'none',
-            cursor:     'pointer',
-            padding:    '2px 0',
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize:   13,
-            color:      cfg.text,
-            textDecoration: 'underline',
-            flexShrink: 0,
+            display:      'inline-flex',
+            alignItems:   'center',
+            gap:          4,
+            border:       'none',
+            cursor:       'pointer',
+            padding:      '4px 10px',
+            borderRadius: 8,
+            backgroundColor: tokens.text,
+            color:        tokens.bg,
+            fontFamily:   'var(--font-body)',
+            fontWeight:   'var(--font-weight-medium)',
+            fontSize:     'var(--font-size-caption)',
+            lineHeight:   'var(--line-height-caption)',
+            flexShrink:   0,
           }}
         >
           {cfg.adminCta}
-          <ArrowRightOneIcon size={14} />
+          <ArrowRightOneIcon size={13} color={tokens.bg} />
         </button>
       ) : (
         <span style={{
           fontFamily: 'var(--font-body)',
-          fontWeight: 400,
-          fontSize:   13,
-          color:      cfg.text,
-          opacity:    0.7,
+          fontWeight: 'var(--font-weight-regular)',
+          fontSize:   'var(--font-size-caption)',
+          lineHeight: 'var(--line-height-caption)',
+          color:      tokens.text,
+          opacity:    0.75,
           flexShrink: 0,
         }}>
           {cfg.memberCta}
         </span>
       )}
 
-      {/* Dismiss */}
+      {/* Dismiss — same treatment as the KDS Toast close button */}
       {dismissible && onDismiss && (
         <button
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss notice"
           style={{
-            display:    'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'none',
-            border:     'none',
-            cursor:     'pointer',
-            padding:    2,
-            color:      cfg.text,
-            opacity:    0.6,
-            flexShrink: 0,
-            borderRadius: 4,
+            display:         'flex',
+            alignItems:      'center',
+            justifyContent:  'center',
+            width:           22,
+            height:          22,
+            border:          'none',
+            borderRadius:    7,
+            backgroundColor: 'var(--neutral-white)',
+            color:           'var(--neutral-600)',
+            boxShadow:       '0px 1px 2px rgba(0,0,0,0.08), inset 0px 1px 0px rgba(255,255,255,0.9)',
+            cursor:          'pointer',
+            flexShrink:      0,
+            padding:         0,
           }}
         >
-          <CancelOneIcon size={14} />
+          <CancelOneIcon size={13} />
         </button>
       )}
     </motion.div>

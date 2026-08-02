@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRightOneIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ArrowRightOneIcon, CancelOneIcon, AlertTwoIcon, AlertCircleIcon } from '@strange-huge/icons'
 import { useCreditStatus } from '@/hooks/use-credit-status'
 import { SETTINGS_BILLING_ROUTE } from '@/lib/routes'
 
@@ -13,17 +13,32 @@ import { SETTINGS_BILLING_ROUTE } from '@/lib/routes'
 //
 // Distinct from InlineCreditNotice (which serves org/team workspace pools with
 // admin/member CTAs). This one routes the user to buy a top-up.
+//
+// Same warning/error surface the KDS Toast uses (`--toast-{level}-*` in
+// aliases.css, wired up for sonner in globals.css) — the semantic family
+// meant for alert banners, as opposed to the `--color-tag-*` chip tokens
+// which are sized for small pill labels.
+
+// Mirrors `.kds-toast`'s elevation recipe (globals.css) — soft drop-shadow
+// plus a hairline ring in the level's own border color, instead of a flat
+// CSS border.
+const elevation = (border: string) =>
+  `0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 6px 16px -4px rgba(38,33,30,0.10), 0px 0px 0px 1px ${border}`
 
 const LOW_CFG = {
-  bg:      'var(--color-tag-Yellow-bg-soft)',
-  fg:      'var(--color-tag-Yellow-text)',
+  bg:      'var(--toast-warning-bg)',
+  fg:      'var(--toast-warning-text)',
+  border:  'var(--toast-warning-border)',
+  Icon:    AlertTwoIcon,
   message: 'Running low on credits',
   cta:     'Buy credits',
 } as const
 
 const EXHAUSTED_CFG = {
-  bg:      'var(--color-tag-Red-bg-soft)',
-  fg:      'var(--color-tag-Red-text)',
+  bg:      'var(--toast-error-bg)',
+  fg:      'var(--toast-error-text)',
+  border:  'var(--toast-error-border)',
+  Icon:    AlertCircleIcon,
   message: 'Credits exhausted · buy a top-up to keep using Souvenir',
   cta:     'Buy credits',
 } as const
@@ -45,6 +60,7 @@ export function CreditStatusBanner({ suppress = false }: { suppress?: boolean } 
     (level === 'exhausted' || (level === 'low' && !dismissedLow))
   const cfg = level === 'exhausted' ? EXHAUSTED_CFG : LOW_CFG
   const dismissible = level === 'low'
+  const Icon = cfg.Icon
 
   return (
     <AnimatePresence>
@@ -57,23 +73,25 @@ export function CreditStatusBanner({ suppress = false }: { suppress?: boolean } 
           style={{
             display:         'flex',
             alignItems:      'center',
-            gap:             8,
-            padding:         '8px 12px',
-            borderRadius:    10,
+            gap:             10,
+            padding:         '10px 14px',
+            borderRadius:    'var(--toast-radius)',
             backgroundColor: cfg.bg,
-            border:          `1px solid ${cfg.fg}`,
+            boxShadow:       elevation(cfg.border),
             margin:          '0 12px 8px',
           }}
         >
-          <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: cfg.fg, flexShrink: 0 }} />
+          <span style={{ display: 'flex', flexShrink: 0, color: cfg.fg }}>
+            <Icon size={16} color={cfg.fg} />
+          </span>
 
           <p style={{
             flex:       '1 0 0',
             minWidth:   0,
             fontFamily: 'var(--font-body)',
-            fontWeight: 400,
-            fontSize:   13,
-            lineHeight: '20px',
+            fontWeight: 'var(--font-weight-medium)',
+            fontSize:   'var(--font-size-body)',
+            lineHeight: 'var(--line-height-body)',
             color:      cfg.fg,
             margin:     0,
           }}>
@@ -84,23 +102,24 @@ export function CreditStatusBanner({ suppress = false }: { suppress?: boolean } 
             type="button"
             onClick={() => router.push(SETTINGS_BILLING_ROUTE)}
             style={{
-              display:        'inline-flex',
-              alignItems:     'center',
-              gap:            4,
-              background:     'none',
-              border:         'none',
-              cursor:         'pointer',
-              padding:        '2px 0',
-              fontFamily:     'var(--font-body)',
-              fontWeight:     500,
-              fontSize:       13,
-              color:          cfg.fg,
-              textDecoration: 'underline',
-              flexShrink:     0,
+              display:      'inline-flex',
+              alignItems:   'center',
+              gap:          4,
+              border:       'none',
+              cursor:       'pointer',
+              padding:      '4px 10px',
+              borderRadius: 8,
+              backgroundColor: cfg.fg,
+              color:        cfg.bg,
+              fontFamily:   'var(--font-body)',
+              fontWeight:   'var(--font-weight-medium)',
+              fontSize:     'var(--font-size-caption)',
+              lineHeight:   'var(--line-height-caption)',
+              flexShrink:   0,
             }}
           >
             {cfg.cta}
-            <ArrowRightOneIcon size={14} />
+            <ArrowRightOneIcon size={13} color={cfg.bg} />
           </button>
 
           {dismissible && (
@@ -109,20 +128,22 @@ export function CreditStatusBanner({ suppress = false }: { suppress?: boolean } 
               onClick={() => setDismissedLow(true)}
               aria-label="Dismiss notice"
               style={{
-                display:        'flex',
-                alignItems:     'center',
-                justifyContent: 'center',
-                background:     'none',
-                border:         'none',
-                cursor:         'pointer',
-                padding:        2,
-                color:          cfg.fg,
-                opacity:        0.6,
-                flexShrink:     0,
-                borderRadius:   4,
+                display:         'flex',
+                alignItems:      'center',
+                justifyContent:  'center',
+                width:           22,
+                height:          22,
+                border:          'none',
+                borderRadius:    7,
+                backgroundColor: 'var(--neutral-white)',
+                color:           'var(--neutral-600)',
+                boxShadow:       '0px 1px 2px rgba(0,0,0,0.08), inset 0px 1px 0px rgba(255,255,255,0.9)',
+                cursor:          'pointer',
+                flexShrink:      0,
+                padding:         0,
               }}
             >
-              <CancelOneIcon size={14} />
+              <CancelOneIcon size={13} />
             </button>
           )}
         </motion.div>

@@ -5,7 +5,9 @@ import { AnimatePresence, m } from 'framer-motion'
 import { Upload } from 'lucide-react'
 import { ChatInput, type ChatInputProps } from '@/components/chat/ChatInput'
 import { ExhaustionBanner } from '@/components/ExhaustionBanner'
+import { InlineCreditNotice } from '@/components/InlineCreditNotice'
 import { useFileDrop } from '@/hooks/use-file-drop'
+import { useWorkspaceCreditNotice } from '@/hooks/use-workspace-credit-notice'
 import { BrainHome, type BrainHomeProps } from './BrainHome'
 export { BrainHome, type BrainHomeProps, type ActiveSchedule } from './BrainHome'
 import { ClarificationCard, type ClarificationCardProps } from './ClarificationCard'
@@ -209,6 +211,8 @@ export function BrainShell({
     disabled: dropDisabled || !onFilesDropped,
   })
 
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
+
   const handleSend = (value: string) => {
     if (!value.trim()) return
     // idle → user-sent on send. Consumer drives subsequent phases.
@@ -365,6 +369,17 @@ export function BrainShell({
                     transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                     style={{ width: '100%', maxWidth: '754px' }}
                   >
+                    <AnimatePresence>
+                      {creditNoticeStatus && (
+                        <InlineCreditNotice
+                          key={creditNoticeStatus}
+                          status={creditNoticeStatus}
+                          isAdmin={isOrgAdmin}
+                          onAdminAction={goToPlans}
+                          onDismiss={dismissCreditNotice}
+                        />
+                      )}
+                    </AnimatePresence>
                     <ExhaustionBanner>
                       <ChatInput
                         placeholder="Tell Brain what to do"

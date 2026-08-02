@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, MentoringIcon, UserAiIcon, InformationCircleIcon, TickTwoIcon, CancelOneIcon } from '@strange-huge/icons'
@@ -18,6 +19,8 @@ import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useModelSelectorContext } from '@/context/model-selector-context'
 import { pickDefaultModel } from '@/lib/ai-models'
 import { formatRelativeTime } from '@/lib/utils/format-utils'
+import { useWorkspaceCreditNotice } from '@/hooks/use-workspace-credit-notice'
+import { InlineCreditNotice } from '@/components/InlineCreditNotice'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow'
 import { Divider } from '@/components/Divider'
@@ -88,6 +91,7 @@ export default function ProjectPage() {
   const modelButtonLabel = useModelButtonLabel()
 
   const { caps, members, teams: orgTeams } = useOrg()
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
   const { user } = useAuth()
   // `user?.id` is never populated by the backend's /users/me — resolve the
   // viewer's internal id via the org member list instead (see resolveViewerUserId).
@@ -184,7 +188,7 @@ export default function ProjectPage() {
   }, [selectedPersona, setPersonaActive])
 
   // This page is always a "start a new chat" surface — reset the global model
-  // selection back to the Advanced tier on arrival, same as the regular
+  // selection back to the default tier on arrival, same as the regular
   // chat page's blank-landing reset, so a model picked in a previous chat
   // doesn't silently carry over. Mount-only: doesn't touch whatever the user
   // explicitly picks afterward on this same page before sending.
@@ -747,6 +751,17 @@ export default function ProjectPage() {
 
           {/* Chat input */}
           <div style={{ width: '100%', maxWidth: '679px', flexShrink: 0 }}>
+            <AnimatePresence>
+              {creditNoticeStatus && (
+                <InlineCreditNotice
+                  key={creditNoticeStatus}
+                  status={creditNoticeStatus}
+                  isAdmin={isOrgAdmin}
+                  onAdminAction={goToPlans}
+                  onDismiss={dismissCreditNotice}
+                />
+              )}
+            </AnimatePresence>
             <input
               ref={fileInputRef}
               type="file"

@@ -7,7 +7,6 @@ import { X } from "lucide-react";
 import { toast } from "sonner";
 import { ArrowDownOneIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
-import { ORG_PLANS_ROUTE } from "@/lib/routes";
 import { ChatMessageMemo } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CitationsPanel } from "./CitationsPanel";
@@ -30,10 +29,10 @@ import { useModelSelectorContext } from "@/context/model-selector-context";
 import { usePinboard, type PinItem } from "@/context/pinboard-context";
 import { useAuth } from "@/context/auth-context";
 import { useOrg } from "@/context/org-context";
-import { useRouter } from "next/navigation";
-import { InlineCreditNotice, type CreditNoticeStatus } from "@/components/InlineCreditNotice";
+import { InlineCreditNotice } from "@/components/InlineCreditNotice";
 import { ExhaustionBanner } from "@/components/ExhaustionBanner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
+import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
 import type { PinFolder } from "@/lib/api/pins";
 import type { PinMentionable } from "./PinMentionDropdown";
 import type { Source } from "@/types/chat";
@@ -327,19 +326,14 @@ export function ChatInterface({
   // Auth context — refreshUser for updating usage after stream completes
   const { user, refreshUser } = useAuth();
 
-  // Org context — pool status drives InlineCreditNotice above input
-  const { plan, orgId, currentUserRole: orgRole } = useOrg();
+  // Org context — pool status (via useWorkspaceCreditNotice below) drives
+  // InlineCreditNotice above input; plan is also read directly for the
+  // locked-state input disable/placeholder further down.
+  const { plan } = useOrg();
   // Individual credit/topup status — drives the warning banner + hard send-gate.
   const creditStatus = useCreditStatus();
 
-  const router = useRouter();
-  const [dismissedCreditStatus, setDismissedCreditStatus] = useState<CreditNoticeStatus | null>(null);
-
-  const CREDIT_NOTICE_STATUSES = new Set<string>(['warning_95', 'grace', 'locked']);
-  const creditNoticeStatus: CreditNoticeStatus | null =
-    plan?.poolStatus && CREDIT_NOTICE_STATUSES.has(plan.poolStatus) && plan.poolStatus !== dismissedCreditStatus
-      ? (plan.poolStatus as CreditNoticeStatus)
-      : null;
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
 
   // Pin data for the @-mention dropdown — read from context (no extra fetch).
   const { pins, isPinned } = usePinboard();
@@ -1209,9 +1203,9 @@ export function ChatInterface({
             <InlineCreditNotice
               key={creditNoticeStatus}
               status={creditNoticeStatus}
-              isAdmin={orgRole === 'admin'}
-              onAdminAction={() => router.push(ORG_PLANS_ROUTE)}
-              onDismiss={() => setDismissedCreditStatus(creditNoticeStatus)}
+              isAdmin={isOrgAdmin}
+              onAdminAction={goToPlans}
+              onDismiss={dismissCreditNotice}
             />
           )}
         </AnimatePresence>
