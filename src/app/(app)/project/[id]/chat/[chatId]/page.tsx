@@ -13,6 +13,7 @@ import { ModelSwitchDialog }                               from '@/components/ch
 import { PinMentionDropdown }                              from '@/components/chat/PinMentionDropdown'
 import { ChatShareOverlay }                                from '@/components/chat/ChatShareOverlay'
 import { useModelSelectorContext }                         from '@/context/model-selector-context'
+import { pickDefaultModel }                                from '@/lib/ai-models'
 import { useProjects }                                     from '@/context/projects-context'
 import { useFileUpload }                                   from '@/hooks/use-file-upload'
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
@@ -404,21 +405,28 @@ function ProjectChatPageInner() {
 
   // ── Model selector ────────────────────────────────────────────────────────
 
-  const { models, selectedModel, selectModel, open: openModelSelector, museActive, museAdvanced, setMuseAdvanced, enableReasoning, setPersonaActive } = useModelSelectorContext()
+  const { models, selectedModel, selectModel, open: openModelSelector, enableReasoning, setPersonaActive } = useModelSelectorContext()
 
-  // Reset to Souvenir Muse (Auto) on a genuinely blank "new chat" landing —
+  // Reset to the Advanced model on a genuinely blank "new chat" landing —
   // matches the regular chat page's reset-on-new-chat behaviour, so a model
   // picked in a previous chat doesn't silently carry over. Gated on
   // `initialPrompt` being empty AT MOUNT (not reactive) so this does NOT fire
   // when arriving here with a `?q=` from the project page's own input — that
   // transition already reflects a deliberate model pick made one click earlier
-  // on that page, which this must not clobber.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (isNewChat && !initialPrompt) setMuseAdvanced(true) }, [])
+  // on that page, which this must not clobber. `models` stays a real dep so
+  // this retries until the catalog finishes its first load; the ref guard
+  // makes sure it only ever applies once per mount.
+  const shouldResetAtMountRef = useRef(isNewChat && !initialPrompt)
+  const advancedAppliedRef = useRef(false)
+  useEffect(() => {
+    if (!shouldResetAtMountRef.current || advancedAppliedRef.current) return
+    const advanced = pickDefaultModel(models)
+    if (!advanced) return
+    advancedAppliedRef.current = true
+    selectModel(advanced)
+  }, [models, selectModel])
 
-  const modelButtonLabel = museActive
-    ? museAdvanced ? 'Souvenir AI Muse (Auto)' : 'Souvenir AI Muse (Basic)'
-    : selectedModel?.modelName
+  const modelButtonLabel = selectedModel?.modelName
 
   const handleModelClick = (e: React.MouseEvent<HTMLButtonElement>) => { if (selectedPersona) return; openModelSelector(e.currentTarget) }
 

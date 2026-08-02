@@ -16,6 +16,7 @@ import { usePinboard } from '@/context/pinboard-context'
 import { useProjectPanel } from '@/context/project-panel-context'
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useModelSelectorContext } from '@/context/model-selector-context'
+import { pickDefaultModel } from '@/lib/ai-models'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow'
 import { Divider } from '@/components/Divider'
@@ -82,7 +83,7 @@ export default function ProjectPage() {
   const { pins, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const { setPanel: setProjectPanel } = useProjectPanel()
   const chatHistory = useChatHistoryContext()
-  const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel, setMuseAdvanced } = useModelSelectorContext()
+  const { open: openModelSelector, setPersonaActive, personaActive, selectedModel, models, selectModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
 
   const { caps, members, teams: orgTeams } = useOrg()
@@ -182,12 +183,20 @@ export default function ProjectPage() {
   }, [selectedPersona, setPersonaActive])
 
   // This page is always a "start a new chat" surface — reset the global model
-  // preference back to Souvenir Muse (Auto) on arrival, same as the regular
-  // chat page's blank-landing reset, so a model picked in a previous chat
-  // doesn't silently carry over. Mount-only: doesn't touch whatever the user
-  // explicitly picks afterward on this same page before sending.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setMuseAdvanced(true) }, [])
+  // selection back to Advanced on arrival, same as the regular chat page's
+  // blank-landing reset, so a model picked in a previous chat doesn't
+  // silently carry over. `models` stays a real dep so this retries until the
+  // catalog finishes its first load; the ref guard makes sure it only ever
+  // applies once per mount — it must not touch whatever the user explicitly
+  // picks afterward on this same page before sending.
+  const advancedAppliedRef = useRef(false)
+  useEffect(() => {
+    if (advancedAppliedRef.current) return
+    const advanced = pickDefaultModel(models)
+    if (!advanced) return
+    advancedAppliedRef.current = true
+    selectModel(advanced)
+  }, [models, selectModel])
 
   // Hand the Instructions/Files/Team panel to AppLayout's shared slot so it
   // renders as its own flex sibling (like Pinboard) instead of living inside
@@ -676,7 +685,7 @@ export default function ProjectPage() {
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: personaActive ? 'var(--button-default-text-disabled)' : undefined }}>
                     {/* Always the Souvenir mark — every model behind this
                         button is one of the 3 Souvenir Muse tiers. */}
-                    {(museActive || !!selectedModel) && (
+                    {!!selectedModel && (
                       <span style={{ width: 16, height: 16, borderRadius: 4, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <SouvenirModelIcon size={16} variant="light" />
                       </span>

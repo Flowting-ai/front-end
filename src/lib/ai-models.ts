@@ -164,6 +164,18 @@ export function sortModelsByTier<T extends Pick<AIModel, "modelName">>(models: T
   return [...models].sort((a, b) => modelTierRank(a.modelName) - modelTierRank(b.modelName));
 }
 
+/**
+ * The model every new chat should start on: the Advanced tier, the
+ * strongest of the 3 Souvenir Muse tiers. Falls back to the first model in
+ * the list on the off chance the Advanced tier isn't present (shouldn't
+ * happen — see toSouvenirModelLabel), so callers always get something
+ * rather than nothing.
+ */
+export function pickDefaultModel<T extends Pick<AIModel, "modelName">>(models: T[]): T | null {
+  if (!models.length) return null;
+  return models.find(m => m.modelName === "Souvenir Muse: Advanced") ?? models[0];
+}
+
 // Tier keywords used only to break ties between same-company candidates —
 // e.g. prefer another "Standard"-class model over an "Advanced"/"Basic" one
 // so a persona's cost/capability tier survives a forced model swap where

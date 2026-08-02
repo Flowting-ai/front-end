@@ -321,8 +321,7 @@ export function ChatInterface({
 
   const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
 
-  // Muse framework state — consumed from context to compute algorithm for API calls
-  const { museActive, museAdvanced, selectedModel: contextModel } = useModelSelectorContext();
+  const { selectedModel: contextModel } = useModelSelectorContext();
 
   // Auth context — refreshUser for updating usage after stream completes
   const { user, refreshUser } = useAuth();
@@ -376,38 +375,29 @@ export function ChatInterface({
 
   const messages = rawMessages ?? [];
 
-  // Seed model logo + name on assistant messages that have thinking content but no
-  // model identity. Covers project chat where model_selected may not fire or the
-  // history API doesn't return model_name — same pattern as PersonaChatInterface.
-  // When Muse is active, contextModel is null (it is not an AIModel), so we derive
-  // the identity from museActive/museAdvanced instead.
+  // Seed model logo + name on ANY assistant message missing model identity —
+  // not just ones with a thinking/reasoning block (that used to be the only
+  // gate here, so a plain reply with no visible reasoning fell all the way
+  // through to ChatMessage's generic "Souvenir" placeholder). Covers both
+  // live streaming (the backend has no model_selected SSE event to report
+  // per-message identity) and reloaded history (the history API doesn't
+  // return model_name either) — same unconditional pattern
+  // PersonaChatInterface already uses.
   useEffect(() => {
-    const isMuse = museActive && !contextModel;
-    if (!isMuse && !contextModel) return;
+    if (!contextModel) return;
     setMessages(prev => {
-      const needsPatch = prev.some(m => m.role === 'assistant' && m.thinking && !m.modelName && !m.modelMeta);
+      const needsPatch = prev.some(m => m.role === 'assistant' && !m.modelName && !m.modelMeta);
       if (!needsPatch) return prev;
-      let modelName: string;
-      let modelId: string;
-      let company: string;
-      let complexity: string | undefined;
-      if (isMuse) {
-        complexity = museAdvanced ? 'advanced' : 'basic';
-        modelName  = museAdvanced ? 'Souvenir Muse (Auto)' : 'Souvenir Muse (Basic)';
-        modelId    = `muse-${complexity}`;
-        company    = 'Souvenir';
-      } else {
-        modelName = contextModel!.modelName;
-        company   = contextModel!.companyName;
-        modelId   = String(contextModel!.modelId ?? contextModel!.id ?? '');
-      }
+      const modelName = contextModel.modelName;
+      const company   = contextModel.companyName;
+      const modelId    = String(contextModel.modelId ?? contextModel.id ?? '');
       return prev.map(m => {
-        if (m.role !== 'assistant' || !m.thinking || m.modelName || m.modelMeta) return m;
-        return { ...m, modelName, modelMeta: { modelId, modelName, company, ...(complexity ? { complexity } : {}) } };
+        if (m.role !== 'assistant' || m.modelName || m.modelMeta) return m;
+        return { ...m, modelName, modelMeta: { modelId, modelName, company } };
       });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, contextModel, museActive, museAdvanced]);
+  }, [messages, contextModel]);
 
   // Estimate how much of the model's context window is currently in use.
   // 1 token ≈ 4 chars — good enough for the 90%+ ring trigger.
@@ -550,16 +540,14 @@ export function ChatInterface({
       setAttachments([]);
       onClearInitialFiles?.();
       onClearAddMenuFiles?.();
-      const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
       const folderPinIds = selectedFolders && selectedFolders.length > 0
         ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
         : [];
       const allInitialPinIds = [...new Set([...folderPinIds, ...initialMentionedPinObjects.map(p => p.id)])];
-      fetchAiResponse(content, null, loadingId, algorithm ? null : selectedModelId, {
+      fetchAiResponse(content, null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
         files: files.length > 0 ? files : undefined,
-        algorithm: algorithm ?? undefined,
         userMessageId: userMsgId,
         pinIds: allInitialPinIds.length > 0 ? allInitialPinIds : undefined,
         personaId: selectedPersonaId ?? undefined,
@@ -820,11 +808,11 @@ export function ChatInterface({
     const mentionedPinIds = capturedMentionedPins.map(m => m.id);
     const allPinIds = [...new Set([...folderPinIds, ...mentionedPinIds])];
 
-    // Analytics: baseline activity + trust in auto-routing (cost story). Metadata only.
+    // Analytics: baseline activity. Metadata only.
     trackBrowserEvent("chat_message_sent", {
+      model_pick: "manual",
       has_agent: !!selectedPersonaId,
-      model_pick: museActive ? "auto" : "manual",
-      model_id: !museActive && selectedModelId != null ? String(selectedModelId) : undefined,
+      model_id: selectedModelId != null ? String(selectedModelId) : undefined,
       web_search: webSearchEnabled,
       reasoning: enableReasoning,
       attachment_count: allFiles.length,
@@ -832,12 +820,10 @@ export function ChatInterface({
     });
 
     try {
-      const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
-      await fetchAiResponse(content, chatId ?? null, loadingId, algorithm ? null : selectedModelId, {
+      await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
         files: allFiles.length > 0 ? allFiles : undefined,
-        algorithm: algorithm ?? undefined,
         userMessageId: userMsgId,
         pinIds: allPinIds.length > 0 ? allPinIds : undefined,
         personaId: selectedPersonaId ?? undefined,
@@ -891,17 +877,16 @@ export function ChatInterface({
     const loadingId = addLoadingAssistantMessage();
     // Analytics: part of the override rate (earliest answer-quality warning).
     trackFeature("regenerate", {
-      model_pick: museActive ? "auto" : "manual",
-      model_id: !museActive && selectedModelId != null ? String(selectedModelId) : undefined,
+      model_pick: "manual",
+      model_id: selectedModelId != null ? String(selectedModelId) : undefined,
       reasoning: enableReasoning,
     });
-    const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
     fetchAiResponse(
       lastUserMsg.content,
       chatId ?? null,
       loadingId,
-      algorithm ? null : selectedModelId,
-      { ...(algorithm ? { algorithm } : {}), chatOwnershipConfirmed },
+      selectedModelId,
+      { chatOwnershipConfirmed },
     ).finally(() => {
       isSendingRef.current = false;
     });
@@ -964,12 +949,10 @@ export function ChatInterface({
         .slice(0, idx + 1)
     })
     const loadingId = addLoadingAssistantMessage()
-    const algorithm = museActive ? (museAdvanced ? "pro" : "base") : null
 
-    fetchAiResponse(newContent, chatId ?? null, loadingId, algorithm ? null : selectedModelId, {
+    fetchAiResponse(newContent, chatId ?? null, loadingId, selectedModelId, {
       webSearch: webSearchEnabled,
       enableReasoning,
-      algorithm: algorithm ?? undefined,
       personaId: selectedPersonaId ?? undefined,
       systemPrompt: selectedPersonaSystemPrompt ?? undefined,
       temperature: selectedPersonaTemperature ?? undefined,

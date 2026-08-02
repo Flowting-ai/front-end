@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import {
-  AiVisionRecognitionIcon,
   ImageTwoIcon,
 } from "@strange-huge/icons";
 import { Tooltip } from "@/components/Tooltip";
@@ -16,11 +15,9 @@ import { Popover } from "@/components/Popover";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import type { AIModel } from "@/types/ai-model";
 import { ModelSelectItem } from "@/components/ModelSelectItem";
-import { ModelFeaturedCard } from "@/components/ModelFeaturedCard";
 import { SouvenirModelIcon } from "@/components/SouvenirModelIcon";
 import { trackFeature } from "@/lib/analytics/events";
 import { Badge, type BadgeColor } from "@/components/Badge";
-import { Divider } from "@/components/Divider";
 import { sortModelsByTier } from "@/lib/ai-models";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -30,40 +27,27 @@ import { sortModelsByTier } from "@/lib/ai-models";
 // is what actually stops it from growing unbounded with a long result set.
 const MODEL_LIST_MAX_HEIGHT = 360;
 
-// Small vision/image indicator icons rendered at the right end of a model row.
+// Small modality indicator icon rendered at the right end of a model row.
 function ModelModalityIcons({ model }: { model: AIModel }) {
-  const inputs = model.inputModalities ?? [];
   const outputs = model.outputModalities ?? [];
-  const hasVision = inputs.some((v) => v === "image" || v === "vision");
   const hasImage = outputs.some((v) => v === "image");
-  if (!hasVision && !hasImage) return null;
+  if (!hasImage) return null;
   return (
-    <>
-      {hasVision && (
-        <Tooltip content="Vision — can see images you attach" side="top">
-          <span style={{ display: "flex" }}>
-            <AiVisionRecognitionIcon size={16} />
-          </span>
-        </Tooltip>
-      )}
-      {hasImage && (
-        <Tooltip content="Image — can generate images" side="top">
-          <span style={{ display: "flex" }}>
-            <ImageTwoIcon size={16} />
-          </span>
-        </Tooltip>
-      )}
-    </>
+    <Tooltip content="Image — can generate images" side="top">
+      <span style={{ display: "flex" }}>
+        <ImageTwoIcon size={16} />
+      </span>
+    </Tooltip>
   );
 }
 
-// ── Model row hover tooltip — mirrors the Instructions tab's model picker
-// (app/(app)/agent/configure/instructions/page.tsx) so tags / reasoning
-// effort / description read the same way in both surfaces.
+// ── Model row hover tooltip — shows the model's tags only (reasoning effort
+// was dropped from this surface; the Instructions tab dropped the tooltip
+// entirely).
 
-// Deterministic tag → Badge color, same hash as the Instructions tab's
-// local tagColor (not exported there, so duplicated here rather than
-// forcing a shared-utils extraction for a 4-line pure function).
+// Deterministic tag → Badge color, same hash duplicated in
+// ChangeAgentModelModal/shared.tsx rather than forcing a shared-utils
+// extraction for a 4-line pure function.
 const TAG_PALETTE: BadgeColor[] = ["Green", "Blue", "Purple", "Brown", "Yellow"];
 function tagColor(tag: string): BadgeColor {
   let h = 0;
@@ -100,36 +84,17 @@ function modelInfoSection(header: string, emptyText: string, content: React.Reac
 
 function modelInfoContent(model: AIModel): React.ReactNode {
   const hasTags = !!(model.tags && model.tags.length > 0);
-  const hasEfforts = !!(model.thinkingEfforts && model.thinkingEfforts.length > 0);
 
-  return (
-    <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      {modelInfoSection(
-        "Tags",
-        "No tags for this model yet.",
-        hasTags ? (
-          <span style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-            {model.tags!.map((tag) => (
-              <Badge key={tag} label={tag} color={tagColor(tag)} />
-            ))}
-          </span>
-        ) : null,
-      )}
-
-      <Divider decorative />
-
-      {modelInfoSection(
-        "Reasoning effort",
-        "No reasoning effort levels for this model yet.",
-        hasEfforts ? (
-          <span style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-            {model.thinkingEfforts!.map((effort) => (
-              <Badge key={effort} label={effort} color="Purple" />
-            ))}
-          </span>
-        ) : null,
-      )}
-    </span>
+  return modelInfoSection(
+    "Tags",
+    "No tags for this model yet.",
+    hasTags ? (
+      <span style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+        {model.tags!.map((tag) => (
+          <Badge key={tag} label={tag} color={tagColor(tag)} />
+        ))}
+      </span>
+    ) : null,
   );
 }
 
@@ -139,13 +104,6 @@ interface PresetModelSelectorContentProps {
   models: AIModel[];
   selectedModel: AIModel | null;
   onSelect: (model: AIModel) => void;
-  /** Whether the Muse auto-router is the active selection — drives both the
-   *  Muse card's own selected state and suppresses "selected" on every
-   *  manual tier row below it. */
-  museActive: boolean;
-  /** Activates Muse in Auto mode (sets museActive + museAdvanced, closes the
-   *  dialog) — fired by the big Muse card at the top of the list. */
-  onSelectMuseAuto: () => void;
   /** Flip info tooltips to open leftward — set when the anchor trigger sits
    * near the right edge of the viewport (e.g. the project page's top-right
    * model button), leaving no room for them to open to the right. */
@@ -156,8 +114,6 @@ function PresetModelSelectorContent({
   models,
   selectedModel,
   onSelect,
-  museActive,
-  onSelectMuseAuto,
   preferLeftTooltips,
 }: PresetModelSelectorContentProps) {
   // Tracks the panel's own rendered width so each row's info tooltip can be
@@ -193,21 +149,6 @@ function PresetModelSelectorContent({
           // the model list itself (MODEL_LIST_MAX_HEIGHT below).
         }}
       >
-        {/* ── Muse: Auto — the auto-routing framework, always shown above the
-             3 manual tiers. Selecting it deactivates a manual pick the same
-             way picking a manual tier deactivates Muse. ── */}
-        <div style={{ width: "100%", flexShrink: 0 }}>
-          <ModelFeaturedCard
-            subtitle="Souvenir Muse"
-            title="Auto"
-            description="Automatically routes each message to the best-fit tier — Basic, Standard, or Advanced."
-            selected={museActive}
-            onSelectedChange={(next) => { if (next) onSelectMuseAuto(); }}
-          />
-        </div>
-
-        <Divider decorative />
-
         {/* ── Model list ── */}
         <div
           style={{
@@ -240,7 +181,6 @@ function PresetModelSelectorContent({
                 >
                   {filtered.map((model) => {
                     const isSelected =
-                      !museActive &&
                       selectedModel?.id === model.id &&
                       selectedModel?.modelId === model.modelId;
                     return (
@@ -304,10 +244,9 @@ function PresetModelSelectorContent({
 // Worst-case rendered height of PresetModelSelectorContent, used only to decide
 // whether to flip the dropdown above the anchor when there isn't enough room
 // below. The dialog itself is fluid (no fixed height) — this is a conservative
-// upper estimate (outer padding + Muse featured card + divider + gaps +
-// MODEL_LIST_MAX_HEIGHT), so it stays safe even though the actual rendered
-// height is usually shorter.
-const DROPDOWN_HEIGHT = 16 /* outer padding */ + 110 /* Muse card */ + 16 /* gap */ + 9 /* divider */ + 16 /* gap */ + MODEL_LIST_MAX_HEIGHT;
+// upper estimate (outer padding + gap + MODEL_LIST_MAX_HEIGHT), so it stays
+// safe even though the actual rendered height is usually shorter.
+const DROPDOWN_HEIGHT = 16 /* outer padding */ + 16 /* gap */ + MODEL_LIST_MAX_HEIGHT;
 const DROPDOWN_WIDTH = 432;
 const GAP = 8;
 
@@ -319,17 +258,7 @@ export function PresetModelSelectorDialog() {
     isOpen,
     anchorEl,
     close,
-    museActive,
-    setMuseAdvanced,
   } = useModelSelectorContext();
-
-  // Auto is the only Muse mode reachable from this dialog — museAdvanced
-  // just means "Muse is in its one and only mode", not a separate tier.
-  const selectMuseAuto = () => {
-    trackFeature("model_selector_manual", { model_id: "muse-auto", model_type: "muse" });
-    setMuseAdvanced(true);
-    close();
-  };
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({});
@@ -440,8 +369,6 @@ export function PresetModelSelectorDialog() {
               models={models}
               selectedModel={selectedModel}
               onSelect={selectModel}
-              museActive={museActive}
-              onSelectMuseAuto={selectMuseAuto}
               preferLeftTooltips={preferLeftTooltips}
             />
           </Popover>

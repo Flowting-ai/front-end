@@ -211,54 +211,6 @@ function modelTagBadges(model: AIModel): React.ReactNode {
   )
 }
 
-// The tooltip renders on the dark gradient background (--tooltip-bg-from/to),
-// so headers and empty-state copy here dim the light --tooltip-text color via
-// opacity instead of using a light-mode neutral shade that would read
-// low-contrast.
-const TOOLTIP_SECTION_HEADER_STYLE: React.CSSProperties = {
-  fontFamily: 'var(--font-body)',
-  fontWeight: 'var(--font-weight-medium)',
-  fontSize:   'var(--font-size-caption)',
-  lineHeight: 'var(--line-height-caption)',
-  color:      'var(--tooltip-text)',
-  opacity:    0.6,
-}
-
-const TOOLTIP_EMPTY_TEXT_STYLE: React.CSSProperties = {
-  color:      'var(--tooltip-text)',
-  opacity:    0.6,
-  fontStyle:  'italic',
-}
-
-function modelInfoSection(header: string, emptyText: string, content: React.ReactNode | null): React.ReactNode {
-  return (
-    <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <span style={TOOLTIP_SECTION_HEADER_STYLE}>{header}</span>
-      {content ?? <span style={TOOLTIP_EMPTY_TEXT_STYLE}>{emptyText}</span>}
-    </span>
-  )
-}
-
-function modelInfoContent(model: AIModel): React.ReactNode {
-  const hasEfforts = !!(model.thinkingEfforts && model.thinkingEfforts.length > 0)
-
-  return (
-    <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {modelInfoSection(
-        'Reasoning effort',
-        'No reasoning effort levels for this model yet.',
-        hasEfforts ? (
-          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-            {model.thinkingEfforts!.map((effort) => (
-              <Badge key={effort} label={effort} color="Purple" />
-            ))}
-          </span>
-        ) : null,
-      )}
-    </span>
-  )
-}
-
 // ── Inline anchored model dropdown ───────────────────────────────────────────
 // The chat-style PresetModelSelectorDialog renders a centered popover — wrong
 // for this page, where the dropdown must drop under its trigger and span the
@@ -289,19 +241,6 @@ function ModelDropdown({
   const [search,   setSearch]   = useState('')
   const [atTop,    setAtTop]    = useState(true)
   const [atBottom, setAtBottom] = useState(false)
-  // Tracks the dropdown's own rendered width so each row's info tooltip can
-  // be capped to match it, rather than an arbitrary fixed pixel value.
-  const [dropdownWidth, setDropdownWidth] = useState(280)
-
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const update = () => setDropdownWidth(el.getBoundingClientRect().width)
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
 
   // Close on outside click + Escape
   const closeDropdown = useEffectEvent((v: boolean) => onOpenChange(v))
@@ -490,9 +429,6 @@ function ModelDropdown({
                               image={<SouvenirModelIcon size={18} />}
                               label={m.modelName}
                               icons={modelTagBadges(m)}
-                              info={modelInfoContent(m)}
-                              alwaysShowInfo
-                              infoMaxWidth={dropdownWidth}
                               selected={isSelected}
                               onClick={() => onSelect(m)}
                               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(m) } }}

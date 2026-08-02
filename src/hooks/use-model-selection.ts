@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { fetchModelsWithCache, MODELS_CACHE_BUSTED_EVENT } from "@/lib/ai-models";
+import { fetchModelsWithCache, pickDefaultModel, MODELS_CACHE_BUSTED_EVENT } from "@/lib/ai-models";
 import type { AIModel } from "@/types/ai-model";
 import { logger } from "@/lib/logger";
 
@@ -109,19 +109,24 @@ export function useModelSelection(): UseModelSelectionResult {
           // If no match found at all: keep the current selectedModel (cached partial)
           // rather than clobbering it with an arbitrary fetched[0].
         } else if (!selectedModel) {
-          // No stored selection and no cached model at all — default to first model
-          setSelectedModel(fetched[0]);
-          const key = stableKey(fetched[0]);
-          if (key) localStorage.setItem(STORAGE_KEY, key);
-          localStorage.setItem(
-            `${STORAGE_KEY}_cache`,
-            JSON.stringify({
-              id: fetched[0].id,
-              modelId: fetched[0].modelId,
-              modelName: fetched[0].modelName,
-              companyName: fetched[0].companyName,
-            }),
-          );
+          // No stored selection and no cached model at all — default to the
+          // Advanced tier rather than an arbitrary first-in-list entry,
+          // since the catalog's own ordering isn't guaranteed.
+          const initial = pickDefaultModel(fetched);
+          if (initial) {
+            setSelectedModel(initial);
+            const key = stableKey(initial);
+            if (key) localStorage.setItem(STORAGE_KEY, key);
+            localStorage.setItem(
+              `${STORAGE_KEY}_cache`,
+              JSON.stringify({
+                id: initial.id,
+                modelId: initial.modelId,
+                modelName: initial.modelName,
+                companyName: initial.companyName,
+              }),
+            );
+          }
         }
       }
     } catch (err) {
