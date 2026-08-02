@@ -20,13 +20,20 @@ const accountScopeSchema  = z.enum(['personal', 'shared_team'])
 const accountStatusSchema = z.enum(['active', 'disabled', 'expired'])
 const accessStatusSchema  = z.enum(['pending', 'approved', 'denied'])
 
-// Mirrors backend ToolEntry (services/connectors/schemas.py): just the action
-// slug. Per-tool permissions were removed — a connected account is what grants
-// access — so the old allowed/blocked bits are gone. `.passthrough()` keeps a
-// pre-change cached payload parseable.
+const toolPermissionSchema = z.enum(['allowed', 'blocked', 'ask'])
+
+// Mirrors backend ToolEntry (services/connectors/schemas.py). The readable
+// permission is response-only and derived from the two booleans; parsing derives
+// it again so a stale cached response without the new field still renders.
 const toolEntrySchema = z.object({
-  slug: z.string(),
-}).passthrough()
+  slug:       z.string(),
+  allowed:    z.boolean().default(false),
+  blocked:    z.boolean().default(false),
+  permission: toolPermissionSchema.optional(),
+}).passthrough().transform(tool => ({
+  ...tool,
+  permission: connectorToolPermission(tool),
+}))
 
 /** Rich descriptor for a single credential field returned by GET /connectors/{slug}.
  *  Mirrors Composio's connected-account initiation field metadata. */
@@ -149,7 +156,18 @@ const linkResponseSchema = z.object({
 // ── Inferred types ─────────────────────────────────────────────────────────────
 
 export type ConnectorTool          = z.infer<typeof toolEntrySchema>
+export type ConnectorToolPermission = z.infer<typeof toolPermissionSchema>
 export type ApiKeyField            = z.infer<typeof apiKeyFieldSchema>
+
+export function connectorToolPermission(tool: {
+  allowed?: boolean
+  blocked?: boolean
+  permission?: ConnectorToolPermission
+}): ConnectorToolPermission {
+  if (tool.blocked) return 'blocked'
+  if (tool.allowed) return 'allowed'
+  return tool.permission ?? 'ask'
+}
 
 /** Snake_case shape of an org shared account as embedded in the catalog entry. */
 export type ConnectorAccount       = z.infer<typeof orgConnectorAccountSchema>
