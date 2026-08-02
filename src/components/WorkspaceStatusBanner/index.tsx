@@ -3,7 +3,6 @@
 import React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/Button'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,7 +38,7 @@ const BANNER_CONFIG: Record<TokenStatus, BannerConfig> = {
     dotColor:   'var(--color-tag-Yellow-text)',
     textColor:  'var(--color-tag-Yellow-text)',
     message:    () => 'Your workspace is running low on credits.',
-    adminCta:   'View usage →',
+    adminCta:   'View usage',
     memberNote: 'Contact your admin to add credits.',
   },
   grace: {
@@ -86,6 +85,7 @@ export const WorkspaceStatusBanner = React.forwardRef<HTMLDivElement, WorkspaceS
         style={{
           display:         'flex',
           alignItems:      'center',
+          justifyContent:  'center',
           gap:             10,
           padding:         '8px 16px',
           borderRadius:    10,
@@ -112,8 +112,7 @@ export const WorkspaceStatusBanner = React.forwardRef<HTMLDivElement, WorkspaceS
         {/* Message */}
         <span
           style={{
-            flex:       '1 0 0',
-            minWidth:   1,
+            flexShrink: 0,
             fontFamily: 'var(--font-body)',
             fontWeight: 'var(--font-weight-medium)',
             fontSize:   'var(--font-size-caption)',
@@ -126,9 +125,28 @@ export const WorkspaceStatusBanner = React.forwardRef<HTMLDivElement, WorkspaceS
 
         {/* CTA or note */}
         {isAdmin ? (
-          <Button variant="secondary" size="sm" onClick={onAdminAction} style={{ flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={onAdminAction}
+            style={{
+              border:     'none',
+              background: 'none',
+              cursor:     'pointer',
+              padding:    0,
+              fontFamily: 'var(--font-body)',
+              fontWeight: 'var(--font-weight-medium)',
+              fontSize:   'var(--font-size-caption)',
+              lineHeight: 'var(--line-height-caption)',
+              color:      cfg.textColor,
+              flexShrink: 0,
+              textDecoration: 'underline',
+              textDecorationColor: 'currentColor',
+              textUnderlineOffset: '2px',
+              outline:    'none',
+            }}
+          >
             {cfg.adminCta}
-          </Button>
+          </button>
         ) : (
           <span
             style={{

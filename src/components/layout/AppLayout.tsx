@@ -180,7 +180,7 @@ export function AppLayout({
             flex:      "1 0 0",
             minHeight: 0,
             display:   "flex",
-            padding:   "10px 0",
+            padding:   workspaceBannerStatus ? "4px 0 10px" : "10px 0",
           }}
         >
         {isPersonaPage && !isPersonaChatPage ? (
