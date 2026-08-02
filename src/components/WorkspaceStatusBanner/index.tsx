@@ -3,6 +3,7 @@
 import React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/Button'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -26,8 +27,6 @@ export interface WorkspaceStatusBannerProps extends React.HTMLAttributes<HTMLDiv
 // ── Config ────────────────────────────────────────────────────────────────────
 
 interface BannerConfig {
-  bg:         string
-  border:     string
   dotColor:   string
   textColor:  string
   message:    (days?: number) => string
@@ -37,8 +36,6 @@ interface BannerConfig {
 
 const BANNER_CONFIG: Record<TokenStatus, BannerConfig> = {
   warning_95: {
-    bg:         'var(--color-tag-Yellow-bg)',
-    border:     'var(--color-tag-Yellow-ring)',
     dotColor:   'var(--color-tag-Yellow-text)',
     textColor:  'var(--color-tag-Yellow-text)',
     message:    () => 'Your workspace is running low on credits.',
@@ -46,8 +43,6 @@ const BANNER_CONFIG: Record<TokenStatus, BannerConfig> = {
     memberNote: 'Contact your admin to add credits.',
   },
   grace: {
-    bg:         'var(--color-tag-Red-bg)',
-    border:     'var(--color-tag-Red-ring)',
     dotColor:   'var(--color-tag-Red-text)',
     textColor:  'var(--color-tag-Red-text)',
     message:    (days) => `Workspace access is limited — ${days != null ? `${days} day${days !== 1 ? 's' : ''} to add credits` : 'add credits to restore access'}.`,
@@ -55,8 +50,6 @@ const BANNER_CONFIG: Record<TokenStatus, BannerConfig> = {
     memberNote: 'Contact your admin.',
   },
   locked: {
-    bg:         'var(--color-tag-Red-bg)',
-    border:     'var(--color-tag-Red-ring)',
     dotColor:   'var(--color-tag-Red-text)',
     textColor:  'var(--color-tag-Red-text)',
     message:    () => 'Workspace is locked. No new activity until credits are added.',
@@ -95,8 +88,7 @@ export const WorkspaceStatusBanner = React.forwardRef<HTMLDivElement, WorkspaceS
           alignItems:      'center',
           gap:             10,
           padding:         '8px 16px',
-          backgroundColor: cfg.bg,
-          borderBottom:    `1px solid ${cfg.border}`,
+          borderRadius:    10,
           flexShrink:      0,
           width:           '100%',
           boxSizing:       'border-box' as const,
@@ -124,8 +116,8 @@ export const WorkspaceStatusBanner = React.forwardRef<HTMLDivElement, WorkspaceS
             minWidth:   1,
             fontFamily: 'var(--font-body)',
             fontWeight: 'var(--font-weight-medium)',
-            fontSize:   'var(--font-size-body)',
-            lineHeight: 'var(--line-height-body)',
+            fontSize:   'var(--font-size-caption)',
+            lineHeight: 'var(--line-height-caption)',
             color:      cfg.textColor,
           }}
         >
@@ -134,29 +126,9 @@ export const WorkspaceStatusBanner = React.forwardRef<HTMLDivElement, WorkspaceS
 
         {/* CTA or note */}
         {isAdmin ? (
-          <button
-            type="button"
-            onClick={onAdminAction}
-            style={{
-              border:     'none',
-              background: 'none',
-              cursor:     'pointer',
-              padding:    0,
-              fontFamily: 'var(--font-body)',
-              fontWeight: 'var(--font-weight-medium)',
-              fontSize:   'var(--font-size-body)',
-              lineHeight: 'var(--line-height-body)',
-              color:      cfg.textColor,
-              flexShrink: 0,
-              textDecoration: 'underline',
-              textDecorationColor: 'currentColor',
-              textUnderlineOffset: '2px',
-              outline:    'none',
-            }}
-            className="kds-banner-cta"
-          >
+          <Button variant="secondary" size="sm" onClick={onAdminAction} style={{ flexShrink: 0 }}>
             {cfg.adminCta}
-          </button>
+          </Button>
         ) : (
           <span
             style={{

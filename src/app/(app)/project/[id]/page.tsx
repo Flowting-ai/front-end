@@ -16,6 +16,8 @@ import { usePinboard } from '@/context/pinboard-context'
 import { useProjectPanel } from '@/context/project-panel-context'
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useModelSelectorContext } from '@/context/model-selector-context'
+import { pickDefaultModel } from '@/lib/ai-models'
+import { formatRelativeTime } from '@/lib/utils/format-utils'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow'
 import { Divider } from '@/components/Divider'
@@ -82,7 +84,7 @@ export default function ProjectPage() {
   const { pins, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const { setPanel: setProjectPanel } = useProjectPanel()
   const chatHistory = useChatHistoryContext()
-  const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel, setMuseAdvanced } = useModelSelectorContext()
+  const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel, models, selectModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
 
   const { caps, members, teams: orgTeams } = useOrg()
@@ -182,12 +184,15 @@ export default function ProjectPage() {
   }, [selectedPersona, setPersonaActive])
 
   // This page is always a "start a new chat" surface — reset the global model
-  // preference back to Souvenir Muse (Auto) on arrival, same as the regular
+  // selection back to the Advanced tier on arrival, same as the regular
   // chat page's blank-landing reset, so a model picked in a previous chat
   // doesn't silently carry over. Mount-only: doesn't touch whatever the user
   // explicitly picks afterward on this same page before sending.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setMuseAdvanced(true) }, [])
+  useEffect(() => {
+    const defaultModel = pickDefaultModel(models)
+    if (defaultModel) selectModel(defaultModel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Hand the Instructions/Files/Team panel to AppLayout's shared slot so it
   // renders as its own flex sibling (like Pinboard) instead of living inside
@@ -443,7 +448,7 @@ export default function ProjectPage() {
       <ProjectChatRow
         key={chat.id}
         title={chat.title}
-        timestamp="Just now"
+        timestamp={formatRelativeTime(chat.updated_at)}
         pinCount={chat.pins_count ?? 0}
         canPublish={canPublishChat}
         published={chat.visibility === 'team'}
@@ -504,7 +509,7 @@ export default function ProjectPage() {
       <ProjectChatRow
         key={chat.id}
         title={chat.title}
-        timestamp="Just now"
+        timestamp={formatRelativeTime(chat.updatedAt)}
         pinCount={pins.filter(p => p.chatId === chat.id).length}
         onChatClick={() => push(PROJECT_CHAT_ROUTE(projectId, chat.id))}
         onPinsClick={() => togglePinboard()}

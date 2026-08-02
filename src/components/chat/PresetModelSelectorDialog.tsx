@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import {
-  AiVisionRecognitionIcon,
   ImageTwoIcon,
 } from "@strange-huge/icons";
 import { Tooltip } from "@/components/Tooltip";
@@ -30,40 +29,27 @@ import { sortModelsByTier } from "@/lib/ai-models";
 // is what actually stops it from growing unbounded with a long result set.
 const MODEL_LIST_MAX_HEIGHT = 360;
 
-// Small vision/image indicator icons rendered at the right end of a model row.
+// Small modality indicator icon rendered at the right end of a model row.
 function ModelModalityIcons({ model }: { model: AIModel }) {
-  const inputs = model.inputModalities ?? [];
   const outputs = model.outputModalities ?? [];
-  const hasVision = inputs.some((v) => v === "image" || v === "vision");
   const hasImage = outputs.some((v) => v === "image");
-  if (!hasVision && !hasImage) return null;
+  if (!hasImage) return null;
   return (
-    <>
-      {hasVision && (
-        <Tooltip content="Vision — can see images you attach" side="top">
-          <span style={{ display: "flex" }}>
-            <AiVisionRecognitionIcon size={16} />
-          </span>
-        </Tooltip>
-      )}
-      {hasImage && (
-        <Tooltip content="Image — can generate images" side="top">
-          <span style={{ display: "flex" }}>
-            <ImageTwoIcon size={16} />
-          </span>
-        </Tooltip>
-      )}
-    </>
+    <Tooltip content="Image — can generate images" side="top">
+      <span style={{ display: "flex" }}>
+        <ImageTwoIcon size={16} />
+      </span>
+    </Tooltip>
   );
 }
 
-// ── Model row hover tooltip — mirrors the Instructions tab's model picker
-// (app/(app)/agent/configure/instructions/page.tsx) so tags / reasoning
-// effort / description read the same way in both surfaces.
+// ── Model row hover tooltip — shows the model's tags only (reasoning effort
+// was dropped from this surface; the Instructions tab dropped the tooltip
+// entirely).
 
-// Deterministic tag → Badge color, same hash as the Instructions tab's
-// local tagColor (not exported there, so duplicated here rather than
-// forcing a shared-utils extraction for a 4-line pure function).
+// Deterministic tag → Badge color, same hash duplicated in
+// ChangeAgentModelModal/shared.tsx rather than forcing a shared-utils
+// extraction for a 4-line pure function.
 const TAG_PALETTE: BadgeColor[] = ["Green", "Blue", "Purple", "Brown", "Yellow"];
 function tagColor(tag: string): BadgeColor {
   let h = 0;
@@ -100,36 +86,17 @@ function modelInfoSection(header: string, emptyText: string, content: React.Reac
 
 function modelInfoContent(model: AIModel): React.ReactNode {
   const hasTags = !!(model.tags && model.tags.length > 0);
-  const hasEfforts = !!(model.thinkingEfforts && model.thinkingEfforts.length > 0);
 
-  return (
-    <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      {modelInfoSection(
-        "Tags",
-        "No tags for this model yet.",
-        hasTags ? (
-          <span style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-            {model.tags!.map((tag) => (
-              <Badge key={tag} label={tag} color={tagColor(tag)} />
-            ))}
-          </span>
-        ) : null,
-      )}
-
-      <Divider decorative />
-
-      {modelInfoSection(
-        "Reasoning effort",
-        "No reasoning effort levels for this model yet.",
-        hasEfforts ? (
-          <span style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-            {model.thinkingEfforts!.map((effort) => (
-              <Badge key={effort} label={effort} color="Purple" />
-            ))}
-          </span>
-        ) : null,
-      )}
-    </span>
+  return modelInfoSection(
+    "Tags",
+    "No tags for this model yet.",
+    hasTags ? (
+      <span style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+        {model.tags!.map((tag) => (
+          <Badge key={tag} label={tag} color={tagColor(tag)} />
+        ))}
+      </span>
+    ) : null,
   );
 }
 
@@ -193,20 +160,24 @@ function PresetModelSelectorContent({
           // the model list itself (MODEL_LIST_MAX_HEIGHT below).
         }}
       >
-        {/* ── Muse: Auto — the auto-routing framework, always shown above the
-             3 manual tiers. Selecting it deactivates a manual pick the same
-             way picking a manual tier deactivates Muse. ── */}
-        <div style={{ width: "100%", flexShrink: 0 }}>
-          <ModelFeaturedCard
-            subtitle="Souvenir Muse"
-            title="Auto"
-            description="Automatically routes each message to the best-fit tier — Basic, Standard, or Advanced."
-            selected={museActive}
-            onSelectedChange={(next) => { if (next) onSelectMuseAuto(); }}
-          />
-        </div>
+        {/* ── Muse: Auto card — hidden for now (kept out of view only; the
+             underlying museActive/onSelectMuseAuto plumbing is untouched so
+             re-showing this is a one-line revert). ── */}
+        {false && (
+          <>
+            <div style={{ width: "100%", flexShrink: 0 }}>
+              <ModelFeaturedCard
+                subtitle="Souvenir Muse"
+                title="Auto"
+                description="Automatically routes each message to the best-fit tier — Basic, Standard, or Advanced."
+                selected={museActive}
+                onSelectedChange={(next) => { if (next) onSelectMuseAuto(); }}
+              />
+            </div>
 
-        <Divider decorative />
+            <Divider decorative />
+          </>
+        )}
 
         {/* ── Model list ── */}
         <div

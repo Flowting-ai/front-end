@@ -16,6 +16,7 @@ const ModelSwitchDialog = dynamic(() => import("@/components/chat/ModelSwitchDia
 import { PinMentionDropdown } from "@/components/chat/PinMentionDropdown";
 import { PinChipStrip } from "@/components/chat/PinChipStrip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
+import { pickDefaultModel } from "@/lib/ai-models";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { emitChatCreated, useSidebarEvents } from "@/hooks/use-sidebar-events";
 import { AGENT_SELECT_EVENT } from "@/components/AgentsPanel";
@@ -628,7 +629,6 @@ function ChatPageInner() {
     open: openModelSelector,
     museActive,
     museAdvanced,
-    setMuseAdvanced,
     enableReasoning,
     setPersonaActive,
   } = useModelSelectorContext();
@@ -637,6 +637,8 @@ function ChatPageInner() {
   // due to the context function being recreated on each render.
   const selectModelRef = useRef(selectModel)
   selectModelRef.current = selectModel
+  const modelsRef = useRef(models)
+  modelsRef.current = models
 
   // Push persona-active state into the model selector context so the dialog is
   // locked from ALL entry points (not just the button in ChatInput) while a
@@ -728,8 +730,11 @@ function ChatPageInner() {
       setActiveChatId(liveId);
       setHasMessages(!!liveId);
       setInitialPrompt(null);
-      // Reset to Souvenir Muse Auto whenever switching to a new chat
-      if (!liveId) setMuseAdvanced(true);
+      // Reset to the Advanced tier whenever switching to a new chat
+      if (!liveId) {
+        const defaultModel = pickDefaultModel(modelsRef.current);
+        if (defaultModel) selectModelRef.current(defaultModel);
+      }
     }
   }, [chatIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -744,7 +749,8 @@ function ChatPageInner() {
     setActiveChatId(undefined);
     setHasMessages(false);
     setInitialPrompt(null);
-    setMuseAdvanced(true);
+    const defaultModel = pickDefaultModel(modelsRef.current);
+    if (defaultModel) selectModelRef.current(defaultModel);
   }, []);
   useSidebarEvents({ onNewChat: handleSidebarNewChat });
 

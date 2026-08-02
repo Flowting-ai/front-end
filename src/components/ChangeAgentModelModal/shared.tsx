@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { m, AnimatePresence } from 'framer-motion'
 import { useMounted } from '@/hooks/use-mounted'
 import { stableKey } from '@/hooks/use-model-selection'
-import { Badge } from '@/components/Badge'
+import { Badge, type BadgeColor } from '@/components/Badge'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
 import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
 import { fetchModelsWithCache, sortModelsByTier } from '@/lib/ai-models'
@@ -194,6 +194,30 @@ export function ModalHeader({ title, subtitle, left, right }: {
   )
 }
 
+// ── Model row info tooltip — tags only ────────────────────────────────────────
+// Without an `info` prop, ModelSelectItem's row still swaps its avatar to an
+// info-circle glyph on hover (that swap isn't gated on `info` being set) but
+// opens no tooltip — a dead-looking info button. This supplies real content
+// for it, same tag-color hash duplicated in PresetModelSelectorDialog rather
+// than forcing a shared-utils extraction for a 4-line pure function.
+const TAG_PALETTE: BadgeColor[] = ['Green', 'Blue', 'Purple', 'Brown', 'Yellow']
+function tagColor(tag: string): BadgeColor {
+  let h = 0
+  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0
+  return TAG_PALETTE[h % TAG_PALETTE.length]
+}
+
+function modelTagsTooltip(model: AIModel): React.ReactNode {
+  if (!model.tags || model.tags.length === 0) return 'No tags for this model yet.'
+  return (
+    <span style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+      {model.tags.map(tag => (
+        <Badge key={tag} label={tag} color={tagColor(tag)} />
+      ))}
+    </span>
+  )
+}
+
 // ── ModelPickerList ───────────────────────────────────────────────────────────
 
 export interface ModelPickerListProps {
@@ -253,6 +277,7 @@ export function ModelPickerList({
               label={model.modelName}
               selected={key === selectedId}
               icons={key === recommendedId ? <Badge label="Recommended" color="Green" /> : undefined}
+              info={modelTagsTooltip(model)}
               onClick={() => onSelect(key)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {

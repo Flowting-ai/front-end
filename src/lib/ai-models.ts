@@ -59,9 +59,9 @@ const normalizeModelType = (
 export function toSouvenirModelLabel(rawName: string | null | undefined): string {
   if (!rawName) return rawName ?? "";
   const n = rawName.toLowerCase();
-  if (n.includes("haiku")) return "Souvenir Muse: Basic";
-  if (n.includes("opus")) return "Souvenir Muse: Advanced";
-  if (n.includes("sonnet")) return "Souvenir Muse: Standard";
+  if (n.includes("haiku")) return "Basic";
+  if (n.includes("opus")) return "Advanced";
+  if (n.includes("sonnet")) return "Standard";
   return rawName;
 }
 
@@ -150,9 +150,9 @@ export function bustModelsCache(): void {
 // toSouvenirModelLabel) sorts last instead of throwing, so an unexpected or
 // future model still renders.
 const MODEL_TIER_RANK: Record<string, number> = {
-  "Souvenir Muse: Advanced": 0,
-  "Souvenir Muse: Standard": 1,
-  "Souvenir Muse: Basic": 2,
+  "Advanced": 0,
+  "Standard": 1,
+  "Basic": 2,
 };
 
 export function modelTierRank(modelName: string): number {
@@ -162,6 +162,18 @@ export function modelTierRank(modelName: string): number {
 /** Sorts a model list Advanced → Standard → Basic. Stable, non-mutating. */
 export function sortModelsByTier<T extends Pick<AIModel, "modelName">>(models: T[]): T[] {
   return [...models].sort((a, b) => modelTierRank(a.modelName) - modelTierRank(b.modelName));
+}
+
+/**
+ * The model every new chat should start on: the Advanced tier, the
+ * strongest of the 3 Souvenir Muse tiers. Falls back to the first model in
+ * the list on the off chance the Advanced tier isn't present (shouldn't
+ * happen — see toSouvenirModelLabel), so callers always get something
+ * rather than nothing.
+ */
+export function pickDefaultModel<T extends Pick<AIModel, "modelName">>(models: T[]): T | null {
+  if (!models.length) return null;
+  return models.find(m => m.modelName === "Advanced") ?? models[0];
 }
 
 // Tier keywords used only to break ties between same-company candidates —

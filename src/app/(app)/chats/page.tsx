@@ -21,22 +21,7 @@ import { CHAT_ROUTE, CHAT_SHARE_ROUTE } from '@/lib/routes'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Badge } from '@/components/Badge'
 import { Skeleton } from '@/components/Skeleton'
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatTimestamp(iso: string | undefined | null): string {
-  if (!iso) return ''
-  const d    = new Date(iso)
-  const now  = new Date()
-  const diff = (now.getTime() - d.getTime()) / 1000
-
-  if (diff < 60)         return 'Just now'
-  if (diff < 3600)       return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400)      return `${Math.floor(diff / 3600)}h ago`
-  if (diff < 86400 * 2)  return 'Yesterday'
-  if (diff < 86400 * 7)  return d.toLocaleDateString('en-US', { weekday: 'short' })
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
+import { formatRelativeTime } from '@/lib/utils/format-utils'
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
@@ -467,7 +452,7 @@ export default function ChatsPage() {
                     >
                       <ChatRow
                         title={chat.title}
-                        timestamp={formatTimestamp(chat.last_message_at ?? chat.updated_at)}
+                        timestamp={formatRelativeTime(chat.last_message_at ?? chat.updated_at)}
                         pinCount={pinCountMap[chat.id] ?? chat.pins_count ?? 0}
                         pinBoardOpen={isOpen && chatFilter === chat.id}
                         onPinClick={pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}

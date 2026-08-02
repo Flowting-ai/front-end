@@ -19,22 +19,27 @@ export function ModelMenu() {
   return (
     <Dropdown size="md">
       <Dropdown.Section fluid>
-        <Dropdown.Item
-          label="Souvenir Muse: Auto"
-          subLabel="Most capable for ambitious work"
-          showSwitch
-          switchChecked={museActive && museAdvanced}
-          onSwitchChange={(checked) => {
-            if (checked) {
-              setMuseAdvanced(true)
-            } else if (museActive) {
-              deactivateMuse()
-            } else {
-              activateMuse()
-            }
-          }}
-          fluid
-        />
+        {/* Souvenir Muse: Auto — hidden for now (kept out of view only; the
+            underlying museActive/activateMuse/deactivateMuse plumbing is
+            untouched so re-showing this is a one-line revert). */}
+        {false && (
+          <Dropdown.Item
+            label="Souvenir Muse: Auto"
+            subLabel="Most capable for ambitious work"
+            showSwitch
+            switchChecked={museActive && museAdvanced}
+            onSwitchChange={(checked) => {
+              if (checked) {
+                setMuseAdvanced(true)
+              } else if (museActive) {
+                deactivateMuse()
+              } else {
+                activateMuse()
+              }
+            }}
+            fluid
+          />
+        )}
         <Dropdown.Item
           label="Adaptive thinking"
           subLabel="Enable extended reasoning"

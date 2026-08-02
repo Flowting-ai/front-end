@@ -89,9 +89,9 @@ function modelDisplayName(modelId: string | null): string | null {
   if (!modelId) return null
   const id = modelId.toLowerCase()
   if (id.includes('claude')) {
-    if (id.includes('opus'))  return 'Souvenir Muse: Advanced'
-    if (id.includes('haiku')) return 'Souvenir Muse: Basic'
-    return 'Souvenir Muse: Standard'
+    if (id.includes('opus'))  return 'Advanced'
+    if (id.includes('haiku')) return 'Basic'
+    return 'Standard'
   }
   if (id.includes('gpt')) return (id.includes('3.5') || id.includes('3-5')) ? 'GPT-3.5' : 'GPT-4'
   if (id.includes('gemini'))  return 'Gemini'
