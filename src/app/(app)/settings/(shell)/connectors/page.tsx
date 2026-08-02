@@ -272,6 +272,47 @@ function humanizeAction(toolSlug: string, connectorSlug: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : toolSlug
 }
 
+const TOOL_PERMISSION_STYLE: Record<ConnectorTool['permission'], React.CSSProperties> = {
+  allowed: {
+    color: 'var(--green-800)',
+    backgroundColor: 'var(--green-50)',
+    boxShadow: '0 0 0 1px rgba(128,183,7,0.35)',
+  },
+  blocked: {
+    color: 'var(--red-700, #B42318)',
+    backgroundColor: 'var(--red-50, #FEF3F2)',
+    boxShadow: '0 0 0 1px rgba(180,35,24,0.25)',
+  },
+  ask: {
+    color: 'var(--neutral-600)',
+    backgroundColor: 'var(--neutral-50)',
+    boxShadow: '0 0 0 1px var(--neutral-200)',
+  },
+}
+
+function ToolPermissionPill({ permission }: { permission: ConnectorTool['permission'] }) {
+  return (
+    <span
+      aria-label={`Permission: ${permission}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        flexShrink: 0,
+        padding: '2px 8px',
+        borderRadius: 6,
+        fontFamily: 'var(--font-body)',
+        fontWeight: 500,
+        fontSize: 11,
+        lineHeight: '16px',
+        textTransform: 'capitalize',
+        ...TOOL_PERMISSION_STYLE[permission],
+      }}
+    >
+      {permission}
+    </span>
+  )
+}
+
 function ConnectorDetailModal({
   entry,
   onClose,
@@ -488,6 +529,7 @@ function ConnectorDetailModal({
                     }}>
                       {humanizeAction(tool.slug, entry.slug)}
                     </span>
+                    <ToolPermissionPill permission={tool.permission} />
                   </div>
                 </div>
               ))}
