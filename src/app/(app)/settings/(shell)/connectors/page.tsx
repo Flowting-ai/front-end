@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Switch } from '@/components/Switch'
 import { Tooltip } from '@/components/Tooltip'
 import { springs } from '@/lib/springs'
 import {
@@ -16,6 +15,7 @@ import {
   pollConnectorUntilActive,
   oauthNeedsInitFields,
   DEFAULT_API_KEY_FIELD,
+  connectorToolBooleans,
 } from '@/lib/api/connectors'
 import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
 import { ApiError } from '@/lib/api/client'
@@ -26,7 +26,6 @@ import { isMcpProviderConnector } from '@/lib/connectorProvider'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { connectorCategory } from '@/lib/connectorCategories'
 import { ORG_CONNECTORS_ROUTE } from '@/lib/routes'
-import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
@@ -290,26 +289,39 @@ const TOOL_PERMISSION_STYLE: Record<ConnectorTool['permission'], React.CSSProper
   },
 }
 
-function ToolPermissionPill({ permission }: { permission: ConnectorTool['permission'] }) {
+function ToolPermissionSelect({
+  permission,
+  disabled,
+  onChange,
+}: {
+  permission: ConnectorTool['permission']
+  disabled?: boolean
+  onChange: (permission: ConnectorTool['permission']) => void
+}) {
   return (
-    <span
+    <select
       aria-label={`Permission: ${permission}`}
+      value={permission}
+      disabled={disabled}
+      onChange={event => onChange(event.target.value as ConnectorTool['permission'])}
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
         flexShrink: 0,
-        padding: '2px 8px',
+        padding: '3px 24px 3px 8px',
         borderRadius: 6,
+        border: 'none',
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
         fontSize: 11,
         lineHeight: '16px',
-        textTransform: 'capitalize',
+        cursor: disabled ? 'wait' : 'pointer',
+        opacity: disabled ? 0.6 : 1,
         ...TOOL_PERMISSION_STYLE[permission],
       }}
     >
-      {permission}
-    </span>
+      <option value="allowed">Always allow</option>
+      <option value="ask">Ask</option>
+      <option value="blocked">Never</option>
+    </select>
   )
 }
 
@@ -324,6 +336,7 @@ function ConnectorDetailModal({
 }) {
   // local copy of tools so UI updates optimistically
   const [tools,              setTools]              = useState<ConnectorTool[]>(entry.tools ?? [])
+  const [saving,             setSaving]             = useState<string | null>(null)
   const [unlinking,          setUnlinking]          = useState(false)
   const [expanded,           setExpanded]           = useState(false)
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
@@ -354,6 +367,35 @@ function ConnectorDetailModal({
       .catch(() => { /* keep the empty list; the modal still offers disconnect */ })
     return () => { cancelled = true }
   }, [entry.slug, entry.tools])
+
+  const handlePermissionChange = useCallback(async (
+    toolSlug: string,
+    permission: ConnectorTool['permission'],
+  ) => {
+    if (abortedRef.current) return
+    const booleans = connectorToolBooleans(permission)
+    setTools(prev => prev.map(tool => (
+      tool.slug === toolSlug ? { ...tool, ...booleans, permission } : tool
+    )))
+    setSaving(toolSlug)
+    try {
+      const updated = await updateConnector(entry.slug, {
+        permissions: [{ slug: toolSlug, ...booleans }],
+      })
+      if (abortedRef.current) return
+      baselineToolsRef.current = updated.tools ?? []
+      setTools(updated.tools ?? [])
+      onUpdate(updated)
+      toast.success('Permission updated')
+    } catch (err) {
+      if (abortedRef.current) return
+      setTools(baselineToolsRef.current)
+      const msg = err instanceof Error ? err.message : 'Failed to update permission'
+      toast.error(msg)
+    } finally {
+      if (!abortedRef.current) setSaving(null)
+    }
+  }, [entry.slug, onUpdate])
 
   const handleDisconnect = useCallback(async () => {
     if (abortedRef.current) return
@@ -480,7 +522,7 @@ function ConnectorDetailModal({
                 color:      'var(--neutral-900)',
                 margin:     '0 0 4px',
               }}>
-                Available tools
+                Tool permissions
               </p>
               <p style={{
                 fontFamily: 'var(--font-body)',
@@ -490,7 +532,7 @@ function ConnectorDetailModal({
                 color:      'var(--neutral-500)',
                 margin:     0,
               }}>
-                What Brain can do with this connection.
+                Choose how Brain may use each tool.
               </p>
             </div>
           </div>
@@ -529,7 +571,11 @@ function ConnectorDetailModal({
                     }}>
                       {humanizeAction(tool.slug, entry.slug)}
                     </span>
-                    <ToolPermissionPill permission={tool.permission} />
+                    <ToolPermissionSelect
+                      permission={tool.permission}
+                      disabled={saving === tool.slug}
+                      onChange={permission => void handlePermissionChange(tool.slug, permission)}
+                    />
                   </div>
                 </div>
               ))}
@@ -1277,11 +1323,9 @@ function SkeletonCard() {
 
 export default function ConnectorsPage() {
   const { push } = useRouter()
-  const { user } = useAuth()
   const { orgId, currentUserRole } = useOrg()
   const [searchQuery,         setSearchQuery]         = useState('')
   const [isSearching,         setIsSearching]         = useState(false)
-  const [suggestionsOn,       setSuggestionsOn]       = useState(false)
   const [connectors,          setConnectors]          = useState<ConnectorCatalogEntry[]>([])
   const [loading,             setLoading]             = useState(true)
   const [loadError,           setLoadError]           = useState('')

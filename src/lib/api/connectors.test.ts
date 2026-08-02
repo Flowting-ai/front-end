@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { connectorToolPermission } from './connectors'
+import { connectorToolBooleans, connectorToolPermission } from './connectors'
 
 
 describe('connectorToolPermission', () => {
@@ -16,5 +16,11 @@ describe('connectorToolPermission', () => {
 
   it('uses the response projection for a legacy shape without booleans', () => {
     expect(connectorToolPermission({ permission: 'allowed' })).toBe('allowed')
+  })
+
+  it('maps editable states back to the binary API shape', () => {
+    expect(connectorToolBooleans('allowed')).toEqual({ allowed: true, blocked: false })
+    expect(connectorToolBooleans('ask')).toEqual({ allowed: false, blocked: false })
+    expect(connectorToolBooleans('blocked')).toEqual({ allowed: false, blocked: true })
   })
 })

@@ -169,6 +169,15 @@ export function connectorToolPermission(tool: {
   return tool.permission ?? 'ask'
 }
 
+export function connectorToolBooleans(
+  permission: ConnectorToolPermission,
+): { allowed: boolean; blocked: boolean } {
+  return {
+    allowed: permission === 'allowed',
+    blocked: permission === 'blocked',
+  }
+}
+
 /** Snake_case shape of an org shared account as embedded in the catalog entry. */
 export type ConnectorAccount       = z.infer<typeof orgConnectorAccountSchema>
 export type ConnectorCatalogMetadata = z.infer<typeof catalogMetadataSchema>
@@ -204,6 +213,7 @@ export function oauthNeedsInitFields(
 }
 
 export interface UpdateConnectorRequest {
+  permissions?: { slug: string; allowed: boolean; blocked: boolean }[]
   credentials?: Record<string, string>
 }
 
