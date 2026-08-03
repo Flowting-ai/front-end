@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { consumeBrainStream, parseBrainContextEvent } from '@/lib/api/brain'
+import { validateNamedEvent } from '@/lib/api/sse-schemas'
 
 function streamResponse(...chunks: string[]): Response {
   const encoder = new TextEncoder()
@@ -12,20 +13,24 @@ function streamResponse(...chunks: string[]): Response {
 }
 
 describe('consumeBrainStream', () => {
-  it('dispatches a terminal named event when the stream closes without a trailing blank line', async () => {
+  it('dispatches a named rally event when the stream closes without a trailing blank line', async () => {
     const onNamed = vi.fn()
     const onInline = vi.fn()
     const onClose = vi.fn()
 
     await consumeBrainStream(
       streamResponse(
-        'event: run_completed\n',
-        'data: {"plan_id":"plan-1","seq":4}',
+        'event: agent_started\n',
+        'data: {"agent":"Researcher","handle":"researcher","task":"Find sources"}',
       ),
       { onNamed, onInline, onClose },
     )
 
-    expect(onNamed).toHaveBeenCalledWith('run_completed', { plan_id: 'plan-1', seq: 4 })
+    expect(onNamed).toHaveBeenCalledWith('agent_started', {
+      agent: 'Researcher',
+      handle: 'researcher',
+      task: 'Find sources',
+    })
     expect(onInline).not.toHaveBeenCalled()
     expect(onClose).toHaveBeenCalledOnce()
   })
@@ -61,6 +66,21 @@ describe('consumeBrainStream', () => {
       type: 'done',
       finish_reason: 'stop',
       usage: { total_tokens: 3 },
+    })
+  })
+
+  it('validates the backend question_prompt event without dropping its questions', () => {
+    expect(validateNamedEvent('question_prompt', {
+      prompt_id: 'prompt-1',
+      respond_url: '/chats/prompts/prompt-1',
+      questions: [{ id: 'q1', question: 'Which source?', type: 'text' }],
+    })).toEqual({
+      prompt_id: 'prompt-1',
+      respond_url: '/chats/prompts/prompt-1',
+      expires_at: '',
+      title: '',
+      description: '',
+      questions: [{ id: 'q1', question: 'Which source?', type: 'text' }],
     })
   })
 })

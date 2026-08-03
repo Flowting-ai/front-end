@@ -3,7 +3,7 @@ import { z } from "zod"
 // ── Backend SSE vocabulary ────────────────────────────────────────────────────
 // Mirrors services/llm/sse_schemas.py (SouvenirAI). Two kinds of events share
 // the wire:
-//   - named events:  `event: <name>\ndata: {...}` — lifecycle, tools, plan/run
+//   - named events:  `event: <name>\ndata: {...}` — lifecycle, tools, prompts
 //   - inline events: `data: {"type":"<name>",...}` — streamed LLM tokens
 // Schemas are loose: unknown fields pass through so backend additions never
 // break parsing. Validation failures log once per event name and hand back the
@@ -52,8 +52,6 @@ export const namedEventSchemas = {
   image: z.looseObject({
     url: z.string(),
     s3_key: z.string().optional(),
-    plan_id: z.string().nullable().optional(),
-    step_id: z.string().nullable().optional(),
   }),
   generated_file: z.looseObject({
     url: z.string(),
@@ -125,6 +123,12 @@ export const namedEventSchemas = {
     description: z.string().optional().default(""),
     questions: z.array(z.looseObject({})).optional().default([]),
   }),
+  question_prompt: z.looseObject({
+    ...promptGateFields,
+    title: z.string().optional().default(""),
+    description: z.string().optional().default(""),
+    questions: z.array(z.looseObject({})).optional().default([]),
+  }),
   permission_prompt: z.looseObject({
     ...promptGateFields,
     connector_slug: z.string(),
@@ -159,30 +163,16 @@ export const namedEventSchemas = {
     documents: z.array(z.looseObject({})).optional().default([]),
     loaded_skills: z.array(z.string()).optional().default([]),
   }),
-  plan_ready: z.looseObject({ plan_id: z.string() }),
-  plan_approved: z.looseObject({ plan_id: z.string() }),
-  plan_countered: z.looseObject({ plan_id: z.string(), counter_text: z.string() }),
-  plan_cancelled: z.looseObject({ plan_id: z.string() }),
-  run_queued: z.looseObject({ plan_id: z.string() }),
-  run_started: z.looseObject({ plan_id: z.string() }),
-  run_summarizing: z.looseObject({ plan_id: z.string() }),
-  run_completed: z.looseObject({ plan_id: z.string() }),
-  run_failed: z.looseObject({ plan_id: z.string(), error: z.string().nullable().optional() }),
-  run_cancelled: z.looseObject({ plan_id: z.string() }),
-  step_started: z.looseObject({ plan_id: z.string(), step_id: z.string() }),
-  step_completed: z.looseObject({ plan_id: z.string(), step_id: z.string() }),
-  step_failed: z.looseObject({ plan_id: z.string(), step_id: z.string(), error: z.string() }),
-  step_skipped: z.looseObject({
-    plan_id: z.string(),
-    step_id: z.string(),
-    reason: z.string().nullable().optional(),
+  agent_started: z.looseObject({
+    agent: z.string(),
+    handle: z.string().optional().default(""),
+    image_url: z.string().nullable().optional(),
+    task: z.string(),
   }),
-  step_content: z.looseObject({ plan_id: z.string(), step_id: z.string(), content: z.string() }),
-  step_reasoning: z.looseObject({
-    plan_id: z.string(),
-    step_id: z.string(),
-    content: z.string(),
-    heading: z.boolean().optional().default(false),
+  agent_content: z.looseObject({ agent: z.string(), content: z.string() }),
+  agent_finished: z.looseObject({
+    agent: z.string(),
+    error: z.string().nullable().optional(),
   }),
   stream_heartbeat: z.looseObject({ elapsed_seconds: z.number().optional() }),
 } as const

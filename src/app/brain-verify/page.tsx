@@ -2,8 +2,8 @@
 
 // ── Dev-only verification harness ──────────────────────────────────────────
 // Mounts the REAL components changed for the Brain feedback-loop / error-card
-// work (ClarificationCard → QuestionCard, NodeFailureCard, PauseCard,
-// BrainNarration) with the same prop wiring page.tsx uses, plus a live readout
+// work (ClarificationCard → QuestionCard, PauseCard, BrainNarration) with the
+// same prop wiring page.tsx uses, plus a live readout
 // of what each flow captures. Lives outside the (app) group so it skips the
 // auth shell but still inherits globals.css + MotionProvider from the root
 // layout. Not linked anywhere — reach it at /brain-verify. Safe to delete.
@@ -11,7 +11,6 @@
 import React, { useRef, useState } from 'react'
 import {
   ClarificationCard,
-  NodeFailureCard,
   PauseCard,
   BrainNarration,
 } from '@/templates/Brain'
@@ -122,18 +121,8 @@ export default function BrainVerifyPage() {
         <Readout label="single-submitted" value={singleSubmitted} />
       </Section>
 
-      {/* 4 — NodeFailureCard (FE-display recovery): Re-run / Cancel, NO Skip */}
-      <Section title="4 · Node-failed card" hint="Shows the failed step + error. Re-run / Cancel only — no 'Skip step' (no backend skip in FE-display scope).">
-        <NodeFailureCard
-          step={{ label: 'Pull interview transcripts from Notion', isCritical: false }}
-          errorMessage="Notion API returned 403: the connected workspace lacks read access to that database."
-          onRerun={() => {}}
-          onCancel={() => {}}
-        />
-      </Section>
-
-      {/* 5 — PauseCard: 'Change direction' present (now returns to ChatInput) */}
-      <Section title="5 · Pause card (Stop)" hint="Continue / Change direction / Cancel. 'Change direction' now returns to the ChatInput to retype.">
+      {/* 4 — PauseCard: 'Change direction' present (now returns to ChatInput) */}
+      <Section title="4 · Pause card (Stop)" hint="Continue / Change direction / Cancel. 'Change direction' now returns to the ChatInput to retype.">
         <PauseCard
           pausedAfterStep="Identify recurring pain-point themes"
           onContinue={() => {}}
@@ -142,9 +131,9 @@ export default function BrainVerifyPage() {
         />
       </Section>
 
-      {/* 6 — Counter narration (the in-thread revision note) */}
-      <Section title="6 · Counter narration" hint="Shown in-thread while Brain re-plans after a counter.">
-        <BrainNarration text={'Revising the plan based on your note: “focus on enterprise customers only”'} />
+      {/* 5 — Narration (an in-thread note from Brain) */}
+      <Section title="5 · Narration" hint="Shown in-thread when Brain says something about the run itself.">
+        <BrainNarration text={'Asked Marketing Strategist for the positioning angle.'} />
       </Section>
     </div>
   )

@@ -10,7 +10,7 @@ import {
 } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
 import { LoopHistoryCard } from './LoopHistoryCard'
-import type { PlanStep } from './lib/phase'
+import type { AgentStep } from './lib/phase'
 import type { ExternalOutputAction } from './ExternalOutputCard'
 import { ExternalOutputCard } from './ExternalOutputCard'
 
@@ -29,7 +29,7 @@ export interface LoopRecordProps {
   timestamp:         string
   status:            'complete' | 'cancelled' | 'failed'
   /** Passed to LoopHistoryCard for the expandable step history */
-  steps:             PlanStep[]
+  steps:             AgentStep[]
   /** Optional artifact title for inline summary in collapsed row */
   artifactTitle?:    string
   /** External actions to show in expanded view */

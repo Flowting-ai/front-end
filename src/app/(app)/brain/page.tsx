@@ -9,13 +9,11 @@ import Image from 'next/image'
 import {
   BrainShell,
   StreamingIndicator,
-  BrainNarration,
   BrainPhaseGroup,
   BrainTimeline,
   PersonaSelectionCard,
   PersonaActiveBar,
   PinConfirmationCard,
-  PlanCard,
   ActivityBlock,
   PauseCard,
   StreamingMessageBubble,
@@ -23,13 +21,10 @@ import {
   BrainResultHeader,
   LoopCancelledCard,
   LoopFailedCard,
-  NodeFailureCard,
-  FixProposalCard,
   ClarificationSummary,
   ArtifactCard,
   ExternalOutputCard,
   StuckCard,
-  LoopRecord,
   type ClarificationSummaryItem,
   type PersonaSelectionItem,
   type ActiveSchedule,
@@ -42,7 +37,8 @@ import { ChatMessagesSkeleton } from '@/components/chat/ChatMessagesSkeleton'
 import { ReasoningContent } from '@/components/chat/ReasoningBlock'
 import { useCreditStatus } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
-import type { Phase, PlanStep, StepStatus } from '@/templates/Brain/lib/phase'
+import { shouldCompleteStreamOnClose } from '@/templates/Brain/lib/phase'
+import type { AgentStep, Phase, StepStatus } from '@/templates/Brain/lib/phase'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
 import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
@@ -72,29 +68,14 @@ import {
   continueBrainChat,
   consumeBrainStream,
   getBrainMessages,
-  getBrainPlan,
-  getBrainRun,
-  getPendingPrompts,
-  subscribeBrainRun,
-  approveBrainPlan,
-  counterBrainPlan,
-  cancelBrainPlan,
   respondToPrompt,
   stopBrainChat,
-  stopBrainRun,
-  buildContextPlan,
   parseBrainContextEvent,
-  parseCortexPlan,
-  parseRecoveryPrompt,
-  type CortexNode,
-  type CortexPlan,
-  type RecoveryPrompt,
   type BrainContextEvent,
   type ContextConnector,
   type ContextPersona,
   type ExternalOutputAction,
   type BrainMessage,
-  type BrainPlanResponse,
   type GeneratedFileEvent,
   type ImageEvent,
   type ToolCallPreview,
@@ -123,7 +104,7 @@ import {
 import {
   enqueuePrompt,
   executionPhaseTitle,
-  planTimelineItems,
+  agentTimelineItems,
   retirePrompt,
 } from '@/lib/brain-presentation'
 import type { ContextRailData } from '@/templates/Brain/ContextRail'
@@ -176,122 +157,15 @@ function isFinalInlineDone(data: unknown): boolean {
 }
 
 function isTerminalBrainEvent(name: string): boolean {
-  return (
-    name === 'message_saved' ||
-    name === 'run_completed' ||
-    name === 'run_failed' ||
-    name === 'run_cancelled'
-  )
+  return name === 'message_saved'
 }
 
 // Phases where the run is genuinely still in flight, so a stream that closes
 // without a terminal event really did drop something. Every other phase is
-// either settled or parked on a card waiting for the user — most importantly
-// 'planning', where the backend ends turn 1 at the approval gate WITHOUT a
-// terminal event by design, so a missing one proves nothing.
+// either settled or parked on a card waiting for the user.
 const IN_FLIGHT_PHASES: ReadonlySet<Phase> = new Set<Phase>([
   'user-sent', 'thinking', 'souvenir', 'executing', 'streaming',
 ])
-
-function mapBackendStepStatus(status?: string): StepStatus {
-  switch (status) {
-    case 'running':   return 'executing'
-    case 'completed': return 'complete'
-    case 'failed':    return 'failed'
-    case 'skipped':   return 'skipped'
-    default:          return 'pending'
-  }
-}
-
-function mapCortexNode(node: CortexNode): PlanStep {
-  const connectors = node.context.connectors.filter(Boolean)
-  return {
-    id:                  node.id,
-    label:               node.title,
-    modelId:             node.context.model_id ?? undefined,
-    connector:           connectors[0],
-    connectorDisclosure: connectors,
-    isCritical:          node.is_critical,
-    status:              mapBackendStepStatus(node.status),
-  }
-}
-
-// ── Edge-derived flow grouping ────────────────────────────────────────────────
-// The plan is a DAG: nodes are subtasks, edges {from,to} mean "to waits on
-// from". We turn that into the flat, ordered PlanStep[] the UI already speaks:
-// each step's dependency depth becomes its level, steps are ordered by level
-// (authored order preserved within a level), and independent steps sharing a
-// level are tagged with the same parallelGroup so PlanCard/LoopHistoryCard
-// render them as "runs at the same time". No graph library required.
-function applyFlowGrouping(steps: PlanStep[], edges: unknown): PlanStep[] {
-  const edgeList = Array.isArray(edges) ? edges : []
-  if (steps.length <= 1 || edgeList.length === 0) return steps
-
-  const ids = new Set(steps.map((s) => s.id))
-  const upstream = new Map<string, string[]>()
-  for (const e of edgeList) {
-    if (!e || typeof e !== 'object') continue
-    const { from, to } = e as { from?: unknown; to?: unknown }
-    if (typeof from === 'string' && typeof to === 'string' && ids.has(from) && ids.has(to)) {
-      upstream.set(to, [...(upstream.get(to) ?? []), from])
-    }
-  }
-  if (upstream.size === 0) return steps // no usable edges → leave as authored
-
-  // Longest-path depth via memoised DFS (DAG). onPath guards against a stray
-  // cycle so a malformed plan can't hang the render.
-  const level = new Map<string, number>()
-  const onPath = new Set<string>()
-  const depthOf = (id: string): number => {
-    const cached = level.get(id)
-    if (cached !== undefined) return cached
-    if (onPath.has(id)) return 0
-    onPath.add(id)
-    const deps = upstream.get(id) ?? []
-    const d = deps.length ? 1 + Math.max(...deps.map(depthOf)) : 0
-    onPath.delete(id)
-    level.set(id, d)
-    return d
-  }
-  steps.forEach((s) => depthOf(s.id))
-
-  const levelCounts = new Map<number, number>()
-  steps.forEach((s) => {
-    const l = level.get(s.id) ?? 0
-    levelCounts.set(l, (levelCounts.get(l) ?? 0) + 1)
-  })
-
-  // Sort by level, breaking ties on original index so the order is stable and
-  // same-level steps land adjacent (groupSteps only clusters consecutive ones).
-  return steps
-    .map((s, i) => ({ s, i, l: level.get(s.id) ?? 0 }))
-    .sort((a, b) => a.l - b.l || a.i - b.i)
-    .map(({ s, l }) => ((levelCounts.get(l) ?? 0) > 1 ? { ...s, parallelGroup: `lvl-${l}` } : s))
-}
-
-function mapHistoryPlanSteps(plan: BrainPlanResponse): PlanStep[] {
-  const cortex = parseCortexPlan(plan.plan_json)
-  if (!cortex) return []
-  return applyFlowGrouping(cortex.nodes.map(mapCortexNode), cortex.edges)
-}
-
-// ── Plan node outputs → reasoning / chat split ────────────────────────────────
-// A plan is a DAG. Leaf nodes are those nothing depends on (no outgoing edge).
-// The backend makes a SOLE leaf's output the final chat answer (synthesis only
-// runs when there are multiple leaves). So we render every non-leaf node's
-// output inside the reasoning block ("Step N: <output>") and let the leaf land
-// in the chat bubble.
-
-function computeLeafIds(stepIds: string[], edges: unknown): Set<string> {
-  const ids = new Set(stepIds)
-  const hasOutgoing = new Set<string>()
-  const edgeList = Array.isArray(edges) ? edges : []
-  for (const e of edgeList) {
-    const from = (e as { from?: unknown })?.from
-    if (typeof from === 'string' && ids.has(from)) hasOutgoing.add(from)
-  }
-  return new Set(stepIds.filter((id) => !hasOutgoing.has(id)))
-}
 
 // ── Synthesize a context snapshot from fetched messages ──────────────────────
 // The live `context` SSE event only fires during an active turn and is never
@@ -345,30 +219,15 @@ function synthesizeContextFromMessages(
   // Persona picks in order (latest wins). `label` is the human name pulled from
   // the ask_user option, which survives even if the persona was later deleted.
   const personaPicks: Array<{ id: string; label?: string; avatarUrl?: string }> = []
-  // Pin ids referenced by any plan node, latest turn wins (so the rail reflects
-  // the most recent set). Bare UUIDs — titles are resolved later from pinboard.
-  let pinIds: string[] = []
+  // Pins the turn referenced. Bare UUIDs — titles are resolved later from
+  // pinboard.
+  const pinIds: string[] = []
   // Every pin id referenced by ANY turn in the thread (true union, never
   // cleared) — seeds the ContextRail's "Previously used" pins on reload,
   // mirroring how connectorSlugs already accumulates across the whole thread.
   const allPinIds = new Set<string>()
 
   for (const m of messages) {
-    // Plan nodes carry their runner and material under `context`
-    // (services/cortex/schema.py NodeContext): persona_id/model_id,
-    // connectors, pins, files.
-    const nodes = m.plan ? parseCortexPlan(m.plan.plan_json)?.nodes ?? [] : []
-    for (const n of nodes) {
-      const pid = n.context.persona_id
-      if (pid) personaPicks.push({ id: pid })
-      for (const s of n.context.connectors) connectorSlugs.add(s.toLowerCase())
-      {
-        const ids = n.context.pins.filter((p) => p.length > 0)
-        if (ids.length) pinIds = ids
-        for (const id of ids) allPinIds.add(id)
-      }
-    }
-
     // tool_calls: persisted as { tool, args, output } objects.
     const tcs = (m.tool_calls ?? []) as Array<Record<string, unknown>>
     for (const t of tcs) {
@@ -382,6 +241,10 @@ function synthesizeContextFromMessages(
         // Tool slugs are uppercase-prefixed by their connector, e.g. SLACK_FIND_USERS.
         const prefix = args.tool_slug.split('_')[0]?.toLowerCase()
         if (prefix) connectorSlugs.add(prefix)
+      }
+      // An agent Brain rallied with, routed by id rather than by description.
+      if (tool === 'ask_agent' && typeof args.persona_id === 'string' && args.persona_id) {
+        personaPicks.push({ id: args.persona_id })
       }
       if (tool === 'ask_user' && typeof t?.output === 'string') {
         try {
@@ -640,8 +503,8 @@ interface LocalTurn {
   output:          string
   reasoning?:      string
   reasoningSections?: ReasoningSection[]
-  planSteps?:      PlanStep[]
-  planSummary?:    string
+  rallyRows?:      AgentStep[]
+  agentOutputs?:   Record<string, string>
   images?:         ImageEvent[]
   generatedFiles?: GeneratedFileEvent[]
   externalActions?: ExternalOutputAction[]
@@ -662,16 +525,6 @@ interface BrainTurnRequest {
   displayInput?:    string
   allDisplayFiles?: File[]
   contextOpts:      Pick<BrainStreamOpts, 'persona_id' | 'pin_ids'>
-}
-
-// ── Counter input UI ──────────────────────────────────────────────────────────
-
-interface CounterInputProps {
-  value:    string
-  onChange: (v: string) => void
-  onSend:   () => void
-  onCancel: () => void
-  disabled?: boolean
 }
 
 // ── Motion: standard KDS mount preset ─────────────────────────────────────────
@@ -725,81 +578,18 @@ function BrainReasoningStack({
 
 function ExecutionPhaseGroup({
   steps,
-  nodeOutputs,
+  agentOutputs,
   defaultCollapsed = true,
 }: {
-  steps: PlanStep[]
-  nodeOutputs?: Record<string, string>
+  steps: AgentStep[]
+  agentOutputs?: Record<string, string>
   defaultCollapsed?: boolean
 }) {
   if (steps.length === 0) return null
   return (
     <BrainPhaseGroup title={executionPhaseTitle(steps)} defaultCollapsed={defaultCollapsed}>
-      <BrainTimeline items={planTimelineItems(steps, nodeOutputs)} />
+      <BrainTimeline items={agentTimelineItems(steps, agentOutputs)} />
     </BrainPhaseGroup>
-  )
-}
-
-function CounterInput({ value, onChange, onSend, onCancel, disabled = false }: CounterInputProps) {
-  const canSend = value.trim().length > 0 && !disabled
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Describe how you'd like the plan revised…"
-        rows={3}
-        style={{
-          width:           '100%',
-          padding:         '12px',
-          borderRadius:    '12px',
-          border:          '1px solid var(--neutral-200)',
-          fontFamily:      'var(--font-body)',
-          fontSize:        'var(--font-size-body)',
-          lineHeight:      'var(--line-height-body)',
-          color:           'var(--neutral-800)',
-          resize:          'none',
-          outline:         'none',
-          backgroundColor: 'var(--neutral-white)',
-          boxSizing:       'border-box',
-        }}
-      />
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button
-          type="button"
-          onClick={onCancel}
-          style={{
-            padding:         '6px 14px',
-            borderRadius:    999,
-            border:          '1px solid var(--neutral-200)',
-            backgroundColor: 'transparent',
-            cursor:          'pointer',
-            fontFamily:      'var(--font-body)',
-            fontSize:        'var(--font-size-caption)',
-            color:           'var(--neutral-600)',
-          }}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={onSend}
-          disabled={!canSend}
-          style={{
-            padding:         '6px 14px',
-            borderRadius:    999,
-            border:          'none',
-            backgroundColor: canSend ? 'var(--neutral-900)' : 'var(--neutral-200)',
-            cursor:          canSend ? 'pointer' : 'not-allowed',
-            fontFamily:      'var(--font-body)',
-            fontSize:        'var(--font-size-caption)',
-            color:           canSend ? 'var(--neutral-white)' : 'var(--neutral-400)',
-          }}
-        >
-          Send counter
-        </button>
-      </div>
-    </div>
   )
 }
 
@@ -855,7 +645,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
       if (abortedRef.current) return
       setDone(true)
       onConnected?.(event.connector_slug)
-      toast.success(`${event.display_name} connected — re-send your message to continue.`)
+      toast.success(`${event.display_name} connected — continuing your request.`)
     } catch (e) {
       if (abortedRef.current) return
       setError(e instanceof Error ? e.message : 'Failed to connect.')
@@ -873,7 +663,7 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
       if (abortedRef.current) return
       setDone(true)
       onConnected?.(event.connector_slug)
-      toast.success(`${event.display_name} connected — re-send your message to continue.`)
+      toast.success(`${event.display_name} connected — continuing your request.`)
     } catch (e) {
       if (abortedRef.current) return
       setError(e instanceof Error ? e.message : 'Failed to save credentials.')
@@ -1430,12 +1220,12 @@ function BrainPageInner() {
 
   const [userMessage, setUserMessage]             = useState('')
   const [activeTurnScrollKey, setActiveTurnScrollKey] = useState(0)
-  const [activePlanSteps, setActivePlanSteps]     = useState<PlanStep[]>([])
-  const [activePlanSummary, setActivePlanSummary] = useState('')
-  const [promptId, setPromptId]                   = useState('')
-  const [activePlanId, setActivePlanId]           = useState<string | null>(null)
+  // The rally: one row per agent Brain handed work to this turn, in the order
+  // it asked them, plus each agent's live status and captured prose.
+  const [rallySteps, setRallySteps]               = useState<AgentStep[]>([])
   const [pendingRemapId, setPendingRemapId]       = useState<string | null>(null)
-  const [stepStatuses, setStepStatuses]           = useState<Record<string, StepStatus>>({})
+  const [agentStatuses, setAgentStatuses]         = useState<Record<string, StepStatus>>({})
+  const [agentOutputs, setAgentOutputs]           = useState<Record<string, string>>({})
   const [streamedContent, setStreamedContent]     = useState('')
   // Chat and Brain share the same structured reasoning model. Legacy raw
   // reasoning remains available as a markdown fallback when no sections arrive.
@@ -1447,18 +1237,8 @@ function BrainPageInner() {
   const [completedAt, setCompletedAt]             = useState<Date | null>(null)
   const [streamError, setStreamError]             = useState<string | null>(null)
 
-  // ── Counter flow ─────────────────────────────────────────────────────────────
-
-  const [showCounterInput, setShowCounterInput] = useState(false)
-  const [counterText, setCounterText]           = useState('')
-
-  // Disables Approve/Counter/Cancel between the click and the server's reply,
-  // so a double-click can't fire two POSTs against the same prompt_id (the
-  // second is invalidated server-side and returns 404).
-  const [actionInFlight, setActionInFlight] = useState(false)
-
   // ── Clarification flow ───────────────────────────────────────────────────────
-  // Brain may ask one or more disambiguation questions before planning when
+  // Brain may ask one or more disambiguation questions before working when
   // the prompt is too vague. The backend emits `user_prompt` events with
   // kinds 'choice' (predefined options) or 'input' (free text). We render
   // them via ClarificationCard in the input slot, accumulate answered Q&As
@@ -1536,31 +1316,8 @@ function BrainPageInner() {
 
   const [pausedAfterLabel, setPausedAfterLabel] = useState<string | undefined>()
 
-  // ── Step failure (node-failed) ─────────────────────────────────────────────
-  // A step failed mid-execution. We hold the id + error so NodeFailureCard can
-  // render the failed step with its message; the label/criticality are resolved
-  // from the live plan at render time.
-  const [failedStep, setFailedStep] = useState<{ id: string; error: string } | null>(null)
-  // Once a step_failed lands we show the interactive NodeFailureCard; the run's
-  // trailing run_failed must NOT clobber it with the terminal LoopFailedCard.
-  const enteredNodeFailedRef = useRef(false)
-  // Live backend node-recovery prompt (user_prompt with metadata.recovery). When
-  // present it drives the real NodeFailureCard / FixProposalCard whose choice
-  // resolves the SAME run, superseding the local step_failed fallback.
-  const [activeRecoveryPrompt, setActiveRecoveryPrompt] = useState<RecoveryPrompt | null>(null)
-  const [recoveryInFlight, setRecoveryInFlight] = useState(false)
   const [activeStuckPrompt, setActiveStuckPrompt]   = useState<{ promptId: string; reason: string; suggestion?: string } | null>(null)
   const [stuckInFlight, setStuckInFlight]           = useState(false)
-  // step_failed has landed but the recovery prompt hasn't arrived yet (the
-  // backend is running an LLM diagnosis in between, up to a few seconds). We show
-  // a non-interactive "diagnosing" note in that window so the user can't trigger
-  // the wrong fallback action while the backend is about to ask them directly.
-  const [awaitingRecovery, setAwaitingRecovery] = useState(false)
-
-  // ── Counter note ───────────────────────────────────────────────────────────
-  // The text of the user's most recent plan revision, surfaced in-thread while
-  // Brain re-plans so the conversation reads coherently (may-day pattern).
-  const [lastCounterText, setLastCounterText] = useState<string | null>(null)
 
   // ── History ──────────────────────────────────────────────────────────────────
 
@@ -1571,8 +1328,6 @@ function BrainPageInner() {
   // ── Refs ─────────────────────────────────────────────────────────────────────
 
   const abortRef         = useRef<AbortController | null>(null)
-  const activeRunAbortRef = useRef<AbortController | null>(null)
-  const activeRunSeqRef   = useRef(0)
   const phaseRef          = useRef<Phase>(phase)
   const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const turnCounterRef   = useRef(0)
@@ -1674,8 +1429,6 @@ function BrainPageInner() {
   // files, connectors). Fired once at the start of each turn; drives the
   // ContextRail. Null until a turn runs → rail stays empty at idle.
   const [liveContext, setLiveContext] = useState<BrainContextEvent | null>(null)
-  // The active turn's typed plan — drives the ContextRail via buildContextPlan.
-  const [activeCortexPlan, setActiveCortexPlan] = useState<CortexPlan | null>(null)
   // Connector catalog rows (display names, brand logos, linked state) —
   // buildContextPlan resolves plan connector slugs against these since the
   // cortex stream carries slugs only.
@@ -1717,32 +1470,14 @@ function BrainPageInner() {
   const progressPushedRef = useRef(false)
   const timelineSeqRef  = useRef(0)
 
-  // ── Per-node plan outputs (step_content) ────────────────────────────────────
-  // Intermediate (non-leaf) node outputs accumulate here and render in the
-  // reasoning block; the sole leaf node's tokens stream to the chat bubble.
-  // planLeafIdsRef is set from the approved plan's nodes and edges.
-  const [nodeOutputs, setNodeOutputs] = useState<Record<string, string>>({})
-  // State drives the render; the ref mirror gives the SSE handler a stale-free
-  // read (it isn't in the handler's dependency list).
-  const [planLeafIds,  setPlanLeafIds]  = useState<Set<string>>(new Set())
-  const planLeafIdsRef = useRef<Set<string>>(planLeafIds)
-  useEffect(() => { planLeafIdsRef.current = planLeafIds }, [planLeafIds])
-
-  // Model commentary renders as Mayday narration. Node outputs belong to the
-  // execution phase timeline, so keeping them out of this list avoids showing
-  // the same work twice at completion.
+  // Model commentary renders as Mayday narration. Agent output belongs to the
+  // execution phase timeline, so keeping it out of this list avoids showing the
+  // same work twice at completion.
   const activeReasoningSections = useMemo(
     () => deriveReasoningSections(reasoningSections, reasoningText),
     [reasoningSections, reasoningText],
   )
 
-  // ── Plan-approval correlation ───────────────────────────────────────────────
-  // plan_ready → user_prompt(kind='plan') is the plan approval gate.
-  // We stash plan_id on the ref so the next 'choice' prompt can be routed
-  // to the plan-approval flow rather than the clarification flow. Cleared
-  // once consumed or when the plan is resolved (approved/countered/cancelled).
-  const pendingPlanIdRef = useRef<string | null>(null)
-  const waitingForPlanApprovalRef = useRef(false)
   const lastTurnRequestRef = useRef<BrainTurnRequest | null>(null)
 
   const fileInputRef    = useRef<HTMLInputElement>(null)
@@ -1761,7 +1496,7 @@ function BrainPageInner() {
   const isNearBottomRef = useRef(true)
   const shouldFollowThreadBottom = useCallback(() => {
     if (!isNearBottomRef.current) return false
-    return ['idle', 'complete', 'cancelled', 'failed', 'paused', 'node-failed', 'fix-proposed'].includes(phaseRef.current)
+    return ['idle', 'complete', 'cancelled', 'failed', 'paused'].includes(phaseRef.current)
   }, [])
 
   // Attach scroll listener once on mount to keep isNearBottomRef in sync.
@@ -1830,7 +1565,7 @@ function BrainPageInner() {
   // Phase transitions — force-scroll only when a card needs user action.
   useEffect(() => {
     if (phase === 'idle') return
-    if (phase === 'planning' || phase === 'paused') {
+    if (phase === 'paused') {
       scrollToBottom(true)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1942,34 +1677,22 @@ function BrainPageInner() {
       skipNextResetRef.current = false
       return
     }
-    // Detach from the previous thread's in-flight request(s) WITHOUT aborting
-    // them — they keep running and persisting to the backend in the
-    // background, the same way the main chat surface leaves a background
-    // stream running across navigation. Nulling these refs BEFORE the phase/
-    // activePlanId resets below matters: the plan-execution effect's cleanup
-    // (which those resets trigger, since they're in its dep array) checks
-    // `activeRunAbortRef.current === controller` before aborting, so clearing
-    // the ref here first makes that check false and the backgrounded run is
-    // left alone. The isForActiveThread() guards inside runBrainStream and
-    // that effect stop the backgrounded run's events/errors from being
-    // applied to whichever thread is now on screen, and the stream registry
-    // (registerStream/completeStream) lets reopening this thread later wait
-    // for it to finish instead of showing a stale snapshot.
+    // Detach from the previous thread's in-flight request WITHOUT aborting it —
+    // it keeps running and persisting to the backend in the background, the same
+    // way the main chat surface leaves a background stream running across
+    // navigation. The isForActiveThread() guards inside runBrainStream stop the
+    // backgrounded stream's events/errors from being applied to whichever thread
+    // is now on screen, and the stream registry (registerStream/completeStream)
+    // lets reopening this thread later wait for it to finish instead of showing
+    // a stale snapshot.
     abortRef.current = null
-    activeRunAbortRef.current = null
-    activeRunSeqRef.current = 0
-    setActivePlanId(null)
     setChatId(chatIdFromUrl)
     setPhase('idle')
     setUserMessage('')
     setUserAttachments([])
-    setActivePlanSteps([])
-    setActivePlanSummary('')
-    setPromptId('')
-    setStepStatuses({})
-    setShowCounterInput(false)
-    setCounterText('')
-    setActionInFlight(false)
+    setRallySteps([])
+    setAgentStatuses({})
+    setAgentOutputs({})
     setActiveClarification(null)
     setSelectedClarificationOption(undefined)
     setSelectedClarificationMulti([])
@@ -1977,9 +1700,6 @@ function BrainPageInner() {
     setAnsweredClarifications([])
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
-    setFailedStep(null)
-    enteredNodeFailedRef.current = false
-    setLastCounterText(null)
     setStreamedContent('')
     setReasoningState(createReasoningState())
     setReasoningActive(false)
@@ -1991,15 +1711,10 @@ function BrainPageInner() {
     setStreamFiles([])
     setExternalActions([])
     setExternalOutputCompletedAt(undefined)
-    setNodeOutputs({})
-    setPlanLeafIds(new Set())
     setToolProgress(null)
     setToolConnectPrompt(null)
     setPermissionPrompts([])
     setActiveApprovalPrompt(null)
-    setActiveRecoveryPrompt(null)
-    setRecoveryInFlight(false)
-    setAwaitingRecovery(false)
     setActiveStuckPrompt(null)
     setStuckInFlight(false)
     setLiveToolCalls({})
@@ -2007,13 +1722,8 @@ function BrainPageInner() {
     seenToolIdsRef.current = new Set()
     resolvedPromptIdsRef.current = new Set()
     progressPushedRef.current = false
-    pendingPlanIdRef.current = null
-    waitingForPlanApprovalRef.current = false
-    activeRunSeqRef.current = 0
-    setActivePlanId(null)
     setPendingRemapId(null)
     setLiveContext(null)
-    setActiveCortexPlan(null)
     setContextHistory({ pins: new Map(), files: new Map(), connectors: new Map() })
     setHistoryMessages([])
     setLocalTurns([])
@@ -2035,43 +1745,17 @@ function BrainPageInner() {
     const loadHistory = () => getBrainMessages(chatIdFromUrl)
       .then(async (messages) => {
         if (cancelled) return
-        const latestWithPlan = [...messages].reverse().find((m) => m.plan)
-        const latestPlan = latestWithPlan?.plan ?? null
-        const restorableStatuses = new Set(['proposed', 'queued', 'running', 'summarizing'])
-        const shouldReattach = Boolean(latestPlan && restorableStatuses.has(latestPlan.status))
-        setHistoryMessages(shouldReattach && latestWithPlan ? messages.filter((m) => m.id !== latestWithPlan.id) : messages)
+        // Nothing to reattach to: a turn runs to its answer inside one stream, so
+        // a persisted message is a finished turn.
+        setHistoryMessages(messages)
         setHistoryLoaded(true)
-        if (shouldReattach && latestWithPlan && latestPlan) {
-          const steps = mapHistoryPlanSteps(latestPlan)
-          setUserMessage(latestWithPlan.input ?? '')
-          setActivePlanId(latestPlan.id)
-          activeRunSeqRef.current = 0
-          setActivePlanSteps(steps)
-          const reattachedPlan = parseCortexPlan(latestPlan.plan_json)
-          setActiveCortexPlan(reattachedPlan)
-          setActivePlanSummary(reattachedPlan?.description ?? '')
-          setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, s.status ?? 'pending' as StepStatus])))
-          setStreamedContent(latestWithPlan.output ?? '')
-          setReasoningState(createReasoningState(
-            latestWithPlan.reasoning ?? '',
-            normalizeReasoningSections(latestWithPlan.reasoning_sections),
-          ))
-          setPhase(
-            latestPlan.status === 'proposed'
-              ? 'planning'
-              : latestPlan.status === 'summarizing'
-                ? 'streaming'
-                : 'executing',
-          )
-        }
         // Reconstruct the ContextRail snapshot from what's in the fetched
         // messages (the backend doesn't persist a context payload). Only fetch
         // personas if a turn referenced one; skip the network call otherwise.
         const referencesPersona = messages.some((m) =>
-          (m.plan ? parseCortexPlan(m.plan.plan_json)?.nodes ?? [] : []).some((n) => Boolean(n.context.persona_id))
-          || (m.tool_calls ?? []).some((t) => {
+          (m.tool_calls ?? []).some((t) => {
             const tc = t as Record<string, unknown> | null
-            return tc?.tool === 'ask_user'
+            return tc?.tool === 'ask_user' || tc?.tool === 'ask_agent'
           })
         )
         const personas = referencesPersona ? await fetchPersonas().catch(() => []) : []
@@ -2121,41 +1805,27 @@ function BrainPageInner() {
     return () => { cancelled = true }
   }, [chatIdFromUrl])
 
-  // ── Derived plan steps (base + live step statuses) ───────────────────────────
+  // ── The rally, as activity rows ──────────────────────────────────────────────
+  // One row per agent, carrying its live status and — while it's the only one
+  // working — whatever its tools are reporting.
 
-  const planSteps = useMemo<PlanStep[]>(
+  const rallyRows = useMemo<AgentStep[]>(
     () => {
-      const connectorBySlug = new Map(
-        connectorCatalog.map((connector) => [connector.slug.toLowerCase(), connector.display_name]),
-      )
-      const executingCount = activePlanSteps.filter(
-        (step) => (stepStatuses[step.id] ?? step.status) === 'executing',
+      const working = rallySteps.filter(
+        (step) => (agentStatuses[step.id] ?? step.status) === 'executing',
       ).length
-      return activePlanSteps.map((step) => {
-      const model = step.modelId
-        ? models.find((candidate) => String(candidate.modelId ?? candidate.id) === step.modelId)
-        : undefined
-      const connectorDisclosure = step.connectorDisclosure?.map(
-        (slug) => connectorBySlug.get(slug.toLowerCase()) ?? slug,
-      )
-      const status = stepStatuses[step.id] ?? step.status
-      const streamDetail = status === 'executing' && executingCount === 1 && toolProgress
-        ? toolProgress.detail ?? toolProgress.message ?? toolProgress.label ?? toolProgress.status
-        : step.streamDetail
-      return {
-        ...step,
-        connector: step.connector
-          ? connectorBySlug.get(step.connector.toLowerCase()) ?? step.connector
-          : undefined,
-        connectorDisclosure,
-        modelName:    step.modelName ?? model?.modelName,
-        modelCompany: step.modelCompany ?? model?.companyName,
-        streamDetail,
-        status,
-      }
+      return rallySteps.map((step) => {
+        const status = agentStatuses[step.id] ?? step.status
+        return {
+          ...step,
+          status,
+          streamDetail: status === 'executing' && working === 1 && toolProgress
+            ? toolProgress.detail ?? toolProgress.message ?? toolProgress.label ?? toolProgress.status
+            : step.streamDetail,
+        }
       })
     },
-    [activePlanSteps, stepStatuses, models, connectorCatalog, toolProgress],
+    [rallySteps, agentStatuses, toolProgress],
   )
 
   const handleReasoningEvent = useCallback((
@@ -2174,43 +1844,54 @@ function BrainPageInner() {
 
   const handleNamedEvent = useCallback((name: string, data: unknown) => {
     const d = data as Record<string, unknown>
-    const seq = typeof d.seq === 'number' ? d.seq : Number(d.seq ?? 0)
-    if (Number.isFinite(seq) && seq > 0) {
-      if (seq <= activeRunSeqRef.current) return
-      activeRunSeqRef.current = seq
-    }
 
     switch (name) {
-      case 'plan_ready': {
-        // Slim pointer replacing the fat plan_proposed event: the plan is
-        // persisted server-side and fetched by id. The approval gate refs are
-        // set synchronously — the gate user_prompt can arrive before the fetch
-        // resolves.
-        const planId = typeof d.plan_id === 'string' ? d.plan_id : null
-        if (!planId) break
-        pendingPlanIdRef.current = planId
-        waitingForPlanApprovalRef.current = true
-        setActivePlanId(planId)
-        setNodeOutputs({})
-        setShowCounterInput(false)
-        setCounterText('')
-        setPhase('planning')
-        void getBrainPlan(planId)
-          .then((plan) => {
-            const cortexPlan = parseCortexPlan(plan.plan_json)
-            if (!cortexPlan) return
-            setActiveCortexPlan(cortexPlan)
-            const steps = applyFlowGrouping(cortexPlan.nodes.map(mapCortexNode), cortexPlan.edges)
-            // Record the leaf set so step_content can keep the final leaf in the
-            // chat answer while intermediate node output stays in execution.
-            setPlanLeafIds(computeLeafIds(cortexPlan.nodes.map((n) => n.id), cortexPlan.edges))
-            setActivePlanSteps(steps)
-            setActivePlanSummary(cortexPlan.description)
-            setStepStatuses(Object.fromEntries(steps.map((s) => [s.id, 'pending' as StepStatus])))
-          })
-          .catch((err) => {
-            console.error('[brain] failed to fetch plan for plan_ready', err)
-          })
+      // ── The rally ──────────────────────────────────────────────────────
+      // One agent_started/agent_content*/agent_finished triple per agent Brain
+      // hands a piece of work to. Each agent is a row in the activity block; its
+      // prose streams into that row and stays out of Brain's own answer.
+      case 'agent_started': {
+        const agent = typeof d.agent === 'string' ? d.agent : ''
+        if (!agent) break
+        const task = typeof d.task === 'string' ? d.task : ''
+        const handle = typeof d.handle === 'string' ? d.handle : undefined
+        const imageUrl = typeof d.image_url === 'string' ? d.image_url : undefined
+        setRallySteps((prev) => prev.some((step) => step.id === agent)
+          ? prev
+          : [...prev, {
+              id:         agent,
+              label:      agent,
+              handle,
+              imageUrl,
+              isCritical: false,
+              status:     'executing' as StepStatus,
+              rationale:  task,
+            }])
+        setAgentStatuses((prev) => ({ ...prev, [agent]: 'executing' }))
+        setPhase('executing')
+        break
+      }
+
+      case 'agent_content': {
+        const agent = typeof d.agent === 'string' ? d.agent : ''
+        const content = typeof d.content === 'string' ? d.content : ''
+        if (!agent || !content) break
+        setAgentOutputs((prev) => ({ ...prev, [agent]: (prev[agent] ?? '') + content }))
+        break
+      }
+
+      case 'agent_finished': {
+        const agent = typeof d.agent === 'string' ? d.agent : ''
+        if (!agent) break
+        const error = typeof d.error === 'string' ? d.error : null
+        setAgentStatuses((prev) => ({ ...prev, [agent]: error ? 'failed' : 'complete' }))
+        if (error) {
+          setRallySteps((prev) => prev.map((step) =>
+            step.id === agent ? { ...step, error } : step,
+          ))
+        }
+        // An agent that died is Brain's problem to narrate, not a dead end for
+        // the turn — Brain keeps working, so the phase stays live.
         break
       }
 
@@ -2219,22 +1900,6 @@ function BrainPageInner() {
         const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
         if (!promptId) break
 
-        // Node-recovery prompt: a step failed and the backend is blocked waiting
-        // for the user's rerun / skip / apply-fix / cancel decision on THIS run.
-        // Route it to the recovery cards (never the clarification flow) and
-        // validate its metadata through zod before trusting it.
-        const recovery = parseRecoveryPrompt(d)
-        if (recovery) {
-          setActiveRecoveryPrompt(recovery)
-          setAwaitingRecovery(false)
-          setActiveClarification(null)
-          setSelectedClarificationOption(undefined)
-          setPhase(recovery.meta.recovery === 'fix_proposed' ? 'fix-proposed' : 'node-failed')
-          break
-        }
-
-        // Parse options up front — we need the values to detect plan-approval
-        // prompts and we reuse the parsed list for the clarification path.
         const optionsRaw = Array.isArray(d.options) ? d.options : []
         const options: QuestionCardOption[] = optionsRaw.flatMap((o: unknown) => {
           if (!o || typeof o !== 'object') return []
@@ -2243,55 +1908,8 @@ function BrainPageInner() {
           const label = typeof obj.label === 'string' ? obj.label : id
           return id ? [{ id, label }] : []
         })
-        const optionValues = options.map((o) => o.id)
 
-        // Plan-approval gate. Once plan_ready has fired, the very next
-        // user_prompt is the approval gate — protocol-guaranteed, regardless
-        // of `kind` or option shape. We also accept several backend-side
-        // variations as a belt-and-braces fallback:
-        //   • Legacy `kind: 'plan'` (pre-new-yaml)
-        //   • Explicit plan_id in metadata
-        //   • Option values containing the literal word "approve" (covers
-        //     'approve', 'approve_plan', 'approveplan', etc.)
-        //   • Option labels containing "approve plan" (case-insensitive) for
-        //     backends that put the marker in label rather than value
-        // The cardinal rule: a plan-approval prompt must NEVER land in the
-        // clarification flow — its target UI is PlanCard's approve/counter/
-        // cancel buttons, not the ClarificationCard.
-        const metaPlanId = typeof (d.metadata as Record<string, unknown> | undefined)?.plan_id === 'string'
-          ? (d.metadata as Record<string, string>).plan_id
-          : null
-        const optionLabelsLower = options.map((o) => o.label.toLowerCase())
-        const optionValuesLower = optionValues.map((v) => v.toLowerCase())
-        const optionMentionsApprove =
-          optionValuesLower.some((v) => v.includes('approve')) ||
-          optionLabelsLower.some((l) => l.includes('approve plan') || l === 'approve')
-        const isPlanApproval =
-          kind === 'plan' ||
-          pendingPlanIdRef.current != null ||
-          metaPlanId != null ||
-          optionMentionsApprove
-        if (isPlanApproval) {
-          pendingPlanIdRef.current = null
-          waitingForPlanApprovalRef.current = true
-          // A message_saved that slipped in before the gate may have queued
-          // the completion transition — cancel it or it flips the phase off
-          // 'planning' underneath the plan card.
-          if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
-          setStreamingComplete(false)
-          setPromptId(promptId)
-          // Make sure we don't leave a stale clarification on screen from a
-          // previous prompt — the plan-approval gate replaces it.
-          setActiveClarification(null)
-          setSelectedClarificationOption(undefined)
-          // Snap into the planning phase so PlanCard re-renders even if
-          // we'd transitioned away (e.g. to clarifying-goal during a mid-
-          // plan question). showPlanCard already guards on activePlanSteps
-          // so an empty-plan edge case won't render anything wrong.
-          setPhase('planning')
-          break
-        }
-
+        // Every user_prompt is a clarification: 'choice' (predefined
         // Anything else is a vague-prompt clarification: 'choice' (predefined
         // options), 'input' (free text), 'confirm', or 'permission'. Surface
         // it via ClarificationCard. permission/confirm prompts arrive without
@@ -2462,34 +2080,6 @@ function BrainPageInner() {
         break
       }
 
-      case 'plan_approved': {
-        pendingPlanIdRef.current = null
-        waitingForPlanApprovalRef.current = false
-        const planId = typeof d.plan_id === 'string' ? d.plan_id : null
-        if (planId) setActivePlanId(planId)
-        setPhase('executing')
-        break
-      }
-
-      case 'run_queued': {
-        waitingForPlanApprovalRef.current = false
-        const planId = typeof d.plan_id === 'string' ? d.plan_id : null
-        if (planId) setActivePlanId(planId)
-        setPhase('executing')
-        break
-      }
-
-      case 'run_started': {
-        waitingForPlanApprovalRef.current = false
-        setPhase('executing')
-        break
-      }
-
-      case 'run_summarizing': {
-        setPhase('streaming')
-        break
-      }
-
       case 'souvenir_started': {
         setPhase('souvenir')
         break
@@ -2502,133 +2092,7 @@ function BrainPageInner() {
         break
       }
 
-      case 'run_completed': {
-        if (!enteredNodeFailedRef.current) scheduleCompletion()
-        break
-      }
-
-      case 'run_failed': {
-        if (completeTimerRef.current) {
-          clearTimeout(completeTimerRef.current)
-          completeTimerRef.current = null
-        }
-        const error = typeof d.error === 'string' ? d.error : 'Brain run failed.'
-        // A specific step already surfaced the interactive NodeFailureCard — keep
-        // that (Re-run / Cancel) instead of the terminal LoopFailedCard. Capture
-        // the run-level error on the failed step if it didn't carry its own.
-        if (enteredNodeFailedRef.current) {
-          setFailedStep((prev) => (prev && !prev.error ? { ...prev, error } : prev))
-          break
-        }
-        setStreamError(error)
-        setPhase('failed')
-        break
-      }
-
-      case 'run_cancelled': {
-        if (completeTimerRef.current) {
-          clearTimeout(completeTimerRef.current)
-          completeTimerRef.current = null
-        }
-        setPhase('cancelled')
-        break
-      }
-
-      case 'plan_countered': {
-        // The planner is revising; wait for the next plan_ready
-        pendingPlanIdRef.current = null
-        waitingForPlanApprovalRef.current = false
-        setPhase('thinking')
-        break
-      }
-
-      case 'plan_cancelled': {
-        pendingPlanIdRef.current = null
-        waitingForPlanApprovalRef.current = false
-        setActiveCortexPlan(null)
-        setPhase('cancelled')
-        break
-      }
-
-      case 'step_started': {
-        const stepId = d.step_id as string
-        setStepStatuses((prev) => ({ ...prev, [stepId]: 'executing' }))
-        break
-      }
-
-      case 'step_completed': {
-        const stepId = d.step_id as string
-        setStepStatuses((prev) => ({ ...prev, [stepId]: 'complete' }))
-        break
-      }
-
-      case 'step_reasoning': {
-        const content = typeof d.content === 'string' ? d.content : ''
-        if (content) {
-          handleReasoningEvent(
-            d.heading === true ? 'reasoning_heading' : 'reasoning_body',
-            { content },
-          )
-        }
-        break
-      }
-
-      // Per-node output tokens. The sole leaf node is the final answer → stream
-      // it into the chat bubble exactly like an inline `content` token. Every
-      // other node's output accumulates for the reasoning block.
-      case 'step_content': {
-        const stepId  = typeof d.step_id === 'string' ? d.step_id : ''
-        const content = typeof d.content === 'string' ? d.content : ''
-        if (!stepId || !content) break
-        const leaves = planLeafIdsRef.current
-        if (leaves.size === 1 && leaves.has(stepId)) {
-          setStreamedContent((prev) => prev + content)
-          setReasoningActive(false)
-          setTimeline((prev) => {
-            const last = prev[prev.length - 1]
-            if (last && last.kind === 'text') {
-              const copy = prev.slice()
-              copy[copy.length - 1] = { ...last, text: last.text + content }
-              return copy
-            }
-            return [...prev, { kind: 'text', id: `text-${++timelineSeqRef.current}`, text: content }]
-          })
-          setPhase((prev) => (prev === 'executing' || prev === 'thinking' || prev === 'planning' ? 'streaming' : prev))
-        } else {
-          setNodeOutputs((prev) => ({ ...prev, [stepId]: (prev[stepId] ?? '') + content }))
-        }
-        break
-      }
-
-      case 'step_failed': {
-        const stepId = d.step_id as string
-        const error  = typeof d.error === 'string' ? d.error : ''
-        setStepStatuses((prev) => ({ ...prev, [stepId]: 'failed' }))
-        // The backend now self-diagnoses and follows up with a recovery
-        // user_prompt (metadata.recovery) that resolves THIS run — rerun / skip /
-        // apply-fix / cancel. Hold a "diagnosing" note until it arrives; the live
-        // prompt then drives the real NodeFailureCard / FixProposalCard.
-        setFailedStep({ id: stepId, error })
-        enteredNodeFailedRef.current = true
-        setAwaitingRecovery(true)
-        setPhase('node-failed')
-        break
-      }
-
-      case 'step_skipped': {
-        // A non-critical node was skipped (it failed and was skipped, or an
-        // upstream failed). Render the dashed "skipped" treatment and let the
-        // run continue with downstream steps.
-        const stepId = d.step_id as string
-        setStepStatuses((prev) => ({ ...prev, [stepId]: 'skipped' }))
-        break
-      }
-
       case 'message_saved': {
-        if (activeRunAbortRef.current) {
-          activeRunAbortRef.current = null
-        }
-
         // The backend echoes uploaded files back in `file_attachments` (origin
         // "uploaded"/"user") once persisted, with the real storage URL. Backfill
         // it onto userAttachments so the chip becomes clickable/downloadable —
@@ -2657,15 +2121,9 @@ function BrainPageInner() {
           }))
         }
 
-        // A failed step owns the terminal UI (NodeFailureCard). The run still
-        // emits message_saved as it tears down — don't let it schedule the
-        // success transition and flip the failure card to 'complete'.
-        if (enteredNodeFailedRef.current) break
-        // The cortex flow saves the planner message right after plan_ready,
-        // before the approval gate opens — the turn isn't complete, and
-        // scheduling completion here would flip the phase off 'planning' and
-        // hide the plan card.
-        if (waitingForPlanApprovalRef.current || pendingPlanIdRef.current) break
+        // message_saved is the turn's one terminal event, emitted
+        // unconditionally by the orchestrator — reaching it means the answer is
+        // written and persisted.
         scheduleCompletion()
         break
       }
@@ -2856,16 +2314,11 @@ function BrainPageInner() {
 
   const handleInlineEvent = useCallback((data: unknown) => {
     const d = data as Record<string, unknown>
-    const seq = typeof d.seq === 'number' ? d.seq : Number(d.seq ?? 0)
-    if (Number.isFinite(seq) && seq > 0) {
-      if (seq <= activeRunSeqRef.current) return
-      activeRunSeqRef.current = seq
-    }
     const t = d.type
 
     // Guard against late tokens leaking into a finished turn — only flip
     // phase out of in-flight states. 'executing' is preserved because that's
-    // when the ActivityBlock should keep rendering plan steps; the phase
+    // when the ActivityBlock should keep rendering agent rows; the phase
     // flips to 'streaming' only on actual visible content.
     if (t === 'content') {
       const token = (d.content as string) ?? ''
@@ -2886,9 +2339,7 @@ function BrainPageInner() {
         })
       }
       setPhase((prev) =>
-        prev === 'executing' || prev === 'thinking' || prev === 'planning'
-          ? 'streaming'
-          : prev,
+        prev === 'executing' || prev === 'thinking' ? 'streaming' : prev,
       )
       return
     }
@@ -2947,14 +2398,10 @@ function BrainPageInner() {
       }
       const current = phaseRef.current
       if (
-        current !== 'planning' &&
         current !== 'clarifying-goal' &&
         current !== 'paused' &&
         current !== 'cancelled' &&
-        current !== 'failed' &&
-        current !== 'node-failed' &&
-        !waitingForPlanApprovalRef.current &&
-        !enteredNodeFailedRef.current
+        current !== 'failed'
       ) {
         scheduleCompletion()
       }
@@ -2966,12 +2413,12 @@ function BrainPageInner() {
 
   const snapshotAndReset = useCallback((
     opts: { cancelled?: boolean } = {},
-    currentPlanSteps: PlanStep[],
+    currentRallyRows: AgentStep[],
+    currentAgentOutputs: Record<string, string>,
     currentUserMessage: string,
     currentStreamedContent: string,
     currentReasoningText: string,
     currentReasoningSections: ReasoningSection[],
-    currentActivePlanSummary: string,
     currentCompletedAt: Date | null,
     currentStreamImages: ImageEvent[],
     currentAttachments: UserAttachment[] = [],
@@ -2988,8 +2435,8 @@ function BrainPageInner() {
         output:         currentStreamedContent,
         reasoning:      currentReasoningText || undefined,
         reasoningSections: currentReasoningSections.length > 0 ? currentReasoningSections : undefined,
-        planSteps:      currentPlanSteps.length > 0 ? currentPlanSteps : undefined,
-        planSummary:    currentActivePlanSummary || undefined,
+        rallyRows:      currentRallyRows.length > 0 ? currentRallyRows : undefined,
+        agentOutputs:   Object.keys(currentAgentOutputs).length > 0 ? currentAgentOutputs : undefined,
         images:         currentStreamImages.length > 0 ? currentStreamImages : undefined,
         generatedFiles: currentStreamFiles.length > 0 ? currentStreamFiles : undefined,
         externalActions: currentExternalActions.length > 0 ? currentExternalActions : undefined,
@@ -3009,30 +2456,19 @@ function BrainPageInner() {
     setStreamingComplete(false)
     setCompletedAt(null)
     setStreamError(null)
-    setActivePlanSteps([])
-    setActivePlanSummary('')
-    setPromptId('')
-    setStepStatuses({})
-    setShowCounterInput(false)
-    setCounterText('')
-    setLastCounterText(null)
+    setRallySteps([])
+    setAgentStatuses({})
+    setAgentOutputs({})
     setPausedAfterLabel(undefined)
-    setFailedStep(null)
-    enteredNodeFailedRef.current = false
     setSelectedClarificationMulti([])
     setStreamImages([])
     setStreamFiles([])
     setExternalActions([])
     setExternalOutputCompletedAt(undefined)
-    setNodeOutputs({})
-    setPlanLeafIds(new Set())
     setToolProgress(null)
     setToolConnectPrompt(null)
     setPermissionPrompts([])
     setActiveApprovalPrompt(null)
-    setActiveRecoveryPrompt(null)
-    setRecoveryInFlight(false)
-    setAwaitingRecovery(false)
     setActiveStuckPrompt(null)
     setStuckInFlight(false)
     setLiveToolCalls({})
@@ -3040,191 +2476,7 @@ function BrainPageInner() {
     seenToolIdsRef.current = new Set()
     resolvedPromptIdsRef.current = new Set()
     progressPushedRef.current = false
-    pendingPlanIdRef.current = null
-    waitingForPlanApprovalRef.current = false
-    activeRunSeqRef.current = 0
-    setActivePlanId(null)
   }, [])
-
-  // ── Pending-prompt recovery on (re)load ─────────────────────────────────────
-  // Prompts emitted while no client was listening (page refresh, closed tab)
-  // are still waiting server-side. Re-deliver them through the same named-event
-  // dispatch once history has loaded, so the cards render exactly as if they
-  // had arrived live. Expired entries are dropped; the resolved-id guard
-  // already dedupes anything the live stream re-delivers afterwards.
-  const pendingPromptsFetchedForRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (!chatIdFromUrl || !historyLoaded) return
-    if (pendingPromptsFetchedForRef.current === chatIdFromUrl) return
-    pendingPromptsFetchedForRef.current = chatIdFromUrl
-    void getPendingPrompts(chatIdFromUrl)
-      .then((prompts) => {
-        if (chatIdRef.current !== chatIdFromUrl) return
-        for (const prompt of prompts) {
-          if (prompt.expires_at && new Date(prompt.expires_at).getTime() <= Date.now()) continue
-          const data = prompt.data as Record<string, unknown>
-          handleNamedEvent(prompt.event, { ...data, prompt_id: data.prompt_id ?? prompt.prompt_id })
-        }
-      })
-      .catch((e) => console.error('[Brain] pending prompt recovery failed:', e))
-  }, [chatIdFromUrl, historyLoaded, handleNamedEvent])
-
-  useEffect(() => {
-    if (!activePlanId) return
-    if (
-      phase !== 'executing' &&
-      phase !== 'streaming' &&
-      phase !== 'paused' &&
-      phase !== 'node-failed' &&
-      phase !== 'fix-proposed'
-    ) return
-    if (activeRunAbortRef.current) return
-
-    // Snapshot which thread this run belongs to. Deliberately read via closure
-    // instead of added to the dep array below — if the user navigates to a
-    // different thread while this run is executing, it must keep referring to
-    // the thread it started for, not whatever's now on screen.
-    const owningChatId = chatId
-    const isForActiveThread = () => !owningChatId || chatIdRef.current === owningChatId
-    if (owningChatId) registerStream(owningChatId)
-
-    const controller = new AbortController()
-    activeRunAbortRef.current = controller
-    let closed = false
-    let terminalEventReceived = false
-    let streamErrored = false
-
-    void subscribeBrainRun(activePlanId, activeRunSeqRef.current, controller.signal)
-      .then((response) => consumeBrainStream(response, {
-        onNamed:  (name, data) => {
-          if (isTerminalBrainEvent(name)) terminalEventReceived = true
-          if (!isForActiveThread()) return
-          handleNamedEvent(name, data)
-        },
-        onInline: (data) => {
-          if (isFinalInlineDone(data)) terminalEventReceived = true
-          if (!isForActiveThread()) return
-          handleInlineEvent(data)
-        },
-        onClose:  () => {
-          closed = true
-          if (activeRunAbortRef.current === controller) activeRunAbortRef.current = null
-          completeStream(owningChatId)
-          if (!isForActiveThread()) return
-          if (terminalEventReceived && !streamErrored && !controller.signal.aborted) {
-            // Terminal event received, but scheduleCompletion() may have been
-            // skipped by a guard (enteredNodeFailedRef, waitingForPlanApprovalRef).
-            // If phase is still live with no pending completion timer, force it.
-            const cur = phaseRef.current
-            if ((cur === 'streaming' || cur === 'thinking') && !completeTimerRef.current) {
-              scheduleCompletion()
-            }
-            return
-          }
-          if (!terminalEventReceived && !streamErrored && !controller.signal.aborted) {
-            // Mirrors the guard the send path has always had: only a run that
-            // was mid-flight can have been cut short. Without this, a plan
-            // sitting at its approval gate got a failure card stacked under it.
-            if (!IN_FLIGHT_PHASES.has(phaseRef.current)) return
-            setStreamError('Brain disconnected before the run finished. Please try again.')
-            setPhase('failed')
-          }
-        },
-        onError:  (e) => {
-          if (e.name === 'AbortError') return
-          streamErrored = true
-          if (!isForActiveThread()) return
-          console.error('[Brain] run stream error:', e)
-          setStreamError(e.message || 'Brain run connection lost. Reopen this chat to reconnect.')
-          setPhase('failed')
-        },
-      }))
-      .catch((e) => {
-        completeStream(owningChatId)
-        if ((e as Error)?.name === 'AbortError') return
-        if (!isForActiveThread()) return
-        console.error('[Brain] run subscribe failed:', e)
-        setStreamError((e as Error)?.message || 'Failed to subscribe to Brain run.')
-        setPhase('failed')
-      })
-
-    return () => {
-      if (!closed && activeRunAbortRef.current === controller) {
-        controller.abort()
-        activeRunAbortRef.current = null
-      }
-    }
-  }, [activePlanId, phase, chatId, handleNamedEvent, handleInlineEvent, scheduleCompletion])
-
-  // The durable run owns the canonical per-node status map. Reconcile it while
-  // executing so the existing ActivityBlock spinner/check/error circles keep
-  // moving even when a run produces no step_* frames between model events.
-  useEffect(() => {
-    if (!activePlanId) return
-    if (
-      phase !== 'executing' &&
-      phase !== 'streaming' &&
-      phase !== 'paused' &&
-      phase !== 'node-failed' &&
-      phase !== 'fix-proposed'
-    ) return
-
-    let cancelled = false
-    let failureCount = 0
-    let timer: ReturnType<typeof setTimeout> | null = null
-    const controller = new AbortController()
-
-    const reconcile = async () => {
-      try {
-        const run = await getBrainRun(activePlanId, controller.signal)
-        if (cancelled) return
-        failureCount = 0
-        // A response older than the last stream frame must never roll the UI
-        // backward. Equal seq is still useful: Cortex currently persists node
-        // status without always appending a corresponding step event.
-        if (run.latest_seq < activeRunSeqRef.current) return
-        const plan = parseCortexPlan(run.plan_json)
-        if (plan) {
-          const next = Object.fromEntries(
-            plan.nodes.map((node) => [node.id, mapBackendStepStatus(node.status)]),
-          )
-          setStepStatuses((current) => {
-            const keys = Object.keys(next)
-            const unchanged = keys.length === Object.keys(current).length &&
-              keys.every((key) => current[key] === next[key])
-            return unchanged ? current : next
-          })
-        }
-        if (run.status === 'completed' && phaseRef.current !== 'complete') {
-          scheduleCompletion()
-        } else if (run.status === 'cancelled' && phaseRef.current !== 'cancelled') {
-          setPhase('cancelled')
-        } else if (run.status === 'failed' && phaseRef.current !== 'failed' && !enteredNodeFailedRef.current) {
-          setStreamError(run.final_error || 'Brain run failed.')
-          setPhase('failed')
-        }
-      } catch (error) {
-        if ((error as Error)?.name === 'AbortError') return
-        failureCount += 1
-        // The SSE subscription remains authoritative for terminal failures;
-        // a transient reconciliation request must not fail the active run UI.
-        console.warn('[Brain] run status reconciliation failed', error)
-      } finally {
-        if (!cancelled) {
-          const normalDelay = document.hidden ? 3000 : 1000
-          const retryDelay = Math.min(5000, normalDelay * Math.max(1, 2 ** failureCount))
-          timer = setTimeout(reconcile, retryDelay)
-        }
-      }
-    }
-
-    void reconcile()
-    return () => {
-      cancelled = true
-      controller.abort()
-      if (timer) clearTimeout(timer)
-    }
-  }, [activePlanId, phase, scheduleCompletion])
 
   // ── Stream runner ─────────────────────────────────────────────────────────────
 
@@ -3256,10 +2508,6 @@ function BrainPageInner() {
     // this, a previously-running consumer can keep pushing events into the
     // new turn's state (e.g., late `content` tokens after the user retries).
     abortRef.current?.abort()
-    activeRunAbortRef.current?.abort()
-    activeRunAbortRef.current = null
-    activeRunSeqRef.current = 0
-    setActivePlanId(null)
 
     setActiveTurnScrollKey((key) => key + 1)
     setUserMessage(displayInput ?? input)
@@ -3271,13 +2519,9 @@ function BrainPageInner() {
     setStreamingComplete(false)
     setCompletedAt(null)
     setStreamError(null)
-    setActivePlanSteps([])
-    setActivePlanSummary('')
-    setPromptId('')
-    setStepStatuses({})
-    setShowCounterInput(false)
-    setCounterText('')
-    setActionInFlight(false)
+    setRallySteps([])
+    setAgentStatuses({})
+    setAgentOutputs({})
     setActiveClarification(null)
     setSelectedClarificationOption(undefined)
     setSelectedClarificationMulti([])
@@ -3285,29 +2529,19 @@ function BrainPageInner() {
     setAnsweredClarifications([])
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
-    setFailedStep(null)
-    enteredNodeFailedRef.current = false
-    setLastCounterText(null)
     setStreamImages([])
     setStreamFiles([])
     setExternalActions([])
     setExternalOutputCompletedAt(undefined)
-    setNodeOutputs({})
-    setPlanLeafIds(new Set())
     setToolProgress(null)
     setToolConnectPrompt(null)
     setPermissionPrompts([])
     setActiveApprovalPrompt(null)
-    setActiveRecoveryPrompt(null)
-    setRecoveryInFlight(false)
-    setAwaitingRecovery(false)
     setLiveToolCalls({})
     setTimeline([])
     seenToolIdsRef.current = new Set()
     resolvedPromptIdsRef.current = new Set()
     progressPushedRef.current = false
-    pendingPlanIdRef.current = null
-    waitingForPlanApprovalRef.current = false
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -3361,12 +2595,10 @@ function BrainPageInner() {
         response = await continueBrainChat(resolvedChatId, input, streamOpts, controller.signal)
       }
 
-      let durablePlanReady = false
       let terminalEventReceived = false
       let streamErrored = false
       await consumeBrainStream(response, {
         onNamed:  (name, data) => {
-          if (name === 'plan_ready') durablePlanReady = true
           if (isTerminalBrainEvent(name)) terminalEventReceived = true
           // Navigated to a different thread — let the background run keep
           // going (it's still persisting to the backend), but stop applying
@@ -3384,23 +2616,26 @@ function BrainPageInner() {
           completeStream(resolvedChatId)
           if (!isForActiveThread()) return
           if (streamErrored) return
-          if (terminalEventReceived) {
-            // Terminal signal received, but scheduleCompletion() may have been
-            // skipped by a guard (enteredNodeFailedRef, waitingForPlanApprovalRef).
-            // Only apply safety net when this stream ended naturally (not aborted
-            // by a new send, which sets controller.signal.aborted).
-            if (!controller.signal.aborted) {
-              const cur = phaseRef.current
-              if ((cur === 'streaming' || cur === 'thinking') && !completeTimerRef.current) {
-                scheduleCompletion()
-              }
-            }
+          // Safety net for the React race: the terminal event landed but the
+          // phase transition it queued may not have committed yet.
+          if (
+            shouldCompleteStreamOnClose({
+              phase: phaseRef.current,
+              terminalEventReceived,
+              streamErrored,
+              aborted: controller.signal.aborted,
+            }) && !completeTimerRef.current
+          ) {
+            scheduleCompletion()
             return
           }
-          const current = phaseRef.current
-          const safelyWaitingForUser = current === 'paused' || current === 'cancelled' || current === 'failed'
-          if (durablePlanReady || safelyWaitingForUser || controller.signal.aborted) return
-          setStreamError('Brain stopped responding before the run finished. Please try again.')
+          if (terminalEventReceived) return
+          // No terminal event: the turn really was cut short. Every phase left
+          // in IN_FLIGHT_PHASES is one where work was still owed — anything
+          // else is settled or parked on a card waiting for the user.
+          if (controller.signal.aborted) return
+          if (!IN_FLIGHT_PHASES.has(phaseRef.current)) return
+          setStreamError('Brain stopped responding before the turn finished. Please try again.')
           setPhase('failed')
         },
         onError:  (e) => {
@@ -3484,12 +2719,12 @@ function BrainPageInner() {
     if (terminalPhases.includes(phase)) {
       snapshotAndReset(
         { cancelled: phase === 'cancelled' },
-        planSteps,
+        rallyRows,
+        agentOutputs,
         userMessage,
         streamedContent,
         reasoningText,
         activeReasoningSections,
-        activePlanSummary,
         completedAt,
         streamImages,
         userAttachments,
@@ -3547,126 +2782,15 @@ function BrainPageInner() {
 
     void doSend()
   }, [
-    phase, chatId, planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections,
-    activePlanSummary, completedAt, streamImages, streamFiles, externalActions, snapshotAndReset, runBrainStream,
+    phase, chatId, rallyRows, agentOutputs, userMessage, streamedContent, reasoningText, activeReasoningSections,
+    completedAt, streamImages, streamFiles, externalActions, snapshotAndReset, runBrainStream,
     brainAttachments, userAttachments, creditStatus.blocked, selectedPersona, effectivePinIds,
     selectedFolders.length, pinboardLoading, timeline, liveToolCalls,
   ])
 
-  // ── Plan decisions ────────────────────────────────────────────────────────────
-
-  // Pending prompts are tied to the live SSE stream — if the stream dropped,
-  // POST /chats/prompts/{id} returns 404 "No pending prompt with that id".
-  // Surface that as a user-visible failure instead of swallowing it.
-  const explainPromptError = (e: unknown, verb: string): string => {
-    if (e instanceof ApiError && e.status === 404) {
-      return `Couldn't ${verb} this plan — the connection was lost while waiting. Please re-send your message.`
-    }
-    return `Couldn't ${verb} the plan. Please try again.`
-  }
-
-  const handleApprove = useCallback(() => {
-    if ((!activePlanId && !promptId) || actionInFlight) return
-    setActionInFlight(true)
-    const action = activePlanId
-      ? approveBrainPlan(activePlanId)
-      : respondToPrompt(promptId, { response: { decision: 'approve' } })
-    void action
-      .then(() => {
-        pendingPlanIdRef.current = null
-        waitingForPlanApprovalRef.current = false
-        activeRunSeqRef.current = 0
-        setPhase('executing')
-      })
-      .catch((e: unknown) => {
-        console.error('[Brain] approve failed:', e)
-        setStreamError(explainPromptError(e, 'approve'))
-        setPhase('failed')
-      })
-      .finally(() => setActionInFlight(false))
-  }, [activePlanId, promptId, actionInFlight])
-
-  const handleCounter = useCallback(() => {
-    if ((!activePlanId && !promptId) || actionInFlight) return
-    setShowCounterInput(true)
-  }, [activePlanId, promptId, actionInFlight])
-
-  const handleCounterSend = useCallback(() => {
-    const revision = counterText.trim()
-    if ((!activePlanId && !promptId) || actionInFlight || !revision) return
-    setActionInFlight(true)
-    setShowCounterInput(false)
-    setCounterText('')
-    setLastCounterText(revision)
-    setPhase('thinking')
-
-    if (activePlanId) {
-      const controller = new AbortController()
-      abortRef.current = controller
-      // Same background-safe pattern as runBrainStream: if the user navigates
-      // away before this revision finishes, keep it running but stop applying
-      // its events/errors to whatever thread is now on screen.
-      const owningChatId = chatId
-      const isForActiveThread = () => !owningChatId || chatIdRef.current === owningChatId
-      if (owningChatId) registerStream(owningChatId)
-      void counterBrainPlan(activePlanId, revision, controller.signal)
-        .then((response) => consumeBrainStream(response, {
-          onNamed: (name, data) => { if (isForActiveThread()) handleNamedEvent(name, data) },
-          onInline: (data) => { if (isForActiveThread()) handleInlineEvent(data) },
-          onClose: () => {
-            if (abortRef.current === controller) abortRef.current = null
-            completeStream(owningChatId)
-          },
-          onError: (e) => {
-            if (e.name === 'AbortError') return
-            throw e
-          },
-        }))
-        .catch((e: unknown) => {
-          completeStream(owningChatId)
-          if ((e as Error)?.name === 'AbortError') return
-          if (!isForActiveThread()) return
-          console.error('[Brain] counter failed:', e)
-          setStreamError(explainPromptError(e, 'counter'))
-          setPhase('failed')
-        })
-        .finally(() => { if (isForActiveThread()) setActionInFlight(false) })
-      return
-    }
-
-    void respondToPrompt(promptId, {
-      response: { decision: 'counter', counter_text: revision },
-    })
-      .catch((e: unknown) => {
-        console.error('[Brain] legacy counter failed:', e)
-        setStreamError(explainPromptError(e, 'counter'))
-        setPhase('failed')
-      })
-      .finally(() => setActionInFlight(false))
-  }, [
-    activePlanId, promptId, actionInFlight, counterText, chatId,
-    handleNamedEvent, handleInlineEvent,
-  ])
-
-  const handlePlanCancel = useCallback(() => {
-    if ((!activePlanId && !promptId) || actionInFlight) return
-    setActionInFlight(true)
-    const action = activePlanId
-      ? cancelBrainPlan(activePlanId)
-      : respondToPrompt(promptId, { response: { decision: 'cancel' } })
-    void action
-      .then(() => setPhase('cancelled'))
-      .catch((e: unknown) => {
-        console.error('[Brain] cancel failed:', e)
-        setStreamError(explainPromptError(e, 'cancel'))
-        setPhase('failed')
-      })
-      .finally(() => setActionInFlight(false))
-  }, [activePlanId, promptId, actionInFlight])
-
   // ── Clarification prompt handlers ───────────────────────────────────────────
-  // user_prompt events that aren't plan-approval (kinds 'choice' / 'input' /
-  // 'confirm' / 'permission') arrive in activeClarification. ClarificationCard
+  // user_prompt events (kinds 'choice' / 'input' / 'confirm' / 'permission')
+  // arrive in activeClarification. ClarificationCard
   // renders in the input slot; these handlers POST the response and clear
   // the clarification so the stream resumes.
 
@@ -4072,34 +3196,6 @@ function BrainPageInner() {
       .finally(() => setPermissionInFlight(false))
   }, [activePermissionPrompt, permissionInFlight])
 
-  // ── Node-recovery handler (user_prompt with metadata.recovery) ──────────────
-  // Resolve a failed-step recovery by POSTing the plain-string decision the
-  // backend's node_recovery.py compares against: 'rerun' | 'skip' | 'apply' |
-  // 'different' | 'cancel'. rerun/skip/apply resume execution on the SAME run;
-  // cancel/different cancel it (the stream then emits run_cancelled). The blocked
-  // generator wakes and keeps streaming into the existing consumer.
-  const handleRecoveryDecision = useCallback((decision: string) => {
-    if (!activeRecoveryPrompt || recoveryInFlight) return
-    const { promptId } = activeRecoveryPrompt
-    const ends = decision === 'cancel' || decision === 'different'
-    setRecoveryInFlight(true)
-    void respondToPrompt(promptId, { response: decision })
-      .then(() => {
-        setActiveRecoveryPrompt(null)
-        setFailedStep(null)
-        enteredNodeFailedRef.current = false
-        setPhase(ends ? 'cancelled' : 'executing')
-      })
-      .catch((e: unknown) => {
-        console.error('[Brain] recovery respond failed:', e)
-        const msg = e instanceof ApiError && e.status === 404
-          ? 'This recovery prompt expired — please re-send your message.'
-          : 'Failed to submit your decision. Please try again.'
-        toast.error(msg)
-      })
-      .finally(() => setRecoveryInFlight(false))
-  }, [activeRecoveryPrompt, recoveryInFlight])
-
   // ── Write-approval handler (event: approval_prompt) ─────────────────────────
   // Resolve a HITL write approval by POSTing a plain string ("approve" | "reject").
   // The ApprovalCard owns its own resolved-state animation; the deny reason is
@@ -4163,17 +3259,13 @@ function BrainPageInner() {
   // ── Stop ──────────────────────────────────────────────────────────────────────
 
   const handleStop = useCallback(() => {
-    if (activePlanId && (phase === 'executing' || phase === 'streaming' || phase === 'paused')) {
-      void stopBrainRun(activePlanId).catch(() => {})
-    } else {
-      abortRef.current?.abort()
-      if (chatId) {
-        void stopBrainChat(chatId).catch(() => {})
-      }
+    abortRef.current?.abort()
+    if (chatId) {
+      void stopBrainChat(chatId).catch(() => {})
     }
     setReasoningActive(false)
     setPhase('cancelled')
-  }, [activePlanId, phase, chatId])
+  }, [chatId])
 
   // ── Pause card ────────────────────────────────────────────────────────────────
 
@@ -4203,12 +3295,12 @@ function BrainPageInner() {
     // run was already stopped when we entered 'paused' (handleStop).
     snapshotAndReset(
       { cancelled: false },
-      planSteps,
+      rallyRows,
+      agentOutputs,
       userMessage,
       streamedContent,
       reasoningText,
       activeReasoningSections,
-      activePlanSummary,
       completedAt,
       streamImages,
       userAttachments,
@@ -4219,7 +3311,7 @@ function BrainPageInner() {
     seedBrainInput(userMessage)
     setPhase('idle')
   }, [
-    planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections, activePlanSummary, completedAt,
+    rallyRows, agentOutputs, userMessage, streamedContent, reasoningText, activeReasoningSections, completedAt,
     streamImages, userAttachments, streamFiles, externalActions, snapshotAndReset, seedBrainInput,
     timeline, liveToolCalls,
   ])
@@ -4229,12 +3321,12 @@ function BrainPageInner() {
   const handleRestart = useCallback(() => {
     snapshotAndReset(
       { cancelled: phase === 'cancelled' },
-      planSteps,
+      rallyRows,
+      agentOutputs,
       userMessage,
       streamedContent,
       reasoningText,
       activeReasoningSections,
-      activePlanSummary,
       completedAt,
       streamImages,
       userAttachments,
@@ -4243,7 +3335,7 @@ function BrainPageInner() {
       freezeTimeline(timeline, liveToolCalls),
     )
     setPhase('idle')
-  }, [phase, planSteps, userMessage, streamedContent, reasoningText, activeReasoningSections, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles, externalActions, timeline, liveToolCalls])
+  }, [phase, rallyRows, agentOutputs, userMessage, streamedContent, reasoningText, activeReasoningSections, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles, externalActions, timeline, liveToolCalls])
 
   // ── New chat ─────────────────────────────────────────────────────────────────
   // Used by both the sidebar's "Brain" button and the "+ New chat" entry.
@@ -4257,12 +3349,8 @@ function BrainPageInner() {
   // there's an id) is just cleanup, and any re-run of the effect is a no-op.
 
   const handleNewChat = useCallback(() => {
-    // Stop any in-flight stream AND run subscription so neither can push events
-    // into the fresh thread.
+    // Stop any in-flight stream so it can't push events into the fresh thread.
     abortRef.current?.abort()
-    activeRunAbortRef.current?.abort()
-    activeRunAbortRef.current = null
-    activeRunSeqRef.current = 0
     // Clear the navigation guards so a stale `true` (from an aborted send) can't
     // suppress this or the next reset.
     skipNextResetRef.current = false
@@ -4272,13 +3360,9 @@ function BrainPageInner() {
     setPhase('idle')
     setUserMessage('')
     setUserAttachments([])
-    setActivePlanSteps([])
-    setActivePlanSummary('')
-    setPromptId('')
-    setStepStatuses({})
-    setShowCounterInput(false)
-    setCounterText('')
-    setActionInFlight(false)
+    setRallySteps([])
+    setAgentStatuses({})
+    setAgentOutputs({})
     setActiveClarification(null)
     setSelectedClarificationOption(undefined)
     setSelectedClarificationMulti([])
@@ -4286,9 +3370,6 @@ function BrainPageInner() {
     setAnsweredClarifications([])
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
-    setFailedStep(null)
-    enteredNodeFailedRef.current = false
-    setLastCounterText(null)
     setStreamedContent('')
     setReasoningState(createReasoningState())
     setReasoningActive(false)
@@ -4300,15 +3381,10 @@ function BrainPageInner() {
     setStreamFiles([])
     setExternalActions([])
     setExternalOutputCompletedAt(undefined)
-    setNodeOutputs({})
-    setPlanLeafIds(new Set())
     setToolProgress(null)
     setToolConnectPrompt(null)
     setPermissionPrompts([])
     setActiveApprovalPrompt(null)
-    setActiveRecoveryPrompt(null)
-    setRecoveryInFlight(false)
-    setAwaitingRecovery(false)
     setActiveStuckPrompt(null)
     setStuckInFlight(false)
     setLiveToolCalls({})
@@ -4316,12 +3392,8 @@ function BrainPageInner() {
     seenToolIdsRef.current = new Set()
     resolvedPromptIdsRef.current = new Set()
     progressPushedRef.current = false
-    pendingPlanIdRef.current = null
-    waitingForPlanApprovalRef.current = false
-    setActivePlanId(null)
     setPendingRemapId(null)
     setLiveContext(null)
-    setActiveCortexPlan(null)
     setContextHistory({ pins: new Map(), files: new Map(), connectors: new Map() })
     setHistoryMessages([])
     setLocalTurns([])
@@ -4344,14 +3416,7 @@ function BrainPageInner() {
 
   // ── Thread: history from server (reload path) ─────────────────────────────────
 
-  const historyElements = historyMessages.map((msg, msgIndex) => {
-    const planSteps = msg.plan ? mapHistoryPlanSteps(msg.plan) : []
-    const historyPlan = msg.plan ? parseCortexPlan(msg.plan.plan_json) : null
-    const historyNodeOutputs = Object.fromEntries(
-      (historyPlan?.nodes ?? []).flatMap((node) => node.result_preview?.trim()
-        ? [[node.id, node.result_preview] as const]
-        : []),
-    )
+  const historyElements = historyMessages.map((msg) => {
     const allAttachments = msg.attachments ?? []
     const images       = allAttachments.filter((a) => a.mime_type?.startsWith('image/'))
     const genFiles     = allAttachments.filter((a) => !a.mime_type?.startsWith('image/') && a.origin === 'generated')
@@ -4417,9 +3482,6 @@ function BrainPageInner() {
             reasoningSections={msgReasoningSections}
           />
         )}
-        {planSteps.length > 0 && (
-          <ExecutionPhaseGroup steps={planSteps} nodeOutputs={historyNodeOutputs} />
-        )}
         {historyToolItems.length > 0 && (
           <BrainPhaseGroup title="Tool activity" defaultCollapsed>
             <BrainTimeline items={activityTimelineItems(historyToolItems)} />
@@ -4427,7 +3489,7 @@ function BrainPageInner() {
         )}
         {msg.output && (
           <div>
-            <BrainResultHeader summary={historyPlan?.description || 'Analysis complete'} />
+            <BrainResultHeader summary="Analysis complete" />
             <StreamingMessageBubble content={msg.output} isComplete />
           </div>
         )}
@@ -4450,26 +3512,6 @@ function BrainPageInner() {
             completedAt={msg.created_at ? new Date(msg.created_at).toLocaleString() : undefined}
           />
         )}
-        {planSteps.length > 0 && (
-          msg.plan?.status === 'proposed' && !msg.output ? (
-            <LoopRecord
-              loopIndex={msgIndex + 1}
-              query={cleanInput}
-              timestamp={msg.created_at
-                ? (() => { const d = new Date(msg.created_at); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) })()
-                : ''}
-              status="complete"
-              steps={planSteps}
-              needsInput
-            />
-          ) : (
-            <LoopHistoryCard
-              steps={planSteps}
-              summary={historyPlan?.description}
-              completedAt={msg.created_at ? new Date(msg.created_at) : undefined}
-            />
-          )
-        )}
       </m.div>
     )
   })
@@ -4488,19 +3530,19 @@ function BrainPageInner() {
           reasoningSections={turn.reasoningSections}
         />
       )}
-      {turn.planSteps && turn.planSteps.length > 0 && (
-        <ExecutionPhaseGroup steps={turn.planSteps} />
+      {turn.rallyRows && turn.rallyRows.length > 0 && (
+        <ExecutionPhaseGroup steps={turn.rallyRows} agentOutputs={turn.agentOutputs} />
       )}
       {turn.timeline && turn.timeline.length > 0 ? (
         <>
-          {turn.output && <BrainResultHeader summary={turn.planSummary || 'Analysis complete'} />}
+          {turn.output && <BrainResultHeader summary="Analysis complete" />}
           {turn.timeline.map((item) => renderFrozenTimelineItem(item))}
         </>
       ) : (
         <>
           {turn.output && (
             <div>
-              <BrainResultHeader summary={turn.planSummary || 'Analysis complete'} />
+              <BrainResultHeader summary="Analysis complete" />
               <StreamingMessageBubble content={turn.output} isComplete />
             </div>
           )}
@@ -4525,17 +3567,16 @@ function BrainPageInner() {
           completedAt={turn.completedAt?.toLocaleString()}
         />
       )}
-      {!turn.cancelled && turn.planSteps && turn.planSteps.length > 0 && (
+      {!turn.cancelled && turn.rallyRows && turn.rallyRows.length > 0 && (
         <LoopHistoryCard
-          steps={turn.planSteps}
-          summary={turn.planSummary}
+          steps={turn.rallyRows}
           completedAt={turn.completedAt}
         />
       )}
       {turn.cancelled && !turn.output && (
         <LoopCancelledCard
-          completedSteps={turn.planSteps?.filter((s) => s.status === 'complete').length ?? 0}
-          totalSteps={turn.planSteps?.length ?? 0}
+          completedSteps={turn.rallyRows?.filter((row) => row.status === 'complete').length ?? 0}
+          totalSteps={turn.rallyRows?.length ?? 0}
         />
       )}
     </m.div>
@@ -4543,26 +3584,12 @@ function BrainPageInner() {
 
   // ── Thread: active turn ───────────────────────────────────────────────────────
 
-  // Phases that may interleave a clarification/permission prompt without
-  // implying the plan has been retracted. While we're in one of these, keep
-  // the PlanCard visible so an out-of-band prompt can't wipe the active turn.
-  // Whether plan execution is underway (any step has left 'pending').
-  // Used to distinguish "clarifying before plan" from "clarifying mid-execution".
-  const planExecutionStarted = planSteps.some(
-    (s) => s.status === 'executing' || s.status === 'complete' || s.status === 'failed',
-  )
-  // Show the plan approval card only when we're genuinely waiting for approval
-  // (planning or pre-plan clarification). During mid-execution question_prompts
-  // the plan is already running, so don't re-surface the approval UI.
-  const showPlanCard      = (phase === 'planning' || (phase === 'clarifying-goal' && !planExecutionStarted)) && activePlanSteps.length > 0
-  // Keep the step tracker visible when Brain asks a mid-execution question.
-  const showActivityBlock = planSteps.length > 0 && (
+  // Keep the agent rows visible when Brain asks a mid-turn question.
+  const showActivityBlock = rallyRows.length > 0 && (
     phase === 'executing' ||
     phase === 'streaming' ||
     phase === 'paused' ||
-    phase === 'node-failed' ||
-    phase === 'fix-proposed' ||
-    (phase === 'clarifying-goal' && planExecutionStarted)
+    phase === 'clarifying-goal'
   )
 
   const activePersonaPrompt = useMemo((): {
@@ -4749,21 +3776,19 @@ function BrainPageInner() {
         </Rise>
       )}
 
-      {/* ActivityBlock — plan-step tracker; persists through executing and paused */}
-      {showActivityBlock && (
-        <ActivityBlock steps={planSteps} interpretation={activePlanSummary} />
-      )}
+      {/* ActivityBlock — one row per rallied agent; persists through paused */}
+      {showActivityBlock && <ActivityBlock steps={rallyRows} />}
 
       {/* ── Ordered transcript ──────────────────────────────────────────────
           Text segments, tool calls, web searches, files, images, the connector
           permission/link cards — all rendered in the order they streamed in,
           so chat and tools interleave instead of bucketing. Each row rises into
           place as it streams in (consumer-driven KDS mount gesture). */}
-      {phase === 'complete' && planSteps.length > 0 && (
-        <Rise><ExecutionPhaseGroup steps={planSteps} nodeOutputs={nodeOutputs} /></Rise>
+      {phase === 'complete' && rallyRows.length > 0 && (
+        <Rise><ExecutionPhaseGroup steps={rallyRows} agentOutputs={agentOutputs} /></Rise>
       )}
       {phase === 'complete' && (
-        <Rise><BrainResultHeader summary={activePlanSummary || 'Analysis complete'} /></Rise>
+        <Rise><BrainResultHeader summary="Analysis complete" /></Rise>
       )}
 
       {timeline.map((item, i) => {
@@ -4783,52 +3808,11 @@ function BrainPageInner() {
               <ExternalOutputBlock actions={externalActions} completedAt={externalOutputCompletedAt} />
             </Rise>
           )}
-          {planSteps.length > 0 && (
+          {rallyRows.length > 0 && (
             <Rise>
               <LoopHistoryCard
-                steps={planSteps}
-                summary={activePlanSummary || undefined}
+                steps={rallyRows}
                 completedAt={completedAt ?? undefined}
-              />
-            </Rise>
-          )}
-        </>
-      )}
-
-      {/* Counter acknowledgement — while Brain re-plans (and beside the revised
-          plan) show the user's revision request so the thread reads coherently. */}
-      {lastCounterText && (phase === 'thinking' || phase === 'planning') && (
-        <Rise>
-          <BrainNarration text={`Revising the plan based on your note: “${lastCounterText}”`} />
-        </Rise>
-      )}
-
-      {/* Plan card + optional counter input — rendered AFTER the timeline so
-          approval UI is always at the bottom regardless of how much content
-          has already streamed above it (e.g. a second plan after countering). */}
-      {showPlanCard && (
-        <>
-          <Rise>
-            <PlanCard
-              steps={planSteps}
-              interpretation={activePlanSummary}
-              onApprove={handleApprove}
-              onCounter={handleCounter}
-              onCancel={handlePlanCancel}
-              actionsDisabled={(!activePlanId && !promptId) || actionInFlight}
-            />
-          </Rise>
-          {showCounterInput && (
-            <Rise>
-              <CounterInput
-                value={counterText}
-                onChange={setCounterText}
-                onSend={handleCounterSend}
-                onCancel={() => {
-                  setShowCounterInput(false)
-                  setCounterText('')
-                }}
-                disabled={actionInFlight}
               />
             </Rise>
           )}
@@ -4853,56 +3837,6 @@ function BrainPageInner() {
         </Rise>
       )}
 
-      {/* Live node-recovery prompt (backend-driven). The user's choice resolves
-          the SAME run via respondToPrompt — rerun / skip / apply-fix / cancel —
-          so this supersedes the local step_failed fallback below. */}
-      {activeRecoveryPrompt?.meta.recovery === 'node_failed' && (
-        <Rise>
-          <NodeFailureCard
-            step={{ label: activeRecoveryPrompt.meta.step.label || 'This step', isCritical: activeRecoveryPrompt.meta.step.is_critical }}
-            errorMessage={activeRecoveryPrompt.meta.error || undefined}
-            onRerun={() => handleRecoveryDecision('rerun')}
-            onSkip={activeRecoveryPrompt.meta.step.is_critical ? undefined : () => handleRecoveryDecision('skip')}
-            onCancel={() => handleRecoveryDecision('cancel')}
-          />
-        </Rise>
-      )}
-      {activeRecoveryPrompt?.meta.recovery === 'fix_proposed' && (
-        <Rise>
-          <FixProposalCard
-            failedStep={activeRecoveryPrompt.meta.failed_step || 'This step'}
-            reasoning={activeRecoveryPrompt.meta.reasoning}
-            diffs={activeRecoveryPrompt.meta.diffs.length ? activeRecoveryPrompt.meta.diffs : undefined}
-            onApplyFix={() => handleRecoveryDecision('apply')}
-            onTryDifferent={() => handleRecoveryDecision('different')}
-            onCancel={() => handleRecoveryDecision('cancel')}
-          />
-        </Rise>
-      )}
-
-      {/* Diagnosing window: step_failed arrived, the recovery prompt hasn't yet.
-          A non-interactive note keeps the user from firing the wrong fallback
-          while the backend decides what to offer. */}
-      {phase === 'node-failed' && awaitingRecovery && !activeRecoveryPrompt && (
-        <Rise><BrainNarration text="Diagnosing the failed step…" /></Rise>
-      )}
-
-      {/* Fallback NodeFailureCard — a step failed but no live recovery prompt is
-          driving (e.g. reopened after the stream dropped). Re-runs the turn. */}
-      {phase === 'node-failed' && !activeRecoveryPrompt && !awaitingRecovery && failedStep && (() => {
-        const step = planSteps.find((s) => s.id === failedStep.id)
-        return (
-          <Rise>
-            <NodeFailureCard
-              step={{ label: step?.label ?? 'This step', isCritical: step?.isCritical ?? true }}
-              errorMessage={failedStep.error || undefined}
-              onRerun={handleContinue}
-              onCancel={() => setPhase('cancelled')}
-            />
-          </Rise>
-        )
-      })()}
-
       {/* Stuck: agent needs more context to proceed */}
       {phase === 'stuck' && activeStuckPrompt && (
         <Rise>
@@ -4919,12 +3853,12 @@ function BrainPageInner() {
       {phase === 'cancelled' && (
         <Rise>
           <LoopCancelledCard
-            completedSteps={planSteps.filter((s) => s.status === 'complete').length}
-            totalSteps={planSteps.length}
+            completedSteps={rallyRows.filter((row) => row.status === 'complete').length}
+            totalSteps={rallyRows.length}
             context={
-              planSteps.length > 0
+              rallyRows.length > 0
                 ? 'Stream stopped. Any completed work remains above, but no final output was produced.'
-                : 'Stream stopped before execution began. No output was produced.'
+                : 'Stream stopped before any work started. No output was produced.'
             }
           />
         </Rise>
@@ -5093,7 +4027,7 @@ function BrainPageInner() {
     />
   )
 
-  const brainIsStreaming = !['idle', 'complete', 'cancelled', 'failed', 'paused', 'node-failed', 'fix-proposed'].includes(phase)
+  const brainIsStreaming = !['idle', 'complete', 'cancelled', 'failed', 'paused'].includes(phase)
 
   // ── ContextRail data ─────────────────────────────────────────────────────────
   // The right rail surfaces what's active for this conversation:
@@ -5127,12 +4061,7 @@ function BrainPageInner() {
         source: pin.folderName || (pin.tags?.length ? pin.tags.join(' · ') : undefined),
       }))
 
-    // Plan-driven context: when a typed plan is active it defines membership
-    // (buildContextPlan) and the SSE `context` event only supplies display
-    // rows. Without a plan, the event snapshot renders as before.
-    const railContext = activeCortexPlan
-      ? buildContextPlan(activeCortexPlan, liveContext, connectorCatalog)
-      : liveContext
+    const railContext = liveContext
 
     if (!railContext) {
       // No turn has run yet — show the chip persona + staged pins so the rail
@@ -5233,7 +4162,7 @@ function BrainPageInner() {
       files:      [...activeFiles, ...previousFiles],
       connectors: [...activeConnectors, ...previousConnectors],
     }
-  }, [liveContext, activeCortexPlan, connectorCatalog, selectedPersona, selectedFolderPins, effectivePinIds, pinboardPins, contextHistory])
+  }, [liveContext, connectorCatalog, selectedPersona, selectedFolderPins, effectivePinIds, pinboardPins, contextHistory])
 
   // ── Has any content to render ─────────────────────────────────────────────────
 

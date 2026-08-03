@@ -22,9 +22,8 @@ const ONE_TIME_OPTIONS: PermissionPromptOption[] = [
 interface PermissionPromptCardProps {
   prompt:    ConnectorPermissionPrompt
   /** Called with the chosen option value; the caller unblocks the stream.
-   *  Persistence is server-side: the backend saves allow/block (scope-aware,
-   *  personal vs shared account) when the prompt resolves — the card never
-   *  writes settings itself. */
+   *  Persistence is server-side for personal accounts. Shared-team policy is
+   *  changed only through team settings; its inline prompts are one-time. */
   onDecided?: (value: string) => void
   disabled?: boolean
   /** Chat-style surfaces let the card remove itself after a decision; the

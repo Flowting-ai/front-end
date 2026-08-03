@@ -8,15 +8,12 @@ export type Phase =
   | 'clarifying-goal'    // Brain decided it needs more info — shows QuestionCard (max 3 questions)
   | 'souvenir'           // CONDITIONAL — Brain searching Pinboard for relevant context
   | 'confirming-pins'    // Brain surfaced relevant pins — user confirms which to include
-  | 'planning'           // PlanCard rendered, awaiting approve / counter / cancel
-  | 'executing'          // ActivityBlock running, stop button live
-  | 'paused'             // User hit stop. Brain finished current node. PauseCard shown.
-  | 'node-failed'        // A plan step failed. NodeFailureCard shown inline.
-  | 'fix-proposed'       // Brain self-diagnosed the failure — FixProposalCard shown. Apply → executing; Cancel → cancelled.
+  | 'executing'          // An agent Brain rallied with is working; ActivityBlock live
+  | 'paused'             // User hit stop. PauseCard shown.
   | 'stuck'              // Brain cannot proceed without human input — StuckCard shown.
   | 'streaming'          // Output streaming into thread
   | 'complete'           // Loop finished. LoopHistoryCard shown. Resets to idle.
-  | 'cancelled'          // User cancelled at PlanCard or PauseCard
+  | 'cancelled'          // User cancelled at the PauseCard
   | 'failed'             // Unrecoverable failure (all retries exhausted)
 
 // What renders in the thread for each phase
@@ -27,11 +24,8 @@ export const PHASE_RENDERS: Record<Phase, string> = {
   'clarifying-goal':  'ClarificationCard (QuestionCard wrapper). After answer → back to thinking.',
   'souvenir':         'StreamingIndicator "souvenir" phase. Pinboard search in progress.',
   'confirming-pins':  'PinConfirmationCard inline. User selects which pins to include.',
-  'planning':         'PlanCard with approve / counter / cancel.',
-  'executing':        'ActivityBlock with live step states. Stop button in ChatInput.',
+  'executing':        'ActivityBlock with a live row per rallied agent. Stop button in ChatInput.',
   'paused':           'PauseCard: Continue / Change direction / Cancel.',
-  'node-failed':      'NodeFailureCard inline: Re-run / [Skip if non-critical] / Cancel.',
-  'fix-proposed':     'FixProposalCard: Brain self-diagnosed failure. Apply fix → executing; Try different / Cancel → cancelled.',
   'stuck':            'StuckCard: Brain cannot proceed. User provides context → back to executing; Cancel → cancelled.',
   'streaming':        'StreamingMessageBubble. StreamingIndicator "streaming" phase.',
   'complete':         'Full output + ArtifactCard + ExternalOutputCard + LoopHistoryCard.',
@@ -43,22 +37,18 @@ export const PHASE_RENDERS: Record<Phase, string> = {
 //
 // Key flow:
 //   user-sent → thinking (always)
-//   thinking  → clarifying-goal | souvenir | planning (Brain decides)
+//   thinking  → clarifying-goal | souvenir | executing | streaming (Brain decides)
 //   clarifying-goal → thinking (always — Brain re-evaluates after each answer)
-//   souvenir  → confirming-pins | planning
 //
 export const PHASE_TRANSITIONS: Record<Phase, Phase[]> = {
   'idle':            ['user-sent'],
   'user-sent':       ['thinking'],
-  'thinking':        ['clarifying-goal', 'souvenir', 'planning'],
+  'thinking':        ['clarifying-goal', 'souvenir', 'executing', 'streaming'],
   'clarifying-goal': ['thinking'],                       // always back to thinking after each answer
-  'souvenir':        ['confirming-pins', 'planning'],
-  'confirming-pins': ['planning'],
-  'planning':        ['executing', 'cancelled'],
-  'executing':       ['streaming', 'paused', 'node-failed', 'stuck', 'failed'],
-  'paused':          ['executing', 'planning', 'cancelled'],
-  'node-failed':     ['executing', 'fix-proposed', 'stuck', 'cancelled'], // Re-run → executing, Brain diagnoses → fix-proposed, stuck for ambiguous failures
-  'fix-proposed':    ['executing', 'cancelled'],               // Apply fix → executing, Cancel/Try different → cancelled
+  'souvenir':        ['confirming-pins', 'executing', 'streaming'],
+  'confirming-pins': ['executing', 'streaming'],
+  'executing':       ['streaming', 'paused', 'stuck', 'failed'],
+  'paused':          ['executing', 'cancelled'],
   'stuck':           ['executing', 'cancelled'],               // User provides context → executing; Cancel → cancelled
   'streaming':       ['complete'],
   'complete':        ['idle'],
@@ -66,33 +56,26 @@ export const PHASE_TRANSITIONS: Record<Phase, Phase[]> = {
   'failed':          ['idle'],
 }
 
-export interface PlannerStreamCloseState {
-  phase:                  Phase
+export interface StreamCloseState {
+  phase:                 Phase
   terminalEventReceived: boolean
   streamErrored:         boolean
   aborted:               boolean
-  planProposed:          boolean
-  waitingForApproval:    boolean
 }
 
 /**
- * The AG-UI wrapper closes a successful planner stream with RUN_FINISHED even
- * when that turn ended by proposing a plan. React may not have committed the
- * preceding `setPhase('planning')` yet, so `phase` alone is not authoritative
- * here. The synchronous proposal/approval flags prevent the close safety net
- * from converting a valid pending plan into a completed turn.
+ * Safety net for a stream that closed cleanly while the phase machine is still
+ * mid-flight: React may not have committed the transition the last event
+ * triggered. Only a turn that reached its terminal event may be completed here.
  */
-export function shouldCompletePlannerStreamOnClose({
+export function shouldCompleteStreamOnClose({
   phase,
   terminalEventReceived,
   streamErrored,
   aborted,
-  planProposed,
-  waitingForApproval,
-}: PlannerStreamCloseState): boolean {
+}: StreamCloseState): boolean {
   if (!terminalEventReceived || streamErrored || aborted) return false
-  if (planProposed || waitingForApproval) return false
-  return phase === 'thinking' || phase === 'streaming'
+  return phase === 'thinking' || phase === 'streaming' || phase === 'executing'
 }
 
 // Clarification question types
@@ -112,7 +95,8 @@ export function shouldProceedDespiteSkip(clarifications: ClarificationItem[]): b
   return last2.every(c => c.skipped)
 }
 
-// PlanStep — shared by PlanCard (preview) and ActivityBlock (live execution)
+// AgentStep — one rallied agent's row, rendered by ActivityBlock (live) and
+// LoopHistoryCard (after the turn).
 export type StepStatus = 'pending' | 'upcoming' | 'executing' | 'complete' | 'failed' | 'skipped'
 
 export interface ConnectorRequirement {
@@ -123,21 +107,21 @@ export interface ConnectorRequirement {
   onConnect?:   () => void
 }
 
-export interface PlanStep {
-  id:                  string
+export interface AgentStep {
+  id:                  string              // the agent's name — one row per agent
   label:               string
-  modelId?:            string
-  modelName?:          string
-  modelCompany?:       string
-  connector?:          string              // display name, e.g. "Notion"
-  isCritical:          boolean             // true → failure shows Re-run/Cancel only (no Skip)
+  handle?:             string
+  imageUrl?:           string
+  isCritical:          boolean
   status:              StepStatus
+  /** Present when the agent stopped before producing a complete answer. */
+  error?:               string
   requiresConnector?:  ConnectorRequirement
-  parallelGroup?:      string              // steps sharing the same string execute simultaneously
-  rationale?:          string              // optional 1-sentence explanation of why Brain included this step
-  /** Connectors Brain has called for this step — shown as "via X" chips once touched. */
+  /** What Brain asked this agent for. */
+  rationale?:          string
+  /** Connectors the agent has reached — shown as "via X" chips once touched. */
   connectorDisclosure?: string[]
-  /** Live streaming detail shown while the step is executing. */
+  /** Live detail shown while the agent is working. */
   streamDetail?:        string
 }
 
@@ -149,11 +133,7 @@ export interface Loop {
   phase:           Phase
   clarifications:  ClarificationItem[]
   interpretation?: string   // Brain's stated understanding before proceeding
-  plan?: {
-    steps:      PlanStep[]
-    connectors: string[]
-    status:     'pending' | 'approved' | 'countered' | 'cancelled'
-  }
+  agents?:          AgentStep[]
   output?:          string
-  status:           'clarifying' | 'confirming-pins' | 'planning' | 'executing' | 'paused' | 'streaming' | 'complete' | 'failed' | 'cancelled'
+  status:           'clarifying' | 'confirming-pins' | 'executing' | 'paused' | 'streaming' | 'complete' | 'failed' | 'cancelled'
 }
