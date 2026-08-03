@@ -5,6 +5,7 @@ import { AnimatePresence, m } from 'framer-motion'
 import { SearchOneIcon, StickyNoteTwoIcon, CancelOneIcon, TickTwoIcon, FilterMailIcon } from '@strange-huge/icons'
 import { HighlightCard, HIGHLIGHT_COLORS } from '@/components/HighlightCard'
 import { IconButton } from '@/components/IconButton'
+import { Spinner } from '@/components/Spinner'
 import { Tooltip } from '@/components/Tooltip'
 import { trackFeature } from '@/lib/analytics/events'
 import { Dropdown } from '@/components/Dropdown'
@@ -28,6 +29,8 @@ export interface HighlightEntry {
 export interface HighlightPanelProps {
   /** Ordered list of highlights to display. Cards render top-to-bottom in array order. */
   highlights: HighlightEntry[]
+  /** True while highlights are being (re)fetched — e.g. right after switching filters. Shows a spinner in place of the card list. */
+  isLoading?: boolean
   /** Forwarded to each card's Jump button. `id` matches HighlightEntry.id. Omit to hide Jump on all cards. */
   onJump?:    (id: string) => void
   /** Forwarded to each card's Copy button. `id` matches HighlightEntry.id. Omit to hide Copy on all cards. */
@@ -48,6 +51,7 @@ export interface HighlightPanelProps {
 
 export function HighlightPanel({
   highlights,
+  isLoading = false,
   onJump,
   onCopy,
   onDelete,
@@ -277,6 +281,32 @@ export function HighlightPanel({
         </div>
       </div>
 
+      {/* ── Filter status line — hidden while a search result count is showing ── */}
+      <AnimatePresence initial={false}>
+        {!(searchOpen && searchValue) && (
+          <m.p
+            key="filter-status"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={springs.fast}
+            style={{
+              margin:     0,
+              padding:    '0 16px 8px',
+              fontFamily: 'var(--font-body)',
+              fontWeight: 'var(--font-weight-regular)',
+              fontSize: 12,
+              lineHeight: '1.5',
+              color:      'var(--neutral-500)',
+              flexShrink: 0,
+              overflow:   'hidden',
+            }}
+          >
+            {filterMode === 'this-chat' ? 'Showing highlights in this chat' : 'Showing highlights in all chats'}
+          </m.p>
+        )}
+      </AnimatePresence>
+
       {/* ── Search result count ── */}
       <AnimatePresence initial={false}>
         {searchOpen && searchValue && (
@@ -322,6 +352,39 @@ export function HighlightPanel({
         {/* Horizontal padding lives on this inner wrapper, not the scrolling
             element above — keeps the scrollbar flush with the panel's edge. */}
         <div style={{ padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {isLoading ? (
+          <m.div
+            key="loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              display:        'flex',
+              flexDirection:  'column',
+              alignItems:     'center',
+              justifyContent: 'center',
+              gap:            12,
+              padding:        '48px 24px',
+              textAlign:      'center',
+            }}
+          >
+            <Spinner size={24} color="var(--neutral-400)" />
+            <p
+              style={{
+                margin:     0,
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-regular)',
+                fontSize:   'var(--font-size-caption)',
+                lineHeight: '1.5',
+                color:      'var(--neutral-500)',
+              }}
+            >
+              Loading highlights…
+            </p>
+          </m.div>
+        ) : (
+          <>
         <AnimatePresence initial={false}>
           {filtered.map(h => (
             <m.div
@@ -382,6 +445,8 @@ export function HighlightPanel({
             </m.div>
           )}
         </AnimatePresence>
+          </>
+        )}
         </div>
       </div>
 

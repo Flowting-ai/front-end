@@ -2,8 +2,10 @@
 
 import React, { createContext, useCallback, use, useRef, useState } from 'react'
 import { toast } from '@/components/Toast'
-import { createHighlight, removeHighlight, getHighlights, getAllHighlights } from '@/lib/api/highlights'
+import { createHighlight, removeHighlight, getHighlights } from '@/lib/api/highlights'
 import type { HighlightResponse } from '@/lib/api/highlights'
+import { listChats } from '@/lib/api/chat'
+import { fetchPersonas, fetchPersonaChats } from '@/lib/api/personas'
 import { ApiError } from '@/lib/api/client'
 
 // â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -26,6 +28,8 @@ interface HighlightDataValue {
   highlights:  HighlightEntry[]
   isOpen:      boolean
   filterMode:  FilterMode
+  /** True while a loadForChat/loadAll fetch is in flight — drives the panel's loading spinner. */
+  isLoading:   boolean
 }
 
 interface HighlightActionsValue {
@@ -69,12 +73,39 @@ function responseToEntry(r: HighlightResponse): HighlightEntry {
   }
 }
 
+// The backend has no "all highlights across chats" endpoint — GET /highlights
+// requires chat_id, by design, on the backend side. So "All highlights" fans
+// out per-chat instead: every regular + project chat (the plain /chats list
+// already includes both — project_id is just a field on each row, not a
+// separate listing) plus every persona/agent chat, fetched in parallel and
+// merged client-side. Individual chat failures (deleted, no access) are
+// swallowed per-item so one bad chat doesn't blank the whole list.
+async function collectAllChatIds(): Promise<string[]> {
+  const ids = new Set<string>()
+
+  let cursor: string | undefined
+  do {
+    const page = await listChats(cursor)
+    page.chats.forEach(c => ids.add(c.id))
+    cursor = page.has_more && page.next_cursor ? page.next_cursor : undefined
+  } while (cursor)
+
+  const personas = await fetchPersonas()
+  const personaChatLists = await Promise.all(
+    personas.map(p => fetchPersonaChats(p.id).catch(() => [])),
+  )
+  personaChatLists.flat().forEach(c => ids.add(c.id))
+
+  return [...ids]
+}
+
 // â”€â”€ Provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function HighlightProvider({ children }: { children: React.ReactNode }) {
   const [highlights,  setHighlights]  = useState<HighlightEntry[]>([])
   const [isOpen,      setIsOpen]      = useState(false)
   const [filterMode,  setFilterMode]  = useState<FilterMode>('this-chat')
+  const [isLoading,   setIsLoading]   = useState(false)
 
   // Refs kept in sync with state so callbacks can read current values without
   // stale-closure issues. Updated during render so they are always current.
@@ -94,24 +125,30 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
     loadAbortRef.current?.abort()
     const ctrl = new AbortController()
     loadAbortRef.current = ctrl
+    setIsLoading(true)
     getHighlights(chatId)
       .then(data => { if (!ctrl.signal.aborted) setHighlights(data.map(responseToEntry)) })
       .catch(() => {/* silently ignore */})
+      .finally(() => { if (!ctrl.signal.aborted) setIsLoading(false) })
   }, [])
 
   const loadAll = useCallback(() => {
     loadAbortRef.current?.abort()
     const ctrl = new AbortController()
     loadAbortRef.current = ctrl
-    getAllHighlights()
-      .then(data => { if (!ctrl.signal.aborted) setHighlights(data.map(responseToEntry)) })
+    setIsLoading(true)
+    collectAllChatIds()
+      .then(ids => Promise.all(ids.map(id => getHighlights(id).catch(() => [] as HighlightResponse[]))))
+      .then(lists => { if (!ctrl.signal.aborted) setHighlights(lists.flat().map(responseToEntry)) })
       .catch(() => {/* silently ignore */})
+      .finally(() => { if (!ctrl.signal.aborted) setIsLoading(false) })
   }, [])
 
   const clearHighlights = useCallback(() => {
     if (filterModeRef.current === 'all') return
     loadAbortRef.current?.abort()
     setHighlights([])
+    setIsLoading(false)
   }, [])
 
   const open   = useCallback(() => setIsOpen(true),    [])
@@ -190,7 +227,7 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <HighlightActionsContext.Provider value={actions}>
-      <HighlightDataContext.Provider value={{ highlights, isOpen, filterMode }}>
+      <HighlightDataContext.Provider value={{ highlights, isOpen, filterMode, isLoading }}>
         {children}
       </HighlightDataContext.Provider>
     </HighlightActionsContext.Provider>

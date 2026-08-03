@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence, animate } from 'framer-motion'
 import { useOnboarding } from '@/context/onboarding-context'
@@ -13,9 +14,6 @@ import { ONBOARDING_TONE_ROUTE, ONBOARDING_ACCOUNT_TYPE_ROUTE, ONBOARDING_PLANS_
 
 const CANVAS_GRADIENT =
   'linear-gradient(180deg, var(--neutral-50,#f7f2ed) 3.76%, var(--neutral-100,#ede1d7) 75%, var(--neutral-200,#d1c6bd) 116.79%)'
-
-// Figma MCP asset — expires in 7 days; swap to a permanent asset after export
-const SOUVENIR_TOKEN_VECTOR = 'https://www.figma.com/api/mcp/asset/9c48f3d1-8a06-4e3a-a0e7-e0effae99e10'
 
 type Billing = 'monthly' | 'annual'
 type TeamPlanType = 'team_125' | 'team_250' | 'team_500' | 'team_1000' | 'team_1500' | 'team_2000'
@@ -185,17 +183,13 @@ function SlackLogo() {
 
 function TokenSquare() {
   return (
-    <div style={{
-      width: 56, height: 56, flexShrink: 0,
-      backgroundColor: 'var(--neutral-800,#3b3632)',
-      borderRadius: 12, overflow: 'hidden', position: 'relative',
-    }}>
-      <img
-        alt=""
-        src={SOUVENIR_TOKEN_VECTOR}
-        style={{ position: 'absolute', inset: '7.29%', width: '85.42%', height: '85.42%', display: 'block' }}
-      />
-    </div>
+    <Image
+      alt=""
+      src="/token-square.svg"
+      width={56}
+      height={56}
+      style={{ flexShrink: 0, display: 'block' }}
+    />
   )
 }
 
