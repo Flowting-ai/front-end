@@ -18,6 +18,14 @@ import { getFriendlyHttpErrorText } from "@/lib/http-errors";
 
 export const MODEL_UNRESPONSIVE_MESSAGE =
   "This model is unresponsive right now. Please try again or switch to another model.";
+/**
+ * A turn that ended cleanly having produced no text, reasoning, or images.
+ * Distinct from MODEL_UNRESPONSIVE_MESSAGE on purpose: the stream reached its
+ * `done` event, so the model is reachable and telling the user to switch models
+ * sends them to fix something that isn't broken.
+ */
+export const EMPTY_TURN_MESSAGE =
+  "No response came back for this turn. Please try again.";
 const MODEL_TOO_LARGE_MESSAGE =
   "Your message is too large for this model. Try shortening it or removing attachments.";
 const MODEL_GENERIC_ERROR_MESSAGE =
