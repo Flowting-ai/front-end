@@ -1,56 +1,24 @@
 'use client'
 
-import React, { useState } from 'react'
-import { toast } from 'sonner'
+import React from 'react'
 import { PlusSignIcon, PenOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
-import { Button } from '@/components/Button'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface ProjectInstructionsPanelProps {
   value:         string
-  /** May return a Promise – the panel tracks loading state if so. */
+  /** Gates whether the edit button renders at all (pass undefined to hide it). */
   onSave?:       (text: string) => void | Promise<void>
-  maxLength?:    number
+  /** Opens the full SystemInstructionsModal editor. This panel is preview-only —
+   *  it never edits instructions inline. */
   onOpenEditor?: () => void
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOpenEditor, ref }: ProjectInstructionsPanelProps & { ref?: React.Ref<HTMLDivElement> }) {
-    const [editing, setEditing] = useState(false)
-    const [draft,   setDraft]   = useState(value)
-    const [saving,  setSaving]  = useState(false)
+export function ProjectInstructionsPanel({ value, onSave, onOpenEditor, ref }: ProjectInstructionsPanelProps & { ref?: React.Ref<HTMLDivElement> }) {
     const isEmpty = !value.trim()
-
-    function handleEdit() {
-      if (!onSave) return
-      if (onOpenEditor) {
-        onOpenEditor()
-        return
-      }
-      setDraft(value)
-      setEditing(true)
-    }
-
-    async function handleSave() {
-      setSaving(true)
-      try {
-        await onSave?.(draft.trim())
-        setEditing(false)
-        toast.success('Instructions saved')
-      } catch {
-        // errors already toasted by the context
-      } finally {
-        setSaving(false)
-      }
-    }
-
-    function handleCancel() {
-      setDraft(value)
-      setEditing(false)
-    }
 
     return (
       <div
@@ -82,78 +50,19 @@ export function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOp
           >
             Instructions
           </p>
-          {!editing && onSave && (
+          {onSave && (
             <IconButton
               variant="ghost"
               size="xs"
               icon={isEmpty ? <PlusSignIcon /> : <PenOneIcon animated />}
               aria-label={isEmpty ? 'Add instructions' : 'Edit instructions'}
-              onClick={handleEdit}
+              onClick={onOpenEditor}
             />
           )}
         </div>
 
-        {/* Body */}
-        {editing ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value.slice(0, maxLength))}
-              maxLength={maxLength}
-              placeholder="Add instructions to steer this project towards the right direction..."
-              disabled={saving}
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 'var(--font-weight-regular)',
-                fontSize:   '14px',
-                lineHeight: '22px',
-                color:      '#1a1714',
-                background: 'transparent',
-                border:     'none',
-                outline:    'none',
-                resize:     'none',
-                width:      '100%',
-                minHeight:  '120px',
-                padding:    0,
-                boxSizing:  'border-box',
-                opacity:    saving ? 0.5 : 1,
-                transition: 'opacity 150ms',
-              }}
-              autoFocus
-            />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 'var(--font-weight-regular)',
-                  fontSize: '12px',
-                  lineHeight: '16px',
-                  color:      '#a39b95',
-                }}
-              >
-                {draft.length} / {maxLength}
-              </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCancel}
-                  disabled={saving}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => { void handleSave() }}
-                  disabled={saving}
-                >
-                  {saving ? 'Saving…' : 'Save'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : isEmpty ? (
+        {/* Body — preview only; editing always happens in SystemInstructionsModal. */}
+        {isEmpty ? (
           <p
             style={{
               fontFamily: 'var(--font-body)',

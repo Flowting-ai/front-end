@@ -7,6 +7,7 @@ import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
 import { apiFetch } from "@/lib/api/client";
+import { toast } from "sonner";
 import { MEMORY_USER_ENDPOINT } from "@/lib/config";
 import { trackBrowserEvent } from "@/lib/analytics/events";
 import { ONBOARDING_WORKSPACE_ROUTE, CHAT_ROUTE } from "@/lib/routes";
@@ -92,6 +93,7 @@ export default function OnboardingImportPage() {
       push(`${CHAT_ROUTE}?welcome=1`);
     } catch (err) {
       console.error("Onboarding submission failed", err);
+      toast.error("Something went wrong — please try again.");
     } finally {
       setLoading(false);
     }

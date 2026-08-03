@@ -11,8 +11,8 @@ Before creating or changing UI, review `C:\Users\kunals\may-day` for established
 # Analytics (Mixpanel)
 
 Product analytics is **Mixpanel** (`mixpanel-browser`), direct SDK. The spec is
-`docs/mixpanel-setup-notion.txt`; the backend half is `docs/mixpanel-backend-contract.md`;
-the first-party proxy (browser-proof ingestion) is `docs/mixpanel-browser-proof.md`.
+`docs/analytics/mixpanel-setup-notion.txt`; the backend half is `docs/analytics/mixpanel-backend-contract.md`;
+the first-party proxy (browser-proof ingestion) is `docs/analytics/mixpanel-browser-proof.md`.
 
 - **Where the code lives:** `src/lib/analytics/` (core `mixpanel.ts`, vocabulary
   `events.ts`, route→screen `screens.ts`, stamp keys `stamps.ts`) and
@@ -39,7 +39,7 @@ the first-party proxy (browser-proof ingestion) is `docs/mixpanel-browser-proof.
 - **The five stamps** ride on every event as super properties (`stamps.ts`):
   `surface` (`web`), `plan` (individuals) or `org_id`+`org_tier` (org members), plus the
   backend-only cost stamp.
-- **Adding coverage:** add the name to `docs/mixpanel-setup-notion.txt` first, then to the
+- **Adding coverage:** add the name to `docs/analytics/mixpanel-setup-notion.txt` first, then to the
   union in `events.ts`, then wire the call site. New feature = one name in the
   `FeatureName` list — not a new event. **No free text** in properties (IDs/enums only);
   autocapture stays OFF.

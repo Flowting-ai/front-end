@@ -163,7 +163,7 @@ export const ChatRow = React.memo(function ChatRow(props) { ... })
 
 ## Part C — Performance Phase Verification (Smoke Tests)
 
-> Full coverage in `docs/PERF_TESTING_CHECKLIST.md`. Run these as a faster smoke pass.
+> Full coverage in `docs/testing/PERF_TESTING_CHECKLIST.md`. Run these as a faster smoke pass.
 
 ---
 

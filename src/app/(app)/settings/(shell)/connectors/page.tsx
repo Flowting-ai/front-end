@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Switch } from '@/components/Switch'
 import { Tooltip } from '@/components/Tooltip'
 import { springs } from '@/lib/springs'
 import {
@@ -16,10 +15,9 @@ import {
   pollConnectorUntilActive,
   oauthNeedsInitFields,
   DEFAULT_API_KEY_FIELD,
-  toolPolicyFromTool,
-  toolPermissionFromPolicy,
+  connectorToolBooleans,
 } from '@/lib/api/connectors'
-import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool, ToolPolicy } from '@/lib/api/connectors'
+import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
 import { useConnectorBrowse, CategoryFilter, Pagination } from '@/components/ConnectorBrowse'
@@ -28,7 +26,6 @@ import { isMcpProviderConnector } from '@/lib/connectorProvider'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { connectorCategory } from '@/lib/connectorCategories'
 import { ORG_CONNECTORS_ROUTE } from '@/lib/routes'
-import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
@@ -57,18 +54,6 @@ function XIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
       <path d="M13.5 4.5L4.5 13.5M4.5 4.5L13.5 13.5" stroke="var(--neutral-600)" strokeWidth="1.5" strokeLinecap="round"/>
-    </svg>
-  )
-}
-
-function SpinnerIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg
-      width={size} height={size} viewBox="0 0 24 24" fill="none"
-      style={{ animation: 'conn-spin 0.8s linear infinite', flexShrink: 0 }}
-    >
-      <style>{`@keyframes conn-spin { to { transform: rotate(360deg) } }`}</style>
-      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   )
 }
@@ -252,25 +237,6 @@ function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; s
 
 
 // ── Policy helpers ────────────────────────────────────────────────────────────
-// UI label layer over the backend's binary allowed/blocked gate (services/
-// connectors/schemas.py's ToolEntry — no "allow_once" there; a one-time allow
-// is a call-scoped decision the in-chat prompt unblocks without persisting).
-
-type UIPolicy = 'Always allow' | 'Ask' | 'Never'
-
-const UI_TO_API: Record<UIPolicy, ToolPolicy> = {
-  'Always allow': 'allow',
-  'Ask':          'ask',
-  'Never':        'block',
-}
-
-function apiToUiPolicy(tool: { allowed: boolean; blocked: boolean }): UIPolicy {
-  const policy = toolPolicyFromTool(tool)
-  return policy === 'allow' ? 'Always allow' : policy === 'block' ? 'Never' : 'Ask'
-}
-
-const POLICY_OPTIONS: UIPolicy[] = ['Always allow', 'Ask', 'Never']
-
 function connectedWorkspaceAccounts(entry: ConnectorCatalogEntry) {
   const options = (entry.account_options ?? [])
     .filter(account => account.scope === 'shared_team' && account.connected && account.status === 'active')
@@ -295,92 +261,7 @@ function sharedAccountCountLabel(count: number): string {
   return `${count} shared account${count === 1 ? '' : 's'}`
 }
 
-// ── Policy dropdown ───────────────────────────────────────────────────────────
-
-function PolicyDropdown({
-  value,
-  onChange,
-  disabled,
-}: {
-  value:    UIPolicy
-  onChange: (v: UIPolicy) => void
-  disabled?: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
-      <button
-        disabled={disabled}
-        onClick={() => setOpen(o => !o)}
-        style={{
-          display:         'inline-flex',
-          alignItems:      'center',
-          gap:             6,
-          padding:         '4px 10px',
-          borderRadius:    8,
-          border:          'none',
-          cursor:          disabled ? 'not-allowed' : 'pointer',
-          opacity:         disabled ? 0.5 : 1,
-          backgroundColor: 'white',
-          boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
-          fontFamily:      'var(--font-body)',
-          fontWeight:      500,
-          fontSize:        13,
-          lineHeight:      '20px',
-          color:           'var(--neutral-700)',
-          whiteSpace:      'nowrap',
-        }}
-      >
-        {value}
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="var(--neutral-500)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-      {open && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setOpen(false)} />
-          <div style={{
-            position:        'absolute',
-            right:           0,
-            top:             'calc(100% + 4px)',
-            backgroundColor: 'white',
-            borderRadius:    10,
-            boxShadow:       '0px 4px 16px 0px rgba(38,33,30,0.12), 0px 0px 0px 1px var(--neutral-100)',
-            overflow:        'hidden',
-            zIndex:          20,
-            minWidth:        130,
-          }}>
-            {POLICY_OPTIONS.map(opt => (
-              <button
-                key={opt}
-                onClick={() => { onChange(opt); setOpen(false) }}
-                style={{
-                  display:         'flex',
-                  width:           '100%',
-                  padding:         '8px 12px',
-                  border:          'none',
-                  backgroundColor: opt === value ? 'var(--neutral-50)' : 'transparent',
-                  cursor:          'pointer',
-                  fontFamily:      'var(--font-body)',
-                  fontWeight:      opt === value ? 500 : 400,
-                  fontSize:        13,
-                  lineHeight:      '20px',
-                  color:           'var(--neutral-700)',
-                  textAlign:       'left',
-                  whiteSpace:      'nowrap',
-                }}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-// ── Tool permissions modal ────────────────────────────────────────────────────
+// ── Connector detail modal ────────────────────────────────────────────────────
 
 function humanizeAction(toolSlug: string, connectorSlug: string): string {
   let s = toolSlug
@@ -390,7 +271,61 @@ function humanizeAction(toolSlug: string, connectorSlug: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : toolSlug
 }
 
-function ToolPermissionsModal({
+const TOOL_PERMISSION_STYLE: Record<ConnectorTool['permission'], React.CSSProperties> = {
+  allowed: {
+    color: 'var(--green-800)',
+    backgroundColor: 'var(--green-50)',
+    boxShadow: '0 0 0 1px rgba(128,183,7,0.35)',
+  },
+  blocked: {
+    color: 'var(--red-700, #B42318)',
+    backgroundColor: 'var(--red-50, #FEF3F2)',
+    boxShadow: '0 0 0 1px rgba(180,35,24,0.25)',
+  },
+  ask: {
+    color: 'var(--neutral-600)',
+    backgroundColor: 'var(--neutral-50)',
+    boxShadow: '0 0 0 1px var(--neutral-200)',
+  },
+}
+
+function ToolPermissionSelect({
+  permission,
+  disabled,
+  onChange,
+}: {
+  permission: ConnectorTool['permission']
+  disabled?: boolean
+  onChange: (permission: ConnectorTool['permission']) => void
+}) {
+  return (
+    <select
+      aria-label={`Permission: ${permission}`}
+      value={permission}
+      disabled={disabled}
+      onChange={event => onChange(event.target.value as ConnectorTool['permission'])}
+      style={{
+        flexShrink: 0,
+        padding: '3px 24px 3px 8px',
+        borderRadius: 6,
+        border: 'none',
+        fontFamily: 'var(--font-body)',
+        fontWeight: 500,
+        fontSize: 11,
+        lineHeight: '16px',
+        cursor: disabled ? 'wait' : 'pointer',
+        opacity: disabled ? 0.6 : 1,
+        ...TOOL_PERMISSION_STYLE[permission],
+      }}
+    >
+      <option value="allowed">Always allow</option>
+      <option value="ask">Ask</option>
+      <option value="blocked">Never</option>
+    </select>
+  )
+}
+
+function ConnectorDetailModal({
   entry,
   onClose,
   onUpdate,
@@ -401,9 +336,8 @@ function ToolPermissionsModal({
 }) {
   // local copy of tools so UI updates optimistically
   const [tools,              setTools]              = useState<ConnectorTool[]>(entry.tools ?? [])
-  const [saving,             setSaving]             = useState<string | null>(null)  // slug being saved
+  const [saving,             setSaving]             = useState<string | null>(null)
   const [unlinking,          setUnlinking]          = useState(false)
-  const [allowingAll,        setAllowingAll]        = useState(false)
   const [expanded,           setExpanded]           = useState(false)
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
   const abortedRef = useRef(false)
@@ -434,14 +368,19 @@ function ToolPermissionsModal({
     return () => { cancelled = true }
   }, [entry.slug, entry.tools])
 
-  const handlePolicyChange = useCallback(async (toolSlug: string, uiPolicy: UIPolicy) => {
+  const handlePermissionChange = useCallback(async (
+    toolSlug: string,
+    permission: ConnectorTool['permission'],
+  ) => {
     if (abortedRef.current) return
-    const apiPolicy = toolPermissionFromPolicy(UI_TO_API[uiPolicy])
-    setTools(prev => prev.map(t => t.slug === toolSlug ? { ...t, ...apiPolicy } : t))
+    const booleans = connectorToolBooleans(permission)
+    setTools(prev => prev.map(tool => (
+      tool.slug === toolSlug ? { ...tool, ...booleans, permission } : tool
+    )))
     setSaving(toolSlug)
     try {
       const updated = await updateConnector(entry.slug, {
-        permissions: [{ slug: toolSlug, ...apiPolicy }],
+        permissions: [{ slug: toolSlug, ...booleans }],
       })
       if (abortedRef.current) return
       baselineToolsRef.current = updated.tools ?? []
@@ -450,14 +389,13 @@ function ToolPermissionsModal({
       toast.success('Permission updated')
     } catch (err) {
       if (abortedRef.current) return
-      // revert
       setTools(baselineToolsRef.current)
       const msg = err instanceof Error ? err.message : 'Failed to update permission'
       toast.error(msg)
     } finally {
       if (!abortedRef.current) setSaving(null)
     }
-  }, [entry, onUpdate])
+  }, [entry.slug, onUpdate])
 
   const handleDisconnect = useCallback(async () => {
     if (abortedRef.current) return
@@ -476,29 +414,6 @@ function ToolPermissionsModal({
       setUnlinking(false)
     }
   }, [entry, onUpdate, onClose])
-
-  const handleAllowAll = useCallback(async () => {
-    if (abortedRef.current || tools.length === 0) return
-    setAllowingAll(true)
-    setTools(prev => prev.map(t => ({ ...t, allowed: true, blocked: false })))
-    try {
-      const updated = await updateConnector(entry.slug, {
-        permissions: tools.map(t => ({ slug: t.slug, allowed: true, blocked: false })),
-      })
-      if (abortedRef.current) return
-      baselineToolsRef.current = updated.tools ?? []
-      setTools(updated.tools ?? [])
-      onUpdate(updated)
-      toast.success('All tools set to Always allow')
-    } catch (err) {
-      if (abortedRef.current) return
-      setTools(baselineToolsRef.current)
-      const msg = err instanceof Error ? err.message : 'Failed to update permissions'
-      toast.error(msg)
-    } finally {
-      if (!abortedRef.current) setAllowingAll(false)
-    }
-  }, [entry, tools, onUpdate])
 
   // Show at most 5 tools collapsed; expand to see all
   const COLLAPSED_COUNT = 5
@@ -617,20 +532,9 @@ function ToolPermissionsModal({
                 color:      'var(--neutral-500)',
                 margin:     0,
               }}>
-                Choose when Brain is allowed to use each tool.
+                Choose how Brain may use each tool.
               </p>
             </div>
-            {tools.length > 0 && (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={allowingAll || saving !== null || unlinking}
-                loading={allowingAll}
-                onClick={() => void handleAllowAll()}
-              >
-                Allow all
-              </Button>
-            )}
           </div>
 
           {tools.length === 0 ? (
@@ -667,12 +571,11 @@ function ToolPermissionsModal({
                     }}>
                       {humanizeAction(tool.slug, entry.slug)}
                     </span>
-                    <PolicyDropdown
-                      value={apiToUiPolicy(tool)}
-                      onChange={v => void handlePolicyChange(tool.slug, v)}
+                    <ToolPermissionSelect
+                      permission={tool.permission}
                       disabled={saving === tool.slug}
+                      onChange={permission => void handlePermissionChange(tool.slug, permission)}
                     />
-                    {saving === tool.slug && <SpinnerIcon size={12} />}
                   </div>
                 </div>
               ))}
@@ -737,7 +640,7 @@ function ToolPermissionsModal({
               <Button
                 size="sm"
                 variant="secondary"
-                disabled={unlinking || allowingAll}
+                disabled={unlinking}
                 onClick={() => setShowDisconnectConfirm(true)}
               >
                 <span style={{ color: 'var(--red-600, #DC2626)' }}>Disconnect</span>
@@ -1420,11 +1323,9 @@ function SkeletonCard() {
 
 export default function ConnectorsPage() {
   const { push } = useRouter()
-  const { user } = useAuth()
   const { orgId, currentUserRole } = useOrg()
   const [searchQuery,         setSearchQuery]         = useState('')
   const [isSearching,         setIsSearching]         = useState(false)
-  const [suggestionsOn,       setSuggestionsOn]       = useState(false)
   const [connectors,          setConnectors]          = useState<ConnectorCatalogEntry[]>([])
   const [loading,             setLoading]             = useState(true)
   const [loadError,           setLoadError]           = useState('')
@@ -1818,7 +1719,7 @@ export default function ConnectorsPage() {
 
       {/* Tool permissions modal */}
       {modalEntry && modalEntry.linked && (
-        <ToolPermissionsModal
+        <ConnectorDetailModal
           entry={modalEntry}
           onClose={() => setModalEntry(null)}
           onUpdate={handleUpdate}

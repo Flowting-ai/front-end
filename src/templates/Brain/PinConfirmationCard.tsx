@@ -163,7 +163,7 @@ export function PinConfirmationCard({
         color:      'var(--neutral-700)',
         lineHeight: 'var(--line-height-body)',
       }}>
-        Brain found {pins.length} pin{pins.length !== 1 ? 's' : ''} that look relevant. Confirm which ones to use as context before planning begins.
+        Brain found {pins.length} pin{pins.length !== 1 ? 's' : ''} that look relevant. Confirm which ones to use as context before work begins.
       </p>
 
       {/* Pin list */}

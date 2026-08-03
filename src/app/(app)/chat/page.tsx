@@ -16,6 +16,7 @@ const ModelSwitchDialog = dynamic(() => import("@/components/chat/ModelSwitchDia
 import { PinMentionDropdown } from "@/components/chat/PinMentionDropdown";
 import { PinChipStrip } from "@/components/chat/PinChipStrip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
+import { pickDefaultModel } from "@/lib/ai-models";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { emitChatCreated, useSidebarEvents } from "@/hooks/use-sidebar-events";
 import { AGENT_SELECT_EVENT } from "@/components/AgentsPanel";
@@ -35,6 +36,8 @@ import { useSelectableChatPersonas } from "@/hooks/use-selectable-chat-personas"
 import { ModelMenu } from "@/components/chat/ModelMenu";
 import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
+import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
+import { InlineCreditNotice } from "@/components/InlineCreditNotice";
 import { useOrg } from "@/context/org-context";
 import {
   GlobalSearchIcon,
@@ -240,6 +243,7 @@ function ChatPageInner() {
   const { replace } = useRouter();
   const { org, teams: orgTeams, activeTeamId } = useOrg();
   const creditStatus = useCreditStatus();
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
   // First-time landing after finishing the team-invite flow (/chat?joined=<team>).
@@ -628,7 +632,6 @@ function ChatPageInner() {
     open: openModelSelector,
     museActive,
     museAdvanced,
-    setMuseAdvanced,
     enableReasoning,
     setPersonaActive,
   } = useModelSelectorContext();
@@ -637,6 +640,8 @@ function ChatPageInner() {
   // due to the context function being recreated on each render.
   const selectModelRef = useRef(selectModel)
   selectModelRef.current = selectModel
+  const modelsRef = useRef(models)
+  modelsRef.current = models
 
   // Push persona-active state into the model selector context so the dialog is
   // locked from ALL entry points (not just the button in ChatInput) while a
@@ -693,7 +698,7 @@ function ChatPageInner() {
 
   const modelButtonLabel = museActive
     ? museAdvanced
-      ? "Souvenir AI Muse (Advanced)"
+      ? "Souvenir AI Muse (Auto)"
       : "Souvenir AI Muse (Basic)"
     : selectedModel?.modelName;
 
@@ -728,8 +733,11 @@ function ChatPageInner() {
       setActiveChatId(liveId);
       setHasMessages(!!liveId);
       setInitialPrompt(null);
-      // Reset to Souvenir Muse Advanced whenever switching to a new chat
-      if (!liveId) setMuseAdvanced(true);
+      // Reset to the default model tier whenever switching to a new chat
+      if (!liveId) {
+        const defaultModel = pickDefaultModel(modelsRef.current);
+        if (defaultModel) selectModelRef.current(defaultModel);
+      }
     }
   }, [chatIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -744,7 +752,8 @@ function ChatPageInner() {
     setActiveChatId(undefined);
     setHasMessages(false);
     setInitialPrompt(null);
-    setMuseAdvanced(true);
+    const defaultModel = pickDefaultModel(modelsRef.current);
+    if (defaultModel) selectModelRef.current(defaultModel);
   }, []);
   useSidebarEvents({ onNewChat: handleSidebarNewChat });
 
@@ -944,6 +953,17 @@ function ChatPageInner() {
                   style={{ width: "100%", maxWidth: "640px", margin: "0 auto" }}
                   exit={{ opacity: 0, y: 36, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
+                  <AnimatePresence>
+                    {creditNoticeStatus && (
+                      <InlineCreditNotice
+                        key={creditNoticeStatus}
+                        status={creditNoticeStatus}
+                        isAdmin={isOrgAdmin}
+                        onAdminAction={goToPlans}
+                        onDismiss={dismissCreditNotice}
+                      />
+                    )}
+                  </AnimatePresence>
                   <ExhaustionBanner>
                   {/* Pin mention dropdown wrapper - position:relative anchor */}
                   <div ref={newChatInputWrapperRef} style={{ width: "100%", position: "relative" }}>
@@ -1113,6 +1133,7 @@ function ChatPageInner() {
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
               scrollToMessageId={msgFromUrl}
               readOnly={activeChatReadOnly}
+              chatOwnershipConfirmed={activeChatRecord?.can_edit === true}
             />
           </m.div>
         )}

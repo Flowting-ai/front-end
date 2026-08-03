@@ -23,6 +23,7 @@ function HighlightSidebarImpl() {
   const {
     highlights,
     isOpen,
+    isLoading,
     close:           closeHighlight,
     deleteHighlight,
     copyHighlight,
@@ -96,7 +97,7 @@ function HighlightSidebarImpl() {
           text:        pending.text,
           startOffset: pending.startOffset,
         })
-        toast.success('Jumped to highlight')
+        toast.success(hasMark ? 'Jumped to highlight' : 'Jumped to message')
         return
       }
 
@@ -160,6 +161,7 @@ function HighlightSidebarImpl() {
         >
           <HighlightPanel
             highlights={panelHighlights}
+            isLoading={isLoading}
             onJump={handleJump}
             onCopy={copyHighlight}
             onDelete={deleteHighlight}

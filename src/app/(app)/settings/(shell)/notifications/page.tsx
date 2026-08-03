@@ -244,14 +244,13 @@ function CardHeader({
 export default function NotificationsPage() {
   const [mounted, setMounted] = useState(false)
   const [prefs, setPrefs] = useState<NotifMap>(DEFAULTS)
-  useEffect(() => { setMounted(true) }, [])
-  if (!mounted) return <NotificationsSkeleton />
-
   const [budgetAlerts, setBudgetAlerts] = useState({
     pct65:  true,
     pct90:  true,
     pct100: false,
   })
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return <NotificationsSkeleton />
 
   const toggleNotifPref = (id: string, field: 'inApp' | 'email', val: boolean) => {
     setPrefs(prev => ({ ...prev, [id]: { ...prev[id], [field]: val } }))
@@ -267,13 +266,20 @@ export default function NotificationsPage() {
   const muteGroup = (ids: string[]) =>
     setPrefs(prev => {
       const next = { ...prev }
-      ids.forEach(id => { next[id] = { inApp: false, email: false } })
+      ids.forEach(id => {
+        // Locked rows (e.g. billing) always keep email on — only their in-app switch can be muted.
+        const isEmailLocked = LOCKED_EMAIL_IDS.has(id)
+        next[id] = { inApp: false, email: isEmailLocked ? true : false }
+      })
       return next
     })
 
   const ACTIVITY_IDS  = ['automation-complete', 'automation-failed', 'pin-created', 'file-processed', 'memory-updated', 'budget-alert']
   const TEAM_IDS      = ['team-invite', 'persona-invite', 'workflow-invite']
   const BILLING_IDS   = ['payment-successful', 'payment-failed']
+  // Rows rendered with `emailLocked` — their Email switch is always-on and cannot be disabled,
+  // so bulk actions (e.g. "Mute all") must never flip it off.
+  const LOCKED_EMAIL_IDS = new Set(['payment-successful', 'payment-failed'])
 
   return (
     <div

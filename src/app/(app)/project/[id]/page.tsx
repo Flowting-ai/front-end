@@ -2,13 +2,12 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
-import Image from 'next/image'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowDownOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon, MentoringIcon, UserAiIcon, InformationCircleIcon, TickTwoIcon, CancelOneIcon } from '@strange-huge/icons'
-import { LlmIcon } from '@strange-huge/icons/llm'
-import { getModelLlmId } from '@/lib/model-icons'
 import { Button } from '@/components/Button'
+import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
 import { Chip } from '@/components/Chip'
 import { Badge } from '@/components/Badge'
 import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
@@ -18,6 +17,10 @@ import { usePinboard } from '@/context/pinboard-context'
 import { useProjectPanel } from '@/context/project-panel-context'
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useModelSelectorContext } from '@/context/model-selector-context'
+import { pickDefaultModel } from '@/lib/ai-models'
+import { formatRelativeTime } from '@/lib/utils/format-utils'
+import { useWorkspaceCreditNotice } from '@/hooks/use-workspace-credit-notice'
+import { InlineCreditNotice } from '@/components/InlineCreditNotice'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow'
 import { Divider } from '@/components/Divider'
@@ -84,11 +87,11 @@ export default function ProjectPage() {
   const { pins, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const { setPanel: setProjectPanel } = useProjectPanel()
   const chatHistory = useChatHistoryContext()
-  const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel, setMuseAdvanced } = useModelSelectorContext()
+  const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel, models, selectModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
-  const modelLlmId = museActive ? null : getModelLlmId(selectedModel?.companyName, selectedModel?.modelName)
 
   const { caps, members, teams: orgTeams } = useOrg()
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
   const { user } = useAuth()
   // `user?.id` is never populated by the backend's /users/me — resolve the
   // viewer's internal id via the org member list instead (see resolveViewerUserId).
@@ -185,12 +188,15 @@ export default function ProjectPage() {
   }, [selectedPersona, setPersonaActive])
 
   // This page is always a "start a new chat" surface — reset the global model
-  // preference back to Souvenir Muse (Advanced) on arrival, same as the regular
+  // selection back to the default tier on arrival, same as the regular
   // chat page's blank-landing reset, so a model picked in a previous chat
   // doesn't silently carry over. Mount-only: doesn't touch whatever the user
   // explicitly picks afterward on this same page before sending.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setMuseAdvanced(true) }, [])
+  useEffect(() => {
+    const defaultModel = pickDefaultModel(models)
+    if (defaultModel) selectModel(defaultModel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Hand the Instructions/Files/Team panel to AppLayout's shared slot so it
   // renders as its own flex sibling (like Pinboard) instead of living inside
@@ -277,7 +283,7 @@ export default function ProjectPage() {
       })
       return
     }
-    if (agentsPanelOpen && project.teamId) {
+    if (agentsPanelOpen) {
       setProjectPanel({
         title:   'Agents',
         onClose: () => setAgentsPanelOpen(false),
@@ -293,7 +299,7 @@ export default function ProjectPage() {
                 margin:     '-6px 0 0',
               }}
             >
-              Agents shared with this project&apos;s team.
+              {project.teamId ? "Agents shared with this project's team." : 'Your agents, ready to use in this project.'}
             </p>
             <ProjectAgentsPanel teamId={project.teamId} />
           </div>
@@ -446,7 +452,7 @@ export default function ProjectPage() {
       <ProjectChatRow
         key={chat.id}
         title={chat.title}
-        timestamp="Just now"
+        timestamp={formatRelativeTime(chat.updated_at)}
         pinCount={chat.pins_count ?? 0}
         canPublish={canPublishChat}
         published={chat.visibility === 'team'}
@@ -507,7 +513,7 @@ export default function ProjectPage() {
       <ProjectChatRow
         key={chat.id}
         title={chat.title}
-        timestamp="Just now"
+        timestamp={formatRelativeTime(chat.updatedAt)}
         pinCount={pins.filter(p => p.chatId === chat.id).length}
         onChatClick={() => push(PROJECT_CHAT_ROUTE(projectId, chat.id))}
         onPinsClick={() => togglePinboard()}
@@ -649,11 +655,6 @@ export default function ProjectPage() {
                         onClick={() => { setMenuOpen(false); setEditOpen(true) }}
                         fluid
                       />
-                      <Dropdown.Item
-                        label="Archive"
-                        disabled
-                        fluid
-                      />
                     </Dropdown.Section>
                     <Dropdown.Section divider fluid>
                       <Dropdown.Item
@@ -682,12 +683,11 @@ export default function ProjectPage() {
                   aria-haspopup="listbox"
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: personaActive ? 'var(--button-default-text-disabled)' : undefined }}>
-                    {(museActive || modelLlmId) && (
+                    {/* Always the Souvenir mark — every model behind this
+                        button is one of the 3 Souvenir Muse tiers. */}
+                    {(museActive || !!selectedModel) && (
                       <span style={{ width: 16, height: 16, borderRadius: 4, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {museActive
-                          ? <Image src="/icons/souvenir-logo-white.svg" width={16} height={16} alt="" unoptimized style={{ display: 'block' }} />
-                          : <LlmIcon id={modelLlmId!} variant={modelLlmId === 'OpenAI' ? 'color' : 'avatar'} size={16} style={modelLlmId === 'OpenAI' ? { filter: 'brightness(0) invert(1)' } : undefined} />
-                        }
+                        <SouvenirModelIcon size={16} variant="light" />
                       </span>
                     )}
                     {modelButtonLabel ?? 'Souvenir AI · Muse'}
@@ -751,6 +751,17 @@ export default function ProjectPage() {
 
           {/* Chat input */}
           <div style={{ width: '100%', maxWidth: '679px', flexShrink: 0 }}>
+            <AnimatePresence>
+              {creditNoticeStatus && (
+                <InlineCreditNotice
+                  key={creditNoticeStatus}
+                  status={creditNoticeStatus}
+                  isAdmin={isOrgAdmin}
+                  onAdminAction={goToPlans}
+                  onDismiss={dismissCreditNotice}
+                />
+              )}
+            </AnimatePresence>
             <input
               ref={fileInputRef}
               type="file"
@@ -1056,21 +1067,19 @@ export default function ProjectPage() {
               }}
             />
           )}
-          {project.teamId && (
-            <FloatingMenuItem
-              icon={<UserAiIcon size={20} animated />}
-              label="Agents"
-              active={agentsPanelOpen}
-              onClick={() => {
-                if (!agentsPanelOpen) {
-                  closePinboard()
-                  setPanelOpen(false)
-                  setTeamPanelOpen(false)
-                }
-                setAgentsPanelOpen(v => !v)
-              }}
-            />
-          )}
+          <FloatingMenuItem
+            icon={<UserAiIcon size={20} animated />}
+            label="Agents"
+            active={agentsPanelOpen}
+            onClick={() => {
+              if (!agentsPanelOpen) {
+                closePinboard()
+                setPanelOpen(false)
+                setTeamPanelOpen(false)
+              }
+              setAgentsPanelOpen(v => !v)
+            }}
+          />
         </FloatingMenu>
       </div>
 

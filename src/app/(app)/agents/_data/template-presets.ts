@@ -2,14 +2,12 @@
 // purpose : ≤120 chars — shown on the persona card and seeded into the Profile description.
 // name    : suggested display name for the persona.
 // tone    : one of the four tone IDs used on the tone-selection step.
-// modelHint: substring matched (case-insensitive) against model names; null → use first available.
 // systemInstruction: initial content for the Instructions tab system-prompt editor.
 
 export interface TemplatePreset {
   purpose: string
   name: string
   tone: 'direct' | 'warm' | 'precise' | 'evidence'
-  modelHint: string | null
   systemInstruction: string
 }
 
@@ -19,7 +17,6 @@ export const TEMPLATE_PRESETS: Record<string, TemplatePreset> = {
     purpose: 'Handles customer inquiries, resolves issues, and provides helpful, empathetic support',
     name: 'Support Agent',
     tone: 'warm',
-    modelHint: 'sonnet',
     systemInstruction:
 `You are a customer support specialist. Your job is to help customers resolve issues quickly and with genuine care.
 
@@ -40,7 +37,6 @@ Guardrails:
     purpose: 'Qualifies leads, handles objections, and guides prospects to confident buying decisions',
     name: 'Sales Assistant',
     tone: 'direct',
-    modelHint: 'sonnet',
     systemInstruction:
 `You are a sales assistant focused on helping prospects understand value and move toward a confident decision.
 
@@ -61,7 +57,6 @@ Guardrails:
     purpose: 'Reviews contracts, explains legal concepts, and flags risks in plain English',
     name: 'Legal Advisor',
     tone: 'precise',
-    modelHint: 'opus',
     systemInstruction:
 `You are a legal assistant that reviews documents, explains legal concepts, and identifies potential risks.
 
@@ -83,7 +78,6 @@ Guardrails:
     purpose: 'Synthesizes information, evaluates sources, and delivers accurate research summaries',
     name: 'Research Assistant',
     tone: 'evidence',
-    modelHint: 'opus',
     systemInstruction:
 `You are a research assistant that synthesizes information, evaluates sources, and delivers well-structured summaries.
 
@@ -105,7 +99,6 @@ Guardrails:
     purpose: 'Drafts, edits, and refines content for blogs, social media, and marketing materials',
     name: 'Content Writer',
     tone: 'warm',
-    modelHint: 'sonnet',
     systemInstruction:
 `You are a content writer who creates clear, engaging, and on-brand content for blogs, social media, email, and marketing.
 
@@ -124,7 +117,6 @@ Edit for clarity — cut anything that does not add value.`,
     purpose: 'Reviews code for bugs, security issues, best practices, and performance improvements',
     name: 'Code Reviewer',
     tone: 'precise',
-    modelHint: 'sonnet',
     systemInstruction:
 `You are a code reviewer focused on correctness, security, performance, and long-term maintainability.
 
@@ -146,7 +138,6 @@ How to give feedback:
     purpose: 'Guides new users through setup, features, and best practices with clear step-by-step help',
     name: 'Onboarding Guide',
     tone: 'warm',
-    modelHint: 'sonnet',
     systemInstruction:
 `You are an onboarding guide who helps new users get started quickly and confidently.
 
@@ -167,7 +158,6 @@ Adapt your pace to match the user's comfort level.`,
     purpose: 'Creates campaigns, copy, and strategies to grow brand awareness and drive conversions',
     name: 'Marketing Strategist',
     tone: 'direct',
-    modelHint: 'sonnet',
     systemInstruction:
 `You are a marketing strategist who develops campaigns, copy, and growth strategies that drive measurable results.
 
@@ -189,7 +179,6 @@ How to approach every request:
     purpose: 'Analyzes data, identifies trends, and delivers clear, actionable business insights',
     name: 'Data Analyst',
     tone: 'evidence',
-    modelHint: 'opus',
     systemInstruction:
 `You are a data analyst who turns raw numbers and datasets into clear, actionable insights.
 
@@ -212,7 +201,6 @@ Guardrails:
     purpose: 'Supports hiring, HR policies, performance reviews, and employee communications',
     name: 'HR Assistant',
     tone: 'warm',
-    modelHint: 'sonnet',
     systemInstruction:
 `You are an HR assistant who supports hiring managers, recruiters, and employees with HR-related tasks.
 
@@ -235,7 +223,6 @@ Guardrails:
     purpose: 'Manages schedules, drafts communications, and keeps executives organized and informed',
     name: 'Executive Assistant',
     tone: 'precise',
-    modelHint: 'sonnet',
     systemInstruction:
 `You are an executive assistant who keeps leaders organized, informed, and communicating effectively.
 
@@ -257,7 +244,6 @@ How to approach every task:
     purpose: 'Creates lesson plans, explains concepts, and supports teachers and students in learning',
     name: 'Education Assistant',
     tone: 'warm',
-    modelHint: 'sonnet',
     systemInstruction:
 `You are an education assistant who helps teachers design lessons, create materials, and support student learning.
 
@@ -278,7 +264,6 @@ Adapt all materials to the appropriate reading level for the audience.`,
     purpose: 'Helps plan tasks, manage time, and stay focused on what matters most each day',
     name: 'Productivity Coach',
     tone: 'direct',
-    modelHint: 'sonnet',
     systemInstruction:
 `You are a productivity coach who helps people plan, prioritize, and execute more effectively.
 
@@ -301,7 +286,6 @@ How to coach:
     purpose: 'Explains concepts clearly, adapts to learner pace, and makes difficult topics engaging',
     name: 'Tutor',
     tone: 'warm',
-    modelHint: 'sonnet',
     systemInstruction:
 `You are a tutor who helps learners understand difficult concepts at their own pace.
 

@@ -17,6 +17,7 @@ import {
   SettingsTableCell,
   SettingsTableFooter,
 } from '@/components/SettingsTable'
+import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { listAudit } from '@/lib/api/organization'
 import { parseServerDate, formatServerDateTime } from '@/lib/utils/format-utils'
@@ -109,6 +110,7 @@ function ActivityPageSkeleton() {
 
 export default function OrgActivityPage() {
   const { orgId, currentUserRole } = useOrg()
+  const { user } = useAuth()
   const isAdmin = currentUserRole === 'admin'
 
   const [entries,      setEntries]      = useState<AuditLogEntry[]>([])
@@ -130,14 +132,24 @@ export default function OrgActivityPage() {
     return () => { cancelled = true; window.clearTimeout(timer) }
   }, [orgId])
 
+  // Non-admins are told (via the subtitle below) that they're only seeing
+  // their own activity — the API has no role-aware filtering, so we scope it
+  // here by matching the audit entry's actor to the signed-in user's email
+  // (the same "self" identity check used on the members page).
+  const scopedEntries = useMemo(() => {
+    if (isAdmin) return entries
+    if (!user?.email) return []
+    return entries.filter(e => e.actorEmail === user.email)
+  }, [entries, isAdmin, user?.email])
+
   const actionTypes = useMemo(
-    () => ['all', ...Array.from(new Set(entries.map(e => e.action))).sort()],
-    [entries],
+    () => ['all', ...Array.from(new Set(scopedEntries.map(e => e.action))).sort()],
+    [scopedEntries],
   )
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return entries.filter(e => {
+    return scopedEntries.filter(e => {
       if (filterAction !== 'all' && e.action !== filterAction) return false
       if (!q) return true
       return (
@@ -148,7 +160,7 @@ export default function OrgActivityPage() {
         || (e.targetType ?? '').toLowerCase().includes(q)
       )
     })
-  }, [entries, filterAction, search])
+  }, [scopedEntries, filterAction, search])
 
   if (loading) {
     return (
@@ -230,7 +242,7 @@ export default function OrgActivityPage() {
               {filtered.length === 0 ? (
                 <div style={{ padding: '32px 24px', textAlign: 'center' }}>
                   <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0 }}>
-                    {entries.length === 0 ? 'No activity recorded yet in this workspace' : 'No activity matches your filters'}
+                    {scopedEntries.length === 0 ? (isAdmin ? 'No activity recorded yet in this workspace' : 'No activity recorded yet for you in this workspace') : 'No activity matches your filters'}
                   </p>
                 </div>
               ) : filtered.map(entry => {
@@ -282,7 +294,7 @@ export default function OrgActivityPage() {
 
               <SettingsTableFooter style={{ borderTop: '1px solid var(--neutral-100)' }}>
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-500)' }}>
-                  Retains 90 days of history · showing {filtered.length} of {entries.length} entr{entries.length === 1 ? 'y' : 'ies'}
+                  Retains 90 days of history · showing {filtered.length} of {scopedEntries.length} entr{scopedEntries.length === 1 ? 'y' : 'ies'}
                 </span>
               </SettingsTableFooter>
             </div>

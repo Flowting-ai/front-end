@@ -21,7 +21,6 @@ import {
   bustPersonasCache,
   type PersonaVersionResponse,
 } from '@/lib/api/personas'
-import RepublishModal from '@/app/(app)/agent/configure/components/RepublishModal'
 import { AGENTS_ROUTE } from '@/lib/routes'
 import { usePersonaConfigure } from '@/app/(app)/agent/configure/context'
 import { setVersionTags } from '@/lib/version-tags'
@@ -121,7 +120,6 @@ function PersonaConfigureKnowledgeContent() {
   const [showInfo,             setShowInfo]             = useState(false)
   const [isPublishing,         setIsPublishing]         = useState(false)
   const [isDirty,              setIsDirty]              = useState(false)
-  const [republishModalOpen,   setRepublishModalOpen]   = useState(false)
   const [files, setFiles] = useState<KnowledgeFile[]>([])
   const [isLoading, setIsLoading] = useState(!!repoId && !!versionId)
 
@@ -440,6 +438,7 @@ function PersonaConfigureKnowledgeContent() {
       toast.success('Changes autosaved')
     } catch (err) {
       console.error('[KnowledgePage] auto-save error:', err)
+      toast.error('Failed to autosave changes')
     }
   }
 
@@ -661,14 +660,6 @@ function PersonaConfigureKnowledgeContent() {
         </div>
       </div>
 
-      {republishModalOpen && (
-        <RepublishModal
-          personaName={personaName || 'Agent'}
-          superLinkActive={false}
-          onClose={() => setRepublishModalOpen(false)}
-          onDone={() => { setRepublishModalOpen(false); push(AGENTS_ROUTE) }}
-        />
-      )}
     </div>
   )
 }

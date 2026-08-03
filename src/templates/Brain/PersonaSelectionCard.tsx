@@ -230,8 +230,8 @@ export function PersonaSelectionCard({
   }
 
   const bodyText = isSingle
-    ? 'Brain recommends an agent for this task. Confirm to use it as a lens before planning begins.'
-    : `Brain found ${personas.length} agents that fit this task. Select one to use as a lens before planning begins.`
+    ? 'Brain recommends an agent for this task. Confirm to use it as a lens before work begins.'
+    : `Brain found ${personas.length} agents that fit this task. Select one to use as a lens before work begins.`
 
   const buttonLabel = selected ? 'Use this agent' : 'Select an agent'
 

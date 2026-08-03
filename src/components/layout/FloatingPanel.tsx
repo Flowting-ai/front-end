@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useMemo } from 'react'
+import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { PinIcon, QuillWriteOneIcon, UserAiIcon } from '@strange-huge/icons'
@@ -51,6 +51,19 @@ function FloatingPanelImpl() {
   useEffect(() => {
     if (!isChatPage && agentsOpen) setSidePanel(null)
   }, [isChatPage, agentsOpen, setSidePanel])
+
+  // The effect above only fires while this component stays mounted. AppLayout
+  // unmounts FloatingPanel entirely on some routes (e.g. /projects), which
+  // skips it — leaving stale "Agents" content in the (still-mounted) side
+  // panel context/sidebar. Close it on unmount too, using a ref so the
+  // cleanup sees the latest agentsOpen without re-running on every toggle.
+  const agentsOpenRef = useRef(agentsOpen)
+  agentsOpenRef.current = agentsOpen
+  useEffect(() => {
+    return () => {
+      if (agentsOpenRef.current) setSidePanel(null)
+    }
+  }, [setSidePanel])
 
   const handleTogglePinboard = () => {
     if (!pinboardOpen) { closeHighlight(); if (agentsOpen) setSidePanel(null) }

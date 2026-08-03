@@ -9,7 +9,7 @@
  * appropriate component. Markdown segments use the full markdown pipeline so
  * headings, nested lists, math, emphasis, and code blocks keep their structure.
  *
- * See: docs/frontend-rendering.md
+ * See: docs/ui/frontend-rendering.md
  */
 
 import React from "react"

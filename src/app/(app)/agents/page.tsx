@@ -1,9 +1,9 @@
 ﻿'use client'
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import {
   PlusSignIcon,
@@ -18,6 +18,7 @@ import {
   RedoIcon,
   DeleteTwoIcon,
   TickTwoIcon,
+  AlertTwoIcon,
 } from '@strange-huge/icons'
 import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/Button'
@@ -37,21 +38,25 @@ import {
   SettingsTableCell,
 } from '@/components/SettingsTable'
 import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, usePersonaRepoDeduped, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT, type Persona } from '@/lib/api/personas'
-import { fetchModelsWithCache } from '@/lib/ai-models'
+import { normalizeModels } from '@/lib/ai-models'
+import { fetchAllModels } from '@/lib/api/models'
 import type { AIModel } from '@/types/ai-model'
+import { AGENTS_SEE_ALL_EVENT } from '@/hooks/use-sidebar-events'
 import { fetchDashboard, listShares, listReceived, revokeShare, type PersonaShare, type ReceivedShareResponse, type ShareDashboardResponse } from '@/lib/api/persona-shares'
 import type { SuperLinkDrawerSession } from '@/components/SuperLinkDrawer'
 import { Badge } from '@/components/Badge'
 import { TokenBudgetBar } from '@/components/TokenBudgetBar'
 import { canonicalShareUrl } from '@/lib/share-url'
 import { personaTagsKey, personaProfileKey } from '@/lib/storage-keys'
-import { AGENTS_TEMPLATES_ROUTE, AGENT_CHAT_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
+import { AGENTS_ROUTE, AGENTS_TEMPLATES_ROUTE, AGENT_CHAT_ROUTE, AGENT_CONFIGURE_INSTRUCTIONS_ROUTE, AGENT_CONFIGURE_SHARING_ROUTE } from '@/lib/routes'
 import Tabs from '@/components/Tabs'
 import { PersonaCard } from '@/components/PersonaCard'
 import type { SuperLinkStatus } from '@/components/SuperLinkRow'
 import { SuperLinkDrawer, type SuperLinkDrawerLink } from '@/components/SuperLinkDrawer'
 import { SuperLinksEmpty } from '@/components/SuperLinksEmpty'
 import { Sparkline } from '@/components/Sparkline'
+import { ChangeAgentModelModal } from '@/components/ChangeAgentModelModal'
+import { FixAgentModelsModal, type UnavailableModelAgent } from '@/components/FixAgentModelsModal'
 import { TeamAgentsTab } from '@/app/(app)/agents/components/TeamAgentsTab'
 import { usePinboard } from '@/context/pinboard-context'
 import { useOrg } from '@/context/org-context'
@@ -61,7 +66,13 @@ import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = 'my-personas' | 'team-agents' | 'super-links' | 'community'
+type TabId = 'my-personas' | 'team-agents' | 'super-links'
+const TAB_IDS: TabId[] = ['my-personas', 'team-agents', 'super-links']
+/** Reads `?tab=` — anything missing or unrecognized falls back to "My Agents". */
+function parseTabParam(value: string | null): TabId {
+  return (TAB_IDS as string[]).includes(value ?? '') ? (value as TabId) : 'my-personas'
+}
+
 type SortKey = 'activity' | 'az' | 'za'
 
 type AgentFilters = {
@@ -78,90 +89,19 @@ function modelDisplayName(modelId: string | null): string | null {
   if (!modelId) return null
   const id = modelId.toLowerCase()
   if (id.includes('claude')) {
-    if (id.includes('opus'))  return 'Claude Opus'
-    if (id.includes('haiku')) return 'Claude Haiku'
-    return 'Claude Sonnet'
+    if (id.includes('opus'))  return 'Advanced'
+    if (id.includes('haiku')) return 'Basic'
+    return 'Standard'
   }
   if (id.includes('gpt')) return (id.includes('3.5') || id.includes('3-5')) ? 'GPT-3.5' : 'GPT-4'
   if (id.includes('gemini'))  return 'Gemini'
   if (id.includes('llama'))   return 'Llama'
   if (id.includes('mistral')) return 'Mistral'
-  return modelId
+  // Backend model ids are opaque UUIDs, not slugs — none of the checks above
+  // can ever match one, so this must never fall through to the raw id itself
+  // (that's the literal bug that shows a UUID in the model badge).
+  return null
 }
-
-// ── Mock recommended personas (community templates) ───────────────────────────
-
-const RECOMMENDED: Persona[] = [
-  {
-    id: 'rec-1',
-    name: 'General Assistant',
-    handle: '@general_assistant',
-    description: 'Example: The key distinction is that replicants possess artificial intelligence. It\'s all there. Let me walk you through what\'s built.',
-    imageUrl: null,
-    modelId: null,
-    tags: [],
-    temperature: 0.5,
-    isActive: true,
-    isPaused: false,
-    status: 'active',
-    activeVersionId: null,
-    workingVersionId: null,
-    publishedAt: null,
-    versionCount: 1,
-    visibility: 'private',
-    teamIds: [],
-    hasSystemInstructions: true,
-    sourceShareId: null,
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    id: 'rec-2',
-    name: 'Research Analyst',
-    handle: '@research_analyst',
-    description: 'Example: The key distinction is that replicants possess artificial intelligence. It\'s all there. Let me walk you through what\'s built.',
-    imageUrl: null,
-    modelId: null,
-    tags: [],
-    temperature: 0.3,
-    isActive: true,
-    isPaused: false,
-    status: 'active',
-    activeVersionId: null,
-    workingVersionId: null,
-    publishedAt: null,
-    versionCount: 1,
-    visibility: 'private',
-    teamIds: [],
-    hasSystemInstructions: true,
-    sourceShareId: null,
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    id: 'rec-3',
-    name: 'Code Reviewer',
-    handle: '@code_reviewer',
-    description: 'Example: The key distinction is that replicants possess artificial intelligence. It\'s all there. Let me walk you through what\'s built.',
-    imageUrl: null,
-    modelId: null,
-    tags: [],
-    temperature: 0.3,
-    isActive: true,
-    isPaused: false,
-    status: 'active',
-    activeVersionId: null,
-    workingVersionId: null,
-    publishedAt: null,
-    versionCount: 1,
-    visibility: 'private',
-    teamIds: [],
-    hasSystemInstructions: true,
-    sourceShareId: null,
-    createdAt: '',
-    updatedAt: '',
-  },
-]
 
 // ── PersonaAvatar ─────────────────────────────────────────────────────────────
 
@@ -550,9 +490,10 @@ function toDrawerLink(
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function PersonasPage() {
-  const { push } = useRouter()
+function PersonasPageInner() {
+  const { push, replace } = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { close: closePinboard } = usePinboard()
   const { currentUserRole, orgId, teams, members } = useOrg()
   const { user } = useAuth()
@@ -579,7 +520,36 @@ export default function PersonasPage() {
     return isPersonaOwnedByViewer(persona, personaOwnerMap, viewerUserId, currentUserRole === 'admin')
   }
 
-  const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')
+  // Seeded from the URL so a reload, a shared link, or Back/Forward lands on
+  // the same tab the user was looking at — not always back at "My Agents".
+  const [activeTab, setActiveTabState] = useState<TabId>(() => parseTabParam(searchParams.get('tab')))
+
+  // Re-sync any time the URL's ?tab= changes from outside a click on this
+  // page's own Tabs (Back/Forward, or a link landing here with a tab param).
+  useEffect(() => {
+    const urlTab = parseTabParam(searchParams.get('tab'))
+    setActiveTabState(prev => (prev === urlTab ? prev : urlTab))
+  }, [searchParams])
+
+  // Sets the tab AND keeps the URL's ?tab= in sync, so the current tab
+  // survives a reload/back-nav and links to this page can target a specific
+  // tab. `replace` (not `push`) — switching tabs isn't a new history entry.
+  function setActiveTab(next: TabId) {
+    setActiveTabState(next)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', next)
+    replace(`${AGENTS_ROUTE}?${params.toString()}`, { scroll: false })
+  }
+
+  // The sidebar's "See all agents" row emits this while this page is already
+  // mounted (a same-URL push wouldn't reset activeTab on its own) — always
+  // land back on "My Agents", regardless of which tab was active.
+  useEffect(() => {
+    const handler = () => setActiveTab('my-personas')
+    window.addEventListener(AGENTS_SEE_ALL_EVENT, handler)
+    return () => window.removeEventListener(AGENTS_SEE_ALL_EVENT, handler)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [personas,     setPersonas]     = useState<Persona[]>([])
   const [draftAvatarMap,   setDraftAvatarMap]   = useState<Record<string, string>>({})
   const [draftTagsMap,     setDraftTagsMap]     = useState<Record<string, string[]>>({})
@@ -593,9 +563,14 @@ export default function PersonasPage() {
   const [allOpen,       setAllOpen]       = useState(false)
   const [filterOpen,    setFilterOpen]    = useState(false)
   const [deleteTarget,  setDeleteTarget]  = useState<Persona | null>(null)
+  const [changeModelTarget, setChangeModelTarget] = useState<Persona | null>(null)
+  const [fixModelsOpen,     setFixModelsOpen]     = useState(false)
   const mounted = useMounted()
   const [allSharesForFilter, setAllSharesForFilter] = useState<PersonaShare[]>([])
-  const [availableModels,    setAvailableModels]    = useState<AIModel[]>([])
+  // Full catalog (blocked models included) so a persona whose model was disabled
+  // in Settings, or retired by the provider, still resolves to a real name here
+  // instead of falling through to the raw model id.
+  const [modelsForNameLookup, setModelsForNameLookup] = useState<AIModel[]>([])
   const filterSharesLoadedRef = useRef(false)
   const [panelGenOpen,  setPanelGenOpen]  = useState(false)
 
@@ -743,8 +718,8 @@ export default function PersonasPage() {
     listShares()
       .then(setAllSharesForFilter)
       .catch(() => {})
-    fetchModelsWithCache()
-      .then(setAvailableModels)
+    fetchAllModels()
+      .then(list => setModelsForNameLookup(normalizeModels(list)))
       .catch(() => {})
   }, [activeTab])
 
@@ -810,19 +785,80 @@ export default function PersonasPage() {
     return map
   }, [personas])
 
-  // Map from stable model ID → human-readable model name (from the API models list).
+  // Team count for the card's visibility footer badge ("N teams").
+  const teamCountForPersona = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const p of personas) {
+      if (p.visibility === 'team') map[p.id] = p.teamIds.length
+    }
+    return map
+  }, [personas])
+
+  // "Created by" footer attribution — "You" for agents the viewer owns,
+  // otherwise the actual owner's name resolved via personaOwnerMap + org members.
+  const createdByForPersona = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const p of personas) {
+      if (isOwnedByMe(p)) { map[p.id] = 'You'; continue }
+      const ownerId = personaOwnerMap[p.id]
+      const owner = ownerId ? members.find(m => m.id === ownerId) : undefined
+      if (owner) map[p.id] = owner.name
+    }
+    return map
+  }, [personas, personaOwnerMap, members, viewerUserId, currentUserRole])
+
+  // Map from stable model ID → human-readable model name (from the full API
+  // models list, including blocked ones — see modelsForNameLookup above).
   const modelIdToName = useMemo(() => {
     const map = new Map<string, string>()
-    for (const m of availableModels) {
+    for (const m of modelsForNameLookup) {
       const key = String(m.modelId ?? m.id ?? '')
       if (key) map.set(key, m.modelName)
     }
     return map
-  }, [availableModels])
+  }, [modelsForNameLookup])
 
   function resolveModelName(modelId: string | null): string | null {
     if (!modelId) return null
     return modelIdToName.get(modelId) ?? modelDisplayName(modelId)
+  }
+
+  // Map from stable model ID → whether the user has disabled it in Settings.
+  // Absence from the map (rather than false) means it's gone from the catalog
+  // entirely — deprecated/retired by the provider.
+  const modelIdToBlocked = useMemo(() => {
+    const map = new Map<string, boolean>()
+    for (const m of modelsForNameLookup) {
+      const key = String(m.modelId ?? m.id ?? '')
+      if (key) map.set(key, !!m.blocked)
+    }
+    return map
+  }, [modelsForNameLookup])
+
+  // Why a persona's configured model can't be used, or null when it's fine.
+  // 'blocked' — still in the catalog but turned off for this account.
+  // 'retired' — absent from the catalog entirely (deprecated by the provider).
+  // The two get different copy, so they can't collapse into one boolean here.
+  // Requires the full catalog to have loaded at least once — otherwise every
+  // persona would flash as unavailable during the initial fetch.
+  function modelUnavailableReason(modelId: string | null): 'retired' | 'blocked' | null {
+    if (!modelId || !modelsForNameLookup.length) return null
+    const blocked = modelIdToBlocked.get(modelId)
+    if (blocked === undefined) return 'retired'
+    return blocked ? 'blocked' : null
+  }
+
+  // Draft/unpublished cards already have their own "finish setup" treatment,
+  // so they never get the model-unavailable overlay on top of it.
+  function isDraftLike(persona: Persona): boolean {
+    return persona.status === 'draft' || !persona.hasSystemInstructions || !!unpublishedMap[persona.id]
+  }
+
+  // The version a model reassignment would patch. activeVersionId is the
+  // common case (published agent); workingVersionId covers a paused agent
+  // that was never published. Without either there is nothing to write to.
+  function patchableVersionId(persona: Persona): string | null {
+    return persona.activeVersionId ?? persona.workingVersionId ?? null
   }
 
   // Unique model display names present in the current persona list.
@@ -856,6 +892,33 @@ export default function PersonasPage() {
     () => personas.filter(p => p.visibility !== 'team' || isOwnedByMe(p)),
     [personas, currentUserRole, personaOwnerMap, viewerUserId],
   )
+
+  // Every agent that can't run because of its model, in the exact same set the
+  // cards mark as unavailable. Deliberately NOT narrowed by the toolbar
+  // filters — "3 agents are broken" has to stay true regardless of what the
+  // user is currently filtering by. Agents with no patchable version are left
+  // out: there'd be nothing to write the replacement to.
+  const unavailableAgents = useMemo(() => {
+    const rows: UnavailableModelAgent[] = []
+    for (const persona of visiblePersonas) {
+      if (isDraftLike(persona)) continue
+      const reason = modelUnavailableReason(persona.modelId)
+      if (!reason) continue
+      const versionId = patchableVersionId(persona)
+      if (!versionId) continue
+      rows.push({
+        id:        persona.id,
+        name:      persona.name,
+        avatarUrl: draftAvatarMap[persona.id] ?? persona.imageUrl,
+        versionId,
+        modelId:   persona.modelId,
+        modelName: resolveModelName(persona.modelId),
+        reason,
+      })
+    }
+    return rows
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visiblePersonas, modelIdToBlocked, modelIdToName, unpublishedMap, draftAvatarMap])
 
   // Filter + sort — split into three chained memos so a sort change doesn't
   // re-run filtering, and a filter change doesn't re-run the sort.
@@ -1063,7 +1126,6 @@ export default function PersonasPage() {
                 <Tabs.Trigger value="my-personas">My Agents</Tabs.Trigger>
                 <Tabs.Trigger value="team-agents">Team Agents</Tabs.Trigger>
                 <Tabs.Trigger value="super-links">Super Links</Tabs.Trigger>
-                {/* <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger> */}
               </Tabs.List>
             </Tabs>
 
@@ -1088,13 +1150,28 @@ export default function PersonasPage() {
                     links list section below (where it's contextually useful),
                     instead of being duplicated here too. */}
                 {activeTab === 'super-links' || activeTab === 'team-agents' ? null : (
-                  <Button
-                    variant="default"
-                    leftIcon={<PlusSignIcon size={16} />}
-                    onClick={() => push(AGENTS_TEMPLATES_ROUTE)}
-                  >
-                    New agent
-                  </Button>
+                  <>
+                    {/* Only appears when something is actually broken — a
+                        standing button here would read as a permanent chore. */}
+                    {unavailableAgents.length > 0 && (
+                      <Button
+                        variant="secondary"
+                        leftIcon={<AlertTwoIcon size={16} color="var(--color-tag-Yellow-text)" />}
+                        onClick={() => setFixModelsOpen(true)}
+                      >
+                        {unavailableAgents.length === 1
+                          ? 'Fix 1 agent'
+                          : `Fix ${unavailableAgents.length} agents`}
+                      </Button>
+                    )}
+                    <Button
+                      variant="default"
+                      leftIcon={<PlusSignIcon size={16} />}
+                      onClick={() => push(AGENTS_TEMPLATES_ROUTE)}
+                    >
+                      New agent
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
@@ -1423,18 +1500,18 @@ export default function PersonasPage() {
                       {gridRows[vRow.index].map(persona => (
                         <PersonaCard
                           key={persona.id}
-                          // Fill the grid cell (the DS default is a fixed 314px,
-                          // which overflows the 1fr cells) and stretch to the
-                          // row's height so every card in a row is uniform — this
-                          // also keeps the hover action bar over empty space
-                          // instead of clipping the description.
-                          style={{ width: '100%', height: '100%' }}
-                          variant={persona.status === 'draft' || !persona.hasSystemInstructions || unpublishedMap[persona.id] ? 'draft' : 'default'}
+                          // Fill the grid cell width (the DS default is a fixed
+                          // 314px, which overflows the 1fr cells) — height is no
+                          // longer stretched here since PersonaCard now enforces
+                          // its own fixed height directly, so every card lines up
+                          // without depending on row-mates.
+                          style={{ width: '100%' }}
+                          variant={isDraftLike(persona) ? 'draft' : 'default'}
                           avatarSeed={persona.activeVersionId ?? persona.workingVersionId ?? persona.id}
                           name={persona.name}
                           handle={persona.handle.replace(/^@/, '')}
                           description={
-                            (persona.status === 'draft' || !persona.hasSystemInstructions || unpublishedMap[persona.id]) && !persona.description
+                            isDraftLike(persona) && !persona.description
                               ? 'Tap Edit to add a system instruction and publish this agent.'
                               : persona.description
                           }
@@ -1442,10 +1519,23 @@ export default function PersonasPage() {
                           tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
                           shared={persona.sourceShareId !== null || (persona.visibility === 'team' && !isOwnedByMe(persona))}
-                          modelVisible={Boolean(resolveModelName(persona.modelId))}
-                          modelName={resolveModelName(persona.modelId) ?? undefined}
+                          createdBy={createdByForPersona[persona.id]}
+                          useInChatLabel="Chat with agent"
+                          // Draft cards already have their own "finish setup" treatment —
+                          // only live/published agents get the model-unavailable overlay.
+                          modelUnavailable={!isDraftLike(persona) && !!modelUnavailableReason(persona.modelId)}
+                          modelUnavailableReason={modelUnavailableReason(persona.modelId) ?? undefined}
+                          unavailableModelName={resolveModelName(persona.modelId)}
+                          // Withheld when there's no version to patch, so the
+                          // button can never render as a no-op.
+                          onChangeModel={
+                            patchableVersionId(persona)
+                              ? () => setChangeModelTarget(persona)
+                              : undefined
+                          }
                           superlink={activeShareRepoIds.has(persona.id)}
                           visibility={visibilityForPersona[persona.id] === 'team' ? 'team' : visibilityForPersona[persona.id] === 'private' ? 'private' : undefined}
+                          teamCount={teamCountForPersona[persona.id]}
                           {...(() => {
                             // Team-shared originals not created by this user (regardless of
                             // their own org role) — they cannot edit/delete/share the
@@ -1940,6 +2030,36 @@ export default function PersonasPage() {
         }}
       />
 
+      {/* ── Change model — single card ── */}
+      {changeModelTarget && patchableVersionId(changeModelTarget) && (
+        <ChangeAgentModelModal
+          // Fresh instance per agent — the picker's selection is per-agent state.
+          key={changeModelTarget.id}
+          open
+          onClose={() => setChangeModelTarget(null)}
+          personaId={changeModelTarget.id}
+          versionId={patchableVersionId(changeModelTarget)!}
+          agentName={changeModelTarget.name}
+          currentModelId={changeModelTarget.modelId}
+          currentModelName={resolveModelName(changeModelTarget.modelId)}
+          reason={modelUnavailableReason(changeModelTarget.modelId) ?? undefined}
+          onSaved={({ modelId }) => {
+            setPersonas(prev => prev.map(p => p.id === changeModelTarget.id ? { ...p, modelId } : p))
+          }}
+        />
+      )}
+
+      {/* ── Fix models — every affected agent at once ── */}
+      <FixAgentModelsModal
+        open={fixModelsOpen}
+        onClose={() => setFixModelsOpen(false)}
+        agents={unavailableAgents}
+        onSaved={(updates) => {
+          const byId = new Map(updates.map(u => [u.id, u.modelId]))
+          setPersonas(prev => prev.map(p => byId.has(p.id) ? { ...p, modelId: byId.get(p.id)! } : p))
+        }}
+      />
+
       {/* ── Delete confirmation ── */}
       {mounted && createPortal(
         <AnimatePresence>
@@ -2098,5 +2218,13 @@ export default function PersonasPage() {
         document.body
       )}
     </>
+  )
+}
+
+export default function PersonasPage() {
+  return (
+    <Suspense fallback={null}>
+      <PersonasPageInner />
+    </Suspense>
   )
 }

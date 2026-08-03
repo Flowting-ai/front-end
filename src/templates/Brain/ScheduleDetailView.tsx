@@ -12,14 +12,14 @@ import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Badge } from '@/components/Badge'
 import { LoopHistoryCard } from './LoopHistoryCard'
-import type { PlanStep } from './lib/phase'
+import type { AgentStep } from './lib/phase'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ScheduleRunRecord {
   id:            string
   label:         string     // e.g. "Today · 8:00 AM" — shown in run card header
-  steps:         PlanStep[]
+  steps:         AgentStep[]
   title?:        string     // header label — "Completed", "Failed", "Running"
   summary?:      string     // run result (synthesis) or failure reason, shown when expanded
   completedAt?:  Date

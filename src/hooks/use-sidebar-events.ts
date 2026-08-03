@@ -15,6 +15,11 @@ export const BRAIN_NEW_THREAD_EVENT = "brain:new-thread";
 export const BRAIN_THREAD_TITLE_UPDATED_EVENT = "brain:thread-title-updated";
 export const BRAIN_THREAD_DELETED_EVENT = "brain:thread-deleted";
 export const CHAT_CREATED_EVENT = "chat:created";
+// Fired by the shared LeftSidebar's "See all agents" row while already on
+// /agents — a plain push() to the same URL won't reset tab state on an
+// already-mounted page (same reasoning as BRAIN_NEW_THREAD_EVENT above), so
+// the agents page listens and switches itself back to the "My Agents" tab.
+export const AGENTS_SEE_ALL_EVENT = "agents:see-all";
 
 export interface PersonaChatEventDetail {
   personaId: string;
@@ -79,6 +84,12 @@ export function emitChatCreated(detail: ChatCreatedEventDetail) {
 export function emitBrainNewThread() {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(BRAIN_NEW_THREAD_EVENT));
+  }
+}
+
+export function emitAgentsSeeAll() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AGENTS_SEE_ALL_EVENT));
   }
 }
 

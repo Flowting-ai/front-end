@@ -13,6 +13,7 @@ import { Badge } from '@/components/Badge'
 import { MarkdownRenderer } from '@/lib/markdown-utils'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { CHAT_ROUTE } from '@/lib/routes'
+import { toSouvenirModelLabel } from '@/lib/ai-models'
 
 function SharedChatContent() {
   const params   = useParams()
@@ -184,7 +185,7 @@ function SharedChatContent() {
                     <MarkdownRenderer content={msg.output} />
                     {msg.modelName && (
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--neutral-400)' }}>
-                        {msg.modelName}
+                        {toSouvenirModelLabel(msg.modelName)}
                       </span>
                     )}
                   </div>

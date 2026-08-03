@@ -121,7 +121,7 @@ New pin appears at top of list
     → animate in using Pattern 3 (message appear: opacity 0→1, y 12→0, 220ms easeOut)
 ```
 
-If the API call fails: revert optimistic update, show inline error (E3 pattern from `docs/error-states.md`).
+If the API call fails: revert optimistic update, show inline error (E3 pattern from `docs/ui/error-states.md`).
 
 ---
 

@@ -10,6 +10,7 @@ import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { ChipInput } from '@/components/ChipInput'
 import { TAG_COLORS, type ProjectTag } from '@/context/projects-context'
+import { toast } from 'sonner'
 
 const EMPTY_PROJECT_TAGS: ProjectTag[] = []
 const MAX_TAGS = 5
@@ -100,6 +101,7 @@ export function EditProjectModal({
   function handleSave() {
     if (!draftName.trim()) return
     onSave(draftName.trim(), draftDesc.trim(), draftTags)
+    toast.success('Project updated')
     onClose()
   }
 

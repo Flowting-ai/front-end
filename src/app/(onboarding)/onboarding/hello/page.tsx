@@ -8,6 +8,7 @@ import type { OnboardingRole } from "@/context/onboarding-context";
 import { InputField } from "@/components/InputField";
 import { Dropdown, DropdownFloat } from "@/components/Dropdown";
 import { createUser, updateUser, updateOnboarding } from "@/lib/api/user";
+import { toast } from "sonner";
 import { Button } from "@/components/Button";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 import { AUTH_LOGIN_ROUTE, ONBOARDING_ACCOUNT_TYPE_ROUTE } from "@/lib/routes";
@@ -160,10 +161,13 @@ export default function OnboardingHelloPage() {
         }),
         updateOnboarding({ user_role: effectiveUserRole(data) }),
       ]);
+      push(ONBOARDING_ACCOUNT_TYPE_ROUTE);
+    } catch (err) {
+      console.error("Onboarding submission failed", err);
+      toast.error("Something went wrong — please try again.");
     } finally {
       setIsSaving(false);
     }
-    push(ONBOARDING_ACCOUNT_TYPE_ROUTE);
   };
 
   if (!isHydrated) return null;

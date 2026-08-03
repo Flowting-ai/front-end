@@ -6,6 +6,7 @@ import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { type UserPlanType } from '@/lib/api/user'
 import { createCheckout, type CheckoutPlan } from '@/lib/api/stripe'
+import { trackBrowserEvent } from '@/lib/analytics/events'
 import { toast } from 'sonner'
 import { ContactSalesModal } from '@/components/ContactSalesModal'
 import { ORG_PLANS_ROUTE } from '@/lib/routes'
@@ -118,7 +119,9 @@ export default function OrgChangePlanPage() {
     setChangingTo(plan)
     try {
       const checkout = await createCheckout({ plan, billing: 'monthly' })
+      trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: plan })
       document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
+      try { sessionStorage.setItem('souvenir_checkout_source', 'billing') } catch { /* sessionStorage may be unavailable */ }
       window.location.href = checkout.checkout_url
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update plan')
@@ -132,7 +135,9 @@ export default function OrgChangePlanPage() {
     setChangingTo(plan)
     try {
       const checkout = await createCheckout({ plan, billing: 'monthly' })
+      trackBrowserEvent('checkout_started', { from_plan: currentPlan ?? undefined, to_plan: plan })
       document.cookie = 'souvenir_checkout_complete=1; path=/; max-age=3600; SameSite=Lax'
+      try { sessionStorage.setItem('souvenir_checkout_source', 'billing') } catch { /* sessionStorage may be unavailable */ }
       window.location.href = checkout.checkout_url
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to start checkout')

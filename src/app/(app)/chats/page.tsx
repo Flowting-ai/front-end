@@ -21,28 +21,13 @@ import { CHAT_ROUTE, CHAT_SHARE_ROUTE } from '@/lib/routes'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Badge } from '@/components/Badge'
 import { Skeleton } from '@/components/Skeleton'
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatTimestamp(iso: string | undefined | null): string {
-  if (!iso) return ''
-  const d    = new Date(iso)
-  const now  = new Date()
-  const diff = (now.getTime() - d.getTime()) / 1000
-
-  if (diff < 60)         return 'Just now'
-  if (diff < 3600)       return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400)      return `${Math.floor(diff / 3600)}h ago`
-  if (diff < 86400 * 2)  return 'Yesterday'
-  if (diff < 86400 * 7)  return d.toLocaleDateString('en-US', { weekday: 'short' })
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
+import { formatRelativeTime } from '@/lib/utils/format-utils'
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function ChatsPage() {
   const { push }                       = useRouter()
-  const { chats, isLoading, rename, remove, removeLocal, star } = useChatHistoryContext()
+  const { chats, isLoading, hasMore, loadMore, rename, remove, removeLocal, star } = useChatHistoryContext()
   const { projects, addChat }                     = useProjects()
   const { pins, isOpen, chatFilter, openForChat } = usePinboard()
 
@@ -117,6 +102,17 @@ export default function ChatsPage() {
   const handleOpenChat = useCallback((chatId: string) => {
     push(`${CHAT_ROUTE}?id=${chatId}`)
   }, [push])
+
+  // Infinite scroll: fetch the next cursor-based page once the user nears the
+  // bottom of the virtualized list. loadMore's own loadingRef guard (inside
+  // use-chat-history) dedupes overlapping calls, so hasMore is the only guard
+  // needed here to avoid firing once there is nothing left to fetch.
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el || !hasMore || isLoading) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (distanceFromBottom < 400) loadMore()
+  }, [hasMore, isLoading, loadMore])
 
   const handleDelete = useCallback(async () => {
     if (selectedIds.size === 0) return
@@ -202,6 +198,7 @@ export default function ChatsPage() {
     <div
       ref={scrollRef}
       className="kaya-scrollbar"
+      onScroll={handleScroll}
       style={{
         display:       'flex',
         flexDirection: 'column',
@@ -455,7 +452,7 @@ export default function ChatsPage() {
                     >
                       <ChatRow
                         title={chat.title}
-                        timestamp={formatTimestamp(chat.last_message_at ?? chat.updated_at)}
+                        timestamp={formatRelativeTime(chat.last_message_at ?? chat.updated_at)}
                         pinCount={pinCountMap[chat.id] ?? chat.pins_count ?? 0}
                         pinBoardOpen={isOpen && chatFilter === chat.id}
                         onPinClick={pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}

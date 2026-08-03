@@ -55,6 +55,24 @@ export function formatServerDateTime(
   return `${date} · ${time}`;
 }
 
+/**
+ * Format a backend timestamp as a short relative label for chat list rows —
+ * "Just now" / "5m ago" / "3h ago" / "Yesterday" / weekday / "Jun 10".
+ */
+export function formatRelativeTime(value: string | number | null | undefined): string {
+  const d = parseServerDate(value);
+  if (!d) return "";
+  const now = new Date();
+  const diff = (now.getTime() - d.getTime()) / 1000;
+
+  if (diff < 60) return "Just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 86400 * 2) return "Yesterday";
+  if (diff < 86400 * 7) return d.toLocaleDateString("en-US", { weekday: "short" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export interface FormatDateOptions {
   ordinal?: boolean;
   year?: boolean;

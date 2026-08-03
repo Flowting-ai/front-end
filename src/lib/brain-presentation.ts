@@ -1,4 +1,4 @@
-import type { PlanStep } from '@/templates/Brain/lib/phase'
+import type { AgentStep } from '@/templates/Brain/lib/phase'
 import type { BrainTimelineItem } from '@/templates/Brain'
 
 export interface PromptIdentity {
@@ -17,13 +17,16 @@ export function retirePrompt<T extends PromptIdentity>(queue: T[], promptId: str
   return queue.filter((item) => item.request_id !== promptId)
 }
 
-/** Build Mayday's expandable execution timeline from the canonical plan state. */
-export function planTimelineItems(
-  steps: PlanStep[],
-  nodeOutputs: Record<string, string> = {},
+/** Build the expandable execution timeline from the turn's rallied agents. */
+export function agentTimelineItems(
+  steps: AgentStep[],
+  agentOutputs: Record<string, string> = {},
 ): BrainTimelineItem[] {
   return steps.map((step) => {
-    const details = nodeOutputs[step.id]?.trim() || undefined
+    const output = agentOutputs[step.id]?.trim()
+    const details = step.error
+      ? [output, step.error].filter(Boolean).join('\n\n')
+      : output || undefined
     if (step.status === 'failed') {
       return {
         id: step.id,
@@ -50,7 +53,7 @@ export function planTimelineItems(
   })
 }
 
-export function executionPhaseTitle(steps: PlanStep[]): string {
+export function executionPhaseTitle(steps: AgentStep[]): string {
   const complete = steps.filter((step) => step.status === 'complete').length
   const skipped = steps.filter((step) => step.status === 'skipped').length
   const failed = steps.filter((step) => step.status === 'failed').length
@@ -59,5 +62,5 @@ export function executionPhaseTitle(steps: PlanStep[]): string {
     skipped > 0 ? `${skipped} skipped` : '',
     failed > 0 ? `${failed} failed` : '',
   ].filter(Boolean)
-  return parts.length > 0 ? `Execution — ${parts.join(' · ')}` : 'Execution details'
+  return parts.length > 0 ? `Agents — ${parts.join(' · ')}` : 'Agent details'
 }

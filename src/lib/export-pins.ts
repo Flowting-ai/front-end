@@ -1,6 +1,15 @@
 import { toast } from "sonner"
 import type { PinItem } from "@/context/pinboard-context"
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 function stripMarkdown(text: string): string {
   return text
     .replace(/```[\s\S]*?```/g, "")
@@ -17,103 +26,99 @@ function buildPinCard(pin: PinItem, chatNameById: Map<string, string>): string {
   const chatName = (pin.chatId ? chatNameById.get(pin.chatId) : undefined) ?? pin.chatName ?? ""
   const tags =
     pin.tags && pin.tags.length
-      ? `<div style="margin-top:6px;font-size:11px;color:#444;">Tags: ${pin.tags.join(", ")}</div>`
+      ? `<div style="margin-top:6px;font-size:11px;color:#444;">Tags: ${pin.tags.map(escapeHtml).join(", ")}</div>`
       : ""
-  const category = `<div style="margin-top:4px;font-size:11px;color:#888;">${pin.category}</div>`
+  const category = `<div style="margin-top:4px;font-size:11px;color:#888;">${escapeHtml(pin.category)}</div>`
   const chat = chatName
-    ? `<div style="margin-top:4px;font-size:11px;color:#666;">Chat: ${chatName}</div>`
+    ? `<div style="margin-top:4px;font-size:11px;color:#666;">Chat: ${escapeHtml(chatName)}</div>`
     : ""
   return `
     <div style="padding:12px 14px;border:1px solid #e1e1e1;border-radius:10px;margin-bottom:10px;break-inside:avoid;">
-      <div style="font-weight:600;font-size:14px;color:#111;margin-bottom:4px;">${stripMarkdown(pin.title || pin.content)}</div>
-      <div style="font-size:12px;color:#222;white-space:pre-wrap;">${stripMarkdown(pin.content)}</div>
+      <div style="font-weight:600;font-size:14px;color:#111;margin-bottom:4px;">${escapeHtml(stripMarkdown(pin.title || pin.content))}</div>
+      <div style="font-size:12px;color:#222;white-space:pre-wrap;">${escapeHtml(stripMarkdown(pin.content))}</div>
       ${category}
       ${chat}
       ${tags}
     </div>`
 }
 
-function buildDocHtml(htmlPins: string, label: string, now: Date, filename: string): string {
-  return `<!DOCTYPE html>
-<html>
-  <head>
-    <title>Pins Export - ${filename}</title>
-    <meta charset="UTF-8">
-    <style>
-      @page { margin: 18mm; }
-      * { box-sizing: border-box; }
-      body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
-      .toolbar {
-        position: sticky; top: 0; background: white; border-bottom: 1px solid #ddd;
-        padding: 12px 20px; display: flex; gap: 10px; align-items: center;
-        z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      }
-      .toolbar button {
-        padding: 8px 16px; border: none; border-radius: 6px;
-        font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s;
-      }
-      .toolbar button:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-      .print-btn { background: #1e1e1e; color: white; }
-      .print-btn:hover { background: #333; }
-      .toolbar-title { margin-left: 10px; font-size: 14px; color: #666; flex: 1; }
-      .container { max-width: 900px; margin: 0 auto; padding: 20px; background: white; min-height: calc(100vh - 60px); }
-      .header { font-size: 24px; font-weight: bold; margin-bottom: 8px; color: #111; }
-      .meta { font-size: 12px; color: #555; margin-bottom: 16px; }
-      @media print {
-        body { background: white; }
-        .toolbar { display: none; }
-        .container { max-width: 100%; padding: 0; box-shadow: none; }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="toolbar">
-      <button class="print-btn" onclick="window.print()">
-        <span style="margin-right:6px;">🖨</span> Print
-      </button>
-      <div class="toolbar-title">${label} · ${now.toLocaleString()}</div>
-    </div>
-    <div class="container">
-      <div class="header">Pinboard Export</div>
-      <div class="meta">Exported ${label} · ${now.toLocaleString()}</div>
+function buildDocHtml(htmlPins: string, label: string, now: Date): string {
+  return `
+    <div style="font-family:Arial,sans-serif;width:760px;padding:24px;background:#fff;">
+      <div style="font-size:22px;font-weight:bold;margin-bottom:6px;color:#111;">Pinboard Export</div>
+      <div style="font-size:12px;color:#555;margin-bottom:16px;">Exported ${label} · ${now.toLocaleString()}</div>
       ${htmlPins}
-    </div>
-  </body>
-</html>`
-}
-
-function openPrintWindow(docHtml: string): void {
-  const printWindow = window.open("", "_blank", "width=1000,height=800")
-  if (!printWindow) {
-    toast.error("Popup blocked", { description: "Allow popups to export pins." })
-    return
-  }
-  printWindow.document.open()
-  printWindow.document.write(docHtml)
-  printWindow.document.close()
-  toast("Export window opened", { description: "Use the toolbar to print your pins." })
+    </div>`
 }
 
 /**
- * Export a single pin to a print window.
+ * Renders `docHtml` off-screen and saves it as a real downloaded PDF (not a
+ * print-dialog dependent popup — this generates actual PDF bytes via jsPDF +
+ * html2canvas and triggers a browser download under `filename`).
+ */
+async function renderAndDownloadPdf(docHtml: string, filename: string): Promise<void> {
+  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+    import("jspdf"),
+    import("html2canvas"),
+  ])
+
+  const container = document.createElement("div")
+  container.style.position = "fixed"
+  container.style.left = "-10000px"
+  container.style.top = "0"
+  container.innerHTML = docHtml
+  document.body.appendChild(container)
+
+  try {
+    const canvas = await html2canvas(container, { scale: 2, windowWidth: 808 })
+    const imgData = canvas.toDataURL("image/png")
+
+    const pdf = new jsPDF({ unit: "px", format: [canvas.width, canvas.height] })
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = (canvas.height * pageWidth) / canvas.width
+
+    // Paginate: slice the tall rendered image across as many A4-ish pages as needed.
+    const pxPerPage = (pdf.internal.pageSize.getHeight() / pageWidth) * canvas.width
+    let renderedHeight = 0
+    let isFirstPage = true
+    while (renderedHeight < canvas.height) {
+      if (!isFirstPage) pdf.addPage()
+      const sliceHeight = Math.min(pxPerPage, canvas.height - renderedHeight)
+      pdf.addImage(
+        imgData, "PNG",
+        0, -renderedHeight * (pageWidth / canvas.width),
+        pageWidth, pageHeight,
+      )
+      renderedHeight += sliceHeight
+      isFirstPage = false
+    }
+
+    pdf.save(filename)
+  } finally {
+    document.body.removeChild(container)
+  }
+}
+
+/**
+ * Export a single pin as a downloaded PDF file.
  */
 export function exportSinglePin(pin: PinItem, chatNameById: Map<string, string>): void {
   if (typeof window === "undefined") return
   const now = new Date()
   const filename = `pin-export-${now.toISOString().split("T")[0]}.pdf`
-  const htmlPins = buildPinCard(pin, chatNameById)
-  const docHtml = buildDocHtml(htmlPins, "1 pin", now, filename)
-  try {
-    openPrintWindow(docHtml)
-  } catch (error) {
-    console.error("Failed to open export window", error)
-    toast.error("Export failed", { description: "Unable to open export window." })
-  }
+  const docHtml = buildDocHtml(buildPinCard(pin, chatNameById), "1 pin", now)
+
+  toast.promise(renderAndDownloadPdf(docHtml, filename), {
+    loading: "Generating PDF…",
+    success: `Downloaded ${filename}`,
+    error: "Couldn't generate the PDF. Please try again.",
+  })
 }
 
 /**
- * Export multiple pins (bulk export from pinboard header or organize mode).
- * When pinIds is provided, only those pins are exported; otherwise all pins in the array.
+ * Export multiple pins (bulk export from pinboard header or organize mode) as
+ * a single downloaded PDF file. When pinIds is provided, only those pins are
+ * exported; otherwise all pins in the array.
  */
 export function exportPins(
   allPins: PinItem[],
@@ -134,13 +139,11 @@ export function exportPins(
   const now = new Date()
   const label = pins.length === 1 ? "1 pin" : `${pins.length} pins`
   const filename = `pins-export-${now.toISOString().split("T")[0]}.pdf`
-  const htmlPins = pins.map(p => buildPinCard(p, chatNameById)).join("")
-  const docHtml = buildDocHtml(htmlPins, label, now, filename)
+  const docHtml = buildDocHtml(pins.map(p => buildPinCard(p, chatNameById)).join(""), label, now)
 
-  try {
-    openPrintWindow(docHtml)
-  } catch (error) {
-    console.error("Failed to open export window", error)
-    toast.error("Export failed", { description: "Unable to open export window." })
-  }
+  toast.promise(renderAndDownloadPdf(docHtml, filename), {
+    loading: "Generating PDF…",
+    success: `Downloaded ${filename}`,
+    error: "Couldn't generate the PDF. Please try again.",
+  })
 }

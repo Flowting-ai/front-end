@@ -1,9 +1,9 @@
 // Local brand-logo assets for connectors, keyed by slug, bundled under
-// /public/connector-logos/. The backend now returns a provider-hosted
-// `logo_url` on each catalog entry (Pipedream Apps API); these curated assets
-// take precedence where bundled, and `logo_url` covers the long tail. Keep the
-// slug variants (dash / underscore / concatenated) in sync with the backend's
-// connector slugs.
+// /public/connector-logos/. The backend returns a provider-hosted `logo_url`
+// on each catalog entry (Pipedream Apps API) — toConnector() uses that
+// directly and only falls back to these bundled assets when the backend
+// doesn't send one for a given connector. Keep the slug variants (dash /
+// underscore / concatenated) in sync with the backend's connector slugs.
 //
 // Don't consume this module directly from UI code — build a `Connector` via
 // toConnector() in @/lib/connector, which folds these maps in with the

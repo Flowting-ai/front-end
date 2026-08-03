@@ -7,7 +7,6 @@ import { X } from "lucide-react";
 import { toast } from "sonner";
 import { ArrowDownOneIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
-import { ORG_PLANS_ROUTE } from "@/lib/routes";
 import { ChatMessageMemo } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CitationsPanel } from "./CitationsPanel";
@@ -30,10 +29,10 @@ import { useModelSelectorContext } from "@/context/model-selector-context";
 import { usePinboard, type PinItem } from "@/context/pinboard-context";
 import { useAuth } from "@/context/auth-context";
 import { useOrg } from "@/context/org-context";
-import { useRouter } from "next/navigation";
-import { InlineCreditNotice, type CreditNoticeStatus } from "@/components/InlineCreditNotice";
+import { InlineCreditNotice } from "@/components/InlineCreditNotice";
 import { ExhaustionBanner } from "@/components/ExhaustionBanner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
+import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
 import type { PinFolder } from "@/lib/api/pins";
 import type { PinMentionable } from "./PinMentionDropdown";
 import type { Source } from "@/types/chat";
@@ -187,6 +186,15 @@ interface ChatInterfaceProps {
   /** Readable shared chat whose original is owned by somebody else. */
   readOnly?: boolean;
   /**
+   * True only once the caller has positively confirmed (e.g. via the chat
+   * list's own `can_edit` field) that this chat belongs to the current user.
+   * `undefined`/omitted means "unknown" (e.g. this chat hasn't loaded into
+   * the sidebar's chat-history list yet) — NOT the same as `false`. Gates
+   * whether the streaming hook is allowed to bypass the proxy and hit the
+   * backend directly; see `chatOwnershipConfirmed` in use-streaming-chat.ts.
+   */
+  chatOwnershipConfirmed?: boolean;
+  /**
    * When true, model_selected SSE events are ignored so the agent's pre-seeded
    * model is not overwritten by the backend during streaming. Pass when a persona
    * is active so the model name/logo in the reasoning section stays correct.
@@ -227,6 +235,7 @@ export function ChatInterface({
   loadMessages,
   hidePinActions = false,
   readOnly = false,
+  chatOwnershipConfirmed,
   skipModelSelected,
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
@@ -317,19 +326,14 @@ export function ChatInterface({
   // Auth context — refreshUser for updating usage after stream completes
   const { user, refreshUser } = useAuth();
 
-  // Org context — pool status drives InlineCreditNotice above input
-  const { plan, orgId, currentUserRole: orgRole } = useOrg();
+  // Org context — pool status (via useWorkspaceCreditNotice below) drives
+  // InlineCreditNotice above input; plan is also read directly for the
+  // locked-state input disable/placeholder further down.
+  const { plan } = useOrg();
   // Individual credit/topup status — drives the warning banner + hard send-gate.
   const creditStatus = useCreditStatus();
 
-  const router = useRouter();
-  const [dismissedCreditStatus, setDismissedCreditStatus] = useState<CreditNoticeStatus | null>(null);
-
-  const CREDIT_NOTICE_STATUSES = new Set<string>(['warning_95', 'grace', 'locked']);
-  const creditNoticeStatus: CreditNoticeStatus | null =
-    plan?.poolStatus && CREDIT_NOTICE_STATUSES.has(plan.poolStatus) && plan.poolStatus !== dismissedCreditStatus
-      ? (plan.poolStatus as CreditNoticeStatus)
-      : null;
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
 
   // Pin data for the @-mention dropdown — read from context (no extra fetch).
   const { pins, isPinned } = usePinboard();
@@ -383,7 +387,7 @@ export function ChatInterface({
       let complexity: string | undefined;
       if (isMuse) {
         complexity = museAdvanced ? 'advanced' : 'basic';
-        modelName  = museAdvanced ? 'Souvenir Muse (Advanced)' : 'Souvenir Muse (Basic)';
+        modelName  = museAdvanced ? 'Souvenir Muse (Auto)' : 'Souvenir Muse (Basic)';
         modelId    = `muse-${complexity}`;
         company    = 'Souvenir';
       } else {
@@ -835,6 +839,7 @@ export function ChatInterface({
         temperature: selectedPersonaTemperature ?? undefined,
         toneId: selectedStyleId ?? undefined,
         connectorSlugs: connectorSlugs && connectorSlugs.length > 0 ? connectorSlugs : undefined,
+        chatOwnershipConfirmed,
         onUploadProgress: allFiles.length > 0 ? (pct) => {
           setMessages((prev) => prev.map((msg) =>
             msg.id !== userMsgId ? msg : {
@@ -850,6 +855,7 @@ export function ChatInterface({
       });
     } catch {
       rollbackLast(2);
+      toast.error("Failed to send message. Please try again.");
     } finally {
       isSendingRef.current = false;
     }
@@ -889,7 +895,7 @@ export function ChatInterface({
       chatId ?? null,
       loadingId,
       algorithm ? null : selectedModelId,
-      algorithm ? { algorithm } : undefined,
+      { ...(algorithm ? { algorithm } : {}), chatOwnershipConfirmed },
     ).finally(() => {
       isSendingRef.current = false;
     });
@@ -963,6 +969,7 @@ export function ChatInterface({
       temperature: selectedPersonaTemperature ?? undefined,
       toneId: selectedStyleId ?? undefined,
       connectorSlugs: connectorSlugs && connectorSlugs.length > 0 ? connectorSlugs : undefined,
+      chatOwnershipConfirmed,
       ...(replaceMessageId ? { replaceMessageId } : {}),
     })
   }
@@ -1196,9 +1203,9 @@ export function ChatInterface({
             <InlineCreditNotice
               key={creditNoticeStatus}
               status={creditNoticeStatus}
-              isAdmin={orgRole === 'admin'}
-              onAdminAction={() => router.push(ORG_PLANS_ROUTE)}
-              onDismiss={() => setDismissedCreditStatus(creditNoticeStatus)}
+              isAdmin={isOrgAdmin}
+              onAdminAction={goToPlans}
+              onDismiss={dismissCreditNotice}
             />
           )}
         </AnimatePresence>

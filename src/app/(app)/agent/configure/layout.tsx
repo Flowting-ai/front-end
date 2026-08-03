@@ -25,6 +25,8 @@ import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 import { Badge } from '@/components/Badge'
 import { InformationCircleIcon } from '@strange-huge/icons'
 import { ChatInput } from '@/components/ChatInput'
+import { InlineCreditNotice } from '@/components/InlineCreditNotice'
+import { useWorkspaceCreditNotice } from '@/hooks/use-workspace-credit-notice'
 import { SIDEBAR_COLLAPSED_KEY } from '@/lib/storage-keys'
 import { AGENT_CONFIGURE_TAB_ROUTE, AGENTS_ROUTE } from '@/lib/routes'
 import { ChatAddMenu } from '@/components/chat/AddMenu'
@@ -552,6 +554,7 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
   } = usePersonaConfigure()
   const { repoId, versionId, personaName, imageUrl, guideModelName } = personaInfo
   const hasSavedVersion = versions.length > 0
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
 
   return (
     <>
@@ -654,6 +657,17 @@ function TestChatPanelContent({ expanded }: { expanded: boolean }) {
           style={{ display: 'none' }}
           aria-hidden="true"
         />
+        <AnimatePresence>
+          {creditNoticeStatus && (
+            <InlineCreditNotice
+              key={creditNoticeStatus}
+              status={creditNoticeStatus}
+              isAdmin={isOrgAdmin}
+              onAdminAction={goToPlans}
+              onDismiss={dismissCreditNotice}
+            />
+          )}
+        </AnimatePresence>
         <ChatInput
           placeholder="Test your agent..."
           textareaLabel="Test message"
@@ -686,6 +700,7 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
     guideMessages, guideIsStreaming, guideScrollRef, handleGuideSend,
     panelsLocked,
   } = usePersonaConfigure()
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
 
   return (
     <>
@@ -729,6 +744,17 @@ function AiSuggestPanelContent({ expanded }: { expanded: boolean }) {
           )}
         </div>
         <div style={{ flexShrink: 0 }}>
+          <AnimatePresence>
+            {creditNoticeStatus && (
+              <InlineCreditNotice
+                key={creditNoticeStatus}
+                status={creditNoticeStatus}
+                isAdmin={isOrgAdmin}
+                onAdminAction={goToPlans}
+                onDismiss={dismissCreditNotice}
+              />
+            )}
+          </AnimatePresence>
           <ChatInput
             placeholder="Ask for guidance…"
             textareaLabel="Ask for AI guidance"

@@ -13,7 +13,7 @@ import { type NextRequest } from "next/server";
  * (PostHog's `/ingest` + `/e/` are the classic examples). An earlier version used
  * `/ingest/e` and uBlock blocked it. So the endpoint (`/dispatch`) and the route
  * aliases (`evt`/`usr`/`grp`) must stay generic, non-tracking-looking tokens.
- * See docs/mixpanel-frontend-implementation.md (R3).
+ * See docs/analytics/mixpanel-frontend-implementation.md (R3).
  *
  * We use a route handler rather than a `next.config.ts` rewrite deliberately: this
  * repo removed rewrites because Turbopack buffers them (breaking Brain SSE — see

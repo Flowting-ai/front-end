@@ -2,9 +2,11 @@
 
 import React, { useRef, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
+import { toast } from 'sonner'
 import { PlusSignIcon, FolderOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { ProjectDocumentCard } from '@/components/ProjectDocumentCard'
+import { FILE_ACCEPT, FILE_CONSTRAINTS, isAllowedType } from '@/hooks/use-file-upload'
 import type { ProjectFile } from '@/context/projects-context'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -45,11 +47,49 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
     const usedLabel    = formatBytes(totalUsed) || '0 B'
     const totalMB      = Math.round(totalBytes / (1024 * 1024))
 
+    // Client-side size/type validation — mirrors the chat-attachment path's
+    // constraints (useFileUpload) so oversized/unsupported files are rejected
+    // here instead of only being caught server-side after a full upload
+    // round-trip. Type-checking still applies to drag-and-drop, which bypasses
+    // the file input's `accept` filter entirely.
+    function validateFiles(fileList: FileList): FileList | null {
+      const files = Array.from(fileList)
+      const oversized: string[] = []
+      const unsupported: string[] = []
+      const valid: File[] = []
+
+      for (const file of files) {
+        if (file.size > FILE_CONSTRAINTS.maxSizeBytes) { oversized.push(file.name); continue }
+        if (!isAllowedType(file)) { unsupported.push(file.name); continue }
+        valid.push(file)
+      }
+
+      if (oversized.length > 0) {
+        const limit = `${FILE_CONSTRAINTS.maxSizeBytes / (1024 * 1024)} MB`
+        toast.error(
+          oversized.length === 1 ? `"${oversized[0]}" exceeds ${limit}` : `${oversized.length} files exceed ${limit}`,
+          { description: 'Please upload smaller files.' },
+        )
+      }
+      if (unsupported.length > 0) {
+        toast.error(
+          unsupported.length === 1 ? `"${unsupported[0]}" isn't supported` : `${unsupported.length} files aren't supported`,
+        )
+      }
+      if (valid.length === 0) return null
+
+      const dt = new DataTransfer()
+      valid.forEach((f) => dt.items.add(f))
+      return dt.files
+    }
+
     async function triggerUpload(fileList: FileList) {
       if (!fileList.length || !onUpload) return
+      const validated = validateFiles(fileList)
+      if (!validated) return
       setUploading(true)
       try {
-        await onUpload(fileList)
+        await onUpload(validated)
       } finally {
         setUploading(false)
       }
@@ -145,6 +185,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
           ref={inputRef}
           type="file"
           multiple
+          accept={FILE_ACCEPT}
           style={{ display: 'none' }}
           onChange={handleInputChange}
           aria-hidden

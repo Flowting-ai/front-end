@@ -46,7 +46,7 @@ TopBar
 
 ## Phase Status Label / Model Chip
 
-The left label swaps as the chat progresses. Use **Pattern 2** (AnimatePresence `mode="popLayout"`, key=label) from `docs/animation-states.md`.
+The left label swaps as the chat progresses. Use **Pattern 2** (AnimatePresence `mode="popLayout"`, key=label) from `docs/ui/animation-states.md`.
 
 | Phase | Label | Clickable? |
 |-------|-------|-----------|
@@ -156,7 +156,7 @@ A per-chat incognito mode. The chat is not saved to history and memory is not re
 
 ## Share Button
 
-**Component:** `ShareButton` (pending KDS - placeholder in `docs/0-pending-kds-components.md`)
+**Component:** `ShareButton` (pending KDS - placeholder in `docs/design-system/0-pending-kds-components.md`)
 
 **Visibility:** Hidden until `hasCompletedMessage === true` (at least one message has reached the `complete` phase). Use `visibility: hidden` not `display: none` to avoid layout shift. Fade in with `opacity: 0 → 1, 150ms ease` when it first becomes visible.
 
@@ -187,7 +187,7 @@ A per-chat incognito mode. The chat is not saved to history and memory is not re
 
 ## UsageCreditsButton
 
-**Component:** `UsageCreditsButton` (pending KDS - placeholder in `docs/0-pending-kds-components.md`)
+**Component:** `UsageCreditsButton` (pending KDS - placeholder in `docs/design-system/0-pending-kds-components.md`)
 
 **Visual:** Icon button with a circular SVG progress ring. The arc fills clockwise as credits are consumed.
 
@@ -216,7 +216,7 @@ A per-chat incognito mode. The chat is not saved to history and memory is not re
   Only show this link for Starter and Pro - hide on Power
 - **In disposable mode:** replace "Resets June 1" with "Session only"
 
-**Existing prop contract** (from `docs/0-pending-kds-components.md`):
+**Existing prop contract** (from `docs/design-system/0-pending-kds-components.md`):
 ```ts
 UsageCreditsButtonProps {
   plan: UserPlanType | null;    // from useAuth()

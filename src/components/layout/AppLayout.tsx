@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { Suspense, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { m } from "framer-motion";
 import { CancelOneIcon } from "@strange-huge/icons";
 import { LeftSidebar } from "./LeftSidebar";
@@ -15,10 +15,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { usePinboard } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
 import { useProjectPanel } from "@/context/project-panel-context";
-import { useOrg } from "@/context/org-context";
-import { WorkspaceStatusBanner, type TokenStatus } from "@/components/WorkspaceStatusBanner";
 import {
-  ORG_PLANS_ROUTE,
   PROJECT_BASE_ROUTE,
   PROJECTS_ROUTE,
   AGENTS_ROUTE,
@@ -50,14 +47,8 @@ export function AppLayout({
 }: AppLayoutProps) {
   const { close: closePinboard } = usePinboard()
   const { close: closeHighlight } = useHighlight()
-  const { plan, currentUserRole } = useOrg()
   const pathname = usePathname()
-  const router = useRouter()
 
-  const WORKSPACE_BANNER_STATUSES = new Set<string>(['warning_95', 'grace', 'locked'])
-  const workspaceBannerStatus = (plan?.poolStatus && WORKSPACE_BANNER_STATUSES.has(plan.poolStatus))
-    ? plan.poolStatus as TokenStatus
-    : null
   const isAnyProjectPage = pathname.startsWith(PROJECT_BASE_ROUTE)
   // Suppress FloatingPanel on project listing / detail pages, but NOT on
   // project chat pages - those use the same global FloatingPanel as regular chats.
@@ -161,15 +152,6 @@ export function AppLayout({
           backgroundColor: "var(--neutral-50)",
         }}
       >
-        {/* Workspace credit status banner — only shown when pool is low, in grace, or locked */}
-        {workspaceBannerStatus && (
-          <WorkspaceStatusBanner
-            tokenStatus={workspaceBannerStatus}
-            isAdmin={currentUserRole === 'admin'}
-            onAdminAction={() => router.push(ORG_PLANS_ROUTE)}
-          />
-        )}
-
         {/* Content area — right padding removed (was 10px when no side panel
             was open): that, plus the rounded container's own 12px, plus each
             page's own inner scroll padding, was stacking into a much bigger

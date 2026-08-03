@@ -115,6 +115,17 @@ export function AttachmentManager({
     onAttachmentsChange(removeOne(id, attachments));
   };
 
+  // Opens the local file in a new tab. Images already have a standing preview
+  // object URL; other file types get one created on demand and revoked shortly
+  // after (long enough for the new tab to finish loading it).
+  const handlePreview = (attachment: PendingAttachment) => {
+    const url = attachment.preview ?? URL.createObjectURL(attachment.file);
+    window.open(url, "_blank", "noopener,noreferrer");
+    if (!attachment.preview) {
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    }
+  };
+
   const updateScrollButtons = () => {
     const el = scrollRef.current;
     if (!el) return;
@@ -132,7 +143,7 @@ export function AttachmentManager({
   // ── Drag-and-drop handlers ─────────────────────────────────────────────────
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    if (e.dataTransfer.types.includes("Files")) setIsDragging(true);
+    if (!disabled && e.dataTransfer.types.includes("Files")) setIsDragging(true);
   };
   const handleDragLeave = (e: React.DragEvent) => {
     if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false);
@@ -235,15 +246,17 @@ export function AttachmentManager({
                 key={attachment.id}
                 onMouseEnter={() => setHoveredId(attachment.id)}
                 onMouseLeave={() => setHoveredId(null)}
+                onClick={() => !attachment.uploading && handlePreview(attachment)}
+                title={attachment.error ?? attachment.file.name}
                 style={{
                   position:     "relative",
                   width:        "46px",
                   height:       "46px",
                   borderRadius: "8px",
-                  border:       "1px solid var(--neutral-200)",
+                  border:       attachment.error ? "1px solid var(--red-400, #f87171)" : "1px solid var(--neutral-200)",
                   overflow:     "hidden",
                   flexShrink:   0,
-                  cursor:       "default",
+                  cursor:       attachment.uploading ? "default" : "pointer",
                 }}
               >
                 {attachment.preview && (
@@ -290,14 +303,14 @@ export function AttachmentManager({
                   </div>
                 )}
 
-                {/* Type badge - only after upload */}
+                {/* Type badge - only after upload (or a Failed badge if it errored) */}
                 {!attachment.uploading && (
                   <span
                     style={{
                       position:        "absolute",
                       bottom:          "2px",
                       left:            "2px",
-                      backgroundColor: "rgba(0,0,0,0.55)",
+                      backgroundColor: attachment.error ? "var(--red-600, #dc2626)" : "rgba(0,0,0,0.55)",
                       color:           "#fff",
                       fontSize: "12px",
                       fontFamily:      "var(--font-body)",
@@ -308,7 +321,7 @@ export function AttachmentManager({
                       letterSpacing:   "0.02em",
                     }}
                   >
-                    {typeLabel}
+                    {attachment.error ? "Failed" : typeLabel}
                   </span>
                 )}
 
@@ -346,6 +359,8 @@ export function AttachmentManager({
                 key={attachment.id}
                 onMouseEnter={() => setHoveredId(attachment.id)}
                 onMouseLeave={() => setHoveredId(null)}
+                onClick={() => !attachment.uploading && handlePreview(attachment)}
+                title={attachment.error ?? attachment.file.name}
                 style={{
                   position:        "relative",
                   display:         "flex",
@@ -355,11 +370,11 @@ export function AttachmentManager({
                   height:          "46px",
                   padding:         "0 28px 0 6px",
                   borderRadius:    "8px",
-                  border:          "1px solid var(--neutral-200)",
+                  border:          attachment.error ? "1px solid var(--red-400, #f87171)" : "1px solid var(--neutral-200)",
                   backgroundColor: "var(--neutral-50)",
                   overflow:        "hidden",
                   flexShrink:      0,
-                  cursor:          "default",
+                  cursor:          attachment.uploading ? "default" : "pointer",
                 }}
               >
                 {/* Icon box */}
@@ -407,6 +422,21 @@ export function AttachmentManager({
                       }}
                     >
                       {`Uploading… ${attachment.uploadProgress ?? 0}%`}
+                    </p>
+                  ) : attachment.error ? (
+                    <p
+                      style={{
+                        fontFamily:   "var(--font-body)",
+                        fontSize:     "12px",
+                        color:        "var(--red-600, #dc2626)",
+                        margin:       "2px 0 0",
+                        lineHeight:   1.2,
+                        overflow:     "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace:   "nowrap",
+                      }}
+                    >
+                      {attachment.error}
                     </p>
                   ) : (
                     <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>

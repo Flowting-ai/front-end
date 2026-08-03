@@ -2,7 +2,7 @@
 
 import { z } from 'zod'
 import { apiFetch, apiFetchJson, ApiError } from './client'
-import { API_BASE_URL, CHAT_PENDING_PROMPTS_ENDPOINT, directUpload, shouldUseDirectBackend } from '../config'
+import { API_BASE_URL, directUpload, shouldUseDirectBackend } from '../config'
 import type { ReasoningSection } from '../reasoning'
 import { HybridSSEDecoder, internalToInline, type DecodedSSEEvent } from '../sse-decoder'
 import type { NamedEventName, NamedEventPayload } from './sse-schemas'
@@ -12,88 +12,13 @@ import type { NamedEventName, NamedEventPayload } from './sse-schemas'
 const withBase = (path: string) => `${API_BASE_URL}${path}`
 
 const BRAIN_BASE      = withBase('/brain')
-const BRAIN_BOOTSTRAP = withBase('/brain/bootstrap')
 const BRAIN_CREATE    = withBase('/brain/create')
 const BRAIN_RENAME    = withBase('/brain/rename')
 const BRAIN_STREAM    = (chatId: string) => withBase(`/brain/${chatId}/stream`)
 const BRAIN_MESSAGES  = (chatId: string) => withBase(`/brain/${chatId}/messages`)
-const BRAIN_PLANS     = (chatId: string) => withBase(`/brain/${chatId}/plans`)
-const BRAIN_RUN       = (planId: string) => withBase(`/brain/runs/${planId}`)
-const BRAIN_RUN_EVENTS = (planId: string, afterSeq?: number) => {
-  const path = withBase(`/brain/runs/${planId}/events`)
-  return afterSeq != null && afterSeq > 0
-    ? `${path}?after=${encodeURIComponent(String(afterSeq))}`
-    : path
-}
-const BRAIN_RUN_STOP  = (planId: string) => withBase(`/brain/runs/${planId}/stop`)
-const BRAIN_PLAN_APPROVE = (planId: string) => withBase(`/brain/plans/${planId}/approve`)
-const BRAIN_PLAN_COUNTER = (planId: string) => withBase(`/brain/plans/${planId}/counter`)
-const BRAIN_PLAN_CANCEL  = (planId: string) => withBase(`/brain/plans/${planId}/cancel`)
 const BRAIN_STOP      = (chatId: string) => withBase(`/brain/${chatId}/stop`)
 const BRAIN_STAR      = (chatId: string) => withBase(`/brain/${chatId}/star`)
 const PROMPT_RESPOND  = (promptId: string) => withBase(`/chats/prompts/${promptId}`)
-
-// ── Cortex plan object ────────────────────────────────────────────────────────
-// Zod mirror of services/cortex/schema.py (Plan → Node → NodeContext, Edge).
-// plan_json on BrainPlanResponse is this graph, serialized by_alias ("from")
-// with a per-node `status` injected from the run's node_status map.
-
-export const cortexNodeContextSchema = z.looseObject({
-  persona_id: z.string().nullable().default(null),
-  model_id: z.string().nullable().default(null),
-  connectors: z.array(z.string()).default([]),
-  pins: z.array(z.string()).default([]),
-  files: z.array(z.string()).default([]),
-})
-
-export const cortexNodeSchema = z.looseObject({
-  id: z.string().min(1),
-  title: z.string(),
-  description: z.string().default(''),
-  context: cortexNodeContextSchema.prefault({}),
-  is_critical: z.boolean().default(false),
-  status: z.string().default('pending'),
-  result_preview: z.string().optional(),
-})
-
-export const cortexEdgeSchema = z.looseObject({
-  from: z.string(),
-  to: z.string(),
-})
-
-export const cortexPlanSchema = z.looseObject({
-  title: z.string().default(''),
-  description: z.string().default(''),
-  nodes: z.array(cortexNodeSchema).min(1),
-  edges: z.array(cortexEdgeSchema).default([]),
-})
-
-export type CortexNodeContext = z.infer<typeof cortexNodeContextSchema>
-export type CortexNode = z.infer<typeof cortexNodeSchema>
-export type CortexEdge = z.infer<typeof cortexEdgeSchema>
-export type CortexPlan = z.infer<typeof cortexPlanSchema>
-
-/** Parse a plan_json payload into the typed cortex plan. The graph shape is
- *  the only contract the backend serves — a failure here is drift, not a
- *  legacy plan, so it logs loudly and returns null. Results are cached per
- *  payload object: plans are parsed from render paths, and re-parsing the
- *  same immutable response on every render would be wasted work. */
-const parsedPlans = new WeakMap<object, CortexPlan | null>()
-
-export function parseCortexPlan(planJson: unknown): CortexPlan | null {
-  const cacheable = typeof planJson === 'object' && planJson !== null
-  if (cacheable && parsedPlans.has(planJson)) return parsedPlans.get(planJson) ?? null
-  const result = cortexPlanSchema.safeParse(planJson)
-  let parsed: CortexPlan | null
-  if (result.success) {
-    parsed = result.data
-  } else {
-    console.error('[brain] plan_json failed cortex plan schema', result.error.issues)
-    parsed = null
-  }
-  if (cacheable) parsedPlans.set(planJson, parsed)
-  return parsed
-}
 
 export interface BrainChatListItem {
   id:             string
@@ -104,37 +29,7 @@ export interface BrainChatListItem {
   updated_at?:    string | null
 }
 
-export interface BrainPlanResponse {
-  id:             string
-  status:         'proposed' | 'countered' | 'cancelled' | 'queued' | 'running' | 'summarizing' | 'completed' | 'failed' | string
-  supersedes_id?: string | null
-  counter_text?:  string | null
-  plan_json:      unknown
-  final_error?:   string | null
-  started_at?:    string | null
-  completed_at?:  string | null
-  cancel_requested_at?: string | null
-  created_at?:    string | null
-}
-
-export interface BrainPlanActionResponse {
-  plan_id: string
-  status:  string
-}
-
-export interface BrainRunResponse {
-  id:             string
-  status:         BrainPlanResponse['status']
-  plan_json:      unknown
-  final_error?:   string | null
-  latest_seq:     number
-  started_at?:    string | null
-  completed_at?:  string | null
-  cancel_requested_at?: string | null
-  created_at?:    string | null
-}
-
-// Images/files generated inside subtasks, returned per-message by GET
+// Images/files generated during the turn, returned per-message by GET
 // /brain/{chat_id}/messages with a freshly-signed `url`.
 export interface BrainAttachment {
   id:         string
@@ -249,49 +144,6 @@ export function parseBrainContextEvent(value: unknown): BrainContextEvent {
   return parsed.success ? parsed.data : EMPTY_BRAIN_CONTEXT
 }
 
-/** Fold the plan's node contexts into the typed context objects. The plan is
- *  the source of truth for MEMBERSHIP — which persona, connectors, pins, and
- *  files the run actually uses (services/cortex/schema.py NodeContext); the
- *  `context` event only supplies display rows for those members. Rendering the
- *  event verbatim would list every connector on the account. */
-export function buildContextPlan(
-  plan: CortexPlan,
-  ctx: BrainContextEvent | null,
-  connectorCatalog: ContextConnector[] = [],
-): BrainContextEvent {
-  const personaIds = new Set<string>()
-  const connectorSlugs = new Set<string>()
-  const pinIds = new Set<string>()
-  let usesFiles = false
-  for (const n of plan.nodes) {
-    if (n.context.persona_id) personaIds.add(n.context.persona_id)
-    for (const slug of n.context.connectors) if (slug) connectorSlugs.add(slug.toLowerCase())
-    for (const pin of n.context.pins) if (pin) pinIds.add(pin)
-    if (n.context.files.length > 0) usesFiles = true
-  }
-  const catalogBySlug = new Map(connectorCatalog.map((c) => [c.slug.toLowerCase(), c]))
-  return {
-    persona: personaIds.size === 0
-      ? null
-      : ctx?.persona ?? { persona_id: [...personaIds][0], avatar_url: undefined },
-    pins: [...pinIds].map((id) =>
-      ctx?.pins.find((p) => p.pin_id === id) ?? { pin_id: id, title: '' },
-    ),
-    // Node file refs are attachment ids while the event rows are named
-    // uploads of the same turn — membership is all-or-nothing per turn.
-    files: usesFiles ? ctx?.files ?? [] : [],
-    // Row resolution per member slug: the turn's context event, decorated
-    // with catalog display data (logo_url) it may lack, then the catalog row
-    // alone, then a minimal typed stub.
-    connectors: [...connectorSlugs].map((slug) => {
-      const live = ctx?.connectors.find((c) => c.slug.toLowerCase() === slug)
-      const cat = catalogBySlug.get(slug)
-      if (live && cat) return { ...cat, ...live, logo_url: live.logo_url ?? cat.logo_url }
-      return live ?? cat ?? { slug, display_name: slug }
-    }),
-  }
-}
-
 // One real-world side effect a connector write-tool performed during a run
 // (a sent email, a created Notion page, …). Mirrors core/sse_schemas.py
 // ExternalOutputAction exactly. `view_url`/`logo_url` are best-effort and may
@@ -324,7 +176,6 @@ export interface BrainMessage {
   model_name?:         string | null
   created_at?:         string | null
   tool_calls?:         unknown[] | null
-  plan?:               BrainPlanResponse | null
   attachments?:        BrainAttachment[]
   // External writes this turn performed ("Done in the world"). Persisted on the
   // message (MessageMetadata.external_output) so the card survives a reload —
@@ -332,89 +183,9 @@ export interface BrainMessage {
   external_output?:    ExternalOutputAction[] | null
 }
 
-// ── Bootstrap (GET /brain/bootstrap) ──────────────────────────────────────────
-// Hydrates the Brain page on mount: which persona is in scope, what the user's
-// context looks like, which pins/files/connectors are wired up, and the list
-// of models the user can switch to. Used to seed the ContextRail before the
-// first turn so the rail isn't empty when the user starts typing.
-
-export interface BootstrapPersona {
-  persona_id:      string
-  name:            string
-  handler:         string
-  prompt_preview?: string
-  model_id?:       string | null
-}
-
-export interface BootstrapUserContext {
-  first_name?: string
-  last_name?:  string
-  email?:      string
-  role?:       string
-  tone?:       string
-}
-
-export interface BootstrapPin {
-  pin_id:           string
-  title:            string
-  tags?:            string[]
-  content_preview?: string
-}
-
-export interface BootstrapFile {
-  file_id:    string
-  filename:   string
-  mime_type?: string
-  url?:       string
-}
-
-export type ConnectorStatus = 'connected' | 'disconnected' | 'failed' | 'pending'
-
-export interface BootstrapConnector {
-  slug:         string
-  display_name: string
-  auth_mode:    string
-  status:       ConnectorStatus | string
-  tool_count?:  number
-}
-
-export interface BootstrapModel {
-  model_id:             string
-  model_name:           string
-  deployment_name?:     string
-  description_preview?: string
-  supports_tool_use?:   boolean
-  input_modalities?:    string[]
-}
-
-export interface BootstrapProject {
-  project_id: string
-  name:       string
-}
-
-export interface BootstrapDocument {
-  document_id: string
-  filename:    string
-  mime_type?:  string
-}
-
-export interface BrainBootstrap {
-  persona?:         BootstrapPersona | null
-  user_context?:    BootstrapUserContext
-  pins?:            BootstrapPin[]
-  files?:           BootstrapFile[]
-  connectors?:      BootstrapConnector[]
-  available_models?: BootstrapModel[]
-  project?:         BootstrapProject | null
-  documents?:       BootstrapDocument[]
-  loaded_skills?:   string[]
-}
-
 // ── SSE event payloads (named) ────────────────────────────────────────────────
-// Mirror brain.yaml's x-sse-events. Optional fields use `?:` — required
-// per spec are typed as non-optional. UserPromptKind reflects the new
-// "permission" | "confirm" | "choice" | "input" vocabulary; plan approval
-// arrives as a `choice` prompt with approve/counter/cancel options.
+// Mirrors the backend's core/sse_schemas.py runtime contract. Optional fields
+// use `?:`; required fields are typed as non-optional.
 
 export interface MessageSavedEvent       { message_id: string }
 export interface TitleEvent              { title: string }
@@ -530,21 +301,10 @@ export function parseRecoveryPrompt(data: unknown): RecoveryPrompt | null {
   return { promptId, meta: parsed.data }
 }
 
-export interface PlanReadyEvent { plan_id: string }
-
-export interface PlanApprovedEvent  { plan_id: string }
-export interface PlanCounteredEvent { plan_id: string; counter_text: string }
-export interface PlanCancelledEvent { plan_id: string }
-export interface RunQueuedEvent     { plan_id: string; seq?: number }
-export interface RunStartedEvent    { plan_id: string; seq?: number }
-export interface RunSummarizingEvent { plan_id: string; seq?: number }
-export interface RunCompletedEvent  { plan_id: string; seq?: number }
-export interface RunFailedEvent     { plan_id: string; error?: string | null; seq?: number }
-export interface RunCancelledEvent  { plan_id: string; seq?: number }
-export interface StepStartedEvent   { plan_id: string; step_id: string; seq?: number }
-export interface StepCompletedEvent { plan_id: string; step_id: string }
-export interface StepFailedEvent    { plan_id: string; step_id: string; error: string }
-export interface StepSkippedEvent   { plan_id: string; step_id: string; reason?: string | null; seq?: number }
+// The rally: one triple per agent Brain hands a piece of work to.
+export interface AgentStartedEvent  { agent: string; handle?: string; image_url?: string | null; task: string }
+export interface AgentContentEvent  { agent: string; content: string }
+export interface AgentFinishedEvent { agent: string; error?: string | null }
 
 // Brain receives every named event except the two chat-only additions. Derive
 // the map from the shared validator registry so this API cannot drift into a
@@ -614,15 +374,12 @@ export type BrainInlineEvent =
   | ErrorInline
 
 // ── Prompt response body ──────────────────────────────────────────────────────
-// Plan prompts use the documented approve/counter/cancel shape. Non-plan
-// kinds (choice/input/confirm/permission) follow the same envelope but
-// carry kind-specific fields — `value` for choice/input, `decision: 'skip'`
+// Every prompt kind (choice/input/confirm/permission) follows the same envelope
+// and carries kind-specific fields — `value` for choice/input, `decision: 'skip'`
 // for user-skipped clarifications, `decision: 'confirm'|'deny'` for confirm.
 // The shape is intentionally open: the backend validates per prompt.
 
 export type PromptResponseBody =
-  | { response: { decision: 'approve' } }
-  | { response: { decision: 'counter'; counter_text: string } }
   | { response: { decision: 'cancel' } }
   | { response: { decision: 'select'; value: string } }
   | { response: { decision: 'submit'; value: string } }
@@ -884,95 +641,12 @@ export async function getBrainMessages(chatId: string): Promise<BrainMessage[]> 
   return apiFetchJson<BrainMessage[]>(BRAIN_MESSAGES(chatId))
 }
 
-export async function getBrainPlans(chatId: string): Promise<BrainPlanResponse[]> {
-  return apiFetchJson<BrainPlanResponse[]>(BRAIN_PLANS(chatId))
-}
-
-export async function getBrainPlan(planId: string): Promise<BrainPlanResponse> {
-  return apiFetchJson<BrainPlanResponse>(withBase(`/brain/plans/${planId}`))
-}
-
-export async function getBrainRun(planId: string, signal?: AbortSignal): Promise<BrainRunResponse> {
-  return apiFetchJson<BrainRunResponse>(BRAIN_RUN(planId), { signal })
-}
-
-export async function approveBrainPlan(planId: string): Promise<BrainPlanActionResponse> {
-  return apiFetchJson<BrainPlanActionResponse>(BRAIN_PLAN_APPROVE(planId), { method: 'POST' })
-}
-
-export async function counterBrainPlan(
-  planId: string,
-  counterText: string,
-  signal?: AbortSignal,
-): Promise<Response> {
-  const response = await apiFetch(BRAIN_PLAN_COUNTER(planId), {
-    method: 'POST',
-    body: JSON.stringify({ counter_text: counterText }),
-    signal,
-  })
-  if (!response.ok) {
-    throw new ApiError(response.status, 'brain_plan_counter_failed', 'Failed to revise Brain plan')
-  }
-  return response
-}
-
-export async function cancelBrainPlan(planId: string): Promise<BrainPlanActionResponse> {
-  return apiFetchJson<BrainPlanActionResponse>(BRAIN_PLAN_CANCEL(planId), { method: 'POST' })
-}
-
-// Prompts still waiting for an answer when a client (re)loads — the stream
-// that carried them died with the previous session. Mirrors the
-// prompt_gate.pending_for_chat response: re-deliverable (event, data) pairs.
-const pendingPromptSchema = z.object({
-  prompt_id: z.string(),
-  event: z.string(),
-  data: z.looseObject({}),
-  expires_at: z.string().nullable().optional(),
-})
-
-export type PendingPrompt = z.infer<typeof pendingPromptSchema>
-
-export async function getPendingPrompts(chatId: string): Promise<PendingPrompt[]> {
-  const response = await apiFetch(CHAT_PENDING_PROMPTS_ENDPOINT(chatId), { method: 'GET' })
-  if (!response.ok) return []
-  const raw = await response.json().catch(() => null)
-  const parsed = z.array(pendingPromptSchema).safeParse(raw)
-  if (!parsed.success) {
-    console.error('[brain] pending prompts failed schema validation', parsed.error.issues)
-    return []
-  }
-  return parsed.data
-}
-
-export async function subscribeBrainRun(
-  planId: string,
-  afterSeq?: number,
-  signal?: AbortSignal,
-): Promise<Response> {
-  const response = await apiFetch(BRAIN_RUN_EVENTS(planId, afterSeq), { method: 'GET', signal })
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    console.error('[Brain] run stream failed', response.status, detail)
-    throw new ApiError(response.status, 'brain_run_stream_failed', 'Failed to stream Brain run')
-  }
-  return response
-}
-
 export async function listBrainChats(): Promise<BrainChatListItem[]> {
   return apiFetchJson<BrainChatListItem[]>(BRAIN_BASE)
 }
 
 /**
- * GET /brain/bootstrap — page-load context: persona in scope, user_context,
- * pins/files attached, linked connectors, available models, current project.
- * Seeds the ContextRail before the first turn.
- */
-export async function getBrainBootstrap(): Promise<BrainBootstrap> {
-  return apiFetchJson<BrainBootstrap>(BRAIN_BOOTSTRAP)
-}
-
-/**
- * POST /chats/prompts/{prompt_id} — submit approve / counter / cancel for a plan.
+ * POST /chats/prompts/{prompt_id} — answer a question or consent prompt.
  */
 export async function respondToPrompt(
   promptId: string,
@@ -990,10 +664,6 @@ export async function respondToPrompt(
 
 export async function stopBrainChat(chatId: string): Promise<void> {
   await apiFetch(BRAIN_STOP(chatId), { method: 'POST' })
-}
-
-export async function stopBrainRun(planId: string): Promise<void> {
-  await apiFetch(BRAIN_RUN_STOP(planId), { method: 'POST' })
 }
 
 export async function starBrainChat(chatId: string): Promise<void> {

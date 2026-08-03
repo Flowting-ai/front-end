@@ -9,6 +9,7 @@ import { InputField } from "@/components/InputField";
 import { deriveRoleFit } from "@/context/onboarding-context";
 import { updateOnboarding } from "@/lib/api/user";
 import { updateOrg } from "@/lib/api/organization";
+import { toast } from "sonner";
 import { Button } from "@/components/Button";
 import { OnboardingScreen, OnboardingFooter } from "../_components/onboarding-shell";
 import { ONBOARDING_CONNECTORS_ROUTE, ONBOARDING_ACCOUNT_TYPE_ROUTE } from "@/lib/routes";
@@ -96,8 +97,10 @@ export default function OnboardingWorkspacePage() {
       // the company name the user just entered.
       if (user?.orgId) tasks.push(updateOrg(user.orgId, { name: data.companyName.trim() }));
       await Promise.all(tasks);
-    } catch {
-      // Non-fatal: proceed even if the org rename fails
+    } catch (err) {
+      // Non-fatal: proceed even if the org rename fails, but let the user know.
+      console.error("Workspace setup failed", err);
+      toast.error("We couldn't save your workspace details — you can update them later in settings.");
     }
     push(ONBOARDING_CONNECTORS_ROUTE);
   };

@@ -323,6 +323,7 @@ export function ChatInput(
         audioCtxRef.current = null;
         SpeechRecognition.abortListening();
         setIsRecording(false);
+        toast.error("Microphone access denied. Please allow microphone permission to record.");
       }
     };
 

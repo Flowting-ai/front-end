@@ -15,6 +15,7 @@ import type { UIMessage } from "@/hooks/use-chat-state";
 import {
   getPersona,
   getVersion,
+  updateVersion,
   fetchPersonaChatMessages,
   type Persona,
 } from "@/lib/api/personas";
@@ -24,6 +25,7 @@ import {
 } from "@/hooks/use-sidebar-events";
 import { apiFetch } from "@/lib/api/client";
 import { fetchAllModels } from "@/lib/api/models";
+import { pickReplacementModel, normalizeModels } from "@/lib/ai-models";
 import {
   PERSONA_CHAT_STOP_ENDPOINT,
   PERSONA_CHATS_CREATE_ENDPOINT,
@@ -33,7 +35,10 @@ import { getStreamCompletion, consumeInterruptedStreamMarker } from "@/lib/strea
 import { logger } from "@/lib/logger";
 import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
+import { AnimatePresence } from "framer-motion";
 import { CreditStatusBanner } from "@/components/CreditStatusBanner";
+import { InlineCreditNotice } from "@/components/InlineCreditNotice";
+import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -186,6 +191,14 @@ export function PersonaChatInterface({
   const personaIdRef = useRef(personaId);
   personaIdRef.current = personaId;
 
+  const personaRef = useRef(persona);
+  personaRef.current = persona;
+
+  // Deprecated model ids already auto-healed this mount — guards against
+  // re-PATCHing on every effect re-run (selectedModel is a dependency below,
+  // and this effect re-selects it, which would otherwise re-trigger itself).
+  const healedModelTargetsRef = useRef<Set<string>>(new Set());
+
   const isStreaming = streamState === "streaming" || streamState === "waiting";
 
   // ── useStreamingChat — same infrastructure as main chat ───────────────────
@@ -315,23 +328,55 @@ export function PersonaChatInterface({
     // Tier 3 — model not in the available (non-blocked) list.
     // Check the full model list (including blocked) to distinguish between a model that the
     // user disabled in Settings vs one that has been retired entirely. Disabled models block
-    // the chat and prompt the user to fix the config; retired models fall back silently.
-    const displayName = cachedModelName ?? target;
+    // the chat and prompt the user to fix the config (see the disabledModelName banner below).
+    // Retired models get a same-provider/tier replacement picked automatically — and that
+    // replacement is persisted onto the persona's active version (not just selected in this
+    // component's local state), otherwise the actual send still runs the stale model id and
+    // fails despite the UI claiming a substitution happened.
     selectModelRef.current(models[0]);
     let cancelled = false;
     void fetchAllModels().then(all => {
       if (cancelled) return;
       const found = all.find(m => m.model_id === target);
+      // Prefer the name straight from the full catalog entry we just found —
+      // it's authoritative and available even with no session cache. Only
+      // fall through to the raw id when the model is gone from that catalog
+      // entirely (fully retired, not just blocked).
+      const displayName = found?.model_name ?? cachedModelName ?? target;
       if (found?.blocked) {
         setDisabledModelName(displayName);
         setUnavailableModelName(null);
-      } else {
-        setUnavailableModelName(displayName);
-        setDisabledModelName(null);
+        return;
       }
+
+      setUnavailableModelName(displayName);
+      setDisabledModelName(null);
+
+      const deprecatedInfo = found ? normalizeModels([found])[0] : undefined;
+      const replacement = pickReplacementModel(models, deprecatedInfo) ?? models[0];
+      selectModelRef.current(replacement);
+
+      const replacementId = stableKey(replacement);
+      const versionId = personaRef.current?.activeVersionId;
+      if (!replacementId || !versionId || healedModelTargetsRef.current.has(target)) return;
+      healedModelTargetsRef.current.add(target);
+
+      void updateVersion({ repoId: personaIdRef.current, versionId, modelId: replacementId })
+        .then(() => {
+          if (cancelled) return;
+          // Reflect the heal in local state too, so this effect's Tier 1 exact-id
+          // check matches on its next run instead of re-detecting "unavailable".
+          setActiveVersionModelId(replacementId);
+        })
+        .catch(() => {
+          // Persisting failed — healedModelTargetsRef stays marked so this doesn't
+          // retry on every re-render; the in-memory selection above still lets
+          // this session's chat work.
+        });
     }).catch(() => {
       if (cancelled) return;
-      setUnavailableModelName(displayName);
+      // The catalog fetch itself failed — no `found` entry to name it from.
+      setUnavailableModelName(cachedModelName ?? target);
       setDisabledModelName(null);
     });
     return () => { cancelled = true; };
@@ -543,6 +588,9 @@ export function PersonaChatInterface({
 
   // Individual credit/topup status — warning banner + hard send-gate.
   const creditStatus = useCreditStatus();
+  // Org/team shared-credit-pool status — the same InlineCreditNotice shown
+  // above every other chat surface's input.
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
   // A Super Link agent (source_share_id set) is billed to the SHARER's credit
   // pool, not this user's balance — the backend's require_persona_budget preflight
   // resolves the sharer for this /persona/{repoId}/chats path. So the individual
@@ -729,10 +777,21 @@ export function PersonaChatInterface({
             }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "var(--color-tag-Yellow-text)", flexShrink: 0 }} />
               <p style={{ flex: "1 0 0", minWidth: 0, margin: 0, fontFamily: "var(--font-body)", fontWeight: 400, fontSize: 13, lineHeight: "20px", color: "var(--color-tag-Yellow-text)" }}>
-                {`The ${unavailableModelName} model is no longer available. This agent is using ${selectedModel?.modelName ?? "an available model"} instead.`}
+                {`The ${unavailableModelName} model is no longer available. This agent has been updated to use ${selectedModel?.modelName ?? "an available model"} instead.`}
               </p>
             </div>
           )}
+          <AnimatePresence>
+            {creditNoticeStatus && !shareFunded && !personaLoadError && (
+              <InlineCreditNotice
+                key={creditNoticeStatus}
+                status={creditNoticeStatus}
+                isAdmin={isOrgAdmin}
+                onAdminAction={goToPlans}
+                onDismiss={dismissCreditNotice}
+              />
+            )}
+          </AnimatePresence>
           <CreditStatusBanner suppress={shareFunded || !!personaLoadError} />
           <ChatInput
             value={input}

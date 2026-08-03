@@ -16,7 +16,7 @@
  * `spark` is an optional comma-separated series (oldest → newest) rendered
  * as a small sparkline. <metric> is flat (attributes only), so parsing is a
  * regex scan rather than DOMParser — works identically in the browser, SSR,
- * and node tests. See: docs/frontend-rendering.md - Metrics section.
+ * and node tests. See: docs/ui/frontend-rendering.md - Metrics section.
  */
 
 import React from "react"

@@ -3,6 +3,7 @@
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders, getAuth0AccessToken, ensureFreshToken } from "@/lib/jwt-utils";
 import { getFriendlyHttpErrorText } from "@/lib/http-errors";
+import { CHAT_NOT_FOUND_MESSAGE } from "@/lib/model-error";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -87,6 +88,9 @@ export function friendlyApiError(raw: string, statusCode?: number): string {
   }
   if (lower.includes("persona not found") || lower.includes("persona repo not found")) {
     return "This agent isn't available to you. Ask the owner to share it with you via a personal link.";
+  }
+  if (lower.includes("chat not found")) {
+    return CHAT_NOT_FOUND_MESSAGE;
   }
   if (statusCode === 409) {
     return "This agent is no longer available. It may have been deleted or you may not have access.";

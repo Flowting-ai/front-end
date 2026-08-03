@@ -112,7 +112,7 @@ The KDS component handles hover state, "..." overflow menu, and rename inline ed
 
 KDS `Sidebar` handles the open/close animation internally. The three-layer Framer Motion pattern (height clip → stagger orchestrator → per-item fade) is baked into `SidebarProjectsSection`. Do not re-implement it.
 
-If you need to animate something outside of KDS (e.g., a custom section), use the exact same pattern from `docs/animation-states.md → Expand/Collapse`.
+If you need to animate something outside of KDS (e.g., a custom section), use the exact same pattern from `docs/ui/animation-states.md → Expand/Collapse`.
 
 ---
 

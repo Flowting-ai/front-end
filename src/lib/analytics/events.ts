@@ -64,7 +64,7 @@ export type FeatureName =
 // Only the events that actually originate in the browser live here. Run lifecycle,
 // cost stamps, Slack activity and Stripe-webhook events (plan_changed, plan_limit_hit,
 // workflow_*, brain_*, automation_*, memory_referenced, report_generated) are emitted
-// by the BACKEND door — see docs/mixpanel-backend-contract.md. Call-site wiring for
+// by the BACKEND door — see docs/analytics/mixpanel-backend-contract.md. Call-site wiring for
 // these is a follow-up; the names are declared now so future wiring is type-checked.
 export type BrowserEvent =
   | "signup_completed"

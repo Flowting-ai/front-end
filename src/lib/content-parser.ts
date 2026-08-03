@@ -6,7 +6,7 @@
  *
  * The backend emits structured XML blocks (STRUCTURED_TAGS) inline inside the
  * regular `content` SSE events. Everything else is plain Markdown.
- * See: docs/frontend-rendering.md
+ * See: docs/ui/frontend-rendering.md
  */
 
 /** XML block tags the assistant can emit inline. Adding a widget = add its tag

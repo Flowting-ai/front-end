@@ -4,8 +4,7 @@ import { AnimatePresence, m } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/Button";
 import type { AIModel } from "@/types/ai-model";
-import { LlmIcon } from "@strange-huge/icons/llm";
-import { getModelLlmId } from "@/lib/model-icons";
+import { SouvenirModelIcon } from "@/components/SouvenirModelIcon";
 
 interface ModelSwitchDialogProps {
   isOpen: boolean;
@@ -122,11 +121,7 @@ export function ModelSwitchDialog({
             >
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
                 <span style={{ lineHeight: 0, flexShrink: 0 }}>
-                  <LlmIcon
-                    id={getModelLlmId(fromModel.companyName, fromModel.modelName) ?? ""}
-                    variant="color"
-                    size={20}
-                  />
+                  <SouvenirModelIcon size={20} />
                 </span>
                 <span
                   style={{
@@ -146,11 +141,7 @@ export function ModelSwitchDialog({
 
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
                 <span style={{ lineHeight: 0, flexShrink: 0 }}>
-                  <LlmIcon
-                    id={getModelLlmId(toModel.companyName, toModel.modelName) ?? ""}
-                    variant="color"
-                    size={20}
-                  />
+                  <SouvenirModelIcon size={20} />
                 </span>
                 <span
                   style={{

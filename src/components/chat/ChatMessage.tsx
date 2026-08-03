@@ -3,10 +3,10 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { AnimatePresence, m } from "framer-motion";
+import { toast } from "sonner";
 import { ReasoningBlock, ModelLogo, AnimatedLogo } from "./ReasoningBlock";
 import { BreathingDot } from "@/components/BreathingDot";
 import { ActivitiesSection } from "./ActivityRow";
-import { StreamingCursor } from "./StreamingCursor";
 import { BlockSequenceRenderer, SourceList } from "./ResponseBlocks";
 import { ConnectPromptCard } from "./ConnectorPrompts";
 import { PermissionPromptCard } from "@/components/shared/PermissionPromptCard";
@@ -20,6 +20,7 @@ import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import type { UIMessage, ActivityItem, WebCitation, ModelSelectedMeta } from "@/hooks/use-chat-state";
 import { respondToChatPrompt } from "@/lib/api/chat";
+import { toSouvenirModelLabel } from "@/lib/ai-models";
 import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
 import { MessageBubble } from "@/components/MessageBubble";
@@ -139,13 +140,22 @@ function StandaloneActivitiesBlock({
   const displayName = (() => {
     const complexity = modelMeta?.complexity
     if (complexity === 'basic') return 'Souvenir Muse (Basic)'
+    if (complexity === 'standard') return 'Souvenir Muse (Standard)'
+    // Per-message resolved tier — "Auto" is only ever the selector's routing
+    // mode (TopBar.tsx), never a tier a message actually resolves to.
     if (complexity === 'advanced') return 'Souvenir Muse (Advanced)'
     const raw = modelMeta?.modelName ?? modelName
     if (!raw) return null
     const l = raw.toLowerCase()
     if (l === 'muse') return 'Souvenir Muse'
+    // Already one of the 3 renamed tier labels (e.g. a manually-selected
+    // model, whose modelName was renamed upstream by toSouvenirModelLabel
+    // already) — show it as-is rather than falling into the placeholder
+    // filter below, which would otherwise blank it out just because it now
+    // also starts with "souvenir".
+    if (l.startsWith('souvenir muse:')) return raw
     if (l === 'souvenir' || l.startsWith('souvenir')) return null
-    return raw
+    return toSouvenirModelLabel(raw)
   })()
 
   // Derive summary for collapsed state
@@ -335,13 +345,22 @@ export function ChatMessage({
   const modelDisplayName = (() => {
     const complexity = message.modelMeta?.complexity
     if (complexity === 'basic') return 'Souvenir Muse (Basic)'
+    if (complexity === 'standard') return 'Souvenir Muse (Standard)'
+    // Per-message resolved tier — "Auto" is only ever the selector's routing
+    // mode (TopBar.tsx), never a tier a message actually resolves to.
     if (complexity === 'advanced') return 'Souvenir Muse (Advanced)'
     const raw = message.modelMeta?.modelName ?? message.modelName ?? message.model_name ?? message.model
     if (!raw) return null
     const l = raw.toLowerCase()
     if (l === 'muse') return 'Souvenir Muse'
+    // Already one of the 3 renamed tier labels (e.g. a manually-selected
+    // model, whose modelName was renamed upstream by toSouvenirModelLabel
+    // already) — show it as-is rather than falling into the placeholder
+    // filter below, which would otherwise blank it out just because it now
+    // also starts with "souvenir".
+    if (l.startsWith('souvenir muse:')) return raw
     if (l === 'souvenir' || l.startsWith('souvenir')) return null
-    return raw
+    return toSouvenirModelLabel(raw)
   })()
 
   // Trigger glow burst on the logo the instant model_selected fires (streaming only).
@@ -480,7 +499,10 @@ export function ChatMessage({
   const handleCopySelection = () => {
     const sel = window.getSelection()
     const text = sel?.toString()
-    if (text) navigator.clipboard.writeText(text).catch(() => {})
+    if (!text) return
+    navigator.clipboard.writeText(text)
+      .then(() => toast.success('Copied to clipboard'))
+      .catch(() => toast.error('Failed to copy'))
   };
 
   return (
@@ -684,22 +706,30 @@ export function ChatMessage({
                 justSelected={justModelSelected}
               />
               <AnimatePresence mode="popLayout" initial={false}>
-                {modelDisplayName && (
-                  <m.span
-                    key={modelDisplayName}
-                    initial={{ opacity: 0, filter: "blur(4px)" }}
-                    animate={{ opacity: 1, filter: "none" }}
-                    transition={{ type: "spring", stiffness: 520, damping: 32 }}
-                    style={{
-                      fontFamily: "var(--font-body)",
-                      fontSize: "14px",
-                      fontWeight: 500,
-                      color: "var(--neutral-600, #524B47)",
-                    }}
-                  >
-                    {modelDisplayName}
-                  </m.span>
-                )}
+                {(() => {
+                  // Same fallback as the loading-state label below: a generic
+                  // "Souvenir" placeholder rather than blanking the text
+                  // entirely, since modelDisplayName can genuinely resolve to
+                  // null (e.g. an unrecognized "souvenir"-prefixed placeholder
+                  // name) while the logo next to it renders regardless.
+                  const label = modelDisplayName ?? "Souvenir";
+                  return (
+                    <m.span
+                      key={label}
+                      initial={{ opacity: 0, filter: "blur(4px)" }}
+                      animate={{ opacity: 1, filter: "none" }}
+                      transition={{ type: "spring", stiffness: 520, damping: 32 }}
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        fontSize: "14px",
+                        fontWeight: 500,
+                        color: "var(--neutral-600, #524B47)",
+                      }}
+                    >
+                      {label}
+                    </m.span>
+                  );
+                })()}
               </AnimatePresence>
             </m.div>
           )}
@@ -767,9 +797,6 @@ export function ChatMessage({
             {isNewMessage && message.isLoading
               ? <StreamingTextContent content={message.content} citations={message.webCitations} />
               : <ContentRenderer content={message.content} webCitations={message.webCitations} />}
-            {!(isNewMessage && message.isLoading) && (
-              <StreamingCursor isVisible={false} />
-            )}
           </m.div>
         ) : null}
         {/* Structural blocks (tables, charts, steps, follow-ups, tags, etc.) come

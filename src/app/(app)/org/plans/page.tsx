@@ -355,18 +355,17 @@ export default function OrgBillingPage() {
 
   const providerUsage     = effectivePlan?.providerUsageUsd ?? 0
   const includedUsage     = effectivePlan?.includedUsageUsd ?? 0
-  const includedRemaining = effectivePlan?.includedUsageRemainingUsd ?? 0
-  const overage           = effectivePlan?.overageUsd ?? 0
   const projectedInvoice  = effectivePlan?.projectedInvoiceUsd ?? 0
   const poolCapUsd        = effectivePlan?.poolCapUsd ?? null
-  // base fee = projected invoice − overage (compute_enterprise_billing).
-  const baseFeeUsd        = Math.max(projectedInvoice - overage, 0)
-
-  // Credit view. Teams: the prepaid shared pool (already credits from the plan).
-  // Enterprise: the included allowance / provider usage, expressed in credits.
-  const totalCredits   = isEnterprise ? toCredits(includedUsage)        : (effectivePlan?.totalCredits ?? 0)
-  const remainingCreds = isEnterprise ? toCredits(includedRemaining)    : (effectivePlan?.remaining ?? 0)
-  const usedCredits    = isEnterprise ? toCredits(providerUsage)        : (effectivePlan?.used ?? 0)
+  // The backend's own overage_usd is capped at the owner's overage limit (it's
+  // used server-side to derive the invoice), so it silently under-reports once
+  // usage actually exceeds that limit. Recompute the true, uncapped overage
+  // client-side and use that everywhere in this UI instead — the backend field
+  // is only used below to back out baseFeeUsd, matching how the backend itself
+  // derived projectedInvoiceUsd (base fee + capped overage).
+  const backendOverageUsd = effectivePlan?.overageUsd ?? 0
+  const trueOverageUsd    = Math.max(providerUsage - includedUsage, 0)
+  const baseFeeUsd        = Math.max(projectedInvoice - backendOverageUsd, 0)
 
   const hasUnlimitedEnterpriseCap = poolCapUsd == null || poolCapUsd >= ENTERPRISE_INTERMAX
   // Owner-set ceiling on overage spend *above* the included allowance (backend
@@ -374,8 +373,24 @@ export default function OrgBillingPage() {
   // permitted; this only caps metered overage beyond it. `null` ⇒ unlimited.
   const overageCapUsd = hasUnlimitedEnterpriseCap ? null : poolCapUsd
   const overageUsedPct = overageCapUsd && overageCapUsd > 0
-    ? Math.min(100, (overage / overageCapUsd) * 100)
+    ? Math.min(100, (trueOverageUsd / overageCapUsd) * 100)
     : 0
+
+  // Credit view. Teams: the prepaid shared pool (already credits from the plan).
+  // Enterprise: total/remaining reflect the TRUE ceiling — included allowance
+  // plus the overage cap when one is set — not just the included allowance.
+  // Otherwise "Credits Remaining" reads as 0 (and the progress bar as 100%)
+  // the moment usage crosses the included amount, even with plenty of overage
+  // budget still left. Falls back to the included-only view when the cap is
+  // unlimited, since there's no finite ceiling to measure against there.
+  const enterpriseCeilingUsd = overageCapUsd != null ? includedUsage + overageCapUsd : null
+  const totalCredits   = isEnterprise
+    ? toCredits(enterpriseCeilingUsd ?? includedUsage)
+    : (effectivePlan?.totalCredits ?? 0)
+  const remainingCreds = isEnterprise
+    ? toCredits(Math.max((enterpriseCeilingUsd ?? includedUsage) - providerUsage, 0))
+    : (effectivePlan?.remaining ?? 0)
+  const usedCredits    = isEnterprise ? toCredits(providerUsage) : (effectivePlan?.used ?? 0)
 
   const currentTierIdx = useMemo(() => {
     const i = TIERS.findIndex(t => t.credits === totalCredits)
@@ -436,6 +451,18 @@ export default function OrgBillingPage() {
     const url = await openBillingPortal()
     if (url) window.open(url, '_blank')
     else toast.error('Could not open billing portal.')
+  }
+
+  const handleExportAllInvoices = () => {
+    const urls = (billing?.invoices ?? [])
+      .map(inv => inv.invoice_pdf ?? inv.invoice_url)
+      .filter((url): url is string => !!url)
+    if (urls.length === 0) {
+      toast.error('No invoices to export.')
+      return
+    }
+    urls.forEach(url => window.open(url, '_blank', 'noopener,noreferrer'))
+    toast.success(urls.length === 1 ? 'Opened 1 invoice' : `Opened ${urls.length} invoices`)
   }
 
   const reloadBilling = () => fetchBilling().then(setBilling).catch(console.error)
@@ -546,6 +573,7 @@ export default function OrgBillingPage() {
       remainingCredits={remainingCreds}
       providerUsage={providerUsage}
       includedUsage={includedUsage}
+      overageUsd={trueOverageUsd}
       projectedInvoice={projectedInvoice}
       baseFeeUsd={baseFeeUsd}
       cycleLabel={`${fmtShort(cycleStart)} – ${fmtShort(cycleEnd)}`}
@@ -641,7 +669,7 @@ export default function OrgBillingPage() {
 
             <SpendLimitCard
               overageCapUsd={overageCapUsd}
-              overage={overage}
+              overage={trueOverageUsd}
               overageUsedPct={overageUsedPct}
               includedUsage={includedUsage}
               isOwner={isOwner}
@@ -713,7 +741,7 @@ export default function OrgBillingPage() {
         {canSeeInvoices && (
           <SectionCard
             title="Invoice history"
-            action={<Button variant="secondary" onClick={() => toast.success('Exporting all invoices…')}>Export all</Button>}
+            action={<Button variant="secondary" onClick={handleExportAllInvoices}>Export all</Button>}
             bodyPadding="0 24px 12px"
           >
             <InvoiceTable billing={billing} loading={billingLoading} />
@@ -1084,6 +1112,7 @@ function EnterpriseHero({
   remainingCredits,
   providerUsage,
   includedUsage,
+  overageUsd,
   projectedInvoice,
   baseFeeUsd,
   cycleLabel,
@@ -1095,15 +1124,12 @@ function EnterpriseHero({
   remainingCredits: number
   providerUsage: number
   includedUsage: number
+  overageUsd: number
   projectedInvoice: number
   baseFeeUsd: number
   cycleLabel:     string
 }) {
   const pct = totalCredits > 0 ? Math.min(100, (usedCredits / totalCredits) * 100) : 0
-  // Derived straight from providerUsage/includedUsage (both confirmed consistent
-  // with usedCredits/totalCredits above) rather than the backend's overageUsd
-  // field, which can disagree with actual usage.
-  const overageUsd = Math.max(providerUsage - includedUsage, 0)
   return (
     <HeroShell>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

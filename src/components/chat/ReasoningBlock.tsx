@@ -19,12 +19,11 @@ import {
   Brain01Icon,
   Brain02Icon,
 } from "@hugeicons/core-free-icons";
-import { LlmIcon } from "@strange-huge/icons/llm";
 import { LineRenderer } from "@/lib/line-renderer";
 import { ActivitiesSection } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
 import { springs } from "@/lib/springs";
-import { getModelLlmId } from "@/lib/model-icons";
+import { toSouvenirModelLabel } from "@/lib/ai-models";
 import {
   cleanReasoningHeading,
   type ReasoningSection,
@@ -45,22 +44,15 @@ function SouvenirMark({ size }: { size: number }) {
 // ── ModelLogo - static logo for non-reasoning headers ─────────────────────────
 
 export function ModelLogo({
-  modelMeta,
-  modelName,
   size = 16,
 }: {
   modelMeta?: ModelSelectedMeta;
   modelName?: string;
   size?: number;
 }) {
-  const llmId = getModelLlmId(modelMeta?.company, modelMeta?.modelName || modelName);
-  const iconWrap: React.CSSProperties = {
-    width: size, height: size, borderRadius: 4, overflow: "hidden",
-    flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 0,
-    userSelect: "none",
-  };
+  // Always the Souvenir mark — every model is one of the 3 Souvenir Muse
+  // tiers, never a raw third-party (Anthropic/Claude) brand.
   const preventDrag = (e: React.DragEvent) => e.preventDefault();
-  if (llmId) return <span draggable={false} onDragStart={preventDrag} style={iconWrap}><LlmIcon id={llmId} variant="color" size={size} /></span>;
   return <span draggable={false} onDragStart={preventDrag} style={{ userSelect: "none" }}><SouvenirMark size={size} /></span>;
 }
 
@@ -78,15 +70,17 @@ export function AnimatedLogo({
   modelName,
   justSelected,
 }: AnimatedLogoProps) {
-  const llmId = getModelLlmId(modelMeta?.company, modelMeta?.modelName || modelName);
-  const hasModel = !!(modelMeta?.modelName || modelName);
+  // Always the Souvenir mark — every model is one of the 3 Souvenir Muse
+  // tiers, never a raw third-party (Anthropic/Claude) brand. `hasModel`
+  // still distinguishes "thinking, no model chosen yet" from "model
+  // selected" so the swing-in animation below keeps firing on selection.
+  // Muse-routed responses report only `complexity` (basic/standard/advanced),
+  // never a raw modelName — so complexity alone must count as "resolved" too,
+  // or this never leaves the "no model yet" state for those responses.
+  const hasModel = !!(modelMeta?.modelName || modelName || modelMeta?.complexity);
   const showModel = hasModel;
+  const currentModelKey = modelMeta?.modelName || modelName || modelMeta?.complexity;
 
-  const iconWrap: React.CSSProperties = {
-    width: 16, height: 16, borderRadius: 4, overflow: "hidden",
-    flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 0,
-    userSelect: "none",
-  };
   const preventDrag = (e: React.DragEvent) => e.preventDefault();
 
   return (
@@ -102,14 +96,12 @@ export function AnimatedLogo({
             <SouvenirMark size={16} />
           </m.div>
         ) : (
-          <m.div key={`model-${llmId}`}
+          <m.div key={`model-${currentModelKey}`}
             initial={{ opacity: 0, scale: 0.15, rotate: 14, filter: "blur(8px)" }}
             animate={{ opacity: 1, scale: 1, rotate: 0, filter: "none" }}
             transition={{ type: "spring", stiffness: 220, damping: 11, mass: 0.9 }}
             style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {llmId
-              ? <span style={iconWrap}><LlmIcon id={llmId} variant="color" size={16} /></span>
-              : <SouvenirMark size={16} />}
+            <SouvenirMark size={16} />
           </m.div>
         )}
       </AnimatePresence>
@@ -177,11 +169,17 @@ function ModelNameLabel({
   modelName?: string;
 }) {
   const complexity = modelMeta?.complexity;
-  const isMuse = complexity === "basic" || complexity === "advanced";
-  if (isMuse) return <span>Souvenir Muse ({complexity === "advanced" ? "Advanced" : "Basic"})</span>;
+  const isMuse = complexity === "basic" || complexity === "standard" || complexity === "advanced";
+  if (isMuse) {
+    // Per-message resolved tier — "Auto" is only ever the selector's routing
+    // MODE (see TopBar.tsx), never a tier a message actually resolves to.
+    // A message routed to the advanced tier shows "Advanced" here, not "Auto".
+    const tier = complexity === "advanced" ? "Advanced" : complexity === "standard" ? "Standard" : "Basic";
+    return <span>Souvenir Muse ({tier})</span>;
+  }
   const name = modelMeta?.modelName || modelName
   if (!name) return null
-  return <span>{name}</span>;
+  return <span>{toSouvenirModelLabel(name)}</span>;
 }
 
 // ── Structured reasoning sections (from backend reasoning_sections[]) ────────
@@ -495,8 +493,9 @@ export function ReasoningBlock({
     }
   }, [isThinkingInProgress]);
 
-  // Trigger glow burst when model name first arrives
-  const currentModel = modelMeta?.modelName || modelName;
+  // Trigger glow burst when model name (or, for Muse-routed responses that
+  // never send a raw name, complexity) first arrives.
+  const currentModel = modelMeta?.modelName || modelName || modelMeta?.complexity;
   useEffect(() => {
     if (currentModel && currentModel !== prevModelRef.current) {
       prevModelRef.current = currentModel;
@@ -510,7 +509,7 @@ export function ReasoningBlock({
 
   const hasActivities = Boolean(activities?.length);
   const hasContent = Boolean(thinkingContent) || Boolean(reasoningSections?.length) || hasActivities;
-  const hasModel = !!(modelMeta?.modelName || modelName);
+  const hasModel = !!(modelMeta?.modelName || modelName || modelMeta?.complexity);
 
   const outerVisible = isThinkingInProgress || outerOpen;
   const innerVisible = isThinkingInProgress || innerOpen;
@@ -551,7 +550,7 @@ export function ReasoningBlock({
             </m.div>
           ) : isThinkingInProgress && hasModel ? (
             <m.div
-              key={`thinking-${modelMeta?.modelName || modelName}`}
+              key={`thinking-${modelMeta?.modelName || modelName || modelMeta?.complexity}`}
               initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
               animate={{ opacity: 1, filter: "none", scale: 1 }}
               exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}

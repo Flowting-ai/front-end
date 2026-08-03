@@ -101,6 +101,7 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
     try {
       await removeProjectMember(orgId, teamId, projectId, userId)
       setMembers(prev => prev.filter(m => m.userId !== userId))
+      toast.success('Member removed from project')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove member')
     }

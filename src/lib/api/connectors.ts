@@ -20,16 +20,20 @@ const accountScopeSchema  = z.enum(['personal', 'shared_team'])
 const accountStatusSchema = z.enum(['active', 'disabled', 'expired'])
 const accessStatusSchema  = z.enum(['pending', 'approved', 'denied'])
 
-// Mirrors backend ToolEntry (services/connectors/schemas.py) exactly: a
-// binary allowed/blocked gate, extra="forbid" on the wire. Neither bit set
-// means "ask" (the connector's default, undecided state). There is no
-// "allow_once" on the backend — a one-time allow is a call-scoped decision
-// the UI unblocks immediately without ever persisting it as a permission.
+const toolPermissionSchema = z.enum(['allowed', 'blocked', 'ask'])
+
+// Mirrors backend ToolEntry (services/connectors/schemas.py). The readable
+// permission is response-only and derived from the two booleans; parsing derives
+// it again so a stale cached response without the new field still renders.
 const toolEntrySchema = z.object({
-  slug:    z.string(),
-  allowed: z.boolean().default(false),
-  blocked: z.boolean().default(false),
-})
+  slug:       z.string(),
+  allowed:    z.boolean().default(false),
+  blocked:    z.boolean().default(false),
+  permission: toolPermissionSchema.optional(),
+}).passthrough().transform(tool => ({
+  ...tool,
+  permission: connectorToolPermission(tool),
+}))
 
 /** Rich descriptor for a single credential field returned by GET /connectors/{slug}.
  *  Mirrors Composio's connected-account initiation field metadata. */
@@ -64,10 +68,10 @@ const orgConnectorAccountSchema = z.object({
   updated_at:         z.string(),
 })
 
-/** A selectable account the current user can use for one connector — personal
- *  (UserConnection) or shared (OrganizationConnectorAccount, surfaced via teams). */
+/** A connected account the current user acts through for one connector — personal
+ *  (UserConnection) or shared (OrganizationConnectorAccount, surfaced via teams).
+ *  Informational: the server picks personal-first, else the team's shared one. */
 const connectorAccountOptionSchema = z.object({
-  account_ref:        z.string(),
   connector_slug:     z.string(),
   scope:              accountScopeSchema,
   account_label:      z.string(),
@@ -152,24 +156,28 @@ const linkResponseSchema = z.object({
 // ── Inferred types ─────────────────────────────────────────────────────────────
 
 export type ConnectorTool          = z.infer<typeof toolEntrySchema>
+export type ConnectorToolPermission = z.infer<typeof toolPermissionSchema>
 export type ApiKeyField            = z.infer<typeof apiKeyFieldSchema>
 
-// ── Tool permission helpers ────────────────────────────────────────────────────
-// UI-facing 3-state view over the backend's allowed/blocked bits. Kept in one
-// place so every permission UI (personal connector settings, org team
-// permissions, in-chat prompts) derives/constructs the wire shape identically.
-
-export type ToolPolicy = 'allow' | 'ask' | 'block'
-
-export function toolPolicyFromTool(tool: { allowed: boolean; blocked: boolean }): ToolPolicy {
-  if (tool.blocked) return 'block'
-  if (tool.allowed) return 'allow'
-  return 'ask'
+export function connectorToolPermission(tool: {
+  allowed?: boolean
+  blocked?: boolean
+  permission?: ConnectorToolPermission
+}): ConnectorToolPermission {
+  if (tool.blocked) return 'blocked'
+  if (tool.allowed) return 'allowed'
+  return tool.permission ?? 'ask'
 }
 
-export function toolPermissionFromPolicy(policy: ToolPolicy): { allowed: boolean; blocked: boolean } {
-  return { allowed: policy === 'allow', blocked: policy === 'block' }
+export function connectorToolBooleans(
+  permission: ConnectorToolPermission,
+): { allowed: boolean; blocked: boolean } {
+  return {
+    allowed: permission === 'allowed',
+    blocked: permission === 'blocked',
+  }
 }
+
 /** Snake_case shape of an org shared account as embedded in the catalog entry. */
 export type ConnectorAccount       = z.infer<typeof orgConnectorAccountSchema>
 export type ConnectorCatalogMetadata = z.infer<typeof catalogMetadataSchema>

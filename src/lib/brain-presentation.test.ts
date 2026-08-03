@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   enqueuePrompt,
   executionPhaseTitle,
-  planTimelineItems,
+  agentTimelineItems,
   retirePrompt,
 } from '@/lib/brain-presentation'
-import type { PlanStep } from '@/templates/Brain/lib/phase'
+import type { AgentStep } from '@/templates/Brain/lib/phase'
 
 describe('Brain prompt queue', () => {
   it('keeps arrival order, dedupes replay, and promotes by exact id', () => {
@@ -21,14 +21,14 @@ describe('Brain prompt queue', () => {
 })
 
 describe('Mayday Brain presentation adapters', () => {
-  it('maps canonical plan state into a result timeline', () => {
-    const steps: PlanStep[] = [
+  it("maps the turn's rallied agents into a result timeline", () => {
+    const steps: AgentStep[] = [
       { id: 'one', label: 'Read tasks', isCritical: true, status: 'complete' },
       { id: 'two', label: 'Read docs', isCritical: false, status: 'skipped' },
-      { id: 'three', label: 'Draft report', isCritical: true, status: 'failed' },
+      { id: 'three', label: 'Draft report', isCritical: true, status: 'failed', error: 'Agent timed out.' },
     ]
 
-    expect(planTimelineItems(steps, { one: 'Found 12 tasks.' })).toEqual([
+    expect(agentTimelineItems(steps, { one: 'Found 12 tasks.' })).toEqual([
       {
         id: 'one',
         label: 'Read tasks',
@@ -43,9 +43,9 @@ describe('Mayday Brain presentation adapters', () => {
         id: 'three',
         label: 'Draft report',
         variant: 'error',
-        result: { label: 'Failed', details: undefined, variant: 'error' },
+        result: { label: 'Failed', details: 'Agent timed out.', variant: 'error' },
       },
     ])
-    expect(executionPhaseTitle(steps)).toBe('Execution — 1 completed · 1 skipped · 1 failed')
+    expect(executionPhaseTitle(steps)).toBe('Agents — 1 completed · 1 skipped · 1 failed')
   })
 })

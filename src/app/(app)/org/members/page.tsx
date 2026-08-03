@@ -1959,7 +1959,10 @@ export default function OrgMembersPage() {
         // Admin has blanket access regardless of per-team grants — drop any
         // lingering ones so a later demotion doesn't resurrect stale access.
         const currentEditorTeamIds = member.teamMemberships.filter(tm => tm.isTeamOwner).map(tm => tm.teamId)
-        await Promise.all(currentEditorTeamIds.map(tid => removeTeamEditor(orgId, tid, memberId).catch(() => {})))
+        await Promise.all(currentEditorTeamIds.map(tid => removeTeamEditor(orgId, tid, memberId).catch(err => {
+          console.error('Failed to clean up stale team editor grant', err)
+          toast.error(`${memberName} is now an Admin, but a stale team editor grant couldn't be cleaned up — they may still have extra team access`)
+        })))
         bumpMembers(ms => ms.map(m => m.id === memberId ? { ...m, role: 'admin', orgRole: 'admin', teamMemberships: [] } : m))
         toast.success(`${memberName} is now an Admin`)
         refreshMembers()
@@ -2015,7 +2018,12 @@ export default function OrgMembersPage() {
           if (current === 'editor') await removeTeamEditor(orgId, teamId, memberId)
         } else {
           if (current === 'editor') await removeTeamEditor(orgId, teamId, memberId)
-          await Promise.all(teamProjects.map(p => removeProjectMember(orgId, teamId, p.id, memberId).catch(() => {})))
+          let projectCleanupFailed = false
+          await Promise.all(teamProjects.map(p => removeProjectMember(orgId, teamId, p.id, memberId).catch(err => {
+            console.error('Failed to clean up stale project membership', err)
+            projectCleanupFailed = true
+          })))
+          if (projectCleanupFailed) failures.push(`${teamName} (couldn't fully revoke project access)`)
         }
       }
 
@@ -2034,10 +2042,10 @@ export default function OrgMembersPage() {
   }
 
   const handleRemove = async (id: string) => {
+    if (!orgId) return
     const prev = members
     const removed = prev.find(m => m.id === id)
     bumpMembers(ms => ms.filter(m => m.id !== id))
-    if (!orgId) return
     try {
       await removeMember(orgId, id)
       toast.success(`Removed ${removed?.name || removed?.email || 'member'}`)
@@ -2048,10 +2056,10 @@ export default function OrgMembersPage() {
   }
 
   const handleRevokeInvite = async (id: string) => {
+    if (!orgId) return
     const prev = members
     const invited = prev.find(m => m.id === id)
     bumpMembers(ms => ms.filter(m => m.id !== id))
-    if (!orgId) return
     try {
       // Pending invites live in the team invite table, not the member table.
       // Use the invite-specific DELETE endpoint; fall back to removeMember only

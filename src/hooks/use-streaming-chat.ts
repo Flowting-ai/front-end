@@ -209,7 +209,7 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string },
+    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean },
   ): Promise<void> => {
     stopRequestedRef.current = false
     xhrRef.current = null
@@ -262,7 +262,19 @@ export function useStreamingChat({
       const direct = directEndpoints ?? (endpoint === "/api/chat"
         ? { create: CHATS_CREATE_ENDPOINT, stream: CHAT_STREAM_ENDPOINT }
         : null)
-      const useDirectBackend = direct !== null && shouldUseDirectBackend()
+      // For an existing chat, only take the direct-to-backend path once the
+      // caller has explicitly confirmed this chat is the user's own (or at
+      // least readable/editable by them) — see `chatOwnershipConfirmed` below.
+      // Without that confirmation the backend's own ownership check on
+      // POST /chats/{id}/stream can 404 with a raw "Chat not found" the
+      // proxy would otherwise have absorbed. Creating a brand-new chat has
+      // no ownership question (isExistingChat is false), so this never
+      // affects that path, and callers that don't pass the option at all
+      // keep today's behavior (undefined !== false).
+      const useDirectBackend =
+        direct !== null &&
+        shouldUseDirectBackend() &&
+        (!isExistingChat || options?.chatOwnershipConfirmed !== false)
       const directToken = useDirectBackend ? await ensureFreshToken() : null
       // Direct-to-backend requests must opt into the AG-UI stream themselves;
       // proxied requests get the parameter added by the proxy route.
@@ -687,17 +699,27 @@ export function useStreamingChat({
             // In persona chat the model is pre-seeded from the agent's configured
             // version; ignore the backend event to avoid overwriting the correct info.
             if (skipModelSelected) continue
-            // Backend selected a model - update the loading message with model info
+            // Backend selected a model - update the loading message with model info.
+            // Muse-routed responses now omit model_name entirely (the whole point
+            // of the tier rebrand is to never reveal the underlying provider
+            // model) and send only `complexity` — so this can't require
+            // modelName to be present, or every Muse event gets silently
+            // dropped and modelMeta/complexity never reaches the message at all.
             const modelName = asString(parsed.model_name) ?? asString(parsed.modelName)
-            if (modelName) {
+            const complexity = asString(parsed.complexity)
+            if (modelName || complexity) {
               queueUpdate({
-                modelName,
+                // Only include modelName when we actually have one — queueUpdate/
+                // applyUpdate shallow-merge onto the existing message, so an
+                // explicit `modelName: undefined` here would clobber a value
+                // set by an earlier partial update instead of just leaving it.
+                ...(modelName ? { modelName } : null),
                 modelMeta: {
                   modelId: asString(parsed.model_id) ?? "",
-                  modelName: modelName,
+                  modelName: modelName ?? "",
                   deploymentName: asString(parsed.deployment_name),
                   company: asString(parsed.company),
-                  complexity: asString(parsed.complexity),
+                  complexity,
                   thinkingEnabled: parsed.thinking_enabled === true,
                   effort: asString(parsed.effort),
                 },

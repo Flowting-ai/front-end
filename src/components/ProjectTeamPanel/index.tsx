@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { Avatar } from '@/components/Avatar'
 import { useOrg } from '@/context/org-context'
 import { listTeamEditors } from '@/lib/api/teams'
@@ -46,7 +47,10 @@ export function ProjectTeamPanel({ teamId, projectId, ownerUserId, canEdit }: Pr
     setMembersLoading(true)
     listTeamEditors(orgId, teamId)
       .then(editors => { if (!cancelled) setTeamMembers(editors) })
-      .catch(console.error)
+      .catch(err => {
+        console.error(err)
+        if (!cancelled) toast.error('Failed to load team members. Please try again.')
+      })
       .finally(() => { if (!cancelled) setMembersLoading(false) })
     return () => { cancelled = true }
   }, [orgId, teamId])

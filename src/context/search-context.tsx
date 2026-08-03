@@ -21,7 +21,6 @@ import {
   BRAIN_SCHEDULES_ROUTE,
   SETTINGS_ACCOUNT_ROUTE,
   SETTINGS_BILLING_ROUTE,
-  SETTINGS_AI_ROUTE,
   SETTINGS_CONNECTORS_ROUTE,
   SETTINGS_HELP_ROUTE,
   ORG_GENERAL_ROUTE,
@@ -71,7 +70,6 @@ const NAV_PAGES: NavPage[] = [
   { id: "page-org-activity",  title: "Activity Log",     subtitle: "Organization", route: ORG_ACTIVITY_ROUTE,       keywords: "organization org activity log audit" },
   { id: "page-account",       title: "Account",          subtitle: "Settings",    route: SETTINGS_ACCOUNT_ROUTE,    keywords: "account profile settings me user" },
   { id: "page-billing",       title: "Usage & Billing",  subtitle: "Settings",    route: SETTINGS_BILLING_ROUTE,    keywords: "billing usage payment subscription invoice plan credits cost" },
-  { id: "page-ai",            title: "AI & Models",      subtitle: "Settings",    route: SETTINGS_AI_ROUTE,         keywords: "ai models llm settings default model" },
   { id: "page-connectors",    title: "Connectors",       subtitle: "Settings",    route: SETTINGS_CONNECTORS_ROUTE, keywords: "connectors integrations tools apps mcp" },
   { id: "page-help",          title: "Help & Legal",     subtitle: "Settings",    route: SETTINGS_HELP_ROUTE,       keywords: "help legal support docs terms privacy faq" },
 ];

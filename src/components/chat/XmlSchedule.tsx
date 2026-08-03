@@ -12,7 +12,7 @@
  *     <event day="Tue, Jul 21" time="11:00–11:45" title="Customer call" sub="Acme Corp"/>
  *   </schedule>
  *
- * See: docs/frontend-rendering.md - Schedule section.
+ * See: docs/ui/frontend-rendering.md - Schedule section.
  */
 
 import React from "react"

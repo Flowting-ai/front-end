@@ -34,7 +34,6 @@ function getGradient(seed: string): string {
 export interface ProjectCardProps extends ProjectCardBodyProps {
   active?:    boolean
   onEdit?:    () => void
-  onArchive?: () => void
   onDelete?:  () => void
   onClick?:   () => void
   /**
@@ -51,12 +50,12 @@ export interface ProjectCardProps extends ProjectCardBodyProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function ProjectCardInner(
-  { title, description, tags, teamName, ownerName, memberCount, updatedAt, chatCount, active, onEdit, onArchive, onDelete, onClick, body, ref }: ProjectCardProps & { ref?: React.Ref<HTMLDivElement> },
+  { title, description, tags, teamName, ownerName, memberCount, updatedAt, chatCount, active, onEdit, onDelete, onClick, body, ref }: ProjectCardProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
     const [hovered,  setHovered]  = useState(false)
     const [focused,  setFocused]  = useState(false)
     const [menuOpen, setMenuOpen] = useState(false)
-    const hasActions = Boolean(onEdit || onArchive || onDelete)
+    const hasActions = Boolean(onEdit || onDelete)
 
     const showMenu = hovered || focused || menuOpen || !!active
 
@@ -91,7 +90,8 @@ function ProjectCardInner(
           zIndex:          menuOpen ? 1 : 'auto',
           display:         'flex',
           flexDirection:   'column',
-          height:          '300px',
+          height:          '262px',
+          overflow:        'hidden',
           padding:         '20px',
           boxSizing:       'border-box',
           borderRadius:    '12px',
@@ -169,8 +169,7 @@ function ProjectCardInner(
             >
               <Dropdown size="md">
                 <Dropdown.Section fluid>
-                  <Dropdown.Item label="Edit"    onClick={() => { setMenuOpen(false); onEdit?.() }}    fluid />
-                  <Dropdown.Item label="Archive" onClick={() => { setMenuOpen(false); onArchive?.() }} disabled fluid />
+                  <Dropdown.Item label="Edit" onClick={() => { setMenuOpen(false); onEdit?.() }} fluid />
                 </Dropdown.Section>
                 <Dropdown.Section divider fluid>
                   <Dropdown.Item label="Delete"  variant="danger" onClick={() => { setMenuOpen(false); onDelete?.() }} fluid />

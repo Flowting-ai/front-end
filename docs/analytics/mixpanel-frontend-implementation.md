@@ -26,7 +26,7 @@ Status legend: ✅ done & verified · 🟡 partial · ⛔ deferred (with reason)
 | `src/app/layout.tsx` | Wrapped `children` with `<MixpanelProvider>`. |
 | `src/app/(app)/layout.tsx` | Mounted `<OrgStamps />` inside `OrgProvider`. |
 | `AGENTS.md` | Added an "Analytics (Mixpanel)" section for future agents. |
-| `docs/mixpanel-backend-contract.md` *(new)* | Backend door spec + frontend walkthrough. |
+| `docs/analytics/mixpanel-backend-contract.md` *(new)* | Backend door spec + frontend walkthrough. |
 
 **Identity / stamps:** `distinct_id` = Auth0 `sub` (never email). `GET /users/me` does **not**
 return `auth0_id`, so `MixpanelProvider` derives the `sub` from the **JWT access token**
@@ -146,7 +146,7 @@ from users on uBlock / Brave / Dia / EasyPrivacy (e.g. an agency ops person) wer
 before ingestion, making them invisible in the data. Fix: route all traffic through our own
 origin so blockers see the app talking to itself.
 
-> **Full write-up:** `docs/mixpanel-browser-proof.md` — task, methodology, every gotcha,
+> **Full write-up:** `docs/analytics/mixpanel-browser-proof.md` — task, methodology, every gotcha,
 > and the real-browser verification. The summary below is the changelog view.
 
 | Change | File | Detail |

@@ -177,16 +177,6 @@ export async function addTeamEditor(
   return normalizeEditor(data)
 }
 
-export async function setTeamEditorLink(
-  orgId: string, teamId: string, memberId: string, canLinkAccounts: boolean,
-): Promise<TeamEditor> {
-  const data = await apiFetchJson<PersonResponse>(ORG_TEAM_EDITOR_ENDPOINT(orgId, teamId, memberId), {
-    method: 'PATCH',
-    body: JSON.stringify({ canLinkAccounts }),
-  })
-  return normalizeEditor(data)
-}
-
 export async function removeTeamEditor(orgId: string, teamId: string, memberId: string): Promise<void> {
   await apiFetch(ORG_TEAM_EDITOR_ENDPOINT(orgId, teamId, memberId), { method: 'DELETE' })
 }
@@ -245,35 +235,6 @@ export async function inviteTeamMembers(
     }),
   })
   return normalizeInvite(data)
-}
-
-// ── Team invite preview / accept ──────────────────────────────────────────────
-
-interface InvitePreviewResponse {
-  invite_id: string
-  team_id:   string
-  team_name: string
-  invited_by_name: string
-  expires_at: string
-}
-
-export interface TeamInvitePreview {
-  inviteId:      string
-  teamId:        string
-  teamName:      string
-  invitedByName: string
-  expiresAt:     string
-}
-
-export async function getTeamInvitePreview(inviteId: string): Promise<TeamInvitePreview> {
-  const data = await apiFetchJson<InvitePreviewResponse>(TEAM_INVITE_PREVIEW_ENDPOINT(inviteId))
-  return {
-    inviteId:      data.invite_id,
-    teamId:        data.team_id,
-    teamName:      data.team_name,
-    invitedByName: data.invited_by_name,
-    expiresAt:     data.expires_at,
-  }
 }
 
 // ── Team-invite onboarding (rich payload) ──────────────────────────────────────
@@ -463,10 +424,6 @@ export async function setTeamConnectorStatus(
   return normalizeTeamConnector(data)
 }
 
-export async function deleteTeamConnector(orgId: string, teamId: string, slug: string): Promise<void> {
-  await apiFetch(ORG_TEAM_CONNECTOR_ENDPOINT(orgId, teamId, slug), { method: 'DELETE' })
-}
-
 // ── Team connections / shared accounts (§15) ──────────────────────────────────
 
 export interface TeamConnectionEntry {
@@ -584,19 +541,6 @@ export async function attachSharedAccount(
   const data = await apiFetchJson<TeamConnectionResponse>(ORG_TEAM_CONNECTION_ENDPOINT(orgId, teamId, slug), {
     method: 'PATCH',
     body: JSON.stringify({ sharedAccountId }),
-  })
-  return normalizeConnection(data)
-}
-
-export async function updateTeamConnectionPermissions(
-  orgId: string,
-  teamId: string,
-  slug: string,
-  permissions: ConnectorTool[],
-): Promise<TeamConnectionEntry> {
-  const data = await apiFetchJson<TeamConnectionResponse>(ORG_TEAM_CONNECTION_ENDPOINT(orgId, teamId, slug), {
-    method: 'PATCH',
-    body: JSON.stringify({ permissions }),
   })
   return normalizeConnection(data)
 }

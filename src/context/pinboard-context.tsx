@@ -112,8 +112,8 @@ interface PinboardContextValue {
   clearChatFilter: () => void;
   addPin: (pin: Omit<PinItem, "id" | "createdAt">) => void;
   clonePin: (original: PinItem) => Promise<void>;
-  removePin: (id: string) => void;
-  removePinByMessage: (messageId: string) => void;
+  removePin: (id: string, options?: { silent?: boolean }) => void;
+  removePinByMessage: (messageId: string, options?: { silent?: boolean }) => void;
   isPinned: (messageId: string) => boolean;
   updatePinCategory: (id: string, category: PinCategory) => void;
   updatePinFolder: (id: string, folderId: string | null, folderName?: string) => void;
@@ -133,7 +133,7 @@ const PinboardContext = createContext<PinboardContextValue | null>(null);
 
 interface PinboardActionsContextValue {
   addPin: (pin: Omit<PinItem, "id" | "createdAt">) => void;
-  removePinByMessage: (messageId: string) => void;
+  removePinByMessage: (messageId: string, options?: { silent?: boolean }) => void;
   open: () => void;
   close: () => void;
 }
@@ -309,17 +309,24 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // â"€â"€ removePin â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-  const removePin = useCallback((id: string) => {
+  const removePin = useCallback((id: string, options?: { silent?: boolean }) => {
     setPins((prev) => prev.filter((p) => p.id !== id));
     if (!id.startsWith("pin-temp-")) {
-      deletePin(id).catch((err) =>
-        console.error("[PinboardContext] Failed to delete pin", err),
-      );
+      deletePin(id)
+        .then(() => {
+          if (!options?.silent) toast("Pin deleted");
+        })
+        .catch((err) => {
+          console.error("[PinboardContext] Failed to delete pin", err);
+          toast.error("Failed to delete pin");
+        });
+    } else if (!options?.silent) {
+      toast("Pin deleted");
     }
   }, []);
 
   // â"€â"€ removePinByMessage â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-  const removePinByMessage = useCallback((messageId: string) => {
+  const removePinByMessage = useCallback((messageId: string, options?: { silent?: boolean }) => {
     let targetId: string | undefined;
     setPins((prev) => {
       const pin = prev.find((p) => p.messageId === messageId);
@@ -327,9 +334,14 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
       return prev.filter((p) => p.messageId !== messageId);
     });
     if (targetId && !targetId.startsWith("pin-temp-")) {
-      deletePin(targetId).catch((err) =>
-        console.error("[PinboardContext] Failed to delete pin", err),
-      );
+      deletePin(targetId)
+        .then(() => {
+          if (!options?.silent) toast("Pin deleted");
+        })
+        .catch((err) => {
+          console.error("[PinboardContext] Failed to delete pin", err);
+          toast.error("Failed to delete pin");
+        });
     }
   }, []);
 

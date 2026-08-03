@@ -17,13 +17,13 @@
 | 3 | API client + infrastructure | ✅ Done | - |
 | 4 | App layout + Sidebar | ✅ Done | - |
 | 5 | Chat infrastructure - SSE streaming hook | ✅ Done | - |
-| 6 | Chat UI components | ✅ Done | [chat-board.md](docs/features/chat-board.md) · [topbar.md](docs/features/topbar.md) · [response-types.md](docs/response-types.md) · [animation-states.md](docs/animation-states.md) |
-| 7 | Pinboard | ✅ Done | [pinboard.md](docs/features/pinboard.md) |
+| 6 | Chat UI components | ✅ Done | [chat-board.md](features/chat-board.md) · [topbar.md](features/topbar.md) · [response-types.md](ui/response-types.md) · [animation-states.md](ui/animation-states.md) |
+| 7 | Pinboard | ✅ Done | [pinboard.md](features/pinboard.md) |
 | 8 | Personas - list + create | ⬜ Pending | Doc pending (design not locked) |
 | 9 | Personas - chat + settings | ⬜ Pending | Doc pending (design not locked) |
 | 10 | Brain / Orchestrator | ⬜ Pending | Doc pending |
 | 11 | Settings | ⬜ Pending | Doc pending |
-| 12 | Polish + error states | ⬜ Pending | [error-states.md](docs/error-states.md) |
+| 12 | Polish + error states | ⬜ Pending | [error-states.md](ui/error-states.md) |
 | 13 | QA + handoff | ⬜ Pending | - |
 
 ---
@@ -34,7 +34,7 @@ Read these once. They apply to every line you write.
 
 **1. Copy KDS - never import from the KDS package.**
 When a KDS component exists, copy its source into `src/components/`. Add your logic in a wrapper or hook on top. Never modify the copied file.
-→ How: [docs/1-component-copy-guide.md](docs/1-component-copy-guide.md)
+→ How: [design-system/1-component-copy-guide.md](design-system/1-component-copy-guide.md)
 
 **2. Never hardcode a hex value.**
 Every colour must use a CSS token: `var(--color-text-primary)`, `var(--color-surface-subtle)`, etc.
@@ -60,22 +60,22 @@ if (canAccessFeature(plan, 'modelCompare')) { ... }
 ## Reading Guide - What to Read Before Each Day
 
 ### Before Day 6 (Chat UI)
-1. [docs/features/chat-board.md](docs/features/chat-board.md) - component tree, state machine, API wiring
-2. [docs/features/topbar.md](docs/features/topbar.md) - model chip, share, usage ring, disposable mode
-3. [docs/response-types.md](docs/response-types.md) - Simple / Research / Thinking / Combined SSE sequences
-4. [docs/animation-states.md](docs/animation-states.md) - 6 Framer Motion patterns + spring configs
-5. [docs/0-pending-kds-components.md](docs/0-pending-kds-components.md) - Components 1–8, prop contracts + placeholders
+1. [features/chat-board.md](features/chat-board.md) - component tree, state machine, API wiring
+2. [features/topbar.md](features/topbar.md) - model chip, share, usage ring, disposable mode
+3. [ui/response-types.md](ui/response-types.md) - Simple / Research / Thinking / Combined SSE sequences
+4. [ui/animation-states.md](ui/animation-states.md) - 6 Framer Motion patterns + spring configs
+5. [design-system/0-pending-kds-components.md](design-system/0-pending-kds-components.md) - Components 1–8, prop contracts + placeholders
 
 ### Before Day 7 (Pinboard)
-1. [docs/features/pinboard.md](docs/features/pinboard.md) - full feature spec
-2. [docs/0-pending-kds-components.md](docs/0-pending-kds-components.md) - Components 9–13, prop contracts + placeholders
+1. [features/pinboard.md](features/pinboard.md) - full feature spec
+2. [design-system/0-pending-kds-components.md](design-system/0-pending-kds-components.md) - Components 9–13, prop contracts + placeholders
 
 ### Before Day 12 (Error states + polish)
-1. [docs/error-states.md](docs/error-states.md) - E1–E5 render rules, retry logic
+1. [ui/error-states.md](ui/error-states.md) - E1–E5 render rules, retry logic
 
 ### Cross-cutting (read once, reference as needed)
-- [docs/1-component-copy-guide.md](docs/1-component-copy-guide.md) - every time you copy a KDS component
-- [docs/animation-states.md](docs/animation-states.md) - every time you add a Framer Motion animation
+- [design-system/1-component-copy-guide.md](design-system/1-component-copy-guide.md) - every time you copy a KDS component
+- [ui/animation-states.md](ui/animation-states.md) - every time you add a Framer Motion animation
 - [CLAUDE.md](CLAUDE.md) - rules, KDS status, icons spec, key file paths
 
 ---
@@ -165,7 +165,7 @@ When Day 6 is complete, every box below should be checked. This is also what Cha
 ## Pending KDS Components
 
 Utkarsh is building these. Use placeholders until they ship.  
-Full prop contracts + placeholder code → [docs/0-pending-kds-components.md](docs/0-pending-kds-components.md)
+Full prop contracts + placeholder code → [design-system/0-pending-kds-components.md](design-system/0-pending-kds-components.md)
 
 ### Chat UI
 | # | Component | Status | Blocks |
@@ -229,11 +229,13 @@ src/
     └── api/client.ts                ← apiFetch + 401 auto-retry (do not rewrite)
 
 docs/
-├── 0-pending-kds-components.md     ← Prop contracts for all 13 pending components
-├── 1-component-copy-guide.md       ← How to copy from KDS correctly
-├── animation-states.md             ← 6 Framer Motion patterns
-├── response-types.md               ← SSE sequences for all 4 response types
-├── error-states.md                 ← E1–E5 render rules
+├── design-system/
+│   ├── 0-pending-kds-components.md ← Prop contracts for all 13 pending components
+│   └── 1-component-copy-guide.md   ← How to copy from KDS correctly
+├── ui/
+│   ├── animation-states.md         ← 6 Framer Motion patterns
+│   ├── response-types.md           ← SSE sequences for all 4 response types
+│   └── error-states.md             ← E1–E5 render rules
 └── features/
     ├── chat-board.md               ← Full chat feature spec
     ├── left-sidebar.md             ← Sidebar feature spec
@@ -294,7 +296,7 @@ Then read the docs listed in the Reading Guide for today's day.
 Key things to know about me:
 - I work alongside Shyam - we split features between us
 - I copy KDS components into src/components/ - never import from the KDS package
-- I use placeholders for the 13 pending KDS components with the exact prop contracts in docs/0-pending-kds-components.md
+- I use placeholders for the 13 pending KDS components with the exact prop contracts in docs/design-system/0-pending-kds-components.md
 - If I'm unsure about a design decision, I check the docs first and ask Chai if it's not covered
 
 Tell me the current build status from START-HERE.md and ask me what I'm working on today.
@@ -309,7 +311,7 @@ I'm Utkarsh. I build and maintain the Kaya Design System (KDS) for Souvenir V2.
 I do not build product features - that's Shyam and Kunal.
 My job is to build the KDS components so the engineers can use them.
 
-Show me the full list of pending KDS components from docs/0-pending-kds-components.md.
+Show me the full list of pending KDS components from docs/design-system/0-pending-kds-components.md.
 For each one tell me:
 - What it blocks (which feature / which engineer is waiting)
 - The exact prop contract I need to match

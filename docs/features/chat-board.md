@@ -155,7 +155,7 @@ Body: { title?: string, tags?: string[] }
 
 All three TopBar additions and MessageBubble/StreamingIndicator are pending. Until they ship:
 
-1. Import from `docs/0-pending-kds-components.md` - copy the placeholder code directly
+1. Import from `docs/design-system/0-pending-kds-components.md` - copy the placeholder code directly
 2. The prop interface in that doc IS the final contract. Build your call sites to those props now.
 3. When Utkarsh ships the real component, swap the import path. Zero other changes.
 
@@ -185,7 +185,7 @@ Shown during the `thinking` phase. Uses V1's `extractThinkingContent()` from `sr
 // Header: "Reasoning · N steps" where N = step count parsed from thinking content
 ```
 
-Animate open/close with Framer Motion. See `docs/animation-states.md` for the expand/collapse pattern.
+Animate open/close with Framer Motion. See `docs/ui/animation-states.md` for the expand/collapse pattern.
 
 ---
 

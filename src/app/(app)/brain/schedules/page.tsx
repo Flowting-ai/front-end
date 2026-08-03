@@ -13,15 +13,15 @@ import {
   type ScheduleEditData,
 } from '@/templates/Brain'
 import {
-  listTasks,
-  getTask,
-  runTaskNow,
-  updateTask,
-  deleteTask,
-  type Task,
-  type TaskDetail,
-  type ScheduledTaskRunResponse,
-} from '@/lib/api/tasks'
+  listAutomations,
+  getAutomation,
+  runAutomationNow,
+  updateAutomation,
+  deleteAutomation,
+  type Automation,
+  type AutomationDetail,
+  type AutomationRun,
+} from '@/lib/api/automations'
 import type { ScheduleRunRecord } from '@/templates/Brain'
 import { getAllScheduleLinks, getChatForSchedule, stashPendingPrompt } from '@/lib/scheduleLinks'
 import { ApiError } from '@/lib/api/client'
@@ -130,24 +130,24 @@ function formatCreatedAt(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
-function taskToListItem(task: Task, chatId?: string): ScheduleListItem {
+function taskToListItem(task: Automation, chatId?: string): ScheduleListItem {
   return {
     id:          task.id,
-    name:        task.title,
-    description: task.plan_text || undefined,
+    name:        task.name,
+    description: task.prompt || undefined,
     frequency:   formatScheduleJson(task.schedule_json),
     isActive:    task.is_active,
     chatId,
   }
 }
 
-/** Map one backend run into a run-history record for the detail view. The
- *  scheduled runner records no per-node steps, so each run becomes a single
- *  status row; the synthesized result (or failure reason) shows when expanded. */
-function runToRecord(run: ScheduledTaskRunResponse): ScheduleRunRecord {
-  const whenIso  = run.completed_at ?? run.started_at ?? run.created_at ?? null
+/** Map one backend run into a run-history record for the detail view. A run is
+ *  one Brain turn rather than a graph, so it becomes a single status row; the
+ *  answer (or failure reason) shows when expanded. */
+function runToRecord(run: AutomationRun): ScheduleRunRecord {
+  const whenIso  = run.finished_at ?? run.started_at ?? null
   const isFailed = run.status === 'failed'
-  const isDone   = run.status === 'completed'
+  const isDone   = run.status === 'succeeded'
   const stepStatus = isDone ? 'complete' : isFailed ? 'failed' : 'executing'
   const stepLabel  = isFailed ? (run.error || 'Run failed')
     : isDone ? 'Run completed'
@@ -156,17 +156,17 @@ function runToRecord(run: ScheduledTaskRunResponse): ScheduleRunRecord {
     id:          run.id,
     label:       whenIso ? formatNextRun(whenIso) : 'Run',
     title:       isFailed ? 'Failed' : isDone ? 'Completed' : 'Running',
-    summary:     run.synthesis || (isFailed ? run.error ?? undefined : undefined),
+    summary:     run.answer || (isFailed ? run.error ?? undefined : undefined),
     steps:       [{ id: run.id, label: stepLabel, isCritical: false, status: stepStatus }],
-    completedAt: run.completed_at ? new Date(run.completed_at) : undefined,
+    completedAt: run.finished_at ? new Date(run.finished_at) : undefined,
   }
 }
 
-function taskDetailToDetail(task: TaskDetail, chatId?: string): ScheduleDetailItem {
+function taskDetailToDetail(task: AutomationDetail, chatId?: string): ScheduleDetailItem {
   return {
     id:           task.id,
-    name:         task.title,
-    instructions: task.plan_text ?? '',
+    name:         task.name,
+    instructions: task.prompt ?? '',
     frequency:    formatScheduleJson(task.schedule_json),
     nextRun:      task.next_run_at ? formatNextRun(task.next_run_at) : undefined,
     isActive:     task.is_active,
@@ -221,7 +221,7 @@ function BrainSchedulesPageInner() {
   // ── Load task list on mount ────────────────────────────────────────────────
 
   useEffect(() => {
-    listTasks()
+    listAutomations()
       .then(tasks => {
         // Be defensive: a non-array payload (error envelope, paginated wrapper)
         // would otherwise throw in .map and surface as a generic load failure.
@@ -231,7 +231,7 @@ function BrainSchedulesPageInner() {
         setSchedules(nextSchedules)
         if (requestedScheduleId && nextSchedules.some((schedule) => schedule.id === requestedScheduleId)) {
           setSelectedId(requestedScheduleId)
-          getTask(requestedScheduleId)
+          getAutomation(requestedScheduleId)
             .then(detail => setSelectedDetail(taskDetailToDetail(detail, getChatForSchedule(requestedScheduleId))))
             .catch(() => {
               const item = nextSchedules.find(schedule => schedule.id === requestedScheduleId)
@@ -261,7 +261,7 @@ function BrainSchedulesPageInner() {
     }
     // Fetch full detail (includes run history)
     setSelectedDetail(null)
-    getTask(id)
+    getAutomation(id)
       .then(detail => setSelectedDetail(taskDetailToDetail(detail, getChatForSchedule(id))))
       .catch(() => {
         const item = schedules.find(s => s.id === id)
@@ -340,7 +340,7 @@ function BrainSchedulesPageInner() {
     push(`${BRAIN_ROUTE}?fromSchedule=${encodeURIComponent(newId)}`)
   }, [editingSchedule, selectedId, selectedDetail, idPrefix, push])
 
-  // ── Delete (DELETE /tasks/{id}; local-only items just drop from state) ────
+  // ── Delete (DELETE /automations/{id}; local-only items just drop from state) ──
 
   const handleDeleteConfirm = useCallback(() => {
     const id = selectedId
@@ -356,7 +356,7 @@ function BrainSchedulesPageInner() {
       localIdsRef.current.delete(id)
       return
     }
-    deleteTask(id)
+    deleteAutomation(id)
       .then(() => toast.success('Schedule deleted'))
       .catch(() => {
         // Restore the row so the user isn't left thinking it's gone.
@@ -365,7 +365,7 @@ function BrainSchedulesPageInner() {
       })
   }, [selectedId, schedules])
 
-  // ── Toggle active (PATCH /tasks/{id} — pause/resume; optimistic) ──────────
+  // ── Toggle active (PATCH /automations/{id} — pause/resume; optimistic) ────────
 
   const handleToggleActive = useCallback((active: boolean) => {
     const id = selectedId
@@ -374,7 +374,7 @@ function BrainSchedulesPageInner() {
     setSelectedDetail(prev => prev ? { ...prev, isActive: active } : prev)
     // Local-only items have no backend row yet — keep the optimistic state.
     if (localIdsRef.current.has(id)) return
-    updateTask(id, { is_active: active }).catch(() => {
+    updateAutomation(id, { is_active: active }).catch(() => {
       // Revert on failure (e.g. resuming a schedule with no future run → 409).
       setSchedules(prev => prev.map(s => s.id === id ? { ...s, isActive: !active } : s))
       setSelectedDetail(prev => prev ? { ...prev, isActive: !active } : prev)
@@ -390,11 +390,11 @@ function BrainSchedulesPageInner() {
       return
     }
     const id = selectedId
-    runTaskNow(id)
+    runAutomationNow(id)
       .then(() => {
         toast.success('Schedule triggered', { description: 'Brain will start this task shortly.' })
         // Refresh detail so run_count and run history reflect the new run.
-        return getTask(id)
+        return getAutomation(id)
       })
       .then(detail => setSelectedDetail(taskDetailToDetail(detail, getChatForSchedule(id))))
       .catch(() => toast.error('Failed to run schedule'))

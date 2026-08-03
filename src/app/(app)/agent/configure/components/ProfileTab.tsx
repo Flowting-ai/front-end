@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import NextImage from "next/image";
 import { X, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { ATTRIBUTE_HEADER_STYLE } from "@/app/(app)/agent/configure/components/AttributeTrackerRail";
 
 async function compressImage(file: File, maxW: number, maxH: number, quality: number): Promise<string> {
@@ -82,7 +83,10 @@ export default function ProfileTab({
   }, [showTagInput]);
 
   const processAvatar = useCallback(async (file: File) => {
-    if (!file.type.startsWith("image/")) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file for the avatar.");
+      return;
+    }
     setIsCompressing(true);
     try {
       const compressed = await compressImage(file, 800, 800, 0.8);

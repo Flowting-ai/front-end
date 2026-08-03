@@ -7,6 +7,7 @@ import {
   UserIcon,
 } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
+import { Dropdown } from '@/components/Dropdown'
 import { IconButton } from '@/components/IconButton'
 import {
   SettingsTable,
@@ -20,7 +21,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { UsageBarChart } from '@/components/UsageBarChart'
 import { useOrg } from '@/context/org-context'
 import { getOrgPlanUsage } from '@/lib/api/organization'
-import type { OrgMember, TeamBurn } from '@/types/teams'
+import type { OrgMember, OrgRole, TeamBurn } from '@/types/teams'
 
 type DateRange = '7d' | '30d' | 'mtd' | 'qtd'
 
@@ -304,17 +305,84 @@ function FeatureChart({ days }: { days: ChartDay[] }) {
 // ── Member caps table ─────────────────────────────────────────────
 
 
+const ROLE_FILTERS: Array<{ id: 'all' | OrgRole; label: string }> = [
+  { id: 'all',    label: 'All roles' },
+  { id: 'owner',  label: 'Owner' },
+  { id: 'admin',  label: 'Admin' },
+  { id: 'member', label: 'Member' },
+]
+
 function MemberCapsTable({
   members,
 }: {
   members: OrgMember[]
 }) {
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [roleFilter, setRoleFilter] = useState<'all' | OrgRole>('all')
+
+  const q = search.trim().toLowerCase()
+  const visibleMembers = members.filter(m => {
+    if (roleFilter !== 'all' && m.orgRole !== roleFilter) return false
+    if (q && !m.name.toLowerCase().includes(q) && !m.email.toLowerCase().includes(q)) return false
+    return true
+  })
+
   return (
     <SettingsTable>
       <SettingsTableToolbar title="Per-member credit usage">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <IconButton variant="ghost" size="sm" aria-label="Search members" icon={<SearchOneIcon size={20} />} />
-          <IconButton variant="ghost" size="sm" aria-label="Filter members" icon={<FilterMailIcon size={20} />} />
+          {searchOpen && (
+            <input
+              autoFocus
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onBlur={() => { if (!search) setSearchOpen(false) }}
+              placeholder="Search by name or email…"
+              style={{
+                height: 32,
+                padding: '0 10px',
+                borderRadius: 8,
+                border: '1px solid var(--neutral-200)',
+                fontFamily: 'var(--font-body)',
+                fontSize: 13,
+                color: 'var(--neutral-900)',
+                outline: 'none',
+                width: 220,
+              }}
+            />
+          )}
+          <IconButton
+            variant="ghost"
+            size="sm"
+            aria-label="Search members"
+            icon={<SearchOneIcon size={20} />}
+            onClick={() => setSearchOpen(o => !o)}
+          />
+          <Dropdown.Float
+            open={filterOpen}
+            onOpenChange={setFilterOpen}
+            placement="bottom-end"
+            trigger={
+              <IconButton variant="ghost" size="sm" aria-label="Filter members by role" icon={<FilterMailIcon size={20} />} />
+            }
+          >
+            <Dropdown style={{ width: 160 }}>
+              <Dropdown.Section fluid>
+                {ROLE_FILTERS.map(f => (
+                  <Dropdown.Item
+                    key={f.id}
+                    fluid
+                    label={f.label}
+                    selected={roleFilter === f.id}
+                    onClick={() => { setRoleFilter(f.id); setFilterOpen(false) }}
+                  />
+                ))}
+              </Dropdown.Section>
+            </Dropdown>
+          </Dropdown.Float>
         </div>
       </SettingsTableToolbar>
 
@@ -325,7 +393,13 @@ function MemberCapsTable({
         <SettingsTableHeaderCell align="center">Usage</SettingsTableHeaderCell>
       </SettingsTableHeader>
 
-      {members.map(member => {
+      {visibleMembers.length === 0 && (
+        <div style={{ padding: '32px 24px', textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-400)' }}>
+          No members match your search.
+        </div>
+      )}
+
+      {visibleMembers.map(member => {
         const isPrivileged = member.orgRole === 'owner' || member.orgRole === 'admin'
         const usagePct = !isPrivileged && member.creditCap && member.creditCap > 0
           ? Math.min(100, Math.round((member.allocationUsed / member.creditCap) * 100))

@@ -5,21 +5,19 @@ import { AnimatePresence, m } from 'framer-motion'
 import { Upload } from 'lucide-react'
 import { ChatInput, type ChatInputProps } from '@/components/chat/ChatInput'
 import { ExhaustionBanner } from '@/components/ExhaustionBanner'
+import { InlineCreditNotice } from '@/components/InlineCreditNotice'
 import { useFileDrop } from '@/hooks/use-file-drop'
+import { useWorkspaceCreditNotice } from '@/hooks/use-workspace-credit-notice'
 import { BrainHome, type BrainHomeProps } from './BrainHome'
 export { BrainHome, type BrainHomeProps, type ActiveSchedule } from './BrainHome'
 import { ClarificationCard, type ClarificationCardProps } from './ClarificationCard'
 export { ClarificationCard, type ClarificationCardProps }
-import { PlanCard, type PlanCardProps } from './PlanCard'
-export { PlanCard, type PlanCardProps }
 import { ActivityBlock, type ActivityBlockProps } from './ActivityBlock'
 export { ActivityBlock, type ActivityBlockProps }
 import { StreamingIndicator, type StreamingIndicatorProps, type StreamingPhase } from './StreamingIndicator'
 export { StreamingIndicator, type StreamingIndicatorProps, type StreamingPhase }
 import { PauseCard, type PauseCardProps } from './PauseCard'
 export { PauseCard, type PauseCardProps }
-import { NodeFailureCard, type NodeFailureCardProps } from './NodeFailureCard'
-export { NodeFailureCard, type NodeFailureCardProps }
 import { LoopHistoryCard, type LoopHistoryCardProps } from './LoopHistoryCard'
 export { LoopHistoryCard, type LoopHistoryCardProps }
 import { StreamingMessageBubble, type StreamingMessageBubbleProps } from './StreamingMessageBubble'
@@ -67,8 +65,6 @@ import { ExternalOutputCard, type ExternalOutputCardProps, type ExternalOutputAc
 export { ExternalOutputCard, type ExternalOutputCardProps, type ExternalOutputAction }
 import { BrainDigestCard, type BrainDigestCardProps, type DigestItem } from './BrainDigestCard'
 export { BrainDigestCard, type BrainDigestCardProps, type DigestItem }
-import { FixProposalCard, type FixProposalCardProps, type FixProposalDiff } from './FixProposalCard'
-export { FixProposalCard, type FixProposalCardProps, type FixProposalDiff }
 import { LoopRecord, type LoopRecordProps } from './LoopRecord'
 export { LoopRecord, type LoopRecordProps }
 import { BrainProjectView, type BrainProjectViewProps, type ProjectThread } from './BrainProjectView'
@@ -80,21 +76,18 @@ export { StuckCard, type StuckCardProps }
 import { type Phase } from './lib/phase'
 
 // ── Phases where the ContextRail is visible ───────────────────────────────────
-// Rail slides in once a plan exists (planning → complete), AND whenever any
-// context is attached at page load (persona, pins, or connectors). The latter
-// lets the rail show during idle / thinking / clarifying-goal too, so the
-// user can see what's in scope before the first turn.
+// Rail slides in once a turn is under way, AND whenever any context is attached
+// at page load (persona, pins, or connectors). The latter lets the rail show
+// during idle / thinking / clarifying-goal too, so the user can see what's in
+// scope before the first turn.
 const CONTEXT_RAIL_PHASES = new Set<Phase>([
   'user-sent',
   'thinking',
   'clarifying-goal',
   'souvenir',
   'confirming-pins',
-  'planning',
   'executing',
   'paused',
-  'node-failed',
-  'fix-proposed',
   'stuck',
   'streaming',
   'complete',
@@ -156,7 +149,7 @@ export interface BrainShellProps {
  * The thread slot (`children`) is empty by default; phase cards fill it.
  *
  * ContextRail slides in automatically when the phase enters the active-loop
- * set (planning → complete). It is never user-toggled.
+ * set (active turn → complete). It is never user-toggled.
  */
 export function BrainShell({
   children,
@@ -208,6 +201,8 @@ export function BrainShell({
     onFiles: (files) => onFilesDropped?.(files),
     disabled: dropDisabled || !onFilesDropped,
   })
+
+  const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
 
   const handleSend = (value: string) => {
     if (!value.trim()) return
@@ -365,6 +360,17 @@ export function BrainShell({
                     transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                     style={{ width: '100%', maxWidth: '754px' }}
                   >
+                    <AnimatePresence>
+                      {creditNoticeStatus && (
+                        <InlineCreditNotice
+                          key={creditNoticeStatus}
+                          status={creditNoticeStatus}
+                          isAdmin={isOrgAdmin}
+                          onAdminAction={goToPlans}
+                          onDismiss={dismissCreditNotice}
+                        />
+                      )}
+                    </AnimatePresence>
                     <ExhaustionBanner>
                       <ChatInput
                         placeholder="Tell Brain what to do"

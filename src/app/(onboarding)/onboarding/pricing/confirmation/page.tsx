@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { Suspense, useEffect, useRef } from 'react'
+import React, { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/auth-context'
 import { Button } from '@/components/Button'
@@ -99,9 +99,22 @@ function PricingConfirmationContent() {
 
   const ownerName = user?.firstName?.trim() || user?.name?.split(' ')[0]?.trim() || ''
 
+  // Billing/org settings pages are onboarding-gated, so reaching them at all means
+  // the user has already onboarded — trust that over `user.onboardingCompleted`,
+  // which can still be false/stale here if refreshUser() hasn't landed yet.
+  const [cameFromBillingSettings, setCameFromBillingSettings] = useState(false)
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('souvenir_checkout_source') === 'billing') {
+        sessionStorage.removeItem('souvenir_checkout_source')
+        setCameFromBillingSettings(true)
+      }
+    } catch { /* sessionStorage may be unavailable */ }
+  }, [])
+
   // ── Flow decision ────────────────────────────────────────────────────────────
   // An already-onboarded user is upgrading, not signing up.
-  const isExistingUser = !!user?.onboardingCompleted
+  const isExistingUser = !!user?.onboardingCompleted || cameFromBillingSettings
   // A team/org plan with no org yet still needs the workspace-setup onboarding so
   // we can collect workspace details — this covers both first-time team signups
   // and an existing individual user upgrading to a team plan.

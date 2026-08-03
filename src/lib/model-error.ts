@@ -22,7 +22,7 @@ const MODEL_TOO_LARGE_MESSAGE =
   "Your message is too large for this model. Try shortening it or removing attachments.";
 const MODEL_GENERIC_ERROR_MESSAGE =
   "Something went wrong generating a response. Please try again.";
-const CHAT_NOT_FOUND_MESSAGE =
+export const CHAT_NOT_FOUND_MESSAGE =
   "This chat no longer exists — it may have been deleted. Start a new chat to continue.";
 
 // Keyed by HTTP status code. Add an entry here for any new status-specific

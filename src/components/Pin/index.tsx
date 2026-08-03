@@ -14,7 +14,7 @@ import {
   TickTwoIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
-import { LlmIcon } from '@strange-huge/icons/llm'
+import { SouvenirModelIcon } from '@/components/SouvenirModelIcon'
 import { PinCategory, type PinCategoryType } from '@/components/PinCategory'
 import { Checkbox } from '@/components/Checkbox'
 import { Badge, type BadgeColor } from '@/components/Badge'
@@ -62,18 +62,6 @@ function formatRelativeTime(iso: string): string {
   const w = Math.floor(d  /  7);  if (w  <  5)   return `${w}w`
   const mo = Math.floor(d / 30);  if (mo < 12)   return `${mo}mo`
   return `${Math.floor(d / 365)}y`
-}
-
-function modelToIconId(modelName?: string): string {
-  if (!modelName) return 'Claude'
-  const n = modelName.toLowerCase()
-  if (n.includes('claude'))                      return 'Claude'
-  if (n.includes('gpt') || n.includes('openai')) return 'GPT-4'
-  if (n.includes('gemini'))                      return 'Gemini'
-  if (n.includes('llama') || n.includes('meta')) return 'Llama'
-  if (n.includes('mistral'))                     return 'Mistral'
-  if (n.includes('deepseek'))                    return 'DeepSeek'
-  return 'Claude'
 }
 
 // ── useMeasure ────────────────────────────────────────────────────────────────
@@ -1545,9 +1533,8 @@ export function Pin({
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
 
-function ExpandedMeta({ chatName, modelName, createdAt }: { chatName: string; modelName?: string; createdAt?: string }) {
+function ExpandedMeta({ chatName, createdAt }: { chatName: string; modelName?: string; createdAt?: string }) {
   const timeLabel = createdAt ? formatRelativeTime(createdAt) : null
-  const iconId    = modelToIconId(modelName)
   return (
     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%' }}>
       {timeLabel && <Badge label={timeLabel} color="Green" />}
@@ -1560,47 +1547,11 @@ function ExpandedMeta({ chatName, modelName, createdAt }: { chatName: string; mo
       >
         {chatName}
       </p>
+      {/* Always the Souvenir mark — every model is one of the 3 Souvenir
+          Muse tiers, never a raw third-party (Anthropic/Claude) brand. */}
       <div style={{ width: 24, height: 24, borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
-        <LlmIcon id={iconId} variant="color" size={24} />
+        <SouvenirModelIcon size={24} />
       </div>
-    </div>
-  )
-}
-
-function PinCommentItem({ comment }: { comment: PinComment }) {
-  return (
-    <div
-      style={{
-        padding:         '6px 8px',
-        borderRadius:    8,
-        backgroundColor: 'var(--neutral-50)',
-        display:         'flex',
-        flexDirection:   'column',
-        gap:             2,
-      }}
-    >
-      <p
-        style={{
-          fontFamily:  'var(--font-body)',
-          fontSize:    'var(--font-size-caption)',
-          lineHeight:  'var(--line-height-caption)',
-          color:       'var(--color-text-primary)',
-          margin:      0,
-          wordBreak:   'break-word',
-          whiteSpace:  'pre-wrap',
-        }}
-      >
-        {comment.content}
-      </p>
-      <span
-        style={{
-          fontFamily: 'var(--font-body)',
-          fontSize:   'var(--font-size-caption)',
-          color:      'var(--neutral-400)',
-        }}
-      >
-        {formatRelativeTime(comment.created_at)}
-      </span>
     </div>
   )
 }

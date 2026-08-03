@@ -2,7 +2,8 @@
 
 import React, { useCallback, useRef, useMemo, useState, useEffect, Suspense } from "react";
 import { m } from "framer-motion";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useGuardedRouter, useNavGuard } from "@/context/nav-guard-context";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { AlertTwoIcon, BubbleChatAddIcon, CircleIcon, FolderAddIcon, FolderOneIcon, MoreHorizontalIcon, PlusSignIcon, SettingsOneIcon, UserAddOneIcon, UserAiIcon } from "@strange-huge/icons";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
@@ -14,9 +15,9 @@ import { useProjects } from "@/context/projects-context";
 import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat, personasForTeamContext, isPersonaOwnedByViewer, PERSONAS_LIST_UPDATED_EVENT } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { fetchPersonaOwnerMap, resolveViewerUserId } from "@/lib/api/teams";
-import { listTasks, getTask } from "@/lib/api/tasks";
-import type { ScheduledTaskListItem, ScheduledTaskRunResponse } from "@/lib/api/tasks";
-import { CHAT_CREATED_EVENT, emitSidebarNewChat } from "@/hooks/use-sidebar-events";
+import { listAutomations, getAutomation } from "@/lib/api/automations";
+import type { Automation, AutomationRun } from "@/lib/api/automations";
+import { CHAT_CREATED_EVENT, emitSidebarNewChat, emitAgentsSeeAll } from "@/hooks/use-sidebar-events";
 import type { PersonaChatEventDetail, ChatCreatedEventDetail } from "@/hooks/use-sidebar-events";
 import { BrainSidebarSections } from "@/app/(app)/brain/BrainSidebarSections";
 import { ChatHistoryItem } from "./ChatHistoryItem";
@@ -112,8 +113,6 @@ const ADMIN_SECTION_ROUTES: Record<string, string> = {
   connectors:        "/org/connectors",
   "souvenir-slack":  "/org/souvenir-slack",
   "activity-log":    "/org/activity",
-  // Models ? AI & Models
-  "model-providers": "/settings/ai",
 };
 
 // Items with no page yet — surfaced as "coming soon" (id ? toast label).
@@ -497,7 +496,7 @@ function ProjectsSection({
   newProjectHref = PROJECTS_NEW_ROUTE,
   emptyLabel = "No projects yet",
 }: ProjectsSectionProps) {
-  const { push }    = useRouter()
+  const { push }    = useGuardedRouter()
   const pathname    = usePathname()
   const chatHistory = useChatHistoryContext()
   const { projects: allProjects, loading: projectsLoading, getChats, removeChat, renameChat, loadProjectChats } = useProjects()
@@ -690,7 +689,7 @@ const PERSONAL_PROJECT_CHAT_LIMIT = 2
 //    chats + a "See all" link, mirroring ProjectsSection's team-project rows. ─
 
 function PersonalProjectsMenu({ projects }: { projects: Project[] }) {
-  const { push } = useRouter()
+  const { push } = useGuardedRouter()
   const pathname = usePathname()
   const chatHistory = useChatHistoryContext()
   const { getChats, loadProjectChats, removeChat, renameChat } = useProjects()
@@ -812,7 +811,7 @@ interface WorkspaceSwitcherProps {
 }
 
 function WorkspaceSwitcher({ teams, projects, activeTeamId, role, onTeamSelect }: WorkspaceSwitcherProps) {
-  const { push }    = useRouter()
+  const { push }    = useGuardedRouter()
   const [open, setOpen] = useState(false)
 
   // Only show active (non-archived) teams — mirrors the /org/teams page filter.
@@ -1080,8 +1079,30 @@ function PersonaChatItem({
 
 // -- Personas section - all personas, each collapsible with their chats -------
 
+// The sidebar shows a quick-glance slice of the agent list, not the whole
+// library — /agents is where the full set lives, same "See all" pattern as
+// projects/chats/schedules above.
+const AGENT_LIST_LIMIT = 10
+
+// Shared by every "See all agents" row below — same already-there guard as
+// handleNewChat's "Already on new chat" toast, so clicking it while already
+// on /agents surfaces feedback instead of a silent no-op navigation. Always
+// lands on the "My Agents" tab specifically: a fresh /agents mount already
+// defaults there, but an already-mounted page won't reset its own tab state
+// from a same-URL push, so that case also emits AGENTS_SEE_ALL_EVENT for the
+// page to act on (same pattern as BRAIN_NEW_THREAD_EVENT).
+function goToAgentsLibrary(pathname: string | null, push: (href: string) => void) {
+  if (pathname === AGENTS_ROUTE) {
+    toast.info("Already showing agent library", { id: 'nav' })
+    emitAgentsSeeAll()
+    return
+  }
+  toast.info("Opening Agents", { id: 'nav' })
+  push(AGENTS_ROUTE)
+}
+
 function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
-  const { push }            = useRouter()
+  const { push }            = useGuardedRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
   const { orgId, teams, currentUserRole, members } = useOrg()
@@ -1277,7 +1298,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
             </div>
           )}
 
-          {personas.map(persona => {
+          {personas.slice(0, AGENT_LIST_LIMIT).map(persona => {
             const isExpanded = expandedIds.has(persona.id)
             const isActive   = activePersonaId === persona.id
             const isDraft    = persona.status === 'draft'
@@ -1362,6 +1383,19 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
               </m.div>
             )
           })}
+
+          {personas.length > AGENT_LIST_LIMIT && (
+            <m.div variants={sectionItemVariants}>
+              <SidebarMenuItem
+                fluid
+                variant="default"
+                icon={<MoreHorizontalIcon size={20} animated />}
+                label="See all agents"
+                href={AGENTS_ROUTE}
+                onClick={() => goToAgentsLibrary(pathname, push)}
+              />
+            </m.div>
+          )}
         </m.div>
       </m.div>
     </>
@@ -1373,7 +1407,7 @@ function PersonasSectionAll({ teamId }: { teamId?: string | null } = {}) {
 // sourceShareId: shared agents (accepted via Super Link) vs owned agents.
 
 function PersonasSectionIndividual() {
-  const { push }            = useRouter()
+  const { push }            = useGuardedRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
 
@@ -1605,7 +1639,19 @@ function PersonasSectionIndividual() {
               {isLoading && Array.from({ length: 2 }).map((_, i) => (
                 <SidebarMenuSkeleton key={i} index={i} fluid />
               ))}
-              {!isLoading && sharedPersonas.map(renderPersonaRow)}
+              {!isLoading && sharedPersonas.slice(0, AGENT_LIST_LIMIT).map(renderPersonaRow)}
+              {sharedPersonas.length > AGENT_LIST_LIMIT && (
+                <m.div variants={sectionItemVariants}>
+                  <SidebarMenuItem
+                    fluid
+                    variant="default"
+                    icon={<MoreHorizontalIcon size={20} animated />}
+                    label="See all agents"
+                    href={AGENTS_ROUTE}
+                    onClick={() => goToAgentsLibrary(pathname, push)}
+                  />
+                </m.div>
+              )}
             </m.div>
           </m.div>
         </>
@@ -1648,7 +1694,19 @@ function PersonasSectionIndividual() {
               No agents yet
             </div>
           )}
-          {!isLoading && ownedPersonas.map(renderPersonaRow)}
+          {!isLoading && ownedPersonas.slice(0, AGENT_LIST_LIMIT).map(renderPersonaRow)}
+          {ownedPersonas.length > AGENT_LIST_LIMIT && (
+            <m.div variants={sectionItemVariants}>
+              <SidebarMenuItem
+                fluid
+                variant="default"
+                icon={<MoreHorizontalIcon size={20} animated />}
+                label="See all agents"
+                href={AGENTS_ROUTE}
+                onClick={() => goToAgentsLibrary(pathname, push)}
+              />
+            </m.div>
+          )}
         </m.div>
       </m.div>
     </>
@@ -1663,7 +1721,7 @@ function PersonasSectionIndividual() {
 type AgentChat = PersonaChat & { personaId: string }
 
 function RecentAgentChatsSection() {
-  const { push }            = useRouter()
+  const { push }            = useGuardedRouter()
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
 
@@ -1802,19 +1860,19 @@ function markScheduleSeen(taskId: string): void {
   }
 }
 
-function scheduleRunTimestamp(run: ScheduledTaskRunResponse): number {
-  const iso = run.completed_at ?? run.started_at ?? run.created_at;
+function scheduleRunTimestamp(run: AutomationRun): number {
+  const iso = run.finished_at ?? run.started_at;
   const ms = iso ? new Date(iso).getTime() : NaN;
   return Number.isFinite(ms) ? ms : 0;
 }
 
 /** Never-seen schedules count every existing run as "new" — there's nothing
  *  more correct to compare against than "you haven't looked at this yet". */
-function computeScheduleRunInfo(runs: ScheduledTaskRunResponse[], lastSeenAt: number | null): ScheduleRunInfo {
+function computeScheduleRunInfo(runs: AutomationRun[], lastSeenAt: number | null): ScheduleRunInfo {
   if (runs.length === 0) return { lastRunStatus: null, newRunsCount: 0 };
   const sorted = [...runs].sort((a, b) => scheduleRunTimestamp(b) - scheduleRunTimestamp(a));
   const latestStatus = sorted[0].status;
-  const lastRunStatus = latestStatus === "completed" ? "success" : latestStatus === "failed" ? "failed" : null;
+  const lastRunStatus = latestStatus === "succeeded" ? "success" : latestStatus === "failed" ? "failed" : null;
   const newRunsCount = lastSeenAt == null
     ? runs.length
     : sorted.filter((r) => scheduleRunTimestamp(r) > lastSeenAt).length;
@@ -1842,7 +1900,7 @@ function scheduleStatusIcon(status: ScheduleRunInfo["lastRunStatus"]): React.Rea
 }
 
 interface BrainScheduledTasksSectionProps {
-  tasks: ScheduledTaskListItem[];
+  tasks: Automation[];
   loading: boolean;
   runInfo: Record<string, ScheduleRunInfo>;
   onTaskOpened: (taskId: string) => void;
@@ -1853,7 +1911,7 @@ interface BrainScheduledTasksSectionProps {
 const SCHEDULE_PREVIEW_LIMIT = 5;
 
 function BrainScheduledTasksSection({ tasks, loading, runInfo, onTaskOpened }: BrainScheduledTasksSectionProps) {
-  const { push } = useRouter();
+  const { push } = useGuardedRouter();
   const [shown, setShown] = useState(true);
   const [overflow, setOverflow] = useState<"visible" | "hidden">("visible");
   const visibleTasks = tasks.slice(0, SCHEDULE_PREVIEW_LIMIT);
@@ -1896,7 +1954,7 @@ function BrainScheduledTasksSection({ tasks, loading, runInfo, onTaskOpened }: B
                       fluid
                       variant="default"
                       icon={scheduleStatusIcon(info?.lastRunStatus ?? null)}
-                      label={task.title}
+                      label={task.name}
                       trailing={info && info.newRunsCount > 0 ? <Badge color="Neutral" label={`${info.newRunsCount} new`} /> : undefined}
                       onClick={() => { onTaskOpened(task.id); push(BRAIN_SCHEDULES_ROUTE); }}
                     />
@@ -1944,7 +2002,8 @@ function LeftSidebarImpl({
   onSelectChat,
   onNewChat,
 }: LeftSidebarProps) {
-  const { push } = useRouter();
+  const { push } = useGuardedRouter();
+  const { guardedNavigate } = useNavGuard();
   const pathname = usePathname();
   const chatSearchParams = useSearchParams();
   const { user, logout, isAuthenticated } = useAuth();
@@ -2028,7 +2087,7 @@ function LeftSidebarImpl({
 
   // -- Brain scheduled tasks — fetched once when first visiting a brain page --
   // Lifted here so the list survives brain-tab switches without re-fetching.
-  const [brainTasks, setBrainTasks] = useState<ScheduledTaskListItem[]>([]);
+  const [brainTasks, setBrainTasks] = useState<Automation[]>([]);
   const [brainTasksLoading, setBrainTasksLoading] = useState(false);
   const [brainTaskRunInfo, setBrainTaskRunInfo] = useState<Record<string, ScheduleRunInfo>>({});
   const brainTasksFetchedRef = useRef(false);
@@ -2036,19 +2095,19 @@ function LeftSidebarImpl({
     if (!isBrainPage || brainTasksFetchedRef.current) return;
     brainTasksFetchedRef.current = true;
     setBrainTasksLoading(true);
-    listTasks()
+    listAutomations()
       .then(async (tasks) => {
         setBrainTasks(tasks);
         // Per-task run history isn't on the list payload — fetch each task's
         // detail (already-existing endpoint) to derive the status dot + badge.
         const entries = await Promise.all(tasks.map(async (task) => {
           try {
-            const detail = await getTask(task.id);
+            const detail = await getAutomation(task.id);
             const lastSeenAt = getScheduleLastSeenAt(task.id);
             const info = computeScheduleRunInfo(detail.runs ?? [], lastSeenAt);
             if (process.env.NODE_ENV !== "production") {
               // eslint-disable-next-line no-console
-              console.debug("[BrainSchedules] run info", { taskId: task.id, title: task.title, runs: detail.runs?.length ?? 0, info });
+              console.debug("[BrainSchedules] run info", { taskId: task.id, name: task.name, runs: detail.runs?.length ?? 0, info });
             }
             return [task.id, info] as const;
           } catch (err) {
@@ -2319,7 +2378,7 @@ function LeftSidebarImpl({
             onHelp={() => push(SETTINGS_HELP_ROUTE)}
             onManageConnectors={() => push(SETTINGS_CONNECTORS_ROUTE)}
             onReportBug={() => setReportBugOpen(true)}
-            onLogOut={() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } }}
+            onLogOut={() => guardedNavigate(() => { if (isAuthenticated) { void logout() } else { push(AUTH_LOGIN_ROUTE) } })}
           />
         )
       }}

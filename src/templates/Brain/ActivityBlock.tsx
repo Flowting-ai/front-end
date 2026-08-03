@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { m } from 'framer-motion'
 import {
   WorkflowSquareTenIcon,
@@ -9,15 +9,13 @@ import {
   CancelCircleIcon,
 } from '@strange-huge/icons'
 import { Spinner } from '@/components/Spinner'
-import { StreamingIndicator as ModelStreamingIndicator } from '@/components/StreamingIndicator'
-import { getModelLlmId } from '@/lib/model-icons'
 import { springs } from '@/lib/springs'
-import type { PlanStep } from './lib/phase'
+import type { AgentStep } from './lib/phase'
 
 // ── Step status circle (live variant — no auth rows, no dimming) ───────────────
 
 interface LiveStepCircleProps {
-  status: PlanStep['status']
+  status: AgentStep['status']
   index:  number
 }
 
@@ -73,29 +71,9 @@ function LiveStepCircle({ status, index }: LiveStepCircleProps) {
 // ── LiveStepRow ────────────────────────────────────────────────────────────────
 
 interface LiveStepRowProps {
-  step:    PlanStep
+  step:    AgentStep
   index:   number
   isLast:  boolean
-}
-
-function NodeModelIndicator({ step }: { step: PlanStep }) {
-  const [phase, setPhase] = useState<'choosing' | 'streaming'>('choosing')
-  const modelName = step.modelName || 'Model'
-  const llmId = getModelLlmId(step.modelCompany, step.modelName)
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setPhase('streaming'), 420)
-    return () => window.clearTimeout(timer)
-  }, [])
-
-  return (
-    <ModelStreamingIndicator
-      phase={phase}
-      label={phase === 'choosing' ? `Selecting ${modelName}…` : `${modelName} · Working…`}
-      llmId={llmId ?? undefined}
-      style={{ marginTop: 2 }}
-    />
-  )
 }
 
 function LiveStepRow({ step, index, isLast }: LiveStepRowProps) {
@@ -191,22 +169,6 @@ function LiveStepRow({ step, index, isLast }: LiveStepRowProps) {
           </span>
         )}
 
-        {isActive && (step.modelId || step.modelName) && (
-          <NodeModelIndicator step={step} />
-        )}
-
-        {step.connector && isActive && !step.connectorDisclosure?.length && (
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-caption)',
-            fontStyle:  'italic',
-            color:      'var(--neutral-400)',
-            lineHeight: 'var(--line-height-caption)',
-          }}>
-            via {step.connector}
-          </span>
-        )}
-
         {step.connectorDisclosure && step.connectorDisclosure.length > 0 && (
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
             {step.connectorDisclosure.map(c => (
@@ -232,7 +194,7 @@ function LiveStepRow({ step, index, isLast }: LiveStepRowProps) {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ActivityBlockProps {
-  steps:           PlanStep[]
+  steps:           AgentStep[]
   interpretation?: string
 }
 
@@ -289,7 +251,7 @@ export function ActivityBlock({ steps, interpretation }: ActivityBlockProps) {
         </p>
       )}
 
-      {/* Steps — no mount animation, steps were already shown in PlanCard */}
+      {/* Agent rows — no mount animation; the block itself already rose in */}
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {steps.map((step, i) => (
           <LiveStepRow
