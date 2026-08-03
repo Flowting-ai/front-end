@@ -5,7 +5,7 @@ import { extractThinkingContent } from "@/lib/parsers/content-parser"
 import { mergeStreamingText } from "@/lib/streaming"
 import { apiFetch } from "@/lib/api/client"
 import { parseChatPrompt, parsePermissionPrompt } from "@/lib/api/prompts"
-import { friendlyModelError, MODEL_UNRESPONSIVE_MESSAGE } from "@/lib/model-error"
+import { EMPTY_TURN_MESSAGE, friendlyModelError } from "@/lib/model-error"
 import {
   CHAT_STOP_ENDPOINT,
   CHATS_CREATE_ENDPOINT,
@@ -1346,7 +1346,7 @@ export function useStreamingChat({
             queueUpdate(
               {
                 content:
-                  visibleText || (finalReasoning || receivedImages ? "" : MODEL_UNRESPONSIVE_MESSAGE),
+                  visibleText || (finalReasoning || receivedImages ? "" : EMPTY_TURN_MESSAGE),
                 thinking: finalReasoning || undefined,
                 isThinkingInProgress: false,
                 isLoading: false,
