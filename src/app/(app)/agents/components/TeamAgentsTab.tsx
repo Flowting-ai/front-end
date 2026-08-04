@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowDownOneIcon } from '@strange-huge/icons'
+import { ArrowDownOneIcon, SearchOneIcon, CancelOneIcon } from '@strange-huge/icons'
 import {
   SettingsTable,
   SettingsTableToolbar,
@@ -262,14 +262,14 @@ function AgentIdentityCell({ persona }: { persona: Persona }) {
 
 // ── Empty / loading states ───────────────────────────────────────────────────
 
-function EmptyState() {
+function EmptyState({ searchActive }: { searchActive?: boolean }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '64px 24px' }}>
       <p style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, textAlign: 'center' }}>
-        No agents shared with your teams yet
+        {searchActive ? 'No agents match your search' : 'No agents shared with your teams yet'}
       </p>
       <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: '22px', color: 'var(--neutral-500)', textAlign: 'center', maxWidth: 420, margin: 0 }}>
-        When an agent is set to team visibility, it shows up here.
+        {searchActive ? 'Try a different name or handle.' : 'When an agent is set to team visibility, it shows up here.'}
       </p>
     </div>
   )
@@ -365,10 +365,10 @@ function TeamsCounterDropdown({ teams }: { teams: Array<{ id: string; name: stri
 
 const ADMIN_COLUMNS = 'minmax(190px, 1.4fr) 70px minmax(120px, 1fr) minmax(110px, 0.8fr) 180px'
 
-function AdminAgentsTable({ rows, isLoading, viewerId }: { rows: TeamAgentRow[]; isLoading: boolean; viewerId: string | number | null | undefined }) {
+function AdminAgentsTable({ rows, isLoading, viewerId, searchActive }: { rows: TeamAgentRow[]; isLoading: boolean; viewerId: string | number | null | undefined; searchActive: boolean }) {
   const { getRowState, handleCopy, handleOpen } = useTeamAgentRowActions(rows)
 
-  if (!isLoading && rows.length === 0) return <EmptyState />
+  if (!isLoading && rows.length === 0) return <EmptyState searchActive={searchActive} />
 
   return (
     <SettingsTable columns={ADMIN_COLUMNS} columnGap={10}>
@@ -422,7 +422,7 @@ function AdminAgentsTable({ rows, isLoading, viewerId }: { rows: TeamAgentRow[];
 
 const MEMBER_COLUMNS = 'minmax(190px, 1.4fr) 70px minmax(120px, 1fr) 180px'
 
-function MemberAgentsSections({ rows, isLoading, viewerId }: { rows: TeamAgentRow[]; isLoading: boolean; viewerId: string | number | null | undefined }) {
+function MemberAgentsSections({ rows, isLoading, viewerId, searchActive }: { rows: TeamAgentRow[]; isLoading: boolean; viewerId: string | number | null | undefined; searchActive: boolean }) {
   const { getRowState, handleCopy, handleOpen } = useTeamAgentRowActions(rows)
 
   const sections = useMemo(() => {
@@ -436,7 +436,7 @@ function MemberAgentsSections({ rows, isLoading, viewerId }: { rows: TeamAgentRo
     return Array.from(byTeam.entries()).map(([id, v]) => ({ id, ...v }))
   }, [rows])
 
-  if (!isLoading && sections.length === 0) return <EmptyState />
+  if (!isLoading && sections.length === 0) return <EmptyState searchActive={searchActive} />
 
   if (isLoading && sections.length === 0) {
     return (
@@ -509,6 +509,7 @@ export function TeamAgentsTab() {
   const viewerId = resolveViewerUserId(members, user?.email)
   const [rows, setRows] = useState<TeamAgentRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (!orgId || teams.length === 0) {
@@ -559,9 +560,71 @@ export function TeamAgentsTab() {
   // memberships, so grouping those into per-team sections reads naturally.
   const isOrgAdmin = currentUserRole === 'admin'
 
-  return isOrgAdmin
-    ? <AdminAgentsTable rows={rows} isLoading={isLoading} viewerId={viewerId} />
-    : <MemberAgentsSections rows={rows} isLoading={isLoading} viewerId={viewerId} />
+  const query = search.trim().toLowerCase()
+  const searchActive = query.length > 0
+  const filteredRows = searchActive
+    ? rows.filter(r => r.persona.name.toLowerCase().includes(query) || r.persona.handle.toLowerCase().includes(query))
+    : rows
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2,
+        padding: '7px 10px',
+        borderRadius: 10,
+        background: 'white',
+        boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+        width: 450,
+      }}>
+        <SearchOneIcon size={16} style={{ color: 'var(--neutral-500)', flexShrink: 0 }} />
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search team agents"
+          style={{
+            flex: '1 0 0',
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            fontFamily: 'var(--font-body)',
+            fontWeight: 'var(--font-weight-regular)',
+            fontSize: 14,
+            lineHeight: '22px',
+            color: 'var(--neutral-600)',
+            padding: '0 2px',
+          }}
+        />
+        {search && (
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={() => setSearch('')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'none',
+              border: 'none',
+              padding: 2,
+              cursor: 'pointer',
+              color: 'var(--neutral-400)',
+              flexShrink: 0,
+              borderRadius: 4,
+            }}
+          >
+            <CancelOneIcon size={12} />
+          </button>
+        )}
+      </div>
+
+      {isOrgAdmin
+        ? <AdminAgentsTable rows={filteredRows} isLoading={isLoading} viewerId={viewerId} searchActive={searchActive} />
+        : <MemberAgentsSections rows={filteredRows} isLoading={isLoading} viewerId={viewerId} searchActive={searchActive} />}
+    </div>
+  )
 }
 
 export default TeamAgentsTab

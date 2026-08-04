@@ -21,6 +21,9 @@ import { Chip } from '@/components/Chip'
 import { Dropdown } from '@/components/Dropdown'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition'
+import { toast } from 'sonner'
+import { trackFeature } from '@/lib/analytics/events'
 
 // ── Canonical default menu contents ───────────────────────────────────────────
 // The Add menu (Figma 3219:33599) and Model menu (Figma 3208:32989 + 3142:36710)
@@ -833,12 +836,21 @@ export function ChatInput({
     const audioCtxRef = useRef<AudioContext | null>(null)
     const streamRef   = useRef<MediaStream | null>(null)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const preRecordingTextRef = useRef<string>('')
+    const onChangeRef = useRef(onChange)
+    useEffect(() => {
+      onChangeRef.current = onChange
+    }, [onChange])
+
+    const { transcript, resetTranscript, browserSupportsSpeechRecognition } =
+      useSpeechRecognition()
 
     // ── Cleanup on unmount ───────────────────────────────────────────────────
     useEffect(() => {
       return () => {
         streamRef.current?.getTracks().forEach(t => t.stop())
         audioCtxRef.current?.close()
+        SpeechRecognition.abortListening()
       }
     }, [])
 
@@ -850,10 +862,25 @@ export function ChatInput({
       el.style.height = `${el.scrollHeight}px`
     }, [value])
 
+    // ── Live transcript → textarea value during recording ───────────────────
+    useEffect(() => {
+      if (!isRecording) return
+      const base = preRecordingTextRef.current
+      const combined = base && transcript ? `${base} ${transcript}` : transcript || base
+      if (!isControlled) setInternalValue(combined)
+      onChangeRef.current?.(combined)
+    }, [transcript, isRecording, isControlled])
+
     // ── Recording toggle ─────────────────────────────────────────────────────
     const startRecording = async () => {
+      if (!browserSupportsSpeechRecognition) return
+      trackFeature('voice_input')
+      preRecordingTextRef.current = value ?? ''
+      resetTranscript()
+
       // Set recording state immediately for instant UI feedback (icon + placeholder).
       setIsRecording(true)
+      SpeechRecognition.startListening({ continuous: true, interimResults: true })
 
       // Create AudioContext synchronously while still inside the user-gesture call
       // stack. If created after an `await`, Chrome starts it suspended and
@@ -879,18 +906,20 @@ export function ChatInput({
         // Mic permission denied or unavailable - revert
         ctx.close()
         audioCtxRef.current = null
+        SpeechRecognition.abortListening()
         setIsRecording(false)
+        toast.error('Microphone access denied. Please allow microphone permission to record.')
       }
     }
 
     const stopRecording = () => {
+      SpeechRecognition.stopListening()
       streamRef.current?.getTracks().forEach(t => t.stop())
       audioCtxRef.current?.close()
       streamRef.current  = null
       audioCtxRef.current = null
       setAnalyser(null)
       setIsRecording(false)
-      onSend?.('')
     }
 
     const handleMicClick = () => {
