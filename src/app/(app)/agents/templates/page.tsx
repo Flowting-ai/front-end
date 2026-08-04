@@ -20,6 +20,7 @@ import {
   Mortarboard01Icon,
   Analytics01Icon,
   MentoringIcon,
+  BrowserIcon,
 } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_TEMPLATE } from '../_components/WizardShell'
@@ -42,13 +43,14 @@ const TEMPLATE_ICONS: Record<string, typeof CustomerService01Icon> = {
   'Education': Mortarboard01Icon,
   'Productivity': Analytics01Icon,
   'Tutoring': MentoringIcon,
+  'Web QA': BrowserIcon,
 }
 
 const TEMPLATE_ROWS: string[][] = [
   ['Customer Support', 'Sales', 'Legal', 'Research'],
   ['Content Writer', 'Code Review', 'Onboarding', 'Marketing'],
   ['Data Analyst', 'HR & Recruiting', 'Executive Assistant', 'Education'],
-  ['Productivity', 'Tutoring'],
+  ['Productivity', 'Tutoring', 'Web QA'],
 ]
 
 // ── Template card ─────────────────────────────────────────────────────────────
