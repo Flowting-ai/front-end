@@ -24,3 +24,48 @@ export function forwardGeoHeaders(request: NextRequest): Record<string, string> 
   }
   return out;
 }
+
+/**
+ * Best-effort location/time context for the backend's extract_geo, derived
+ * entirely from the browser — no permission prompt, no network call.
+ *   - timezone: the IANA zone (drives the "current time" line)
+ *   - locale:   navigator.language
+ *   - city:     the timezone's representative city (America/Chicago → Chicago)
+ *   - country:  the locale's region, expanded to a country name when possible
+ *
+ * Coarse on purpose (city follows the timezone, not GPS) — it's prompt context
+ * only, never trusted for billing/access. Names must match extract_geo (X-User-*).
+ * Every browser→backend transport must send these; the chat XHR path in
+ * use-streaming-chat bypasses apiClient, so it calls this directly.
+ */
+export function clientGeoHeaders(): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (typeof window === "undefined") return out;
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz) {
+      out["X-User-Timezone"] = tz;
+      const parts = tz.split("/");
+      if (parts.length > 1) {
+        const city = parts[parts.length - 1].replace(/_/g, " ").trim();
+        if (city) out["X-User-City"] = city;
+      }
+    }
+  } catch { /* timezone unavailable — skip */ }
+  try {
+    const locale = navigator.language;
+    if (locale) {
+      out["X-User-Locale"] = locale;
+      const loc = new Intl.Locale(locale);
+      const region = loc.region ?? loc.maximize().region;
+      if (region) {
+        let country = region;
+        try {
+          country = new Intl.DisplayNames([locale], { type: "region" }).of(region) ?? region;
+        } catch { /* DisplayNames unavailable — fall back to the region code */ }
+        out["X-User-Country"] = country;
+      }
+    }
+  } catch { /* locale unavailable — skip */ }
+  return out;
+}
