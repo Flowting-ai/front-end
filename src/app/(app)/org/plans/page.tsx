@@ -17,6 +17,7 @@ import {
   type BillingInfo,
 } from '@/lib/api/stripe'
 import { getOrgSettings, setOrgPoolCap, updateOrgSettings } from '@/lib/api/organization'
+import { resolveOrgBillingRole } from '@/lib/roles'
 import type { AdminBillingPerms } from '@/types/teams'
 import { ORG_CHANGE_PLAN_ROUTE, ORG_MEMBERS_ROUTE, SETTINGS_BILLING_ROUTE } from '@/lib/routes'
 
@@ -323,7 +324,6 @@ export default function OrgBillingPage() {
   const router = useRouter()
   const { org, orgId, orgRole, plan, members: orgMembers, refreshMembers } = useOrg()
 
-  const isOwner      = orgRole === 'owner'
   const isEnterprise = org.plan === 'enterprise'
 
   const [billing,        setBilling]        = useState<BillingInfo | null>(null)
@@ -335,6 +335,16 @@ export default function OrgBillingPage() {
   const [showCancelDialog,  setShowCancelDialog]  = useState(false)
   const [isCanceling,       setIsCanceling]       = useState(false)
   const [isResuming,        setIsResuming]        = useState(false)
+
+  // Prefer the role resolved for the billing entity itself. This is the role
+  // the Stripe endpoints authorize; orgRole is only the loading fallback.
+  const billingRole = resolveOrgBillingRole({
+    orgRole,
+    billingRole: billing?.entity === 'org' ? billing.role : null,
+    activeOrgId: orgId,
+    billingOrgId: billing?.entity === 'org' ? billing.org_id : null,
+  })
+  const isOwner = billingRole === 'owner'
 
   const [adminBillingPerms, setAdminBillingPerms] = useState<AdminBillingPerms>({
     canTopUp:         true,

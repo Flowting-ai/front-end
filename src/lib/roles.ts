@@ -29,6 +29,33 @@ export interface RoleGrants {
   editorTeamIds?: Iterable<string>
 }
 
+/**
+ * Resolve the role used for organization billing controls.
+ *
+ * The billing snapshot is authoritative for billing actions because it is
+ * resolved against the same billing entity as the Stripe portal endpoint.
+ * Fall back to the general organization role while that snapshot is loading,
+ * or when a snapshot explicitly belongs to a different organization.
+ */
+export function resolveOrgBillingRole({
+  orgRole,
+  billingRole,
+  activeOrgId,
+  billingOrgId,
+}: {
+  orgRole: OrgRole
+  billingRole: string | null | undefined
+  activeOrgId: string | null
+  billingOrgId: string | null | undefined
+}): OrgRole {
+  const billingMatchesActiveOrg =
+    !billingOrgId || (activeOrgId !== null && billingOrgId === activeOrgId)
+  const isKnownBillingRole =
+    billingRole === 'owner' || billingRole === 'admin' || billingRole === 'member'
+
+  return billingMatchesActiveOrg && isKnownBillingRole ? billingRole : orgRole
+}
+
 // ── The ladder ───────────────────────────────────────────────────────────────
 
 /** Baseline: access comes only from ProjectMember grant rows. */
