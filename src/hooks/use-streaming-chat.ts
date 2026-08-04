@@ -14,6 +14,7 @@ import {
   shouldUseDirectBackend,
 } from "@/lib/config"
 import { ensureFreshToken } from "@/lib/jwt-utils"
+import { clientGeoHeaders } from "@/lib/geo-headers"
 import { logger } from "@/lib/logger"
 import { HybridSSEDecoder } from "@/lib/sse-decoder"
 import type { UIMessage } from "@/hooks/use-chat-state"
@@ -1423,12 +1424,13 @@ export function useStreamingChat({
           if (directToken) xhr.setRequestHeader("Authorization", `Bearer ${directToken}`)
         }
 
-        // Forward the user's timezone/locale so the backend resolves "today" in
-        // their zone, not UTC. This XHR path bypasses apiClient, so set them
-        // here; the proxy route (or the backend directly) reads them via extract_geo.
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-        if (tz) xhr.setRequestHeader("X-User-Timezone", tz)
-        if (navigator.language) xhr.setRequestHeader("X-User-Locale", navigator.language)
+        // Forward the user's timezone/locale/location so the backend resolves
+        // "today" in their zone and knows where they are. This XHR path bypasses
+        // apiClient, so set them here; the proxy route (or the backend directly)
+        // reads them via extract_geo.
+        for (const [name, value] of Object.entries(clientGeoHeaders())) {
+          xhr.setRequestHeader(name, value)
+        }
 
         // Report real browser→proxy upload progress per file byte count
         if (options?.files?.length && options.onUploadProgress) {
