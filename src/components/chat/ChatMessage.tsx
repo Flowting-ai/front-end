@@ -339,6 +339,7 @@ export function ChatMessage({
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
   const hasThinking = Boolean(message.thinking);
+  const canUseContentActions = Boolean(message.content.trim()) && !message.isError;
   const pinned = isAssistant && pinnedProp;
 
   // Resolve the actual model display name — never expose "souvenir" as a routing label.
@@ -780,6 +781,7 @@ export function ChatMessage({
             modelMeta={message.modelMeta}
             activities={message.activities}
             reasoningSections={message.reasoning_sections}
+            reasoningTimeline={message.reasoningTimeline}
           />
         )}
 
@@ -1103,8 +1105,8 @@ export function ChatMessage({
           </span>
         )}
 
-        {/* Action buttons - always visible; gated only by loading state */}
-        <m.div
+        {/* Content actions require an actual answer; errors can still regenerate. */}
+        {(canUseContentActions || (isLast && onRegenerate)) && <m.div
           animate={{ opacity: !message.isLoading ? 1 : 0 }}
           transition={{ duration: 0.15 }}
           style={{
@@ -1114,18 +1116,20 @@ export function ChatMessage({
             pointerEvents: !message.isLoading ? "auto" : "none",
           }}
         >
-          {!hidePinAction && (
+          {canUseContentActions && !hidePinAction && (
             <ActionIconButton
               icon={<PinIcon size={18} color={pinned ? "var(--brown-700, #683D1B)" : "var(--neutral-400)"} />}
               label={pinned ? "Unpin" : "Pin"}
               onClick={handlePin}
             />
           )}
-          <ActionIconButton
-            icon={copied ? <TickTwoIcon size={18} color="var(--success-600, #80B707)" /> : <CopyOneIcon size={18} color="var(--neutral-400)" />}
-            label={copied ? "Copied" : "Copy"}
-            onClick={handleCopy}
-          />
+          {canUseContentActions && (
+            <ActionIconButton
+              icon={copied ? <TickTwoIcon size={18} color="var(--success-600, #80B707)" /> : <CopyOneIcon size={18} color="var(--neutral-400)" />}
+              label={copied ? "Copied" : "Copy"}
+              onClick={handleCopy}
+            />
+          )}
           {isLast && onRegenerate && (
             <ActionIconButton
               icon={<RedoIcon size={18} color="var(--neutral-400)" />}
@@ -1133,7 +1137,7 @@ export function ChatMessage({
               onClick={onRegenerate}
             />
           )}
-        </m.div>
+        </m.div>}
         </div>
       )}
 
