@@ -1337,6 +1337,7 @@ async function readPersonaSSEStream(
             }
             case "user_prompt":
             case "questions":
+            case "question_prompt":
             case "approval_prompt": {
               const prompt = parseChatPrompt(eventName, parsed)
               if (prompt) callbacks.onChatPrompt?.(prompt)

@@ -1055,7 +1055,7 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "user_prompt" || eventName === "questions" || eventName === "approval_prompt") {
+          if (eventName === "user_prompt" || eventName === "questions" || eventName === "question_prompt" || eventName === "approval_prompt") {
             const prompt = parseChatPrompt(eventName, parsed)
             if (!prompt) continue
             const promptId = prompt.request_id
