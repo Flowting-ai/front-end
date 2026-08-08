@@ -1,9 +1,9 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { Suspense, useCallback, useEffect, useMemo } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
-import { PinIcon, QuillWriteOneIcon, UserAiIcon } from '@strange-huge/icons'
+import { AiWebBrowsingIcon, PinIcon, QuillWriteOneIcon, UserAiIcon } from '@strange-huge/icons'
 import { FloatingMenu } from '@/components/FloatingMenu'
 import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 import { JumpTimestampGutter, type GutterMark } from '@/components/JumpTimestampGutter'
@@ -11,13 +11,16 @@ import { springs } from '@/lib/springs'
 import { usePinboard } from '@/context/pinboard-context'
 import { useHighlight } from '@/context/highlight-context'
 import { useProjectPanel } from '@/context/project-panel-context'
+import { useChatHistoryContext } from '@/context/chat-history-context'
 import { AgentsPanelContent } from '@/components/AgentsPanel'
+import { LiveBrowserPanel } from '@/components/LiveBrowserPanel'
 import { scrollToHighlight } from '@/lib/highlight-jump'
 import { scrollChatToMessage } from '@/lib/chat-scroller'
 import { sortHighlightsBySourcePosition } from '@/lib/highlight-order'
 import { CHAT_ROUTE } from '@/lib/routes'
 
 const AGENTS_PANEL_TITLE = 'Agents'
+const BROWSER_PANEL_TITLE = 'Live browser'
 
 // Derives the active chat ID from the URL so the gutter can be filtered
 // per-chat. Handles both URL patterns used in the app:
@@ -35,8 +38,13 @@ function FloatingPanelImpl() {
   const { isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard, prefetch: prefetchPinboard } = usePinboard()
   const { isOpen: highlightOpen, toggle: toggleHighlight, close: closeHighlight, highlights } = useHighlight()
   const { panel: sidePanel, setPanel: setSidePanel } = useProjectPanel()
-  const agentsOpen = sidePanel?.title === AGENTS_PANEL_TITLE
+  const { chats } = useChatHistoryContext()
+  const agentsOpen = sidePanel?.id === 'agents' || sidePanel?.title === AGENTS_PANEL_TITLE
+  const browserOpen = sidePanel?.id === 'browser'
   const currentChatId = useCurrentChatId()
+  const currentChatCanOpenBrowser = currentChatId
+    ? chats.find((chat) => chat.id === currentChatId)?.can_edit !== false
+    : false
   const pathname = usePathname()
   // Agents only works on the regular chat page today (new chat + existing
   // chat are the same /chat route, distinguished by ?id= — see
@@ -50,28 +58,42 @@ function FloatingPanelImpl() {
   // showing "Agents" content on a page whose floating menu no longer offers it.
   useEffect(() => {
     if (!isChatPage && agentsOpen) setSidePanel(null)
-  }, [isChatPage, agentsOpen, setSidePanel])
+    if ((!currentChatId || !currentChatCanOpenBrowser) && browserOpen) setSidePanel(null)
+  }, [isChatPage, currentChatId, currentChatCanOpenBrowser, agentsOpen, browserOpen, setSidePanel])
 
   // The effect above only fires while this component stays mounted. AppLayout
   // unmounts FloatingPanel entirely on some routes (e.g. /projects), which
   // skips it — leaving stale "Agents" content in the (still-mounted) side
-  // panel context/sidebar. Close it on unmount too, using a ref so the
-  // cleanup sees the latest agentsOpen without re-running on every toggle.
-  const agentsOpenRef = useRef(agentsOpen)
-  agentsOpenRef.current = agentsOpen
+  // panel context/sidebar. Close any panel owned by this toolbar on unmount too.
+  const ownedPanelOpen = agentsOpen || browserOpen
   useEffect(() => {
     return () => {
-      if (agentsOpenRef.current) setSidePanel(null)
+      if (ownedPanelOpen) setSidePanel(null)
     }
-  }, [setSidePanel])
+  }, [ownedPanelOpen, setSidePanel])
+
+  const closeSidePanel = useCallback(() => setSidePanel(null), [setSidePanel])
+
+  // Keep an open live-browser panel attached to the current chat after sidebar
+  // navigation instead of leaving the previous chat's authenticated view in it.
+  useEffect(() => {
+    if (!browserOpen || !currentChatId || !currentChatCanOpenBrowser) return
+    setSidePanel({
+      id: 'browser',
+      title: BROWSER_PANEL_TITLE,
+      content: <LiveBrowserPanel key={currentChatId} chatId={currentChatId} />,
+      onClose: closeSidePanel,
+      width: 560,
+    })
+  }, [browserOpen, currentChatId, currentChatCanOpenBrowser, closeSidePanel, setSidePanel])
 
   const handleTogglePinboard = () => {
-    if (!pinboardOpen) { closeHighlight(); if (agentsOpen) setSidePanel(null) }
+    if (!pinboardOpen) { closeHighlight(); if (agentsOpen || browserOpen) setSidePanel(null) }
     togglePinboard()
   }
 
   const handleToggleHighlight = () => {
-    if (!highlightOpen) { closePinboard(); if (agentsOpen) setSidePanel(null) }
+    if (!highlightOpen) { closePinboard(); if (agentsOpen || browserOpen) setSidePanel(null) }
     toggleHighlight()
   }
 
@@ -82,7 +104,24 @@ function FloatingPanelImpl() {
     }
     closePinboard()
     closeHighlight()
-    setSidePanel({ title: AGENTS_PANEL_TITLE, content: <AgentsPanelContent />, onClose: () => setSidePanel(null) })
+    setSidePanel({ id: 'agents', title: AGENTS_PANEL_TITLE, content: <AgentsPanelContent />, onClose: closeSidePanel })
+  }
+
+  const handleToggleBrowser = () => {
+    if (browserOpen) {
+      setSidePanel(null)
+      return
+    }
+    if (!currentChatId || !currentChatCanOpenBrowser) return
+    closePinboard()
+    closeHighlight()
+    setSidePanel({
+      id: 'browser',
+      title: BROWSER_PANEL_TITLE,
+      content: <LiveBrowserPanel key={currentChatId} chatId={currentChatId} />,
+      onClose: closeSidePanel,
+      width: 560,
+    })
   }
 
   const handleJump = (id: string) => {
@@ -141,6 +180,14 @@ function FloatingPanelImpl() {
         }}
       >
         <FloatingMenu aria-label="Chat tools">
+          {currentChatId && currentChatCanOpenBrowser && (
+            <FloatingMenuItem
+              icon={<AiWebBrowsingIcon size={20} />}
+              label="Browser"
+              active={browserOpen}
+              onClick={handleToggleBrowser}
+            />
+          )}
           <FloatingMenuItem
             icon={<PinIcon size={20} />}
             label="Pinboard"

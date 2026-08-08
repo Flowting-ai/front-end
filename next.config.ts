@@ -127,6 +127,7 @@ const nextConfig: NextConfig = {
               `connect-src ${connectSrcParts.join(" ")}`,
               "font-src 'self'",
               "worker-src 'self' blob:",
+              "frame-src 'self' https://*.e2b.app",
               "frame-ancestors 'none'",
             ].join("; "),
           },

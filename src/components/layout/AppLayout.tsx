@@ -275,10 +275,11 @@ export function AppLayout({
 // side panels read as one consistent system.
 function ProjectPanelSidebar() {
   const { panel, isOpen } = useProjectPanel();
+  const panelWidth = panel?.width ?? 356;
 
   return (
     <m.div
-      animate={isOpen ? { width: 356, opacity: 1 } : { width: 0, opacity: 0 }}
+      animate={isOpen ? { width: panelWidth, opacity: 1 } : { width: 0, opacity: 0 }}
       initial={{ width: 0, opacity: 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 32, mass: 0.9 }}
       style={{
@@ -291,7 +292,7 @@ function ProjectPanelSidebar() {
     >
       <div
         style={{
-          width:          356,
+          width:          panelWidth,
           height:         "100%",
           flexShrink:     0,
           display:        "flex",

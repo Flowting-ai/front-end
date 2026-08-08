@@ -11,4 +11,14 @@ describe("Next.js redirects", () => {
       ]),
     );
   });
+
+  it("allows authenticated E2B live-browser frames", async () => {
+    const headers = await nextConfig.headers?.();
+    const csp = headers
+      ?.flatMap((entry) => entry.headers)
+      .find((header) => header.key === "Content-Security-Policy")
+      ?.value;
+
+    expect(csp).toContain("frame-src 'self' https://*.e2b.app");
+  });
 });
