@@ -544,6 +544,33 @@
   --shadow-card-default: var(--shadow-surface-card);
   --shadow-card-hover:   var(--shadow-surface-card-hover);
 
+  /* ── Prose / Assistant answer ────────────────────────────────────────────────
+     The rendered markdown body of a model reply. Headings sit a step darker
+     than body copy so hierarchy survives even where two steps are close in size.
+
+     Vertical rhythm is asymmetric on purpose: the space above a heading is
+     roughly twice the space below it, so a heading groups with the content it
+     introduces instead of floating equidistant between two sections. Adjacent
+     margins collapse in normal flow, so the gap above a heading is the larger
+     of the previous block's `space-after` and the heading's `space-before`.
+     Spec: `specs/foundations/spacing.md`.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --prose-text:         var(--neutral-800);           /* #3B3632 - body copy */
+  --prose-heading:      var(--color-text-primary);    /* #26211E - h1/h2/h3, bold leads */
+  --prose-quote-text:   var(--neutral-600);           /* #6A625D */
+  --prose-quote-border: var(--neutral-100);           /* #EDE1D7 */
+
+  --prose-block-gap:     var(--space-4);  /* 16px - paragraph to paragraph, block to block */
+  --prose-list-item-gap: var(--space-2);  /*  8px - item to item inside one list */
+  --prose-list-indent:   var(--space-6);  /* 24px - marker hang */
+
+  --prose-h1-space-before: var(--space-7);  /* 32px */
+  --prose-h1-space-after:  var(--space-4);  /* 16px */
+  --prose-h2-space-before: var(--space-6);  /* 24px */
+  --prose-h2-space-after:  var(--space-3);  /* 12px */
+  --prose-h3-space-before: var(--space-5);  /* 20px */
+  --prose-h3-space-after:  var(--space-2);  /*  8px */
+
 }
 
 /* ── Toast (sonner) ──────────────────────────────────────────────────────────

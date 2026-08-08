@@ -33,4 +33,34 @@
   --font-size-code:  13px;
   --line-height-code: 16px;
 
+  /* ── Prose type ladder ────────────────────────────────────────────────────────
+     Long-form assistant answers, not UI chrome. The scale above is tuned for
+     labels and controls, where 14px and tight leading are correct; sustained
+     reading needs a larger base and looser leading. Modular scale, ratio 1.125
+     from a 16px base, with leading near 1.6 at body size and tightening as the
+     steps get larger.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --prose-size-body:  16px;
+  --prose-line-body:  26px;
+
+  --prose-size-h3:  18px;
+  --prose-line-h3:  26px;
+
+  --prose-size-h2:  20px;
+  --prose-line-h2:  28px;
+
+  --prose-size-h1:  24px;
+  --prose-line-h1:  32px;
+
+  /* Monospace reads optically larger than sans at the same nominal size, so
+     inline code and code blocks sit one step below body (0.875em). */
+  --prose-size-code:  14px;
+  --prose-line-code:  22px;
+
+  /* Reading measure. 65-75 characters is the sustained-reading range; `ch`
+     resolves against the live typeface, so this tracks the font rather than
+     guessing a pixel width. Prose only — tables, charts, maps, and code keep
+     the full column width. */
+  --prose-measure: 68ch;
+
 }

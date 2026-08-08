@@ -44,13 +44,13 @@ function HIcon({ icon, size = 14, color = "#827A74", strokeWidth = 1.5 }: { icon
 }
 
 const INLINE_CODE_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-code, monospace)",
-  fontSize: 13,
-  background: "rgba(59,54,50,0.08)",
-  color: "#26211E",
+  fontFamily: "var(--font-code)",
+  fontSize: "var(--prose-size-code)",
+  background: "var(--neutral-800-10)",
+  color: "var(--prose-heading)",
   borderRadius: 4,
   padding: "1px 5px",
-  border: "1px solid rgba(82,75,71,0.12)",
+  border: "1px solid var(--neutral-700-12)",
   whiteSpace: "pre",
 };
 
@@ -252,7 +252,31 @@ function isBoldHeading(line: string) {
   return /^\*\*[^*]+\*\*:?\s*$/.test(line.trim());
 }
 
-const GAP = 14;
+// Gap between sibling prose blocks (paragraph to paragraph, list to paragraph).
+// Heading gaps are asymmetric and live in HEADING_STYLE below.
+const GAP = "var(--prose-block-gap)";
+
+// One rung of the prose ladder each. `marginTop` is ~2x `marginBottom` so a
+// heading sits nearer the content it introduces than the section it follows —
+// adjacent margins collapse, so the space above resolves to the larger of the
+// previous block's bottom margin and this top margin.
+const HEADING_STYLE = {
+  h1: {
+    fontSize: "var(--prose-size-h1)", lineHeight: "var(--prose-line-h1)",
+    fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-body)",
+    marginTop: "var(--prose-h1-space-before)", marginBottom: "var(--prose-h1-space-after)",
+  },
+  h2: {
+    fontSize: "var(--prose-size-h2)", lineHeight: "var(--prose-line-h2)",
+    fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-body)",
+    marginTop: "var(--prose-h2-space-before)", marginBottom: "var(--prose-h2-space-after)",
+  },
+  h3: {
+    fontSize: "var(--prose-size-h3)", lineHeight: "var(--prose-line-h3)",
+    fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-body)",
+    marginTop: "var(--prose-h3-space-before)", marginBottom: "var(--prose-h3-space-after)",
+  },
+} as const;
 
 // Normalise inline bold-as-title: **Title** that appears with no whitespace
 // boundary gets blank lines inserted so it renders as its own paragraph/heading.
@@ -276,7 +300,13 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
   const blocks = normalizeBoldTitles(text).split(/\n\n+/);
 
   return (
-    <div style={{ color: "#3B3632", fontSize: 16, fontFamily: "var(--font-body)" }}>
+    <div style={{
+      color: "var(--prose-text)",
+      fontSize: "var(--prose-size-body)",
+      lineHeight: "var(--prose-line-body)",
+      fontFamily: "var(--font-body)",
+      maxWidth: "var(--prose-measure)",
+    }}>
       {blocks.map((block, bi) => {
         const isLast = bi === blocks.length - 1;
         const tail = isLast ? cursor : null;
@@ -309,25 +339,25 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
         const first = lines[0] ?? "";
 
         if (first.startsWith("# ")) return (
-          <div key={bi} style={{ fontSize: 22, fontWeight: 700, color: "#26211E", fontFamily: "var(--font-body)", lineHeight: "30px", marginTop: bi > 0 ? 10 : 0, marginBottom: isLast ? 0 : GAP + 2 }}>
+          <div key={bi} style={{ ...HEADING_STYLE.h1, marginTop: bi > 0 ? HEADING_STYLE.h1.marginTop : 0, marginBottom: isLast ? 0 : HEADING_STYLE.h1.marginBottom }}>
             <InlineRich text={first.slice(2)} citations={citations} />{tail}
           </div>
         );
 
         if (first.startsWith("## ")) return (
-          <div key={bi} style={{ fontSize: 18, fontWeight: 600, color: "#26211E", fontFamily: "var(--font-body)", lineHeight: "26px", marginTop: bi > 0 ? 8 : 0, marginBottom: isLast ? 0 : GAP }}>
+          <div key={bi} style={{ ...HEADING_STYLE.h2, marginTop: bi > 0 ? HEADING_STYLE.h2.marginTop : 0, marginBottom: isLast ? 0 : HEADING_STYLE.h2.marginBottom }}>
             <InlineRich text={first.slice(3)} citations={citations} />{tail}
           </div>
         );
 
         if (first.startsWith("### ")) return (
-          <div key={bi} style={{ fontSize: 16, fontWeight: 600, color: "#26211E", fontFamily: "var(--font-body)", lineHeight: "24px", marginTop: bi > 0 ? 6 : 0, marginBottom: isLast ? 0 : GAP }}>
+          <div key={bi} style={{ ...HEADING_STYLE.h3, marginTop: bi > 0 ? HEADING_STYLE.h3.marginTop : 0, marginBottom: isLast ? 0 : HEADING_STYLE.h3.marginBottom }}>
             <InlineRich text={first.slice(4)} citations={citations} />{tail}
           </div>
         );
 
         if (lines.length > 0 && lines.every((l) => l.startsWith("> "))) return (
-          <div key={bi} style={{ borderLeft: "2.5px solid #EDE1D7", paddingLeft: 12, marginBottom: isLast ? 0 : GAP, color: "#6A625D", fontStyle: "italic", lineHeight: "26px" }}>
+          <div key={bi} style={{ borderLeft: "2.5px solid var(--prose-quote-border)", paddingLeft: "var(--space-3)", marginBottom: isLast ? 0 : GAP, color: "var(--prose-quote-text)", fontStyle: "italic", lineHeight: "var(--prose-line-body)" }}>
             {lines.map((l, li) => (
               // eslint-disable-next-line react/no-array-index-as-key
               <React.Fragment key={li}>
@@ -341,12 +371,12 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
 
         const nonEmpty = lines.filter((l) => l.trim() !== "");
         if (nonEmpty.length > 0 && nonEmpty.every((l) => /^[-*]\s/.test(l.trim()))) return (
-          <ul key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 5 }}>
+          <ul key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, paddingLeft: "var(--prose-list-indent)", display: "flex", flexDirection: "column", gap: "var(--prose-list-item-gap)" }}>
             {nonEmpty.map((l, li) => {
               const isLastItem = li === nonEmpty.length - 1;
               return (
                 // eslint-disable-next-line react/no-array-index-as-key
-                <li key={li} style={{ lineHeight: "24px", color: "#3B3632", fontSize: 16 }}>
+                <li key={li} style={{ lineHeight: "var(--prose-line-body)", color: "var(--prose-text)", fontSize: "var(--prose-size-body)" }}>
                   <InlineRich text={l.replace(/^[-*]\s/, "")} citations={citations} />
                   {isLastItem && tail}
                 </li>
@@ -356,12 +386,12 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
         );
 
         if (nonEmpty.length > 0 && nonEmpty.every((l) => /^\d+\.\s/.test(l.trim()))) return (
-          <ol key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, paddingLeft: 22, display: "flex", flexDirection: "column", gap: 5 }}>
+          <ol key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, paddingLeft: "var(--prose-list-indent)", display: "flex", flexDirection: "column", gap: "var(--prose-list-item-gap)" }}>
             {nonEmpty.map((l, li) => {
               const isLastItem = li === nonEmpty.length - 1;
               return (
                 // eslint-disable-next-line react/no-array-index-as-key
-                <li key={li} style={{ lineHeight: "24px", color: "#3B3632", fontSize: 16 }}>
+                <li key={li} style={{ lineHeight: "var(--prose-line-body)", color: "var(--prose-text)", fontSize: "var(--prose-size-body)" }}>
                   <InlineRich text={l.replace(/^\d+\.\s/, "")} citations={citations} />
                   {isLastItem && tail}
                 </li>
@@ -371,13 +401,13 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
         );
 
         if (lines.length === 1 && isBoldHeading(first)) return (
-          <p key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, lineHeight: "26px", fontWeight: 600, fontSize: 16, color: "#26211E" }}>
+          <p key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, lineHeight: "var(--prose-line-body)", fontWeight: 600, fontSize: "var(--prose-size-body)", color: "var(--prose-heading)" }}>
             <InlineRich text={first} citations={citations} />{tail}
           </p>
         );
 
         return (
-          <p key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, lineHeight: "26px", fontWeight: 400, fontSize: 16, color: "#3B3632" }}>
+          <p key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, lineHeight: "var(--prose-line-body)", fontWeight: 400, fontSize: "var(--prose-size-body)", color: "var(--prose-text)" }}>
             {lines.map((line, li) => (
               // eslint-disable-next-line react/no-array-index-as-key
               <React.Fragment key={li}>

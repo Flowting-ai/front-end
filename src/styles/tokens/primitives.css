@@ -146,4 +146,21 @@
   --purple-900: #270D2A;
   --purple-950: #120613;
 
+  /* ── Spacing ──────────────────────────────────────────────────────────────────
+     One 4px-based scale for every gap, margin, and pad in the system. Steps are
+     named by index, not by size, so a component references a rung rather than a
+     pixel count. Spec: `specs/foundations/spacing.md`.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --space-0:   0;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  32px;
+  --space-8:  40px;
+  --space-9:  48px;
+  --space-10: 64px;
+
 }
