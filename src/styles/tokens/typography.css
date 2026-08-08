@@ -57,10 +57,12 @@
   --prose-size-code:  14px;
   --prose-line-code:  22px;
 
-  /* Reading measure. 65-75 characters is the sustained-reading range; `ch`
-     resolves against the live typeface, so this tracks the font rather than
-     guessing a pixel width. Prose only — tables, charts, maps, and code keep
+  /* Reading measure. 65-75 characters is the sustained-reading range.
+     NOTE: `ch` is the advance of "0", which in Geist runs ~20% wider than the
+     average lowercase letter — so a value in `ch` renders roughly 1.2x that
+     many real characters. 60ch lands around 72. Do not read this number as a
+     character count. Prose only — tables, charts, maps, and code blocks keep
      the full column width. */
-  --prose-measure: 68ch;
+  --prose-measure: 60ch;
 
 }
