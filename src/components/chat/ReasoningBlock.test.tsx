@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { ReasoningContent } from '@/components/chat/ReasoningBlock'
+import { ReasoningBlock, ReasoningContent } from '@/components/chat/ReasoningBlock'
 
 describe('ReasoningContent', () => {
   it('renders reasoning and tools in their arrival order without bridging markdown', () => {
@@ -28,7 +28,7 @@ describe('ReasoningContent', () => {
     expect(html).not.toContain('<code>unfinished')
   })
 
-  it('renders structured reasoning as collapsed heading controls', () => {
+  it('renders structured reasoning as visible thinking steps', () => {
     const html = renderToStaticMarkup(
       <ReasoningContent
         thinkingContent="**Researching**\nThe raw fallback must not replace structured sections."
@@ -42,8 +42,22 @@ describe('ReasoningContent', () => {
 
     expect(html).toContain('Researching')
     expect(html).toContain('Summarizing')
-    expect(html).toContain('<button')
-    expect(html).not.toContain('Checking the connected sources.')
+    expect(html).toContain('Checking the connected sources.')
+    expect(html).toContain('Preparing the result.')
     expect(html).not.toContain('The raw fallback must not replace structured sections.')
+  })
+
+  it('uses the expanded ThinkingSteps trigger by default', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningBlock
+        thinkingContent="Checking context"
+        isNewMessage
+        isThinkingInProgress
+      />,
+    )
+
+    expect(html).toContain('Thinking')
+    expect(html).toContain('aria-expanded="true"')
+    expect(html).toContain('aria-controls=')
   })
 })

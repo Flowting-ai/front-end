@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -23,7 +23,6 @@ import { LineRenderer } from "@/lib/line-renderer";
 import { ActivitiesSection, ActivityRow } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
 import { springs } from "@/lib/springs";
-import { toSouvenirModelLabel } from "@/lib/ai-models";
 import {
   cleanReasoningHeading,
   type ReasoningSection,
@@ -121,21 +120,22 @@ export function AnimatedLogo({
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
 
-function Chevron({ isOpen }: { isOpen: boolean }) {
+function ChevronRight({ isOpen, highlighted }: { isOpen: boolean; highlighted: boolean }) {
   return (
     <m.svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
       fill="none"
-      animate={{ rotate: isOpen ? 180 : 0 }}
+      animate={{ rotate: isOpen ? 90 : 0 }}
       transition={springs.fast}
       style={{ display: "block", flexShrink: 0 }}
+      aria-hidden="true"
     >
       <path
-        d="M3 5.5 L7 9.5 L11 5.5"
-        stroke="var(--neutral-400, #9C938B)"
-        strokeWidth="1.7"
+        d="M6 3.5 L10.5 8 L6 12.5"
+        stroke={highlighted ? "var(--neutral-800, #26211E)" : "var(--neutral-400, #9C938B)"}
+        strokeWidth={highlighted ? 2 : 1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -143,44 +143,74 @@ function Chevron({ isOpen }: { isOpen: boolean }) {
   );
 }
 
-const chevronBtnStyle: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
-  cursor: "pointer",
-  padding: "2px",
-  display: "inline-flex",
-  alignItems: "center",
-  borderRadius: 4,
-  flexShrink: 0,
-  lineHeight: 0,
-};
+function ThinkingTrigger({ open, onToggle, controls }: { open: boolean; onToggle: () => void; controls: string }) {
+  const [hovered, setHovered] = useState(false);
+  const highlighted = open || hovered;
 
-const COLLAPSE_TRANSITION = {
-  height: { duration: 0.25, ease: "easeInOut" as const },
-  opacity: { duration: 0.2, ease: "easeInOut" as const },
-};
+  return (
+    <div
+      style={{ position: "relative", width: "fit-content" }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <AnimatePresence>
+        {hovered && (
+          <m.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.08 }}
+            style={{ position: "absolute", inset: 0, borderRadius: 8, background: "var(--neutral-100, #F7F3F0)", pointerEvents: "none" }}
+          />
+        )}
+      </AnimatePresence>
+      <button
+        type="button"
+        className="kaya-thinking-trigger"
+        aria-expanded={open}
+        aria-controls={controls}
+        onClick={onToggle}
+        style={{
+          position: "relative", zIndex: 1, display: "flex", alignItems: "center", gap: 10,
+          padding: "8px 12px", border: 0, borderRadius: 8, background: "transparent",
+          cursor: "pointer", fontFamily: "var(--font-body)", userSelect: "none",
+        }}
+      >
+        <span style={{ display: "inline-grid", fontSize: 13, textAlign: "left" }}>
+          <span aria-hidden="true" style={{ gridArea: "1 / 1", visibility: "hidden", fontWeight: 600 }}>Thinking</span>
+          <span
+            style={{
+              gridArea: "1 / 1",
+              color: highlighted ? "var(--neutral-800, #26211E)" : "var(--neutral-500, #6E645D)",
+              fontWeight: open ? 600 : 400,
+              transition: "color 80ms, font-weight 80ms",
+            }}
+          >
+            Thinking
+          </span>
+        </span>
+        <ChevronRight isOpen={open} highlighted={highlighted} />
+      </button>
+    </div>
+  );
+}
 
-// ── ModelNameLabel - plain name text only (logo handled by AnimatedLogo) ──────
-
-function ModelNameLabel({
-  modelMeta,
-  modelName,
-}: {
-  modelMeta?: ModelSelectedMeta;
-  modelName?: string;
-}) {
-  const complexity = modelMeta?.complexity;
-  const isMuse = complexity === "basic" || complexity === "standard" || complexity === "advanced";
-  if (isMuse) {
-    // Per-message resolved tier — "Auto" is only ever the selector's routing
-    // MODE (see TopBar.tsx), never a tier a message actually resolves to.
-    // A message routed to the advanced tier shows "Advanced" here, not "Auto".
-    const tier = complexity === "advanced" ? "Advanced" : complexity === "standard" ? "Standard" : "Basic";
-    return <span>Souvenir Muse ({tier})</span>;
-  }
-  const name = modelMeta?.modelName || modelName
-  if (!name) return null
-  return <span>{toSouvenirModelLabel(name)}</span>;
+function ThinkingCollapse({ open, id, children }: { open: boolean; id: string; children: ReactNode }) {
+  return (
+    <m.div
+      id={id}
+      aria-hidden={!open}
+      inert={!open}
+      initial={false}
+      animate={{ height: open ? "auto" : 0 }}
+      transition={{ ...springs.moderate, bounce: 0 }}
+      style={{ overflow: "hidden" }}
+    >
+      <div style={{ padding: "4px 12px 12px", fontSize: 13, color: "var(--neutral-500, #6E645D)" }}>
+        {children}
+      </div>
+    </m.div>
+  );
 }
 
 // ── Structured reasoning sections (from backend reasoning_sections[]) ────────
@@ -231,135 +261,70 @@ function ReasoningStep({
   total: number;
   isActive: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   const heading = cleanReasoningHeading(section.heading);
   const hasBody = section.body.trim().length > 0;
   const isLast = index === total - 1;
   const icon = getReasoningIcon(heading);
 
-  const headingStyle: React.CSSProperties = isActive
-    ? {
-        fontWeight: 600,
-        fontSize: 14,
-        backgroundImage: "linear-gradient(90deg, #B6ACA4 0%, #3B3632 45%, #3B3632 55%, #B6ACA4 100%)",
-        backgroundSize: "200% 100%",
-        WebkitBackgroundClip: "text",
-        backgroundClip: "text",
-        WebkitTextFillColor: "transparent",
-        color: "transparent",
-        animation: "svLabelShimmer 2.4s ease-in-out infinite",
-      }
-    : {
-        fontWeight: 600,
-        fontSize: 14,
-        color: "var(--neutral-800, #26211E)",
-      };
-
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "stretch",
-        paddingBottom: isLast ? 0 : 12,
-      }}
+    <m.div
+      style={{ position: "relative", zIndex: 1, overflow: "hidden" }}
+      initial={{ height: 0 }}
+      animate={{ height: "auto" }}
+      transition={springs.slow}
     >
-      {/* Left column - icon + animated vertical connector */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 22, flexShrink: 0 }}>
-        <span
-          style={{
-            width: 22, height: 26,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            lineHeight: 0, flexShrink: 0,
-          }}
-        >
-          {isActive ? (
-            <m.span
-              animate={{ rotate: [0, 360] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 0 }}
-            >
-              <HugeiconsIcon icon={icon} size={15} color="#A89488" strokeWidth={1.6} />
-            </m.span>
-          ) : (
-            <HugeiconsIcon icon={icon} size={15} color="#C0B5AD" strokeWidth={1.6} />
-          )}
-        </span>
-        <AnimatePresence>
-          {!isLast && (
-            <m.div
-              key="line"
-              initial={{ scaleY: 0, opacity: 0 }}
-              animate={{ scaleY: 1, opacity: 1 }}
-              transition={{ duration: 0.28, ease: "easeOut", delay: 0.1 }}
-              style={{
-                width: 1,
-                flex: 1,
-                background: "var(--neutral-200, #EDE1D7)",
-                transformOrigin: "top",
-                minHeight: 12,
-              }}
-            />
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Right column - heading button + expandable body */}
-      <div style={{ flex: 1, paddingLeft: 9, display: "flex", flexDirection: "column" }}>
-        <button
-          type="button"
-          onClick={() => hasBody && setOpen((o) => !o)}
-          style={{
-            display: "flex", alignItems: "center", gap: 8,
-            width: "100%", background: "transparent", border: "none",
-            cursor: hasBody ? "pointer" : "default",
-            padding: "4px 0", textAlign: "left",
-            fontFamily: "var(--font-body)",
-          }}
-        >
-          <span style={{ flex: 1, lineHeight: "22px", ...headingStyle }}>
-            {heading}{isActive ? "…" : ""}
-          </span>
-          {hasBody && !isActive && (
-            <m.span
-              animate={{ rotate: open ? 90 : 0 }}
-              transition={{ type: "spring", stiffness: 380, damping: 28 }}
-              style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}
-            >
-              <svg width="12" height="12" viewBox="0 0 10 10" fill="none">
-                <path d="M3.5 2 L7 5 L3.5 8" stroke="#C0B5AD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </m.span>
-          )}
-        </button>
-
-        <AnimatePresence initial={false}>
-          {open && hasBody && !isActive && (
-            <m.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              style={{ overflow: "hidden" }}
-            >
-              <p
+      <m.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.24, delay: 0.08, ease: "easeOut" }}
+      >
+        <div style={{ display: "flex", gap: 10, padding: "6px 8px" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 14 }}>
+            <span style={{ paddingTop: 2, lineHeight: 0 }}>
+              <HugeiconsIcon icon={icon} size={14} color="var(--neutral-400, #9C938B)" strokeWidth={1.5} />
+            </span>
+            {!isLast && (
+              <span
                 style={{
-                  fontSize: 13,
-                  color: "var(--neutral-600, #524B47)",
-                  lineHeight: "21px",
-                  borderLeft: "2px solid var(--neutral-200, #EDE1D7)",
-                  paddingLeft: 10,
-                  margin: "6px 0 4px 0",
+                  flex: 1,
+                  width: 1,
+                  minHeight: 8,
+                  marginTop: 4,
+                  background: "color-mix(in srgb, var(--neutral-300, #B6ACA4) 60%, transparent)",
+                }}
+              />
+            )}
+          </div>
+
+          <div style={{ display: "flex", minWidth: 0, flex: 1, flexDirection: "column", gap: 4 }}>
+            <span
+              className={isActive ? "kaya-thinking-step-shimmer" : undefined}
+              style={{
+                color: "var(--neutral-800, #26211E)",
+                fontFamily: "var(--font-body)",
+                fontSize: 13,
+                fontWeight: 500,
+                lineHeight: 1.25,
+              }}
+            >
+              {heading}{isActive ? "…" : ""}
+            </span>
+            {hasBody && (
+              <span
+                style={{
+                  color: "var(--neutral-500, #6E645D)",
                   fontFamily: "var(--font-body)",
+                  fontSize: 13,
+                  lineHeight: 1.375,
                 }}
               >
                 <StepBody text={section.body} />
-              </p>
-            </m.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
+              </span>
+            )}
+          </div>
+        </div>
+      </m.div>
+    </m.div>
   );
 }
 
@@ -376,25 +341,48 @@ function ReasoningSections({
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
       {valid.map((s, i) => (
-        <m.div
+        <ReasoningStep
           key={`${s.heading}-${i}`}
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.18, ease: "easeOut" }}
-        >
-          <ReasoningStep
-            section={s}
-            index={i}
-            total={valid.length}
-            isActive={isStreaming && i === valid.length - 1}
-          />
-        </m.div>
+          section={s}
+          index={i}
+          total={valid.length}
+          isActive={isStreaming && i === valid.length - 1}
+        />
       ))}
     </div>
   );
 }
 
 // ── Left bar + thinking content ────────────────────────────────────────────────
+
+function TimelineReasoningStep({ content, active }: { content: string; active: boolean }) {
+  return (
+    <m.div
+      initial={{ height: 0 }}
+      animate={{ height: "auto" }}
+      transition={springs.slow}
+      style={{ overflow: "hidden" }}
+    >
+      <m.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.24, delay: 0.08, ease: "easeOut" }}
+        style={{ display: "flex", gap: 10, padding: "6px 8px" }}
+      >
+        <span style={{ display: "flex", width: 14, height: 14, alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--neutral-400, #9C938B)" }} />
+        </span>
+        <div
+          className={`kaya-thinking-md${active ? " kaya-thinking-step-shimmer" : ""}`}
+          style={{ minWidth: 0, flex: 1, color: "var(--neutral-500, #6E645D)", fontFamily: "var(--font-body)", fontSize: 13, lineHeight: 1.375 }}
+        >
+          <LineRenderer content={content} />
+          <StreamingCursor isVisible={active} />
+        </div>
+      </m.div>
+    </m.div>
+  );
+}
 
 export interface ReasoningContentProps {
   thinkingContent: string;
@@ -420,68 +408,42 @@ export function ReasoningContent({
   const activityById = new Map((activities ?? []).map((activity) => [activity.id, activity]));
 
   return (
-    <div style={{ position: "relative", paddingLeft: 12 }}>
-      <div
-        className={isStreaming ? "kaya-reasoning-active" : undefined}
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 2,
-          borderRadius: 2,
-          backgroundColor: isStreaming ? undefined : "var(--neutral-200, #EDE1D7)",
-          transition: "background-color 0.4s",
-        }}
-      />
-
+    <div>
       {hasTimeline ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
           {reasoningTimeline!.map((item, index) => {
             if (item.kind === "activity") {
               const activity = activityById.get(item.activityId);
-              return activity ? <ActivityRow key={item.id} activity={activity} /> : null;
+              return activity ? (
+                <m.div key={item.id} initial={{ height: 0 }} animate={{ height: "auto" }} transition={springs.slow} style={{ overflow: "hidden", padding: "0 8px" }}>
+                  <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.24, delay: 0.08, ease: "easeOut" }}>
+                    <ActivityRow activity={activity} />
+                  </m.div>
+                </m.div>
+              ) : null;
             }
             const isActiveReasoning = isStreaming && index === reasoningTimeline!.length - 1;
             return (
-              <div
+              <TimelineReasoningStep
                 key={item.id}
-                className="kaya-thinking-md"
-                style={{
-                  fontSize: 14,
-                  color: "var(--neutral-500, #6E645D)",
-                  fontFamily: "var(--font-body)",
-                  lineHeight: "22px",
-                }}
-              >
-                <LineRenderer content={item.content} />
-                <StreamingCursor isVisible={isActiveReasoning} />
-              </div>
+                content={item.content}
+                active={isActiveReasoning}
+              />
             );
           })}
         </div>
       ) : hasStructured ? (
         <>
           {hasActivities && <ActivitiesSection activities={activities!} />}
-        <div style={{ marginTop: hasActivities ? 8 : 0 }}>
-          <ReasoningSections sections={reasoningSections!} isStreaming={isStreaming} />
-        </div>
+          <div style={{ marginTop: hasActivities ? 4 : 0 }}>
+            <ReasoningSections sections={reasoningSections!} isStreaming={isStreaming} />
+          </div>
         </>
       ) : thinkingContent ? (
         <>
           {hasActivities && <ActivitiesSection activities={activities!} />}
-          <div
-            className="kaya-thinking-md"
-            style={{
-              fontSize: 14,
-              color: "var(--neutral-500, #6E645D)",
-              fontFamily: "var(--font-body)",
-              lineHeight: "22px",
-              marginTop: hasActivities ? 8 : 0,
-            }}
-          >
-            <LineRenderer content={thinkingContent} />
-            <StreamingCursor isVisible={isStreaming} />
+          <div style={{ marginTop: hasActivities ? 4 : 0 }}>
+            <TimelineReasoningStep content={thinkingContent} active={isStreaming} />
           </div>
         </>
       ) : hasActivities ? <ActivitiesSection activities={activities!} /> : null}
@@ -507,146 +469,31 @@ interface ReasoningBlockProps {
 export function ReasoningBlock({
   thinkingContent,
   isThinkingInProgress,
-  modelName,
-  modelMeta,
   activities,
   reasoningSections,
   reasoningTimeline,
 }: ReasoningBlockProps) {
-  // Streaming forces the panel visible via `outerVisible`; keeping the manual
-  // state closed means it naturally collapses as soon as streaming ends.
-  const [outerOpen, setOuterOpen] = useState(false);
-  const [thinkingDurationS, setThinkingDurationS] = useState<number | null>(null);
-  const [justSelected, setJustSelected] = useState(false);
-  const thinkingStartRef = useRef<number | null>(null);
-  const prevModelRef = useRef<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (isThinkingInProgress) {
-      if (!thinkingStartRef.current) thinkingStartRef.current = Date.now();
-    } else if (thinkingStartRef.current) {
-      const elapsed = Math.round((Date.now() - thinkingStartRef.current) / 1000);
-      setThinkingDurationS(elapsed);
-      thinkingStartRef.current = null;
-    }
-  }, [isThinkingInProgress]);
-
-  // Trigger glow burst when model name (or, for Muse-routed responses that
-  // never send a raw name, complexity) first arrives.
-  const currentModel = modelMeta?.modelName || modelName || modelMeta?.complexity;
-  useEffect(() => {
-    if (currentModel && currentModel !== prevModelRef.current) {
-      prevModelRef.current = currentModel;
-      setJustSelected(true);
-      const t = setTimeout(() => setJustSelected(false), 1200);
-      return () => clearTimeout(t);
-    }
-  }, [currentModel]);
+  const [open, setOpen] = useState(true);
+  const panelId = useId();
 
   if (!thinkingContent && !reasoningSections?.length && !isThinkingInProgress) return null;
 
-  const hasActivities = Boolean(activities?.length);
-  const hasContent = Boolean(thinkingContent) || Boolean(reasoningSections?.length) || Boolean(reasoningTimeline?.length) || hasActivities;
-  const hasModel = !!(modelMeta?.modelName || modelName || modelMeta?.complexity);
-
-  const outerVisible = isThinkingInProgress || outerOpen;
-
-  const shimmerStyle: React.CSSProperties = {
-    backgroundImage: "linear-gradient(90deg, #B6ACA4 0%, #3B3632 45%, #3B3632 55%, #B6ACA4 100%)",
-    backgroundSize: "200% 100%",
-    WebkitBackgroundClip: "text",
-    backgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    color: "transparent",
-    animation: "svLabelShimmer 2.4s ease-in-out infinite",
-  };
-
   return (
-    <div style={{ margin: "4px 0 10px" }}>
+    <div style={{ width: 320, maxWidth: "100%", margin: "4px 0 10px" }}>
 
       {/* ── Outer header ────────────────────────────────────────────────────── */}
-      <div draggable={false} style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20, userSelect: "none" }}>
-        {/* Animated logo - Souvenir mark while thinking, model icon after model_selected */}
-        <AnimatedLogo
-          modelMeta={modelMeta}
-          modelName={modelName}
-          justSelected={justSelected}
-        />
-
-        <AnimatePresence mode="wait" initial={false}>
-          {isThinkingInProgress && !hasModel ? (
-            <m.div
-              key="souvenir"
-              initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-              animate={{ opacity: 1, filter: "none", scale: 1 }}
-              exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-              transition={{ type: "spring", stiffness: 520, damping: 32 }}
-              style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 500, lineHeight: "18px" }}
-            >
-              <span style={shimmerStyle}>Souvenir</span>
-            </m.div>
-          ) : isThinkingInProgress && hasModel ? (
-            <m.div
-              key={`thinking-${modelMeta?.modelName || modelName || modelMeta?.complexity}`}
-              initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-              animate={{ opacity: 1, filter: "none", scale: 1 }}
-              exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-              transition={{ type: "spring", stiffness: 520, damping: 32 }}
-              style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 500, lineHeight: "18px", color: "var(--neutral-600, #524B47)" }}
-            >
-              <ModelNameLabel modelMeta={modelMeta} modelName={modelName} />
-              <span style={{ color: "var(--neutral-400, #9A9089)", fontWeight: 400 }}>· Thinking…</span>
-            </m.div>
-          ) : (
-            <m.span
-              key="done"
-              initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82, y: 5 }}
-              animate={{ opacity: 1, filter: "none", scale: 1, y: 0 }}
-              exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82, y: -5 }}
-              transition={{ type: "spring", stiffness: 520, damping: 32 }}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 5,
-                fontSize: 14, fontWeight: 500, lineHeight: "18px", color: "var(--neutral-600, #524B47)",
-              }}
-            >
-              <ModelNameLabel modelMeta={modelMeta} modelName={modelName} />
-              {thinkingDurationS !== null && (
-                <span style={{ color: "var(--neutral-400, #9A9089)", fontWeight: 400 }}>
-                  · {thinkingDurationS}s
-                </span>
-              )}
-              {hasContent && (
-                <button
-                  type="button"
-                  aria-label={outerOpen ? "Collapse" : "Expand"}
-                  style={chevronBtnStyle}
-                  onClick={() => setOuterOpen((o) => !o)}
-                >
-                  <Chevron isOpen={outerOpen} />
-                </button>
-              )}
-            </m.span>
-          )}
-        </AnimatePresence>
-      </div>
+      <ThinkingTrigger open={open} onToggle={() => setOpen((value) => !value)} controls={panelId} />
 
       {/* ── Outer collapse (always mounted - prevents jump on streaming→done) ── */}
-      <m.div
-        initial={false}
-        animate={{ height: outerVisible ? "auto" : 0, opacity: outerVisible ? 1 : 0 }}
-        transition={COLLAPSE_TRANSITION}
-        style={{ overflow: "hidden" }}
-      >
-        <div style={{ marginTop: 8 }}>
-          <ReasoningContent
-            thinkingContent={thinkingContent}
-            reasoningSections={reasoningSections}
-            activities={activities}
-            reasoningTimeline={reasoningTimeline}
-            isStreaming={!!isThinkingInProgress}
-          />
-        </div>
-      </m.div>
+      <ThinkingCollapse open={open} id={panelId}>
+        <ReasoningContent
+          thinkingContent={thinkingContent}
+          reasoningSections={reasoningSections}
+          activities={activities}
+          reasoningTimeline={reasoningTimeline}
+          isStreaming={!!isThinkingInProgress}
+        />
+      </ThinkingCollapse>
 
     </div>
   );
