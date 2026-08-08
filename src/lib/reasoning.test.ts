@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  appendActivityTimeline,
   appendReasoningEvent,
+  appendReasoningTimeline,
   cleanReasoningHeading,
   createReasoningState,
   deriveReasoningSections,
@@ -8,6 +10,30 @@ import {
   reasoningEventText,
   splitReasoningText,
 } from '@/lib/reasoning'
+
+describe('ordered reasoning timeline', () => {
+  it('keeps reasoning on opposite sides of a tool in separate segments', () => {
+    let timeline = appendReasoningTimeline([], 'Before the tool.', 'r-0', 0)
+    timeline = appendActivityTimeline(timeline, 'tool-0', 'a-0', 0)
+    timeline = appendReasoningTimeline(timeline, 'After the tool.', 'r-1', 1)
+
+    expect(timeline).toEqual([
+      { kind: 'reasoning', id: 'r-0', content: 'Before the tool.', roundIndex: 0 },
+      { kind: 'activity', id: 'a-0', activityId: 'tool-0', roundIndex: 0 },
+      { kind: 'reasoning', id: 'r-1', content: 'After the tool.', roundIndex: 1 },
+    ])
+  })
+
+  it('merges snapshots only inside the same reasoning segment', () => {
+    let timeline = appendReasoningTimeline([], 'Checking', 'r-0', 0)
+    timeline = appendReasoningTimeline(timeline, 'Checking context', 'unused', 0)
+    timeline = appendActivityTimeline(timeline, 'tool-0', 'a-0', 0)
+    timeline = appendReasoningTimeline(timeline, 'Continuing', 'r-1', 1)
+
+    expect(timeline[0]).toMatchObject({ kind: 'reasoning', content: 'Checking context' })
+    expect(timeline[2]).toMatchObject({ kind: 'reasoning', content: 'Continuing' })
+  })
+})
 
 describe('reasoning stream accumulation', () => {
   it('reads both current content payloads and legacy delta payloads', () => {

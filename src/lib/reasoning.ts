@@ -5,6 +5,20 @@ export type ReasoningSection = {
   body: string
 }
 
+export type ReasoningTimelineItem =
+  | {
+      kind: 'reasoning'
+      id: string
+      content: string
+      roundIndex?: number
+    }
+  | {
+      kind: 'activity'
+      id: string
+      activityId: string
+      roundIndex?: number
+    }
+
 export type ReasoningEventType =
   | 'reasoning'
   | 'reasoning_heading'
@@ -20,6 +34,50 @@ export function createReasoningState(
   sections: ReasoningSection[] = [],
 ): ReasoningStreamState {
   return { text, sections }
+}
+
+/** Append a reasoning delta to the current ordered stream segment. A tool
+ * activity or a changed backend round starts a new segment, preventing words
+ * and Markdown delimiters from separate model messages from being glued
+ * together. */
+export function appendReasoningTimeline(
+  timeline: ReasoningTimelineItem[],
+  incoming: string,
+  newId: string,
+  roundIndex?: number,
+): ReasoningTimelineItem[] {
+  if (!incoming) return timeline
+  const last = timeline[timeline.length - 1]
+  const sameRound = roundIndex === undefined || last?.roundIndex === undefined || last.roundIndex === roundIndex
+  if (last?.kind === 'reasoning' && sameRound) {
+    const content = mergeStreamingText(last.content, incoming)
+    if (content === last.content) return timeline
+    return [...timeline.slice(0, -1), { ...last, content }]
+  }
+  return [...timeline, { kind: 'reasoning', id: newId, content: incoming, roundIndex }]
+}
+
+export function appendActivityTimeline(
+  timeline: ReasoningTimelineItem[],
+  activityId: string,
+  newId: string,
+  roundIndex?: number,
+): ReasoningTimelineItem[] {
+  if (timeline.some((item) => item.kind === 'activity' && item.activityId === activityId)) return timeline
+  return [...timeline, { kind: 'activity', id: newId, activityId, roundIndex }]
+}
+
+export function replaceTimelineActivityId(
+  timeline: ReasoningTimelineItem[],
+  previousId: string,
+  nextId: string,
+): ReasoningTimelineItem[] {
+  if (previousId === nextId) return timeline
+  return timeline.map((item) =>
+    item.kind === 'activity' && item.activityId === previousId
+      ? { ...item, activityId: nextId }
+      : item,
+  )
 }
 
 export function reasoningEventText(data: Record<string, unknown>): string {

@@ -87,7 +87,11 @@ export interface ChatPrompt {
   decision?: string
 }
 
-export type ChatPromptEventName = 'user_prompt' | 'questions' | 'approval_prompt'
+export type ChatPromptEventName =
+  | 'user_prompt'
+  | 'questions'
+  | 'question_prompt'
+  | 'approval_prompt'
 
 const optionalString = (value: unknown): string | undefined =>
   typeof value === 'string' ? value : undefined
@@ -104,7 +108,7 @@ const parseChatPromptOptions = (value: unknown): ChatPromptOption[] =>
     }] : []
   }) : []
 
-/** Normalize all three non-connector prompt events into the one card model
+/** Normalize non-connector prompt events into the one card model
  * used by chat, persona chat, and the agent test surface. */
 export function parseChatPrompt(
   eventName: ChatPromptEventName,
@@ -152,7 +156,7 @@ export function parseChatPrompt(
 
   return {
     request_id: promptId,
-    kind: eventName === 'questions'
+    kind: eventName === 'questions' || eventName === 'question_prompt'
       ? 'questions'
       : eventName === 'approval_prompt' ? 'approval' : optionalString(data.kind) || 'input',
     title: eventName === 'approval_prompt'

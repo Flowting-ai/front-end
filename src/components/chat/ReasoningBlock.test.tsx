@@ -3,6 +3,31 @@ import { describe, expect, it } from 'vitest'
 import { ReasoningContent } from '@/components/chat/ReasoningBlock'
 
 describe('ReasoningContent', () => {
+  it('renders reasoning and tools in their arrival order without bridging markdown', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        activities={[{
+          id: 'tool-1',
+          type: 'tool-call',
+          label: 'Query data',
+          status: 'done',
+        }]}
+        reasoningTimeline={[
+          { kind: 'reasoning', id: 'r-1', content: 'Before `unfinished', roundIndex: 0 },
+          { kind: 'activity', id: 'a-1', activityId: 'tool-1', roundIndex: 0 },
+          { kind: 'reasoning', id: 'r-2', content: '`closed` AFTER_TOOL', roundIndex: 1 },
+        ]}
+        isStreaming={false}
+      />,
+    )
+
+    expect(html.indexOf('Before')).toBeLessThan(html.indexOf('Query data'))
+    expect(html.indexOf('Query data')).toBeLessThan(html.indexOf('AFTER_TOOL'))
+    expect(html).toContain('<code')
+    expect(html).not.toContain('<code>unfinished')
+  })
+
   it('renders structured reasoning as collapsed heading controls', () => {
     const html = renderToStaticMarkup(
       <ReasoningContent

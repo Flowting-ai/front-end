@@ -20,13 +20,14 @@ import {
   Brain02Icon,
 } from "@hugeicons/core-free-icons";
 import { LineRenderer } from "@/lib/line-renderer";
-import { ActivitiesSection } from "./ActivityRow";
+import { ActivitiesSection, ActivityRow } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
 import { springs } from "@/lib/springs";
 import { toSouvenirModelLabel } from "@/lib/ai-models";
 import {
   cleanReasoningHeading,
   type ReasoningSection,
+  type ReasoningTimelineItem,
 } from "@/lib/reasoning";
 import type { ActivityItem, ModelSelectedMeta } from "@/hooks/use-chat-state";
 
@@ -399,6 +400,7 @@ export interface ReasoningContentProps {
   thinkingContent: string;
   reasoningSections?: ReasoningSection[];
   activities?: ActivityItem[];
+  reasoningTimeline?: ReasoningTimelineItem[];
   isStreaming: boolean;
 }
 
@@ -406,6 +408,7 @@ export function ReasoningContent({
   thinkingContent,
   reasoningSections,
   activities,
+  reasoningTimeline,
   isStreaming,
 }: ReasoningContentProps) {
   const hasActivities = Boolean(activities?.length);
@@ -413,6 +416,8 @@ export function ReasoningContent({
   // When streaming, the last section gets the shimmer "active" treatment.
   // Fall back to raw thinkingContent only when no sections are available.
   const hasStructured = reasoningSections && reasoningSections.length > 0;
+  const hasTimeline = Boolean(reasoningTimeline?.length);
+  const activityById = new Map((activities ?? []).map((activity) => [activity.id, activity]));
 
   return (
     <div style={{ position: "relative", paddingLeft: 12 }}>
@@ -430,27 +435,56 @@ export function ReasoningContent({
         }}
       />
 
-      {hasActivities && <ActivitiesSection activities={activities!} />}
-
-      {hasStructured ? (
+      {hasTimeline ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {reasoningTimeline!.map((item, index) => {
+            if (item.kind === "activity") {
+              const activity = activityById.get(item.activityId);
+              return activity ? <ActivityRow key={item.id} activity={activity} /> : null;
+            }
+            const isActiveReasoning = isStreaming && index === reasoningTimeline!.length - 1;
+            return (
+              <div
+                key={item.id}
+                className="kaya-thinking-md"
+                style={{
+                  fontSize: 14,
+                  color: "var(--neutral-500, #6E645D)",
+                  fontFamily: "var(--font-body)",
+                  lineHeight: "22px",
+                }}
+              >
+                <LineRenderer content={item.content} />
+                <StreamingCursor isVisible={isActiveReasoning} />
+              </div>
+            );
+          })}
+        </div>
+      ) : hasStructured ? (
+        <>
+          {hasActivities && <ActivitiesSection activities={activities!} />}
         <div style={{ marginTop: hasActivities ? 8 : 0 }}>
           <ReasoningSections sections={reasoningSections!} isStreaming={isStreaming} />
         </div>
+        </>
       ) : thinkingContent ? (
-        <div
-          className="kaya-thinking-md"
-          style={{
-            fontSize: 14,
-            color: "var(--neutral-500, #6E645D)",
-            fontFamily: "var(--font-body)",
-            lineHeight: "22px",
-            marginTop: hasActivities ? 8 : 0,
-          }}
-        >
-          <LineRenderer content={thinkingContent} />
-          <StreamingCursor isVisible={isStreaming} />
-        </div>
-      ) : null}
+        <>
+          {hasActivities && <ActivitiesSection activities={activities!} />}
+          <div
+            className="kaya-thinking-md"
+            style={{
+              fontSize: 14,
+              color: "var(--neutral-500, #6E645D)",
+              fontFamily: "var(--font-body)",
+              lineHeight: "22px",
+              marginTop: hasActivities ? 8 : 0,
+            }}
+          >
+            <LineRenderer content={thinkingContent} />
+            <StreamingCursor isVisible={isStreaming} />
+          </div>
+        </>
+      ) : hasActivities ? <ActivitiesSection activities={activities!} /> : null}
     </div>
   );
 }
@@ -466,6 +500,8 @@ interface ReasoningBlockProps {
   activities?: ActivityItem[];
   /** Structured reasoning steps from the backend - rendered as collapsible steps when done. */
   reasoningSections?: ReasoningSection[];
+  /** Live arrival-ordered reasoning/tool trace. */
+  reasoningTimeline?: ReasoningTimelineItem[];
 }
 
 export function ReasoningBlock({
@@ -475,9 +511,11 @@ export function ReasoningBlock({
   modelMeta,
   activities,
   reasoningSections,
+  reasoningTimeline,
 }: ReasoningBlockProps) {
-  const [outerOpen, setOuterOpen] = useState(true);
-  const [innerOpen, setInnerOpen] = useState(true);
+  // Streaming forces the panel visible via `outerVisible`; keeping the manual
+  // state closed means it naturally collapses as soon as streaming ends.
+  const [outerOpen, setOuterOpen] = useState(false);
   const [thinkingDurationS, setThinkingDurationS] = useState<number | null>(null);
   const [justSelected, setJustSelected] = useState(false);
   const thinkingStartRef = useRef<number | null>(null);
@@ -508,11 +546,10 @@ export function ReasoningBlock({
   if (!thinkingContent && !reasoningSections?.length && !isThinkingInProgress) return null;
 
   const hasActivities = Boolean(activities?.length);
-  const hasContent = Boolean(thinkingContent) || Boolean(reasoningSections?.length) || hasActivities;
+  const hasContent = Boolean(thinkingContent) || Boolean(reasoningSections?.length) || Boolean(reasoningTimeline?.length) || hasActivities;
   const hasModel = !!(modelMeta?.modelName || modelName || modelMeta?.complexity);
 
   const outerVisible = isThinkingInProgress || outerOpen;
-  const innerVisible = isThinkingInProgress || innerOpen;
 
   const shimmerStyle: React.CSSProperties = {
     backgroundImage: "linear-gradient(90deg, #B6ACA4 0%, #3B3632 45%, #3B3632 55%, #B6ACA4 100%)",
@@ -601,66 +638,13 @@ export function ReasoningBlock({
         style={{ overflow: "hidden" }}
       >
         <div style={{ marginTop: 8 }}>
-
-          {/* Inner header: "Thinking [chevron]" - shown only after streaming */}
-          <AnimatePresence initial={false}>
-            {!isThinkingInProgress && (
-              <m.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                style={{ marginBottom: 6 }}
-              >
-                {/* Chevron sits inline, immediately after "Thinking" */}
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    cursor: hasContent ? "pointer" : "default",
-                    userSelect: "none",
-                  }}
-                  onClick={hasContent ? () => setInnerOpen((o) => !o) : undefined}
-                >
-                  <span
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "var(--neutral-500, #6E645D)",
-                    }}
-                  >
-                    Thinking
-                  </span>
-                  {hasContent && (
-                    <button
-                      type="button"
-                      aria-label={innerOpen ? "Collapse reasoning" : "Expand reasoning"}
-                      style={chevronBtnStyle}
-                    >
-                      <Chevron isOpen={innerOpen} />
-                    </button>
-                  )}
-                </span>
-              </m.div>
-            )}
-          </AnimatePresence>
-
-          {/* Inner collapse (always mounted) */}
-          <m.div
-            initial={false}
-            animate={{ height: innerVisible ? "auto" : 0, opacity: innerVisible ? 1 : 0 }}
-            transition={COLLAPSE_TRANSITION}
-            style={{ overflow: "hidden" }}
-          >
-            <ReasoningContent
-              thinkingContent={thinkingContent}
-              reasoningSections={reasoningSections}
-              activities={activities}
-              isStreaming={!!isThinkingInProgress}
-            />
-          </m.div>
-
+          <ReasoningContent
+            thinkingContent={thinkingContent}
+            reasoningSections={reasoningSections}
+            activities={activities}
+            reasoningTimeline={reasoningTimeline}
+            isStreaming={!!isThinkingInProgress}
+          />
         </div>
       </m.div>
 
