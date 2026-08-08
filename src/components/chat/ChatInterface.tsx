@@ -594,8 +594,7 @@ export function ChatInterface({
     prevIsLoadingRef.current = isLoadingMessages;
     if (wasLoading && !isLoadingMessages && messages.length > 0) {
       // Enter settling: keep spinner up while the virtualizer renders and
-      // measures all initial items. Two RAF frames give the browser time to
-      // complete its layout pass so the first visible frame has no jitter.
+      // measures all initial items. The effect below clears it.
       setIsSettling(true);
 
       // Scroll to target position while content is still hidden so the
@@ -609,16 +608,26 @@ export function ChatInterface({
       } else {
         msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
       }
-
-      const raf1 = requestAnimationFrame(() => {
-        const raf2 = requestAnimationFrame(() => {
-          setIsSettling(false);
-        });
-        return () => cancelAnimationFrame(raf2);
-      });
-      return () => cancelAnimationFrame(raf1);
     }
   }, [isLoadingMessages, messages, scrollToMessageId, msgVirtualizer]);
+
+  // Leave settling two frames later, so the browser finishes its layout pass and
+  // the first visible frame is already at settled positions. Keyed on isSettling
+  // alone: while this lived in the effect above, any `messages` identity change
+  // in the same commit ran that effect's cleanup and cancelled the pending
+  // frame, and its `wasLoading` guard meant the re-run could never reschedule —
+  // stranding the list mounted, measured, and permanently `visibility: hidden`.
+  useEffect(() => {
+    if (!isSettling) return;
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setIsSettling(false));
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      if (inner) cancelAnimationFrame(inner);
+    };
+  }, [isSettling]);
 
   // Scroll to bottom as new streaming content arrives — but only when the
   // user is already at (or near) the bottom. If they scrolled up to read
