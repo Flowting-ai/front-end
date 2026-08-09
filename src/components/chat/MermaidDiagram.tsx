@@ -14,19 +14,23 @@
  * raw-source fallback.
  */
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { renderMermaidSVG } from "beautiful-mermaid"
 import { m, useReducedMotion } from "framer-motion"
 import { Check, Copy, GitBranch, Maximize2, Minimize2 } from "lucide-react"
+import { ChatChartShell } from "@/components/chat/ChatChartShell"
+import { CHAT_CHART_PALETTE } from "@/components/chat/chat-chart-theme"
 
 const THEME = {
+  bg:          "var(--neutral-white)",
   fg:          "var(--neutral-800)",
-  muted:       "var(--neutral-500)",
+  muted:       "var(--neutral-400)",
   border:      "var(--neutral-300)",
   line:        "var(--neutral-400)",
-  accent:      "var(--neutral-700)",
-  surface:     "var(--neutral-50)",
+  accent:      CHAT_CHART_PALETTE[0],
+  surface:     "var(--neutral-800-05)",
   transparent: true,
+  font:        "Geist",
 }
 
 function Skeleton() {
@@ -70,6 +74,7 @@ export function MermaidDiagram({ code }: { code: string }) {
   const [failed, setFailed] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
+  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reduceMotion = Boolean(useReducedMotion())
 
   useEffect(() => {
@@ -88,10 +93,15 @@ export function MermaidDiagram({ code }: { code: string }) {
     }
   }, [code])
 
+  useEffect(() => () => {
+    if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current)
+  }, [])
+
   const copySource = () => {
     navigator.clipboard?.writeText(code).then(() => {
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current)
+      copyResetTimerRef.current = setTimeout(() => setCopied(false), 1500)
     })
   }
 
@@ -130,7 +140,7 @@ export function MermaidDiagram({ code }: { code: string }) {
   if (!svg) return <Skeleton />
 
   return (
-    <m.div
+    <ChatChartShell
       initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.99 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
@@ -140,31 +150,44 @@ export function MermaidDiagram({ code }: { code: string }) {
         zIndex: expanded ? 1100 : undefined,
         display: "flex",
         flexDirection: "column",
-        margin: expanded ? 0 : "14px 0",
+        margin: expanded ? 0 : "16px 0",
+        padding: 0,
         minHeight: expanded ? 0 : 220,
         maxHeight: expanded ? "calc(100vh - 48px)" : undefined,
-        borderRadius: 18,
-        border: "1px solid rgba(109, 92, 145, 0.17)",
-        background: "linear-gradient(135deg, #F3F0F7 0%, #FFFEFC 52%, #EEE9F2 100%)",
-        boxShadow: expanded
-          ? "0 28px 80px rgba(18,12,8,0.28)"
-          : "0 10px 28px rgba(82,75,71,0.09), 0 2px 4px rgba(82,75,71,0.07)",
+        boxShadow: expanded ? "0 28px 80px rgba(18,12,8,0.28)" : undefined,
         overflow: "hidden",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 13px", borderBottom: "1px solid rgba(109, 92, 145, 0.10)" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 9,
+          minHeight: 52,
+          padding: "10px 12px 10px 18px",
+          borderBottom: "1px solid var(--neutral-100)",
+        }}
+      >
         <m.span
           aria-hidden
           initial={reduceMotion ? false : { scale: 0.82, rotate: -8 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: "spring", stiffness: 340, damping: 24 }}
-          style={{ width: 34, height: 34, display: "grid", placeItems: "center", borderRadius: 11, color: "#6D5C91", backgroundColor: "rgba(109,92,145,0.11)", border: "1px solid rgba(109,92,145,0.16)" }}
+          style={{ display: "grid", placeItems: "center", color: CHAT_CHART_PALETTE[0] }}
         >
-          <GitBranch size={16} strokeWidth={1.8} />
+          <GitBranch size={15} strokeWidth={1.8} />
         </m.span>
-        <div style={{ flex: "1 1 0", minWidth: 0 }}>
-          <div style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-500)" }}>Diagram</div>
-          <div style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-body)", fontWeight: "var(--font-weight-semibold)", color: "var(--neutral-950)" }}>Flow visualization</div>
+        <div
+          style={{
+            flex: "1 1 0",
+            minWidth: 0,
+            color: "var(--neutral-900)",
+            fontFamily: "var(--font-body)",
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          Flow visualization
         </div>
         <m.button
           type="button"
@@ -172,7 +195,7 @@ export function MermaidDiagram({ code }: { code: string }) {
           aria-label={copied ? "Diagram source copied" : "Copy diagram source"}
           whileHover={reduceMotion ? undefined : { scale: 1.04 }}
           whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-          style={{ width: 32, height: 32, display: "grid", placeItems: "center", borderRadius: 9, border: "1px solid rgba(82,75,71,0.12)", backgroundColor: "rgba(255,255,255,0.72)", color: copied ? "#287A47" : "var(--neutral-500)", cursor: "pointer" }}
+          style={{ width: 32, height: 32, display: "grid", placeItems: "center", borderRadius: 9, border: "1px solid var(--neutral-100)", backgroundColor: "var(--neutral-white)", color: copied ? "var(--green-700)" : "var(--neutral-500)", cursor: "pointer" }}
         >
           {copied ? <Check size={14} /> : <Copy size={14} />}
         </m.button>
@@ -183,7 +206,7 @@ export function MermaidDiagram({ code }: { code: string }) {
           aria-pressed={expanded}
           whileHover={reduceMotion ? undefined : { scale: 1.04 }}
           whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-          style={{ width: 32, height: 32, display: "grid", placeItems: "center", borderRadius: 9, border: "1px solid rgba(82,75,71,0.12)", backgroundColor: "rgba(255,255,255,0.72)", color: "var(--neutral-500)", cursor: "pointer" }}
+          style={{ width: 32, height: 32, display: "grid", placeItems: "center", borderRadius: 9, border: "1px solid var(--neutral-100)", backgroundColor: "var(--neutral-white)", color: "var(--neutral-500)", cursor: "pointer" }}
         >
           {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
         </m.button>
@@ -199,14 +222,15 @@ export function MermaidDiagram({ code }: { code: string }) {
           minHeight: 0,
           display: "grid",
           placeItems: "center",
-          padding: expanded ? 24 : 16,
+          padding: expanded ? 24 : 18,
           overflow: "auto",
-          backgroundImage: "radial-gradient(circle at 1px 1px, rgba(109,92,145,0.10) 1px, transparent 0)",
+          backgroundColor: "var(--neutral-white)",
+          backgroundImage: "radial-gradient(circle at 1px 1px, var(--neutral-800-05) 1px, transparent 0)",
           backgroundSize: "18px 18px",
         }}
         // Library-generated SVG from diagram text — same trust model as XmlChart's SVG output.
         dangerouslySetInnerHTML={{ __html: svg }}
       />
-    </m.div>
+    </ChatChartShell>
   )
 }

@@ -157,7 +157,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
         </span>
 
         {/* Verb */}
-        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--neutral-600, #524B47)", flexShrink: 0 }}>
+        <span style={{ fontSize: 14, fontWeight: 500, color: "#524B47", flexShrink: 0 }}>
           {verb}
         </span>
 
@@ -167,7 +167,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
             style={{
               fontSize: 14,
               fontWeight: 400,
-              color: "var(--neutral-400, #9A9089)",
+              color: "#9A9089",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -181,14 +181,14 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
 
         {/* Result count */}
         {isDone && hasResults && (
-          <span style={{ fontSize: 14, fontWeight: 400, color: "var(--neutral-300, #B6ACA4)", flexShrink: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
             {activity.results!.length} {activity.type === "web-search" ? "results" : "files"}
           </span>
         )}
 
         {/* Duration */}
         {isDone && activity.durationS !== undefined && (
-          <span style={{ fontSize: 12, fontWeight: 400, color: "var(--neutral-300, #B6ACA4)", flexShrink: 0 }}>
+          <span style={{ fontSize: 12, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
             {activity.durationS < 1 ? `${Math.round(activity.durationS * 1000)}ms` : `${activity.durationS.toFixed(1)}s`}
           </span>
         )}
@@ -198,7 +198,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
           <m.span
             animate={{ opacity: [0.3, 1, 0.3] }}
             transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-            style={{ fontSize: 14, fontWeight: 400, color: "var(--neutral-300, #C0B5AD)", flexShrink: 0 }}
+            style={{ fontSize: 14, fontWeight: 400, color: "#C0B5AD", flexShrink: 0 }}
           >
             working…
           </m.span>
@@ -271,15 +271,15 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                 >
                   <FaviconImg domain={r.domain} size={13} />
-                  {!r.domain && <span style={{ color: "var(--neutral-300, #C0B5AD)", flexShrink: 0 }}>·</span>}
-                  <span style={{ color: "var(--neutral-700, #524B47)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {!r.domain && <span style={{ color: "#C0B5AD", flexShrink: 0 }}>·</span>}
+                  <span style={{ color: "#3B3632", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.title}
                   </span>
                   {r.domain && r.domain !== "pin" && (
-                    <span style={{ color: "var(--neutral-300, #C0B5AD)", flexShrink: 0, fontSize: 12 }}>{r.domain}</span>
+                    <span style={{ color: "#C0B5AD", flexShrink: 0, fontSize: 12 }}>{r.domain}</span>
                   )}
                   {r.domain === "pin" && (
-                    <span style={{ color: "var(--neutral-400, #9A9089)", flexShrink: 0, fontStyle: "italic", fontSize: 12 }}>pin</span>
+                    <span style={{ color: "#C0B5AD", flexShrink: 0, fontStyle: "italic", fontSize: 12 }}>pin</span>
                   )}
                 </m.a>
               ))}
@@ -290,7 +290,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
 
       {/* Progress message (for tool_progress / docx_progress) */}
       {isActive && activity.progressMessage && (
-        <div style={{ paddingLeft: 44, fontSize: 13, color: "var(--neutral-400, #9A9089)", fontStyle: "italic", paddingTop: 4 }}>
+        <div style={{ paddingLeft: 44, fontSize: 13, color: "#C0B5AD", fontStyle: "italic", paddingTop: 4 }}>
           {activity.progressMessage}
         </div>
       )}

@@ -93,6 +93,12 @@ export function ContentRenderer({
   const segments = parseContentSegments(content)
   const lastIdx = segments.length - 1
 
+  // Keep the preview's breathing cursor visible during the short interval
+  // before the first queued word is revealed.
+  if (segments.length === 0) {
+    return isStreaming ? <>{cursor}</> : null
+  }
+
   // Segments are positional (markdown, table, chart, pending) — index is the
   // only stable key because adjacent same-type segments are possible.
   const rendered = segments.map((seg, i) => {

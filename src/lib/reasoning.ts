@@ -3,6 +3,7 @@ import { mergeStreamingText } from '@/lib/streaming'
 export type ReasoningSection = {
   heading: string
   body: string
+  detail?: string
 }
 
 export type ReasoningTimelineItem =
@@ -192,7 +193,8 @@ export function normalizeReasoningSections(value: unknown): ReasoningSection[] {
     const section = entry as Record<string, unknown>
     const heading = typeof section.heading === 'string' ? section.heading : ''
     const body = typeof section.body === 'string' ? section.body : ''
-    return cleanReasoningHeading(heading) ? [{ heading, body }] : []
+    const detail = typeof section.detail === 'string' ? section.detail : undefined
+    return cleanReasoningHeading(heading) ? [{ heading, body, ...(detail ? { detail } : {}) }] : []
   })
 }
 

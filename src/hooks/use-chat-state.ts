@@ -70,6 +70,8 @@ export interface UIMessage extends Message {
   /** Arrival-ordered reasoning/tool trace for the active stream. Persisted
    * messages fall back to reasoning_sections + activities. */
   reasoningTimeline?: ReasoningTimelineItem[]
+  /** Compact live/final summary shown beside the Thinking label. */
+  researchTitle?: string
   /** Generated images (inline from LLM or named event). */
   images?: GeneratedImage[]
   /** Generated files (documents, CSVs, etc.). */

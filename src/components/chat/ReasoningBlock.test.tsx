@@ -42,9 +42,42 @@ describe('ReasoningContent', () => {
 
     expect(html).toContain('Researching')
     expect(html).toContain('Summarizing')
-    expect(html).toContain('Checking the connected sources.')
-    expect(html).toContain('Preparing the result.')
+    expect(html).not.toContain('Checking the connected sources.')
+    expect(html).not.toContain('Preparing the result.')
     expect(html).not.toContain('The raw fallback must not replace structured sections.')
+  })
+
+  it('shows only backend-supplied detail beside a reasoning heading', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningContent
+        thinkingContent=""
+        reasoningSections={[{
+          heading: 'Planned',
+          detail: 'what to search for and in what order',
+          body: 'This full summary should stay inside the expandable block.',
+        }]}
+        isStreaming={false}
+      />,
+    )
+
+    expect(html).toContain('what to search for and in what order')
+    expect(html).not.toContain('This full summary should stay inside the expandable block.')
+  })
+
+  it('uses the last reasoning heading as the compact Thinking summary', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningBlock
+        thinkingContent="**Clarifying research needs**\nFirst body.\n\n**Researching multi-model execution**\nSecond body."
+        reasoningSections={[
+          { heading: 'Clarifying research needs', body: 'First body.' },
+          { heading: 'Researching multi-model execution', body: 'Second body.' },
+        ]}
+        isNewMessage={false}
+        isThinkingInProgress={false}
+      />,
+    )
+
+    expect(html.match(/execution/g)).toHaveLength(2)
   })
 
   it('uses the expanded ThinkingSteps trigger by default', () => {
@@ -53,6 +86,7 @@ describe('ReasoningContent', () => {
         thinkingContent="Checking context"
         isNewMessage
         isThinkingInProgress
+        researchTitle="Synthesised 2026 AI startup GTM strategies"
       />,
     )
 
@@ -60,5 +94,23 @@ describe('ReasoningContent', () => {
     expect(html).toContain('aria-expanded="true"')
     expect(html).toContain('aria-controls=')
     expect(html).toContain('width:100%')
+    expect(html).toContain('Synthesised')
+    expect(html).toContain('strategies')
+  })
+
+  it('collapses to the compact research title when reasoning completes', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningBlock
+        thinkingContent="Finished reasoning"
+        isNewMessage={false}
+        isThinkingInProgress={false}
+        researchTitle="Synthesised the final answer"
+      />,
+    )
+
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).toContain('Synthesised')
+    expect(html).toContain('final')
+    expect(html).toContain('answer')
   })
 })

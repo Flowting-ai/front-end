@@ -7,6 +7,14 @@ import { applyRenderedHighlights } from "./rendered-highlights"
 import type { HighlightSpec } from "./markdown-utils"
 
 describe("ContentRenderer markdown formatting", () => {
+  it("shows the streaming cursor before the first word is revealed", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer content="" isStreaming cursor={<span>cursor</span>} />,
+    )
+
+    expect(html).toContain("cursor")
+  })
+
   it("remaps an unexpected response H1 so it cannot compete with the page heading", () => {
     const html = renderToStaticMarkup(<ContentRenderer content="# Unexpected title" />)
 

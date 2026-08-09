@@ -33,6 +33,7 @@ describe("LineRenderer inline math vs. currency prose", () => {
     expect(html).toContain("font-size:14px")
     expect(html).toContain("line-height:22px")
     expect(html).toContain("height:8px")
-    expect(html).toContain("color:var(--neutral-900, #26211E)")
+    expect(html).toContain("color:#524B47")
+    expect(html).toContain("color:#26211E")
   })
 })

@@ -1,6 +1,6 @@
 "use client";
 
-import { m } from "framer-motion";
+import { BreathingDot } from "@/components/BreathingDot";
 
 interface StreamingCursorProps {
   isVisible: boolean;
@@ -13,21 +13,5 @@ interface StreamingCursorProps {
 export function StreamingCursor({ isVisible }: StreamingCursorProps) {
   if (!isVisible) return null;
 
-  return (
-    <m.span
-      initial={{ opacity: 0 }}
-      animate={{ opacity: [0.15, 1, 0.15] }}
-      transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-      style={{
-        display: "inline-block",
-        width: "6px",
-        height: "6px",
-        backgroundColor: "var(--neutral-400, #9C938B)",
-        marginLeft: "4px",
-        verticalAlign: "middle",
-        borderRadius: "50%",
-      }}
-      aria-hidden
-    />
-  );
+  return <BreathingDot style={{ marginLeft: 4, backgroundColor: "#826B60" }} />;
 }

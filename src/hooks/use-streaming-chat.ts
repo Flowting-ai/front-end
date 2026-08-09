@@ -267,10 +267,16 @@ export function useStreamingChat({
     }
     // Accumulated structured reasoning sections from heading/body SSE events
     const reasoningSectionsAcc: ReasoningSection[] = []
+    const previewReasoningSteps = new Map<number, ReasoningSection>()
     let currentReasHeading = ""
     let currentReasBody = ""
     // Returns a snapshot of all sections including the in-progress one
     const snapshotSections = (): ReasoningSection[] => {
+      if (previewReasoningSteps.size > 0) {
+        return [...previewReasoningSteps.entries()]
+          .sort(([a], [b]) => a - b)
+          .map(([, section]) => section)
+      }
       const out = [...reasoningSectionsAcc]
       if (currentReasHeading) out.push({ heading: currentReasHeading, body: currentReasBody })
       return out
@@ -462,6 +468,32 @@ export function useStreamingChat({
             if (title && resolvedChatIdRef.current) {
               titleWasSet = true
               onTitleUpdate?.(resolvedChatIdRef.current, title)
+            }
+            continue
+          }
+
+          if (eventName === "research_title") {
+            const researchTitle = asString(parsed.text ?? parsed.title ?? parsed.content)
+            if (researchTitle) queueUpdate({ researchTitle }, true)
+            continue
+          }
+
+          if (eventName === "reasoning_step") {
+            const index = typeof parsed.index === "number" ? parsed.index : previewReasoningSteps.size
+            const heading = asString(parsed.verb ?? parsed.heading)
+            const detail = asString(parsed.detail)
+            const body = asString(parsed.summary ?? parsed.body)
+            if (heading) {
+              previewReasoningSteps.set(index, {
+                heading,
+                body: body ?? "",
+                ...(detail ? { detail } : {}),
+              })
+              queueUpdate({
+                reasoning_sections: snapshotSections(),
+                isThinkingInProgress: true,
+                isLoading: true,
+              }, true)
             }
             continue
           }

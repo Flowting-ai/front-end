@@ -9,6 +9,8 @@ import {
   CopyOneIcon,
   TickTwoIcon,
 } from '@strange-huge/icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Exchange01Icon } from '@hugeicons/core-free-icons'
 import { cn } from '@/lib/utils'
 import { ContentRenderer } from '@/lib/content-renderer'
 
@@ -20,7 +22,6 @@ const SWAP_EXIT    = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
 
 // ── Shadow / focus constants ──────────────────────────────────────────────────
 const SHADOW_OUTER = 'var(--shadow-message-bubble-user)'
-const SHADOW_INNER = 'var(--shadow-message-bubble-user-inner)'
 // #4A83BF - blue focus ring for edit mode (specified by design)
 const SHADOW_FOCUS = '0 0 0 1.5px #4A83BF'
 
@@ -84,6 +85,7 @@ export function MessageBubble({
 
     const [copied,      setCopied]      = useState(false)
     const [editing,     setEditing]     = useState(false)
+    const [hovered,     setHovered]     = useState(false)
     const [editDraft,   setEditDraft]   = useState(content)
     // Drives the CSS width during animated transitions. Normally 'fit-content';
     // briefly set to a measured px value so CSS can interpolate.
@@ -200,11 +202,13 @@ export function MessageBubble({
         ref={ref}
         className={cn('relative flex flex-col items-end', className)}
         style={{
-          maxWidth,
+          maxWidth: maxWidth ?? 566,
           // Reserve space for absolute-positioned CTAs so siblings never shift
           paddingBottom: editing ? CTA_ZONE : 0,
           transition:    shouldReduceMotion ? 'none' : `padding-bottom ${fadeDuration}s ease-out`,
         }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         {...props}
       >
         {/* ── Bubble card ── */}
@@ -219,7 +223,7 @@ export function MessageBubble({
             flexDirection:   'column',
             alignItems:      'flex-start',
             overflow:        'hidden',
-            padding:         '10px 16px',
+            padding:         '12px 16px',
             borderRadius:    '16px 16px 4px 16px',
             boxShadow:       editing ? SHADOW_FOCUS : SHADOW_OUTER,
             backgroundColor: 'var(--message-bubble-user-bg)',
@@ -230,18 +234,6 @@ export function MessageBubble({
               : `width ${WIDTH_MS}ms ease-out, box-shadow 0.15s ease-out`,
           }}
         >
-          {/* White bg overlay - per Figma node structure */}
-          <div
-            aria-hidden
-            style={{
-              position:        'absolute',
-              inset:           0,
-              borderRadius:    'inherit',
-              backgroundColor: 'white',
-              pointerEvents:   'none',
-            }}
-          />
-
           {/* ── Content area - CSS grid trick ──────────────────────────────────── */}
           {/*                                                                        */}
           {/* A hidden mirror <div> always occupies gridArea 1/1 driving the cell   */}
@@ -288,19 +280,6 @@ export function MessageBubble({
             )}
           </div>
 
-          {/* Inner depth shadow - hidden in edit mode */}
-          {!editing && (
-            <div
-              aria-hidden
-              style={{
-                position:      'absolute',
-                inset:         0,
-                borderRadius:  'inherit',
-                boxShadow:     SHADOW_INNER,
-                pointerEvents: 'none',
-              }}
-            />
-          )}
         </div>
 
         {/* ── Edit CTAs - Cancel + Save ── */}
@@ -353,22 +332,25 @@ export function MessageBubble({
           )}
         </AnimatePresence>
 
-        {/* ── Action bar — always visible (except while editing) ── */}
+        {/* ── Action bar — revealed on bubble hover, matching chat preview ── */}
         {!hideActions && (
           <m.div
-            animate={{ opacity: !editing ? 1 : 0 }}
+            animate={{ opacity: hovered && !editing ? 1 : 0 }}
             transition={{ duration: fadeDuration, ease: 'easeOut' }}
             style={{
               display:       'flex',
               alignItems:    'center',
               alignSelf:     'flex-end',
-              gap:           2,
-              marginTop:     4,
-              pointerEvents: !editing ? 'auto' : 'none',
+              gap:           8,
+              height:        24,
+              marginTop:     6,
+              paddingRight:  2,
+              pointerEvents: hovered && !editing ? 'auto' : 'none',
             }}
           >
             {timestamp && (
               <span
+                suppressHydrationWarning
                 style={{
                   fontFamily:   'var(--font-body)',
                   fontWeight:   'var(--font-weight-regular)',
@@ -383,25 +365,33 @@ export function MessageBubble({
               </span>
             )}
 
+            {onRetry && (
+              <IconButton
+                variant="ghost-2" size="xs"
+                aria-label="Retry message"
+                icon={<span style={{ display: 'flex', color: 'var(--message-bubble-action-icon)' }}><HugeiconsIcon icon={Exchange01Icon} size={16} strokeWidth={1.5} /></span>}
+                onClick={onRetry}
+              />
+            )}
             {onEditSave && (
               <IconButton
-                variant="ghost" size="xs"
+                variant="ghost-2" size="xs"
                 aria-label="Edit message"
-                icon={<PenOneIcon size={16} />}
+                icon={<span style={{ display: 'flex', color: 'var(--message-bubble-action-icon)' }}><PenOneIcon size={16} /></span>}
                 onClick={handleEditStart}
               />
             )}
             <IconButton
-              variant="ghost" size="xs"
+              variant="ghost-2" size="xs"
               aria-label={copied ? 'Copied' : 'Copy message'}
               icon={
                 <AnimatePresence mode="popLayout" initial={false}>
                   {copied ? (
-                    <m.span key="check" initial={SWAP_INITIAL} animate={SWAP_ANIMATE} exit={SWAP_EXIT} transition={SPRING} style={{ display: 'block', lineHeight: 0 }}>
+                    <m.span key="check" initial={SWAP_INITIAL} animate={SWAP_ANIMATE} exit={SWAP_EXIT} transition={SPRING} style={{ display: 'block', lineHeight: 0, color: 'var(--message-bubble-action-icon)' }}>
                       <TickTwoIcon size={16} />
                     </m.span>
                   ) : (
-                    <m.span key="copy" initial={SWAP_INITIAL} animate={SWAP_ANIMATE} exit={SWAP_EXIT} transition={SPRING} style={{ display: 'block', lineHeight: 0 }}>
+                    <m.span key="copy" initial={SWAP_INITIAL} animate={SWAP_ANIMATE} exit={SWAP_EXIT} transition={SPRING} style={{ display: 'block', lineHeight: 0, color: 'var(--message-bubble-action-icon)' }}>
                       <CopyOneIcon size={16} />
                     </m.span>
                   )}

@@ -487,7 +487,7 @@ const REASONING_TEXT: React.CSSProperties = {
   ...TEXT,
   fontSize: "14px",
   lineHeight: "22px",
-  color: "var(--neutral-600, #524B47)",
+  color: "#524B47",
 }
 
 const HEADING_SIZE: Record<number, string> = {
@@ -519,7 +519,7 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
     webCitations,
     urlMap,
     highlights,
-    emphasisColor: isReasoning ? "var(--neutral-900, #26211E)" : undefined,
+    emphasisColor: isReasoning ? "#26211E" : undefined,
   }
 
   const blocks = React.useMemo(() => parseBlocks(content, sourceOffset), [content, sourceOffset])
