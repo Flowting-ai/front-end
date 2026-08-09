@@ -80,6 +80,44 @@ describe('ReasoningContent', () => {
     expect(html.match(/execution/g)).toHaveLength(2)
   })
 
+  it('drops the borrowed step heading from the trigger once the panel is open', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningBlock
+        thinkingContent="**Identifying execution issues**\nThe reasoning body."
+        reasoningSections={[
+          { heading: 'Identifying execution issues', body: 'The reasoning body.' },
+        ]}
+        isNewMessage
+        isThinkingInProgress
+      />,
+    )
+
+    expect(html).toContain('aria-expanded="true"')
+    // The heading is the step row's; copying it up would put identical text on
+    // two nested disclosures.
+    expect(html.match(/Identifying execution issues/g)).toHaveLength(1)
+  })
+
+  it('keeps an explicit research title in the trigger even while open', () => {
+    const html = renderToStaticMarkup(
+      <ReasoningBlock
+        thinkingContent="**Identifying execution issues**\nThe reasoning body."
+        reasoningSections={[
+          { heading: 'Identifying execution issues', body: 'The reasoning body.' },
+        ]}
+        isNewMessage
+        isThinkingInProgress
+        researchTitle="Mapped multi-model execution failure modes"
+      />,
+    )
+
+    expect(html).toContain('aria-expanded="true"')
+    // ResearchTitle wraps each word in its own span, so assert word by word.
+    expect(html).toContain('Mapped')
+    expect(html).toContain('failure')
+    expect(html).toContain('modes')
+  })
+
   it('uses the expanded ThinkingSteps trigger by default', () => {
     const html = renderToStaticMarkup(
       <ReasoningBlock

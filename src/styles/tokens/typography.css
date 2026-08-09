@@ -43,14 +43,21 @@
   --prose-size-body:  16px;
   --prose-line-body:  26px;
 
-  --prose-size-h3:  18px;
-  --prose-line-h3:  26px;
+  /* A chat heading is a labelled group inside an answer, not a section of a
+     document, so the ladder above body is flatter than a page scale would be:
+     h3 sits at body size and is separated by weight alone. Matches the
+     chat-preview prototype, which is the signed-off spec for this surface. */
+  --prose-size-h3:  16px;
+  --prose-line-h3:  24px;
 
-  --prose-size-h2:  20px;
-  --prose-line-h2:  28px;
+  --prose-size-h2:  18px;
+  --prose-line-h2:  26px;
 
-  --prose-size-h1:  24px;
-  --prose-line-h1:  32px;
+  /* Responses are not supposed to emit an h1 at all — the renderer remaps it to
+     an h2 element — so this only styles a rule-breaking heading. One step above
+     h2 is enough; the old 24px made the violation the loudest thing on screen. */
+  --prose-size-h1:  20px;
+  --prose-line-h1:  28px;
 
   /* Monospace reads optically larger than sans at the same nominal size, so
      inline code and code blocks sit one step below body (0.875em). */

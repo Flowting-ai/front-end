@@ -25,7 +25,7 @@ describe("ContentRenderer markdown formatting", () => {
   it("constrains prose width while preserving the shared markdown renderer", () => {
     const html = renderToStaticMarkup(<ContentRenderer content="A readable paragraph." />)
 
-    expect(html).toContain("max-width:75ch")
+    expect(html).toContain("max-width:var(--prose-measure)")
   })
 
   it("does not present an unmatched citation marker as a valid source", () => {

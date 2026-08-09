@@ -556,7 +556,13 @@ export function ReasoningBlock({
     const parsedThinking = splitReasoningText(thinkingContent);
     return cleanReasoningHeading(parsedThinking.findLast((section) => section.heading)?.heading ?? "");
   })();
-  const summary = researchTitle?.trim() || fallbackTitle;
+  // fallbackTitle mirrors the newest reasoning heading. Collapsed, that is the
+  // only signal of what was thought about; expanded, the step row below renders
+  // the identical string, so carrying it up here would put the same text on two
+  // nested disclosures — most visibly with a single step, where the outer row is
+  // an exact copy of its only child. A real researchTitle summarises the whole
+  // panel rather than one step, so it stays in both states.
+  const summary = researchTitle?.trim() || (open ? "" : fallbackTitle);
 
   if (!thinkingContent && !reasoningSections?.length && !reasoningTimeline?.length && !activities?.length && !isThinkingInProgress) return null;
 
