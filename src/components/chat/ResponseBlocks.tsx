@@ -1061,24 +1061,33 @@ function AnimatedBarChart({ data, onComplete, animate = true }: { data: BarChart
 
 // �"��"� AnimatedSteps �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
-function AnimatedSteps({ data, onComplete, animate = true }: { data: StepsData; onComplete: () => void; animate?: boolean }) {
+export function AnimatedSteps({ data, onComplete, animate = true }: { data: StepsData; onComplete: () => void; animate?: boolean }) {
   const [revealedSteps, setRevealedSteps] = useState(() => animate ? 0 : data.steps.length);
+  const stepCount = data.steps.length;
 
   useEffect(() => {
     if (!animate) { onComplete(); return; }
-    let idx = 0;
-    const interval = setInterval(() => {
-      idx++;
-      setRevealedSteps(idx);
-      if (idx >= data.steps.length) { clearInterval(interval); setTimeout(onComplete, 320); }
-    }, 220);
-    return () => clearInterval(interval);
-  }, []); // eslint-disable-line
+    let completionTimer: ReturnType<typeof setTimeout> | undefined;
+    if (stepCount === 0) {
+      completionTimer = setTimeout(onComplete, 320);
+      return () => clearTimeout(completionTimer);
+    }
+    const revealTimers = Array.from({ length: stepCount }, (_, index) => (
+      setTimeout(() => {
+        setRevealedSteps(index + 1);
+        if (index === stepCount - 1) completionTimer = setTimeout(onComplete, 320);
+      }, (index + 1) * 220)
+    ));
+    return () => {
+      revealTimers.forEach(clearTimeout);
+      if (completionTimer) clearTimeout(completionTimer);
+    };
+  }, [animate, onComplete, stepCount]);
 
   return (
     <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
-      {data.title && <div style={{ fontSize: 14, fontWeight: 600, color: "#26211E", marginBottom: 18, lineHeight: "20px" }}>{data.title}</div>}
-      <div style={{ display: "flex", flexDirection: "column" }}>
+      {data.title && <div style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--neutral-900)", marginBottom: 18, lineHeight: "20px" }}>{data.title}</div>}
+      <div style={{ display: "flex", flexDirection: "column", fontFamily: "var(--font-body)" }}>
         <AnimatePresence initial={false}>
           {data.steps.slice(0, revealedSteps).map((step, i) => (
             <m.div key={step.label} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
@@ -1087,18 +1096,18 @@ function AnimatedSteps({ data, onComplete, animate = true }: { data: StepsData; 
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
                 <m.div initial={{ scale: 0 }} animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25, delay: 0.04 }}
-                  style={{ width: 24, height: 24, borderRadius: "50%", background: "#683D1B", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                  style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--brown-700)", color: "var(--neutral-white)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                   {i + 1}
                 </m.div>
                 {i < data.steps.length - 1 && (
                   <m.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }}
                     transition={{ duration: 0.22, delay: 0.12, ease: "easeOut" }}
-                    style={{ width: 1, flex: 1, minHeight: 20, background: "#EDE1D7", transformOrigin: "top", marginTop: 4 }} />
+                    style={{ width: 1, flex: 1, minHeight: 20, background: "var(--neutral-100)", transformOrigin: "top", marginTop: 4 }} />
                 )}
               </div>
               <div style={{ paddingBottom: i < data.steps.length - 1 ? 18 : 0, paddingTop: 2, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#26211E", lineHeight: "20px" }}>{step.label}</div>
-                {step.description && <div style={{ fontSize: 13, color: "#827A74", lineHeight: "20px", marginTop: 3 }}>{step.description}</div>}
+                <div style={{ fontSize: 14, fontWeight: 500, color: "var(--neutral-900)", lineHeight: "20px" }}>{step.label}</div>
+                {step.description && <div style={{ fontSize: 13, color: "var(--neutral-500)", lineHeight: "20px", marginTop: 3 }}>{step.description}</div>}
               </div>
             </m.div>
           ))}
@@ -1266,9 +1275,18 @@ const CALLOUT_CFG = {
   tip:     { bg: "rgba(104,61,27,0.07)",   border: "#683D1B", icon: Idea01Icon,            color: "#683D1B" },
 } as const;
 
-function AnimatedCallout({ data, onComplete }: { data: CalloutData; onComplete: () => void }) {
-  const cfg = CALLOUT_CFG[data.variant];
-  useEffect(() => { const t = setTimeout(onComplete, 440); return () => clearTimeout(t); }, []); // eslint-disable-line
+/** How long the callout holds the sequence before the next block starts. A flat
+ *  delay let a long body hand off before it was readable, so it scales with the
+ *  word count the way the streaming text blocks around it do. */
+function calloutDwellMs(data: CalloutData): number {
+  const words = `${data.title ?? ""} ${data.body}`.trim().split(/\s+/).filter(Boolean).length;
+  return Math.min(2600, Math.max(440, 320 + words * 28));
+}
+
+export function AnimatedCallout({ data, onComplete }: { data: CalloutData; onComplete: () => void }) {
+  const cfg = CALLOUT_CFG[data.variant] ?? CALLOUT_CFG.info;
+  const dwell = calloutDwellMs(data);
+  useEffect(() => { const t = setTimeout(onComplete, dwell); return () => clearTimeout(t); }, []); // eslint-disable-line
   return (
     <m.div initial={{ opacity: 0, x: -10, y: 4 }} animate={{ opacity: 1, x: 0, y: 0 }}
       transition={{ type: "spring", stiffness: 340, damping: 26 }}
@@ -1277,7 +1295,7 @@ function AnimatedCallout({ data, onComplete }: { data: CalloutData; onComplete: 
         <HIcon icon={cfg.icon} size={16} color={cfg.color} strokeWidth={1.8} />
       </span>
       <div>
-        {data.title && <div style={{ fontWeight: 600, fontSize: 14, color: "#26211E", marginBottom: 4, lineHeight: "20px" }}>{data.title}</div>}
+        {data.title && <div style={{ fontWeight: 600, fontSize: 14, color: "#26211E", marginBottom: 4, lineHeight: "20px" }}><InlineMd text={data.title} /></div>}
         <div style={{ fontSize: 14, lineHeight: "21px", color: "#524B47" }}><InlineMd text={data.body} /></div>
       </div>
     </m.div>
@@ -1294,7 +1312,16 @@ const TAG_PALETTES = [
   { bg: "rgba(156,147,139,0.12)",text: "#6A625D",  border: "rgba(156,147,139,0.24)" },
 ];
 
-function AnimatedTags({ data, onComplete, animate = true }: { data: TagsData; onComplete: () => void; animate?: boolean }) {
+/** Tag colors arrive from the model, and the `15`/`28` alpha suffixes below are
+ *  only valid on a 6-digit hex — anything else silently produced an unparseable
+ *  color, so it falls back to the cycling palette instead. */
+function tagPalette(color: string | undefined, i: number) {
+  const pal = TAG_PALETTES[i % TAG_PALETTES.length];
+  if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) return pal;
+  return { bg: `${color}15`, text: color, border: `${color}28` };
+}
+
+export function AnimatedTags({ data, onComplete, animate = true }: { data: TagsData; onComplete: () => void; animate?: boolean }) {
   const [revealedTags, setRevealedTags] = useState(() => animate ? 0 : data.tags.length);
   useEffect(() => {
     if (!animate) { onComplete(); return; }
@@ -1312,14 +1339,11 @@ function AnimatedTags({ data, onComplete, animate = true }: { data: TagsData; on
       {data.title && <div style={{ fontSize: 12, fontWeight: 500, color: "#9A9089", marginBottom: 9, textTransform: "uppercase", letterSpacing: "0.5px" }}>{data.title}</div>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {data.tags.slice(0, revealedTags).map((tag, i) => {
-          const pal = TAG_PALETTES[i % TAG_PALETTES.length];
-          const bg = tag.color ? `${tag.color}15` : pal.bg;
-          const fg = tag.color ?? pal.text;
-          const bd = tag.color ? `${tag.color}28` : pal.border;
+          const pal = tagPalette(tag.color, i);
           return (
             <m.span key={tag.label} initial={{ scale: 0.55, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 420, damping: 22 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", background: bg, border: `1px solid ${bd}`, color: fg, borderRadius: 99, padding: "3px 11px", fontSize: 13, fontWeight: 500, lineHeight: "19px" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", background: pal.bg, border: `1px solid ${pal.border}`, color: pal.text, borderRadius: 99, padding: "3px 11px", fontSize: 13, fontWeight: 500, lineHeight: "19px" }}>
                 {tag.label}
               </span>
             </m.span>

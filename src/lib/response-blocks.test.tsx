@@ -48,4 +48,30 @@ describe("structured response blocks", () => {
     expect(html).toContain("border-radius:99px")
     expect(html).toContain("font-family:var(--font-body)")
   })
+
+  it("renders output steps with the preview timeline treatment", () => {
+    const html = renderToStaticMarkup(
+      <BlockSequenceRenderer
+        static
+        blocks={[{
+          kind: "steps",
+          data: {
+            title: "Connecting Notion to Souvenir",
+            steps: [
+              { label: "Open Settings → Connectors", description: "See every available integration." },
+              { label: "Connect Notion", description: "Choose the workspace to connect." },
+            ],
+          },
+        }]}
+      />,
+    )
+
+    expect(html).toContain("Connecting Notion to Souvenir")
+    expect(html).toContain("Open Settings → Connectors")
+    expect(html).toContain("Choose the workspace to connect.")
+    expect(html).toContain("background:var(--brown-700)")
+    expect(html).toContain("background:var(--neutral-100)")
+    expect(html).toContain("font-size:11px")
+    expect(html).toContain("font-family:var(--font-body)")
+  })
 })
