@@ -172,7 +172,7 @@ function ThinkingTrigger({ open, onToggle, controls }: { open: boolean; onToggle
         onClick={onToggle}
         style={{
           position: "relative", zIndex: 1, display: "flex", alignItems: "center", gap: 10,
-          padding: "8px 12px", border: 0, borderRadius: 8, background: "transparent",
+          padding: "4px 0", border: 0, borderRadius: 8, background: "transparent",
           cursor: "pointer", fontFamily: "var(--font-body)", userSelect: "none",
         }}
       >
@@ -206,7 +206,7 @@ function ThinkingCollapse({ open, id, children }: { open: boolean; id: string; c
       transition={{ ...springs.moderate, bounce: 0 }}
       style={{ overflow: "hidden" }}
     >
-      <div style={{ padding: "4px 12px 12px", fontSize: 13, color: "var(--neutral-500, #6E645D)" }}>
+      <div style={{ padding: "12px 0 10px", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--neutral-600, #524B47)" }}>
         {children}
       </div>
     </m.div>
@@ -278,33 +278,32 @@ function ReasoningStep({
         animate={{ opacity: 1 }}
         transition={{ duration: 0.24, delay: 0.08, ease: "easeOut" }}
       >
-        <div style={{ display: "flex", gap: 10, padding: "6px 8px" }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 14 }}>
-            <span style={{ paddingTop: 2, lineHeight: 0 }}>
-              <HugeiconsIcon icon={icon} size={14} color="var(--neutral-400, #9C938B)" strokeWidth={1.5} />
+        <div style={{ display: "flex", alignItems: "stretch", paddingBottom: isLast ? 0 : 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 20 }}>
+            <span style={{ display: "flex", width: 20, height: 28, alignItems: "center", justifyContent: "center", lineHeight: 0 }}>
+              <HugeiconsIcon icon={icon} size={16} color={isActive ? "#A89488" : "#C0B5AD"} strokeWidth={1.5} />
             </span>
             {!isLast && (
               <span
                 style={{
                   flex: 1,
                   width: 1,
-                  minHeight: 8,
-                  marginTop: 4,
-                  background: "color-mix(in srgb, var(--neutral-300, #B6ACA4) 60%, transparent)",
+                  minHeight: 12,
+                  background: "var(--neutral-200, #EDE1D7)",
                 }}
               />
             )}
           </div>
 
-          <div style={{ display: "flex", minWidth: 0, flex: 1, flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", minWidth: 0, flex: 1, flexDirection: "column", gap: 4, paddingLeft: 10 }}>
             <span
               className={isActive ? "kaya-thinking-step-shimmer" : undefined}
               style={{
                 color: "var(--neutral-800, #26211E)",
                 fontFamily: "var(--font-body)",
-                fontSize: 13,
-                fontWeight: 500,
-                lineHeight: 1.25,
+                fontSize: 14,
+                fontWeight: 600,
+                lineHeight: "22px",
               }}
             >
               {heading}{isActive ? "…" : ""}
@@ -312,10 +311,10 @@ function ReasoningStep({
             {hasBody && (
               <span
                 style={{
-                  color: "var(--neutral-500, #6E645D)",
+                  color: "var(--neutral-600, #524B47)",
                   fontFamily: "var(--font-body)",
-                  fontSize: 13,
-                  lineHeight: 1.375,
+                  fontSize: 14,
+                  lineHeight: "22px",
                 }}
               >
                 <StepBody text={section.body} />
@@ -367,16 +366,16 @@ function TimelineReasoningStep({ content, active }: { content: string; active: b
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.24, delay: 0.08, ease: "easeOut" }}
-        style={{ display: "flex", gap: 10, padding: "6px 8px" }}
+        style={{ display: "flex", gap: 10 }}
       >
-        <span style={{ display: "flex", width: 14, height: 14, alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+        <span style={{ display: "flex", width: 20, height: 22, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--neutral-400, #9C938B)" }} />
         </span>
         <div
           className={`kaya-thinking-md${active ? " kaya-thinking-step-shimmer" : ""}`}
-          style={{ minWidth: 0, flex: 1, color: "var(--neutral-500, #6E645D)", fontFamily: "var(--font-body)", fontSize: 13, lineHeight: 1.375 }}
+          style={{ minWidth: 0, flex: 1, color: "var(--neutral-600, #524B47)", fontFamily: "var(--font-body)", fontSize: 14, lineHeight: "22px" }}
         >
-          <LineRenderer content={content} />
+          <LineRenderer content={content} variant="reasoning" />
           <StreamingCursor isVisible={active} />
         </div>
       </m.div>
@@ -410,12 +409,12 @@ export function ReasoningContent({
   return (
     <div>
       {hasTimeline ? (
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {reasoningTimeline!.map((item, index) => {
             if (item.kind === "activity") {
               const activity = activityById.get(item.activityId);
               return activity ? (
-                <m.div key={item.id} initial={{ height: 0 }} animate={{ height: "auto" }} transition={springs.slow} style={{ overflow: "hidden", padding: "0 8px" }}>
+                <m.div key={item.id} initial={{ height: 0 }} animate={{ height: "auto" }} transition={springs.slow} style={{ overflow: "hidden" }}>
                   <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.24, delay: 0.08, ease: "easeOut" }}>
                     <ActivityRow activity={activity} />
                   </m.div>
@@ -435,14 +434,14 @@ export function ReasoningContent({
       ) : hasStructured ? (
         <>
           {hasActivities && <ActivitiesSection activities={activities!} />}
-          <div style={{ marginTop: hasActivities ? 4 : 0 }}>
+          <div style={{ marginTop: hasActivities ? 16 : 0 }}>
             <ReasoningSections sections={reasoningSections!} isStreaming={isStreaming} />
           </div>
         </>
       ) : thinkingContent ? (
         <>
           {hasActivities && <ActivitiesSection activities={activities!} />}
-          <div style={{ marginTop: hasActivities ? 4 : 0 }}>
+          <div style={{ marginTop: hasActivities ? 16 : 0 }}>
             <TimelineReasoningStep content={thinkingContent} active={isStreaming} />
           </div>
         </>
@@ -479,7 +478,7 @@ export function ReasoningBlock({
   if (!thinkingContent && !reasoningSections?.length && !isThinkingInProgress) return null;
 
   return (
-    <div style={{ width: 320, maxWidth: "100%", margin: "4px 0 10px" }}>
+    <div style={{ width: "100%", margin: "4px 0 10px", fontFamily: "var(--font-body)" }}>
 
       {/* ── Outer header ────────────────────────────────────────────────────── */}
       <ThinkingTrigger open={open} onToggle={() => setOpen((value) => !value)} controls={panelId} />

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { AnimatePresence, m } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { ReasoningBlock, ModelLogo, AnimatedLogo } from "./ReasoningBlock";
 import { BreathingDot } from "@/components/BreathingDot";
@@ -259,14 +259,37 @@ function StandaloneActivitiesBlock({
 // render properly while the stream is active.
 
 function StreamingTextContent({ content, citations }: { content: string; citations?: WebCitation[] }) {
-  const dot = (
-    <m.span
-      animate={{ opacity: [0.15, 1, 0.15] }}
-      transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-      style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#826B60", verticalAlign: "middle", marginLeft: 4 }}
-    />
-  );
-  return <ContentRenderer content={content} webCitations={citations} isStreaming cursor={dot} />;
+  const shouldReduceMotion = useReducedMotion() ?? false;
+  const targetRef = useRef(content);
+
+  const [displayedContent, setDisplayedContent] = useState(() => {
+    const firstWord = content.match(/^\s*\S+(?:\s+|$)/)?.[0];
+    return firstWord ?? content;
+  });
+
+  useEffect(() => {
+    targetRef.current = content;
+  }, [content]);
+
+  useEffect(() => {
+    if (shouldReduceMotion) return;
+
+    const interval = window.setInterval(() => {
+      setDisplayedContent((current) => {
+        const target = targetRef.current;
+        if (current === target) return current;
+        if (!target.startsWith(current)) return target;
+
+        const nextWord = target.slice(current.length).match(/^\s*\S+(?:\s+|$)/)?.[0];
+        return nextWord ? current + nextWord : target;
+      });
+    }, 28);
+
+    return () => window.clearInterval(interval);
+  }, [shouldReduceMotion]);
+
+  const dot = <BreathingDot style={{ marginLeft: 4, backgroundColor: "#826B60" }} />;
+  return <ContentRenderer content={shouldReduceMotion ? content : displayedContent} webCitations={citations} isStreaming cursor={dot} />;
 }
 
 // ── Main ChatMessage Component ────────────────────────────────────────────────

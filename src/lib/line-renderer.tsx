@@ -58,6 +58,7 @@ type InlineCtx = {
   webCitations?: WebCitation[]
   urlMap?: Map<string, number>  // url → 0-based citation index
   highlights?: HighlightSpec[]
+  emphasisColor?: string
 }
 
 type RawHighlightSpec = HighlightSpec & { startOffset: number; endOffset: number }
@@ -143,10 +144,10 @@ function renderInlineSegment(text: string, sourceStart: number, prefix: string, 
 
     if (m[1] !== undefined) {
       // **bold**
-      nodes.push(<strong key={key} style={{ fontWeight: 600 }}>{renderHighlightedText(m[1], sourceStart + m.index + 2, key, ctx)}</strong>)
+      nodes.push(<strong key={key} style={{ fontWeight: 600, color: ctx.emphasisColor }}>{renderHighlightedText(m[1], sourceStart + m.index + 2, key, ctx)}</strong>)
     } else if (m[2] !== undefined) {
       // __bold__
-      nodes.push(<strong key={key} style={{ fontWeight: 600 }}>{renderHighlightedText(m[2], sourceStart + m.index + 2, key, ctx)}</strong>)
+      nodes.push(<strong key={key} style={{ fontWeight: 600, color: ctx.emphasisColor }}>{renderHighlightedText(m[2], sourceStart + m.index + 2, key, ctx)}</strong>)
     } else if (m[3] !== undefined) {
       // *italic*
       nodes.push(<em key={key}>{renderHighlightedText(m[3], sourceStart + m.index + 1, key, ctx)}</em>)
@@ -482,6 +483,13 @@ const TEXT: React.CSSProperties = {
   overflowWrap: "break-word",
 }
 
+const REASONING_TEXT: React.CSSProperties = {
+  ...TEXT,
+  fontSize: "14px",
+  lineHeight: "22px",
+  color: "var(--neutral-600, #524B47)",
+}
+
 const HEADING_SIZE: Record<number, string> = {
   1: "22px", 2: "18px", 3: "16px", 4: "15px", 5: "14px", 6: "13px",
 }
@@ -493,9 +501,10 @@ export interface LineRendererProps {
   webCitations?: WebCitation[]
   highlights?: HighlightSpec[]
   sourceOffset?: number
+  variant?: "response" | "reasoning"
 }
 
-export function LineRenderer({ content, webCitations, highlights, sourceOffset = 0 }: LineRendererProps) {
+export function LineRenderer({ content, webCitations, highlights, sourceOffset = 0, variant = "response" }: LineRendererProps) {
   // Build a URL→index map once so inline citation matching is O(1)
   const urlMap = React.useMemo<Map<string, number>>(() => {
     const m = new Map<string, number>()
@@ -503,7 +512,15 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
     return m
   }, [webCitations])
 
-  const ctx: InlineCtx = { webCitations, urlMap, highlights }
+  const isReasoning = variant === "reasoning"
+  const textStyle = isReasoning ? REASONING_TEXT : TEXT
+  const blockGap = isReasoning ? "8px" : "14px"
+  const ctx: InlineCtx = {
+    webCitations,
+    urlMap,
+    highlights,
+    emphasisColor: isReasoning ? "var(--neutral-900, #26211E)" : undefined,
+  }
 
   const blocks = React.useMemo(() => parseBlocks(content, sourceOffset), [content, sourceOffset])
 
@@ -517,14 +534,14 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
     switch (block.kind) {
 
       case "empty":
-        return <div key={k} aria-hidden style={{ height: "14px" }} />
+        return <div key={k} aria-hidden style={{ height: blockGap }} />
 
       case "heading": {
         return (
           <p
             key={k}
             style={{
-              ...TEXT,
+              ...textStyle,
               fontWeight: 600,
               fontSize: HEADING_SIZE[block.level],
               lineHeight: "30px",
@@ -623,7 +640,7 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
           <ul
             key={k}
             style={{
-              margin: "0 0 14px",
+              margin: `0 0 ${blockGap}`,
               paddingLeft: "20px",
               listStyleType: "disc",
               display: "flex",
@@ -632,7 +649,7 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
             }}
           >
             {block.items.map((item, ii) => (
-              <li key={ii} style={{ ...TEXT, lineHeight: "24px" }}>
+              <li key={ii} style={{ ...textStyle, lineHeight: isReasoning ? "22px" : "24px" }}>
                 {inline(item, `${k}-li${ii}`)}
               </li>
             ))}
@@ -645,7 +662,7 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
             key={k}
             start={block.start}
             style={{
-              margin: "0 0 14px",
+              margin: `0 0 ${blockGap}`,
               paddingLeft: "22px",
               listStyleType: "decimal",
               display: "flex",
@@ -654,7 +671,7 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
             }}
           >
             {block.items.map((item, ii) => (
-              <li key={ii} style={{ ...TEXT, lineHeight: "24px" }}>
+              <li key={ii} style={{ ...textStyle, lineHeight: isReasoning ? "22px" : "24px" }}>
                 {inline(item, `${k}-li${ii}`)}
               </li>
             ))}
@@ -678,12 +695,12 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
           <blockquote
             key={k}
             style={{
-              margin: "0 0 14px",
+              margin: `0 0 ${blockGap}`,
               paddingLeft: "12px",
               borderLeft: "2.5px solid var(--neutral-200)",
               color: "var(--neutral-600)",
               fontStyle: "italic",
-              ...TEXT,
+              ...textStyle,
             }}
           >
             {inline(block.text, k)}
@@ -692,7 +709,7 @@ export function LineRenderer({ content, webCitations, highlights, sourceOffset =
 
       case "paragraph":
         return (
-          <p key={k} style={{ ...TEXT, marginBottom: "14px" }}>
+          <p key={k} style={{ ...textStyle, marginBottom: isReasoning ? 0 : "14px" }}>
             {block.lines.flatMap((line, li) => {
               const nodes = inline(line, `${k}-pl${li}`)
               return li < block.lines.length - 1

@@ -57,9 +57,9 @@ function HIcon({ icon, size = 14, color = "#827A74", strokeWidth = 1.5 }: { icon
 function ActivityIcon({ type, isDone }: { type: ActivityType; isDone: boolean }) {
   const { icon, isHuge } = ACTIVITY_ICON[type] ?? ACTIVITY_ICON["other"];
   const color = isDone ? "#80B707" : "#827A74";
-  if (isHuge) return <HIcon icon={icon} size={14} color={color} strokeWidth={1.5} />;
+  if (isHuge) return <HIcon icon={icon} size={16} color={color} strokeWidth={1.5} />;
   const Icon = icon as React.ComponentType<{ size?: number; color?: string }>;
-  return <Icon size={14} color={color} />;
+  return <Icon size={16} color={color} />;
 }
 
 // Spinner using HugeIcons Spinner icon (rotating)
@@ -70,7 +70,7 @@ function SpinnerIcon() {
       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
       style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}
     >
-      <HIcon icon={Spinner} size={14} color="#B6ACA4" strokeWidth={2} />
+      <HIcon icon={Spinner} size={16} color="#B6ACA4" strokeWidth={2} />
     </m.span>
   );
 }
@@ -79,7 +79,7 @@ function SpinnerIcon() {
 function CheckmarkIcon() {
   return (
     <span style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}>
-      <HIcon icon={Checkmark} size={14} color="#80B707" strokeWidth={2.5} />
+      <HIcon icon={Checkmark} size={16} color="#80B707" strokeWidth={2.5} />
     </span>
   );
 }
@@ -88,7 +88,7 @@ function CheckmarkIcon() {
 function ErrorIcon() {
   return (
     <span style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}>
-      <HIcon icon={Cancel01Icon} size={14} color="var(--red-500, #DC3545)" strokeWidth={2} />
+      <HIcon icon={Cancel01Icon} size={16} color="var(--red-500, #DC3545)" strokeWidth={2} />
     </span>
   );
 }
@@ -139,7 +139,8 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
           background: "transparent",
           border: "none",
           cursor: (!isWebSearch && hasResults) ? "pointer" : "default",
-          padding: "4px 0",
+          padding: 0,
+          minHeight: 22,
           width: "100%",
           textAlign: "left",
           fontFamily: "var(--font-body)",
@@ -174,7 +175,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
               minWidth: 0,
             }}
           >
-            - {detailText}
+            — {detailText}
           </span>
         )}
 
@@ -196,7 +197,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
         {isActive && (
           <m.span
             animate={{ opacity: [0.3, 1, 0.3] }}
-            transition={{ duration: 1.2, repeat: Infinity }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
             style={{ fontSize: 14, fontWeight: 400, color: "var(--neutral-300, #C0B5AD)", flexShrink: 0 }}
           >
             working…

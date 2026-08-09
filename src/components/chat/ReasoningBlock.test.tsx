@@ -59,5 +59,6 @@ describe('ReasoningContent', () => {
     expect(html).toContain('Thinking')
     expect(html).toContain('aria-expanded="true"')
     expect(html).toContain('aria-controls=')
+    expect(html).toContain('width:100%')
   })
 })
