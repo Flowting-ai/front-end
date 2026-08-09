@@ -1272,7 +1272,7 @@ function AnimatedCallout({ data, onComplete }: { data: CalloutData; onComplete: 
   return (
     <m.div initial={{ opacity: 0, x: -10, y: 4 }} animate={{ opacity: 1, x: 0, y: 0 }}
       transition={{ type: "spring", stiffness: 340, damping: 26 }}
-      style={{ borderLeft: `3px solid ${cfg.border}`, background: cfg.bg, borderRadius: "0 10px 10px 0", padding: "10px 14px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+      style={{ borderLeft: `3px solid ${cfg.border}`, background: cfg.bg, borderRadius: "0 10px 10px 0", padding: "10px 14px", display: "flex", gap: 10, alignItems: "flex-start", fontFamily: "var(--font-body)" }}>
       <span style={{ flexShrink: 0, marginTop: 1, lineHeight: 0 }}>
         <HIcon icon={cfg.icon} size={16} color={cfg.color} strokeWidth={1.8} />
       </span>
@@ -1308,7 +1308,7 @@ function AnimatedTags({ data, onComplete, animate = true }: { data: TagsData; on
   }, []); // eslint-disable-line
 
   return (
-    <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }}>
+    <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }} style={{ fontFamily: "var(--font-body)" }}>
       {data.title && <div style={{ fontSize: 12, fontWeight: 500, color: "#9A9089", marginBottom: 9, textTransform: "uppercase", letterSpacing: "0.5px" }}>{data.title}</div>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {data.tags.slice(0, revealedTags).map((tag, i) => {

@@ -17,6 +17,7 @@ import { ensureFreshToken } from "@/lib/jwt-utils"
 import { clientGeoHeaders } from "@/lib/geo-headers"
 import { logger } from "@/lib/logger"
 import { HybridSSEDecoder } from "@/lib/sse-decoder"
+import { isResponseBlock, responseBlockFromEventPayload } from "@/lib/response-blocks"
 import type { UIMessage } from "@/hooks/use-chat-state"
 import { registerStream, completeStream } from "@/lib/stream-registry"
 import {
@@ -746,16 +747,13 @@ export function useStreamingChat({
               ? (savedMsg.response_blocks as Array<Record<string, unknown>>)
               : null
             if (rawResponseBlocks && rawResponseBlocks.length > 0 && currentMsgId) {
-              const validBlocks = rawResponseBlocks.filter(
-                (b): b is import("@/hooks/use-chat-state").ResponseBlock =>
-                  b !== null && typeof b === "object" && typeof b.kind === "string",
-              )
+              const validBlocks = rawResponseBlocks.filter(isResponseBlock)
               if (validBlocks.length > 0) {
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== currentMsgId) return msg
                     const existing = msg.responseBlocks ?? []
-                    // Only add blocks not already delivered via structured_block events.
+                    // Only add blocks not already delivered by live block events.
                     const toAdd = validBlocks.filter((b) => !existing.some((e) => e.kind === b.kind))
                     return toAdd.length > 0
                       ? { ...msg, responseBlocks: [...existing, ...toAdd] }
@@ -861,10 +859,11 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "structured_block") {
-            // Structured output block - schema: {block: ResponseBlock}
-            const block = parsed.block as import("@/hooks/use-chat-state").ResponseBlock | undefined
-            if (block && typeof block === "object" && "kind" in block) {
+          if (eventName === "structured_block" || eventName === "block") {
+            // Accept both the app envelope ({ block: ResponseBlock }) and the
+            // chat-preview contract where the ResponseBlock is the payload.
+            const block = responseBlockFromEventPayload(parsed)
+            if (block) {
               receivedRenderableOutput = true
               const msgId = loadingMessageIdRef.current
               if (msgId) {
