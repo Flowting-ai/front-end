@@ -38,6 +38,10 @@ const connectSrcParts = [
   backendWsOrigin,
   ...(auth0Domain ? [auth0Domain] : ["https://*.us.auth0.com"]),
   "https://*.mixpanel.com",
+  // Kernel live view opens a WebSocket from inside its iframe. Keep both
+  // schemes explicit; frame-src below controls the document itself.
+  "https://*.onkernel.com:8443",
+  "wss://*.onkernel.com:8443",
   "https://formspree.io",
   mapStyleOrigin,
 ];
@@ -127,7 +131,7 @@ const nextConfig: NextConfig = {
               `connect-src ${connectSrcParts.join(" ")}`,
               "font-src 'self'",
               "worker-src 'self' blob:",
-              "frame-src 'self' https://*.e2b.app",
+              "frame-src 'self' https://*.e2b.app https://*.onkernel.com:8443",
               "frame-ancestors 'none'",
             ].join("; "),
           },

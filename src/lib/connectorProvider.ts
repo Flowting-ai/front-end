@@ -14,7 +14,6 @@
 // *_heatmap_*.py for the current set).
 const MCP_PROVIDER_CONNECTOR_SLUGS = new Set([
   'customerio',
-  'granola_mcp',
   'heatmap',
   'klaviyo',
   'metaads',
