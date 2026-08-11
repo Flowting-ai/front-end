@@ -25,6 +25,7 @@ import {
   eventRoundIndex,
   reasoningEventText,
 } from "@/lib/reasoning"
+import { toolNameToType, webSearchResults } from "@/lib/activity"
 
 // ── Error markers ─────────────────────────────────────────────────────────────
 
@@ -710,29 +711,7 @@ export function useStreamingChat({
           if (eventName === "web_search") {
             // Web search activity - schema: {query, links[]}
             const query = asString(parsed.query) ?? ""
-            const rawLinks = Array.isArray(parsed.links) ? parsed.links : []
-            const results = rawLinks
-              .slice(0, 6)
-              .flatMap((link: unknown): { title: string; url?: string; domain?: string }[] => {
-                if (typeof link === "string") {
-                  try {
-                    const url = new URL(link)
-                    return [{ title: url.hostname + url.pathname.slice(0, 40), url: link, domain: url.hostname }]
-                  } catch { return [{ title: link, url: link, domain: "" }] }
-                }
-                if (typeof link === "object" && link !== null) {
-                  const obj = link as Record<string, unknown>
-                  const url = asString(obj.url) ?? ""
-                  let domain = ""
-                  try { domain = new URL(url).hostname } catch { /* ignore */ }
-                  return [{
-                    title: asString(obj.title) ?? url,
-                    url,
-                    domain: asString(obj.domain) ?? domain,
-                  }]
-                }
-                return []
-              })
+            const results = webSearchResults(parsed.links)
 
             const activity: import("@/hooks/use-chat-state").ActivityItem = {
               id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -1700,17 +1679,4 @@ function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
     : undefined
-}
-
-/** Maps backend tool names to our ActivityType for display purposes. */
-function toolNameToType(toolName: string): import("@/hooks/use-chat-state").ActivityType {
-  const lower = toolName.toLowerCase()
-  if (lower === "web_search" || lower.includes("search")) return "web-search"
-  if (lower === "read_pages" || lower.includes("read_pdf")) return "read-pages"
-  if (lower === "csv_execute" || lower.includes("csv")) return "csv-execute"
-  if (lower === "fetch_resource" || lower.includes("fetch")) return "fetch-resource"
-  if (lower === "doc_execute") return "doc-execute"
-  if (lower === "docx_execute" || lower.includes("docx") || lower.includes("document")) return "docx-progress"
-  if (lower === "skills") return "skills"
-  return "tool-call"
 }

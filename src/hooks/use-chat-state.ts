@@ -136,6 +136,8 @@ export interface ActivityItem {
   durationS?: number
   /** Progress message from tool_progress. */
   progressMessage?: string
+  /** Completion percentage from tool_progress, 0-100. */
+  percent?: number
   /** Code preview from tool_progress (csv_execute, docx). */
   codePreview?: string
   /** Filename associated with the tool (read_pages, csv, docx). */

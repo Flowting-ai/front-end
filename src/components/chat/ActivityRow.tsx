@@ -193,6 +193,13 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
           </span>
         )}
 
+        {/* Percentage — only while running; a finished row shows its duration */}
+        {isActive && activity.percent !== undefined && (
+          <span style={{ fontSize: 12, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
+            {Math.round(activity.percent)}%
+          </span>
+        )}
+
         {/* Active "working..." indicator */}
         {isActive && (
           <m.span
