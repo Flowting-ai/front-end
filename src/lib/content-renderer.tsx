@@ -24,6 +24,9 @@ import { XmlKanban } from "@/components/chat/XmlKanban"
 import { XmlSchedule } from "@/components/chat/XmlSchedule"
 import { XmlWeather } from "@/components/chat/XmlWeather"
 import { XmlMap } from "@/components/chat/XmlMap"
+import { XmlSteps } from "@/components/chat/XmlSteps"
+import { XmlCallout } from "@/components/chat/XmlCallout"
+import { XmlTags } from "@/components/chat/XmlTags"
 import type { WebCitation } from "@/hooks/use-chat-state"
 
 // ---------------------------------------------------------------------------
@@ -93,6 +96,12 @@ export function ContentRenderer({
   const segments = parseContentSegments(content)
   const lastIdx = segments.length - 1
 
+  // Keep the preview's breathing cursor visible during the short interval
+  // before the first queued word is revealed.
+  if (segments.length === 0) {
+    return isStreaming ? <>{cursor}</> : null
+  }
+
   // Segments are positional (markdown, table, chart, pending) — index is the
   // only stable key because adjacent same-type segments are possible.
   const rendered = segments.map((seg, i) => {
@@ -125,6 +134,15 @@ export function ContentRenderer({
 
       case "map":
         return <XmlMap key={i} xml={seg.xml} />
+
+      case "steps":
+        return <XmlSteps key={i} xml={seg.xml} animate={isStreaming} />
+
+      case "callout":
+        return <XmlCallout key={i} xml={seg.xml} />
+
+      case "tags":
+        return <XmlTags key={i} xml={seg.xml} animate={isStreaming} />
 
       case "pending":
         return <PendingBlockPlaceholder key={i} tag={seg.tag} />

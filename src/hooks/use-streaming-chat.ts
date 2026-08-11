@@ -17,9 +17,14 @@ import { ensureFreshToken } from "@/lib/jwt-utils"
 import { clientGeoHeaders } from "@/lib/geo-headers"
 import { logger } from "@/lib/logger"
 import { HybridSSEDecoder } from "@/lib/sse-decoder"
+import { isResponseBlock, responseBlockFromEventPayload } from "@/lib/response-blocks"
 import type { UIMessage } from "@/hooks/use-chat-state"
 import { registerStream, completeStream } from "@/lib/stream-registry"
-import type { ReasoningSection } from "@/lib/reasoning"
+import {
+  createReasoningAccumulator,
+  eventRoundIndex,
+  reasoningEventText,
+} from "@/lib/reasoning"
 
 // ── Error markers ─────────────────────────────────────────────────────────────
 
@@ -230,21 +235,11 @@ export function useStreamingChat({
     setStreamState?.("waiting")
 
     let assistantContent = ""
-    let reasoningContent = ""
-    // Accumulated structured reasoning sections from heading/body SSE events
-    const reasoningSectionsAcc: ReasoningSection[] = []
-    let currentReasHeading = ""
-    let currentReasBody = ""
-    // Returns a snapshot of all sections including the in-progress one
-    const snapshotSections = (): ReasoningSection[] => {
-      const out = [...reasoningSectionsAcc]
-      if (currentReasHeading) out.push({ heading: currentReasHeading, body: currentReasBody })
-      return out
-    }
+    const reasoning = createReasoningAccumulator()
     let streamFinished = false
-    let shouldStopReading = false
+    let terminalErrorSeen = false
     let titleWasSet = false    // guards: prevent `done` from overwriting a title already set by the `title` SSE event
-    let receivedImages = false  // true when at least one image event was received this stream
+    let receivedRenderableOutput = false
     // Maps toolName → activityId so tool_progress events can find the activity
     // created by the preceding tool_executing event.
     const toolCallIdByName = new Map<string, string>()
@@ -296,15 +291,18 @@ export function useStreamingChat({
         if (options?.systemPrompt) fd.append("system_prompt", options.systemPrompt)
         if (options?.temperature != null) fd.append("temperature", String(options.temperature))
         if (options?.toneId) fd.append("tone_id", options.toneId)
+        if (options?.enableReasoning !== undefined) {
+          fd.append("thinking", options.enableReasoning ? "true" : "false")
+        }
         if (options?.replaceMessageId && isExistingChat) fd.append("replace_message_id", options.replaceMessageId)
-        // Note: enableReasoning/connectorSlugs aren't forwarded here — /api/chat
-        // doesn't read them either today, so this preserves existing behavior.
       } else {
         if (chatId) fd.append("chatId", chatId)
         if (modelId !== null && modelId !== undefined) fd.append("modelId", String(modelId))
         if (options?.algorithm) fd.append("algorithm", options.algorithm)
         if (options?.webSearch) fd.append("webSearch", "true")
-        if (options?.enableReasoning) fd.append("enable_thinking", "true")
+        if (options?.enableReasoning !== undefined) {
+          fd.append("enable_thinking", options.enableReasoning ? "true" : "false")
+        }
         if (options?.pinIds && options.pinIds.length > 0) fd.append("pinIds", JSON.stringify(options.pinIds))
         if (options?.personaId) fd.append("personaId", options.personaId)
         if (options?.systemPrompt) fd.append("systemPrompt", options.systemPrompt)
@@ -429,56 +427,39 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "reasoning") {
-            // AG-UI carries the text in `delta`; the legacy inline `reasoning`
-            // event (still sent by backends not yet on AG-UI) carries it in
-            // `content` instead — accept either.
-            const delta = typeof parsed.delta === "string" ? parsed.delta
-              : typeof parsed.content === "string" ? parsed.content : ""
-            const wasEmpty = !reasoningContent
-            reasoningContent = mergeStreamingText(reasoningContent, delta)
+          if (eventName === "research_title") {
+            const researchTitle = asString(parsed.text ?? parsed.title ?? parsed.content)
+            if (researchTitle) queueUpdate({ researchTitle }, true)
+            continue
+          }
+
+          if (eventName === "reasoning_step") {
+            const index = typeof parsed.index === "number" ? parsed.index : undefined
+            const heading = asString(parsed.verb ?? parsed.heading)
+            const detail = asString(parsed.detail)
+            const body = asString(parsed.summary ?? parsed.body)
+            if (heading) {
+              reasoning.step({ heading, body: body ?? "", ...(detail ? { detail } : {}) }, index)
+              queueUpdate({
+                reasoning_sections: reasoning.sections(),
+                isThinkingInProgress: true,
+                isLoading: true,
+              }, true)
+            }
+            continue
+          }
+
+          if (eventName === "reasoning" || eventName === "reasoning_heading" || eventName === "reasoning_body") {
+            const wasEmpty = reasoning.isEmpty()
+            reasoning.event(eventName, reasoningEventText(parsed), eventRoundIndex(parsed))
+            const sections = reasoning.sections()
             queueUpdate({
-              thinking: reasoningContent,
+              thinking: reasoning.text(),
               isThinkingInProgress: true,
               isLoading: true,
+              ...(sections.length > 0 ? { reasoning_sections: sections } : {}),
+              reasoningTimeline: reasoning.timeline(),
             }, wasEmpty)  // flush immediately on first reasoning chunk
-            continue
-          }
-
-          if (eventName === "reasoning_heading") {
-            const content = typeof parsed.content === "string" ? parsed.content : ""
-            if (content) {
-              // Commit the previous section before starting a new one
-              if (currentReasHeading) {
-                reasoningSectionsAcc.push({ heading: currentReasHeading, body: currentReasBody })
-              }
-              currentReasHeading = content
-              currentReasBody = ""
-              const wasEmpty = !reasoningContent
-              reasoningContent = mergeStreamingText(reasoningContent, content)
-              queueUpdate({
-                thinking: reasoningContent,
-                isThinkingInProgress: true,
-                isLoading: true,
-                reasoning_sections: snapshotSections(),
-              }, wasEmpty)
-            }
-            continue
-          }
-
-          if (eventName === "reasoning_body") {
-            const content = typeof parsed.content === "string" ? parsed.content : ""
-            if (content) {
-              currentReasBody = mergeStreamingText(currentReasBody, content)
-              const wasEmpty = !reasoningContent
-              reasoningContent = mergeStreamingText(reasoningContent, content)
-              queueUpdate({
-                thinking: reasoningContent,
-                isThinkingInProgress: true,
-                isLoading: true,
-                reasoning_sections: snapshotSections(),
-              }, wasEmpty)
-            }
             continue
           }
 
@@ -499,8 +480,8 @@ export function useStreamingChat({
             const stillThinking = hasOpenThink && !hasCloseThink
             queueUpdate({
               content: visibleText || "",
-              thinking: reasoningContent || thinkingText || undefined,
-              isThinkingInProgress: stillThinking && !reasoningContent,
+              thinking: reasoning.text() || thinkingText || undefined,
+              isThinkingInProgress: stillThinking && !reasoning.text(),
               isLoading: true,
             }, wasEmpty)  // flush immediately on first content chunk
             continue
@@ -674,16 +655,13 @@ export function useStreamingChat({
               ? (savedMsg.response_blocks as Array<Record<string, unknown>>)
               : null
             if (rawResponseBlocks && rawResponseBlocks.length > 0 && currentMsgId) {
-              const validBlocks = rawResponseBlocks.filter(
-                (b): b is import("@/hooks/use-chat-state").ResponseBlock =>
-                  b !== null && typeof b === "object" && typeof b.kind === "string",
-              )
+              const validBlocks = rawResponseBlocks.filter(isResponseBlock)
               if (validBlocks.length > 0) {
                 setMessages((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== currentMsgId) return msg
                     const existing = msg.responseBlocks ?? []
-                    // Only add blocks not already delivered via structured_block events.
+                    // Only add blocks not already delivered by live block events.
                     const toAdd = validBlocks.filter((b) => !existing.some((e) => e.kind === b.kind))
                     return toAdd.length > 0
                       ? { ...msg, responseBlocks: [...existing, ...toAdd] }
@@ -763,6 +741,8 @@ export function useStreamingChat({
               status: "done",
               results,
             }
+            reasoning.activity(activity.id, eventRoundIndex(parsed))
+            flushPending()
 
             const msgId = loadingMessageIdRef.current
             if (msgId) {
@@ -778,6 +758,7 @@ export function useStreamingChat({
                   return {
                     ...msg,
                     activities: [...(msg.activities ?? []), activity],
+                    reasoningTimeline: reasoning.timeline(),
                     webCitations: newCitations.length > 0 ? [...existing, ...newCitations] : existing,
                   }
                 }),
@@ -786,10 +767,12 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "structured_block") {
-            // Structured output block - schema: {block: ResponseBlock}
-            const block = parsed.block as import("@/hooks/use-chat-state").ResponseBlock | undefined
-            if (block && typeof block === "object" && "kind" in block) {
+          if (eventName === "structured_block" || eventName === "block") {
+            // Accept both the app envelope ({ block: ResponseBlock }) and the
+            // chat-preview contract where the ResponseBlock is the payload.
+            const block = responseBlockFromEventPayload(parsed)
+            if (block) {
+              receivedRenderableOutput = true
               const msgId = loadingMessageIdRef.current
               if (msgId) {
                 setMessages((prev) =>
@@ -816,6 +799,8 @@ export function useStreamingChat({
             const activityId = toolCallIdByName.get(toolName) ?? `tp-${toolName}-${filename ?? "default"}`
 
             const activityType = toolNameToType(toolName)
+            reasoning.activity(activityId, eventRoundIndex(parsed))
+            flushPending()
 
             const msgId = loadingMessageIdRef.current
             if (msgId) {
@@ -832,6 +817,7 @@ export function useStreamingChat({
                           ? { ...a, status: status as import("@/hooks/use-chat-state").ActivityStatus, label: label ?? a.label, detail: label ?? a.detail, progressMessage, codePreview }
                           : a,
                       ),
+                      reasoningTimeline: reasoning.timeline(),
                     }
                   }
                   // Create new activity (tool_executing may have been missed)
@@ -846,7 +832,11 @@ export function useStreamingChat({
                     progressMessage,
                     codePreview,
                   }
-                  return { ...msg, activities: [...(msg.activities ?? []), newActivity] }
+                  return {
+                    ...msg,
+                    activities: [...(msg.activities ?? []), newActivity],
+                    reasoningTimeline: reasoning.timeline(),
+                  }
                 }),
               )
             }
@@ -868,6 +858,12 @@ export function useStreamingChat({
 
             const activityType = toolNameToType(toolName)
             const detail = label ?? toolName.replace(/_/g, " ")
+            if (existingActivityId) {
+              reasoning.renameActivity(existingActivityId, toolCallId)
+            } else {
+              reasoning.activity(toolCallId, eventRoundIndex(parsed))
+            }
+            flushPending()
 
             const msgId = loadingMessageIdRef.current
             if (msgId) {
@@ -884,6 +880,7 @@ export function useStreamingChat({
                           ? { ...a, id: toolCallId, status: "executing" as const, label: label ?? a.label, detail: label ?? a.detail }
                           : a,
                       ),
+                      reasoningTimeline: reasoning.timeline(),
                     }
                   }),
                 )
@@ -900,7 +897,11 @@ export function useStreamingChat({
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === msgId
-                      ? { ...msg, activities: [...(msg.activities ?? []), activity] }
+                      ? {
+                          ...msg,
+                          activities: [...(msg.activities ?? []), activity],
+                          reasoningTimeline: reasoning.timeline(),
+                        }
                       : msg,
                   ),
                 )
@@ -931,12 +932,18 @@ export function useStreamingChat({
                   detail: label ?? toolName.replace(/_/g, " "),
                   status: "start",
                 }
+                reasoning.activity(callId, eventRoundIndex(parsed))
+                flushPending()
                 const msgId = loadingMessageIdRef.current
                 if (msgId) {
                   setMessages((prev) =>
                     prev.map((msg) =>
                       msg.id === msgId
-                        ? { ...msg, activities: [...(msg.activities ?? []), activity] }
+                        ? {
+                            ...msg,
+                            activities: [...(msg.activities ?? []), activity],
+                            reasoningTimeline: reasoning.timeline(),
+                          }
                         : msg,
                     ),
                   )
@@ -983,7 +990,7 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "user_prompt" || eventName === "questions" || eventName === "approval_prompt") {
+          if (eventName === "user_prompt" || eventName === "questions" || eventName === "question_prompt" || eventName === "approval_prompt") {
             const prompt = parseChatPrompt(eventName, parsed)
             if (!prompt) continue
             const promptId = prompt.request_id
@@ -1117,7 +1124,7 @@ export function useStreamingChat({
             if (msgId) {
               if (Array.isArray(parsed.images)) {
                 const newImages = (parsed.images as string[]).map((url) => ({ url }))
-                receivedImages = true
+                receivedRenderableOutput = true
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === msgId
@@ -1127,7 +1134,7 @@ export function useStreamingChat({
                 )
               } else if (parsed.url) {
                 const img = { url: asString(parsed.url) ?? "", s3Key: asString(parsed.s3_key) }
-                receivedImages = true
+                receivedRenderableOutput = true
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === msgId
@@ -1142,6 +1149,7 @@ export function useStreamingChat({
 
           if (eventName === "generated_file") {
             // Generated file - schema: {url, s3_key, filename, mime_type}
+            receivedRenderableOutput = true
             const msgId = loadingMessageIdRef.current
             if (msgId) {
               const file = {
@@ -1167,6 +1175,8 @@ export function useStreamingChat({
             const filename = asString(parsed.filename) ?? "document"
             const progressMessage = asString(parsed.message) ?? ""
             const activityId = `docx-${filename}`
+            reasoning.activity(activityId, eventRoundIndex(parsed))
+            flushPending()
 
             const msgId = loadingMessageIdRef.current
             if (msgId) {
@@ -1184,6 +1194,7 @@ export function useStreamingChat({
                           ? { ...a, status, detail: progressMessage || a.detail, progressMessage, codePreview: asString(parsed.code_preview) }
                           : a,
                       ),
+                      reasoningTimeline: reasoning.timeline(),
                     }
                   }
                   const newActivity: import("@/hooks/use-chat-state").ActivityItem = {
@@ -1196,7 +1207,11 @@ export function useStreamingChat({
                     progressMessage,
                     codePreview: asString(parsed.code_preview),
                   }
-                  return { ...msg, activities: [...(msg.activities ?? []), newActivity] }
+                  return {
+                    ...msg,
+                    activities: [...(msg.activities ?? []), newActivity],
+                    reasoningTimeline: reasoning.timeline(),
+                  }
                 }),
               )
             }
@@ -1252,6 +1267,15 @@ export function useStreamingChat({
 
             flushPending()
 
+            // The backend contract allows a terminal error to be followed by
+            // done + message_saved. Preserve the error state; treating that
+            // cleanup frame as a successful empty answer is what exposed raw
+            // reasoning with Pin/Copy controls after request-limit failures.
+            if (terminalErrorSeen) {
+              streamFinished = true
+              continue
+            }
+
             if (isToolCallRound) {
               // Agentic intermediate round - tool calls are about to execute.
               // More content rounds are coming; do not finalise the message.
@@ -1261,7 +1285,7 @@ export function useStreamingChat({
 
             // Final round (finish_reason: "stop", "length", etc.)
             const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
-            const finalReasoning = reasoningContent || thinkingText
+            const finalReasoning = reasoning.text() || thinkingText
 
             if (resolvedChatIdRef.current) {
               onChatMoveToTop?.(resolvedChatIdRef.current)
@@ -1347,12 +1371,14 @@ export function useStreamingChat({
             queueUpdate(
               {
                 content:
-                  visibleText || (finalReasoning || receivedImages ? "" : EMPTY_TURN_MESSAGE),
+                  visibleText || (receivedRenderableOutput ? "" : EMPTY_TURN_MESSAGE),
                 thinking: finalReasoning || undefined,
                 isThinkingInProgress: false,
                 isLoading: false,
+                isError: !visibleText && !receivedRenderableOutput,
                 stoppedByUser: false,
-                reasoning_sections: snapshotSections().length > 0 ? snapshotSections() : undefined,
+                reasoning_sections: reasoning.sections().length > 0 ? reasoning.sections() : undefined,
+                reasoningTimeline: reasoning.timeline().length > 0 ? reasoning.timeline() : undefined,
               },
               true,
             )
@@ -1375,6 +1401,7 @@ export function useStreamingChat({
             const lower = rawError.toLowerCase()
 
             flushPending()
+            terminalErrorSeen = true
 
             if (lower.includes("token expired") ||
               lower.includes("not authenticated") ||
@@ -1404,7 +1431,6 @@ export function useStreamingChat({
             }
 
             streamFinished = true
-            shouldStopReading = true
             continue
           }
         }
@@ -1459,7 +1485,6 @@ export function useStreamingChat({
         // onprogress fires for every incoming chunk of streaming data and is
         // more reliable than relying on onreadystatechange LOADING events alone.
         xhr.onprogress = () => {
-          if (shouldStopReading) return
           // Safety-net: start flush interval if upload.loadend didn't fire yet
           // (e.g. when there are no files to upload).
           if (!flushTimerRef.current) startFlushInterval()
@@ -1508,12 +1533,10 @@ export function useStreamingChat({
           if (xhr.readyState === XMLHttpRequest.DONE) {
             xhrRef.current = null
             // Process any data that onprogress may not have seen in the final chunk
-            if (!shouldStopReading) {
-              const text = xhr.responseText
-              if (text.length > processedLength) {
-                processSSEText(text.slice(processedLength))
-                processedLength = text.length
-              }
+            const text = xhr.responseText
+            if (text.length > processedLength) {
+              processSSEText(text.slice(processedLength))
+              processedLength = text.length
             }
             // Flush a complete final event even if the server omitted the
             // trailing blank-line delimiter.
@@ -1569,14 +1592,14 @@ export function useStreamingChat({
       if (!streamFinished) {
         if (assistantContent) {
           const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
-          const finalReasoning = reasoningContent || thinkingText
+          const finalReasoning = reasoning.text() || thinkingText
           queueUpdate(
             {
               content: visibleText || assistantContent,
               thinking: finalReasoning || undefined,
               isThinkingInProgress: false,
               isLoading: false,
-              reasoning_sections: snapshotSections().length > 0 ? snapshotSections() : undefined,
+              reasoning_sections: reasoning.sections().length > 0 ? reasoning.sections() : undefined,
             },
             true,
           )

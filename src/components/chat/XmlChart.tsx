@@ -13,21 +13,14 @@
  * See: docs/ui/frontend-rendering.md - Charts section.
  */
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { AnimatePresence, m } from "framer-motion"
+import { ChatChartShell } from "@/components/chat/ChatChartShell"
+import { CHAT_CHART_PALETTE } from "@/components/chat/chat-chart-theme"
 
 // ---------------------------------------------------------------------------
 // Palette - mirrors souvenir-chat-preview BAR_PALETTE / PIE_COLORS_HEX
 // ---------------------------------------------------------------------------
-
-const BAR_PALETTE = [
-  "var(--brown-700)",   // #683D1B
-  "var(--blue-600)",    // #0D6EB2
-  "var(--green-600)",   // #80B707
-  "var(--neutral-400)", // #9C938B
-  "var(--yellow-500)",  // #A28847
-  "var(--neutral-700)", // #524B47
-]
 
 // Hex values needed for SVG attributes that cannot use CSS vars
 const PIE_COLORS_HEX = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B", "#524B47", "#A28847"]
@@ -82,21 +75,6 @@ function readChartAttrs(el: Element): ChartAttrs {
 }
 
 // ---------------------------------------------------------------------------
-// Shared chart card wrapper - mirrors BarChartShell from preview
-// ---------------------------------------------------------------------------
-
-function ChartShell({ title, children }: { title?: string; children: React.ReactNode }) {
-  return (
-    <div style={{ background: "var(--neutral-white)", border: "1px solid var(--neutral-100)", borderRadius: 12, padding: "16px 18px 14px", margin: "16px 0" }}>
-      {title && (
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-900)", marginBottom: 14 }}>{title}</div>
-      )}
-      {children}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Bar Chart (vertical) - spring scaleY, grid lines, value labels
 // ---------------------------------------------------------------------------
 
@@ -116,7 +94,7 @@ function BarChart({ attrs, bars }: { attrs: ChartAttrs; bars: BarDatum[] }) {
   const maxVal = niceMax(Math.max(...bars.map((b) => b.value)) * 1.15)
 
   return (
-    <ChartShell title={attrs.title}>
+    <ChatChartShell title={attrs.title}>
       {attrs.yLabel && (
         <div style={{ fontSize: 12, color: "var(--neutral-400)", textAlign: "center", marginBottom: 4 }}>{attrs.yLabel}</div>
       )}
@@ -130,7 +108,7 @@ function BarChart({ attrs, bars }: { attrs: ChartAttrs; bars: BarDatum[] }) {
         <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: "100%" }}>
           {bars.map((bar, i) => {
             const barH = Math.max((bar.value / maxVal) * chartH, 4)
-            const color = BAR_PALETTE[i % BAR_PALETTE.length]
+            const color = CHAT_CHART_PALETTE[i % CHAT_CHART_PALETTE.length]
             return (
               <div key={bar.label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
                 <m.div
@@ -160,7 +138,7 @@ function BarChart({ attrs, bars }: { attrs: ChartAttrs; bars: BarDatum[] }) {
       {attrs.xLabel && (
         <div style={{ textAlign: "center", fontSize: 12, color: "var(--neutral-400)", marginTop: 4 }}>{attrs.xLabel}</div>
       )}
-    </ChartShell>
+    </ChatChartShell>
   )
 }
 
@@ -173,28 +151,25 @@ interface SliceDatum { label: string; value: number }
 function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }) {
   const [revealedCount, setRevealedCount] = useState(0)
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+  const sliceCount = slices.length
 
   const R = 90, CX = 110, CY = 110, SW = 26
   const circ = 2 * Math.PI * R
   const total = slices.reduce((s, sl) => s + sl.value, 0)
 
   useEffect(() => {
-    let idx = 0
-    const t = setInterval(() => {
-      idx++
-      setRevealedCount(idx)
-      if (idx >= slices.length) clearInterval(t)
-    }, 180)
-    return () => clearInterval(t)
-  }, [slices.length])
+    const revealTimers = Array.from({ length: sliceCount }, (_, index) => (
+      setTimeout(() => setRevealedCount(index + 1), (index + 1) * 180)
+    ))
+    return () => revealTimers.forEach(clearTimeout)
+  }, [sliceCount])
 
   if (slices.length === 0 || total === 0) return null
 
-  let cumPct = 0
   const arcs = slices.map((sl, i) => {
     const pct = sl.value / total
-    const startDeg = cumPct * 360 - 90
-    cumPct += pct
+    const priorValue = slices.slice(0, i).reduce((sum, priorSlice) => sum + priorSlice.value, 0)
+    const startDeg = (priorValue / total) * 360 - 90
     return {
       pct,
       startDeg,
@@ -207,7 +182,7 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
   })
 
   return (
-    <div style={{ background: "var(--neutral-white)", border: "1px solid var(--neutral-100)", borderRadius: 12, padding: "18px 20px", margin: "16px 0" }}>
+    <ChatChartShell style={{ padding: "18px 20px" }}>
       {attrs.title && (
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-900)", marginBottom: 16 }}>{attrs.title}</div>
       )}
@@ -267,7 +242,7 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
           </m.div>
         ))}
       </div>
-    </div>
+    </ChatChartShell>
   )
 }
 
@@ -281,6 +256,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
   const [revealed, setRevealed] = useState(false)
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
   const [hoverContainerX, setHoverContainerX] = useState(0)
+  const [containerWidth, setContainerWidth] = useState(400)
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -315,6 +291,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
     const xi = Math.round((svgX - PAD.left) / chartW * maxXIdx)
     setHoverIdx(Math.max(0, Math.min(maxXIdx, xi)))
     setHoverContainerX(e.clientX - contRect.left)
+    setContainerWidth(contRect.width)
   }
 
   if (points.length === 0) return null
@@ -328,7 +305,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
   const tooltipLeft = hoverContainerX - tooltipWidth / 2
 
   return (
-    <ChartShell title={attrs.title}>
+    <ChatChartShell title={attrs.title}>
       {attrs.yLabel && (
         <div style={{ fontSize: 12, color: "var(--neutral-400)", textAlign: "center", marginBottom: 4 }}>{attrs.yLabel}</div>
       )}
@@ -413,7 +390,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 4, scale: 0.96 }}
               transition={{ duration: 0.12 }}
-              style={{ position: "absolute", top: -8, left: Math.max(4, Math.min(tooltipLeft, (containerRef.current?.clientWidth ?? 400) - tooltipWidth - 4)), width: tooltipWidth, background: "var(--neutral-900)", borderRadius: 8, padding: "7px 10px", pointerEvents: "none", zIndex: 10, boxShadow: "0 4px 12px rgba(18,12,8,0.22)" }}>
+              style={{ position: "absolute", top: -8, left: Math.max(4, Math.min(tooltipLeft, containerWidth - tooltipWidth - 4)), width: tooltipWidth, background: "var(--neutral-900)", borderRadius: 8, padding: "7px 10px", pointerEvents: "none", zIndex: 10, boxShadow: "0 4px 12px rgba(18,12,8,0.22)" }}>
               <div style={{ fontSize: 12, color: "var(--neutral-400)", fontWeight: 500, marginBottom: 5, letterSpacing: "0.3px" }}>
                 {String(points[hoverIdx]?.x ?? "")}
               </div>
@@ -432,7 +409,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
       {attrs.xLabel && (
         <div style={{ textAlign: "center", fontSize: 12, color: "var(--neutral-400)", marginTop: 4 }}>{attrs.xLabel}</div>
       )}
-    </ChartShell>
+    </ChatChartShell>
   )
 }
 
@@ -465,10 +442,10 @@ function HistogramChart({ attrs, values }: { attrs: ChartAttrs; values: number[]
   if (bins.length === 0) return null
   const chartH = 140
   const maxCount = niceMax(Math.max(...bins.map((b) => b.count)))
-  const color = BAR_PALETTE[0]!
+  const color = CHAT_CHART_PALETTE[0]
 
   return (
-    <ChartShell title={attrs.title}>
+    <ChatChartShell title={attrs.title}>
       <div style={{ position: "relative", height: chartH }}>
         {[0.25, 0.5, 0.75, 1].map((pct) => (
           <m.div key={pct}
@@ -508,7 +485,7 @@ function HistogramChart({ attrs, values }: { attrs: ChartAttrs; values: number[]
       {attrs.xLabel && (
         <div style={{ textAlign: "center", fontSize: 12, color: "var(--neutral-400)", marginTop: 4 }}>{attrs.xLabel}</div>
       )}
-    </ChartShell>
+    </ChatChartShell>
   )
 }
 
@@ -590,18 +567,19 @@ function parseChartXml(xml: string): ChartState | null {
 interface XmlChartProps { xml: string }
 
 export function XmlChart({ xml }: XmlChartProps) {
-  const state = useMemo(() => parseChartXml(xml) ?? "error", [xml])
-  const [mounted, setMounted] = useState(false)
-
-  useLayoutEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  )
 
   if (!mounted) {
     return (
       <div style={{ height: 200, margin: "16px 0", borderRadius: 12, border: "1px solid var(--neutral-100)", background: "var(--neutral-800-05)" }} aria-hidden />
     )
   }
+
+  const state = parseChartXml(xml) ?? "error"
 
   if (!state || state === "error") {
     return (

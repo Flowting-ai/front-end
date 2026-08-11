@@ -185,9 +185,9 @@ const BASE_COMPONENTS: Components = {
         <code
           style={{
             fontFamily: "var(--font-code)",
-            fontSize: "13px",
+            fontSize: "var(--prose-size-code)",
             background: "var(--neutral-800-10)",
-            color: "var(--neutral-900)",
+            color: "var(--prose-heading)",
             borderRadius: "4px",
             padding: "1px 5px",
             border: "1px solid var(--neutral-700-12)",
@@ -289,12 +289,12 @@ const BASE_COMPONENTS: Components = {
       <blockquote
         style={{
           margin: "0",
-          marginBottom: "14px",
-          paddingLeft: "12px",
+          marginBottom: "var(--prose-block-gap)",
+          paddingLeft: "var(--space-3)",
           borderLeft: "2.5px solid var(--neutral-200)",
-          color: "var(--neutral-600)",
+          color: "var(--prose-quote-text)",
           fontStyle: "italic",
-          lineHeight: "26px",
+          lineHeight: "var(--prose-line-body)",
         }}
         {...props}
       >
@@ -304,42 +304,42 @@ const BASE_COMPONENTS: Components = {
   },
   ul({ children, ...props }) {
     return (
-      <ul style={{ margin: "0", marginBottom: "14px", paddingLeft: "20px", listStyleType: "disc", display: "flex", flexDirection: "column", gap: "5px" }} {...props}>
+      <ul style={{ margin: "0", marginBottom: "var(--prose-block-gap)", paddingLeft: "var(--prose-list-indent)", listStyleType: "disc", display: "flex", flexDirection: "column", gap: "var(--prose-list-item-gap)" }} {...props}>
         {children}
       </ul>
     );
   },
   ol({ children, ...props }) {
     return (
-      <ol style={{ margin: "0", marginBottom: "14px", paddingLeft: "22px", listStyleType: "decimal", display: "flex", flexDirection: "column", gap: "5px" }} {...props}>
+      <ol style={{ margin: "0", marginBottom: "var(--prose-block-gap)", paddingLeft: "var(--prose-list-indent)", listStyleType: "decimal", display: "flex", flexDirection: "column", gap: "var(--prose-list-item-gap)" }} {...props}>
         {children}
       </ol>
     );
   },
   li({ children, ...props }) {
     return (
-      <li style={{ lineHeight: "24px", color: "var(--neutral-800)", fontSize: "16px" }} {...props}>
+      <li style={{ lineHeight: "var(--prose-line-body)", color: "var(--prose-text)", fontSize: "var(--prose-size-body)" }} {...props}>
         {children}
       </li>
     );
   },
   h1({ children, ...props }) {
     return (
-      <h2 style={{ fontSize: "22px", fontWeight: 500, color: "var(--neutral-900)", fontFamily: "var(--font-body)", lineHeight: "30px", margin: "10px 0 16px" }} {...props}>
+      <h2 style={{ fontSize: "var(--prose-size-h1)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-body)", lineHeight: "var(--prose-line-h1)", margin: "var(--prose-h1-space-before) 0 var(--prose-h1-space-after)" }} {...props}>
         {children}
       </h2>
     );
   },
   h2({ children, ...props }) {
     return (
-      <h2 style={{ fontSize: "18px", fontWeight: 600, color: "var(--neutral-900)", fontFamily: "var(--font-body)", lineHeight: "26px", margin: "8px 0 14px" }} {...props}>
+      <h2 style={{ fontSize: "var(--prose-size-h2)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-body)", lineHeight: "var(--prose-line-h2)", margin: "var(--prose-h2-space-before) 0 var(--prose-h2-space-after)" }} {...props}>
         {children}
       </h2>
     );
   },
   h3({ children, ...props }) {
     return (
-      <h3 style={{ fontSize: "16px", fontWeight: 600, color: "var(--neutral-900)", fontFamily: "var(--font-body)", lineHeight: "24px", margin: "6px 0 14px" }} {...props}>
+      <h3 style={{ fontSize: "var(--prose-size-h3)", fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-body)", lineHeight: "var(--prose-line-h3)", margin: "var(--prose-h3-space-before) 0 var(--prose-h3-space-after)" }} {...props}>
         {children}
       </h3>
     );
@@ -351,7 +351,7 @@ const BASE_COMPONENTS: Components = {
   },
   p({ children, ...props }) {
     return (
-      <p style={{ margin: "0", marginBottom: "14px", lineHeight: "26px", fontWeight: 400, fontSize: "16px", color: "var(--neutral-800)" }} {...props}>
+      <p style={{ margin: "0", marginBottom: "var(--prose-block-gap)", lineHeight: "var(--prose-line-body)", fontWeight: 400, fontSize: "var(--prose-size-body)", color: "var(--prose-text)" }} {...props}>
         {children}
       </p>
     );
@@ -578,11 +578,11 @@ export function MarkdownRenderer({ content, webCitations, highlights, allowHtml 
       className="kaya-chat-markdown"
       style={{
         fontFamily: "var(--font-body)",
-        fontSize: "16px",
-        lineHeight: "26px",
-        color: "var(--neutral-800)",
+        fontSize: "var(--prose-size-body)",
+        lineHeight: "var(--prose-line-body)",
+        color: "var(--prose-text)",
         wordBreak: "break-word",
-        maxWidth: "75ch",
+        maxWidth: "var(--prose-measure)",
       }}
     >
       <ReactMarkdown
@@ -618,9 +618,9 @@ export function renderInlineMarkdown(text: string): React.ReactNode {
           key={`md-c-${count++}`}
           style={{
             fontFamily: "var(--font-code)",
-            fontSize: "13px",
+            fontSize: "var(--prose-size-code)",
             background: "var(--neutral-800-10)",
-            color: "var(--neutral-900)",
+            color: "var(--prose-heading)",
             borderRadius: "4px",
             padding: "1px 5px",
             border: "1px solid var(--neutral-700-12)",

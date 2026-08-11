@@ -24,4 +24,16 @@ describe("LineRenderer inline math vs. currency prose", () => {
 
     expect(html).toContain("katex")
   })
+
+  it("uses compact preview typography for reasoning", () => {
+    const html = renderToStaticMarkup(
+      <LineRenderer content={"**Clarifying context**\n\nChecking the source."} variant="reasoning" />,
+    )
+
+    expect(html).toContain("font-size:14px")
+    expect(html).toContain("line-height:22px")
+    expect(html).toContain("height:8px")
+    expect(html).toContain("color:#524B47")
+    expect(html).toContain("color:#26211E")
+  })
 })

@@ -7,6 +7,14 @@ import { applyRenderedHighlights } from "./rendered-highlights"
 import type { HighlightSpec } from "./markdown-utils"
 
 describe("ContentRenderer markdown formatting", () => {
+  it("shows the streaming cursor before the first word is revealed", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer content="" isStreaming cursor={<span>cursor</span>} />,
+    )
+
+    expect(html).toContain("cursor")
+  })
+
   it("remaps an unexpected response H1 so it cannot compete with the page heading", () => {
     const html = renderToStaticMarkup(<ContentRenderer content="# Unexpected title" />)
 
@@ -17,7 +25,7 @@ describe("ContentRenderer markdown formatting", () => {
   it("constrains prose width while preserving the shared markdown renderer", () => {
     const html = renderToStaticMarkup(<ContentRenderer content="A readable paragraph." />)
 
-    expect(html).toContain("max-width:75ch")
+    expect(html).toContain("max-width:var(--prose-measure)")
   })
 
   it("does not present an unmatched citation marker as a valid source", () => {
@@ -245,5 +253,44 @@ describe("ContentRenderer markdown formatting", () => {
       globalThis.document = previousDocument
       globalThis.Node = previousNode
     }
+  })
+
+  it("renders steps, callout, and tags widgets around the surrounding prose", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer
+        content={
+          "Here is the plan.\n\n" +
+          '<steps title="Connecting Notion">' +
+          '<step label="Open Settings → Connectors" description="Tap your avatar, then Settings."/>' +
+          '<step label="Run a test sync"/>' +
+          "</steps>\n\n" +
+          '<callout variant="warning" title="May 11 is the deadline">' +
+          "Anything not specced by **Apr 30** risks the date." +
+          "</callout>\n\n" +
+          '<tags title="Risk categories"><tag label="DS handoff timing" color="#C8920A"/></tags>'
+        }
+      />,
+    )
+
+    expect(html).toContain("Here is the plan.")
+    expect(html).toContain("Connecting Notion")
+    expect(html).toContain("Open Settings → Connectors")
+    expect(html).toContain("May 11 is the deadline")
+    expect(html).toContain("Risk categories")
+    expect(html).toContain("DS handoff timing")
+    // Callout body keeps inline markdown rather than literal asterisks.
+    expect(html).toContain(">Apr 30</strong>")
+    expect(html).not.toContain("**Apr 30**")
+    // Raw XML never survives to the DOM.
+    expect(html).not.toContain("&lt;steps")
+    expect(html).not.toContain("&lt;callout")
+  })
+
+  it("keeps an unknown callout variant renderable instead of failing the message", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer content='<callout variant="danger">Heads up.</callout>' />,
+    )
+
+    expect(html).toContain("Heads up.")
   })
 })

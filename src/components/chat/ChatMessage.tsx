@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { AnimatePresence, m } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { ReasoningBlock, ModelLogo, AnimatedLogo } from "./ReasoningBlock";
 import { BreathingDot } from "@/components/BreathingDot";
@@ -176,7 +176,7 @@ function StandaloneActivitiesBlock({
               fontFamily: "var(--font-body)",
               fontSize: 14,
               fontWeight: 500,
-              color: "var(--neutral-600, #524B47)",
+              color: "#524B47",
               flexShrink: 0,
             }}
           >
@@ -186,7 +186,7 @@ function StandaloneActivitiesBlock({
         <span
           style={{
             fontSize: 14,
-            color: "var(--neutral-400, #9A9089)",
+            color: "#9A9089",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -221,7 +221,7 @@ function StandaloneActivitiesBlock({
           >
             <path
               d="M3 5.5 L7 9.5 L11 5.5"
-              stroke="var(--neutral-400, #9C938B)"
+              stroke="#C0B5AD"
               strokeWidth="1.7"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -258,15 +258,50 @@ function StandaloneActivitiesBlock({
 // formatting quality during streaming — code blocks, math, GFM tables all
 // render properly while the stream is active.
 
-function StreamingTextContent({ content, citations }: { content: string; citations?: WebCitation[] }) {
-  const dot = (
-    <m.span
-      animate={{ opacity: [0.15, 1, 0.15] }}
-      transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-      style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#826B60", verticalAlign: "middle", marginLeft: 4 }}
-    />
-  );
-  return <ContentRenderer content={content} webCitations={citations} isStreaming cursor={dot} />;
+function StreamingTextContent({
+  content,
+  citations,
+  animate,
+  isLoading,
+}: {
+  content: string;
+  citations?: WebCitation[];
+  animate: boolean;
+  isLoading: boolean;
+}) {
+  const shouldReduceMotion = useReducedMotion() ?? false;
+  const targetRef = useRef(content);
+  const animateOnMountRef = useRef(animate);
+
+  const [displayedContent, setDisplayedContent] = useState("");
+
+  useEffect(() => {
+    targetRef.current = content;
+  }, [content]);
+
+  useEffect(() => {
+    if (shouldReduceMotion || !animateOnMountRef.current) return;
+
+    const interval = window.setInterval(() => {
+      setDisplayedContent((current) => {
+        const target = targetRef.current;
+        if (current === target) return current;
+        if (!target.startsWith(current)) return target;
+
+        const nextWord = target.slice(current.length).match(/^\s*\S+(?:\s+|$)/)?.[0];
+        return nextWord ? current + nextWord : target;
+      });
+    }, 28);
+
+    return () => window.clearInterval(interval);
+  }, [shouldReduceMotion]);
+
+  const shownContent = shouldReduceMotion || (!isLoading && !displayedContent)
+    ? content
+    : displayedContent;
+  const showCursor = isLoading || Boolean(displayedContent && displayedContent !== content);
+  const dot = <BreathingDot style={{ marginLeft: 4, backgroundColor: "#826B60" }} />;
+  return <ContentRenderer content={shownContent} webCitations={citations} isStreaming={showCursor} cursor={showCursor ? dot : undefined} />;
 }
 
 // ── Main ChatMessage Component ────────────────────────────────────────────────
@@ -338,7 +373,8 @@ export function ChatMessage({
 
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
-  const hasThinking = Boolean(message.thinking);
+  const hasThinking = Boolean(message.thinking || message.reasoning_sections?.length);
+  const canUseContentActions = Boolean(message.content.trim()) && !message.isError;
   const pinned = isAssistant && pinnedProp;
 
   // Resolve the actual model display name — never expose "souvenir" as a routing label.
@@ -529,7 +565,7 @@ export function ChatMessage({
     >
       {isUser ? (
         /* ── User message: right-aligned bubble ── */
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, maxWidth: "85%" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, width: "100%", maxWidth: 566 }}>
           {/* Pin attachment chips - appear above file chips and bubble */}
           {message.mentionedPins && message.mentionedPins.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "flex-end" }}>
@@ -675,7 +711,7 @@ export function ChatMessage({
             content={message.content}
             onRetry={onRegenerate}
             onEditSave={onEdit ? (newContent) => onEdit(message.id, newContent) : undefined}
-            maxWidth="100%"
+            maxWidth={566}
           />
         </div>
       ) : (
@@ -723,7 +759,7 @@ export function ChatMessage({
                         fontFamily: "var(--font-body)",
                         fontSize: "14px",
                         fontWeight: 500,
-                        color: "var(--neutral-600, #524B47)",
+                        color: "#524B47",
                       }}
                     >
                       {label}
@@ -767,7 +803,7 @@ export function ChatMessage({
 
         {/* Waiting indicator — shown while loading before any content or thinking arrives */}
         {message.isLoading && !message.content && !message.thinking && !(message.activities && message.activities.length > 0) && (
-          <BreathingDot size="md" style={{ marginLeft: 4, marginTop: 2, backgroundColor: "var(--neutral-400)" }} />
+          <BreathingDot size="md" style={{ marginLeft: 4, marginTop: 2, backgroundColor: "#826B60" }} />
         )}
 
         {/* Reasoning block — shown when adaptive thinking is enabled */}
@@ -780,6 +816,8 @@ export function ChatMessage({
             modelMeta={message.modelMeta}
             activities={message.activities}
             reasoningSections={message.reasoning_sections}
+            reasoningTimeline={message.reasoningTimeline}
+            researchTitle={message.researchTitle}
           />
         )}
 
@@ -794,9 +832,12 @@ export function ChatMessage({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           >
-            {isNewMessage && message.isLoading
-              ? <StreamingTextContent content={message.content} citations={message.webCitations} />
-              : <ContentRenderer content={message.content} webCitations={message.webCitations} />}
+            <StreamingTextContent
+              content={message.content}
+              citations={message.webCitations}
+              animate={isNewMessage}
+              isLoading={!!message.isLoading}
+            />
           </m.div>
         ) : null}
         {/* Structural blocks (tables, charts, steps, follow-ups, tags, etc.) come
@@ -1103,8 +1144,8 @@ export function ChatMessage({
           </span>
         )}
 
-        {/* Action buttons - always visible; gated only by loading state */}
-        <m.div
+        {/* Content actions require an actual answer; errors can still regenerate. */}
+        {(canUseContentActions || (isLast && onRegenerate)) && <m.div
           animate={{ opacity: !message.isLoading ? 1 : 0 }}
           transition={{ duration: 0.15 }}
           style={{
@@ -1114,18 +1155,20 @@ export function ChatMessage({
             pointerEvents: !message.isLoading ? "auto" : "none",
           }}
         >
-          {!hidePinAction && (
+          {canUseContentActions && !hidePinAction && (
             <ActionIconButton
               icon={<PinIcon size={18} color={pinned ? "var(--brown-700, #683D1B)" : "var(--neutral-400)"} />}
               label={pinned ? "Unpin" : "Pin"}
               onClick={handlePin}
             />
           )}
-          <ActionIconButton
-            icon={copied ? <TickTwoIcon size={18} color="var(--success-600, #80B707)" /> : <CopyOneIcon size={18} color="var(--neutral-400)" />}
-            label={copied ? "Copied" : "Copy"}
-            onClick={handleCopy}
-          />
+          {canUseContentActions && (
+            <ActionIconButton
+              icon={copied ? <TickTwoIcon size={18} color="var(--success-600, #80B707)" /> : <CopyOneIcon size={18} color="var(--neutral-400)" />}
+              label={copied ? "Copied" : "Copy"}
+              onClick={handleCopy}
+            />
+          )}
           {isLast && onRegenerate && (
             <ActionIconButton
               icon={<RedoIcon size={18} color="var(--neutral-400)" />}
@@ -1133,7 +1176,7 @@ export function ChatMessage({
               onClick={onRegenerate}
             />
           )}
-        </m.div>
+        </m.div>}
         </div>
       )}
 

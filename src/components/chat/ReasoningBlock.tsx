@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { AnimatePresence, m } from "framer-motion";
+import { useId, useState, type ReactNode } from "react";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   AiVisionRecognitionIcon,
@@ -20,13 +20,13 @@ import {
   Brain02Icon,
 } from "@hugeicons/core-free-icons";
 import { LineRenderer } from "@/lib/line-renderer";
-import { ActivitiesSection } from "./ActivityRow";
-import { StreamingCursor } from "./StreamingCursor";
+import { ActivitiesSection, ActivityRow } from "./ActivityRow";
 import { springs } from "@/lib/springs";
-import { toSouvenirModelLabel } from "@/lib/ai-models";
 import {
   cleanReasoningHeading,
+  splitReasoningText,
   type ReasoningSection,
+  type ReasoningTimelineItem,
 } from "@/lib/reasoning";
 import type { ActivityItem, ModelSelectedMeta } from "@/hooks/use-chat-state";
 
@@ -120,21 +120,22 @@ export function AnimatedLogo({
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
 
-function Chevron({ isOpen }: { isOpen: boolean }) {
+function ChevronRight({ isOpen }: { isOpen: boolean }) {
   return (
     <m.svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
+      width="12"
+      height="12"
+      viewBox="0 0 10 10"
       fill="none"
-      animate={{ rotate: isOpen ? 180 : 0 }}
+      animate={{ rotate: isOpen ? 90 : 0 }}
       transition={springs.fast}
       style={{ display: "block", flexShrink: 0 }}
+      aria-hidden="true"
     >
       <path
-        d="M3 5.5 L7 9.5 L11 5.5"
-        stroke="var(--neutral-400, #9C938B)"
-        strokeWidth="1.7"
+        d="M3.5 2 L7 5 L3.5 8"
+        stroke="#C0B5AD"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -142,44 +143,107 @@ function Chevron({ isOpen }: { isOpen: boolean }) {
   );
 }
 
-const chevronBtnStyle: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
-  cursor: "pointer",
-  padding: "2px",
-  display: "inline-flex",
-  alignItems: "center",
-  borderRadius: 4,
-  flexShrink: 0,
-  lineHeight: 0,
-};
+function ResearchTitle({ text }: { text: string }) {
+  const shouldReduceMotion = useReducedMotion() ?? false;
+  const words = [...text.matchAll(/\S+/g)].map((match) => ({
+    word: match[0],
+    start: match.index,
+  }));
 
-const COLLAPSE_TRANSITION = {
-  height: { duration: 0.25, ease: "easeInOut" as const },
-  opacity: { duration: 0.2, ease: "easeInOut" as const },
-};
+  return (
+    <m.span
+      key={text}
+      initial={shouldReduceMotion ? false : { opacity: 0, x: 10, filter: "blur(8px)" }}
+      animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+      transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
+      style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+    >
+      ·{" "}
+      {words.map(({ word, start }, index) => (
+        <m.span
+          key={`${word}-${start}`}
+          initial={shouldReduceMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.01, delay: index * 0.08 }}
+        >
+          {index > 0 ? " " : ""}{word}
+        </m.span>
+      ))}
+    </m.span>
+  );
+}
 
-// ── ModelNameLabel - plain name text only (logo handled by AnimatedLogo) ──────
+function ThinkingTrigger({ open, onToggle, controls, summary }: { open: boolean; onToggle: () => void; controls: string; summary?: string }) {
+  const [hovered, setHovered] = useState(false);
 
-function ModelNameLabel({
-  modelMeta,
-  modelName,
-}: {
-  modelMeta?: ModelSelectedMeta;
-  modelName?: string;
-}) {
-  const complexity = modelMeta?.complexity;
-  const isMuse = complexity === "basic" || complexity === "standard" || complexity === "advanced";
-  if (isMuse) {
-    // Per-message resolved tier — "Auto" is only ever the selector's routing
-    // MODE (see TopBar.tsx), never a tier a message actually resolves to.
-    // A message routed to the advanced tier shows "Advanced" here, not "Auto".
-    const tier = complexity === "advanced" ? "Advanced" : complexity === "standard" ? "Standard" : "Basic";
-    return <span>Souvenir Muse ({tier})</span>;
-  }
-  const name = modelMeta?.modelName || modelName
-  if (!name) return null
-  return <span>{toSouvenirModelLabel(name)}</span>;
+  return (
+    <div
+      style={{ position: "relative", width: summary ? "100%" : "fit-content", maxWidth: "100%" }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <AnimatePresence>
+        {hovered && (
+          <m.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.08 }}
+            style={{ position: "absolute", inset: 0, borderRadius: 8, background: "var(--neutral-100, #F7F3F0)", pointerEvents: "none" }}
+          />
+        )}
+      </AnimatePresence>
+      <button
+        type="button"
+        className="kaya-thinking-trigger"
+        aria-expanded={open}
+        aria-controls={controls}
+        onClick={onToggle}
+        style={{
+          position: "relative", zIndex: 1, display: "flex", alignItems: "center", gap: 6,
+          padding: "4px 0", border: 0, borderRadius: 8, background: "transparent",
+          cursor: "pointer", fontFamily: "var(--font-body)", userSelect: "none", maxWidth: "100%",
+        }}
+      >
+        <span style={{ display: "inline-grid", fontSize: 14, lineHeight: "22px", textAlign: "left" }}>
+          <span aria-hidden="true" style={{ gridArea: "1 / 1", visibility: "hidden", fontWeight: 500 }}>Thinking</span>
+          <span
+            style={{
+              gridArea: "1 / 1",
+              color: "#9A9089",
+              fontWeight: 500,
+            }}
+          >
+            Thinking
+          </span>
+        </span>
+        {summary && (
+          <span style={{ minWidth: 0, flex: 1, color: "#9A9089", fontSize: 14, lineHeight: "22px", textAlign: "left" }}>
+            <ResearchTitle text={summary} />
+          </span>
+        )}
+        <ChevronRight isOpen={open} />
+      </button>
+    </div>
+  );
+}
+
+function ThinkingCollapse({ open, id, children }: { open: boolean; id: string; children: ReactNode }) {
+  return (
+    <m.div
+      id={id}
+      aria-hidden={!open}
+      inert={!open}
+      initial={false}
+      animate={{ height: open ? "auto" : 0 }}
+      transition={{ ...springs.moderate, bounce: 0 }}
+      style={{ overflow: "hidden" }}
+    >
+      <div style={{ padding: "12px 0 10px", fontFamily: "var(--font-body)", fontSize: 14, color: "#524B47" }}>
+        {children}
+      </div>
+    </m.div>
+  );
 }
 
 // ── Structured reasoning sections (from backend reasoning_sections[]) ────────
@@ -209,19 +273,6 @@ function getReasoningIcon(heading: string): any {
   return AiNetworkIcon; // fallback
 }
 
-/** Render inline markdown bold + text for step summaries */
-function renderStepBody(text: string) {
-  return text.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**"))
-      return <strong key={i} style={{ fontWeight: 600, color: "var(--neutral-800, #3B3632)" }}>{part.slice(2, -2)}</strong>;
-    return <span key={i}>{part}</span>;
-  });
-}
-
-function StepBody({ text }: { text: string }) {
-  return <>{renderStepBody(text)}</>
-}
-
 function ReasoningStep({
   section, index, total, isActive,
 }: {
@@ -230,135 +281,89 @@ function ReasoningStep({
   total: number;
   isActive: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   const heading = cleanReasoningHeading(section.heading);
   const hasBody = section.body.trim().length > 0;
   const isLast = index === total - 1;
   const icon = getReasoningIcon(heading);
-
-  const headingStyle: React.CSSProperties = isActive
-    ? {
-        fontWeight: 600,
-        fontSize: 14,
-        backgroundImage: "linear-gradient(90deg, #B6ACA4 0%, #3B3632 45%, #3B3632 55%, #B6ACA4 100%)",
-        backgroundSize: "200% 100%",
-        WebkitBackgroundClip: "text",
-        backgroundClip: "text",
-        WebkitTextFillColor: "transparent",
-        color: "transparent",
-        animation: "svLabelShimmer 2.4s ease-in-out infinite",
-      }
-    : {
-        fontWeight: 600,
-        fontSize: 14,
-        color: "var(--neutral-800, #26211E)",
-      };
+  const [expanded, setExpanded] = useState(false);
+  const bodyId = useId();
+  const detail = section.detail?.trim() ?? "";
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "stretch",
-        paddingBottom: isLast ? 0 : 12,
-      }}
+    <m.div
+      style={{ position: "relative", zIndex: 1, overflow: "hidden" }}
+      initial={{ height: 0 }}
+      animate={{ height: "auto" }}
+      transition={springs.slow}
     >
-      {/* Left column - icon + animated vertical connector */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 22, flexShrink: 0 }}>
-        <span
-          style={{
-            width: 22, height: 26,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            lineHeight: 0, flexShrink: 0,
-          }}
-        >
-          {isActive ? (
-            <m.span
-              animate={{ rotate: [0, 360] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 0 }}
-            >
-              <HugeiconsIcon icon={icon} size={15} color="#A89488" strokeWidth={1.6} />
-            </m.span>
-          ) : (
-            <HugeiconsIcon icon={icon} size={15} color="#C0B5AD" strokeWidth={1.6} />
-          )}
-        </span>
-        <AnimatePresence>
-          {!isLast && (
-            <m.div
-              key="line"
-              initial={{ scaleY: 0, opacity: 0 }}
-              animate={{ scaleY: 1, opacity: 1 }}
-              transition={{ duration: 0.28, ease: "easeOut", delay: 0.1 }}
-              style={{
-                width: 1,
-                flex: 1,
-                background: "var(--neutral-200, #EDE1D7)",
-                transformOrigin: "top",
-                minHeight: 12,
-              }}
-            />
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Right column - heading button + expandable body */}
-      <div style={{ flex: 1, paddingLeft: 9, display: "flex", flexDirection: "column" }}>
-        <button
-          type="button"
-          onClick={() => hasBody && setOpen((o) => !o)}
-          style={{
-            display: "flex", alignItems: "center", gap: 8,
-            width: "100%", background: "transparent", border: "none",
-            cursor: hasBody ? "pointer" : "default",
-            padding: "4px 0", textAlign: "left",
-            fontFamily: "var(--font-body)",
-          }}
-        >
-          <span style={{ flex: 1, lineHeight: "22px", ...headingStyle }}>
-            {heading}{isActive ? "…" : ""}
-          </span>
-          {hasBody && !isActive && (
-            <m.span
-              animate={{ rotate: open ? 90 : 0 }}
-              transition={{ type: "spring", stiffness: 380, damping: 28 }}
-              style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}
-            >
-              <svg width="12" height="12" viewBox="0 0 10 10" fill="none">
-                <path d="M3.5 2 L7 5 L3.5 8" stroke="#C0B5AD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </m.span>
-          )}
-        </button>
-
-        <AnimatePresence initial={false}>
-          {open && hasBody && !isActive && (
-            <m.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              style={{ overflow: "hidden" }}
-            >
-              <p
+      <m.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.24, delay: 0.08, ease: "easeOut" }}
+      >
+        <div style={{ display: "flex", alignItems: "stretch", paddingBottom: isLast ? 0 : 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 20 }}>
+            <span style={{ display: "flex", width: 20, height: 28, alignItems: "center", justifyContent: "center", lineHeight: 0 }}>
+              <HugeiconsIcon icon={icon} size={16} color={isActive ? "#A89488" : "#C0B5AD"} strokeWidth={1.5} />
+            </span>
+            {!isLast && (
+              <span
                 style={{
-                  fontSize: 13,
-                  color: "var(--neutral-600, #524B47)",
-                  lineHeight: "21px",
-                  borderLeft: "2px solid var(--neutral-200, #EDE1D7)",
-                  paddingLeft: 10,
-                  margin: "6px 0 4px 0",
-                  fontFamily: "var(--font-body)",
+                  flex: 1,
+                  width: 1,
+                  minHeight: 12,
+                  background: "var(--neutral-200, #EDE1D7)",
                 }}
-              >
-                <StepBody text={section.body} />
-              </p>
-            </m.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
+              />
+            )}
+          </div>
+
+          <div style={{ display: "flex", minWidth: 0, flex: 1, flexDirection: "column", paddingLeft: 10 }}>
+            <button
+              type="button"
+              disabled={isActive || !hasBody}
+              aria-expanded={!isActive && hasBody ? expanded : undefined}
+              aria-controls={!isActive && hasBody ? bodyId : undefined}
+              onClick={() => setExpanded((value) => !value)}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, width: "100%",
+                padding: "3px 0", border: 0, background: "transparent",
+                cursor: !isActive && hasBody ? "pointer" : "default", textAlign: "left",
+                fontFamily: "var(--font-body)",
+              }}
+            >
+              <span style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#524B47", fontSize: 14, lineHeight: "22px" }}>
+                <strong
+                  className={isActive ? "kaya-thinking-step-shimmer" : undefined}
+                  style={{ color: "#26211E", fontWeight: 600 }}
+                >
+                  {heading}{isActive ? "…" : ""}
+                </strong>
+                {!isActive && detail ? <> {detail}</> : null}
+              </span>
+              {!isActive && hasBody && <ChevronRight isOpen={expanded} />}
+            </button>
+
+            <AnimatePresence initial={false}>
+              {expanded && !isActive && hasBody && (
+                <m.div
+                  id={bodyId}
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ overflow: "hidden" }}
+                >
+                  <div style={{ margin: "8px 0 6px", paddingLeft: 10, borderLeft: "2px solid #EDE1D7" }}>
+                    <LineRenderer content={section.body} variant="reasoning" />
+                  </div>
+                </m.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </m.div>
+    </m.div>
   );
 }
 
@@ -375,19 +380,13 @@ function ReasoningSections({
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
       {valid.map((s, i) => (
-        <m.div
-          key={`${s.heading}-${i}`}
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.18, ease: "easeOut" }}
-        >
-          <ReasoningStep
-            section={s}
-            index={i}
-            total={valid.length}
-            isActive={isStreaming && i === valid.length - 1}
-          />
-        </m.div>
+        <ReasoningStep
+          key={`${s.heading}-${s.body}`}
+          section={s}
+          index={i}
+          total={valid.length}
+          isActive={isStreaming && i === valid.length - 1}
+        />
       ))}
     </div>
   );
@@ -395,10 +394,60 @@ function ReasoningSections({
 
 // ── Left bar + thinking content ────────────────────────────────────────────────
 
+function TimelineReasoningStep({ content, active }: { content: string; active: boolean }) {
+  const parsed = splitReasoningText(content);
+  const chunks = parsed.filter((section) => cleanReasoningHeading(section.heading).length > 2);
+
+  if (chunks.length === 0) {
+    return (
+      <div style={{ overflow: "hidden" }}>
+        <m.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.24, delay: 0.08, ease: "easeOut" }}
+          style={{ display: "flex", gap: 10 }}
+        >
+          <span style={{ display: "flex", width: 20, height: 22, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: "#C0B5AD" }} />
+          </span>
+          <div
+            className={active ? "kaya-thinking-step-shimmer" : undefined}
+            style={{ minWidth: 0, flex: 1, color: "#524B47", fontFamily: "var(--font-body)", fontSize: 14, lineHeight: "22px" }}
+          >
+            <LineRenderer content={content} variant="reasoning" />
+          </div>
+        </m.div>
+      </div>
+    );
+  }
+
+  return (
+    <m.div
+      initial={{ height: 0 }}
+      animate={{ height: "auto" }}
+      transition={springs.slow}
+      style={{ overflow: "hidden" }}
+    >
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {chunks.map((section, index) => (
+          <ReasoningStep
+            key={`${section.heading}-${section.body}`}
+            section={section}
+            index={index}
+            total={chunks.length}
+            isActive={active && index === chunks.length - 1}
+          />
+        ))}
+      </div>
+    </m.div>
+  );
+}
+
 export interface ReasoningContentProps {
   thinkingContent: string;
   reasoningSections?: ReasoningSection[];
   activities?: ActivityItem[];
+  reasoningTimeline?: ReasoningTimelineItem[];
   isStreaming: boolean;
 }
 
@@ -406,6 +455,7 @@ export function ReasoningContent({
   thinkingContent,
   reasoningSections,
   activities,
+  reasoningTimeline,
   isStreaming,
 }: ReasoningContentProps) {
   const hasActivities = Boolean(activities?.length);
@@ -413,44 +463,49 @@ export function ReasoningContent({
   // When streaming, the last section gets the shimmer "active" treatment.
   // Fall back to raw thinkingContent only when no sections are available.
   const hasStructured = reasoningSections && reasoningSections.length > 0;
+  const hasTimeline = Boolean(reasoningTimeline?.length);
+  const activityById = new Map((activities ?? []).map((activity) => [activity.id, activity]));
 
   return (
-    <div style={{ position: "relative", paddingLeft: 12 }}>
-      <div
-        className={isStreaming ? "kaya-reasoning-active" : undefined}
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 2,
-          borderRadius: 2,
-          backgroundColor: isStreaming ? undefined : "var(--neutral-200, #EDE1D7)",
-          transition: "background-color 0.4s",
-        }}
-      />
-
-      {hasActivities && <ActivitiesSection activities={activities!} />}
-
-      {hasStructured ? (
-        <div style={{ marginTop: hasActivities ? 8 : 0 }}>
-          <ReasoningSections sections={reasoningSections!} isStreaming={isStreaming} />
+    <div>
+      {hasTimeline ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {reasoningTimeline!.map((item, index) => {
+            if (item.kind === "activity") {
+              const activity = activityById.get(item.activityId);
+              return activity ? (
+                <m.div key={item.id} initial={{ height: 0 }} animate={{ height: "auto" }} transition={springs.slow} style={{ overflow: "hidden" }}>
+                  <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.24, delay: 0.08, ease: "easeOut" }}>
+                    <ActivityRow activity={activity} />
+                  </m.div>
+                </m.div>
+              ) : null;
+            }
+            const isActiveReasoning = isStreaming && index === reasoningTimeline!.length - 1;
+            return (
+              <TimelineReasoningStep
+                key={item.id}
+                content={item.content}
+                active={isActiveReasoning}
+              />
+            );
+          })}
         </div>
+      ) : hasStructured ? (
+        <>
+          {hasActivities && <ActivitiesSection activities={activities!} />}
+          <div style={{ marginTop: hasActivities ? 16 : 0 }}>
+            <ReasoningSections sections={reasoningSections!} isStreaming={isStreaming} />
+          </div>
+        </>
       ) : thinkingContent ? (
-        <div
-          className="kaya-thinking-md"
-          style={{
-            fontSize: 14,
-            color: "var(--neutral-500, #6E645D)",
-            fontFamily: "var(--font-body)",
-            lineHeight: "22px",
-            marginTop: hasActivities ? 8 : 0,
-          }}
-        >
-          <LineRenderer content={thinkingContent} />
-          <StreamingCursor isVisible={isStreaming} />
-        </div>
-      ) : null}
+        <>
+          {hasActivities && <ActivitiesSection activities={activities!} />}
+          <div style={{ marginTop: hasActivities ? 16 : 0 }}>
+            <TimelineReasoningStep content={thinkingContent} active={isStreaming} />
+          </div>
+        </>
+      ) : hasActivities ? <ActivitiesSection activities={activities!} /> : null}
     </div>
   );
 }
@@ -466,203 +521,67 @@ interface ReasoningBlockProps {
   activities?: ActivityItem[];
   /** Structured reasoning steps from the backend - rendered as collapsible steps when done. */
   reasoningSections?: ReasoningSection[];
+  /** Live arrival-ordered reasoning/tool trace. */
+  reasoningTimeline?: ReasoningTimelineItem[];
+  /** Live/final compact research summary emitted by the stream. */
+  researchTitle?: string;
 }
 
 export function ReasoningBlock({
   thinkingContent,
   isThinkingInProgress,
-  modelName,
-  modelMeta,
   activities,
   reasoningSections,
+  reasoningTimeline,
+  researchTitle,
 }: ReasoningBlockProps) {
-  const [outerOpen, setOuterOpen] = useState(true);
-  const [innerOpen, setInnerOpen] = useState(true);
-  const [thinkingDurationS, setThinkingDurationS] = useState<number | null>(null);
-  const [justSelected, setJustSelected] = useState(false);
-  const thinkingStartRef = useRef<number | null>(null);
-  const prevModelRef = useRef<string | undefined>(undefined);
+  const [manualOpen, setManualOpen] = useState<boolean | null>(null);
+  const panelId = useId();
+  const hasActiveActivity = activities?.some((activity) =>
+    activity.status === "start" || activity.status === "executing" || activity.status === "reading",
+  );
+  const open = manualOpen ?? Boolean(isThinkingInProgress || hasActiveActivity);
 
-  useEffect(() => {
-    if (isThinkingInProgress) {
-      if (!thinkingStartRef.current) thinkingStartRef.current = Date.now();
-    } else if (thinkingStartRef.current) {
-      const elapsed = Math.round((Date.now() - thinkingStartRef.current) / 1000);
-      setThinkingDurationS(elapsed);
-      thinkingStartRef.current = null;
+  const fallbackTitle = (() => {
+    const lastReasoning = reasoningTimeline?.findLast((item) => item.kind === "reasoning");
+    if (lastReasoning) {
+      const parsedTimeline = splitReasoningText(lastReasoning.content);
+      const timelineHeading = cleanReasoningHeading(parsedTimeline.findLast((section) => section.heading)?.heading ?? "");
+      if (timelineHeading) return timelineHeading;
     }
-  }, [isThinkingInProgress]);
 
-  // Trigger glow burst when model name (or, for Muse-routed responses that
-  // never send a raw name, complexity) first arrives.
-  const currentModel = modelMeta?.modelName || modelName || modelMeta?.complexity;
-  useEffect(() => {
-    if (currentModel && currentModel !== prevModelRef.current) {
-      prevModelRef.current = currentModel;
-      setJustSelected(true);
-      const t = setTimeout(() => setJustSelected(false), 1200);
-      return () => clearTimeout(t);
-    }
-  }, [currentModel]);
+    const sectionHeading = cleanReasoningHeading(reasoningSections?.at(-1)?.heading ?? "");
+    if (sectionHeading) return sectionHeading;
 
-  if (!thinkingContent && !reasoningSections?.length && !isThinkingInProgress) return null;
+    const parsedThinking = splitReasoningText(thinkingContent);
+    return cleanReasoningHeading(parsedThinking.findLast((section) => section.heading)?.heading ?? "");
+  })();
+  // fallbackTitle mirrors the newest reasoning heading. Collapsed, that is the
+  // only signal of what was thought about; expanded, the step row below renders
+  // the identical string, so carrying it up here would put the same text on two
+  // nested disclosures — most visibly with a single step, where the outer row is
+  // an exact copy of its only child. A real researchTitle summarises the whole
+  // panel rather than one step, so it stays in both states.
+  const summary = researchTitle?.trim() || (open ? "" : fallbackTitle);
 
-  const hasActivities = Boolean(activities?.length);
-  const hasContent = Boolean(thinkingContent) || Boolean(reasoningSections?.length) || hasActivities;
-  const hasModel = !!(modelMeta?.modelName || modelName || modelMeta?.complexity);
-
-  const outerVisible = isThinkingInProgress || outerOpen;
-  const innerVisible = isThinkingInProgress || innerOpen;
-
-  const shimmerStyle: React.CSSProperties = {
-    backgroundImage: "linear-gradient(90deg, #B6ACA4 0%, #3B3632 45%, #3B3632 55%, #B6ACA4 100%)",
-    backgroundSize: "200% 100%",
-    WebkitBackgroundClip: "text",
-    backgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    color: "transparent",
-    animation: "svLabelShimmer 2.4s ease-in-out infinite",
-  };
+  if (!thinkingContent && !reasoningSections?.length && !reasoningTimeline?.length && !activities?.length && !isThinkingInProgress) return null;
 
   return (
-    <div style={{ margin: "4px 0 10px" }}>
+    <div style={{ width: "100%", margin: "4px 0 10px", fontFamily: "var(--font-body)" }}>
 
       {/* ── Outer header ────────────────────────────────────────────────────── */}
-      <div draggable={false} style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20, userSelect: "none" }}>
-        {/* Animated logo - Souvenir mark while thinking, model icon after model_selected */}
-        <AnimatedLogo
-          modelMeta={modelMeta}
-          modelName={modelName}
-          justSelected={justSelected}
-        />
-
-        <AnimatePresence mode="wait" initial={false}>
-          {isThinkingInProgress && !hasModel ? (
-            <m.div
-              key="souvenir"
-              initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-              animate={{ opacity: 1, filter: "none", scale: 1 }}
-              exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-              transition={{ type: "spring", stiffness: 520, damping: 32 }}
-              style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 500, lineHeight: "18px" }}
-            >
-              <span style={shimmerStyle}>Souvenir</span>
-            </m.div>
-          ) : isThinkingInProgress && hasModel ? (
-            <m.div
-              key={`thinking-${modelMeta?.modelName || modelName || modelMeta?.complexity}`}
-              initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-              animate={{ opacity: 1, filter: "none", scale: 1 }}
-              exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
-              transition={{ type: "spring", stiffness: 520, damping: 32 }}
-              style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 500, lineHeight: "18px", color: "var(--neutral-600, #524B47)" }}
-            >
-              <ModelNameLabel modelMeta={modelMeta} modelName={modelName} />
-              <span style={{ color: "var(--neutral-400, #9A9089)", fontWeight: 400 }}>· Thinking…</span>
-            </m.div>
-          ) : (
-            <m.span
-              key="done"
-              initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82, y: 5 }}
-              animate={{ opacity: 1, filter: "none", scale: 1, y: 0 }}
-              exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82, y: -5 }}
-              transition={{ type: "spring", stiffness: 520, damping: 32 }}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 5,
-                fontSize: 14, fontWeight: 500, lineHeight: "18px", color: "var(--neutral-600, #524B47)",
-              }}
-            >
-              <ModelNameLabel modelMeta={modelMeta} modelName={modelName} />
-              {thinkingDurationS !== null && (
-                <span style={{ color: "var(--neutral-400, #9A9089)", fontWeight: 400 }}>
-                  · {thinkingDurationS}s
-                </span>
-              )}
-              {hasContent && (
-                <button
-                  type="button"
-                  aria-label={outerOpen ? "Collapse" : "Expand"}
-                  style={chevronBtnStyle}
-                  onClick={() => setOuterOpen((o) => !o)}
-                >
-                  <Chevron isOpen={outerOpen} />
-                </button>
-              )}
-            </m.span>
-          )}
-        </AnimatePresence>
-      </div>
+      <ThinkingTrigger open={open} onToggle={() => setManualOpen(!open)} controls={panelId} summary={summary || undefined} />
 
       {/* ── Outer collapse (always mounted - prevents jump on streaming→done) ── */}
-      <m.div
-        initial={false}
-        animate={{ height: outerVisible ? "auto" : 0, opacity: outerVisible ? 1 : 0 }}
-        transition={COLLAPSE_TRANSITION}
-        style={{ overflow: "hidden" }}
-      >
-        <div style={{ marginTop: 8 }}>
-
-          {/* Inner header: "Thinking [chevron]" - shown only after streaming */}
-          <AnimatePresence initial={false}>
-            {!isThinkingInProgress && (
-              <m.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                style={{ marginBottom: 6 }}
-              >
-                {/* Chevron sits inline, immediately after "Thinking" */}
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    cursor: hasContent ? "pointer" : "default",
-                    userSelect: "none",
-                  }}
-                  onClick={hasContent ? () => setInnerOpen((o) => !o) : undefined}
-                >
-                  <span
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "var(--neutral-500, #6E645D)",
-                    }}
-                  >
-                    Thinking
-                  </span>
-                  {hasContent && (
-                    <button
-                      type="button"
-                      aria-label={innerOpen ? "Collapse reasoning" : "Expand reasoning"}
-                      style={chevronBtnStyle}
-                    >
-                      <Chevron isOpen={innerOpen} />
-                    </button>
-                  )}
-                </span>
-              </m.div>
-            )}
-          </AnimatePresence>
-
-          {/* Inner collapse (always mounted) */}
-          <m.div
-            initial={false}
-            animate={{ height: innerVisible ? "auto" : 0, opacity: innerVisible ? 1 : 0 }}
-            transition={COLLAPSE_TRANSITION}
-            style={{ overflow: "hidden" }}
-          >
-            <ReasoningContent
-              thinkingContent={thinkingContent}
-              reasoningSections={reasoningSections}
-              activities={activities}
-              isStreaming={!!isThinkingInProgress}
-            />
-          </m.div>
-
-        </div>
-      </m.div>
+      <ThinkingCollapse open={open} id={panelId}>
+        <ReasoningContent
+          thinkingContent={thinkingContent}
+          reasoningSections={reasoningSections}
+          activities={activities}
+          reasoningTimeline={reasoningTimeline}
+          isStreaming={!!isThinkingInProgress}
+        />
+      </ThinkingCollapse>
 
     </div>
   );

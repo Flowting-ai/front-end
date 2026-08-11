@@ -3,23 +3,70 @@ import { mergeStreamingText } from '@/lib/streaming'
 export type ReasoningSection = {
   heading: string
   body: string
+  detail?: string
 }
+
+export type ReasoningTimelineItem =
+  | {
+      kind: 'reasoning'
+      id: string
+      content: string
+      roundIndex?: number
+    }
+  | {
+      kind: 'activity'
+      id: string
+      activityId: string
+      roundIndex?: number
+    }
 
 export type ReasoningEventType =
   | 'reasoning'
   | 'reasoning_heading'
   | 'reasoning_body'
 
-export type ReasoningStreamState = {
-  text: string
-  sections: ReasoningSection[]
+/** Append a reasoning delta to the current ordered stream segment. A tool
+ * activity or a changed backend round starts a new segment, preventing words
+ * and Markdown delimiters from separate model messages from being glued
+ * together. */
+export function appendReasoningTimeline(
+  timeline: ReasoningTimelineItem[],
+  incoming: string,
+  newId: string,
+  roundIndex?: number,
+): ReasoningTimelineItem[] {
+  if (!incoming) return timeline
+  const last = timeline[timeline.length - 1]
+  const sameRound = roundIndex === undefined || last?.roundIndex === undefined || last.roundIndex === roundIndex
+  if (last?.kind === 'reasoning' && sameRound) {
+    const content = mergeStreamingText(last.content, incoming)
+    if (content === last.content) return timeline
+    return [...timeline.slice(0, -1), { ...last, content }]
+  }
+  return [...timeline, { kind: 'reasoning', id: newId, content: incoming, roundIndex }]
 }
 
-export function createReasoningState(
-  text = '',
-  sections: ReasoningSection[] = [],
-): ReasoningStreamState {
-  return { text, sections }
+export function appendActivityTimeline(
+  timeline: ReasoningTimelineItem[],
+  activityId: string,
+  newId: string,
+  roundIndex?: number,
+): ReasoningTimelineItem[] {
+  if (timeline.some((item) => item.kind === 'activity' && item.activityId === activityId)) return timeline
+  return [...timeline, { kind: 'activity', id: newId, activityId, roundIndex }]
+}
+
+export function replaceTimelineActivityId(
+  timeline: ReasoningTimelineItem[],
+  previousId: string,
+  nextId: string,
+): ReasoningTimelineItem[] {
+  if (previousId === nextId) return timeline
+  return timeline.map((item) =>
+    item.kind === 'activity' && item.activityId === previousId
+      ? { ...item, activityId: nextId }
+      : item,
+  )
 }
 
 export function reasoningEventText(data: Record<string, unknown>): string {
@@ -134,47 +181,140 @@ export function normalizeReasoningSections(value: unknown): ReasoningSection[] {
     const section = entry as Record<string, unknown>
     const heading = typeof section.heading === 'string' ? section.heading : ''
     const body = typeof section.body === 'string' ? section.body : ''
-    return cleanReasoningHeading(heading) ? [{ heading, body }] : []
+    const detail = typeof section.detail === 'string' ? section.detail : undefined
+    return cleanReasoningHeading(heading) ? [{ heading, body, ...(detail ? { detail } : {}) }] : []
   })
 }
 
-export function appendReasoningEvent(
-  state: ReasoningStreamState,
-  type: ReasoningEventType,
-  incoming: string,
-): ReasoningStreamState {
-  if (!incoming) return state
+// ── Shared stream accumulator ─────────────────────────────────────────────────
+// The single place reasoning SSE events turn into renderable state. Transport
+// agnostic on purpose: chat drives it from `useStreamingChat`'s XHR loop, Brain
+// from its own `readBrainStream` consumer, and both hand the same snapshot to
+// `ReasoningContent`. Anything added here shows up on both surfaces at once.
 
-  if (type === 'reasoning') {
-    return {
-      ...state,
-      text: mergeStreamingText(state.text, incoming),
-    }
+export type ReasoningSnapshot = {
+  text: string
+  sections: ReasoningSection[]
+  timeline: ReasoningTimelineItem[]
+}
+
+export type ReasoningAccumulator = {
+  text(): string
+  sections(): ReasoningSection[]
+  timeline(): ReasoningTimelineItem[]
+  snapshot(): ReasoningSnapshot
+  isEmpty(): boolean
+  event(type: ReasoningEventType, content: string, roundIndex?: number): void
+  step(section: ReasoningSection, index?: number): void
+  activity(activityId: string, roundIndex?: number): void
+  renameActivity(previousId: string, nextId: string): void
+}
+
+export function eventRoundIndex(data: Record<string, unknown>): number | undefined {
+  return typeof data.round_index === 'number' ? data.round_index : undefined
+}
+
+export function createReasoningAccumulator(): ReasoningAccumulator {
+  let text = ''
+  let timeline: ReasoningTimelineItem[] = []
+  let sequence = 0
+  const committed: ReasoningSection[] = []
+  const previewSteps = new Map<number, ReasoningSection>()
+  let heading = ''
+  let body = ''
+
+  // Both caches exist for referential stability, not speed: consumers feed these
+  // arrays straight into React state and `useMemo` deps, so rebuilding them on
+  // every token would re-run the (O(n) over the whole transcript) section
+  // derivation on each frame. A plain `reasoning` delta leaves the sections
+  // untouched, so only the snapshot is invalidated there.
+  let cachedSections: ReasoningSection[] | null = null
+  let cachedSnapshot: ReasoningSnapshot | null = null
+
+  const nextId = (kind: ReasoningTimelineItem['kind']) => {
+    const id = `${kind}-${sequence}`
+    sequence += 1
+    return id
   }
 
-  if (type === 'reasoning_heading') {
-    const last = state.sections[state.sections.length - 1]
-    if (last && last.heading === incoming) return state
-
-    return {
-      ...state,
-      sections: [...state.sections, { heading: incoming, body: '' }],
-    }
+  const appendDelta = (incoming: string, roundIndex?: number) => {
+    timeline = appendReasoningTimeline(timeline, incoming, nextId('reasoning'), roundIndex)
+    text = timeline
+      .flatMap((item) => item.kind === 'reasoning' ? [item.content] : [])
+      .join('\n\n')
+    cachedSnapshot = null
   }
 
-  const lastIndex = state.sections.length - 1
-  if (lastIndex < 0) {
-    return {
-      ...state,
-      text: mergeStreamingText(state.text, incoming),
-    }
+  const invalidateSections = () => {
+    cachedSections = null
+    cachedSnapshot = null
   }
 
-  const current = state.sections[lastIndex]
-  const mergedBody = mergeStreamingText(current.body, incoming)
-  if (mergedBody === current.body) return state
+  const sections = (): ReasoningSection[] => {
+    if (cachedSections) return cachedSections
+    if (previewSteps.size > 0) {
+      cachedSections = [...previewSteps.entries()]
+        .sort(([a], [b]) => a - b)
+        .map(([, section]) => section)
+      return cachedSections
+    }
+    const out = [...committed]
+    if (heading) out.push({ heading, body })
+    cachedSections = out
+    return out
+  }
 
-  const sections = state.sections.slice()
-  sections[lastIndex] = { ...current, body: mergedBody }
-  return { ...state, sections }
+  return {
+    text: () => text,
+    sections,
+    timeline: () => timeline,
+    snapshot: () => {
+      if (!cachedSnapshot) cachedSnapshot = { text, sections: sections(), timeline }
+      return cachedSnapshot
+    },
+    isEmpty: () => !text,
+
+    event(type, content, roundIndex) {
+      if (!content) return
+
+      if (type === 'reasoning') {
+        appendDelta(content, roundIndex)
+        return
+      }
+
+      if (type === 'reasoning_heading') {
+        // Re-sent headings are common on reconnect; committing the same one
+        // twice would duplicate the section and its timeline segment.
+        if (heading === content) return
+        if (heading) committed.push({ heading, body })
+        heading = content
+        body = ''
+        invalidateSections()
+        // Mirrored into the timeline as a markdown title so the segment-level
+        // re-split in TimelineReasoningStep recognises it as a step heading
+        // rather than burying it in the body as plain text.
+        appendDelta(`**${cleanReasoningHeading(content)}**\n\n`, roundIndex)
+        return
+      }
+
+      body = mergeStreamingText(body, content)
+      invalidateSections()
+      appendDelta(content, roundIndex)
+    },
+
+    step(section, index) {
+      previewSteps.set(index ?? previewSteps.size, section)
+      invalidateSections()
+    },
+
+    activity(activityId, roundIndex) {
+      timeline = appendActivityTimeline(timeline, activityId, nextId('activity'), roundIndex)
+      cachedSnapshot = null
+    },
+
+    renameActivity(previousId, replacementId) {
+      timeline = replaceTimelineActivityId(timeline, previousId, replacementId)
+      cachedSnapshot = null
+    },
+  }
 }

@@ -904,7 +904,7 @@ export function ChatInterface({
       chatId ?? null,
       loadingId,
       algorithm ? null : selectedModelId,
-      { ...(algorithm ? { algorithm } : {}), chatOwnershipConfirmed },
+      { ...(algorithm ? { algorithm } : {}), enableReasoning, chatOwnershipConfirmed },
     ).finally(() => {
       isSendingRef.current = false;
     });

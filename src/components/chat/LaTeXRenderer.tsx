@@ -42,7 +42,7 @@ export const renderBoldInlineContent = (
             borderRadius: "4px",
             backgroundColor: "var(--neutral-100)",
             padding: "1px 4px",
-            fontFamily: "var(--font-mono, ui-monospace, monospace)",
+            fontFamily: "var(--font-code)",
             fontSize: "0.875em",
           }}
         >

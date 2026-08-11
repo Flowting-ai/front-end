@@ -58,7 +58,9 @@ function FloatingPanelImpl() {
   // panel context/sidebar. Close it on unmount too, using a ref so the
   // cleanup sees the latest agentsOpen without re-running on every toggle.
   const agentsOpenRef = useRef(agentsOpen)
-  agentsOpenRef.current = agentsOpen
+  useEffect(() => {
+    agentsOpenRef.current = agentsOpen
+  }, [agentsOpen])
   useEffect(() => {
     return () => {
       if (agentsOpenRef.current) setSidePanel(null)

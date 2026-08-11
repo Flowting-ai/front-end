@@ -485,24 +485,16 @@
   --overlay-blur: 2px;                    /* applied via backdrop-filter */
 
   /* ── MessageBubble / User ────────────────────────────────────────────────────
-     White card with warm neutral lift - same two-shadow + 1px-ring language as
-     Button/secondary and FloatingMenu. Bottom-right radius 4px (conversation tail).
+     Corrosion card from souvenir-chat-preview. Bottom-right radius 4px
+     creates the conversation tail.
      Action bar fades in on hover: timestamp + Retry + Edit + Copy (ghost-2 IconButtons).
      Figma: 2514:21470 (User Bubble)
      ─────────────────────────────────────────────────────────────────────────── */
-  --message-bubble-user-bg:          var(--neutral-white);
-  --message-bubble-user-text:        var(--neutral-950);
-  --message-bubble-action-timestamp: var(--neutral-400);
-
-  /* Outer: two-layer lift + 1px warm border ring */
-  --shadow-message-bubble-user:
-    0px 1.091px 1.091px 0px var(--neutral-800-05),
-    0px 1.455px 3.127px 0px var(--neutral-900-15),
-    0px 0px 0px 1px        var(--neutral-100);
-
-  /* Inner: bottom-only depth shadow - grounds the bubble */
-  --shadow-message-bubble-user-inner:
-    inset 0px -2.182px 0.364px 0px var(--neutral-100);
+  --message-bubble-user-bg:          #683D1B;
+  --message-bubble-user-text:        var(--neutral-white);
+  --message-bubble-action-timestamp: #B6ACA4;
+  --message-bubble-action-icon:      #B6ACA4;
+  --shadow-message-bubble-user:      inset 0px -2px 1.1px rgba(0, 0, 0, 0.25);
 
   /* ── Chip ─────────────────────────────────────────────────────────────────── */
   --chip-bg:   var(--blue-100);
@@ -543,6 +535,37 @@
   /* Aliases used by Brain result cards */
   --shadow-card-default: var(--shadow-surface-card);
   --shadow-card-hover:   var(--shadow-surface-card-hover);
+
+  /* ── Prose / Assistant answer ────────────────────────────────────────────────
+     The rendered markdown body of a model reply. Headings sit a step darker
+     than body copy so hierarchy survives even where two steps are close in size.
+
+     Vertical rhythm is asymmetric on purpose: the space above a heading is
+     roughly twice the space below it, so a heading groups with the content it
+     introduces instead of floating equidistant between two sections. Adjacent
+     margins collapse in normal flow, so the gap above a heading is the larger
+     of the previous block's `space-after` and the heading's `space-before`.
+     Spec: `specs/foundations/spacing.md`.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --prose-text:         var(--neutral-800);           /* #3B3632 - body copy */
+  --prose-heading:      var(--color-text-primary);    /* #26211E - h1/h2/h3, bold leads */
+  --prose-quote-text:   var(--neutral-600);           /* #6A625D */
+  --prose-quote-border: var(--neutral-100);           /* #EDE1D7 */
+
+  --prose-block-gap:     var(--space-4);  /* 16px - paragraph to paragraph, block to block */
+  --prose-list-item-gap: var(--space-2);  /*  8px - item to item inside one list */
+  --prose-list-indent:   var(--space-6);  /* 24px - marker hang */
+
+  --prose-h1-space-before: var(--space-7);  /* 32px */
+  --prose-h1-space-after:  var(--space-4);  /* 16px */
+  /* Space BEFORE a heading is what makes it read as a section break. In a chat
+     answer these are labelled groups, so the lead-in stays close to the
+     block-gap: 16px gap + 8px = 24px above an h2, matching the prototype's 22px.
+     The old 24px/20px put 40px above every h2 and sectioned the answer. */
+  --prose-h2-space-before: var(--space-2);  /*  8px */
+  --prose-h2-space-after:  var(--space-3);  /* 12px */
+  --prose-h3-space-before: var(--space-1);  /*  4px */
+  --prose-h3-space-after:  var(--space-2);  /*  8px */
 
 }
 

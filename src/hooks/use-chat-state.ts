@@ -7,6 +7,7 @@ import { toUIMessages } from "@/lib/normalizers/message-transformer"
 import { logger } from "@/lib/logger"
 import { getStreamCompletion, consumeInterruptedStreamMarker } from "@/lib/stream-registry"
 import type { Message } from "@/types/chat"
+import type { ReasoningTimelineItem } from "@/lib/reasoning"
 
 // ── UIMessage ─────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,11 @@ export interface UIMessage extends Message {
   modelMeta?: ModelSelectedMeta
   /** Activities performed during response generation (tool uses, web search, etc.) */
   activities?: ActivityItem[]
+  /** Arrival-ordered reasoning/tool trace for the active stream. Persisted
+   * messages fall back to reasoning_sections + activities. */
+  reasoningTimeline?: ReasoningTimelineItem[]
+  /** Compact live/final summary shown beside the Thinking label. */
+  researchTitle?: string
   /** Generated images (inline from LLM or named event). */
   images?: GeneratedImage[]
   /** Generated files (documents, CSVs, etc.). */

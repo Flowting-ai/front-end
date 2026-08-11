@@ -250,6 +250,83 @@ and parks offscreen maps to stay below browser WebGL-context limits.
 
 ---
 
+## Steps
+
+An ordered procedure the user is meant to carry out — setup guides, connector
+walkthroughs, runbooks. One `<step/>` per decision point rather than per click,
+so a guide runs to roughly eight steps at most. The frontend draws the numbers;
+the model never writes them into the label.
+
+| Attribute            | Required | Notes                                        |
+|----------------------|----------|----------------------------------------------|
+| `title` (root)       | no       | Heading above the list                       |
+| `label` (step)       | yes      | Imperative action; steps without one are dropped |
+| `description` (step) | no       | One or two sentences of plain-text detail    |
+
+```xml
+<steps title="Connecting Notion to Souvenir">
+  <step label="Open Settings → Connectors" description="Tap your avatar, then Settings."/>
+  <step label="Click Connect Notion" description="Souvenir never sees your password."/>
+  <step label="Select your workspace and grant access"/>
+</steps>
+```
+
+`<steps>` is for a single linear path. Branching or looping processes stay a
+` ```mermaid ` flowchart, and a set of parallel options is an ordinary list.
+
+---
+
+## Callouts
+
+A single point that must not be missed — a blocking risk, a prerequisite, a
+destructive action. At most one per response, never as the container for the
+main answer.
+
+| Attribute | Required | Notes                                              |
+|-----------|----------|----------------------------------------------------|
+| `variant` | yes      | `info`, `warning`, `success`, `error`, or `tip`    |
+| `title`   | no       | Short heading line                                 |
+
+The body is the element's inner text, not an attribute, so it carries inline
+Markdown (`**bold**`, `` `code` ``) — but no headings, lists, or nested blocks.
+
+```xml
+<callout variant="warning" title="May 11 is the single point of failure">
+  Every component not specced by **Apr 30** is a direct risk to the launch date.
+</callout>
+```
+
+An unrecognized `variant` degrades to `info` rather than failing the render. A
+callout with an empty body is dropped.
+
+---
+
+## Tags
+
+A short set of labels for the categories, themes, or entities an answer spans.
+Three to eight of them; anything longer belongs in a list.
+
+| Attribute      | Required | Notes                                          |
+|----------------|----------|------------------------------------------------|
+| `title` (root) | no       | Small uppercase heading above the pills         |
+| `label` (tag)  | yes      | Two to four words; tags without one are dropped |
+| `color` (tag)  | no       | 6-digit hex only, e.g. `#C8920A`                |
+
+```xml
+<tags title="Risk categories">
+  <tag label="DS handoff timing" color="#C8920A"/>
+  <tag label="Revamp scope creep"/>
+  <tag label="Branding delay"/>
+</tags>
+```
+
+`color` is validated as a 6-digit hex because the pill derives its background
+and border by appending alpha to it. Named colors, `rgb()`, and 3-digit hex
+fall back to the frontend's cycling palette. Tags summarise what the prose
+already said — they never carry a fact of their own.
+
+---
+
 ## Parsing recommendations (frontend implementer notes)
 
 These are suggestions; pick what fits your stack.

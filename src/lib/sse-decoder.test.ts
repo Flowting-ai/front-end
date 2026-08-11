@@ -58,6 +58,19 @@ describe("HybridSSEDecoder", () => {
     expect(events[5]).toEqual({ kind: "named", name: "message_saved", data: { message_id: "m2" } })
   })
 
+  it("preserves reasoning round metadata on the legacy SSE wire", () => {
+    const decoder = new HybridSSEDecoder()
+    const [event] = decoder.push(
+      'data: {"type":"reasoning","content":"Checking","round_index":2}\n\n',
+    )
+
+    expect(event).toEqual({
+      kind: "inline",
+      name: "reasoning",
+      data: { type: "reasoning", content: "Checking", round_index: 2 },
+    })
+  })
+
   it("retains partial frames and flushes an unterminated final frame", () => {
     const decoder = new HybridSSEDecoder()
     expect(decoder.push('event: questions\ndata: {"prompt_id":"p1",')).toEqual([])

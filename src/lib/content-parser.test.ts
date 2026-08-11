@@ -7,6 +7,9 @@ import { parseKanbanXml } from "@/components/chat/XmlKanban"
 import { parseScheduleXml } from "@/components/chat/XmlSchedule"
 import { parseWeatherXml } from "@/components/chat/XmlWeather"
 import { parseMapXml } from "@/components/chat/XmlMap"
+import { parseStepsXml } from "@/components/chat/XmlSteps"
+import { parseCalloutXml } from "@/components/chat/XmlCallout"
+import { parseTagsXml } from "@/components/chat/XmlTags"
 
 describe("parseContentSegments structured tags", () => {
   it("splits a complete <metrics> block out of surrounding markdown", () => {
@@ -107,10 +110,14 @@ describe("widget block parsers", () => {
       '<schedule><event day="Mon" title="Standup"/></schedule>',
       '<weather location="SF"><current temp="18"/></weather>',
       '<map metric="Orders"><point lat="37.77" lng="-122.42" value="10" label="SF"/></map>',
+      '<steps><step label="Open Settings"/></steps>',
+      '<callout variant="warning">Watch out</callout>',
+      '<tags><tag label="Growth"/></tags>',
     ].join("\ntext\n")
     const types = parseContentSegments(content).map((s) => s.type)
     expect(types).toEqual([
       "email", "markdown", "funnel", "markdown", "kanban", "markdown", "schedule", "markdown", "weather", "markdown", "map",
+      "markdown", "steps", "markdown", "callout", "markdown", "tags",
     ])
   })
 
@@ -197,6 +204,62 @@ describe("widget block parsers", () => {
     expect(weather!.current).toMatchObject({ temp: "18", condition: "partly-cloudy" })
     expect(weather!.days).toEqual([{ label: "Wed", high: "21", low: "14", condition: "sunny" }])
     expect(parseWeatherXml("<weather location='SF'></weather>")).toBeNull()
+  })
+
+  it("parses steps with optional descriptions and drops unlabelled ones", () => {
+    const steps = parseStepsXml(
+      '<steps title="Connecting Notion">' +
+      '<step label="Open Settings → Connectors" description="Tap your avatar, then Settings."/>' +
+      '<step description="orphaned detail with no label"/>' +
+      '<step label="Run a test sync"/>' +
+      "</steps>",
+    )
+    expect(steps).toEqual({
+      title: "Connecting Notion",
+      steps: [
+        { label: "Open Settings → Connectors", description: "Tap your avatar, then Settings." },
+        { label: "Run a test sync", description: undefined },
+      ],
+    })
+    expect(parseStepsXml("<steps></steps>")).toBeNull()
+  })
+
+  it("parses a callout body as unescaped markdown and keeps the variant", () => {
+    const callout = parseCalloutXml(
+      '<callout variant="warning" title="May 11 is the deadline">\n' +
+      "  Anything not specced by **Apr 30** risks the date &amp; the launch.\n" +
+      "</callout>",
+    )
+    expect(callout).toEqual({
+      variant: "warning",
+      title: "May 11 is the deadline",
+      body: "Anything not specced by **Apr 30** risks the date & the launch.",
+    })
+  })
+
+  it("falls back to info for an unknown or missing callout variant", () => {
+    expect(parseCalloutXml('<callout variant="WARNING">x</callout>')!.variant).toBe("warning")
+    expect(parseCalloutXml('<callout variant="danger">x</callout>')!.variant).toBe("info")
+    expect(parseCalloutXml("<callout>x</callout>")!.variant).toBe("info")
+    expect(parseCalloutXml('<callout variant="tip">   </callout>')).toBeNull()
+  })
+
+  it("parses tags with optional colors and drops unlabelled ones", () => {
+    const tags = parseTagsXml(
+      '<tags title="Risk categories">' +
+      '<tag label="DS handoff timing" color="#C8920A"/>' +
+      '<tag label="Revamp scope creep"/>' +
+      '<tag color="#0D6EB2"/>' +
+      "</tags>",
+    )
+    expect(tags).toEqual({
+      title: "Risk categories",
+      tags: [
+        { label: "DS handoff timing", color: "#C8920A" },
+        { label: "Revamp scope creep", color: undefined },
+      ],
+    })
+    expect(parseTagsXml("<tags></tags>")).toBeNull()
   })
 })
 

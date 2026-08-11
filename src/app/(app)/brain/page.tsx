@@ -93,13 +93,15 @@ import { toConnector, type Connector } from '@/lib/connector'
 import { PermissionPromptCard } from '@/components/shared/PermissionPromptCard'
 import { parsePermissionPrompt, type ConnectorPermissionPrompt } from '@/lib/api/prompts'
 import {
-  appendReasoningEvent,
-  createReasoningState,
+  createReasoningAccumulator,
   deriveReasoningSections,
+  eventRoundIndex,
   normalizeReasoningSections,
   reasoningEventText,
   type ReasoningEventType,
   type ReasoningSection,
+  type ReasoningSnapshot,
+  type ReasoningTimelineItem,
 } from '@/lib/reasoning'
 import {
   enqueuePrompt,
@@ -503,6 +505,7 @@ interface LocalTurn {
   output:          string
   reasoning?:      string
   reasoningSections?: ReasoningSection[]
+  reasoningTimeline?: ReasoningTimelineItem[]
   rallyRows?:      AgentStep[]
   agentOutputs?:   Record<string, string>
   images?:         ImageEvent[]
@@ -558,19 +561,24 @@ function Rise({
   )
 }
 
+const EMPTY_REASONING: ReasoningSnapshot = { text: '', sections: [], timeline: [] }
+
 function BrainReasoningStack({
   thinkingContent,
   reasoningSections,
+  reasoningTimeline,
   isStreaming = false,
 }: {
   thinkingContent: string
   reasoningSections?: ReasoningSection[]
+  reasoningTimeline?: ReasoningTimelineItem[]
   isStreaming?: boolean
 }) {
   return (
     <ReasoningContent
       thinkingContent={thinkingContent}
       reasoningSections={reasoningSections}
+      reasoningTimeline={reasoningTimeline}
       isStreaming={isStreaming}
     />
   )
@@ -1227,12 +1235,15 @@ function BrainPageInner() {
   const [agentStatuses, setAgentStatuses]         = useState<Record<string, StepStatus>>({})
   const [agentOutputs, setAgentOutputs]           = useState<Record<string, string>>({})
   const [streamedContent, setStreamedContent]     = useState('')
-  // Chat and Brain share the same structured reasoning model. Legacy raw
-  // reasoning remains available as a markdown fallback when no sections arrive.
-  const [reasoningState, setReasoningState]       = useState(createReasoningState)
+  // Chat and Brain share one reasoning accumulator (`lib/reasoning`). The live
+  // instance is a ref because SSE events arrive far faster than React commits;
+  // each event mirrors a snapshot into state for rendering.
+  const reasoningRef                              = useRef(createReasoningAccumulator())
+  const [reasoning, setReasoning]                 = useState<ReasoningSnapshot>(EMPTY_REASONING)
   const [reasoningActive, setReasoningActive]     = useState(false)
-  const reasoningText = reasoningState.text
-  const reasoningSections = reasoningState.sections
+  const reasoningText = reasoning.text
+  const reasoningSections = reasoning.sections
+  const reasoningTimeline = reasoning.timeline
   const [streamingComplete, setStreamingComplete] = useState(false)
   const [completedAt, setCompletedAt]             = useState<Date | null>(null)
   const [streamError, setStreamError]             = useState<string | null>(null)
@@ -1655,6 +1666,12 @@ function BrainPageInner() {
     if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
   }, [])
 
+  const resetReasoning = useCallback(() => {
+    reasoningRef.current = createReasoningAccumulator()
+    setReasoning(EMPTY_REASONING)
+    setReasoningActive(false)
+  }, [])
+
   const scheduleCompletion = useCallback(() => {
     if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
     setReasoningActive(false)
@@ -1701,8 +1718,7 @@ function BrainPageInner() {
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
     setStreamedContent('')
-    setReasoningState(createReasoningState())
-    setReasoningActive(false)
+    resetReasoning()
     setStreamingComplete(false)
     setCompletedAt(null)
     setStreamError(null)
@@ -1728,7 +1744,7 @@ function BrainPageInner() {
     setHistoryMessages([])
     setLocalTurns([])
     setHistoryLoaded(!chatIdFromUrl)
-  }, [chatIdFromUrl, newThreadRequested])
+  }, [chatIdFromUrl, newThreadRequested, resetReasoning])
 
   // ── Load history on mount (when chat_id is in URL) ───────────────────────────
 
@@ -1837,7 +1853,8 @@ function BrainPageInner() {
 
     setPhase((prev) => prev === 'thinking' ? 'streaming' : prev)
     setReasoningActive(true)
-    setReasoningState((prev) => appendReasoningEvent(prev, type, chunk))
+    reasoningRef.current.event(type, chunk, eventRoundIndex(data))
+    setReasoning(reasoningRef.current.snapshot())
   }, [])
 
   // ── SSE named-event handler ───────────────────────────────────────────────────
@@ -2417,8 +2434,7 @@ function BrainPageInner() {
     currentAgentOutputs: Record<string, string>,
     currentUserMessage: string,
     currentStreamedContent: string,
-    currentReasoningText: string,
-    currentReasoningSections: ReasoningSection[],
+    currentReasoning: ReasoningSnapshot,
     currentCompletedAt: Date | null,
     currentStreamImages: ImageEvent[],
     currentAttachments: UserAttachment[] = [],
@@ -2433,8 +2449,9 @@ function BrainPageInner() {
         key,
         userInput:      currentUserMessage,
         output:         currentStreamedContent,
-        reasoning:      currentReasoningText || undefined,
-        reasoningSections: currentReasoningSections.length > 0 ? currentReasoningSections : undefined,
+        reasoning:      currentReasoning.text || undefined,
+        reasoningSections: currentReasoning.sections.length > 0 ? currentReasoning.sections : undefined,
+        reasoningTimeline: currentReasoning.timeline.length > 0 ? currentReasoning.timeline : undefined,
         rallyRows:      currentRallyRows.length > 0 ? currentRallyRows : undefined,
         agentOutputs:   Object.keys(currentAgentOutputs).length > 0 ? currentAgentOutputs : undefined,
         images:         currentStreamImages.length > 0 ? currentStreamImages : undefined,
@@ -2451,8 +2468,7 @@ function BrainPageInner() {
     setUserMessage('')
     setUserAttachments([])
     setStreamedContent('')
-    setReasoningState(createReasoningState())
-    setReasoningActive(false)
+    resetReasoning()
     setStreamingComplete(false)
     setCompletedAt(null)
     setStreamError(null)
@@ -2476,7 +2492,7 @@ function BrainPageInner() {
     seenToolIdsRef.current = new Set()
     resolvedPromptIdsRef.current = new Set()
     progressPushedRef.current = false
-  }, [])
+  }, [resetReasoning])
 
   // ── Stream runner ─────────────────────────────────────────────────────────────
 
@@ -2514,8 +2530,7 @@ function BrainPageInner() {
     setUserAttachments((allDisplayFiles ?? files)?.map(f => ({ file_name: f.name, file_type: f.type, file_size: f.size })) ?? [])
     setPhase('thinking')
     setStreamedContent('')
-    setReasoningState(createReasoningState())
-    setReasoningActive(false)
+    resetReasoning()
     setStreamingComplete(false)
     setCompletedAt(null)
     setStreamError(null)
@@ -2658,7 +2673,7 @@ function BrainPageInner() {
       setStreamError(msg)
       setPhase('failed')
     }
-  }, [handleNamedEvent, handleInlineEvent, scheduleCompletion, replace])
+  }, [handleNamedEvent, handleInlineEvent, scheduleCompletion, replace, resetReasoning])
 
   // ── Remap local schedule id → backend task id after stream completes ──────────
   // When a schedule is created via the modal, a local temp id is used until Brain
@@ -2723,8 +2738,7 @@ function BrainPageInner() {
         agentOutputs,
         userMessage,
         streamedContent,
-        reasoningText,
-        activeReasoningSections,
+        { text: reasoningText, sections: activeReasoningSections, timeline: reasoningTimeline },
         completedAt,
         streamImages,
         userAttachments,
@@ -2782,7 +2796,7 @@ function BrainPageInner() {
 
     void doSend()
   }, [
-    phase, chatId, rallyRows, agentOutputs, userMessage, streamedContent, reasoningText, activeReasoningSections,
+    phase, chatId, rallyRows, agentOutputs, userMessage, streamedContent, reasoningText, activeReasoningSections, reasoningTimeline,
     completedAt, streamImages, streamFiles, externalActions, snapshotAndReset, runBrainStream,
     brainAttachments, userAttachments, creditStatus.blocked, selectedPersona, effectivePinIds,
     selectedFolders.length, pinboardLoading, timeline, liveToolCalls,
@@ -3299,8 +3313,7 @@ function BrainPageInner() {
       agentOutputs,
       userMessage,
       streamedContent,
-      reasoningText,
-      activeReasoningSections,
+      { text: reasoningText, sections: activeReasoningSections, timeline: reasoningTimeline },
       completedAt,
       streamImages,
       userAttachments,
@@ -3311,7 +3324,7 @@ function BrainPageInner() {
     seedBrainInput(userMessage)
     setPhase('idle')
   }, [
-    rallyRows, agentOutputs, userMessage, streamedContent, reasoningText, activeReasoningSections, completedAt,
+    rallyRows, agentOutputs, userMessage, streamedContent, reasoningText, activeReasoningSections, reasoningTimeline, completedAt,
     streamImages, userAttachments, streamFiles, externalActions, snapshotAndReset, seedBrainInput,
     timeline, liveToolCalls,
   ])
@@ -3325,8 +3338,7 @@ function BrainPageInner() {
       agentOutputs,
       userMessage,
       streamedContent,
-      reasoningText,
-      activeReasoningSections,
+      { text: reasoningText, sections: activeReasoningSections, timeline: reasoningTimeline },
       completedAt,
       streamImages,
       userAttachments,
@@ -3335,7 +3347,7 @@ function BrainPageInner() {
       freezeTimeline(timeline, liveToolCalls),
     )
     setPhase('idle')
-  }, [phase, rallyRows, agentOutputs, userMessage, streamedContent, reasoningText, activeReasoningSections, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles, externalActions, timeline, liveToolCalls])
+  }, [phase, rallyRows, agentOutputs, userMessage, streamedContent, reasoningText, activeReasoningSections, reasoningTimeline, completedAt, streamImages, snapshotAndReset, userAttachments, streamFiles, externalActions, timeline, liveToolCalls])
 
   // ── New chat ─────────────────────────────────────────────────────────────────
   // Used by both the sidebar's "Brain" button and the "+ New chat" entry.
@@ -3371,8 +3383,7 @@ function BrainPageInner() {
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
     setStreamedContent('')
-    setReasoningState(createReasoningState())
-    setReasoningActive(false)
+    resetReasoning()
     setStreamingComplete(false)
     setCompletedAt(null)
     setStreamError(null)
@@ -3402,7 +3413,7 @@ function BrainPageInner() {
     // Drop the chat id from the URL when present so a refresh stays on a fresh
     // thread. State is already wiped above, so the effect re-running is harmless.
     if (chatIdFromUrl) push(BRAIN_ROUTE)
-  }, [chatIdFromUrl, push])
+  }, [chatIdFromUrl, push, resetReasoning])
 
   // The shared sidebar navigates to `?new=1` instead of relying on an in-memory
   // window event. Unlike pushing bare `/brain`, this also changes the URL when an
@@ -3528,6 +3539,7 @@ function BrainPageInner() {
         <BrainReasoningStack
           thinkingContent={turn.reasoning ?? ''}
           reasoningSections={turn.reasoningSections}
+          reasoningTimeline={turn.reasoningTimeline}
         />
       )}
       {turn.rallyRows && turn.rallyRows.length > 0 && (
@@ -3744,6 +3756,7 @@ function BrainPageInner() {
           <BrainReasoningStack
             thinkingContent={reasoningText}
             reasoningSections={activeReasoningSections}
+            reasoningTimeline={reasoningTimeline}
             isStreaming={reasoningActive}
           />
         </Rise>

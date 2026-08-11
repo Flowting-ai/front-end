@@ -44,13 +44,13 @@ function HIcon({ icon, size = 14, color = "#827A74", strokeWidth = 1.5 }: { icon
 }
 
 const INLINE_CODE_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-code, monospace)",
-  fontSize: 13,
-  background: "rgba(59,54,50,0.08)",
-  color: "#26211E",
+  fontFamily: "var(--font-code)",
+  fontSize: "var(--prose-size-code)",
+  background: "var(--neutral-800-10)",
+  color: "var(--prose-heading)",
   borderRadius: 4,
   padding: "1px 5px",
-  border: "1px solid rgba(82,75,71,0.12)",
+  border: "1px solid var(--neutral-700-12)",
   whiteSpace: "pre",
 };
 
@@ -252,7 +252,31 @@ function isBoldHeading(line: string) {
   return /^\*\*[^*]+\*\*:?\s*$/.test(line.trim());
 }
 
-const GAP = 14;
+// Gap between sibling prose blocks (paragraph to paragraph, list to paragraph).
+// Heading gaps are asymmetric and live in HEADING_STYLE below.
+const GAP = "var(--prose-block-gap)";
+
+// One rung of the prose ladder each. `marginTop` is ~2x `marginBottom` so a
+// heading sits nearer the content it introduces than the section it follows —
+// adjacent margins collapse, so the space above resolves to the larger of the
+// previous block's bottom margin and this top margin.
+const HEADING_STYLE = {
+  h1: {
+    fontSize: "var(--prose-size-h1)", lineHeight: "var(--prose-line-h1)",
+    fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-body)",
+    marginTop: "var(--prose-h1-space-before)", marginBottom: "var(--prose-h1-space-after)",
+  },
+  h2: {
+    fontSize: "var(--prose-size-h2)", lineHeight: "var(--prose-line-h2)",
+    fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-body)",
+    marginTop: "var(--prose-h2-space-before)", marginBottom: "var(--prose-h2-space-after)",
+  },
+  h3: {
+    fontSize: "var(--prose-size-h3)", lineHeight: "var(--prose-line-h3)",
+    fontWeight: 600, color: "var(--prose-heading)", fontFamily: "var(--font-body)",
+    marginTop: "var(--prose-h3-space-before)", marginBottom: "var(--prose-h3-space-after)",
+  },
+} as const;
 
 // Normalise inline bold-as-title: **Title** that appears with no whitespace
 // boundary gets blank lines inserted so it renders as its own paragraph/heading.
@@ -276,7 +300,13 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
   const blocks = normalizeBoldTitles(text).split(/\n\n+/);
 
   return (
-    <div style={{ color: "#3B3632", fontSize: 16, fontFamily: "var(--font-body)" }}>
+    <div style={{
+      color: "var(--prose-text)",
+      fontSize: "var(--prose-size-body)",
+      lineHeight: "var(--prose-line-body)",
+      fontFamily: "var(--font-body)",
+      maxWidth: "var(--prose-measure)",
+    }}>
       {blocks.map((block, bi) => {
         const isLast = bi === blocks.length - 1;
         const tail = isLast ? cursor : null;
@@ -309,25 +339,25 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
         const first = lines[0] ?? "";
 
         if (first.startsWith("# ")) return (
-          <div key={bi} style={{ fontSize: 22, fontWeight: 700, color: "#26211E", fontFamily: "var(--font-body)", lineHeight: "30px", marginTop: bi > 0 ? 10 : 0, marginBottom: isLast ? 0 : GAP + 2 }}>
+          <div key={bi} style={{ ...HEADING_STYLE.h1, marginTop: bi > 0 ? HEADING_STYLE.h1.marginTop : 0, marginBottom: isLast ? 0 : HEADING_STYLE.h1.marginBottom }}>
             <InlineRich text={first.slice(2)} citations={citations} />{tail}
           </div>
         );
 
         if (first.startsWith("## ")) return (
-          <div key={bi} style={{ fontSize: 18, fontWeight: 600, color: "#26211E", fontFamily: "var(--font-body)", lineHeight: "26px", marginTop: bi > 0 ? 8 : 0, marginBottom: isLast ? 0 : GAP }}>
+          <div key={bi} style={{ ...HEADING_STYLE.h2, marginTop: bi > 0 ? HEADING_STYLE.h2.marginTop : 0, marginBottom: isLast ? 0 : HEADING_STYLE.h2.marginBottom }}>
             <InlineRich text={first.slice(3)} citations={citations} />{tail}
           </div>
         );
 
         if (first.startsWith("### ")) return (
-          <div key={bi} style={{ fontSize: 16, fontWeight: 600, color: "#26211E", fontFamily: "var(--font-body)", lineHeight: "24px", marginTop: bi > 0 ? 6 : 0, marginBottom: isLast ? 0 : GAP }}>
+          <div key={bi} style={{ ...HEADING_STYLE.h3, marginTop: bi > 0 ? HEADING_STYLE.h3.marginTop : 0, marginBottom: isLast ? 0 : HEADING_STYLE.h3.marginBottom }}>
             <InlineRich text={first.slice(4)} citations={citations} />{tail}
           </div>
         );
 
         if (lines.length > 0 && lines.every((l) => l.startsWith("> "))) return (
-          <div key={bi} style={{ borderLeft: "2.5px solid #EDE1D7", paddingLeft: 12, marginBottom: isLast ? 0 : GAP, color: "#6A625D", fontStyle: "italic", lineHeight: "26px" }}>
+          <div key={bi} style={{ borderLeft: "2.5px solid var(--prose-quote-border)", paddingLeft: "var(--space-3)", marginBottom: isLast ? 0 : GAP, color: "var(--prose-quote-text)", fontStyle: "italic", lineHeight: "var(--prose-line-body)" }}>
             {lines.map((l, li) => (
               // eslint-disable-next-line react/no-array-index-as-key
               <React.Fragment key={li}>
@@ -341,12 +371,12 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
 
         const nonEmpty = lines.filter((l) => l.trim() !== "");
         if (nonEmpty.length > 0 && nonEmpty.every((l) => /^[-*]\s/.test(l.trim()))) return (
-          <ul key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 5 }}>
+          <ul key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, paddingLeft: "var(--prose-list-indent)", display: "flex", flexDirection: "column", gap: "var(--prose-list-item-gap)" }}>
             {nonEmpty.map((l, li) => {
               const isLastItem = li === nonEmpty.length - 1;
               return (
                 // eslint-disable-next-line react/no-array-index-as-key
-                <li key={li} style={{ lineHeight: "24px", color: "#3B3632", fontSize: 16 }}>
+                <li key={li} style={{ lineHeight: "var(--prose-line-body)", color: "var(--prose-text)", fontSize: "var(--prose-size-body)" }}>
                   <InlineRich text={l.replace(/^[-*]\s/, "")} citations={citations} />
                   {isLastItem && tail}
                 </li>
@@ -356,12 +386,12 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
         );
 
         if (nonEmpty.length > 0 && nonEmpty.every((l) => /^\d+\.\s/.test(l.trim()))) return (
-          <ol key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, paddingLeft: 22, display: "flex", flexDirection: "column", gap: 5 }}>
+          <ol key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, paddingLeft: "var(--prose-list-indent)", display: "flex", flexDirection: "column", gap: "var(--prose-list-item-gap)" }}>
             {nonEmpty.map((l, li) => {
               const isLastItem = li === nonEmpty.length - 1;
               return (
                 // eslint-disable-next-line react/no-array-index-as-key
-                <li key={li} style={{ lineHeight: "24px", color: "#3B3632", fontSize: 16 }}>
+                <li key={li} style={{ lineHeight: "var(--prose-line-body)", color: "var(--prose-text)", fontSize: "var(--prose-size-body)" }}>
                   <InlineRich text={l.replace(/^\d+\.\s/, "")} citations={citations} />
                   {isLastItem && tail}
                 </li>
@@ -371,13 +401,13 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
         );
 
         if (lines.length === 1 && isBoldHeading(first)) return (
-          <p key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, lineHeight: "26px", fontWeight: 600, fontSize: 16, color: "#26211E" }}>
+          <p key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, lineHeight: "var(--prose-line-body)", fontWeight: 600, fontSize: "var(--prose-size-body)", color: "var(--prose-heading)" }}>
             <InlineRich text={first} citations={citations} />{tail}
           </p>
         );
 
         return (
-          <p key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, lineHeight: "26px", fontWeight: 400, fontSize: 16, color: "#3B3632" }}>
+          <p key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, lineHeight: "var(--prose-line-body)", fontWeight: 400, fontSize: "var(--prose-size-body)", color: "var(--prose-text)" }}>
             {lines.map((line, li) => (
               // eslint-disable-next-line react/no-array-index-as-key
               <React.Fragment key={li}>
@@ -1031,24 +1061,33 @@ function AnimatedBarChart({ data, onComplete, animate = true }: { data: BarChart
 
 // �"��"� AnimatedSteps �"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"��"�
 
-function AnimatedSteps({ data, onComplete, animate = true }: { data: StepsData; onComplete: () => void; animate?: boolean }) {
+export function AnimatedSteps({ data, onComplete, animate = true }: { data: StepsData; onComplete: () => void; animate?: boolean }) {
   const [revealedSteps, setRevealedSteps] = useState(() => animate ? 0 : data.steps.length);
+  const stepCount = data.steps.length;
 
   useEffect(() => {
     if (!animate) { onComplete(); return; }
-    let idx = 0;
-    const interval = setInterval(() => {
-      idx++;
-      setRevealedSteps(idx);
-      if (idx >= data.steps.length) { clearInterval(interval); setTimeout(onComplete, 320); }
-    }, 220);
-    return () => clearInterval(interval);
-  }, []); // eslint-disable-line
+    let completionTimer: ReturnType<typeof setTimeout> | undefined;
+    if (stepCount === 0) {
+      completionTimer = setTimeout(onComplete, 320);
+      return () => clearTimeout(completionTimer);
+    }
+    const revealTimers = Array.from({ length: stepCount }, (_, index) => (
+      setTimeout(() => {
+        setRevealedSteps(index + 1);
+        if (index === stepCount - 1) completionTimer = setTimeout(onComplete, 320);
+      }, (index + 1) * 220)
+    ));
+    return () => {
+      revealTimers.forEach(clearTimeout);
+      if (completionTimer) clearTimeout(completionTimer);
+    };
+  }, [animate, onComplete, stepCount]);
 
   return (
     <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
-      {data.title && <div style={{ fontSize: 14, fontWeight: 600, color: "#26211E", marginBottom: 18, lineHeight: "20px" }}>{data.title}</div>}
-      <div style={{ display: "flex", flexDirection: "column" }}>
+      {data.title && <div style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--neutral-900)", marginBottom: 18, lineHeight: "20px" }}>{data.title}</div>}
+      <div style={{ display: "flex", flexDirection: "column", fontFamily: "var(--font-body)" }}>
         <AnimatePresence initial={false}>
           {data.steps.slice(0, revealedSteps).map((step, i) => (
             <m.div key={step.label} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
@@ -1057,18 +1096,18 @@ function AnimatedSteps({ data, onComplete, animate = true }: { data: StepsData; 
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
                 <m.div initial={{ scale: 0 }} animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25, delay: 0.04 }}
-                  style={{ width: 24, height: 24, borderRadius: "50%", background: "#683D1B", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                  style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--brown-700)", color: "var(--neutral-white)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                   {i + 1}
                 </m.div>
                 {i < data.steps.length - 1 && (
                   <m.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }}
                     transition={{ duration: 0.22, delay: 0.12, ease: "easeOut" }}
-                    style={{ width: 1, flex: 1, minHeight: 20, background: "#EDE1D7", transformOrigin: "top", marginTop: 4 }} />
+                    style={{ width: 1, flex: 1, minHeight: 20, background: "var(--neutral-100)", transformOrigin: "top", marginTop: 4 }} />
                 )}
               </div>
               <div style={{ paddingBottom: i < data.steps.length - 1 ? 18 : 0, paddingTop: 2, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#26211E", lineHeight: "20px" }}>{step.label}</div>
-                {step.description && <div style={{ fontSize: 13, color: "#827A74", lineHeight: "20px", marginTop: 3 }}>{step.description}</div>}
+                <div style={{ fontSize: 14, fontWeight: 500, color: "var(--neutral-900)", lineHeight: "20px" }}>{step.label}</div>
+                {step.description && <div style={{ fontSize: 13, color: "var(--neutral-500)", lineHeight: "20px", marginTop: 3 }}>{step.description}</div>}
               </div>
             </m.div>
           ))}
@@ -1236,18 +1275,27 @@ const CALLOUT_CFG = {
   tip:     { bg: "rgba(104,61,27,0.07)",   border: "#683D1B", icon: Idea01Icon,            color: "#683D1B" },
 } as const;
 
-function AnimatedCallout({ data, onComplete }: { data: CalloutData; onComplete: () => void }) {
-  const cfg = CALLOUT_CFG[data.variant];
-  useEffect(() => { const t = setTimeout(onComplete, 440); return () => clearTimeout(t); }, []); // eslint-disable-line
+/** How long the callout holds the sequence before the next block starts. A flat
+ *  delay let a long body hand off before it was readable, so it scales with the
+ *  word count the way the streaming text blocks around it do. */
+function calloutDwellMs(data: CalloutData): number {
+  const words = `${data.title ?? ""} ${data.body}`.trim().split(/\s+/).filter(Boolean).length;
+  return Math.min(2600, Math.max(440, 320 + words * 28));
+}
+
+export function AnimatedCallout({ data, onComplete }: { data: CalloutData; onComplete: () => void }) {
+  const cfg = CALLOUT_CFG[data.variant] ?? CALLOUT_CFG.info;
+  const dwell = calloutDwellMs(data);
+  useEffect(() => { const t = setTimeout(onComplete, dwell); return () => clearTimeout(t); }, []); // eslint-disable-line
   return (
     <m.div initial={{ opacity: 0, x: -10, y: 4 }} animate={{ opacity: 1, x: 0, y: 0 }}
       transition={{ type: "spring", stiffness: 340, damping: 26 }}
-      style={{ borderLeft: `3px solid ${cfg.border}`, background: cfg.bg, borderRadius: "0 10px 10px 0", padding: "10px 14px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+      style={{ borderLeft: `3px solid ${cfg.border}`, background: cfg.bg, borderRadius: "0 10px 10px 0", padding: "10px 14px", display: "flex", gap: 10, alignItems: "flex-start", fontFamily: "var(--font-body)" }}>
       <span style={{ flexShrink: 0, marginTop: 1, lineHeight: 0 }}>
         <HIcon icon={cfg.icon} size={16} color={cfg.color} strokeWidth={1.8} />
       </span>
       <div>
-        {data.title && <div style={{ fontWeight: 600, fontSize: 14, color: "#26211E", marginBottom: 4, lineHeight: "20px" }}>{data.title}</div>}
+        {data.title && <div style={{ fontWeight: 600, fontSize: 14, color: "#26211E", marginBottom: 4, lineHeight: "20px" }}><InlineMd text={data.title} /></div>}
         <div style={{ fontSize: 14, lineHeight: "21px", color: "#524B47" }}><InlineMd text={data.body} /></div>
       </div>
     </m.div>
@@ -1264,7 +1312,16 @@ const TAG_PALETTES = [
   { bg: "rgba(156,147,139,0.12)",text: "#6A625D",  border: "rgba(156,147,139,0.24)" },
 ];
 
-function AnimatedTags({ data, onComplete, animate = true }: { data: TagsData; onComplete: () => void; animate?: boolean }) {
+/** Tag colors arrive from the model, and the `15`/`28` alpha suffixes below are
+ *  only valid on a 6-digit hex — anything else silently produced an unparseable
+ *  color, so it falls back to the cycling palette instead. */
+function tagPalette(color: string | undefined, i: number) {
+  const pal = TAG_PALETTES[i % TAG_PALETTES.length];
+  if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) return pal;
+  return { bg: `${color}15`, text: color, border: `${color}28` };
+}
+
+export function AnimatedTags({ data, onComplete, animate = true }: { data: TagsData; onComplete: () => void; animate?: boolean }) {
   const [revealedTags, setRevealedTags] = useState(() => animate ? 0 : data.tags.length);
   useEffect(() => {
     if (!animate) { onComplete(); return; }
@@ -1278,18 +1335,15 @@ function AnimatedTags({ data, onComplete, animate = true }: { data: TagsData; on
   }, []); // eslint-disable-line
 
   return (
-    <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }}>
+    <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }} style={{ fontFamily: "var(--font-body)" }}>
       {data.title && <div style={{ fontSize: 12, fontWeight: 500, color: "#9A9089", marginBottom: 9, textTransform: "uppercase", letterSpacing: "0.5px" }}>{data.title}</div>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {data.tags.slice(0, revealedTags).map((tag, i) => {
-          const pal = TAG_PALETTES[i % TAG_PALETTES.length];
-          const bg = tag.color ? `${tag.color}15` : pal.bg;
-          const fg = tag.color ?? pal.text;
-          const bd = tag.color ? `${tag.color}28` : pal.border;
+          const pal = tagPalette(tag.color, i);
           return (
             <m.span key={tag.label} initial={{ scale: 0.55, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 420, damping: 22 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", background: bg, border: `1px solid ${bd}`, color: fg, borderRadius: 99, padding: "3px 11px", fontSize: 13, fontWeight: 500, lineHeight: "19px" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", background: pal.bg, border: `1px solid ${pal.border}`, color: pal.text, borderRadius: 99, padding: "3px 11px", fontSize: 13, fontWeight: 500, lineHeight: "19px" }}>
                 {tag.label}
               </span>
             </m.span>

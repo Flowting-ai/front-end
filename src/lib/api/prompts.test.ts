@@ -31,6 +31,30 @@ describe("parseChatPrompt", () => {
     })
   })
 
+  it("normalizes the backend question_prompt event used by prompt_gate", () => {
+    expect(parseChatPrompt("question_prompt", {
+      prompt_id: "p-question-gate",
+      respond_url: "/chats/prompts/p-question-gate",
+      title: "Quick details for your document",
+      description: "Answer these before I continue.",
+      questions: [{
+        id: "format",
+        question: "Which format should I use?",
+        type: "single_choice",
+        options: [{ value: "docx", label: "Word document" }],
+      }],
+    })).toMatchObject({
+      request_id: "p-question-gate",
+      kind: "questions",
+      title: "Quick details for your document",
+      questions: [{
+        id: "format",
+        question: "Which format should I use?",
+        options: [{ value: "docx", label: "Word document" }],
+      }],
+    })
+  })
+
   it("normalizes approval prompts with a safe default decision pair", () => {
     expect(parseChatPrompt("approval_prompt", {
       prompt_id: "p2",
