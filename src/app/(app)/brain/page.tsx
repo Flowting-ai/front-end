@@ -34,7 +34,7 @@ import {
 import type { QuestionCardOption } from '@/components/QuestionCard'
 import { MessageBubble } from '@/components/MessageBubble'
 import { ChatMessagesSkeleton } from '@/components/chat/ChatMessagesSkeleton'
-import { ReasoningContent } from '@/components/chat/ReasoningBlock'
+import { ReasoningBlock } from '@/components/chat/ReasoningBlock'
 import { useCreditStatus } from '@/hooks/use-credit-status'
 import { useModelSelectorContext } from '@/context/model-selector-context'
 import { shouldCompleteStreamOnClose } from '@/templates/Brain/lib/phase'
@@ -574,12 +574,16 @@ function BrainReasoningStack({
   reasoningTimeline?: ReasoningTimelineItem[]
   isStreaming?: boolean
 }) {
+  // ReasoningBlock, not the bare ReasoningContent it wraps: Brain gets the same
+  // "Thinking" disclosure as Chat — open while the model is still reasoning,
+  // collapsed afterwards to a pill carrying the newest step heading.
   return (
-    <ReasoningContent
+    <ReasoningBlock
       thinkingContent={thinkingContent}
+      isNewMessage={false}
+      isThinkingInProgress={isStreaming}
       reasoningSections={reasoningSections}
       reasoningTimeline={reasoningTimeline}
-      isStreaming={isStreaming}
     />
   )
 }
