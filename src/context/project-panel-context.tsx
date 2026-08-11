@@ -3,13 +3,9 @@
 import React, { createContext, use, useState, useCallback } from 'react'
 
 export interface ProjectPanelSlot {
-  /** Stable identity for mutually-exclusive global side panels. */
-  id?:     string
   title:   string
   content: React.ReactNode
   onClose: () => void
-  /** Wider tools such as the live browser can opt out of the 356px default. */
-  width?:  number
 }
 
 interface ProjectPanelContextValue {
