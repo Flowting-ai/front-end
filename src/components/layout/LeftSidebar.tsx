@@ -5,7 +5,7 @@ import { m } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useGuardedRouter, useNavGuard } from "@/context/nav-guard-context";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { AlertTwoIcon, BubbleChatAddIcon, CalendarFoldIcon, CircleIcon, DeleteTwoIcon, FolderAddIcon, FolderLibraryIcon, FolderOneIcon, MoreHorizontalIcon, PenOneIcon, PersonalProjectsIcon, PinIcon, PlusSignIcon, ShareOneIcon, UserAddOneIcon, UserAiIcon, WorkflowSquareTenIcon } from "@strange-huge/icons";
+import { AlertTwoIcon, BubbleChatAddIcon, CalendarFoldIcon, CircleIcon, DeleteTwoIcon, FolderAddIcon, FolderLibraryIcon, FolderOneIcon, MoreHorizontalIcon, PenOneIcon, PinIcon, PlusSignIcon, ShareOneIcon, UserAddOneIcon, UserAiIcon, WorkflowSquareTenIcon } from "@strange-huge/icons";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection, FlatSidebar, FlatSidebarRow, FlatSidebarProjectGroup, FlatSidebarSlackConnector, FlatSidebarProfileRow } from "@/components/ui";
 import { DEFAULT_ADMIN_GROUPS } from "@/components/Sidebar";
 import { AccountMenu } from "@/components/AccountMenu";
@@ -2295,7 +2295,7 @@ function FlatTeamsSidebarContent({ role, teams, activeTeamId }: TeamsSidebarCont
       <FlatSidebarRow
         variant="header" label="Projects" shown={shown} onShowClick={() => setShown(s => !s)}
         onAddClick={showNewTeamProject ? (e) => { e.stopPropagation(); push(teamNewProjectHref) } : undefined} addLabel="New Project"
-        headerIcon={<PersonalProjectsIcon size={14} />}
+        headerIcon={<FolderOneIcon size={14} variant="static" />}
         onHeaderIconClick={() => push(PROJECTS_ROUTE)}
         headerIconLabel="All Projects"
       />
@@ -2748,7 +2748,7 @@ function LeftSidebarImpl({
               setActiveTeamId={setActiveTeamId}
             />
           ) : (
-            <FlatProjectsSection label="Personal Projects" headerIcon={<PersonalProjectsIcon size={14} />} />
+            <FlatProjectsSection label="Personal Projects" headerIcon={<FolderOneIcon size={14} variant="static" />} />
           )}
           recentItems={
             !user ? (
