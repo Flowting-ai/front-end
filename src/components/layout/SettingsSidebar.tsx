@@ -10,6 +10,12 @@ import {
   AbacusIcon,
   FolderOneIcon,
   LinkSixIcon,
+  SettingsOneIcon,
+  UserAddOneIcon,
+  DashboardSquareOneIcon,
+  TokenCircleIcon,
+  AnalyticsOneIcon,
+  PlayListIcon,
 } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { IconButton } from '@/components/IconButton'
@@ -25,7 +31,7 @@ import { useOrg } from '@/context/org-context'
 import { useSettingsGuard } from '@/context/settings-guard-context'
 import { useMounted } from '@/hooks/use-mounted'
 import { toast } from 'sonner'
-import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_BILLING_ROUTE, SETTINGS_CONNECTORS_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
+import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_BILLING_ROUTE, SETTINGS_CONNECTORS_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_TEAMS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, ORG_ACTIVITY_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
 
 // -- Item stagger animation - same three-layer pattern as LeftSidebar/Sidebar --
 const sectionStaggerVariants = {
@@ -52,6 +58,18 @@ const MY_SETTINGS_ITEMS = [
   // { id: 'security',      label: 'Security',         href: '/settings/security',      icon: <FolderOneIcon     size={20} />, disabled: true  },
   { id: 'connectors',    label: 'Connectors',       href: SETTINGS_CONNECTORS_ROUTE, icon: <LinkSixIcon       size={20} />, disabled: false },
   { id: 'help',          label: 'Help & Legal',     href: SETTINGS_HELP_ROUTE,       icon: <FolderOneIcon     size={20} variant="static" />, disabled: false },
+]
+
+// Former /org/* admin pages, now under /settings/* (Souvenir V1.5) — same icons
+// as the old tabbed Sidebar's admin nav (ADMIN_ITEM_ICONS in
+// src/components/Sidebar/index.tsx) for consistency. Owner/admin only.
+const ORG_SETTINGS_ITEMS = [
+  { id: 'general',   label: 'General',       href: ORG_GENERAL_ROUTE,   icon: <SettingsOneIcon        size={20} /> },
+  { id: 'members',   label: 'Members',       href: ORG_MEMBERS_ROUTE,   icon: <UserAddOneIcon         size={20} /> },
+  { id: 'teams',     label: 'Teams',         href: ORG_TEAMS_ROUTE,     icon: <DashboardSquareOneIcon size={20} /> },
+  { id: 'plans',     label: 'Plans & Usage', href: ORG_PLANS_ROUTE,     icon: <TokenCircleIcon        size={20} /> },
+  { id: 'analytics', label: 'Analytics',     href: ORG_ANALYTICS_ROUTE, icon: <AnalyticsOneIcon       size={20} /> },
+  { id: 'activity',  label: 'Activity Log',  href: ORG_ACTIVITY_ROUTE,  icon: <PlayListIcon           size={20} /> },
 ]
 
 
@@ -196,7 +214,7 @@ export function SettingsSidebar() {
       >
         {/* Horizontal padding lives on this inner wrapper, not the scrolling
             element above — keeps the scrollbar flush with the sidebar's edge. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '0 16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 16px' }}>
         {/* My Settings section  - Personal Settings */}
         <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -247,6 +265,46 @@ export function SettingsSidebar() {
             </m.div>
           </div>
         </div>
+
+        {/* Organization section — owner/admin only; former /org/* admin pages */}
+        {orgId && (orgRole === 'owner' || orgRole === 'admin') && (
+          <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ padding: '5px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 500,
+                  fontSize:   14,
+                  lineHeight: '22px',
+                  color:      'var(--neutral-500)',
+                  margin:     0,
+                  whiteSpace: 'nowrap',
+                }}>
+                  Organization
+                </p>
+              </div>
+              <m.div
+                animate="open"
+                initial="closed"
+                variants={sectionStaggerVariants}
+                style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+              >
+                {ORG_SETTINGS_ITEMS.map(item => (
+                  <m.div key={item.id} variants={sectionItemVariants}>
+                    <SidebarMenuItem
+                      fluid
+                      variant="default"
+                      icon={item.icon}
+                      label={item.label}
+                      selected={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+                      onClick={() => safeNavigate(item.href)}
+                    />
+                  </m.div>
+                ))}
+              </m.div>
+            </div>
+          </div>
+        )}
         </div>
 
       </div>

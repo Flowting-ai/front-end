@@ -44,6 +44,7 @@ import {
   QuillWriteTwoIcon,
   QuillWriteOneIcon,
   NeuralNetworkIcon,
+  BubbleChatIcon,
   AiVisionRecognitionIcon,
   AiWebBrowsingIcon,
   CalendarFoldIcon,
@@ -53,7 +54,7 @@ import {
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
 import type { PinFolder } from "@/lib/api/pins";
-import { CHAT_ROUTE } from "@/lib/routes";
+import { CHAT_ROUTE, BRAIN_ROUTE } from "@/lib/routes";
 
 // ── Mentioned-pin state type ──────────────────────────────────────────────────
 
@@ -240,7 +241,7 @@ export default function ChatPage() {
 
 function ChatPageInner() {
   const searchParams = useSearchParams();
-  const { replace } = useRouter();
+  const { push, replace } = useRouter();
   const { org, teams: orgTeams, activeTeamId } = useOrg();
   const creditStatus = useCreditStatus();
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
@@ -759,6 +760,11 @@ function ChatPageInner() {
 
   const isNewChat = !activeChatId && !hasMessages && !initialPrompt;
 
+  // Task/Chat tab strip (Figma 136:53294) — local state so the pill/label
+  // animate to the clicked tab immediately; navigating to Brain is a side
+  // effect of that state change, not a replacement for the visual response.
+  const [threadTab, setThreadTab] = useState<"task" | "chat">("chat");
+
   // Drag-and-drop on the new-chat landing page
   const { isDragging: isNewChatDragging } = useFileDrop({
     onFiles: (files) => {
@@ -878,6 +884,40 @@ function ChatPageInner() {
         style={{ display: "none" }}
         aria-hidden="true"
       />
+
+      {/* Task/Chat tab strip (Figma 136:53294, "Top Bar") — pinned to the top,
+          same row as TopBar's model selector (src/components/layout/TopBar.tsx).
+          TopBar is position:absolute with zIndex:1; this overlay uses zIndex:2
+          so the tab wins the click, and pointerEvents:none on the full-width
+          wrapper (auto only on the tab itself) so TopBar's own model-selector
+          (left) and icon button (right) on either side stay clickable through
+          this same layer. Mirrors BrainShell's strip (src/templates/Brain/index.tsx);
+          "Task" switches to a new Brain thread, "Chat" is where we already are. */}
+      {isNewChat && (
+        <div
+          style={{
+            position: "absolute", top: 0, left: 0, right: 0, zIndex: 2,
+            display: "flex", justifyContent: "center", paddingTop: 12,
+            pointerEvents: "none",
+          }}
+        >
+          <div style={{ width: 171, pointerEvents: "auto" }}>
+            <Tabs
+              value={threadTab}
+              onValueChange={(v) => {
+                const next = v as "task" | "chat";
+                setThreadTab(next);
+                if (next === "task") push(`${BRAIN_ROUTE}?new=1`);
+              }}
+            >
+              <TabsList fluid>
+                <TabsTrigger value="task" icon={<AiWebBrowsingIcon size={16} animated />}>Task</TabsTrigger>
+                <TabsTrigger value="chat" icon={<BubbleChatIcon size={16} />}>Chat</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence mode="sync" initial={false}>
         {isNewChat ? (

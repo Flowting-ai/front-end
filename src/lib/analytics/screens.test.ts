@@ -30,11 +30,24 @@ describe("routeToScreen", () => {
     expect(routeToScreen("/project/abc")).toBe("project_detail");
   });
 
-  it("collapses all /org tabs to org_manage and /teams/[id] to teams", () => {
+  it("collapses the remaining /org redirect stubs and /teams/[id] to their concepts", () => {
     expect(routeToScreen("/org")).toBe("org_manage");
-    expect(routeToScreen("/org/members")).toBe("org_manage");
-    expect(routeToScreen("/org/teams/team-1")).toBe("org_manage");
     expect(routeToScreen("/teams/team-9")).toBe("teams");
+  });
+
+  it("maps Connectors and Souvenir-in-Slack (now top-level, moved off /org) to org_manage", () => {
+    expect(routeToScreen("/connectors")).toBe("org_manage");
+    expect(routeToScreen("/souvenir-slack")).toBe("org_manage");
+  });
+
+  it("maps the former /org/* admin tabs (now under /settings) to org_manage", () => {
+    expect(routeToScreen("/settings/general")).toBe("org_manage");
+    expect(routeToScreen("/settings/members")).toBe("org_manage");
+    expect(routeToScreen("/settings/teams")).toBe("org_manage");
+    expect(routeToScreen("/settings/teams/team-1")).toBe("org_manage");
+    expect(routeToScreen("/settings/plans")).toBe("org_manage");
+    expect(routeToScreen("/settings/analytics")).toBe("org_manage");
+    expect(routeToScreen("/settings/activity")).toBe("org_manage");
   });
 
   it("maps settings tabs (including the real /account and /ai names)", () => {

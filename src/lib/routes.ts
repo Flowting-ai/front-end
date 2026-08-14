@@ -21,16 +21,24 @@ export const PROJECTS_ROUTE = "/projects";
 export const PROJECTS_PERSONAL_ROUTE = "/projects?scope=personal";
 export const PROJECTS_NEW_ROUTE = "/projects/new";
 
+// NOTE: General/Members/Teams/Plans/Analytics/Activity moved from /org/* to
+// /settings/* (Souvenir V1.5) — old /org/{page} paths are now thin redirect
+// stubs to these. Connectors and Souvenir-in-Slack (aka "Slack in Souvenir")
+// moved further still, to their own top-level routes — each has its own
+// dedicated sidebar destination (see FlatDestinations in LeftSidebar.tsx) and
+// its own layout guard (src/app/(app)/connectors, src/app/(app)/souvenir-slack).
+// Constant names keep their historical ORG_ prefix to avoid touching every
+// call site for a rename — only the string values changed.
 export const ORG_BASE_ROUTE = "/org";
-export const ORG_GENERAL_ROUTE = "/org/general";
-export const ORG_ACTIVITY_ROUTE = "/org/activity";
-export const ORG_PLANS_ROUTE = "/org/plans";
-export const ORG_TEAMS_ROUTE = "/org/teams";
-export const ORG_MEMBERS_ROUTE = "/org/members";
-export const ORG_ANALYTICS_ROUTE = "/org/analytics";
+export const ORG_GENERAL_ROUTE = "/settings/general";
+export const ORG_ACTIVITY_ROUTE = "/settings/activity";
+export const ORG_PLANS_ROUTE = "/settings/plans";
+export const ORG_TEAMS_ROUTE = "/settings/teams";
+export const ORG_MEMBERS_ROUTE = "/settings/members";
+export const ORG_ANALYTICS_ROUTE = "/settings/analytics";
 export const ORG_CHANGE_PLAN_ROUTE = "/org/change-plan";
-export const ORG_SOUVENIR_SLACK_ROUTE = "/org/souvenir-slack";
-export const ORG_CONNECTORS_ROUTE = "/org/connectors";
+export const ORG_SOUVENIR_SLACK_ROUTE = "/souvenir-slack";
+export const ORG_CONNECTORS_ROUTE = "/connectors";
 
 export const SETTINGS_ROUTE = "/settings";
 export const SETTINGS_ACCOUNT_ROUTE = "/settings/account";
@@ -69,7 +77,7 @@ export const PROJECT_ROUTE = (projectId: string) => `/project/${projectId}`;
 export const PROJECT_CHAT_ROUTE = (projectId: string, chatId: string) =>
   `/project/${projectId}/chat/${chatId}`;
 export const PROJECT_CHAT_NEW_ROUTE = (projectId: string) => `/project/${projectId}/chat/new`;
-export const ORG_TEAM_ROUTE = (teamId: string) => `/org/teams/${teamId}`;
+export const ORG_TEAM_ROUTE = (teamId: string) => `/settings/teams/${teamId}`;
 export const TEAM_ROUTE = (teamId: string) => `/teams/${teamId}`;
 export const AGENT_CHAT_ROUTE = (personaId: string) => `/agents/${personaId}/chat`;
 export const CHAT_SHARE_ROUTE = (shareId: string) => `/chat-shares/${shareId}`;

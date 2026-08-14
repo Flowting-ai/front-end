@@ -23,6 +23,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { Chip } from '@/components/Chip'
 import { PinboardExpanded, type PinboardExpandedFolder } from '@/components/PinboardExpanded'
 import { EnterChunk, PINBOARD_COMPACT_ENTER_DEFAULT, type PinboardEnterAnimation } from './enterAnimation'
+import { PIN_DRAG_MIME_TYPE } from '@/lib/pin-drag'
 
 export {
   PINBOARD_COMPACT_ENTER_DEFAULT,
@@ -1189,6 +1190,29 @@ export function Pinboard(
       [],
     )
 
+    // Drag a pin card onto the chat input to insert it. Bails out when the
+    // gesture starts on an interactive descendant (the card's own drag-to-expand
+    // handle, tag chips, more-options button, etc.) so it doesn't fight with
+    // Pin's own pointer-driven gestures for the same mousedown.
+    const handlePinDragStart = useCallback(
+      (pin: PinboardPin) => (e: React.DragEvent<HTMLDivElement>) => {
+        const target = e.target as HTMLElement
+        // Excludes the card's own gesture surfaces: the resize/expand handle
+        // (role="button"), the horizontal tag-chip scroll row when it overflows
+        // (data-draggable, see Pin/index.tsx's labelsRowRef), and any ordinary
+        // interactive control — none of those should be hijacked into a card drag.
+        if (target.closest('button, [role="button"], a, input, textarea, [data-draggable="true"]')) {
+          e.preventDefault()
+          return
+        }
+        const payload = { id: pin.id, title: pin.pinTitle ?? '', content: pin.description ?? '' }
+        e.dataTransfer.setData(PIN_DRAG_MIME_TYPE, JSON.stringify(payload))
+        e.dataTransfer.setData('text/plain', pin.pinTitle || pin.description || '')
+        e.dataTransfer.effectAllowed = 'copy'
+      },
+      [],
+    )
+
     // Measure the bottom toolbar so the scroll area reserves correct space.
     useEffect(() => {
       if (!bottomBarRef.current) return
@@ -1645,6 +1669,8 @@ export function Pinboard(
                       key={id}
                       data-index={vRow.index}
                       ref={pinVirtualizer.measureElement}
+                      draggable
+                      onDragStart={handlePinDragStart(p)}
                       style={{
                         position:  'absolute',
                         top:       0,

@@ -58,9 +58,10 @@ import { ScheduleDeleteModal, type ScheduleDeleteModalProps } from './ScheduleDe
 export { ScheduleDeleteModal, type ScheduleDeleteModalProps }
 import { ContextRail, type ContextRailProps, type ContextRailData, type ContextRailPersona, type ContextRailPin, type ContextRailConnector } from './ContextRail'
 export { ContextRail, type ContextRailProps, type ContextRailData, type ContextRailPersona, type ContextRailPin, type ContextRailConnector }
-import { InformationCircleIcon } from '@strange-huge/icons'
+import { InformationCircleIcon, AiWebBrowsingIcon, BubbleChatIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
+import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ExternalOutputCard, type ExternalOutputCardProps, type ExternalOutputAction } from './ExternalOutputCard'
 export { ExternalOutputCard, type ExternalOutputCardProps, type ExternalOutputAction }
 import { BrainDigestCard, type BrainDigestCardProps, type DigestItem } from './BrainDigestCard'
@@ -134,6 +135,9 @@ export interface BrainShellProps {
   dropDisabled?: boolean
   /** Real scheduled-run data for the Mayday idle home. */
   homeProps?: Omit<BrainHomeProps, 'onSuggestion'>
+  /** Called when the user selects the "Chat" tab in the Task/Chat strip (Figma
+   *  136:53294) — the page owns navigation, this shell only owns the tab UI. */
+  onSwitchToChat?: () => void
 }
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
@@ -165,6 +169,7 @@ export function BrainShell({
   onFilesDropped,
   dropDisabled,
   homeProps,
+  onSwitchToChat,
 }: BrainShellProps) {
   const normalizedInitialInputValue = initialInputValue ?? ''
   const normalizedInitialInputKey = `${initialInputKey ?? ''}:${normalizedInitialInputValue}`
@@ -184,6 +189,10 @@ export function BrainShell({
     value:        normalizedInitialInputValue,
   })
   const [userClosed, setUserClosed] = useState(false)
+  // Task/Chat tab strip (Figma 136:53294, "Top Bar") — shown at the top of a new
+  // (idle) Brain thread. "Task" is "new brain" renamed. Per current scope this
+  // only renders the switcher; it doesn't yet change what's shown below it.
+  const [activeTab, setActiveTab] = useState<'task' | 'chat'>('task')
   const phase = optimisticPhase?.basePhase === defaultPhase ? optimisticPhase.phase : defaultPhase
   const inputValue = inputState.initialKey === normalizedInitialInputKey
     ? inputState.value
@@ -261,6 +270,30 @@ export function BrainShell({
             backgroundColor: 'var(--color-surface-glass)',
             isolation:       'isolate',
         }}>
+
+          {/* Top Bar — Task/Chat tab strip, new-thread (idle) only (Figma 136:53294) */}
+          {isIdle && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: 44, flexShrink: 0 }}>
+              <div style={{ width: 171 }}>
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(v) => {
+                    const next = v as 'task' | 'chat'
+                    // Update first so the pill/label animate to the clicked tab
+                    // immediately — navigation (a side effect) follows, it doesn't
+                    // replace the visual response to the click.
+                    setActiveTab(next)
+                    if (next === 'chat') onSwitchToChat?.()
+                  }}
+                >
+                  <TabsList fluid>
+                    <TabsTrigger value="task" icon={<AiWebBrowsingIcon size={16} animated />}>Task</TabsTrigger>
+                    <TabsTrigger value="chat" icon={<BubbleChatIcon size={16} />}>Chat</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            </div>
+          )}
 
           {/* Drag overlay */}
           {isDragging && (

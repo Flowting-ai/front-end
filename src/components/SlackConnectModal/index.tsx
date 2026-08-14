@@ -4,76 +4,65 @@ import React, { useEffect, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 import { toast } from 'sonner'
-import { RadarThreeIcon, CalendarThreeIcon } from '@strange-huge/icons'
-import { ViewIcon } from '@/components/ViewIcon'
+import { ArrowDownOneIcon, LinkSixIcon, MessagePreviewOneIcon, UserIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { getOrgSlackStatus, getSlackInstallUrl, getSlackStatus } from '@/lib/api/slack'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 const SHADOW_MODAL = '0px 12px 16px -4px rgba(130,122,116,0.12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+const SHADOW_CARD_BORDER = '0px 1px 1.5px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)'
 
 // Poll the Slack status after the install tab opens, until the bot reports
 // installed or we give up. 3s cadence keeps it responsive without hammering.
 const POLL_INTERVAL_MS = 3000
 const POLL_TIMEOUT_MS   = 3 * 60 * 1000
 
-// ── Feature rows ───────────────────────────────────────────────────────────────
+// ── Permission rows (Figma 136:53621 "Permissions Section") ──────────────────
 
-interface Feature {
-  icon:     React.ReactNode
-  title:    string
-  subtitle: string
+interface Permission {
+  icon: React.ReactNode
+  text: string
 }
 
-const FEATURES: Feature[] = [
+const PERMISSIONS: Permission[] = [
   {
-    icon:     <ViewIcon size={20} color="var(--neutral-700)" variant="visible" />,
-    title:    'Reads only mapped channels',
-    subtitle: 'Nothing else is touched until you map it.',
+    icon: <LinkSixIcon size={20} color="var(--neutral-700)" />,
+    text: 'Establish a connection between your Souvenir workspace and Slack.',
   },
   {
-    icon:     <RadarThreeIcon size={20} color="var(--neutral-700)" />,
-    title:    'Corporate accounts only',
-    subtitle: 'Personal-account links are blocked automatically.',
+    icon: <MessagePreviewOneIcon size={20} color="var(--neutral-700)" />,
+    text: 'Send scheduled summaries, notifications, and AI-generated content to channels.',
   },
   {
-    icon:     <CalendarThreeIcon size={20} color="var(--neutral-700)" />,
-    title:    'Revoke anytime',
-    subtitle: 'Disconnect the workspace whenever you want.',
+    icon: <UserIcon size={20} color="var(--neutral-700)" />,
+    text: 'Read channel names and members for message routing and @mentions.',
   },
 ]
 
-// ── Brand mark row ───────────────────────────────────────────────────────────────
+function SectionDivider() {
+  return <div style={{ width: '100%', height: 1, backgroundColor: 'var(--neutral-100)', flexShrink: 0 }} />
+}
 
-function BrandMarks() {
+// ── "#" ↔ link ↔ "S" logo bridge ──────────────────────────────────────────────
+
+function LogoBridge() {
+  const tileStyle: React.CSSProperties = {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-      <div style={{
-        width:           72,
-        height:          72,
-        borderRadius:    '50%',
-        border:          '1.5px solid var(--neutral-900)',
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        flexShrink:      0,
-      }}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- static brand logo asset */}
-        <img src="/icons/souvenir-logo-gray.svg" alt="Souvenir" width={36} height={36} style={{ display: 'block' }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div style={{ ...tileStyle, backgroundColor: 'var(--neutral-white)', boxShadow: SHADOW_CARD_BORDER }}>
+        <span style={{ fontFamily: 'var(--font-title)', fontWeight: 600, fontSize: 22, lineHeight: '28px', color: '#570B7A' }}>#</span>
       </div>
-      <div style={{ width: 28, height: 2, backgroundColor: 'var(--neutral-300)', flexShrink: 0 }} />
-      <div style={{
-        width:           72,
-        height:          72,
-        borderRadius:    16,
-        backgroundColor: '#2d0b2e',
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        flexShrink:      0,
-      }}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- static brand logo asset */}
-        <img src="/connector-logos/slack.svg" alt="" width={38} height={38} style={{ display: 'block', objectFit: 'contain' }} />
+      <LinkSixIcon size={20} color="var(--neutral-500)" />
+      <div style={{ ...tileStyle, backgroundColor: 'var(--neutral-800)' }}>
+        <span style={{ fontFamily: 'var(--font-title)', fontWeight: 600, fontSize: 22, lineHeight: '28px', color: 'var(--neutral-white)' }}>S</span>
       </div>
     </div>
   )
@@ -151,106 +140,132 @@ export function SlackConnectModal({ isOpen, onClose, orgId, onConnected }: Slack
           style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(18,12,8,0.52)', zIndex: 1100 }}
         />
         <Dialog.Content
-          aria-label="Connect Slack to Souvenir"
+          aria-label="Connect Souvenir to Slack"
           style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1101, outline: 'none' }}
         >
           <VisuallyHidden.Root asChild>
-            <Dialog.Title>Connect Slack to Souvenir</Dialog.Title>
+            <Dialog.Title>Connect Souvenir to Slack</Dialog.Title>
           </VisuallyHidden.Root>
 
           <div
             style={{
               display:         'flex',
               flexDirection:   'column',
-              alignItems:      'center',
-              gap:             20,
-              width:           560,
+              width:           520,
               maxWidth:        'calc(100vw - 48px)',
-              padding:         '36px 44px',
-              borderRadius:    24,
+              maxHeight:       'calc(100vh - 48px)',
+              overflowY:       'auto',
+              borderRadius:    18,
               boxSizing:       'border-box',
               backgroundColor: 'var(--neutral-white)',
               boxShadow:       SHADOW_MODAL,
             }}
           >
-            <BrandMarks />
-
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, textAlign: 'center' }}>
+            {/* ── Header — title + "#" / link / "S" logo bridge ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '28px 28px 24px' }}>
               <h2 style={{
                 fontFamily: 'var(--font-title)',
-                fontWeight: 400,
-                fontSize:   28,
-                lineHeight: '34px',
-                color:      'var(--neutral-900)',
+                fontWeight: 600,
+                fontSize:   18,
+                lineHeight: '24px',
+                color:      'var(--neutral-800)',
                 margin:     0,
+                textAlign:  'center',
               }}>
-                Connect Slack to Souvenir
+                Connect Souvenir to Slack
               </h2>
+              <LogoBridge />
+            </div>
+
+            <SectionDivider />
+
+            {/* ── Workspace — the workspace you connect is chosen inside Slack's own
+                authorization screen, so there's nothing to pick here yet; this just
+                previews where it'll show up once `getOrgSlackStatus`/`getSlackStatus`
+                reports it back. ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '24px 28px' }}>
               <p style={{
                 fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize:   16,
-                lineHeight: '24px',
-                color:      'var(--neutral-500)',
+                fontWeight: 500,
+                fontSize:   13,
+                lineHeight: '18px',
+                color:      'var(--neutral-600)',
                 margin:     0,
-                maxWidth:   400,
               }}>
-                One secure connection for the whole workspace. You stay in control.
+                Select a Slack workspace
+              </p>
+              <div style={{
+                display:         'flex',
+                alignItems:      'center',
+                gap:             12,
+                padding:         '13px 14px',
+                borderRadius:    12,
+                backgroundColor: 'var(--neutral-white)',
+                boxShadow:       SHADOW_CARD_BORDER,
+              }}>
+                <span aria-hidden style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: 'var(--neutral-200)', flexShrink: 0 }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: '1 0 0' }}>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14, lineHeight: '20px',
+                    color: 'var(--neutral-800)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    Chosen in Slack
+                  </p>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px',
+                    color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    You'll pick the workspace on Slack's authorization screen
+                  </p>
+                </div>
+                <span aria-hidden style={{ display: 'inline-flex', flexShrink: 0, color: 'var(--neutral-700)' }}>
+                  <ArrowDownOneIcon size={16} />
+                </span>
+              </div>
+            </div>
+
+            <SectionDivider />
+
+            {/* ── Permissions ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '24px 28px 20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 20, borderRadius: 14, backgroundColor: 'var(--neutral-50)' }}>
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, lineHeight: '18px',
+                  color: 'var(--neutral-700)', margin: 0,
+                }}>
+                  Souvenir will be able to:
+                </p>
+                {PERMISSIONS.map(p => (
+                  <div key={p.text} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <span aria-hidden style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, flexShrink: 0 }}>
+                      {p.icon}
+                    </span>
+                    <p style={{
+                      fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '18px',
+                      color: 'var(--neutral-700)', margin: 0,
+                    }}>
+                      {p.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px',
+                color: 'var(--neutral-500)', margin: 0,
+              }}>
+                Slack will share your name, email, and workspace ID with Souvenir. By connecting, you agree to Souvenir's privacy policy and terms of service.
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-              {FEATURES.map(f => (
-                <div
-                  key={f.title}
-                  style={{
-                    display:         'flex',
-                    alignItems:      'flex-start',
-                    gap:             14,
-                    padding:         '16px 18px',
-                    borderRadius:    14,
-                    backgroundColor: 'var(--neutral-50)',
-                  }}
-                >
-                  <span style={{ flexShrink: 0, lineHeight: 0, marginTop: 1 }}>{f.icon}</span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                    <p style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 600,
-                      fontSize:   15,
-                      lineHeight: '22px',
-                      color:      'var(--neutral-900)',
-                      margin:     0,
-                    }}>
-                      {f.title}
-                    </p>
-                    <p style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 400,
-                      fontSize:   14,
-                      lineHeight: '20px',
-                      color:      'var(--neutral-500)',
-                      margin:     0,
-                    }}>
-                      {f.subtitle}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <SectionDivider />
 
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, width: '100%' }}>
-              <Button variant="outline" size="sm" onClick={onClose} disabled={connecting}>
+            {/* ── Footer ── */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '16px 28px' }}>
+              <Button variant="ghost" size="sm" onClick={onClose} disabled={connecting}>
                 Cancel
               </Button>
-              <Button
-                variant="default"
-                size="sm"
-                loading={connecting}
-                onClick={handleConnect}
-                leftIcon={<img src="/connector-logos/slack.svg" alt="" width={14} height={14} style={{ objectFit: 'contain', display: 'block' }} />}
-              >
-                Connect Slack workspace
+              <Button variant="default" size="sm" loading={connecting} onClick={handleConnect}>
+                Accept and Connect
               </Button>
             </div>
           </div>

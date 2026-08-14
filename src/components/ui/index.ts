@@ -30,6 +30,18 @@ export { SidebarProjectsSection } from "@/components/SidebarProjectsSection";
 
 export { SidebarMenuSkeleton } from "@/components/SidebarMenuSkeleton";
 
+// ── Flat sidebar (Souvenir V1.5) ──────────────────────────────────────────────
+// New, separate primitives — the old Sidebar/SidebarMenuItem/SidebarProjectsSection
+// above are left untouched and keep serving Brain/Admin/team-settings pages.
+export { FlatSidebar } from "@/components/FlatSidebar";
+export type { FlatSidebarProps } from "@/components/FlatSidebar";
+export { FlatSidebarRow } from "@/components/FlatSidebarRow";
+export type { FlatSidebarRowProps, FlatSidebarRowVariant } from "@/components/FlatSidebarRow";
+export { FlatSidebarProjectGroup } from "@/components/FlatSidebarProjectGroup";
+export type { FlatSidebarProjectGroupProps } from "@/components/FlatSidebarProjectGroup";
+export { FlatSidebarSlackConnector } from "@/components/FlatSidebarSlackConnector";
+export { FlatSidebarProfileRow } from "@/components/FlatSidebarProfileRow";
+
 export * from "@/components/Button";
 
 export * from "@/components/Badge";

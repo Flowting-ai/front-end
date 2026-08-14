@@ -416,7 +416,11 @@ function BrainSchedulesPageInner() {
         display:         'flex',
         flexDirection:   'column',
         backgroundColor: 'var(--neutral-50)',
-        padding:         '10px 0',
+        // Right padding restored to match BrainShell's own center container
+        // (src/templates/Brain/index.tsx) and the shared AppLayout — this page
+        // builds its own copy of that container since AppLayout's isBrainPage
+        // branch renders {children} with no padding of its own.
+        padding:         '10px 10px 10px 0',
       }}>
         <div style={{
           position:        'relative',

@@ -19,6 +19,7 @@ import SpeechRecognition, {
 import { toast } from "sonner";
 import { AudioWaveDisplay } from "@/components/shared/AudioWaveDisplay";
 import { trackFeature } from "@/lib/analytics/events";
+import { PIN_DRAG_MIME_TYPE, type PinDragPayload } from "@/lib/pin-drag";
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
 
@@ -168,6 +169,7 @@ export function ChatInput(
     const [addMenuOpen,   setAddMenuOpen]   = useState(false);
     const [modelMenuOpen, setModelMenuOpen] = useState(false);
     const [mounted,       setMounted]       = useState(false);
+    const [isPinDragOver, setIsPinDragOver] = useState(false);
 
     const audioCtxRef = useRef<AudioContext | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
@@ -442,6 +444,35 @@ export function ChatInput(
       externalMouseLeave?.(e);
     };
 
+    // Dropping a pin card from the Pinboard here fires the same `pin:insert`
+    // CustomEvent its own "Insert" button dispatches (see RightSidebar.tsx's
+    // toPinboardPin) — ChatInterface.tsx's existing listener does the actual
+    // work (dedupe + add as an @-mention chip), so there's nothing to wire here.
+    const handlePinDragOver: React.DragEventHandler<HTMLDivElement> = (e) => {
+      if (!e.dataTransfer.types.includes(PIN_DRAG_MIME_TYPE)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      setIsPinDragOver(true);
+    };
+
+    const handlePinDragLeave: React.DragEventHandler<HTMLDivElement> = (e) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsPinDragOver(false);
+    };
+
+    const handlePinDrop: React.DragEventHandler<HTMLDivElement> = (e) => {
+      const raw = e.dataTransfer.getData(PIN_DRAG_MIME_TYPE);
+      if (!raw) return;
+      e.preventDefault();
+      setIsPinDragOver(false);
+      try {
+        const pin = JSON.parse(raw) as PinDragPayload;
+        if (!pin?.id) return;
+        window.dispatchEvent(new CustomEvent("pin:insert", { detail: pin }));
+      } catch {
+        // Malformed payload — ignore rather than throw on drop.
+      }
+    };
+
     const shadow = isFocused
       ? SHADOW_FOCUS
       : isHovered
@@ -497,12 +528,17 @@ export function ChatInput(
           borderRadius: szRadius,
           backgroundColor: "var(--chat-input-bg)",
           boxShadow: shadow,
-          transition: "box-shadow 150ms",
+          outline: isPinDragOver ? "2px dashed var(--focus-ring)" : "none",
+          outlineOffset: 2,
+          transition: "box-shadow 150ms, outline-color 150ms",
           cursor: disabled ? "not-allowed" : undefined,
         }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
+        onDragOver={handlePinDragOver}
+        onDragLeave={handlePinDragLeave}
+        onDrop={handlePinDrop}
       >
         {/* ── Recording state announcer (screen readers only) ── */}
         <span

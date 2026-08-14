@@ -24,6 +24,8 @@ import {
   ORG_BASE_ROUTE,
   TEAMS_BASE_ROUTE,
   BRAIN_ROUTE,
+  ORG_CONNECTORS_ROUTE,
+  ORG_SOUVENIR_SLACK_ROUTE,
 } from "@/lib/routes";
 
 interface AppLayoutProps {
@@ -77,6 +79,10 @@ export function AppLayout({
   const isTeamPage     = pathname.startsWith(TEAMS_BASE_ROUTE)
   // Brain pages use BrainShell which supplies its own full-screen layout (sidebar + center + context rail).
   const isBrainPage = pathname.startsWith(BRAIN_ROUTE)
+  // Connectors / Souvenir-in-Slack are settings-style pages too (moved off
+  // /org/* to their own top-level routes) — same TopBar/FloatingPanel strip
+  // as /org and /teams/[teamId] above.
+  const isConnectorsOrSlackPage = pathname.startsWith(ORG_CONNECTORS_ROUTE) || pathname.startsWith(ORG_SOUVENIR_SLACK_ROUTE)
 
   // Settings pages manage their own full layout — bypass global chrome entirely.
   if (isSettingsPage) {
@@ -152,32 +158,33 @@ export function AppLayout({
           backgroundColor: "var(--neutral-50)",
         }}
       >
-        {/* Content area — right padding removed (was 10px when no side panel
-            was open): that, plus the rounded container's own 12px, plus each
-            page's own inner scroll padding, was stacking into a much bigger
-            scrollbar-to-edge gap than intended. Each page's own inner content
-            now owns its exact edge spacing instead. */}
+        {/* Content area — right padding restored to match BrainShell's own
+            center container (src/templates/Brain/index.tsx: padding '10px
+            10px 10px 0') so /chat and friends get the same gap to the
+            viewport's right edge that Brain already has. */}
         <div
           style={{
             flex:      "1 0 0",
             minHeight: 0,
             display:   "flex",
-            padding:   "10px 0",
+            padding:   "10px 10px 10px 0",
           }}
         >
         {isPersonaPage && !isPersonaChatPage ? (
-          /* ── Non-chat persona pages (list, configure): plain main, no container ── */
+          /* Non-chat persona pages (list, configure): plain main, no container.
+             Every page under this branch (agents list, agent/configure/*) brings
+             its own inner .kaya-scrollbar element that does the real scrolling —
+             this main never overflows on its own, so it must NOT also carry
+             .kaya-scrollbar (scrollbar-gutter: stable): that reserved a second,
+             always-on gutter stacked on top of the page's own, doubling the gap
+             on the right edge for no reason. This is a plain flex passthrough. */
           <main
-            className="kaya-scrollbar"
             style={{
-              flex:                "1 0 0",
-              minHeight:           0,
-              width:               "100%",
-              overflowY:           "auto",
-              overflowX:           "hidden",
-              overscrollBehaviorY: "contain",
-              display:             "flex",
-              flexDirection:       "column",
+              flex:          "1 0 0",
+              minHeight:     0,
+              width:         "100%",
+              display:       "flex",
+              flexDirection: "column",
             }}
           >
             {children}
@@ -186,10 +193,11 @@ export function AppLayout({
           /* ── Inner rounded container (Figma 3220:33871) ──
               border 1px neutral-200, rounded-22px, bg rgba(255,255,255,0.2),
               overflow-clip, isolate for FloatingPanel z-index scoping.
-              Right padding removed — it was stacking with the content area's
-              own padding and each page's inner scroll padding into a much
-              bigger scrollbar-to-edge gap than intended. Each page's own
-              inner content now owns its exact right-edge spacing instead. */
+              Uniform 12px padding — matches BrainShell's own glass card
+              (src/templates/Brain/index.tsx: padding '12px' on all sides).
+              Connectors/Souvenir-in-Slack use the same tight 3px padding the
+              agents list's own self-built card uses, so their scrollbar sits
+              the same distance from this border as it does on /agents. */
           <div
             style={{
               position:        "relative",
@@ -199,9 +207,7 @@ export function AppLayout({
               flexDirection:   "column",
               alignItems:      "flex-start",
               gap:             "2px",
-              paddingTop:      "12px",
-              paddingBottom:   "12px",
-              paddingLeft:     "12px",
+              padding:         isConnectorsOrSlackPage ? "3px" : "12px",
               borderRadius:    "22px",
               border:          "1px solid var(--neutral-200)",
               backgroundColor: "rgba(255, 255, 255, 0.2)",
@@ -210,7 +216,7 @@ export function AppLayout({
             }}
           >
             {/* ── TopBar - absolute, overlaps the 1px border on three sides ── */}
-            {!isAdminPage && !isTeamPage && (
+            {!isAdminPage && !isTeamPage && !isConnectorsOrSlackPage && (
               <TopBar
                 showCitationsToggle={showCitationsToggle}
                 citationsOpen={citationsOpen}
@@ -236,7 +242,7 @@ export function AppLayout({
             </main>
 
             {/* ── Floating action panel - mid-right of rounded container ── */}
-            {!isAdminPage && !isTeamPage && !isProjectPage && !isPersonaChatPage && (
+            {!isAdminPage && !isTeamPage && !isConnectorsOrSlackPage && !isProjectPage && !isPersonaChatPage && (
               <Suspense fallback={null}>
                 <FloatingPanel />
               </Suspense>

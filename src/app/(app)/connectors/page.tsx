@@ -184,8 +184,11 @@ function PageShell({ children }: { children: React.ReactNode }) {
       style={{
         flex: 1,
         minHeight: 0,
+        width: '100%',
+        height: '100%',
         overflowY: 'auto',
         overflowX: 'hidden',
+        boxSizing: 'border-box',
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
@@ -1376,14 +1379,15 @@ function ConnectorTeamAccessPanel({
           <div
             className="kaya-scrollbar"
             style={{
-              display:       'flex',
-              flexDirection: 'column',
-              gap:           CONNECTOR_TEAMS_ROW_GAP,
-              maxHeight:     teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? CONNECTOR_TEAMS_LIST_MAX_HEIGHT : undefined,
-              overflowY:     teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? 'auto' : undefined,
-              padding:       teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? 3 : undefined,
+              maxHeight: teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? CONNECTOR_TEAMS_LIST_MAX_HEIGHT : undefined,
+              overflowY: teams.length > CONNECTOR_TEAMS_VISIBLE_MAX ? 'auto' : undefined,
             }}
           >
+            {/* Padding lives here, not on the scrolling element above — keeps
+                the scrollbar flush with the list's edge (same convention as
+                PageShell above); the 3px just keeps each row's outline ring
+                from clipping against the scroll container's own edges. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: CONNECTOR_TEAMS_ROW_GAP, padding: 3 }}>
             {sortedTeams.map((team, index) => {
               const effectivelyOn = isEffectivelyOn(team)
               return (
@@ -1435,6 +1439,7 @@ function ConnectorTeamAccessPanel({
                 </motion.div>
               )
             })}
+            </div>
           </div>
         )}
       </div>

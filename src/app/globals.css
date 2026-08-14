@@ -12,6 +12,9 @@
 .kaya-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: var(--neutral-800-30) transparent;
+  /* Reserve the scrollbar's gutter even when content doesn't overflow, so
+     rows don't shift width the moment a scrollbar appears/disappears. */
+  scrollbar-gutter: stable;
 }
 .kaya-scrollbar::-webkit-scrollbar {
   width: 3px;

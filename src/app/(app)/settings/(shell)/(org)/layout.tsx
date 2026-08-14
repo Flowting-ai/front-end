@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation'
 import { useOrg } from '@/context/org-context'
 import { CHAT_ROUTE } from '@/lib/routes'
 
-// Connectors and Souvenir-in-Slack moved out to their own top-level routes
-// (/connectors, /souvenir-slack — each with its own layout guard); everything
-// still under /org/* is either the root redirect or a stub redirecting to its
-// new /settings/* location, all admin-only.
-export default function OrgAdminLayout({ children }: { children: React.ReactNode }) {
+// Admin-only guard for the former /org/* pages (General/Members/Teams/Plans/
+// Analytics/Activity), now living under /settings/*. Ported from
+// src/app/(app)/org/layout.tsx — that layout still guards the two pages that
+// stayed at /org/* (Connectors, Souvenir in Slack); this one covers everything
+// that moved. No member-connectors allowance needed here — Connectors isn't
+// in this group.
+export default function SettingsOrgAdminLayout({ children }: { children: React.ReactNode }) {
   const { currentUserRole, orgReady } = useOrg()
   const { replace } = useRouter()
   const canView = currentUserRole === 'admin'

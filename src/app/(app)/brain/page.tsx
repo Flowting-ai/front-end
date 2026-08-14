@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState, useEffect, useLayoutEffect, useRef, useCallback, Fragment, type CSSProperties } from 'react'
 import { m } from 'framer-motion'
 import { springs } from '@/lib/springs'
-import { BRAIN_ROUTE } from '@/lib/routes'
+import { BRAIN_ROUTE, CHAT_ROUTE } from '@/lib/routes'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import {
@@ -4073,6 +4073,7 @@ function BrainPageInner() {
       initialInputKey={inputSeed.key}
       onFilesDropped={(files) => setBrainAttachments((prev) => processFiles(files, prev))}
       dropDisabled={brainIsStreaming || creditStatus.blocked}
+      onSwitchToChat={() => push(CHAT_ROUTE)}
       homeProps={{
         digestItems: homeDigest,
         activeSchedules: homeSchedules,

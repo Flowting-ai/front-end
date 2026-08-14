@@ -30,6 +30,16 @@ function settingsScreen(tab: string | undefined): ScreenName | null {
       return "settings_notifications";
     case "security":
       return "settings_security";
+    // Moved from /org/* (Souvenir V1.5) — same concept, new path. Keeping the
+    // established "org_manage" name per this file's own convention (redesigns
+    // keep the name, re-point the mapping) rather than minting new ones.
+    case "general":
+    case "members":
+    case "teams":
+    case "plans":
+    case "analytics":
+    case "activity":
+      return "org_manage";
     default:
       return null;
   }
@@ -78,7 +88,13 @@ export function routeToScreen(pathname: string): ScreenName | null {
     case "teams":
       return "teams";
     case "org":
-      return "org_manage"; // all /org/* admin tabs collapse to one concept
+      return "org_manage"; // remaining /org/* stubs (redirect only) collapse to one concept
+    // Connectors and Souvenir-in-Slack moved from /org/* to their own
+    // top-level routes — same "org_manage" concept, new path (this file's own
+    // convention: redesigns keep the name, re-point the mapping).
+    case "connectors":
+    case "souvenir-slack":
+      return "org_manage";
     case "settings":
       return settingsScreen(segments[1]);
     case "onboarding":
