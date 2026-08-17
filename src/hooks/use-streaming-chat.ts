@@ -25,7 +25,7 @@ import {
   eventRoundIndex,
   reasoningEventText,
 } from "@/lib/reasoning"
-import { toolNameToType, webSearchResults } from "@/lib/activity"
+import { normalizeActivityStatus, toolNameToType, webSearchResults } from "@/lib/activity"
 
 // ── Error markers ─────────────────────────────────────────────────────────────
 
@@ -697,12 +697,13 @@ export function useStreamingChat({
             // Tool progress - schema: {tool, label, status, filename, step?, message?, code_preview?}
             const toolName = asString(parsed.tool) ?? "unknown"
             const label = asString(parsed.label)
-            const status = asString(parsed.status) ?? "start"
+            const status = normalizeActivityStatus(asString(parsed.status))
             const filename = asString(parsed.filename)
             const progressMessage = asString(parsed.message)
             const codePreview = asString(parsed.code_preview)
             // Prefer the activityId linked from tool_executing; fall back to constructed key
             const activityId = toolCallIdByName.get(toolName) ?? `tp-${toolName}-${filename ?? "default"}`
+            if (status === "error") erroredToolNames.add(toolName)
 
             const activityType = toolNameToType(toolName)
             reasoning.activity(activityId, eventRoundIndex(parsed))
@@ -720,7 +721,7 @@ export function useStreamingChat({
                       ...msg,
                       activities: (msg.activities ?? []).map((a) =>
                         a.id === activityId
-                          ? { ...a, status: status as import("@/hooks/use-chat-state").ActivityStatus, label: label ?? a.label, detail: label ?? a.detail, progressMessage, codePreview }
+                          ? { ...a, status, label: label ?? a.label, detail: label ?? a.detail, progressMessage, codePreview }
                           : a,
                       ),
                       reasoningTimeline: reasoning.timeline(),
@@ -733,7 +734,7 @@ export function useStreamingChat({
                     toolName,
                     label,
                     detail: label || progressMessage || filename || toolName,
-                    status: status as import("@/hooks/use-chat-state").ActivityStatus,
+                    status,
                     filename,
                     progressMessage,
                     codePreview,

@@ -828,16 +828,18 @@ type TimelineItem =
 // instead of a `toolKey` lookup; ephemeral kinds (progress/permission/approval/
 // connect) are already resolved or meaningless after the fact, so they're
 // dropped rather than frozen.
+type ToolLifecycleStatus = 'streaming' | 'executing' | 'complete' | 'failed'
+
 type FrozenTimelineItem =
   | { kind: 'text';       id: string; text: string }
-  | { kind: 'tool';       id: string; data: ToolCallPreview; status: 'streaming' | 'executing' | 'complete' }
+  | { kind: 'tool';       id: string; data: ToolCallPreview; status: ToolLifecycleStatus }
   | { kind: 'web_search'; id: string; data: WebSearchEvent }
   | { kind: 'file';       id: string; data: GeneratedFileEvent }
   | { kind: 'image';      id: string; url: string }
 
 function freezeTimeline(
   items: TimelineItem[],
-  liveToolCalls: Record<string, { status: 'streaming' | 'executing' | 'complete'; tool_call: ToolCallPreview }>,
+  liveToolCalls: Record<string, { status: ToolLifecycleStatus; tool_call: ToolCallPreview }>,
 ): FrozenTimelineItem[] {
   return items.flatMap<FrozenTimelineItem>((item) => {
     switch (item.kind) {
@@ -1323,7 +1325,7 @@ function BrainPageInner() {
     connectors: Map<string, Connector>
   }>({ pins: new Map(), files: new Map(), connectors: new Map() })
   const [toolConnectPrompt,  setToolConnectPrompt]  = useState<ToolConnectPromptEvent | null>(null)
-  const [liveToolCalls,      setLiveToolCalls]      = useState<Record<string, { status: 'streaming' | 'executing' | 'complete'; tool_call: ToolCallPreview }>>({})
+  const [liveToolCalls,      setLiveToolCalls]      = useState<Record<string, { status: ToolLifecycleStatus; tool_call: ToolCallPreview }>>({})
 
   // ── Ordered turn timeline ────────────────────────────────────────────────────
   // The chronological render model for the active turn (see TimelineItem). Reset
@@ -2033,6 +2035,15 @@ function BrainPageInner() {
         const status   = typeof d.status   === 'string' ? d.status   : ''
         const filename = typeof d.filename === 'string' ? d.filename : ''
         if (tool) {
+          if (status === 'error' || status === 'failed' || status === 'failure') {
+            setLiveToolCalls((prev) => Object.fromEntries(
+              Object.entries(prev).map(([id, entry]) =>
+                entry.tool_call.name === tool
+                  ? [id, { ...entry, status: 'failed' as const }]
+                  : [id, entry],
+              ),
+            ))
+          }
           setToolProgress({
             tool,
             status,
@@ -2059,8 +2070,8 @@ function BrainPageInner() {
         const slug         = typeof d.connector_slug === 'string' ? d.connector_slug : ''
         const display_name = typeof d.display_name   === 'string' ? d.display_name   : slug
         const auth_mode    = typeof d.auth_mode      === 'string' ? d.auth_mode      : 'oauth2'
-        const tool_name    = typeof d.tool_name      === 'string' ? d.tool_name      : ''
-        const request_id   = typeof d.request_id     === 'string' ? d.request_id     : ''
+        const tool_name    = typeof d.tool_slug      === 'string' ? d.tool_slug      : ''
+        const request_id   = typeof d.prompt_id      === 'string' ? d.prompt_id      : ''
         // Per-tenant OAuth (Shopify) ships its init fields here so the card can
         // render the credential form inline instead of a bare OAuth popup.
         const api_key_fields = Array.isArray(d.api_key_fields) ? (d.api_key_fields as ApiKeyField[]) : undefined
@@ -2223,12 +2234,16 @@ function BrainPageInner() {
     if (t === 'tool_calls_streaming' || t === 'tool_executing' || t === 'tool_complete') {
       const tc = d.tool_call as ToolCallPreview | null | undefined
       if (!tc) return
-      const id = tc.id ?? tc.name ?? `tool-${Date.now()}`
-      const status: 'streaming' | 'executing' | 'complete' =
+      const id = tc.id ?? tc.tool_call_id ?? tc.name ?? `tool-${Date.now()}`
+      const status: ToolLifecycleStatus =
         t === 'tool_calls_streaming' ? 'streaming'
       : t === 'tool_executing'        ? 'executing'
       :                                 'complete'
-      setLiveToolCalls((prev) => ({ ...prev, [id]: { status, tool_call: tc } }))
+      setLiveToolCalls((prev) => {
+        const previous = prev[id]
+        const nextStatus = previous?.status === 'failed' ? 'failed' : status
+        return { ...prev, [id]: { status: nextStatus, tool_call: tc } }
+      })
       // First time we see this tool id → add a row to the timeline at its
       // arrival position. Later status updates flow through liveToolCalls.
       if (!seenToolIdsRef.current.has(id)) {
@@ -2449,7 +2464,8 @@ function BrainPageInner() {
       let streamErrored = false
       await consumeBrainStream(response, {
         onEvent: (name, data, custom) => {
-          if (isTerminalBrainEvent(name) || name === 'done') {
+          const isFinalDone = name === 'done' && data.finish_reason !== 'tool_calls'
+          if (isTerminalBrainEvent(name) || isFinalDone) {
             terminalEventReceived = true
           }
           // Navigated to a different thread — let the background run keep

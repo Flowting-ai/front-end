@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import { AguiSSEDecoder } from "@/lib/sse-decoder"
 
@@ -21,12 +21,15 @@ describe("AguiSSEDecoder", () => {
   })
 
   it("does not accept named or inline legacy frames", () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {})
     const decoder = new AguiSSEDecoder()
     const events = decoder.push(
       'event: title\ndata: {"title":"Old"}\n\n' +
       'data: {"type":"content","content":"Old"}\n\n',
     )
     expect(events).toEqual([])
+    expect(warning).toHaveBeenCalledOnce()
+    warning.mockRestore()
   })
 
   it("keeps reasoning headings and bodies as two distinct CUSTOM events", () => {
@@ -68,19 +71,24 @@ describe("AguiSSEDecoder", () => {
     const decoder = new AguiSSEDecoder()
     const events = decoder.push(
       'data: {"type":"TOOL_CALL_START","toolCallId":"c1","toolCallName":"web_search"}\n\n' +
+      'data: {"type":"TOOL_CALL_ARGS","toolCallId":"c1","delta":"{\\"query\\":"}\n\n' +
+      'data: {"type":"TOOL_CALL_ARGS","toolCallId":"c1","delta":"\\"news\\"}"}\n\n' +
       'data: {"type":"TOOL_CALL_END","toolCallId":"c1"}\n\n' +
       'data: {"type":"TOOL_CALL_RESULT","messageId":"m1","toolCallId":"c1","content":"ok"}\n\n',
     )
 
     expect(events.map((event) => event.appEvent?.eventName)).toEqual([
       "tool_calls_streaming",
+      "tool_calls_streaming",
+      "tool_calls_streaming",
       "tool_executing",
       "tool_complete",
     ])
-    expect(events[2]?.appEvent?.parsed.tool_call).toEqual({
+    expect(events[4]?.appEvent?.parsed.tool_call).toEqual({
       id: "c1",
       name: "web_search",
       tool_call_id: "c1",
+      arguments: '{"query":"news"}',
       result: "ok",
     })
   })

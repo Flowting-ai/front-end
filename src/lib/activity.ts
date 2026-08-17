@@ -12,7 +12,7 @@ function asString(value: unknown): string | undefined {
 /** Backend tool name → the row's icon and default verb. */
 export function toolNameToType(toolName: string): ActivityType {
   const lower = toolName.toLowerCase()
-  if (lower === 'web_search' || lower.includes('search')) return 'web-search'
+  if (lower === 'web_search' || lower === 'browser' || lower.includes('search')) return 'web-search'
   if (lower === 'read_pages' || lower.includes('read_pdf')) return 'read-pages'
   if (lower === 'csv_execute' || lower.includes('csv')) return 'csv-execute'
   if (lower === 'fetch_resource' || lower.includes('fetch')) return 'fetch-resource'

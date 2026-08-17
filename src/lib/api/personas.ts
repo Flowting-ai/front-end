@@ -10,6 +10,8 @@ import {
 import { AguiSSEDecoder } from "@/lib/sse-decoder";
 import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import { friendlyModelError } from "@/lib/model-error";
+import { normalizeActivityStatus, toolNameToType } from "@/lib/activity";
+import type { ExternalOutputAction, GeneratedFile } from "@/hooks/use-chat-state";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import {
   PERSONAS_ENDPOINT,
@@ -1053,6 +1055,7 @@ export interface PersonaActivityItem {
   progressMessage?: string
   codePreview?:     string
   filename?:        string
+  results?:         { title: string; url?: string; domain?: string }[]
 }
 
 export interface PersonaConnectPrompt {
@@ -1086,6 +1089,12 @@ export interface PersonaChatStreamCallbacks {
   onWebSearch?: (event: PersonaWebSearchEvent) => void;
   /** Called when an image is generated. */
   onImage?: (event: PersonaImageEvent) => void;
+  /** Called when a tool produces a downloadable file. */
+  onGeneratedFile?: (event: GeneratedFile) => void;
+  /** Called with confirmed external side effects performed by connector tools. */
+  onExternalOutput?: (actions: ExternalOutputAction[]) => void;
+  /** Called after user or project memory is updated. */
+  onMemoryUpdated?: (event: Record<string, unknown>) => void;
   /** Called when a tool starts executing, progresses, or completes. Upsert by id. */
   onToolActivity?: (item: PersonaActivityItem) => void;
   /** Called when the backend requests the user link a connector. */
@@ -1146,18 +1155,6 @@ function buildStreamBody(
   };
 }
 
-function toolNameToActivityType(name: string): PersonaActivityType {
-  const l = name.toLowerCase()
-  if (l === 'web_search' || l.includes('search'))                        return 'web-search'
-  if (l === 'read_pages' || l.includes('read_pdf'))                      return 'read-pages'
-  if (l === 'csv_execute' || l.includes('csv'))                          return 'csv-execute'
-  if (l === 'fetch_resource' || l.includes('fetch'))                     return 'fetch-resource'
-  if (l === 'doc_execute')                                               return 'doc-execute'
-  if (l === 'docx_execute' || l.includes('docx') || l.includes('document')) return 'docx-progress'
-  if (l === 'skills')                                                    return 'skills'
-  return 'tool-call'
-}
-
 /** Shared SSE reader used by both create-chat and stream-message. */
 async function readPersonaSSEStream(
   reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -1168,6 +1165,7 @@ async function readPersonaSSEStream(
   let doneSeen = false;
   const str = (v: unknown) => (typeof v === "string" ? v : "");
   const toolCallIdByName = new Map<string, string>();
+  const erroredToolNames = new Set<string>();
   // After `done`, give the server a brief window to flush trailing events
   // (`message_saved`, `title`) and then cancel the reader so the fetch is
   // released even if the server keeps the SSE connection idle-open.
@@ -1220,6 +1218,24 @@ async function readPersonaSSEStream(
                 callbacks.onImage?.({ url: parsed.url, s3_key: parsed.s3_key });
               }
               break;
+            case "generated_file":
+              if (typeof parsed.url === "string" && typeof parsed.filename === "string") {
+                callbacks.onGeneratedFile?.({
+                  url: parsed.url,
+                  filename: parsed.filename,
+                  s3Key: str(parsed.s3_key) || undefined,
+                  mimeType: str(parsed.mime_type) || undefined,
+                });
+              }
+              break;
+            case "external_output":
+              if (Array.isArray(parsed.actions)) {
+                callbacks.onExternalOutput?.(parsed.actions as ExternalOutputAction[]);
+              }
+              break;
+            case "memory_updated":
+              callbacks.onMemoryUpdated?.(parsed);
+              break;
             case "done": {
               const finishReason =
                 typeof parsed.finish_reason === "string" ? parsed.finish_reason : null;
@@ -1252,7 +1268,7 @@ async function readPersonaSSEStream(
               const callId   = str(toolCall?.tool_call_id) || `te-${toolName}-${Date.now()}`
               toolCallIdByName.set(toolName, callId)
               callbacks.onToolActivity?.({
-                id: callId, type: toolNameToActivityType(toolName), toolName,
+                id: callId, type: toolNameToType(toolName), toolName,
                 label, detail: label ?? toolName.replace(/_/g, " "), status: "executing",
               })
               break
@@ -1261,10 +1277,11 @@ async function readPersonaSSEStream(
             case "tool_progress": {
               const toolName = str(parsed.tool) || (eventName === "docx_progress" ? "docx_execute" : "unknown")
               const label    = str(parsed.label) || undefined
-              const status   = (str(parsed.status) || "executing") as PersonaActivityStatus
+              const status   = normalizeActivityStatus(str(parsed.status))
               const activityId = toolCallIdByName.get(toolName) ?? `tp-${toolName}-${str(parsed.filename) || "x"}`
+              if (status === "error") erroredToolNames.add(toolName)
               callbacks.onToolActivity?.({
-                id: activityId, type: toolNameToActivityType(toolName), toolName,
+                id: activityId, type: toolNameToType(toolName), toolName,
                 label, detail: label ?? toolName, status,
                 filename:        str(parsed.filename)      || undefined,
                 progressMessage: str(parsed.message)       || undefined,
@@ -1278,11 +1295,13 @@ async function readPersonaSSEStream(
               const callId     = str(toolCall?.tool_call_id) || (toolName ? toolCallIdByName.get(toolName) : undefined)
               const label      = str(parsed.label) || undefined
               const durationS  = typeof toolCall?.duration_s === "number" ? toolCall.duration_s : undefined
+              const status = toolName && erroredToolNames.has(toolName) ? "error" : "done"
               if (toolName) toolCallIdByName.delete(toolName)
+              if (toolName) erroredToolNames.delete(toolName)
               if (callId) {
                 callbacks.onToolActivity?.({
-                  id: callId, type: toolName ? toolNameToActivityType(toolName) : "tool-call",
-                  toolName, label, detail: label ?? toolName, status: "done", durationS,
+                  id: callId, type: toolName ? toolNameToType(toolName) : "tool-call",
+                  toolName, label, detail: label ?? toolName, status, durationS,
                 })
               }
               break
@@ -1323,6 +1342,8 @@ async function readPersonaSSEStream(
             case "error":
               callbacks.onError?.(friendlyModelError(str(parsed.error)));
               return;
+            case "stream_heartbeat":
+              break;
           }
       }
       if (done) break;
