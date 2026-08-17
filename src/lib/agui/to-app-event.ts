@@ -26,7 +26,11 @@ export function aguiToAppEvent(event: AguiEvent): AppStreamEvent | null {
         eventName: "tool_calls_streaming",
         parsed: {
           content: event.toolCallName,
-          tool_call: { name: event.toolCallName, tool_call_id: event.toolCallId },
+          tool_call: {
+            id: event.toolCallId,
+            name: event.toolCallName,
+            tool_call_id: event.toolCallId,
+          },
         },
       }
 
@@ -98,10 +102,12 @@ export function aguiToAppEvent(event: AguiEvent): AppStreamEvent | null {
 /** Correlate AG-UI tool result ids with their names for the UI activity model. */
 export function createAguiToAppEvent(): (event: AguiEvent) => AppStreamEvent | null {
   const toolNames = new Map<string, string>()
+  const toolArguments = new Map<string, string>()
 
   return (event) => {
     if (event.type === "TOOL_CALL_START") {
       toolNames.set(event.toolCallId, event.toolCallName)
+      toolArguments.set(event.toolCallId, "")
       return aguiToAppEvent(event)
     }
 
@@ -109,7 +115,45 @@ export function createAguiToAppEvent(): (event: AguiEvent) => AppStreamEvent | n
       if (event.toolCallId && event.toolCallName) {
         toolNames.set(event.toolCallId, event.toolCallName)
       }
-      return aguiToAppEvent(event)
+      if (event.toolCallId && event.delta) {
+        toolArguments.set(
+          event.toolCallId,
+          `${toolArguments.get(event.toolCallId) ?? ""}${event.delta}`,
+        )
+      }
+      const appEvent = aguiToAppEvent(event)
+      const toolCall = appEvent?.parsed.tool_call
+      if (!appEvent || !toolCall || typeof toolCall !== "object") return appEvent
+      const toolCallId = event.toolCallId ?? undefined
+      return {
+        ...appEvent,
+        parsed: {
+          ...appEvent.parsed,
+          tool_call: {
+            ...(toolCall as Record<string, unknown>),
+            id: toolCallId,
+            arguments: toolCallId ? toolArguments.get(toolCallId) ?? "" : "",
+          },
+        },
+      }
+    }
+
+    if (event.type === "TOOL_CALL_ARGS") {
+      const argumentsText = `${toolArguments.get(event.toolCallId) ?? ""}${event.delta}`
+      toolArguments.set(event.toolCallId, argumentsText)
+      const toolName = toolNames.get(event.toolCallId) ?? "tool"
+      return {
+        eventName: "tool_calls_streaming",
+        parsed: {
+          content: toolName,
+          tool_call: {
+            id: event.toolCallId,
+            name: toolName,
+            tool_call_id: event.toolCallId,
+            arguments: argumentsText,
+          },
+        },
+      }
     }
 
     if (event.type === "TOOL_CALL_END") {
@@ -122,6 +166,7 @@ export function createAguiToAppEvent(): (event: AguiEvent) => AppStreamEvent | n
             id: event.toolCallId,
             name: toolName,
             tool_call_id: event.toolCallId,
+            arguments: toolArguments.get(event.toolCallId) ?? "",
           },
         },
       }
@@ -129,7 +174,9 @@ export function createAguiToAppEvent(): (event: AguiEvent) => AppStreamEvent | n
 
     if (event.type === "TOOL_CALL_RESULT") {
       const toolName = toolNames.get(event.toolCallId) ?? "tool"
+      const argumentsText = toolArguments.get(event.toolCallId) ?? ""
       toolNames.delete(event.toolCallId)
+      toolArguments.delete(event.toolCallId)
       return {
         eventName: "tool_complete",
         parsed: {
@@ -138,6 +185,7 @@ export function createAguiToAppEvent(): (event: AguiEvent) => AppStreamEvent | n
             id: event.toolCallId,
             name: toolName,
             tool_call_id: event.toolCallId,
+            arguments: argumentsText,
             result: event.content,
           },
         },
@@ -146,6 +194,7 @@ export function createAguiToAppEvent(): (event: AguiEvent) => AppStreamEvent | n
 
     if (event.type === "RUN_FINISHED" || event.type === "RUN_ERROR") {
       toolNames.clear()
+      toolArguments.clear()
     }
     return aguiToAppEvent(event)
   }

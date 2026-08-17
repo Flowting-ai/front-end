@@ -98,9 +98,9 @@ describe('reasoning stream accumulation', () => {
 
   it('interleaves tool activities with reasoning segments', () => {
     const reasoning = createReasoningAccumulator()
-    reasoning.event('reasoning', 'Before the tool.', 0)
+    reasoning.event('reasoning_body', 'Before the tool.', 0)
     reasoning.activity('tool-0', 0)
-    reasoning.event('reasoning', 'After the tool.', 1)
+    reasoning.event('reasoning_body', 'After the tool.', 1)
 
     expect(reasoning.timeline()).toEqual([
       { kind: 'reasoning', id: 'reasoning-0', content: 'Before the tool.', roundIndex: 0 },

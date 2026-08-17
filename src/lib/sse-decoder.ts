@@ -13,6 +13,14 @@ export interface DecodedSSEEvent {
 const stripProtocolSpace = (value: string): string =>
   value.startsWith(" ") ? value.slice(1) : value
 
+const warnedFrames = new Set<string>()
+
+function warnFrameOnce(kind: string, message: string, detail: unknown): void {
+  if (warnedFrames.has(kind)) return
+  warnedFrames.add(kind)
+  console.warn(message, detail)
+}
+
 /** Incrementally decode one AG-UI SSE response. */
 export class AguiSSEDecoder {
   private buffer = ""
@@ -53,12 +61,16 @@ export class AguiSSEDecoder {
     let raw: unknown
     try {
       raw = JSON.parse(dataLines.join("\n"))
-    } catch {
+    } catch (error) {
+      warnFrameOnce("invalid-json", "[ag-ui] Dropped an SSE frame with invalid JSON", error)
       return null
     }
 
     const event = parseAguiEvent(raw)
-    if (!event) return null
+    if (!event) {
+      warnFrameOnce("invalid-event", "[ag-ui] Dropped an SSE frame outside the supported event schema", raw)
+      return null
+    }
     return {
       event,
       appEvent: this.toAppEvent(event),

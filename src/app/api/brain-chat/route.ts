@@ -104,39 +104,24 @@ export async function POST(request: NextRequest) {
     responseHeaders["X-Chat-Id"] = backendChatId
   }
 
-  const encoder       = new TextEncoder()
   const backendReader = backendResponse.body.getReader()
-
-  let keepAliveId: ReturnType<typeof setInterval> | null = null
-  const resetKeepAlive = (controller: ReadableStreamDefaultController<Uint8Array>) => {
-    if (keepAliveId !== null) clearInterval(keepAliveId)
-    keepAliveId = setInterval(() => {
-      try { controller.enqueue(encoder.encode(": ka\n\n")) } catch { /* stream closed */ }
-    }, 15_000)
-  }
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      resetKeepAlive(controller)
       try {
         while (true) {
-          // eslint-disable-next-line no-await-in-loop -- sequential stream reader
           const { value, done } = await backendReader.read()
           if (done) {
             try { controller.close() } catch { /* already closed */ }
             break
           }
           controller.enqueue(value)
-          resetKeepAlive(controller)
         }
       } catch {
         try { controller.close() } catch { /* already closed */ }
-      } finally {
-        if (keepAliveId !== null) { clearInterval(keepAliveId); keepAliveId = null }
       }
     },
     cancel() {
-      if (keepAliveId !== null) { clearInterval(keepAliveId); keepAliveId = null }
       backendReader.cancel().catch(() => {})
     },
   })

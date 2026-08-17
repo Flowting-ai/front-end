@@ -322,6 +322,7 @@ export interface ContentUiEvent             { type: 'content';           content
 
 export interface ToolCallPreview {
   id?:        string
+  tool_call_id?: string
   name?:      string
   arguments?: string | Record<string, unknown>
   result?:    string

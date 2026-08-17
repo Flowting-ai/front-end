@@ -31,6 +31,8 @@ import { sanitizeKaTeX, sanitizeURL } from "@/lib/security";
 import { isValidUUID, normalizeUuid } from "@/lib/normalizers/normalize-utils";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { BreathingDot } from "@/components/BreathingDot";
+import { ReasoningBlock } from "@/components/chat/ReasoningBlock";
+import { createReasoningAccumulator, type ReasoningSection } from "@/lib/reasoning";
 
 // â”€â”€ Design tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -719,6 +721,24 @@ export interface CompareModelsProps {
   onClose?: () => void;
 }
 
+type CompareReasoning = { text: string; sections: ReasoningSection[] };
+
+function ModelReasoning({ reasoning, streaming, hasAnswer }: {
+  reasoning?: CompareReasoning;
+  streaming: boolean;
+  hasAnswer: boolean;
+}) {
+  if (!reasoning?.text && !reasoning?.sections.length) return null;
+  return (
+    <ReasoningBlock
+      thinkingContent={reasoning.text}
+      reasoningSections={reasoning.sections}
+      isThinkingInProgress={streaming && !hasAnswer}
+      isNewMessage
+    />
+  );
+}
+
 export default function CompareModels({ selectedModel, onModelSelect, onClose }: CompareModelsProps = {}) {
   void selectedModel;
 
@@ -728,6 +748,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   const [models,               setModels]                = useState<CompareModel[]>([]);
   const [isLoading,            setIsLoading]             = useState(true);
   const [testResponses,        setTestResponses]         = useState<Record<string, string>>({});
+  const [testReasoning,        setTestReasoning]         = useState<Record<string, CompareReasoning>>({});
   const [isTesting,            setIsTesting]             = useState(false);
   const [streamingModels,      setStreamingModels]       = useState<Set<string>>(new Set());
   const [fullModels,           setFullModels]            = useState<AIModel[]>([]);
@@ -953,6 +974,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     setPrompt("");
     setIsTesting(true);
     setTestResponses({});
+    setTestReasoning({});
     setTestCredits({});
     setTestMessageIds({});
     setStreamingModels(new Set());
@@ -983,6 +1005,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
       const trimmedPrompt = prompt.trim();
 
       const streamingResponses: Record<string, string> = {};
+      const reasoningByModel = new Map(selectedModels.map((id) => [id, createReasoningAccumulator()]));
       const selectedModelSet = new Set(selectedModels);
       selectedModels.forEach((id) => { streamingResponses[id] = ""; });
 
@@ -1013,6 +1036,19 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             streamingResponses[modelIdStr] = (streamingResponses[modelIdStr] || "") + chunk;
             setStreamingModels((prev) => new Set(prev).add(modelIdStr));
             setTestResponses({ ...streamingResponses });
+            break;
+          }
+          case "reasoning_heading":
+          case "reasoning_body": {
+            const accumulator = reasoningByModel.get(modelIdStr) ?? createReasoningAccumulator();
+            reasoningByModel.set(modelIdStr, accumulator);
+            const content = typeof payload.content === "string" ? payload.content : "";
+            accumulator.event(eventType, content);
+            const snapshot = accumulator.snapshot();
+            setTestReasoning((prev) => ({
+              ...prev,
+              [modelIdStr]: { text: snapshot.text, sections: snapshot.sections },
+            }));
             break;
           }
           case "image": {
@@ -1081,7 +1117,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
           : {};
         handleEvent(
           event.appEvent.eventName,
-          { ...modelTag, ...event.appEvent.parsed },
+          { ...event.raw, ...modelTag, ...event.appEvent.parsed },
           fallbackModelId,
         );
       };
@@ -1272,6 +1308,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                 {expandedModel && (() => {
                   const responseKey      = expandedModel.requestModelId ?? expandedModel.id;
                   const modelResponse    = testResponses[responseKey];
+                  const modelReasoning   = testReasoning[responseKey];
                   const isModelStreaming = streamingModels.has(responseKey);
                   const credits          = testCredits[responseKey];
                   return (
@@ -1285,6 +1322,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                     >
                       {/* Response area */}
                       <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10, paddingLeft: 10, paddingRight: 10 }}>
+                        <ModelReasoning reasoning={modelReasoning} streaming={isModelStreaming} hasAnswer={Boolean(modelResponse)} />
                         {isModelStreaming ? (
                           <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
                             {modelResponse || ""}<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />
@@ -1343,6 +1381,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                 {modelsToShow.map((model) => {
                   const responseKey      = model.requestModelId ?? model.id;
                   const modelResponse    = testResponses[responseKey];
+                  const modelReasoning   = testReasoning[responseKey];
                   const isModelStreaming = streamingModels.has(responseKey);
                   const llmId            = getModelLlmId(model.companyName, model.rawModelName) ?? "";
                   const credits          = testCredits[responseKey];
@@ -1391,7 +1430,8 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                         </Button>
                       </div>
                       {/* Response area */}
-                      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, padding: 10, display: "flex", flexDirection: "column", alignItems: modelResponse ? "flex-start" : "center", justifyContent: modelResponse ? "flex-start" : "center" }}>
+                      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, padding: 10, display: "flex", flexDirection: "column", alignItems: modelResponse || modelReasoning ? "flex-start" : "center", justifyContent: modelResponse || modelReasoning ? "flex-start" : "center" }}>
+                        <ModelReasoning reasoning={modelReasoning} streaming={isModelStreaming} hasAnswer={Boolean(modelResponse)} />
                         {isModelStreaming ? (
                           <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
                             {modelResponse || ""}<BreathingDot size="sm" style={{ backgroundColor: PRIMARY, marginLeft: 2 }} />

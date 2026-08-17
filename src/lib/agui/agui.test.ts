@@ -48,7 +48,7 @@ describe("aguiToAppEvent", () => {
       eventName: "tool_calls_streaming",
       parsed: {
         content: "web_search",
-        tool_call: { name: "web_search", tool_call_id: "call-1" },
+        tool_call: { id: "call-1", name: "web_search", tool_call_id: "call-1" },
       },
     })
   })
