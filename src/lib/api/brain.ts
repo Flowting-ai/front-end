@@ -176,6 +176,9 @@ export interface BrainMessage {
   model_name?:         string | null
   created_at?:         string | null
   tool_calls?:         unknown[] | null
+  // Searches this turn ran, persisted so the sources card survives a reload.
+  // Same shape as the live `web_search` event.
+  web_searches?:       Array<{ query: string; links: Array<Record<string, unknown> | string>; results?: Array<Record<string, unknown>> }> | null
   attachments?:        BrainAttachment[]
   // External writes this turn performed ("Done in the world"). Persisted on the
   // message (MessageMetadata.external_output) so the card survives a reload —
@@ -189,7 +192,7 @@ export interface BrainMessage {
 
 export interface MessageSavedEvent       { message_id: string }
 export interface TitleEvent              { title: string }
-export interface WebSearchEvent          { query: string; links: Array<Record<string, unknown> | string> }
+export interface WebSearchEvent          { query: string; links: Array<Record<string, unknown> | string>; results?: Array<Record<string, unknown>> }
 export interface ImageEvent              { url: string; s3_key: string }
 export interface GeneratedFileEvent      { url: string; s3_key: string; filename: string; mime_type: string; file_size?: number }
 

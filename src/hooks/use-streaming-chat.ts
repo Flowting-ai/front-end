@@ -636,9 +636,9 @@ export function useStreamingChat({
           }
 
           if (eventName === "web_search") {
-            // Web search activity - schema: {query, links[]}
+            // Web search activity - schema: {query, links[], results[]}
             const query = asString(parsed.query) ?? ""
-            const results = webSearchResults(parsed.links)
+            const results = webSearchResults(parsed.links, parsed.results)
 
             const activity: import("@/hooks/use-chat-state").ActivityItem = {
               id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,

@@ -1031,6 +1031,7 @@ export interface PersonaDoneEventPayload {
 export interface PersonaWebSearchEvent {
   query: string;
   links: unknown[];
+  results: unknown[];
 }
 
 export interface PersonaImageEvent {
@@ -1039,7 +1040,7 @@ export interface PersonaImageEvent {
 }
 
 export type PersonaActivityType =
-  | 'web-search' | 'read-pages' | 'csv-execute' | 'fetch-resource'
+  | 'web-search' | 'browser' | 'read-pages' | 'csv-execute' | 'fetch-resource'
   | 'tool-call'  | 'doc-execute' | 'docx-progress' | 'skills' | 'other'
 
 export type PersonaActivityStatus = 'start' | 'executing' | 'reading' | 'done' | 'error'
@@ -1211,6 +1212,7 @@ async function readPersonaSSEStream(
               callbacks.onWebSearch?.({
                 query: str(parsed.query),
                 links: Array.isArray(parsed.links) ? parsed.links : [],
+                results: Array.isArray(parsed.results) ? parsed.results : [],
               });
               break;
             case "image":

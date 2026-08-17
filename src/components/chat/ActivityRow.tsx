@@ -22,6 +22,7 @@ import type { ActivityItem, ActivityType } from "@/hooks/use-chat-state";
 
 const ACTIVITY_VERB: Record<ActivityType, string> = {
   "web-search": "Searching the web",
+  "browser": "Browsing",
   "read-pages": "Reading document",
   "csv-execute": "Analysing data",
   "fetch-resource": "Fetching resource",
@@ -37,6 +38,7 @@ type IconEntry = { icon: any; isHuge: boolean };
 
 const ACTIVITY_ICON: Record<ActivityType, IconEntry> = {
   "web-search":    { icon: AiWebBrowsingIcon,  isHuge: true  },
+  "browser":       { icon: AiWebBrowsingIcon,  isHuge: true  },
   "read-pages":    { icon: PdfIcon,            isHuge: true  },
   "csv-execute":   { icon: AiSheetsIcon,       isHuge: true  },
   "fetch-resource":{ icon: Link01Icon,         isHuge: true  },

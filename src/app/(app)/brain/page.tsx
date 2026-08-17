@@ -1997,8 +1997,9 @@ function BrainPageInner() {
       case 'web_search': {
         const query = typeof d.query === 'string' ? d.query : ''
         const links = Array.isArray(d.links) ? d.links : []
+        const results = Array.isArray(d.results) ? d.results : []
         if (query) {
-          setTimeline((prev) => [...prev, { kind: 'web_search', id: `search-${++timelineSeqRef.current}`, data: { query, links } }])
+          setTimeline((prev) => [...prev, { kind: 'web_search', id: `search-${++timelineSeqRef.current}`, data: { query, links, results } }])
         }
         break
       }
@@ -3302,10 +3303,6 @@ function BrainPageInner() {
         const tool = typeof tc.tool === 'string' ? tc.tool : ''
         const args = (tc.args && typeof tc.args === 'object' ? tc.args : {}) as Record<string, unknown>
 
-        if (tool === 'web_search') {
-          const query = typeof args.query === 'string' ? args.query : ''
-          return { kind: 'web_search', data: { query, links: [] }, id: `${msg.id}-tc-${idx}` }
-        }
         if (tool === 'web_read') {
           const url = typeof args.url === 'string' ? args.url : ''
           let hostname = url
@@ -3340,6 +3337,16 @@ function BrainPageInner() {
       })
       .filter((x): x is BrainActivityFeedItem => x !== null)
 
+    // Searches are no longer a tool call of their own — they happen inside
+    // `run_connected_code` — so history restores them from the persisted
+    // `web_searches` rows, which carry the links and their titles.
+    const historySearchItems: BrainActivityFeedItem[] = (msg.web_searches ?? [])
+      .map((search, idx): BrainActivityFeedItem => ({
+        kind: 'web_search',
+        data: { query: search.query ?? '', links: search.links ?? [], results: search.results ?? [] },
+        id:   `${msg.id}-ws-${idx}`,
+      }))
+
     return (
       <m.div key={msg.id} initial={MOUNT_INITIAL} animate={MOUNT_ANIMATE} transition={springs.moderate} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
@@ -3351,6 +3358,9 @@ function BrainPageInner() {
             thinkingContent={msg.reasoning ?? ''}
             reasoningSections={msgReasoningSections}
           />
+        )}
+        {historySearchItems.length > 0 && (
+          <ActivityFeed items={historySearchItems} />
         )}
         {historyToolItems.length > 0 && (
           <BrainPhaseGroup title="Tool activity" defaultCollapsed>
