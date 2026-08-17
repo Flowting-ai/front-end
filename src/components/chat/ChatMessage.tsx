@@ -399,7 +399,7 @@ export function ChatMessage({
     return toSouvenirModelLabel(raw)
   })()
 
-  // Trigger glow burst on the logo the instant model_selected fires (streaming only).
+  // Trigger a glow burst when model metadata first becomes available.
   const currentModelKey = message.modelMeta?.modelName || message.modelName || message.model_name || message.model
   useEffect(() => {
     if (!isNewMessage) return
@@ -781,7 +781,7 @@ export function ChatMessage({
         )}
 
         {/* Loading state - shows shimmer label only before model identity is known.
-            Once model_selected fires (modelMeta / modelName set), AssistantRoleLabel above takes over. */}
+            Once modelMeta/modelName is set, AssistantRoleLabel above takes over. */}
         {message.isLoading && !message.content && !message.thinking && !(message.activities && message.activities.length > 0) &&
          !message.modelMeta && !(message.modelName || message.model_name || message.model) && (
           <div style={{ margin: "4px 0 8px" }}>

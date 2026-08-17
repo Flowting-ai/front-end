@@ -36,25 +36,15 @@ describe('ordered reasoning timeline', () => {
 })
 
 describe('reasoning stream accumulation', () => {
-  it('reads both current content payloads and legacy delta payloads', () => {
+  it('reads the CUSTOM reasoning payload content field only', () => {
     expect(reasoningEventText({ content: 'content value' })).toBe('content value')
-    expect(reasoningEventText({ delta: 'delta value' })).toBe('delta value')
+    expect(reasoningEventText({ delta: 'delta value' })).toBe('')
   })
 
   it('reads the round index only from a numeric round_index', () => {
     expect(eventRoundIndex({ round_index: 2 })).toBe(2)
     expect(eventRoundIndex({ round_index: '2' })).toBeUndefined()
     expect(eventRoundIndex({})).toBeUndefined()
-  })
-
-  it('merges legacy delta and snapshot events without duplication', () => {
-    const reasoning = createReasoningAccumulator()
-    reasoning.event('reasoning', 'Clarifying')
-    reasoning.event('reasoning', ' user intent')
-    reasoning.event('reasoning', 'Clarifying user intent')
-    reasoning.event('reasoning', 'Clarifying user intent')
-
-    expect(reasoning.text()).toBe('Clarifying user intent')
   })
 
   it('builds multiple structured sections and merges body snapshots', () => {
@@ -139,18 +129,6 @@ describe('reasoning stream accumulation', () => {
     ])
   })
 
-  it('keeps the sections reference stable across plain reasoning deltas', () => {
-    const reasoning = createReasoningAccumulator()
-    reasoning.event('reasoning_heading', 'Checking context')
-    const before = reasoning.sections()
-    reasoning.event('reasoning', 'more raw thinking')
-
-    expect(reasoning.sections()).toBe(before)
-
-    reasoning.event('reasoning_body', 'now the section changed')
-    expect(reasoning.sections()).not.toBe(before)
-  })
-
   it('appends preview steps in arrival order when no index is given', () => {
     const reasoning = createReasoningAccumulator()
     reasoning.step({ heading: 'First', body: '' })
@@ -177,7 +155,7 @@ describe('reasoning normalization', () => {
   })
 })
 
-describe('reasoning inline-title splitting (stale prod backend)', () => {
+describe('reasoning markdown-title rendering', () => {
   it('splits bold-only title lines into sections, mirroring the backend', () => {
     const text = [
       '**Creating a CSV file**',

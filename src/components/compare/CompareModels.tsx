@@ -18,7 +18,7 @@ import { fetchModelsWithCache } from "@/lib/ai-models";
 import { MODELS_ENDPOINT } from "@/lib/config";
 import { getModelLlmId } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
-import { HybridSSEDecoder, type DecodedSSEEvent } from "@/lib/sse-decoder";
+import { AguiSSEDecoder, type DecodedSSEEvent } from "@/lib/sse-decoder";
 import { usePinboardActions } from "@/context/pinboard-context";
 import { trackBrowserEvent } from "@/lib/analytics/events";
 import { ConnectPromptCard } from "@/components/chat/ConnectorPrompts";
@@ -1007,23 +1007,14 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
         }
 
         switch (eventType) {
-          case "metadata":
-          case "start":
-            setStreamingModels((prev) => new Set(prev).add(modelIdStr));
-            break;
-          case "content":
-          case "chunk": {
-            const chunk =
-              typeof payload.content === "string" ? payload.content
-              : typeof payload.delta  === "string" ? payload.delta
-              : "";
+          case "content": {
+            const chunk = typeof payload.content === "string" ? payload.content : "";
             if (!chunk) return;
             streamingResponses[modelIdStr] = (streamingResponses[modelIdStr] || "") + chunk;
             setStreamingModels((prev) => new Set(prev).add(modelIdStr));
             setTestResponses({ ...streamingResponses });
             break;
           }
-          case "reasoning": break;
           case "image": {
             const imageUrl = typeof payload.url === "string" ? payload.url.trim() : "";
             if (!imageUrl) return;
@@ -1031,8 +1022,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             setTestResponses({ ...streamingResponses });
             break;
           }
-          case "done":
-          case "end": {
+          case "done": {
             const final = typeof payload.response === "string" ? payload.response : "";
             if (final) { streamingResponses[modelIdStr] = final; setTestResponses({ ...streamingResponses }); }
             const creditsRaw =
@@ -1058,11 +1048,11 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
           }
           case "tool_connect_prompt": {
             const prompt: ConnectorConnectPrompt = {
-              request_id:     typeof payload.request_id     === "string" ? payload.request_id     : `ccp-${Date.now()}`,
+              request_id:     typeof payload.prompt_id      === "string" ? payload.prompt_id      : `ccp-${Date.now()}`,
               connector_slug: typeof payload.connector_slug === "string" ? payload.connector_slug : "",
               display_name:   typeof payload.display_name   === "string" ? payload.display_name   : (typeof payload.connector_slug === "string" ? payload.connector_slug : ""),
               auth_mode:      (typeof payload.auth_mode     === "string" ? payload.auth_mode      : "oauth2") as "oauth2" | "api_key",
-              tool_name:      typeof payload.tool_name      === "string" ? payload.tool_name      : "",
+              tool_name:      typeof payload.tool_slug      === "string" ? payload.tool_slug      : "",
               icon_url:       typeof payload.icon_url       === "string" ? payload.icon_url       : undefined,
             };
             setConnectPromptsPerModel((prev) => ({
@@ -1071,7 +1061,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             }));
             break;
           }
-          case "tool_permission_prompt": {
+          case "permission_prompt": {
             const prompt = parsePermissionPrompt(payload);
             if (!prompt) break;
             setPermissionPromptsPerModel((prev) => ({
@@ -1084,21 +1074,21 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
       };
 
       const processDecodedEvent = (event: DecodedSSEEvent, fallbackModelId?: string) => {
-        if (event.kind === "agui") {
-          if (!event.internal) return;
-          handleEvent(
-            event.internal.eventName,
-            { ...event.raw, ...event.internal.parsed },
-            fallbackModelId,
-          );
-          return;
-        }
-        handleEvent(event.name, event.data, fallbackModelId);
+        if (!event.appEvent) return;
+        const rawEvent = event.raw.rawEvent;
+        const modelTag = rawEvent && typeof rawEvent === "object"
+          ? rawEvent as Record<string, unknown>
+          : {};
+        handleEvent(
+          event.appEvent.eventName,
+          { ...modelTag, ...event.appEvent.parsed },
+          fallbackModelId,
+        );
       };
 
       // Fire one request per model in parallel so all columns stream simultaneously
       await Promise.all(validModelIds.map(async (modelId) => {
-        const sseDecoder = new HybridSSEDecoder();
+        const sseDecoder = new AguiSSEDecoder();
         const resp = await apiFetch(`${MODELS_ENDPOINT}/test`, {
           method: "POST",
           body: JSON.stringify({

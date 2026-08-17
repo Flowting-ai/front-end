@@ -57,11 +57,9 @@ export async function POST(request: NextRequest) {
 
   // ── Resolve endpoint ─────────────────────────────────────────────────────────
   const isExistingChat = Boolean(chatId && !chatId.startsWith("temp-"))
-  // ?protocol=agui: stream AG-UI protocol events (the format the FE parses —
-  // see src/lib/agui) instead of the legacy SSE frames.
   const endpoint = isExistingChat
-    ? `${BACKEND_BASE}/persona/${repoId}/chats/${chatId}/stream?protocol=agui`
-    : `${BACKEND_BASE}/persona/${repoId}/chats/create?protocol=agui`
+    ? `${BACKEND_BASE}/persona/${repoId}/chats/${chatId}/stream`
+    : `${BACKEND_BASE}/persona/${repoId}/chats/create`
 
   // ── Build body for backend ───────────────────────────────────────────────────
   // Always use multipart/form-data — the backend endpoint declares File() params

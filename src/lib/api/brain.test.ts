@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { consumeBrainStream, parseBrainContextEvent } from '@/lib/api/brain'
-import { validateNamedEvent } from '@/lib/api/sse-schemas'
+import { validateCustomEvent } from '@/lib/api/sse-schemas'
 
 function streamResponse(...chunks: string[]): Response {
   const encoder = new TextEncoder()
@@ -13,64 +13,60 @@ function streamResponse(...chunks: string[]): Response {
 }
 
 describe('consumeBrainStream', () => {
-  it('dispatches a named rally event when the stream closes without a trailing blank line', async () => {
-    const onNamed = vi.fn()
-    const onInline = vi.fn()
+  it('dispatches a CUSTOM rally event when the stream closes without a trailing blank line', async () => {
+    const onEvent = vi.fn()
     const onClose = vi.fn()
 
     await consumeBrainStream(
       streamResponse(
-        'event: agent_started\n',
-        'data: {"agent":"Researcher","handle":"researcher","task":"Find sources"}',
+        'data: {"type":"CUSTOM","name":"agent_started","value":',
+        '{"agent":"Researcher","handle":"researcher","task":"Find sources"}}',
       ),
-      { onNamed, onInline, onClose },
+      { onEvent, onClose },
     )
 
-    expect(onNamed).toHaveBeenCalledWith('agent_started', {
+    expect(onEvent).toHaveBeenCalledWith('agent_started', {
       agent: 'Researcher',
       handle: 'researcher',
       task: 'Find sources',
-    })
-    expect(onInline).not.toHaveBeenCalled()
+    }, true)
     expect(onClose).toHaveBeenCalledOnce()
   })
 
-  it('accepts CR-only SSE delimiters and dispatches inline events', async () => {
-    const onNamed = vi.fn()
-    const onInline = vi.fn()
+  it('accepts CR-only SSE delimiters and dispatches AG-UI lifecycle', async () => {
+    const onEvent = vi.fn()
 
     await consumeBrainStream(
-      streamResponse('data: {"type":"done","finish_reason":"stop"}\r\r'),
-      { onNamed, onInline },
+      streamResponse('data: {"type":"RUN_FINISHED","threadId":"t","runId":"r"}\r\r'),
+      { onEvent },
     )
 
-    expect(onNamed).not.toHaveBeenCalled()
-    expect(onInline).toHaveBeenCalledWith({ type: 'done', finish_reason: 'stop' })
+    expect(onEvent).toHaveBeenCalledWith('done', {
+      finish_reason: 'stop',
+      usage: undefined,
+    }, false)
   })
 
   it('normalizes native AG-UI content and completion events for the Brain reducer', async () => {
-    const onNamed = vi.fn()
-    const onInline = vi.fn()
+    const onEvent = vi.fn()
 
     await consumeBrainStream(
       streamResponse(
         'data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"m1","delta":"Hello"}\n\n',
         'data: {"type":"RUN_FINISHED","threadId":"t1","runId":"r1","result":{"usage":{"total_tokens":3}}}\n\n',
       ),
-      { onNamed, onInline },
+      { onEvent },
     )
 
-    expect(onNamed).not.toHaveBeenCalled()
-    expect(onInline).toHaveBeenNthCalledWith(1, { type: 'content', content: 'Hello' })
-    expect(onInline).toHaveBeenNthCalledWith(2, {
-      type: 'done',
+    expect(onEvent).toHaveBeenNthCalledWith(1, 'content', { content: 'Hello' }, false)
+    expect(onEvent).toHaveBeenNthCalledWith(2, 'done', {
       finish_reason: 'stop',
       usage: { total_tokens: 3 },
-    })
+    }, false)
   })
 
   it('validates the backend question_prompt event without dropping its questions', () => {
-    expect(validateNamedEvent('question_prompt', {
+    expect(validateCustomEvent('question_prompt', {
       prompt_id: 'prompt-1',
       respond_url: '/chats/prompts/prompt-1',
       questions: [{ id: 'q1', question: 'Which source?', type: 'text' }],
