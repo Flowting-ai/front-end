@@ -106,7 +106,7 @@ export function brainActivityItem(item: BrainActivityFeedItem): ActivityItem {
       detail:  item.data.query,
       // The event is emitted with its links, i.e. after the search resolved.
       status:  'done',
-      results: webSearchResults(item.data.links),
+      results: webSearchResults(item.data.links, item.data.results),
     }
   }
 

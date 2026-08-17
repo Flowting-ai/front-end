@@ -51,6 +51,7 @@ export const customEventSchemas = {
   web_search: z.looseObject({
     query: z.string().optional().default(""),
     links: z.array(z.unknown()).optional().default([]),
+    results: z.array(z.unknown()).optional().default([]),
   }),
   image: z.looseObject({
     url: z.string(),

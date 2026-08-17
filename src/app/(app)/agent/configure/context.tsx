@@ -555,7 +555,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
         if (m.id !== asstMsgId) return m
         const activities = [...(m.activities ?? [])]
         const index = activities.findLastIndex(activity => activity.type === 'web-search')
-        const results = webSearchResults(event.links)
+        const results = webSearchResults(event.links, event.results)
         if (index >= 0) {
           activities[index] = { ...activities[index], detail: event.query, status: 'done', results }
         } else {
@@ -697,7 +697,7 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
         if (m.id !== asstMsgId) return m
         const activities = [...(m.activities ?? [])]
         const index = activities.findLastIndex(activity => activity.type === 'web-search')
-        const results = webSearchResults(event.links)
+        const results = webSearchResults(event.links, event.results)
         if (index >= 0) {
           activities[index] = { ...activities[index], detail: event.query, status: 'done', results }
         } else {

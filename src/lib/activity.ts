@@ -12,7 +12,10 @@ function asString(value: unknown): string | undefined {
 /** Backend tool name → the row's icon and default verb. */
 export function toolNameToType(toolName: string): ActivityType {
   const lower = toolName.toLowerCase()
-  if (lower === 'web_search' || lower === 'browser' || lower.includes('search')) return 'web-search'
+  // `browser` drives a real page; it never produces search results, so it must
+  // not borrow the web-search row — that row promises sources it cannot fill.
+  if (lower === 'browser') return 'browser'
+  if (lower === 'web_search' || lower.includes('search')) return 'web-search'
   if (lower === 'read_pages' || lower.includes('read_pdf')) return 'read-pages'
   if (lower === 'csv_execute' || lower.includes('csv')) return 'csv-execute'
   if (lower === 'fetch_resource' || lower.includes('fetch')) return 'fetch-resource'
@@ -25,14 +28,18 @@ export function toolNameToType(toolName: string): ActivityType {
 export type ActivityResult = { title: string; url?: string; domain?: string }
 
 /**
- * `web_search` links → the favicon result rows the web-search activity
- * auto-expands. Links arrive either as bare URL strings or as
- * `{url, title, domain}` objects depending on the search provider.
+ * `web_search` → the favicon result rows the web-search activity auto-expands.
+ *
+ * A search event carries both: `links` are the bare URLs in rank order and
+ * `results` the per-result metadata behind them. Prefer `results` — it is what
+ * gives each row a real title instead of a truncated URL — and fall back to
+ * `links` for searches persisted before that metadata was streamed.
  */
-export function webSearchResults(links: unknown, limit = 6): ActivityResult[] {
-  if (!Array.isArray(links)) return []
+export function webSearchResults(links: unknown, results?: unknown, limit = 6): ActivityResult[] {
+  const source = Array.isArray(results) && results.length > 0 ? results : links
+  if (!Array.isArray(source)) return []
 
-  return links.slice(0, limit).flatMap((link: unknown): ActivityResult[] => {
+  return source.slice(0, limit).flatMap((link: unknown): ActivityResult[] => {
     if (typeof link === 'string') {
       try {
         const url = new URL(link)

@@ -106,6 +106,7 @@ export interface ModelSelectedMeta {
 /** Activity types matching backend tool names. */
 export type ActivityType =
   | 'web-search'
+  | 'browser'
   | 'read-pages'
   | 'csv-execute'
   | 'fetch-resource'
