@@ -138,6 +138,15 @@ async function fetchOnboardingState(): Promise<OnboardingStateResult> {
 export default async function proxy(request: NextRequest) {
   const { pathname } = new URL(request.url);
 
+  // Component verification harnesses render fixtures only and must stay
+  // reachable without a session while developing. Never in production.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    (pathname === "/reasoning-verify" || pathname === "/brain-verify")
+  ) {
+    return NextResponse.next();
+  }
+
   // The organization security page was removed. Redirect before Auth0/session
   // handling so stale client links and logged-out bookmarks cannot preserve
   // /org/security as a post-login return path.

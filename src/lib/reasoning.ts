@@ -3,7 +3,6 @@ import { mergeStreamingText } from '@/lib/streaming'
 export type ReasoningSection = {
   heading: string
   body: string
-  detail?: string
 }
 
 export type ReasoningTimelineItem =
@@ -174,9 +173,42 @@ export function normalizeReasoningSections(value: unknown): ReasoningSection[] {
     const section = entry as Record<string, unknown>
     const heading = typeof section.heading === 'string' ? section.heading : ''
     const body = typeof section.body === 'string' ? section.body : ''
-    const detail = typeof section.detail === 'string' ? section.detail : undefined
-    return cleanReasoningHeading(heading) ? [{ heading, body, ...(detail ? { detail } : {}) }] : []
+    return cleanReasoningHeading(heading) ? [{ heading, body }] : []
   })
+}
+
+// The step row shows a bold verb followed by muted detail. The backend sends a
+// single heading phrase ("Clarifying user intent"), so the split is
+// presentational: leading word bold, remainder muted.
+export function splitHeading(heading: string): { verb: string; rest: string } {
+  const clean = cleanReasoningHeading(heading)
+  const boundary = clean.indexOf(' ')
+  if (boundary < 0) return { verb: clean, rest: '' }
+  return { verb: clean.slice(0, boundary), rest: clean.slice(boundary + 1) }
+}
+
+export type ReasoningTimelineGroup =
+  | { kind: 'reasoning'; id: string; contents: string[] }
+  | { kind: 'activities'; id: string; activityIds: string[] }
+
+// Collapse each run of same-kind timeline items into one group: a tool batch
+// becomes a single "Ran N actions" row, and adjacent reasoning segments become
+// one step list so the connector line runs unbroken between them.
+export function groupReasoningTimeline(
+  timeline: ReasoningTimelineItem[],
+): ReasoningTimelineGroup[] {
+  const groups: ReasoningTimelineGroup[] = []
+  for (const item of timeline) {
+    const last = groups[groups.length - 1]
+    if (item.kind === 'reasoning') {
+      if (last?.kind === 'reasoning') last.contents.push(item.content)
+      else groups.push({ kind: 'reasoning', id: item.id, contents: [item.content] })
+      continue
+    }
+    if (last?.kind === 'activities') last.activityIds.push(item.activityId)
+    else groups.push({ kind: 'activities', id: item.id, activityIds: [item.activityId] })
+  }
+  return groups
 }
 
 // ── Shared stream accumulator ─────────────────────────────────────────────────

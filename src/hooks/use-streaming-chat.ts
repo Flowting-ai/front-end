@@ -17,7 +17,7 @@ import { ensureFreshToken } from "@/lib/jwt-utils"
 import { clientGeoHeaders } from "@/lib/geo-headers"
 import { logger } from "@/lib/logger"
 import { AguiSSEDecoder } from "@/lib/sse-decoder"
-import { isResponseBlock, responseBlockFromEventPayload } from "@/lib/response-blocks"
+import { responseBlockFromEventPayload } from "@/lib/response-blocks"
 import type { UIMessage } from "@/hooks/use-chat-state"
 import { registerStream, completeStream } from "@/lib/stream-registry"
 import {
@@ -419,12 +419,6 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "research_title") {
-            const researchTitle = asString(parsed.text ?? parsed.title ?? parsed.content)
-            if (researchTitle) queueUpdate({ researchTitle }, true)
-            continue
-          }
-
           if (eventName === "reasoning_heading" || eventName === "reasoning_body") {
             const wasEmpty = reasoning.isEmpty()
             reasoning.event(eventName, reasoningEventText(parsed), eventRoundIndex(parsed))
@@ -605,30 +599,6 @@ export function useStreamingChat({
                     }),
                   )
                 }
-              }
-            }
-
-            // ── response_blocks (structured content including tags) ────────────
-            // The backend includes response_blocks in the message_saved payload
-            // for any structured content generated during streaming. Merge them
-            // into the message so that tags are available when the user pins.
-            const rawResponseBlocks = Array.isArray(savedMsg.response_blocks)
-              ? (savedMsg.response_blocks as Array<Record<string, unknown>>)
-              : null
-            if (rawResponseBlocks && rawResponseBlocks.length > 0 && currentMsgId) {
-              const validBlocks = rawResponseBlocks.filter(isResponseBlock)
-              if (validBlocks.length > 0) {
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id !== currentMsgId) return msg
-                    const existing = msg.responseBlocks ?? []
-                    // Only add blocks not already delivered by live block events.
-                    const toAdd = validBlocks.filter((b) => !existing.some((e) => e.kind === b.kind))
-                    return toAdd.length > 0
-                      ? { ...msg, responseBlocks: [...existing, ...toAdd] }
-                      : msg
-                  }),
-                )
               }
             }
 
