@@ -7,7 +7,7 @@ import {
   type ChatPrompt,
   type ConnectorPermissionPrompt,
 } from "./prompts";
-import { HybridSSEDecoder, internalToInline } from "@/lib/sse-decoder";
+import { AguiSSEDecoder } from "@/lib/sse-decoder";
 import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import { friendlyModelError } from "@/lib/model-error";
 import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
@@ -1070,23 +1070,18 @@ export interface PersonaConnectPrompt {
 export type PersonaPermissionPrompt = ConnectorPermissionPrompt
 
 export interface PersonaChatStreamCallbacks {
-  /** Receives every named application event, including ones without a
-   * surface-specific convenience callback below. */
-  onNamedEvent?: (name: string, data: Record<string, unknown>) => void;
   /** Called with the chatId extracted from the X-Chat-Id response header. */
   onChatId?: (chatId: string) => void;
   /** Called for each streamed assistant text token. */
   onChunk?: (delta: string) => void;
-  /** Called with the persisted assistant message id (named `message_saved` event). */
+  /** Called with the persisted assistant message id. */
   onMessageSaved?: (messageId: string) => void;
-  /** Called when the backend auto-titles a new chat (named `title` event). */
+  /** Called when the backend auto-titles a new chat. */
   onTitle?: (title: string) => void;
   /** Called with each delta of a reasoning section's body. */
   onReasoningBody?: (delta: string) => void;
   /** Called when a new reasoning section opens. */
   onReasoningHeading?: (heading: string) => void;
-  /** Called for legacy raw reasoning deltas (back-compat). */
-  onReasoning?: (delta: string) => void;
   /** Called when a web search tool runs. */
   onWebSearch?: (event: PersonaWebSearchEvent) => void;
   /** Called when an image is generated. */
@@ -1099,8 +1094,6 @@ export interface PersonaChatStreamCallbacks {
   onPermissionPrompt?: (prompt: PersonaPermissionPrompt) => void;
   /** Called for generic questions, choices, and non-connector approvals. */
   onChatPrompt?: (prompt: ChatPrompt) => void;
-  /** Called when the server resolves or expires any prompt gate. */
-  onPromptDecision?: (promptId: string, decision: 'resolved' | 'timeout') => void;
   /** Called when the stream finishes successfully. Receives the `done` payload. */
   onDone?: (payload?: PersonaDoneEventPayload) => void;
   /** Called on error (network or stream-level). */
@@ -1171,7 +1164,7 @@ async function readPersonaSSEStream(
   callbacks: PersonaChatStreamCallbacks,
 ): Promise<void> {
   const decoder = new TextDecoder();
-  const sseDecoder = new HybridSSEDecoder();
+  const sseDecoder = new AguiSSEDecoder();
   let doneSeen = false;
   const str = (v: unknown) => (typeof v === "string" ? v : "");
   const toolCallIdByName = new Map<string, string>();
@@ -1194,19 +1187,8 @@ async function readPersonaSSEStream(
         decodedEvents.push(...sseDecoder.push(decoder.decode()), ...sseDecoder.flush());
       }
       for (const decodedEvent of decodedEvents) {
-          if (decodedEvent.kind === "named") {
-            callbacks.onNamedEvent?.(decodedEvent.name, decodedEvent.data);
-          }
-          let eventName: string;
-          let parsed: Record<string, unknown>;
-          if (decodedEvent.kind === "agui") {
-            if (!decodedEvent.internal) continue;
-            parsed = internalToInline(decodedEvent.internal);
-            eventName = String(parsed.type ?? "message");
-          } else {
-            eventName = decodedEvent.name;
-            parsed = decodedEvent.data;
-          }
+          if (!decodedEvent.appEvent) continue;
+          const { eventName, parsed } = decodedEvent.appEvent;
           switch (eventName) {
             case "content":
               callbacks.onChunk?.(str(parsed.content));
@@ -1216,9 +1198,6 @@ async function readPersonaSSEStream(
               break;
             case "reasoning_body":
               callbacks.onReasoningBody?.(str(parsed.content));
-              break;
-            case "reasoning":
-              callbacks.onReasoning?.(str(parsed.content));
               break;
             case "message_saved":
               if (typeof parsed.message_id === "string") {
@@ -1319,39 +1298,26 @@ async function readPersonaSSEStream(
                   )
                 : undefined
               callbacks.onConnectPrompt?.({
-                request_id:     typeof parsed.request_id === 'string' ? parsed.request_id : `ccp-${Date.now()}`,
+                request_id:     typeof parsed.prompt_id === 'string' ? parsed.prompt_id : `ccp-${Date.now()}`,
                 connector_slug: str(parsed.connector_slug),
                 display_name:   str(parsed.display_name) || str(parsed.connector_slug),
                 auth_mode:      (str(parsed.auth_mode) || 'oauth2') as 'oauth2' | 'api_key',
-                tool_name:      str(parsed.tool_name),
+                tool_name:      str(parsed.tool_slug),
                 api_key_fields: apiKeyFields,
                 icon_url:       str(parsed.icon_url) || undefined,
               })
               break
             }
-            case "permission_prompt":
-            case "tool_permission_prompt": {
+            case "permission_prompt": {
               const permPrompt = parsePermissionPrompt(parsed)
               if (permPrompt) callbacks.onPermissionPrompt?.(permPrompt)
               break
             }
             case "user_prompt":
-            case "questions":
             case "question_prompt":
             case "approval_prompt": {
               const prompt = parseChatPrompt(eventName, parsed)
               if (prompt) callbacks.onChatPrompt?.(prompt)
-              break
-            }
-            case "prompt_resolved":
-            case "prompt_timeout": {
-              const promptId = str(parsed.prompt_id)
-              if (promptId) {
-                callbacks.onPromptDecision?.(
-                  promptId,
-                  eventName === "prompt_resolved" ? "resolved" : "timeout",
-                )
-              }
               break
             }
             case "error":

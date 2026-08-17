@@ -21,7 +21,6 @@ export type ReasoningTimelineItem =
     }
 
 export type ReasoningEventType =
-  | 'reasoning'
   | 'reasoning_heading'
   | 'reasoning_body'
 
@@ -70,9 +69,7 @@ export function replaceTimelineActivityId(
 }
 
 export function reasoningEventText(data: Record<string, unknown>): string {
-  return typeof data.content === 'string' ? data.content
-    : typeof data.delta === 'string' ? data.delta
-    : ''
+  return typeof data.content === 'string' ? data.content : ''
 }
 
 export function cleanReasoningHeading(heading: string): string {
@@ -85,11 +82,7 @@ export function cleanReasoningHeading(heading: string): string {
     .trim()
 }
 
-// Prod backend hotfix: older builds don't emit reasoning_heading/reasoning_body
-// events (or persist reasoning_sections), so titled summary blocks arrive inline
-// in the raw reasoning text as bold-only or ATX-heading lines. Mirror the
-// backend's split_reasoning so the client can reconstruct the collapsible
-// sections instead of rendering raw `**Title**` markers.
+// Parse Markdown title lines when rendering persisted reasoning text.
 export function reasoningSectionTitle(line: string): string | null {
   const s = line.trim()
   if (s.startsWith('#')) {
@@ -276,11 +269,6 @@ export function createReasoningAccumulator(): ReasoningAccumulator {
 
     event(type, content, roundIndex) {
       if (!content) return
-
-      if (type === 'reasoning') {
-        appendDelta(content, roundIndex)
-        return
-      }
 
       if (type === 'reasoning_heading') {
         // Re-sent headings are common on reconnect; committing the same one

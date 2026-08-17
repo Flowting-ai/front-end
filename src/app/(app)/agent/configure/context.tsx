@@ -633,12 +633,6 @@ function PersonaConfigureProviderInner({ children }: { children: React.ReactNode
         if (m.id !== asstMsgId || m.chatPrompts?.some(item => item.request_id === prompt.request_id)) return m
         return { ...m, chatPrompts: [...(m.chatPrompts ?? []), prompt] }
       })),
-      onPromptDecision:   (promptId, decision) => setChatMessages(prev => prev.map(m => m.id === asstMsgId ? {
-        ...m,
-        connectPrompts: m.connectPrompts?.filter(prompt => prompt.request_id !== promptId),
-        permissionPrompts: m.permissionPrompts?.map(prompt => prompt.request_id === promptId ? { ...prompt, decision } : prompt),
-        chatPrompts: m.chatPrompts?.map(prompt => prompt.request_id === promptId ? { ...prompt, decision } : prompt),
-      } : m)),
       onToolActivity: (item: PersonaActivityItem) => setChatMessages(prev => prev.map(m => {
         if (m.id !== asstMsgId) return m
         const acts = m.activities ?? []

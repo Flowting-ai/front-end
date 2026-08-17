@@ -135,12 +135,6 @@ function approvalActionType(verb: string): 'delete' | 'send' | 'publish' {
   return 'send' // Sent / replied / emailed / messaged
 }
 
-function isFinalInlineDone(data: unknown): boolean {
-  if (!data || typeof data !== 'object') return false
-  const d = data as Record<string, unknown>
-  return d.type === 'done' && d.finish_reason !== 'tool_calls'
-}
-
 function isTerminalBrainEvent(name: string): boolean {
   return name === 'message_saved'
 }
@@ -1280,8 +1274,8 @@ function BrainPageInner() {
   // event (see liveContext), so the old page-load connectors/bootstrap fetches
   // that used to seed it have been removed.
 
-  // ── Per-turn SSE event state ────────────────────────────────────────────────
-  // Slots for the named/inline events that the new YAML adds. Cleared at the
+  // ── Per-turn AG-UI event state ──────────────────────────────────────────────
+  // Slots for Souvenir CUSTOM events. Cleared at the
   // start of each turn and on chat reset. Rendered between the ActivityBlock
   // and the StreamingMessageBubble in the active turn body.
 
@@ -1719,7 +1713,7 @@ function BrainPageInner() {
 
   // ── SSE named-event handler ───────────────────────────────────────────────────
 
-  const handleNamedEvent = useCallback((name: string, data: unknown) => {
+  const handleCustomEvent = useCallback((name: string, data: unknown) => {
     const d = data as Record<string, unknown>
 
     switch (name) {
@@ -1923,19 +1917,6 @@ function BrainPageInner() {
         break
       }
 
-      // Server confirmation that a pending prompt was answered (possibly from
-      // another tab) or expired — retire the card and remember the id so a
-      // replayed permission_prompt can't resurrect it.
-      case 'prompt_resolved':
-      case 'prompt_timeout': {
-        const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
-        if (!promptId) break
-        resolvedPromptIdsRef.current.add(promptId)
-        setPermissionPrompts((queue) => retirePrompt(queue, promptId))
-        setActiveApprovalPrompt((prev) => (prev && prev.promptId === promptId ? null : prev))
-        break
-      }
-
       // Write-approval gate (HITL): Brain paused before a real-world side effect.
       // Render an inline ApprovalCard; resolve by POSTing approve / reject.
       case 'approval_prompt': {
@@ -1957,12 +1938,6 @@ function BrainPageInner() {
         break
       }
 
-      case 'souvenir_started': {
-        setPhase('souvenir')
-        break
-      }
-
-      case 'reasoning':
       case 'reasoning_heading':
       case 'reasoning_body': {
         handleReasoningEvent(name, d)
@@ -2189,7 +2164,7 @@ function BrainPageInner() {
 
   // ── SSE inline-event handler ──────────────────────────────────────────────────
 
-  const handleInlineEvent = useCallback((data: unknown) => {
+  const handleStandardEvent = useCallback((data: unknown) => {
     const d = data as Record<string, unknown>
     const t = d.type
 
@@ -2221,13 +2196,13 @@ function BrainPageInner() {
       return
     }
 
-    // Extended-thinking and legacy reasoning deltas. The model can spend
+    // Reasoning heading/body events can arrive before the first answer token.
     // tens of seconds emitting these before the first content token, so we
     // must move off 'thinking' once they start — otherwise the user sees a
     // frozen loading state even though tokens are flowing. We don't render
     // the reasoning text yet (separate UI), but the phase transition alone
     // is enough to surface progress and stop the spinner.
-    if (t === 'reasoning_body' || t === 'reasoning_heading' || t === 'reasoning') {
+    if (t === 'reasoning_body' || t === 'reasoning_heading') {
       handleReasoningEvent(t, d)
       return
     }
@@ -2473,18 +2448,19 @@ function BrainPageInner() {
       let terminalEventReceived = false
       let streamErrored = false
       await consumeBrainStream(response, {
-        onNamed:  (name, data) => {
-          if (isTerminalBrainEvent(name)) terminalEventReceived = true
+        onEvent: (name, data, custom) => {
+          if (isTerminalBrainEvent(name) || name === 'done') {
+            terminalEventReceived = true
+          }
           // Navigated to a different thread — let the background run keep
           // going (it's still persisting to the backend), but stop applying
           // its events to whatever thread is now on screen.
           if (!isForActiveThread()) return
-          handleNamedEvent(name, data)
-        },
-        onInline: (data) => {
-          if (isFinalInlineDone(data)) terminalEventReceived = true
-          if (!isForActiveThread()) return
-          handleInlineEvent(data)
+          if (custom) {
+            handleCustomEvent(name, data)
+          } else {
+            handleStandardEvent({ ...data, type: name })
+          }
         },
         onClose:  () => {
           if (abortRef.current === controller) abortRef.current = null
@@ -2533,7 +2509,7 @@ function BrainPageInner() {
       setStreamError(msg)
       setPhase('failed')
     }
-  }, [handleNamedEvent, handleInlineEvent, scheduleCompletion, replace, resetReasoning])
+  }, [handleCustomEvent, handleStandardEvent, scheduleCompletion, replace, resetReasoning])
 
   // ── Remap local schedule id → backend task id after stream completes ──────────
   // When a schedule is created via the modal, a local temp id is used until Brain

@@ -63,7 +63,7 @@ export interface UIMessage extends Message {
   isError?: boolean
   /** Model name reported by backend during streaming. */
   modelName?: string
-  /** Model metadata from model_selected event. */
+  /** Model metadata selected for this response. */
   modelMeta?: ModelSelectedMeta
   /** Activities performed during response generation (tool uses, web search, etc.) */
   activities?: ActivityItem[]

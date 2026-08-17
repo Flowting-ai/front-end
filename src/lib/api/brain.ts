@@ -4,8 +4,8 @@ import { z } from 'zod'
 import { apiFetch, apiFetchJson, ApiError } from './client'
 import { API_BASE_URL, directUpload, shouldUseDirectBackend } from '../config'
 import type { ReasoningSection } from '../reasoning'
-import { HybridSSEDecoder, internalToInline, type DecodedSSEEvent } from '../sse-decoder'
-import type { NamedEventName, NamedEventPayload } from './sse-schemas'
+import { AguiSSEDecoder, type DecodedSSEEvent } from '../sse-decoder'
+import type { CustomEventName, CustomEventPayload } from './sse-schemas'
 
 // ── Endpoint helpers ──────────────────────────────────────────────────────────
 
@@ -306,22 +306,19 @@ export interface AgentStartedEvent  { agent: string; handle?: string; image_url?
 export interface AgentContentEvent  { agent: string; content: string }
 export interface AgentFinishedEvent { agent: string; error?: string | null }
 
-// Brain receives every named event except the two chat-only additions. Derive
+// Brain receives every relevant Souvenir CUSTOM event. Derive
 // the map from the shared validator registry so this API cannot drift into a
 // second, partial event inventory.
-export type BrainNamedEventName = Exclude<NamedEventName, 'model_selected' | 'memory_updated'>
-export type BrainNamedEvents = {
-  [Name in BrainNamedEventName]: NamedEventPayload<Name>
+export type BrainCustomEventName = Exclude<CustomEventName, 'memory_updated'>
+export type BrainCustomEvents = {
+  [Name in BrainCustomEventName]: CustomEventPayload<Name>
 }
 
-// ── SSE event payloads (inline) ───────────────────────────────────────────────
-// Inline events arrive as `data: {"type": "<name>", ...}` with no `event:`
-// header. Discriminated on `type`.
+// ── UI stream events ─────────────────────────────────────────────────────────
 
-export interface ReasoningHeadingInline    { type: 'reasoning_heading'; content?: string; delta?: string }
-export interface ReasoningBodyInline       { type: 'reasoning_body';    content?: string; delta?: string }
-export interface ReasoningInline           { type: 'reasoning';         content?: string; delta?: string }
-export interface ContentInline             { type: 'content';           content: string }
+export interface ReasoningHeadingUiEvent    { type: 'reasoning_heading'; content?: string; delta?: string }
+export interface ReasoningBodyUiEvent       { type: 'reasoning_body';    content?: string; delta?: string }
+export interface ContentUiEvent             { type: 'content';           content: string }
 
 export interface ToolCallPreview {
   id?:        string
@@ -331,25 +328,25 @@ export interface ToolCallPreview {
   status?:    string
 }
 
-export interface ToolCallsStreamingInline {
+export interface ToolCallsStreamingUiEvent {
   type:       'tool_calls_streaming'
   content:    string
   tool_call?: ToolCallPreview | null
 }
 
-export interface ToolExecutingInline {
+export interface ToolExecutingUiEvent {
   type:      'tool_executing'
   content:   string
   tool_call: ToolCallPreview
 }
 
-export interface ToolCompleteInline {
+export interface ToolCompleteUiEvent {
   type:      'tool_complete'
   content:   string
   tool_call: ToolCallPreview
 }
 
-export interface DoneInline {
+export interface DoneUiEvent {
   type:               'done'
   usage?:             Record<string, unknown> | null
   reasoning_details?: unknown[] | null
@@ -357,21 +354,20 @@ export interface DoneInline {
   finish_reason?:     string | null
 }
 
-export interface ErrorInline {
+export interface ErrorUiEvent {
   type:  'error'
   error: string
 }
 
-export type BrainInlineEvent =
-  | ReasoningHeadingInline
-  | ReasoningBodyInline
-  | ReasoningInline
-  | ContentInline
-  | ToolCallsStreamingInline
-  | ToolExecutingInline
-  | ToolCompleteInline
-  | DoneInline
-  | ErrorInline
+export type BrainUiEvent =
+  | ReasoningHeadingUiEvent
+  | ReasoningBodyUiEvent
+  | ContentUiEvent
+  | ToolCallsStreamingUiEvent
+  | ToolExecutingUiEvent
+  | ToolCompleteUiEvent
+  | DoneUiEvent
+  | ErrorUiEvent
 
 // ── Prompt response body ──────────────────────────────────────────────────────
 // Every prompt kind (choice/input/confirm/permission) follows the same envelope
@@ -392,8 +388,7 @@ export type PromptResponseBody =
 // ── SSE callbacks ─────────────────────────────────────────────────────────────
 
 export interface BrainSSECallbacks {
-  onNamed:  (name: string, data: unknown) => void
-  onInline: (data: unknown) => void
+  onEvent: (name: string, data: Record<string, unknown>, custom: boolean) => void
   onClose?: () => void
   onError?: (e: Error) => void
 }
@@ -415,12 +410,7 @@ const STREAM_IDLE_TIMEOUT_MS = 800_000
 /**
  * Reads a Brain SSE response body until the stream closes.
  *
- * Spec-compliant parsing: tolerates `\r\n` / `\n` / `\r` line endings, optional
- * space after `event:` / `data:`, and multi-line `data:` (joined with `\n`
- * before JSON.parse, per WHATWG EventSource spec).
- *
- * Named events  (`event: <name>\ndata: {...}`)  → callbacks.onNamed
- * Inline events (`data: {...}`)                 → callbacks.onInline
+ * Parses data-only AG-UI SSE frames and dispatches their UI meaning.
  *
  * Idle watchdog: if no chunk arrives for STREAM_IDLE_TIMEOUT_MS, the reader
  * is cancelled and `onError` is invoked with a timeout error.
@@ -437,18 +427,17 @@ export async function consumeBrainStream(
 
   const reader  = response.body.getReader()
   const decoder = new TextDecoder()
-  const sseDecoder = new HybridSSEDecoder()
+  const sseDecoder = new AguiSSEDecoder()
   let timedOut = false
   let watchdog: ReturnType<typeof setTimeout> | null = null
 
   const dispatch = (event: DecodedSSEEvent) => {
-    if (event.kind === 'named') {
-      callbacks.onNamed(event.name, event.data)
-    } else if (event.kind === 'inline') {
-      callbacks.onInline(event.data)
-    } else if (event.internal) {
-      callbacks.onInline(internalToInline(event.internal))
-    }
+    if (!event.appEvent) return
+    callbacks.onEvent(
+      event.appEvent.eventName,
+      event.appEvent.parsed,
+      event.event.type === 'CUSTOM',
+    )
   }
 
   const armWatchdog = () => {

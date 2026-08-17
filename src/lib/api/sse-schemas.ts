@@ -1,13 +1,8 @@
 import { z } from "zod"
 
-// ── Backend SSE vocabulary ────────────────────────────────────────────────────
-// Mirrors services/llm/sse_schemas.py (SouvenirAI). Two kinds of events share
-// the wire:
-//   - named events:  `event: <name>\ndata: {...}` — lifecycle, tools, prompts
-//   - inline events: `data: {"type":"<name>",...}` — streamed LLM tokens
-// Schemas are loose: unknown fields pass through so backend additions never
-// break parsing. Validation failures log once per event name and hand back the
-// raw payload — drift surfaces in the console, never as a dropped frame.
+// ── Souvenir AG-UI CUSTOM vocabulary ─────────────────────────────────────────
+// Standard lifecycle, text, tool, and activity frames are validated by
+// lib/agui/schemas.ts. These schemas cover only product-specific CUSTOM values.
 
 const promptOption = z.looseObject({
   value: z.string().optional(),
@@ -42,7 +37,15 @@ const promptGateFields = {
   expires_at: z.string().optional().default(""),
 }
 
-export const namedEventSchemas = {
+export const customEventSchemas = {
+  reasoning_heading: z.looseObject({
+    content: z.string().optional().default(""),
+    round_index: z.number().nullable().optional(),
+  }),
+  reasoning_body: z.looseObject({
+    content: z.string().optional().default(""),
+    round_index: z.number().nullable().optional(),
+  }),
   message_saved: z.looseObject({ message_id: z.string().optional() }),
   title: z.looseObject({ title: z.string() }),
   web_search: z.looseObject({
@@ -70,15 +73,6 @@ export const namedEventSchemas = {
     memory: z.string(),
     version: z.number(),
   }),
-  model_selected: z.looseObject({
-    model_id: z.string(),
-    model_name: z.string(),
-    deployment_name: z.string().nullable().optional(),
-    company: z.string().nullable().optional(),
-    complexity: z.string().nullable().optional(),
-    thinking_enabled: z.boolean().nullable().optional(),
-    effort: z.string().nullable().optional(),
-  }),
   tool_progress: z.looseObject({
     tool: z.string(),
     status: z.string(),
@@ -92,10 +86,9 @@ export const namedEventSchemas = {
     connector_slug: z.string(),
     display_name: z.string(),
     auth_mode: z.string(),
-    tool_name: z.string(),
-    request_id: z.string(),
+    tool_slug: z.string(),
+    prompt_id: z.string(),
     icon_url: z.string().nullable().optional(),
-    prompt_id: z.string().optional().default(""),
     respond_url: z.string().optional().default(""),
     expires_at: z.string().optional().default(""),
     api_key_fields: z.array(z.looseObject({})).optional().default([]),
@@ -108,20 +101,6 @@ export const namedEventSchemas = {
     description: z.string().optional().default(""),
     options: z.array(promptOption).optional().default([]),
     metadata: z.looseObject({}).optional().default({}),
-  }),
-  prompt_timeout: z.looseObject({
-    prompt_id: z.string(),
-    kind: z.string().optional().default(""),
-  }),
-  prompt_resolved: z.looseObject({
-    prompt_id: z.string(),
-    kind: z.string().optional().default(""),
-  }),
-  questions: z.looseObject({
-    ...promptGateFields,
-    title: z.string().optional().default(""),
-    description: z.string().optional().default(""),
-    questions: z.array(z.looseObject({})).optional().default([]),
   }),
   question_prompt: z.looseObject({
     ...promptGateFields,
@@ -177,54 +156,8 @@ export const namedEventSchemas = {
   stream_heartbeat: z.looseObject({ elapsed_seconds: z.number().optional() }),
 } as const
 
-export type NamedEventName = keyof typeof namedEventSchemas
-export type NamedEventPayload<K extends NamedEventName> = z.infer<(typeof namedEventSchemas)[K]>
-
-// Inline stream events (services/llm/schemas.py StreamEvent + sse_schemas.py
-// inline models). On the raw stream the name rides in the JSON `type` field;
-// on the AG-UI chat stream the same payloads arrive as CUSTOM events keyed by
-// name — so payload schemas are kept name-addressable too.
-export const inlineEventSchemas = {
-  content: z.looseObject({ content: z.string() }),
-  reasoning: z.looseObject({ content: z.string().optional().default("") }),
-  reasoning_heading: z.looseObject({ content: z.string().optional().default("") }),
-  reasoning_body: z.looseObject({ content: z.string().optional().default("") }),
-  tool_calls_streaming: z.looseObject({
-    content: z.string().optional().default(""),
-    tool_call: z.looseObject({}).nullable().optional(),
-  }),
-  tool_executing: z.looseObject({
-    content: z.string().optional().default(""),
-    tool_call: z.looseObject({}).optional(),
-  }),
-  tool_complete: z.looseObject({
-    content: z.string().optional().default(""),
-    tool_call: z.looseObject({}).optional(),
-  }),
-  tool_call: z.looseObject({
-    content: z.string().nullable().optional(),
-    label: z.string().nullable().optional(),
-    tool_call: z.looseObject({}).nullable().optional(),
-  }),
-  tool_error: z.looseObject({
-    content: z.string().nullable().optional(),
-    label: z.string().nullable().optional(),
-    tool_call: z.looseObject({}).nullable().optional(),
-    error: z.string().nullable().optional(),
-  }),
-  done: z.looseObject({
-    usage: z.looseObject({}).nullable().optional(),
-    reasoning_details: z.array(z.unknown()).nullable().optional(),
-    tool_calls: z.array(z.looseObject({})).nullable().optional(),
-    finish_reason: z.string().nullable().optional(),
-  }),
-  error: z.looseObject({
-    error: z.string(),
-    source: z.string().optional(),
-  }),
-} as const
-
-export type InlineEventName = keyof typeof inlineEventSchemas
+export type CustomEventName = keyof typeof customEventSchemas
+export type CustomEventPayload<K extends CustomEventName> = z.infer<(typeof customEventSchemas)[K]>
 
 const warnedEvents = new Set<string>()
 
@@ -234,46 +167,16 @@ function warnOnce(key: string, message: string, issue: unknown): void {
   console.warn(message, issue)
 }
 
-/** Validate a named SSE event payload against the backend contract.
- *  Unknown event names pass through untouched (legacy/FE-only events);
- *  validation failures warn once per name and return the raw payload so a
- *  contract drift never drops a frame. */
-export function validateNamedEvent(
+/** Validate an AG-UI CUSTOM value against the backend contract. */
+export function validateCustomEvent(
   name: string,
   payload: unknown,
 ): Record<string, unknown> {
   const raw = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>
-  const schema = (namedEventSchemas as Record<string, z.ZodType | undefined>)[name]
+  const schema = (customEventSchemas as Record<string, z.ZodType | undefined>)[name]
   if (!schema) return raw
   const result = schema.safeParse(raw)
   if (result.success) return result.data as Record<string, unknown>
-  warnOnce(`named:${name}`, `[sse] '${name}' event failed schema validation`, result.error.issues)
-  return raw
-}
-
-/** Validate an inline (`data`-only, `type`-tagged) stream event. Same
- *  never-drop policy as validateNamedEvent. */
-export function validateInlineEvent(payload: unknown): Record<string, unknown> {
-  const raw = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>
-  if (typeof raw.type !== "string") return raw
-  const schema = (inlineEventSchemas as Record<string, z.ZodType | undefined>)[raw.type]
-  if (!schema) return raw
-  const result = schema.safeParse(raw)
-  if (result.success) return { ...(result.data as Record<string, unknown>), type: raw.type }
-  warnOnce(`inline:${raw.type}`, `[sse] inline '${raw.type}' event failed schema validation`, result.error.issues)
-  return raw
-}
-
-/** Resolve an event payload by name alone — named vocabulary first, then the
- *  inline vocabulary (AG-UI CUSTOM events carry inline payloads keyed by
- *  name). Unknown names pass through untouched. */
-export function validateEventByName(name: string, payload: unknown): Record<string, unknown> {
-  const raw = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>
-  if (name in namedEventSchemas) return validateNamedEvent(name, raw)
-  const schema = (inlineEventSchemas as Record<string, z.ZodType | undefined>)[name]
-  if (!schema) return raw
-  const result = schema.safeParse(raw)
-  if (result.success) return result.data as Record<string, unknown>
-  warnOnce(`custom:${name}`, `[sse] '${name}' event failed schema validation`, result.error.issues)
+  warnOnce(`custom:${name}`, `[ag-ui] '${name}' CUSTOM event failed schema validation`, result.error.issues)
   return raw
 }
