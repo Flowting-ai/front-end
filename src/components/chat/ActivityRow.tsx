@@ -20,7 +20,7 @@ import type { ActivityItem, ActivityType } from "@/hooks/use-chat-state";
 
 // ── Activity type display config ──────────────────────────────────────────────
 
-const ACTIVITY_VERB: Record<ActivityType, string> = {
+export const ACTIVITY_VERB: Record<ActivityType, string> = {
   "web-search": "Searching the web",
   "browser": "Browsing",
   "read-pages": "Reading document",
@@ -184,7 +184,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
         {/* Result count */}
         {isDone && hasResults && (
           <span style={{ fontSize: 14, fontWeight: 400, color: "#B6ACA4", flexShrink: 0 }}>
-            {activity.results!.length} {activity.type === "web-search" ? "results" : "files"}
+            {activity.results!.length} {activity.type === "web-search" ? "result" : "file"}{activity.results!.length === 1 ? "" : "s"}
           </span>
         )}
 

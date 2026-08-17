@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useState, type ReactNode } from "react";
 import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -18,17 +18,30 @@ import {
   Globe02Icon,
   Brain01Icon,
   Brain02Icon,
+  Checkmark,
 } from "@hugeicons/core-free-icons";
 import { LineRenderer } from "@/lib/line-renderer";
-import { ActivitiesSection, ActivityRow } from "./ActivityRow";
+import { ACTIVITY_VERB, ActivitiesSection } from "./ActivityRow";
 import { springs } from "@/lib/springs";
 import {
   cleanReasoningHeading,
+  groupReasoningTimeline,
+  splitHeading,
   splitReasoningText,
   type ReasoningSection,
   type ReasoningTimelineItem,
 } from "@/lib/reasoning";
 import type { ActivityItem, ModelSelectedMeta } from "@/hooks/use-chat-state";
+
+const THINKING_WORDS = ["Thinking", "Analysing", "Processing", "Considering"];
+
+function isActivityRunning(activity: ActivityItem) {
+  return activity.status === "start" || activity.status === "executing" || activity.status === "reading";
+}
+
+function activityVerb(activity: ActivityItem) {
+  return activity.label ?? ACTIVITY_VERB[activity.type] ?? "Processing";
+}
 
 // ── SouvenirMark - inline SVG logo ────────────────────────────────────────────
 
@@ -143,6 +156,77 @@ function ChevronRight({ isOpen }: { isOpen: boolean }) {
   );
 }
 
+function ChevronDown({ isOpen }: { isOpen: boolean }) {
+  return (
+    <m.svg
+      width="14"
+      height="14"
+      viewBox="0 0 14 14"
+      fill="none"
+      animate={{ rotate: isOpen ? 180 : 0 }}
+      transition={springs.fast}
+      style={{ display: "block", flexShrink: 0 }}
+      aria-hidden="true"
+    >
+      <path
+        d="M3 5.5 L7 9.5 L11 5.5"
+        stroke="var(--neutral-400, #9C938B)"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </m.svg>
+  );
+}
+
+// Swaps words on a timer so the collapsed trigger reads as live activity rather
+// than a frozen label. Static under reduced motion.
+function CyclingLabel({ words }: { words: string[] }) {
+  const shouldReduceMotion = useReducedMotion() ?? false;
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (shouldReduceMotion) return;
+    const id = setInterval(() => setIndex((value) => (value + 1) % words.length), 2200);
+    return () => clearInterval(id);
+  }, [shouldReduceMotion, words.length]);
+
+  if (shouldReduceMotion) return <>{words[0]}</>;
+
+  return (
+    <AnimatePresence mode="popLayout" initial={false}>
+      <m.span
+        key={words[index]}
+        initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
+        animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
+        exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
+        transition={{ type: "spring", stiffness: 520, damping: 32 }}
+        style={{ display: "block", transformOrigin: "left center" }}
+      >
+        {words[index]}
+      </m.span>
+    </AnimatePresence>
+  );
+}
+
+function WorkingPulse() {
+  const shouldReduceMotion = useReducedMotion() ?? false;
+  return (
+    <m.div
+      animate={shouldReduceMotion ? undefined : { opacity: [0.3, 0.8, 0.3] }}
+      transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+      style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 14, color: "#C0B5AD" }}
+    >
+      <HugeiconsIcon icon={AiBrain01Icon} size={16} color="#D1C6BD" strokeWidth={1.5} />
+      <span>Working…</span>
+    </m.div>
+  );
+}
+
+function StepDivider() {
+  return <div style={{ height: 1, background: "rgba(59,54,50,0.08)" }} />;
+}
+
 function ResearchTitle({ text }: { text: string }) {
   const shouldReduceMotion = useReducedMotion() ?? false;
   const words = [...text.matchAll(/\S+/g)].map((match) => ({
@@ -173,7 +257,7 @@ function ResearchTitle({ text }: { text: string }) {
   );
 }
 
-function ThinkingTrigger({ open, onToggle, controls, summary }: { open: boolean; onToggle: () => void; controls: string; summary?: string }) {
+function ThinkingTrigger({ open, onToggle, controls, summary, streaming }: { open: boolean; onToggle: () => void; controls: string; summary?: string; streaming: boolean }) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -206,15 +290,19 @@ function ThinkingTrigger({ open, onToggle, controls, summary }: { open: boolean;
         }}
       >
         <span style={{ display: "inline-grid", fontSize: 14, lineHeight: "22px", textAlign: "left" }}>
-          <span aria-hidden="true" style={{ gridArea: "1 / 1", visibility: "hidden", fontWeight: 500 }}>Thinking</span>
+          {/* Reserves the widest cycling word so the summary beside it never reflows. */}
+          <span aria-hidden="true" style={{ gridArea: "1 / 1", visibility: "hidden", fontWeight: 500 }}>
+            {streaming ? "Considering" : "Thinking"}
+          </span>
           <span
+            className={streaming ? "kaya-thinking-step-shimmer" : undefined}
             style={{
               gridArea: "1 / 1",
               color: "#9A9089",
               fontWeight: 500,
             }}
           >
-            Thinking
+            {streaming ? <CyclingLabel words={THINKING_WORDS} /> : "Thinking"}
           </span>
         </span>
         {summary && (
@@ -287,7 +375,8 @@ function ReasoningStep({
   const icon = getReasoningIcon(heading);
   const [expanded, setExpanded] = useState(false);
   const bodyId = useId();
-  const detail = section.detail?.trim() ?? "";
+  const shouldReduceMotion = useReducedMotion() ?? false;
+  const { verb, rest } = splitHeading(section.heading);
 
   return (
     <m.div
@@ -307,12 +396,16 @@ function ReasoningStep({
               <HugeiconsIcon icon={icon} size={16} color={isActive ? "#A89488" : "#C0B5AD"} strokeWidth={1.5} />
             </span>
             {!isLast && (
-              <span
+              <m.span
+                initial={shouldReduceMotion ? false : { scaleY: 0, opacity: 0 }}
+                animate={{ scaleY: 1, opacity: 1 }}
+                transition={{ duration: 0.28, ease: "easeOut", delay: 0.1 }}
                 style={{
                   flex: 1,
                   width: 1,
                   minHeight: 12,
                   background: "var(--neutral-200, #EDE1D7)",
+                  transformOrigin: "top",
                 }}
               />
             )}
@@ -337,9 +430,9 @@ function ReasoningStep({
                   className={isActive ? "kaya-thinking-step-shimmer" : undefined}
                   style={{ color: "#26211E", fontWeight: 600 }}
                 >
-                  {heading}{isActive ? "…" : ""}
+                  {verb}{isActive ? "…" : ""}
                 </strong>
-                {!isActive && detail ? <> {detail}</> : null}
+                {rest ? <> {rest}</> : null}
               </span>
               {!isActive && hasBody && <ChevronRight isOpen={expanded} />}
             </button>
@@ -388,6 +481,65 @@ function ReasoningSections({
           isActive={isStreaming && i === valid.length - 1}
         />
       ))}
+    </div>
+  );
+}
+
+// ── Batched tool activities ───────────────────────────────────────────────────
+
+// A finished batch collapses to one summary row so a long tool run does not
+// push the answer off screen. A batch still running, or a lone activity, keeps
+// the expanded rows.
+function ActivityGroup({ activities }: { activities: ActivityItem[] }) {
+  const [open, setOpen] = useState(false);
+  const bodyId = useId();
+  const settled = activities.every((activity) => !isActivityRunning(activity));
+
+  if (!settled || activities.length < 2) return <ActivitiesSection activities={activities} />;
+
+  const verbs = [...new Set(activities.map(activityVerb))].join(", ");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={() => setOpen((value) => !value)}
+        style={{
+          display: "flex", alignItems: "center", gap: 6, width: "100%",
+          padding: "1px 0", border: 0, background: "transparent",
+          cursor: "pointer", textAlign: "left", fontFamily: "var(--font-body)",
+        }}
+      >
+        <span style={{ display: "flex", lineHeight: 0, flexShrink: 0 }}>
+          <HugeiconsIcon icon={Checkmark} size={16} color="#80B707" strokeWidth={2.5} />
+        </span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "#524B47", flexShrink: 0 }}>
+          Ran {activities.length} actions
+        </span>
+        <span style={{ fontSize: 14, color: "#9A9089", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          — {verbs}
+        </span>
+        <ChevronDown isOpen={open} />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <m.div
+            id={bodyId}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            style={{ overflow: "hidden" }}
+          >
+            <div style={{ paddingLeft: 8 }}>
+              <ActivitiesSection activities={activities} />
+            </div>
+          </m.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -465,54 +617,73 @@ export function ReasoningContent({
   const hasStructured = reasoningSections && reasoningSections.length > 0;
   const hasTimeline = Boolean(reasoningTimeline?.length);
   const activityById = new Map((activities ?? []).map((activity) => [activity.id, activity]));
+  const anyRunning = (activities ?? []).some(isActivityRunning);
 
-  return (
-    <div>
-      {hasTimeline ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {reasoningTimeline!.map((item, index) => {
-            if (item.kind === "activity") {
-              const activity = activityById.get(item.activityId);
-              return activity ? (
-                <m.div key={item.id} initial={{ height: 0 }} animate={{ height: "auto" }} transition={springs.slow} style={{ overflow: "hidden" }}>
-                  <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.24, delay: 0.08, ease: "easeOut" }}>
-                    <ActivityRow activity={activity} />
-                  </m.div>
-                </m.div>
-              ) : null;
-            }
-            const isActiveReasoning = isStreaming && index === reasoningTimeline!.length - 1;
+  if (hasTimeline) {
+    const groups = groupReasoningTimeline(reasoningTimeline!);
+    // A reasoning segment only shimmers while it is genuinely the newest thing;
+    // once a tool starts, the activity row carries the live state instead.
+    const lastReasoning = groups.reduce((acc, group, i) => (group.kind === "reasoning" ? i : acc), -1);
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {groups.map((group, index) => {
+          if (group.kind === "reasoning") {
             return (
               <TimelineReasoningStep
-                key={item.id}
-                content={item.content}
-                active={isActiveReasoning}
+                key={group.id}
+                content={group.contents.join("\n\n")}
+                active={isStreaming && index === lastReasoning && !anyRunning}
               />
             );
-          })}
-        </div>
-      ) : hasStructured ? (
+          }
+
+          const items = group.activityIds
+            .map((id) => activityById.get(id))
+            .filter((activity): activity is ActivityItem => Boolean(activity));
+          if (items.length === 0) return null;
+
+          return (
+            <Fragment key={group.id}>
+              {index > 0 && groups[index - 1].kind === "reasoning" && <StepDivider />}
+              <m.div initial={{ height: 0 }} animate={{ height: "auto" }} transition={springs.slow} style={{ overflow: "hidden" }}>
+                <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.24, delay: 0.08, ease: "easeOut" }}>
+                  <ActivityGroup activities={items} />
+                </m.div>
+              </m.div>
+            </Fragment>
+          );
+        })}
+        {isStreaming && anyRunning && <WorkingPulse />}
+      </div>
+    );
+  }
+
+  const steps = hasStructured
+    ? <ReasoningSections sections={reasoningSections!} isStreaming={isStreaming} />
+    : thinkingContent
+      ? <TimelineReasoningStep content={thinkingContent} active={isStreaming} />
+      : null;
+
+  if (!steps) return hasActivities ? <ActivityGroup activities={activities!} /> : null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {steps}
+      {hasActivities && (
         <>
-          {hasActivities && <ActivitiesSection activities={activities!} />}
-          <div style={{ marginTop: hasActivities ? 16 : 0 }}>
-            <ReasoningSections sections={reasoningSections!} isStreaming={isStreaming} />
-          </div>
+          <StepDivider />
+          <ActivityGroup activities={activities!} />
         </>
-      ) : thinkingContent ? (
-        <>
-          {hasActivities && <ActivitiesSection activities={activities!} />}
-          <div style={{ marginTop: hasActivities ? 16 : 0 }}>
-            <TimelineReasoningStep content={thinkingContent} active={isStreaming} />
-          </div>
-        </>
-      ) : hasActivities ? <ActivitiesSection activities={activities!} /> : null}
+      )}
+      {isStreaming && anyRunning && <WorkingPulse />}
     </div>
   );
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-interface ReasoningBlockProps {
+export interface ReasoningBlockProps {
   thinkingContent: string;
   isNewMessage: boolean;
   isThinkingInProgress?: boolean;
@@ -523,8 +694,6 @@ interface ReasoningBlockProps {
   reasoningSections?: ReasoningSection[];
   /** Live arrival-ordered reasoning/tool trace. */
   reasoningTimeline?: ReasoningTimelineItem[];
-  /** Live/final compact research summary emitted by the stream. */
-  researchTitle?: string;
 }
 
 export function ReasoningBlock({
@@ -533,14 +702,11 @@ export function ReasoningBlock({
   activities,
   reasoningSections,
   reasoningTimeline,
-  researchTitle,
 }: ReasoningBlockProps) {
   const [manualOpen, setManualOpen] = useState<boolean | null>(null);
   const panelId = useId();
-  const hasActiveActivity = activities?.some((activity) =>
-    activity.status === "start" || activity.status === "executing" || activity.status === "reading",
-  );
-  const open = manualOpen ?? Boolean(isThinkingInProgress || hasActiveActivity);
+  const runningActivity = activities?.find(isActivityRunning);
+  const open = manualOpen ?? Boolean(isThinkingInProgress || runningActivity);
 
   const fallbackTitle = (() => {
     const lastReasoning = reasoningTimeline?.findLast((item) => item.kind === "reasoning");
@@ -556,13 +722,12 @@ export function ReasoningBlock({
     const parsedThinking = splitReasoningText(thinkingContent);
     return cleanReasoningHeading(parsedThinking.findLast((section) => section.heading)?.heading ?? "");
   })();
-  // fallbackTitle mirrors the newest reasoning heading. Collapsed, that is the
-  // only signal of what was thought about; expanded, the step row below renders
-  // the identical string, so carrying it up here would put the same text on two
-  // nested disclosures — most visibly with a single step, where the outer row is
-  // an exact copy of its only child. A real researchTitle summarises the whole
-  // panel rather than one step, so it stays in both states.
-  const summary = researchTitle?.trim() || (open ? "" : fallbackTitle);
+  // A running tool is the most specific thing we can say, so it wins in both
+  // states. Otherwise fall back to the newest heading, and only while collapsed:
+  // expanded, the step row below renders that identical string, which would put
+  // the same text on two nested disclosures.
+  const liveStatus = runningActivity ? activityVerb(runningActivity) : "";
+  const summary = liveStatus || (open ? "" : fallbackTitle);
 
   if (!thinkingContent && !reasoningSections?.length && !reasoningTimeline?.length && !activities?.length && !isThinkingInProgress) return null;
 
@@ -570,7 +735,7 @@ export function ReasoningBlock({
     <div style={{ width: "100%", margin: "4px 0 10px", fontFamily: "var(--font-body)" }}>
 
       {/* ── Outer header ────────────────────────────────────────────────────── */}
-      <ThinkingTrigger open={open} onToggle={() => setManualOpen(!open)} controls={panelId} summary={summary || undefined} />
+      <ThinkingTrigger open={open} onToggle={() => setManualOpen(!open)} controls={panelId} summary={summary || undefined} streaming={!!isThinkingInProgress} />
 
       {/* ── Outer collapse (always mounted - prevents jump on streaming→done) ── */}
       <ThinkingCollapse open={open} id={panelId}>

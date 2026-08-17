@@ -6,8 +6,10 @@ import {
   createReasoningAccumulator,
   deriveReasoningSections,
   eventRoundIndex,
+  groupReasoningTimeline,
   normalizeReasoningSections,
   reasoningEventText,
+  splitHeading,
   splitReasoningText,
 } from '@/lib/reasoning'
 
@@ -121,10 +123,10 @@ describe('reasoning stream accumulation', () => {
     const reasoning = createReasoningAccumulator()
     reasoning.event('reasoning_heading', 'Superseded')
     reasoning.step({ heading: 'Second', body: '' }, 1)
-    reasoning.step({ heading: 'First', body: '', detail: 'now' }, 0)
+    reasoning.step({ heading: 'First', body: '' }, 0)
 
     expect(reasoning.sections()).toEqual([
-      { heading: 'First', body: '', detail: 'now' },
+      { heading: 'First', body: '' },
       { heading: 'Second', body: '' },
     ])
   })
@@ -254,5 +256,51 @@ describe('reasoning markdown-title rendering', () => {
     // No derivable heading anywhere → fall back to the passed sections as-is.
     const plain = [{ heading: '', body: 'plain' }]
     expect(deriveReasoningSections(plain, '')).toBe(plain)
+  })
+})
+
+describe('splitHeading', () => {
+  it('splits a heading phrase into a leading verb and the remainder', () => {
+    expect(splitHeading('Clarifying user intent')).toEqual({ verb: 'Clarifying', rest: 'user intent' })
+  })
+
+  it('leaves a single-word heading with an empty remainder', () => {
+    expect(splitHeading('Summarizing')).toEqual({ verb: 'Summarizing', rest: '' })
+  })
+
+  it('strips markdown markers before splitting', () => {
+    expect(splitHeading('**Analyzing Shopify data**')).toEqual({ verb: 'Analyzing', rest: 'Shopify data' })
+  })
+})
+
+describe('groupReasoningTimeline', () => {
+  it('merges consecutive activities into one group', () => {
+    expect(groupReasoningTimeline([
+      { kind: 'reasoning', id: 'r-1', content: 'A' },
+      { kind: 'activity', id: 't-1', activityId: 'a-1' },
+      { kind: 'activity', id: 't-2', activityId: 'a-2' },
+      { kind: 'reasoning', id: 'r-2', content: 'B' },
+      { kind: 'activity', id: 't-3', activityId: 'a-3' },
+    ])).toEqual([
+      { kind: 'reasoning', id: 'r-1', contents: ['A'] },
+      { kind: 'activities', id: 't-1', activityIds: ['a-1', 'a-2'] },
+      { kind: 'reasoning', id: 'r-2', contents: ['B'] },
+      { kind: 'activities', id: 't-3', activityIds: ['a-3'] },
+    ])
+  })
+
+  it('merges adjacent reasoning segments so the connector runs unbroken', () => {
+    expect(groupReasoningTimeline([
+      { kind: 'reasoning', id: 'r-1', content: 'A' },
+      { kind: 'reasoning', id: 'r-2', content: 'B' },
+      { kind: 'activity', id: 't-1', activityId: 'a-1' },
+    ])).toEqual([
+      { kind: 'reasoning', id: 'r-1', contents: ['A', 'B'] },
+      { kind: 'activities', id: 't-1', activityIds: ['a-1'] },
+    ])
+  })
+
+  it('returns an empty list for an empty timeline', () => {
+    expect(groupReasoningTimeline([])).toEqual([])
   })
 })

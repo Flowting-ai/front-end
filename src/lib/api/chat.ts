@@ -211,8 +211,6 @@ interface BackendMessage {
   web_searches?: Array<{ query: string; links: string[]; results?: Array<Record<string, unknown>> }> | null;
   // Structured reasoning steps
   reasoning_sections?: ReasoningSection[] | null;
-  // Structured response blocks persisted by the backend (table, chart, steps, etc.)
-  response_blocks?: Array<{ kind: string; [key: string]: unknown }> | null;
 }
 
 /** Normalize a backend message entry into one or two Message objects. */
@@ -273,10 +271,6 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
         web_searches: raw.web_searches ?? undefined,
         file_attachments: assistantAtts.length > 0 ? assistantAtts : undefined,
         image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
-        response_blocks: Array.isArray(raw.response_blocks) && raw.response_blocks.length > 0
-          ? raw.response_blocks.filter((b): b is { kind: string; [key: string]: unknown } =>
-              b !== null && typeof b === "object" && typeof (b as Record<string, unknown>).kind === "string")
-          : undefined,
       });
     }
     return messages;
@@ -292,11 +286,6 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
     ? (raw.image_links.filter((u): u is string => typeof u === "string" && u.length > 0))
     : undefined;
 
-  const singleResponseBlocks = role === "assistant" && Array.isArray(raw.response_blocks) && raw.response_blocks.length > 0
-    ? raw.response_blocks.filter((b): b is { kind: string; [key: string]: unknown } =>
-        b !== null && typeof b === "object" && typeof (b as Record<string, unknown>).kind === "string")
-    : undefined;
-
   return [{
     id: baseId,
     role,
@@ -310,7 +299,6 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
     web_searches: raw.web_searches ?? undefined,
     file_attachments: fileAttachments.length > 0 ? fileAttachments : undefined,
     image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
-    ...(singleResponseBlocks ? { response_blocks: singleResponseBlocks } : {}),
   }];
 }
 

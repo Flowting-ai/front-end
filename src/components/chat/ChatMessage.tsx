@@ -817,7 +817,6 @@ export function ChatMessage({
             activities={message.activities}
             reasoningSections={message.reasoning_sections}
             reasoningTimeline={message.reasoningTimeline}
-            researchTitle={message.researchTitle}
           />
         )}
 
