@@ -17,7 +17,12 @@ import {
   DEFAULT_API_KEY_FIELD,
   connectorToolBooleans,
 } from '@/lib/api/connectors'
-import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
+import type {
+  ApiKeyField,
+  ConnectorCatalogEntry,
+  ConnectorTool,
+  ConnectorToolPermission,
+} from '@/lib/api/connectors'
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
 import { useConnectorBrowse, CategoryFilter, Pagination } from '@/components/ConnectorBrowse'
@@ -35,6 +40,18 @@ function SearchIcon() {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <circle cx="7" cy="7" r="4.5" stroke="var(--neutral-400)" strokeWidth="1.5"/>
       <path d="M10.5 10.5L13.5 13.5" stroke="var(--neutral-400)" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function SpinnerIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 24 24" fill="none"
+      style={{ animation: 'conn-spin 0.8s linear infinite', flexShrink: 0 }}
+    >
+      <style>{`@keyframes conn-spin { to { transform: rotate(360deg) } }`}</style>
+      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   )
 }
@@ -271,57 +288,97 @@ function humanizeAction(toolSlug: string, connectorSlug: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : toolSlug
 }
 
-const TOOL_PERMISSION_STYLE: Record<ConnectorTool['permission'], React.CSSProperties> = {
-  allowed: {
-    color: 'var(--green-800)',
-    backgroundColor: 'var(--green-50)',
-    boxShadow: '0 0 0 1px rgba(128,183,7,0.35)',
-  },
-  blocked: {
-    color: 'var(--red-700, #B42318)',
-    backgroundColor: 'var(--red-50, #FEF3F2)',
-    boxShadow: '0 0 0 1px rgba(180,35,24,0.25)',
-  },
-  ask: {
-    color: 'var(--neutral-600)',
-    backgroundColor: 'var(--neutral-50)',
-    boxShadow: '0 0 0 1px var(--neutral-200)',
-  },
+// UI label layer over the backend's binary allowed/blocked gate (services/
+// connectors/schemas.py's ToolEntry — no "allow once" there; a one-time allow
+// is a call-scoped decision the in-chat prompt unblocks without persisting).
+const POLICY_LABEL: Record<ConnectorToolPermission, string> = {
+  allowed: 'Always allow',
+  ask:     'Ask',
+  blocked: 'Never',
 }
 
-function ToolPermissionSelect({
-  permission,
-  disabled,
+const POLICY_OPTIONS: ConnectorToolPermission[] = ['allowed', 'ask', 'blocked']
+
+function PolicyDropdown({
+  value,
   onChange,
+  disabled,
 }: {
-  permission: ConnectorTool['permission']
+  value:     ConnectorToolPermission
+  onChange:  (v: ConnectorToolPermission) => void
   disabled?: boolean
-  onChange: (permission: ConnectorTool['permission']) => void
 }) {
+  const [open, setOpen] = useState(false)
   return (
-    <select
-      aria-label={`Permission: ${permission}`}
-      value={permission}
-      disabled={disabled}
-      onChange={event => onChange(event.target.value as ConnectorTool['permission'])}
-      style={{
-        flexShrink: 0,
-        padding: '3px 24px 3px 8px',
-        borderRadius: 6,
-        border: 'none',
-        fontFamily: 'var(--font-body)',
-        fontWeight: 500,
-        fontSize: 11,
-        lineHeight: '16px',
-        cursor: disabled ? 'wait' : 'pointer',
-        opacity: disabled ? 0.6 : 1,
-        ...TOOL_PERMISSION_STYLE[permission],
-      }}
-    >
-      <option value="allowed">Always allow</option>
-      <option value="ask">Ask</option>
-      <option value="blocked">Never</option>
-    </select>
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        disabled={disabled}
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display:         'inline-flex',
+          alignItems:      'center',
+          gap:             6,
+          padding:         '4px 10px',
+          borderRadius:    8,
+          border:          'none',
+          cursor:          disabled ? 'not-allowed' : 'pointer',
+          opacity:         disabled ? 0.5 : 1,
+          backgroundColor: 'white',
+          boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
+          fontFamily:      'var(--font-body)',
+          fontWeight:      500,
+          fontSize:        13,
+          lineHeight:      '20px',
+          color:           'var(--neutral-700)',
+          whiteSpace:      'nowrap',
+        }}
+      >
+        {POLICY_LABEL[value]}
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="var(--neutral-500)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position:        'absolute',
+            right:           0,
+            top:             'calc(100% + 4px)',
+            backgroundColor: 'white',
+            borderRadius:    10,
+            boxShadow:       '0px 4px 16px 0px rgba(38,33,30,0.12), 0px 0px 0px 1px var(--neutral-100)',
+            overflow:        'hidden',
+            zIndex:          20,
+            minWidth:        130,
+          }}>
+            {POLICY_OPTIONS.map(opt => (
+              <button
+                key={opt}
+                onClick={() => { onChange(opt); setOpen(false) }}
+                style={{
+                  display:         'flex',
+                  width:           '100%',
+                  padding:         '8px 12px',
+                  border:          'none',
+                  backgroundColor: opt === value ? 'var(--neutral-50)' : 'transparent',
+                  cursor:          'pointer',
+                  fontFamily:      'var(--font-body)',
+                  fontWeight:      opt === value ? 500 : 400,
+                  fontSize:        13,
+                  lineHeight:      '20px',
+                  color:           'var(--neutral-700)',
+                  textAlign:       'left',
+                  whiteSpace:      'nowrap',
+                }}
+              >
+                {POLICY_LABEL[opt]}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 
@@ -338,6 +395,7 @@ function ConnectorDetailModal({
   const [tools,              setTools]              = useState<ConnectorTool[]>(entry.tools ?? [])
   const [saving,             setSaving]             = useState<string | null>(null)
   const [unlinking,          setUnlinking]          = useState(false)
+  const [allowingAll,        setAllowingAll]        = useState(false)
   const [expanded,           setExpanded]           = useState(false)
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
   const abortedRef = useRef(false)
@@ -414,6 +472,29 @@ function ConnectorDetailModal({
       setUnlinking(false)
     }
   }, [entry, onUpdate, onClose])
+
+  const handleAllowAll = useCallback(async () => {
+    if (abortedRef.current || tools.length === 0) return
+    setAllowingAll(true)
+    setTools(prev => prev.map(tool => ({ ...tool, allowed: true, blocked: false, permission: 'allowed' as const })))
+    try {
+      const updated = await updateConnector(entry.slug, {
+        permissions: tools.map(tool => ({ slug: tool.slug, allowed: true, blocked: false })),
+      })
+      if (abortedRef.current) return
+      baselineToolsRef.current = updated.tools ?? []
+      setTools(updated.tools ?? [])
+      onUpdate(updated)
+      toast.success('All tools set to Always allow')
+    } catch (err) {
+      if (abortedRef.current) return
+      setTools(baselineToolsRef.current)
+      const msg = err instanceof Error ? err.message : 'Failed to update permissions'
+      toast.error(msg)
+    } finally {
+      if (!abortedRef.current) setAllowingAll(false)
+    }
+  }, [entry.slug, tools, onUpdate])
 
   // Show at most 5 tools collapsed; expand to see all
   const COLLAPSED_COUNT = 5
@@ -532,9 +613,20 @@ function ConnectorDetailModal({
                 color:      'var(--neutral-500)',
                 margin:     0,
               }}>
-                Choose how Brain may use each tool.
+                Choose when Brain is allowed to use each tool.
               </p>
             </div>
+            {tools.length > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={allowingAll || saving !== null || unlinking}
+                loading={allowingAll}
+                onClick={() => void handleAllowAll()}
+              >
+                Allow all
+              </Button>
+            )}
           </div>
 
           {tools.length === 0 ? (
@@ -571,11 +663,12 @@ function ConnectorDetailModal({
                     }}>
                       {humanizeAction(tool.slug, entry.slug)}
                     </span>
-                    <ToolPermissionSelect
-                      permission={tool.permission}
-                      disabled={saving === tool.slug}
+                    <PolicyDropdown
+                      value={tool.permission}
+                      disabled={saving === tool.slug || allowingAll}
                       onChange={permission => void handlePermissionChange(tool.slug, permission)}
                     />
+                    {saving === tool.slug && <SpinnerIcon size={12} />}
                   </div>
                 </div>
               ))}
