@@ -28,6 +28,7 @@ import {
   type TeamAgentCopyStatus,
 } from '@/lib/api/personas'
 import { AGENT_CHAT_ROUTE } from '@/lib/routes'
+import { getGradient } from '@/lib/team-gradients'
 
 // Section header for a team block — same visual weight as SettingsTableToolbar,
 // but with the team's icon leading the name ("(icon) Frontend"), which
@@ -43,27 +44,10 @@ function TeamSectionHeader({ teamId, teamName }: { teamId: string; teamName: str
   )
 }
 
-// ── Team identity tile — same gradient-initial convention used on
-// org/members and org/teams, kept visually consistent across the app rather
-// than introducing a generic icon for "a team". ──────────────────────────────
-
-const TEAM_GRADIENTS = [
-  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',
-  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',
-  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',
-  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',
-  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',
-  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',
-]
-
-function getTeamGradient(teamId: string): string {
-  let hash = 0
-  for (let i = 0; i < teamId.length; i++) {
-    hash = ((hash << 5) - hash) + teamId.charCodeAt(i)
-    hash |= 0
-  }
-  return TEAM_GRADIENTS[Math.abs(hash) % TEAM_GRADIENTS.length]!
-}
+// Team identity tile — same gradient-initial convention used on org/members
+// and org/teams (src/lib/team-gradients.ts), kept visually consistent across
+// the app rather than introducing a generic icon for "a team".
+const getTeamGradient = getGradient
 
 function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string; size?: number }) {
   return (

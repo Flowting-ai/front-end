@@ -21,7 +21,7 @@ export interface FlatSidebarRowProps extends Omit<React.HTMLAttributes<HTMLDivEl
   variant?: FlatSidebarRowVariant
   label?: string
   icon?: React.ReactElement<{ triggered?: boolean }>
-  /** Persistent selected state — fill + text emphasis + left indicator bar (Figma: "selected is multi-signal"). */
+  /** Persistent selected state — fill + text emphasis. */
   selected?: boolean
   /** Icon-only collapsed rail. header/chat-item/chat-item-edit rows render nothing when collapsed. */
   collapsed?: boolean
@@ -198,13 +198,6 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
       boxSizing: 'border-box',
     }
 
-    const indicatorBar = !isHeader && selected && (
-      <span
-        aria-hidden
-        style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 3, height: 16, borderRadius: 2, backgroundColor: 'var(--neutral-700)' }}
-      />
-    )
-
     if (isHeader) {
       return (
         <div
@@ -312,7 +305,6 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
 
     const content = (
       <>
-        {indicatorBar}
         {icon && (
           <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
             {React.cloneElement(icon, { triggered: isHovered })}
@@ -374,8 +366,20 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
       ...props,
     }
 
+    // Icon-only collapsed rail rows have no visible label — a tooltip is the
+    // only way to tell what they are. Only `variant === 'default'` ever
+    // reaches this point while `collapsed` (header/chat-item/edit already
+    // bailed out to `null` above), so this only ever wraps New/Agents/
+    // Schedules/Connectors-style rows, not project/chat sub-items.
+    const wrapCollapsed = (row: React.ReactElement) =>
+      collapsed && label ? (
+        <Tooltip content={label} side="right" delayDuration={300}>
+          <div>{row}</div>
+        </Tooltip>
+      ) : row
+
     if (href) {
-      return (
+      return wrapCollapsed(
         <Link
           href={href}
           tabIndex={0}
@@ -390,14 +394,14 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
           }}
         >
           {content}
-        </Link>
+        </Link>,
       )
     }
 
-    return (
+    return wrapCollapsed(
       <div onClick={onClick} {...rootProps}>
         {content}
-      </div>
+      </div>,
     )
   },
 )

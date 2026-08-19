@@ -43,6 +43,13 @@ const LABEL_STYLE: React.CSSProperties = {
   margin:     0,
 }
 
+// The asterisk is decorative — `aria-required` on the input/textarea itself
+// is what actually announces "required" to assistive tech, regardless of
+// whether a given screen reader vocalizes the "*" glyph.
+function RequiredMark() {
+  return <span aria-hidden="true" style={{ color: 'var(--red-500, #ef4444)' }}>*</span>
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface EditProjectModalProps {
@@ -146,7 +153,6 @@ export function EditProjectModal({
         >
           <m.div
             key="edit-project-modal"
-            className="kaya-scrollbar"
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1,    y: 0 }}
             exit={{    opacity: 0, scale: 0.96, y: 8 }}
@@ -161,8 +167,7 @@ export function EditProjectModal({
               maxHeight:     'calc(100dvh - 64px)',
               display:       'flex',
               flexDirection: 'column',
-              overflowY:     'auto',
-              overflowX:     'hidden',
+              overflow:      'hidden',
             }}
           >
             {/* ── Header ── */}
@@ -192,19 +197,24 @@ export function EditProjectModal({
 
             <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
 
-            {/* ── Body ── */}
+            {/* ── Body — scrolls on its own so the header/dividers/footer stay
+                fixed and full-width; kaya-scrollbar's permanent gutter only
+                applies within this region, not the whole card. ── */}
             <div
+              className="kaya-scrollbar"
               style={{
                 display:       'flex',
                 flexDirection: 'column',
                 gap:           '20px',
                 padding:       '24px 20px',
-                flexShrink:    0,
+                flex:          '1 1 0',
+                minHeight:     0,
+                overflowY:     'auto',
               }}
             >
               {/* Name */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label htmlFor="edit-project-name" style={LABEL_STYLE}>Name</label>
+                <label htmlFor="edit-project-name" style={LABEL_STYLE}>Name<RequiredMark /></label>
                 <input
                   id="edit-project-name"
                   type="text"
@@ -215,12 +225,13 @@ export function EditProjectModal({
                   onFocus={focusInput}
                   onBlur={blurInput}
                   autoFocus
+                  aria-required="true"
                 />
               </div>
 
               {/* Description */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label htmlFor="edit-project-desc" style={LABEL_STYLE}>Description</label>
+                <label htmlFor="edit-project-desc" style={LABEL_STYLE}>Description<RequiredMark /></label>
                 <textarea
                   id="edit-project-desc"
                   className="kaya-chat-textarea"
@@ -231,6 +242,7 @@ export function EditProjectModal({
                   style={{ ...INPUT_BASE, resize: 'none', lineHeight: '22px' }}
                   onFocus={focusInput}
                   onBlur={blurInput}
+                  aria-required="true"
                 />
               </div>
 

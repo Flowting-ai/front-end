@@ -74,6 +74,7 @@ import type { ConnectorRequestStatus, TeamConnectionEntry, TeamConnectorRequest 
 import { toConnector } from '@/lib/connector'
 import { isMcpProviderConnector } from '@/lib/connectorProvider'
 import type { Team } from '@/types/teams'
+import { getGradient } from '@/lib/team-gradients'
 
 type MainTab = 'org-access' | 'team-access' | 'requests' | 'shared-accounts'
 type AccountStatusFilter = 'all' | 'active' | 'needs-attention'
@@ -719,25 +720,9 @@ async function loadTeamRequestIndex(orgId: string, teams: Team[]): Promise<TeamR
 
 const CONNECTOR_COLUMNS = 'minmax(240px, 1.4fr) 150px 140px 150px'
 
-// Deterministic gradient palette — kept in sync with TeamSwitcher/index.tsx and
-// org/teams/page.tsx's getTeamGradient/TeamAvatar so a team keeps the same color/icon everywhere.
-const CONNECTOR_TEAM_GRADIENTS = [
-  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',  // teal-blue
-  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',  // purple
-  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',  // orange
-  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',  // green
-  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',  // red-brown
-  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',  // blue
-]
-
-function getConnectorTeamGradient(teamId: string): string {
-  let hash = 0
-  for (let i = 0; i < teamId.length; i++) {
-    hash = ((hash << 5) - hash) + teamId.charCodeAt(i)
-    hash |= 0
-  }
-  return CONNECTOR_TEAM_GRADIENTS[Math.abs(hash) % CONNECTOR_TEAM_GRADIENTS.length]!
-}
+// Deterministic gradient palette — shared via src/lib/team-gradients.ts so a
+// team keeps the same color/icon everywhere.
+const getConnectorTeamGradient = getGradient
 
 function ConnectorTeamAvatar({ teamId, name, size = 36 }: { teamId: string; name: string; size?: number }) {
   return (

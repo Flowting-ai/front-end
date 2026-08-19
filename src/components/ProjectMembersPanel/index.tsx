@@ -10,6 +10,7 @@ import { useOrg } from '@/context/org-context'
 import { listMembers } from '@/lib/api/organization'
 import { listProjectMembers, addProjectMember, removeProjectMember, listTeamEditors, type ProjectMember } from '@/lib/api/teams'
 import type { OrgMember } from '@/types/teams'
+import { SectionHeader, EmptyRow } from '@/components/shared/ProjectPanelSection'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -112,24 +113,16 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
 
   return (
     <div style={{ backgroundColor: 'var(--neutral-50)' }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '12px 24px 16px',
-      }}>
-        <div style={{ flex: '1 0 0', minWidth: 0 }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-            Project members
-          </p>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
-            Members assigned directly to this project.
-          </p>
-        </div>
-        <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={14} />} onClick={handleOpenAdd}>
-          Add member
-        </Button>
-      </div>
+      <SectionHeader
+        title="Project members"
+        subtitle="Given access to just this project, without making them a team editor. Team editors already have access and won't appear in this list."
+        padding="12px 24px 16px"
+        action={
+          <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={14} />} onClick={handleOpenAdd}>
+            Add member
+          </Button>
+        }
+      />
 
       {addOpen && (
         <div style={{ padding: '12px 24px', borderTop: '1px solid var(--neutral-100)', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -193,15 +186,9 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
         </span>
       </div>
 
-      {loading && (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-400)', margin: 0, padding: '12px 24px 16px' }}>
-          Loading members...
-        </p>
-      )}
+      {loading && <EmptyRow text="Loading members..." padding="12px 24px 16px" />}
       {!loading && members.length === 0 && (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-400)', margin: 0, padding: '12px 24px 16px' }}>
-          No project members yet.
-        </p>
+        <EmptyRow text="No project members yet." padding="12px 24px 16px" />
       )}
       {members.map(m => (
         <div key={m.userId} style={{

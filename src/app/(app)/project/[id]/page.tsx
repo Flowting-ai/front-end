@@ -84,7 +84,7 @@ export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
   const { push }  = useRouter()
   const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats, addChat, loading: projectsLoading } = useProjects()
-  const { pins, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
+  const { pins, isLoading: pinsLoading, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const { setPanel: setProjectPanel } = useProjectPanel()
   const chatHistory = useChatHistoryContext()
   const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel, models, selectModel } = useModelSelectorContext()
@@ -227,7 +227,7 @@ export default function ProjectPage() {
             </p>
             <ProjectInstructionsPanel
               value={project.instructions}
-              onSave={project.canEdit ? (text) => updateProject(project.id, { instructions: text }) : undefined}
+              editable={project.canEdit}
               onOpenEditor={project.canEdit ? () => setInstructionsOpen(true) : undefined}
             />
             <ProjectFilesPanel
@@ -514,7 +514,7 @@ export default function ProjectPage() {
         key={chat.id}
         title={chat.title}
         timestamp={formatRelativeTime(chat.updatedAt)}
-        pinCount={pins.filter(p => p.chatId === chat.id).length}
+        pinCount={pinsLoading ? null : pins.filter(p => p.chatId === chat.id).length}
         onChatClick={() => push(PROJECT_CHAT_ROUTE(projectId, chat.id))}
         onPinsClick={() => togglePinboard()}
         onRename={chat.canEdit ? (newTitle) => {
@@ -631,7 +631,7 @@ export default function ProjectPage() {
                   variant="outline"
                   size="md"
                   icon={<ShareOneIcon animated />}
-                  aria-label="Share project"
+                  aria-label="Project visibility"
                   onClick={handleOpenShare}
                 />}
 
@@ -1139,10 +1139,10 @@ export default function ProjectPage() {
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: '0 0 4px' }}>
-                  Share project
+                  Project visibility
                 </p>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
-                  Control who can access this project.
+                  Control who this project is visible to.
                 </p>
               </div>
               <IconButton

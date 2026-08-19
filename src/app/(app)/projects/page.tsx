@@ -21,32 +21,15 @@ import type { Project } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
 import type { OrgMember } from '@/types/teams'
 import { PROJECT_ROUTE, PROJECTS_NEW_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
+import { getGradient } from '@/lib/team-gradients'
 
 type SortKey = 'recent' | 'alphabetical' | 'active'
 type ScopeFilter = 'personal' | 'team'
 type ViewMode = 'grid' | 'list'
 
-// ── Gradient palette — seeded by team name, matching TeamChip/TeamSwitcherRow/
-// TeamSwitcherDropdown/ProjectCard exactly, so a project's avatar is the same
-// colour everywhere else it appears.
-
-const TEAM_GRADIENTS = [
-  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',  // teal-blue
-  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',  // purple
-  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',  // orange
-  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',  // green
-  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',  // red-brown
-  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',  // blue
-]
-
-function getGradient(seed: string): string {
-  let h = 0
-  for (let i = 0; i < seed.length; i++) {
-    h = ((h << 5) - h) + seed.charCodeAt(i)
-    h |= 0
-  }
-  return TEAM_GRADIENTS[Math.abs(h) % TEAM_GRADIENTS.length]!
-}
+// Gradient palette seeded by team name — shared with TeamChip/TeamSwitcherRow/
+// TeamSwitcherDropdown/ProjectCard/etc via src/lib/team-gradients.ts, so a
+// project's avatar is the same colour everywhere else it appears.
 
 // ── Grid/List toggle — single secondary button + Dropdown, same "view filter"
 // pattern as Pinboard's own view switcher (in-place label swap included). ──

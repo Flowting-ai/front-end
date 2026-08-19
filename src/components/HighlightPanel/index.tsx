@@ -2,9 +2,10 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
-import { SearchOneIcon, StickyNoteTwoIcon, CancelOneIcon, TickTwoIcon, FilterMailIcon } from '@strange-huge/icons'
+import { SearchOneIcon, StickyNoteTwoIcon, CancelOneIcon, TickTwoIcon, FilterMailIcon, AlertCircleIcon } from '@strange-huge/icons'
 import { HighlightCard, HIGHLIGHT_COLORS } from '@/components/HighlightCard'
 import { IconButton } from '@/components/IconButton'
+import { Button } from '@/components/Button'
 import { Spinner } from '@/components/Spinner'
 import { Tooltip } from '@/components/Tooltip'
 import { trackFeature } from '@/lib/analytics/events'
@@ -31,6 +32,12 @@ export interface HighlightPanelProps {
   highlights: HighlightEntry[]
   /** True while highlights are being (re)fetched — e.g. right after switching filters. Shows a spinner in place of the card list. */
   isLoading?: boolean
+  /** True when the most recent load attempt failed outright — shown as a
+   *  distinct error state (with Retry) instead of the empty state, so a
+   *  failed fetch never looks identical to "nothing highlighted yet". */
+  hasError?:  boolean
+  /** Called when the user clicks Retry in the error state. Omit to hide the button. */
+  onRetry?:   () => void
   /** Forwarded to each card's Jump button. `id` matches HighlightEntry.id. Omit to hide Jump on all cards. */
   onJump?:    (id: string) => void
   /** Forwarded to each card's Copy button. `id` matches HighlightEntry.id. Omit to hide Copy on all cards. */
@@ -52,6 +59,8 @@ export interface HighlightPanelProps {
 export function HighlightPanel({
   highlights,
   isLoading = false,
+  hasError = false,
+  onRetry,
   onJump,
   onCopy,
   onDelete,
@@ -382,6 +391,42 @@ export function HighlightPanel({
             >
               Loading highlights…
             </p>
+          </m.div>
+        ) : hasError ? (
+          <m.div
+            key="error"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              display:        'flex',
+              flexDirection:  'column',
+              alignItems:     'center',
+              justifyContent: 'center',
+              gap:            12,
+              padding:        '48px 24px',
+              textAlign:      'center',
+            }}
+          >
+            <AlertCircleIcon size={32} color="var(--red-400, #e08787)" />
+            <p
+              style={{
+                margin:     0,
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-regular)',
+                fontSize:   'var(--font-size-caption)',
+                lineHeight: '1.5',
+                color:      'var(--neutral-500)',
+              }}
+            >
+              Couldn&apos;t load highlights
+            </p>
+            {onRetry && (
+              <Button variant="outline" size="sm" onClick={onRetry}>
+                Retry
+              </Button>
+            )}
           </m.div>
         ) : (
           <>

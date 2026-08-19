@@ -26,6 +26,8 @@ import {
   BRAIN_ROUTE,
   ORG_CONNECTORS_ROUTE,
   ORG_SOUVENIR_SLACK_ROUTE,
+  CHAT_ROUTE,
+  CHATS_ROUTE,
 } from "@/lib/routes";
 
 interface AppLayoutProps {
@@ -83,6 +85,20 @@ export function AppLayout({
   // /org/* to their own top-level routes) — same TopBar/FloatingPanel strip
   // as /org and /teams/[teamId] above.
   const isConnectorsOrSlackPage = pathname.startsWith(ORG_CONNECTORS_ROUTE) || pathname.startsWith(ORG_SOUVENIR_SLACK_ROUTE)
+  // Chat surfaces (/chat, /project/[id]/chat/[chatId]) manage their own message-
+  // list scrolling (ChatInterface's own kaya-scrollbar div) — same reasoning as
+  // isConnectorsOrSlackPage below: give them the tight 3px card padding too, so
+  // their scrollbar sits close to the rounded border instead of 12px inset.
+  const isChatPage = pathname === CHAT_ROUTE || (isAnyProjectPage && pathname.includes('/chat/'))
+  const isChatsListPage = pathname.startsWith(CHATS_ROUTE)
+  const isChatSharesPage = pathname.startsWith('/chat-shares')
+  // Every route below already owns a full-height inner scroll container that
+  // does the real scrolling (projects list/new, project detail, the team
+  // settings shell, chat shares) — same reasoning as isConnectorsOrSlackPage/
+  // isChatPage: this shared main must not ALSO reserve a scrollbar-gutter, and
+  // the card padding should match the tight 3px these already use, or the
+  // page's own scrollbar sits inset by an extra, pointless gap.
+  const usesTightCard = isConnectorsOrSlackPage || isChatPage || isProjectPage || isTeamPage || isChatsListPage || isChatSharesPage
 
   // Settings pages manage their own full layout — bypass global chrome entirely.
   if (isSettingsPage) {
@@ -195,9 +211,9 @@ export function AppLayout({
               overflow-clip, isolate for FloatingPanel z-index scoping.
               Uniform 12px padding — matches BrainShell's own glass card
               (src/templates/Brain/index.tsx: padding '12px' on all sides).
-              Connectors/Souvenir-in-Slack use the same tight 3px padding the
-              agents list's own self-built card uses, so their scrollbar sits
-              the same distance from this border as it does on /agents. */
+              Connectors/Souvenir-in-Slack and chat surfaces use the same tight
+              3px padding the agents list's own self-built card uses, so their
+              scrollbar sits the same distance from this border as /agents. */
           <div
             style={{
               position:        "relative",
@@ -207,7 +223,7 @@ export function AppLayout({
               flexDirection:   "column",
               alignItems:      "flex-start",
               gap:             "2px",
-              padding:         isConnectorsOrSlackPage ? "3px" : "12px",
+              padding:         usesTightCard ? "3px" : "12px",
               borderRadius:    "22px",
               border:          "1px solid var(--neutral-200)",
               backgroundColor: "rgba(255, 255, 255, 0.2)",
@@ -224,16 +240,21 @@ export function AppLayout({
               />
             )}
 
-            {/* ── Main content - fills remaining height ── */}
+            {/* ── Main content - fills remaining height ──
+                Every route in the isPersonaChatPage/usesTightCard set manages its
+                own message-list/page scrolling — this main must NOT also carry
+                .kaya-scrollbar (scrollbar-gutter: stable reserves its own gutter
+                unconditionally, stacking with the page's own and pushing its
+                scrollbar further from the border than intended). */}
             <main
-              className={isPersonaChatPage ? undefined : "kaya-scrollbar"}
+              className={(isPersonaChatPage || usesTightCard) ? undefined : "kaya-scrollbar"}
               style={{
                 flex:                "1 0 0",
                 minHeight:           0,
                 width:               "100%",
-                overflowY:           isPersonaChatPage ? "hidden" : "auto",
+                overflowY:           (isPersonaChatPage || usesTightCard) ? "hidden" : "auto",
                 overflowX:           "hidden",
-                overscrollBehaviorY: isPersonaChatPage ? undefined : "contain",
+                overscrollBehaviorY: (isPersonaChatPage || usesTightCard) ? undefined : "contain",
                 display:             "flex",
                 flexDirection:       "column",
               }}

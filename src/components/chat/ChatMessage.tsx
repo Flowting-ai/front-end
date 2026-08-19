@@ -415,17 +415,31 @@ export function ChatMessage({
   useEffect(() => {
     if (!isAssistant || disableHighlight) return
 
+    // Mouse-driven selections are finalized on `mouseup` — opening on every
+    // intermediate `selectionchange` while the mouse is still dragging would
+    // make the popover jump around mid-drag. Keyboard selections (Shift+Arrow,
+    // Shift+Home, etc.) have no equivalent "selection finished" event — each
+    // key press IS a discrete, complete selection change — so those are
+    // opened directly from `selectionchange` instead, gated on the mouse not
+    // currently being held down.
+    let mouseIsDown = false
+
+    const showSelectionPopover = () => {
+      const sel = window.getSelection()
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return
+      const range = sel.getRangeAt(0)
+      if (!contentRef.current?.contains(range.commonAncestorContainer)) return
+      const rect = range.getBoundingClientRect()
+      if (!rect.width) return
+      setSelectionAnchor(rect)
+      setSelectionOpen(true)
+    }
+
+    const handleMouseDown = () => { mouseIsDown = true }
+
     const handleMouseUp = () => {
-      requestAnimationFrame(() => {
-        const sel = window.getSelection()
-        if (!sel || sel.isCollapsed || sel.rangeCount === 0) return
-        const range = sel.getRangeAt(0)
-        if (!contentRef.current?.contains(range.commonAncestorContainer)) return
-        const rect = range.getBoundingClientRect()
-        if (!rect.width) return
-        setSelectionAnchor(rect)
-        setSelectionOpen(true)
-      })
+      mouseIsDown = false
+      requestAnimationFrame(showSelectionPopover)
     }
 
     const handleSelectionChange = () => {
@@ -433,12 +447,16 @@ export function ChatMessage({
       if (!sel || sel.isCollapsed) {
         setSelectionOpen(false)
         setSelectionAnchor(null)
+        return
       }
+      if (!mouseIsDown) requestAnimationFrame(showSelectionPopover)
     }
 
+    document.addEventListener('mousedown', handleMouseDown)
     document.addEventListener('mouseup', handleMouseUp)
     document.addEventListener('selectionchange', handleSelectionChange)
     return () => {
+      document.removeEventListener('mousedown', handleMouseDown)
       document.removeEventListener('mouseup', handleMouseUp)
       document.removeEventListener('selectionchange', handleSelectionChange)
     }

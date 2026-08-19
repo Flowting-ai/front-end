@@ -32,6 +32,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@strange-huge/icons": "github:strange-rock/strange-huge-icons",
+    "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-virtual": "^3.13.24",
     "@types/react-speech-recognition": "^3.9.6",
     "@vis.gl/react-maplibre": "^8.1.1",

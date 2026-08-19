@@ -193,6 +193,8 @@ export function SystemInstructionsModal({
             <div
               className="kaya-scrollbar"
               style={{
+                display:       'flex',
+                flexDirection: 'column',
                 flex:          '1 1 0',
                 minHeight:     0,
                 overflowY:     'auto',
@@ -202,8 +204,9 @@ export function SystemInstructionsModal({
             >
               {/* Horizontal padding lives on this inner wrapper, not the
                   scrolling element above — keeps the scrollbar flush with the
-                  modal's edge. */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '0 20px' }}>
+                  modal's edge. Stretches to fill the scroll container so the
+                  textarea below can in turn flex to fill this. */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '0 20px', flex: '1 1 0', minHeight: 0 }}>
               <p
                 style={{
                   fontFamily:  'var(--font-body)',

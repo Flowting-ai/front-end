@@ -28,6 +28,7 @@ import { useAuth }          from '@/context/auth-context'
 import { setMemberRole, removeMember, revokeTeamInvite, getOrgSettings, setMemberCap } from '@/lib/api/organization'
 import { inviteTeamMembers, addTeamEditor, removeTeamEditor, addProjectMember, removeProjectMember } from '@/lib/api/teams'
 import { fetchProjects, type ApiProjectSummary } from '@/lib/api/projects'
+import { getGradient } from '@/lib/team-gradients'
 import { fetchTeamAccessSnapshot } from '@/lib/team-access'
 import { updateUser } from '@/lib/api/user'
 import { ORG_TEAM_ROUTE } from '@/lib/routes'
@@ -126,25 +127,9 @@ function RemoveButton({
 // render that list with identical row height/gap — so row i in the Role
 // column always lines up horizontally with row i in the Teams column.
 
-// Deterministic gradient palette, one row per team — kept in sync with
-// TeamSwitcher/index.tsx's getTeamGradient so a team keeps the same color here.
-const TEAM_GRADIENTS = [
-  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',  // teal-blue
-  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',  // purple
-  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',  // orange
-  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',  // green
-  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',  // red-brown
-  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',  // blue
-]
-
-function getTeamGradient(teamId: string): string {
-  let hash = 0
-  for (let i = 0; i < teamId.length; i++) {
-    hash = ((hash << 5) - hash) + teamId.charCodeAt(i)
-    hash |= 0
-  }
-  return TEAM_GRADIENTS[Math.abs(hash) % TEAM_GRADIENTS.length]!
-}
+// Deterministic gradient palette, one row per team — shared via
+// src/lib/team-gradients.ts so a team keeps the same color everywhere.
+const getTeamGradient = getGradient
 
 function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string; size?: number }) {
   return (

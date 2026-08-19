@@ -7,32 +7,12 @@ import { Avatar } from '@/components/Avatar'
 import { Button } from '@/components/Button'
 import { fetchPersonas, personasForTeamContext, usePersonaRepoDeduped, type Persona } from '@/lib/api/personas'
 import { AGENT_CHAT_ROUTE } from '@/lib/routes'
+import { SectionHeader, EmptyRow } from '@/components/shared/ProjectPanelSection'
 
 export interface ProjectAgentsPanelProps {
   /** null/undefined for a personal (non-team) project — the panel then lists
    *  the viewer's own agents instead of agents shared with a team. */
   teamId?: string | null
-}
-
-function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div style={{ padding: '12px 24px 10px' }}>
-      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-        {title}
-      </p>
-      <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
-        {subtitle}
-      </p>
-    </div>
-  )
-}
-
-function EmptyRow({ text }: { text: string }) {
-  return (
-    <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-400)', margin: 0, padding: '2px 24px 16px' }}>
-      {text}
-    </p>
-  )
 }
 
 export function ProjectAgentsPanel({ teamId }: ProjectAgentsPanelProps) {

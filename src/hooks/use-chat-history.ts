@@ -128,12 +128,12 @@ export function useChatHistory(): UseChatHistoryResult {
     );
     try {
       await starChat(chatId);
-      toast.success(next ? "Chat starred" : "Chat unstarred");
+      toast.success(next ? "Chat pinned" : "Chat unpinned");
     } catch {
       setChats((prev) =>
         prev.map((c) => (c.id === chatId ? { ...c, starred: !next } : c)),
       );
-      toast.error("Failed to update star");
+      toast.error("Failed to update pin");
     }
   };
 

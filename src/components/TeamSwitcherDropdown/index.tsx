@@ -15,29 +15,7 @@ import {
 import { Dropdown } from '@/components/Dropdown'
 import { RoleBadge } from '@/components/RoleBadge'
 import type { WorkspaceRole, RoleBadgeMode } from '@/components/RoleBadge'
-
-// ── Team gradient (same algorithm as TeamChip / TeamSwitcher) ─────────────────
-
-export const TEAM_GRADIENTS = [
-  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',
-  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',
-  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',
-  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',
-  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',
-  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',
-]
-
-/** Deterministic team → gradient assignment (same team always gets the same
- *  gradient). Shared by the avatar tile here and the AccountMenu's gradient
- *  team-name text, so a given team reads consistently across both switchers. */
-export function getGradient(seed: string): string {
-  let h = 0
-  for (let i = 0; i < seed.length; i++) {
-    h = ((h << 5) - h) + seed.charCodeAt(i)
-    h |= 0
-  }
-  return TEAM_GRADIENTS[Math.abs(h) % TEAM_GRADIENTS.length]!
-}
+import { getGradient } from '@/lib/team-gradients'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

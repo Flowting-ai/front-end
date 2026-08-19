@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { ArrowUpRightOneIcon } from '@strange-huge/icons'
+import { Tooltip } from '@/components/Tooltip'
 
 // ── "Sidebar / Slack Connector" (Figma 136:50005) ────────────────────────────
 // Slack brand glyph isn't in @strange-huge/icons — inlined here, same pattern
@@ -37,7 +38,36 @@ export function FlatSidebarSlackConnector({ connected = false, selected = false,
   const [isHovered, setIsHovered] = React.useState(false)
   const isActive = isHovered || selected
 
-  if (collapsed) return null
+  // Icon-only rail row — same sizing convention as FlatSidebarRow's collapsed
+  // default variant (auto width, 6px horizontal padding, 32px height), with a
+  // tooltip standing in for the label that's hidden in this state.
+  if (collapsed) {
+    return (
+      <Tooltip content="Slack in Souvenir" side="right" delayDuration={300}>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-pressed={selected}
+          aria-label="Slack in Souvenir"
+          onClick={onClick}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.() } }}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 'auto', height: 32, padding: '0 6px', borderRadius: 10,
+            backgroundColor: isActive ? 'var(--sidebar-menu-item-hover-bg)' : 'transparent',
+            boxShadow: isActive ? 'var(--shadow-sidebar-item-hover)' : undefined,
+            cursor: 'pointer', transition: 'background-color 150ms, box-shadow 150ms', boxSizing: 'border-box',
+          }}
+        >
+          <div style={{ color: 'var(--sidebar-menu-item-text)', lineHeight: 0 }}>
+            <SlackGlyph size={20} />
+          </div>
+        </div>
+      </Tooltip>
+    )
+  }
 
   return (
     <div
@@ -57,12 +87,6 @@ export function FlatSidebarSlackConnector({ connected = false, selected = false,
         cursor: 'pointer', transition: 'background-color 150ms, box-shadow 150ms', boxSizing: 'border-box',
       }}
     >
-      {selected && (
-        <span
-          aria-hidden
-          style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 3, height: 16, borderRadius: 2, backgroundColor: 'var(--neutral-700)' }}
-        />
-      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
         <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
           <SlackGlyph size={20} />

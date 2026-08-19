@@ -46,6 +46,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
     const usedPct      = Math.min(100, totalBytes > 0 ? (totalUsed / totalBytes) * 100 : 0)
     const usedLabel    = formatBytes(totalUsed) || '0 B'
     const totalMB      = Math.round(totalBytes / (1024 * 1024))
+    const usedMB       = Math.round(totalUsed / (1024 * 1024))
 
     // Client-side size/type validation — mirrors the chat-attachment path's
     // constraints (useFileUpload) so oversized/unsupported files are rejected
@@ -206,6 +207,11 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
             {usedLabel} of {totalMB} MB used
           </p>
           <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={totalMB}
+            aria-valuenow={usedMB}
+            aria-label={`${usedLabel} of ${totalMB} MB used`}
             style={{
               height:       '4px',
               borderRadius: '2px',
@@ -245,6 +251,8 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
                   key={file.id}
                   name={file.name}
                   sizeLabel={file.sizeLabel || undefined}
+                  fileType={file.type}
+                  url={file.url || undefined}
                   onRemove={onRemove ? () => onRemove(file.id) : undefined}
                 />
               ))}

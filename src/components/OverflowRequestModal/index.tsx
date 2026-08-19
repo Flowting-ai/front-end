@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { z } from 'zod'
 import { useOrg } from '@/context/org-context'
 import { apiFetchJson } from '@/lib/api/client'
 import { ORG_TEAM_OVERFLOW_ENDPOINT } from '@/lib/config'
@@ -14,19 +15,27 @@ export interface OverflowRequestModalProps {
 
 const PRESET_AMOUNTS = [100, 500, 1_000, 2_000]
 
+// Same rule as before (amount must be a whole number >= 1) — the input's own
+// onChange already clamps to that range, this is the submit-time guard.
+const overflowRequestSchema = z.object({
+  credits: z.number().int().min(1),
+})
+
 export function OverflowRequestModal({ teamId, teamName, onClose }: OverflowRequestModalProps) {
   const { orgId } = useOrg()
   const [amount, setAmount]   = useState<number>(500)
   const [loading, setLoading] = useState(false)
 
+  const validation = overflowRequestSchema.safeParse({ credits: amount })
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!orgId) return
+    if (!orgId || !validation.success) return
     setLoading(true)
     try {
       await apiFetchJson(ORG_TEAM_OVERFLOW_ENDPOINT(orgId, teamId), {
         method: 'POST',
-        body:   JSON.stringify({ credits: amount }),
+        body:   JSON.stringify(validation.data),
       })
       toast.success('Overflow request sent to workspace admin.')
       onClose()
@@ -183,18 +192,18 @@ export function OverflowRequestModal({ teamId, teamName, onClose }: OverflowRequ
             </button>
             <button
               type="submit"
-              disabled={loading || amount < 1}
+              disabled={loading || !validation.success}
               style={{
                 height:          36,
                 padding:         '0 16px',
                 borderRadius:    8,
                 border:          'none',
-                backgroundColor: loading || amount < 1 ? 'var(--neutral-300)' : 'var(--neutral-900)',
+                backgroundColor: loading || !validation.success ? 'var(--neutral-300)' : 'var(--neutral-900)',
                 color:           'var(--neutral-white)',
                 fontFamily:      'var(--font-body)',
                 fontWeight:      500,
                 fontSize:        14,
-                cursor:          loading || amount < 1 ? 'not-allowed' : 'pointer',
+                cursor:          loading || !validation.success ? 'not-allowed' : 'pointer',
               }}
             >
               {loading ? 'Sending…' : 'Send request'}

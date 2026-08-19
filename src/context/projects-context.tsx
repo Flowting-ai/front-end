@@ -172,7 +172,10 @@ function apiToProject(
     description:  api.description,
     instructions: api.systemInstruction,
     teamId:       api.teamId ?? existing?.teamId ?? null,
-    visibility:   api.visibility,
+    // Same fallback as teamId above — a partial/degraded response shouldn't
+    // be able to leave these two disagreeing (one falling back to the last-
+    // known value, the other silently taking whatever came back).
+    visibility:   api.visibility ?? existing?.visibility ?? 'private',
     canEdit:      api.canEdit,
     canManageVisibility: api.canManageVisibility,
     tags:         tagsFromLabels(api.tags),
@@ -202,7 +205,6 @@ interface ProjectsContextValue {
   projects:         Project[]
   chats:            ProjectChat[]
   loading:          boolean
-  error:            string | null
   createProject:    (name: string, description: string, teamId?: string) => Promise<Project>
   updateProject:    (id: string, patch: Partial<Pick<Project, 'name' | 'description' | 'instructions' | 'tags'>>) => Promise<void>
   deleteProject:    (id: string) => Promise<void>
@@ -223,7 +225,6 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const [projects,        setProjects]        = useState<Project[]>([])
   const [chats,           setChats]           = useState<ProjectChat[]>([])
   const [loading,         setLoading]         = useState(true)
-  const [error,           setError]           = useState<string | null>(null)
 
   const projectsRef = useRef(projects)
   useEffect(() => { projectsRef.current = projects }, [projects])
@@ -259,7 +260,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
           })
         })
       })
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load projects'))
+      .catch(err => toast.error('Failed to load projects', { description: err instanceof Error ? err.message : undefined }))
       .finally(() => setLoading(false))
   }, [])
 
@@ -503,7 +504,6 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     projects,
     chats,
     loading,
-    error,
     createProject,
     updateProject,
     deleteProject,
@@ -517,7 +517,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     getProject,
     getChats,
   }), [
-    projects, chats, loading, error,
+    projects, chats, loading,
     createProject, updateProject, deleteProject, loadProject,
     uploadFiles, removeFile, addChat, removeChat, renameChat,
     loadProjectChats, getProject, getChats,

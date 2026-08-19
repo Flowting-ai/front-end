@@ -26,6 +26,7 @@ const FILE_EXT_COLOR: Record<string, BadgeColor> = {
   pdf:  'Red',
   docx: 'Blue',
   doc:  'Blue',
+  fig:  'Blue',
   txt:  'Neutral',
   xls:  'Green',
   xlsx: 'Green',
@@ -49,6 +50,17 @@ function extractExt(name: string): { ext: string; color: BadgeColor } {
   return { ext: ext.toUpperCase() || 'FILE', color: FILE_EXT_COLOR[ext] ?? 'Neutral' }
 }
 
+/** Badge ext/color for a file whose type is already known (e.g. `ProjectFile.type`,
+ *  set once at fetch time) — trusts that value instead of re-parsing the filename,
+ *  so the card can't disagree with the model it was handed. Falls back to
+ *  filename-derived extraction only when no type is known yet (optimistic
+ *  upload rows, still a raw browser `File` with no computed type). */
+function badgeFor(name: string, fileType?: string): { ext: string; color: BadgeColor } {
+  if (!fileType) return extractExt(name)
+  const key = fileType.toLowerCase()
+  return { ext: fileType.toUpperCase() || 'FILE', color: FILE_EXT_COLOR[key] ?? 'Neutral' }
+}
+
 const CARD_SHADOW =
   '0px 4px 4px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
 
@@ -58,6 +70,14 @@ export interface ProjectDocumentCardProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
   name:       string
   sizeLabel?: string
+  /** Already-known file type (e.g. `ProjectFile.type`) â€“ drives the badge
+   *  label/color directly instead of re-parsing `name`. Omit for optimistic
+   *  upload rows, which don't have one yet. */
+  fileType?:  string
+  /** Download/view URL for the uploaded file. When present, the filename opens
+   *  it in a new tab â€“ absent for optimistic upload rows, which have no server
+   *  URL yet. */
+  url?:       string
   /** Shows a spinner instead of remove button â€“ for optimistic upload rows. */
   uploading?: boolean
   onRemove?:  React.MouseEventHandler<HTMLButtonElement>
@@ -66,11 +86,11 @@ export interface ProjectDocumentCardProps
 // â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function ProjectDocumentCard(
-  { name, sizeLabel, uploading, onRemove, style, onMouseEnter, onMouseLeave, ref, ...props }: ProjectDocumentCardProps & { ref?: React.Ref<HTMLDivElement> },
+  { name, sizeLabel, fileType, url, uploading, onRemove, style, onMouseEnter, onMouseLeave, ref, ...props }: ProjectDocumentCardProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
     const [removeButtonFocused, setRemoveButtonFocused] = React.useState(false)
 
-    const { ext, color } = extractExt(name)
+    const { ext, color } = badgeFor(name, fileType)
     const badgeLabel = ext
 
     return (
@@ -107,24 +127,53 @@ export function ProjectDocumentCard(
         >
           {/* Filename + action row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <p
-              style={{
-                flex:         '1 0 0',
-                minWidth:     0,
-                margin:       0,
-                fontFamily:   'var(--font-body)',
-                fontWeight:   'var(--font-weight-medium)',
-                fontSize:     '13px',
-                lineHeight:   '18px',
-                color:        uploading ? 'var(--neutral-600)' : 'var(--neutral-900)',
-                overflow:     'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace:   'nowrap',
-                transition:   'color 200ms',
-              }}
-            >
-              {name}
-            </p>
+            {url ? (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Open ${name}`}
+                style={{
+                  flex:         '1 0 0',
+                  minWidth:     0,
+                  margin:       0,
+                  fontFamily:   'var(--font-body)',
+                  fontWeight:   'var(--font-weight-medium)',
+                  fontSize:     '13px',
+                  lineHeight:   '18px',
+                  color:        'var(--neutral-900)',
+                  overflow:     'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace:   'nowrap',
+                  transition:   'color 200ms',
+                  textDecoration: 'none',
+                  cursor:       'pointer',
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline' }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none' }}
+              >
+                {name}
+              </a>
+            ) : (
+              <p
+                style={{
+                  flex:         '1 0 0',
+                  minWidth:     0,
+                  margin:       0,
+                  fontFamily:   'var(--font-body)',
+                  fontWeight:   'var(--font-weight-medium)',
+                  fontSize:     '13px',
+                  lineHeight:   '18px',
+                  color:        uploading ? 'var(--neutral-600)' : 'var(--neutral-900)',
+                  overflow:     'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace:   'nowrap',
+                  transition:   'color 200ms',
+                }}
+              >
+                {name}
+              </p>
+            )}
 
             {/* Uploading spinner */}
             {uploading && (

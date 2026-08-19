@@ -9,28 +9,11 @@ import { Divider } from '@/components/Divider'
 import { Badge } from '@/components/Badge'
 import { RoleBadge } from '@/components/RoleBadge'
 import { cn } from '@/lib/utils'
+import { getGradient } from '@/lib/team-gradients'
 
-// ── Deterministic gradient palette ───────────────────────────────────────────
-// Each team gets a unique gradient from its name. Stable — same name = same color.
-// Uses the warm KDS palette: teal, blue, purple, orange, red-brown, green.
-
-const TEAM_GRADIENTS = [
-  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',  // teal-blue
-  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',  // purple
-  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',  // orange
-  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',  // green
-  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',  // red-brown
-  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',  // blue
-]
-
-function getTeamGradient(teamId: string): string {
-  let hash = 0
-  for (let i = 0; i < teamId.length; i++) {
-    hash = ((hash << 5) - hash) + teamId.charCodeAt(i)
-    hash |= 0
-  }
-  return TEAM_GRADIENTS[Math.abs(hash) % TEAM_GRADIENTS.length]!
-}
+// Deterministic gradient palette — src/lib/team-gradients.ts. Each team gets
+// a unique gradient from its name. Stable — same name = same color.
+const getTeamGradient = getGradient
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

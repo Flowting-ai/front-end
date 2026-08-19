@@ -249,12 +249,14 @@ function TeamWelcomeContent() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "40px 24px",
+          padding: "40px 0",
           boxSizing: "border-box",
           overflowY: "auto",
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%", maxWidth: 653 }}>
+        {/* Horizontal padding lives here, not on the scrolling element above —
+            keeps the scrollbar flush with the viewport edge. */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%", maxWidth: 653, padding: "0 24px", boxSizing: "border-box" }}>
           {/* Heading block */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {/* eslint-disable-next-line @next/next/no-img-element -- static SVG logo */}

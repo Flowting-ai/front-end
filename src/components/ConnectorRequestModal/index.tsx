@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { z } from 'zod'
 import { Slot } from '@radix-ui/react-slot'
 import { CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
@@ -33,6 +34,15 @@ const URGENCY_OPTIONS: { value: ConnectorRequestUrgency; label: string }[] = [
   { value: 'would-help',   label: 'Would help our workflow' },
   { value: 'blocking',     label: 'Blocking us right now' },
 ]
+
+// url/description stay unconstrained strings — only toolName was ever required,
+// same rule as before, now enforced through zod instead of an inline .trim() check.
+const connectorRequestSchema = z.object({
+  toolName:    z.string().trim().min(1),
+  url:         z.string().trim(),
+  description: z.string().trim(),
+  urgency:     z.enum(['nice-to-have', 'would-help', 'blocking']),
+})
 
 // ── Close button — matches ShareModal ────────────────────────────────────────
 
@@ -108,9 +118,11 @@ export const ConnectorRequestModal = React.forwardRef<HTMLDivElement, ConnectorR
       if (e.key === 'Escape') onClose?.()
     }, [onClose])
 
+    const validation = connectorRequestSchema.safeParse({ toolName, url, description, urgency })
+
     const handleSubmit = () => {
-      if (!toolName.trim()) return
-      onSubmit?.({ toolName: toolName.trim(), url: url.trim(), description: description.trim(), urgency })
+      if (!validation.success) return
+      onSubmit?.(validation.data)
     }
 
     return (
@@ -205,7 +217,7 @@ export const ConnectorRequestModal = React.forwardRef<HTMLDivElement, ConnectorR
         {/* Footer */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant="default" size="sm" loading={loading} disabled={!toolName.trim()} onClick={handleSubmit}>
+          <Button variant="default" size="sm" loading={loading} disabled={!validation.success} onClick={handleSubmit}>
             Submit request
           </Button>
         </div>

@@ -19,7 +19,7 @@ import { Divider } from '@/components/Divider'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { Badge } from '@/components/Badge'
 import { TeamSwitcherRow } from '@/components/TeamSwitcherRow'
-import { getGradient } from '@/components/TeamSwitcherDropdown'
+import { getGradient } from '@/lib/team-gradients'
 import { Tooltip } from '@/components/Tooltip'
 import type { WorkspaceRole } from '@/components/RoleBadge'
 

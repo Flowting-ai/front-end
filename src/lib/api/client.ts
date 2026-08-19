@@ -93,9 +93,6 @@ export function friendlyApiError(raw: string, statusCode?: number): string {
   if (lower.includes("chat not found")) {
     return CHAT_NOT_FOUND_MESSAGE;
   }
-  if (statusCode === 409) {
-    return "This agent is no longer available. It may have been deleted or you may not have access.";
-  }
   if (statusCode === 404) {
     return "The requested resource was not found.";
   }

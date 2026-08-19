@@ -247,6 +247,10 @@ function ChatPageInner() {
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
+  // Deep-link trigger for the Share modal (?share=1) — set by the sidebar's
+  // "Share" chat-menu item, which navigates here instead of opening the
+  // modal directly since ChatShareOverlay lives on this page, not the sidebar.
+  const shouldAutoOpenShare = searchParams.get("share") != null;
   // First-time landing after finishing the team-invite flow (/chat?joined=<team>).
   // Swaps the greeting + template cards for the "You just joined" welcome.
   //
@@ -1192,6 +1196,7 @@ function ChatPageInner() {
         chatId={activeChatId}
         canManage={activeChatCanManage}
         readOnly={activeChatReadOnly}
+        autoOpen={shouldAutoOpenShare}
         onCopied={(copy) => {
           addOptimistic({
             id: copy.chatId,

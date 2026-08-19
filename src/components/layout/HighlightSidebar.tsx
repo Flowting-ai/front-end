@@ -24,6 +24,7 @@ function HighlightSidebarImpl() {
     highlights,
     isOpen,
     isLoading,
+    hasError,
     close:           closeHighlight,
     deleteHighlight,
     copyHighlight,
@@ -63,6 +64,17 @@ function HighlightSidebarImpl() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterMode])
+
+  // Re-runs the same load the effect above would have — same guard against
+  // racing an in-flight cross-chat jump. Wired to the panel's error-state
+  // Retry button.
+  const handleRetry = () => {
+    if (filterMode === 'all') {
+      loadAll()
+    } else if (currentChatId && pendingJumpRef.current === null) {
+      loadForChat(currentChatId)
+    }
+  }
 
   // After a cross-chat navigation currentChatId changes. Poll the DOM for the
   // target message and highlight mark — the chat and its highlights both render
@@ -162,6 +174,8 @@ function HighlightSidebarImpl() {
           <HighlightPanel
             highlights={panelHighlights}
             isLoading={isLoading}
+            hasError={hasError}
+            onRetry={handleRetry}
             onJump={handleJump}
             onCopy={copyHighlight}
             onDelete={deleteHighlight}

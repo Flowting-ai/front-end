@@ -12,6 +12,7 @@ import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { formatCredits } from '@/lib/format-credits'
 import { cn } from '@/lib/utils'
 import type { WorkspaceRole } from '@/types/teams'
+import { getGradient } from '@/lib/team-gradients'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 const SHADOW_MODAL   = '0px 12px 16px -4px rgba(130,122,116,0.12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
@@ -85,27 +86,9 @@ const ROLE_LABELS: Record<WorkspaceRole, string> = {
   member: 'Member',
 }
 
-// ── Team gradient icons — kept in sync with org/members/page.tsx's and
-//    TeamSwitcher/index.tsx's getTeamGradient so a team keeps the same color
-//    everywhere it shows up. ─────────────────────────────────────────────────
-
-const TEAM_GRADIENTS = [
-  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',  // teal-blue
-  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',  // purple
-  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',  // orange
-  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',  // green
-  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',  // red-brown
-  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',  // blue
-]
-
-function getTeamGradient(teamId: string): string {
-  let hash = 0
-  for (let i = 0; i < teamId.length; i++) {
-    hash = ((hash << 5) - hash) + teamId.charCodeAt(i)
-    hash |= 0
-  }
-  return TEAM_GRADIENTS[Math.abs(hash) % TEAM_GRADIENTS.length]!
-}
+// Team gradient icons — shared via src/lib/team-gradients.ts so a team keeps
+// the same color everywhere it shows up.
+const getTeamGradient = getGradient
 
 function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string; size?: number }) {
   return (

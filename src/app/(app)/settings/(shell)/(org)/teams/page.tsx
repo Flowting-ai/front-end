@@ -18,6 +18,7 @@ import {
 } from '@/components/SettingsTable'
 import { useOrg } from '@/context/org-context'
 import { createTeam, listTeamConnectors } from '@/lib/api/teams'
+import { getGradient } from '@/lib/team-gradients'
 import { listOrgCatalog } from '@/lib/api/connectors'
 import { fetchTeamAccessSnapshot } from '@/lib/team-access'
 import type { Team } from '@/types/teams'
@@ -90,25 +91,9 @@ function CreateTeamForm({
 const TEAM_COLUMNS = 'minmax(180px, 1fr) 105px 105px 105px 115px 170px'
 const TEAM_COLUMN_GAP = 0
 
-// Deterministic gradient palette — kept in sync with TeamSwitcher/index.tsx's
-// getTeamGradient/TeamAvatar so a team keeps the same color/icon everywhere.
-const TEAM_GRADIENTS = [
-  'linear-gradient(135deg, #4FACDE 0%, #2D8BBF 100%)',  // teal-blue
-  'linear-gradient(135deg, #9B6FE0 0%, #7B4FC0 100%)',  // purple
-  'linear-gradient(135deg, #F59542 0%, #D4742A 100%)',  // orange
-  'linear-gradient(135deg, #4CAF78 0%, #2D8F58 100%)',  // green
-  'linear-gradient(135deg, #E06060 0%, #B83C3C 100%)',  // red-brown
-  'linear-gradient(135deg, #60A8E0 0%, #3C80C0 100%)',  // blue
-]
-
-function getTeamGradient(teamId: string): string {
-  let hash = 0
-  for (let i = 0; i < teamId.length; i++) {
-    hash = ((hash << 5) - hash) + teamId.charCodeAt(i)
-    hash |= 0
-  }
-  return TEAM_GRADIENTS[Math.abs(hash) % TEAM_GRADIENTS.length]!
-}
+// Deterministic gradient palette — shared via src/lib/team-gradients.ts so a
+// team keeps the same color/icon everywhere.
+const getTeamGradient = getGradient
 
 function TeamAvatar({ teamId, name, size = 20 }: { teamId: string; name: string; size?: number }) {
   return (

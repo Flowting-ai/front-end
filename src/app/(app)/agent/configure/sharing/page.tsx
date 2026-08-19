@@ -29,8 +29,6 @@ const SHARING_TOC_ITEMS: AttributeTocItem[] = [
 const TABS = ['Instructions', 'Profile', 'Knowledge', 'Connectors', 'Sharing'] as const
 type Tab = (typeof TABS)[number]
 
-const MUTED_TABS = new Set<Tab>(['Sharing'])
-
 const TAB_ROUTES: Partial<Record<Tab, string>> = {
   Instructions: '/agent/configure/instructions',
   Profile:      '/agent/configure/profile',

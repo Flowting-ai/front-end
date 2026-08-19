@@ -8,8 +8,8 @@ import { IconButton } from '@/components/IconButton'
 
 export interface ProjectInstructionsPanelProps {
   value:         string
-  /** Gates whether the edit button renders at all (pass undefined to hide it). */
-  onSave?:       (text: string) => void | Promise<void>
+  /** Gates whether the edit button renders at all. */
+  editable?:     boolean
   /** Opens the full SystemInstructionsModal editor. This panel is preview-only —
    *  it never edits instructions inline. */
   onOpenEditor?: () => void
@@ -17,7 +17,7 @@ export interface ProjectInstructionsPanelProps {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export function ProjectInstructionsPanel({ value, onSave, onOpenEditor, ref }: ProjectInstructionsPanelProps & { ref?: React.Ref<HTMLDivElement> }) {
+export function ProjectInstructionsPanel({ value, editable, onOpenEditor, ref }: ProjectInstructionsPanelProps & { ref?: React.Ref<HTMLDivElement> }) {
     const isEmpty = !value.trim()
 
     return (
@@ -50,7 +50,7 @@ export function ProjectInstructionsPanel({ value, onSave, onOpenEditor, ref }: P
           >
             Instructions
           </p>
-          {onSave && (
+          {editable && (
             <IconButton
               variant="ghost"
               size="xs"
