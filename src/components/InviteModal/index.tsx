@@ -9,7 +9,6 @@ import { CancelOneIcon, ArrowDownOneIcon, InformationCircleIcon } from '@strange
 import { Button } from '@/components/Button'
 import { Popover } from '@/components/Popover'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
-import { formatCredits } from '@/lib/format-credits'
 import { cn } from '@/lib/utils'
 import type { WorkspaceRole } from '@/types/teams'
 import { getGradient } from '@/lib/team-gradients'
@@ -47,14 +46,10 @@ export interface InviteModalProps extends React.HTMLAttributes<HTMLDivElement> {
   existingEmails?: string[]
   /** When set, restricts (and hints at) which email domains can be invited. */
   allowedDomains?: string[]
-  /** Org-wide credits left this billing period — warns inline if the cap
-   *  entered, multiplied across every pending invite, would exceed it. */
-  poolRemaining?: number
   onClose?: () => void
   onInvite?: (params: {
     emails: string[]
     role: WorkspaceRole
-    creditCap?: number
     teamId?: string
     projectId?: string
   }) => Promise<InviteResult> | InviteResult
@@ -443,7 +438,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
       projects = [],
       existingEmails,
       allowedDomains,
-      poolRemaining,
       onClose,
       onInvite,
       asChild = false,
@@ -459,7 +453,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     const [emailChips, setEmailChips] = useState<EmailChip[]>([])
     const [draft,      setDraft]      = useState('')
     const [role,       setRole]       = useState<WorkspaceRole>('member')
-    const [capDraft,   setCapDraft]   = useState('')
     const [teamId,     setTeamId]     = useState('')
     const [projectId,  setProjectId]  = useState('')
     const [submitting, setSubmitting] = useState(false)
@@ -527,7 +520,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
       if (pending.length === 0 || loading || submitting) return
       if (role === 'editor' && !effectiveTeamId) return
 
-      const capVal = capDraft.trim() === '' ? undefined : parseInt(capDraft.trim(), 10)
       const project = role === 'member'
         ? projects.find(option => option.id === projectId)
         : undefined
@@ -537,7 +529,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
         const result = await onInvite?.({
           emails: pending,
           role,
-          creditCap: capVal && capVal > 0 ? capVal : undefined,
           teamId: role === 'editor' ? effectiveTeamId : project?.teamId,
           projectId: project?.id,
         })
@@ -555,14 +546,13 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
           }))
 
         if (result.failed.length === 0) {
-          setCapDraft('')
           setProjectId('')
           onClose?.()
         }
       } finally {
         setSubmitting(false)
       }
-    }, [capDraft, effectiveTeamId, emailChips, loading, submitting, onInvite, onClose, projectId, projects, role])
+    }, [effectiveTeamId, emailChips, loading, submitting, onInvite, onClose, projectId, projects, role])
 
     const handleDraftKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' || e.key === ',') {
@@ -593,9 +583,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     }, [draft, commitTokens])
 
     const pendingCount = emailChips.filter(c => c.status === 'pending').length
-    const capNum = capDraft.trim() === '' ? 0 : parseInt(capDraft.trim(), 10) || 0
-    const totalCommit = capNum * Math.max(pendingCount, 1)
-    const exceedsPool = poolRemaining != null && capNum > 0 && totalCommit > poolRemaining
 
     return (
       <Comp
@@ -702,7 +689,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
               onChange={nextRole => {
                 setRole(nextRole)
                 setProjectId('')
-                if (nextRole === 'admin') setCapDraft('')
               }}
             />
           </div>
@@ -759,57 +745,6 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
           </div>
         )}
 
-        {/* Credit cap — only for member/editor roles; admins use the workspace pool */}
-        {role !== 'admin' && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span style={SECTION_LABEL_STYLE}>Credit cap (optional)</span>
-            {poolRemaining != null && (
-              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)' }}>
-                <strong style={{ fontWeight: 600, color: 'var(--neutral-700)' }}>{formatCredits(poolRemaining)}</strong> left in pool
-              </span>
-            )}
-          </div>
-          <div style={{
-            display:         'flex',
-            alignItems:      'center',
-            padding:         '7px 10px',
-            borderRadius:    10,
-            backgroundColor: 'var(--neutral-white)',
-            boxShadow:       SHADOW_INPUT,
-            boxSizing:       'border-box' as const,
-          }}>
-            <input
-              type="number"
-              min={1}
-              aria-label="Credit cap"
-              placeholder="No limit"
-              value={capDraft}
-              onChange={e => setCapDraft(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleSubmit() } }}
-              style={{
-                flex:       1,
-                border:     'none',
-                outline:    'none',
-                background: 'transparent',
-                fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-body)',
-                fontWeight: 400,
-                color:      'var(--neutral-900)',
-                minWidth:   0,
-                MozAppearance: 'textfield' as React.CSSProperties['MozAppearance'],
-              }}
-            />
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--neutral-400)', flexShrink: 0, paddingLeft: 6 }}>
-              credits {pendingCount > 1 ? `× ${pendingCount} invites` : ''}
-            </span>
-          </div>
-          {exceedsPool && (
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--color-tag-Red-text)', margin: 0 }}>
-              Exceeds the org&rsquo;s remaining pool — this would commit {formatCredits(totalCommit)} of {formatCredits(poolRemaining)} left.
-            </p>
-          )}
-        </div>}
-
         </div>
 
         {/* Footer */}
@@ -841,7 +776,6 @@ export interface AppInviteModalProps {
   onInvite:       (
     emails: string[],
     role: WorkspaceRole,
-    creditCap?: number,
     teamId?: string,
     projectId?: string,
   ) => Promise<InviteResult> | InviteResult
@@ -851,7 +785,6 @@ export interface AppInviteModalProps {
   projects?:      InviteProjectOption[]
   existingEmails?: string[]
   allowedDomains?: string[]
-  poolRemaining?: number
 }
 
 export function AppInviteModal({
@@ -864,7 +797,6 @@ export function AppInviteModal({
   projects,
   existingEmails,
   allowedDomains,
-  poolRemaining,
 }: AppInviteModalProps) {
   return (
     <Dialog.Root open={isOpen} onOpenChange={open => { if (!open) onClose() }}>
@@ -898,10 +830,9 @@ export function AppInviteModal({
             projects={projects}
             existingEmails={existingEmails}
             allowedDomains={allowedDomains}
-            poolRemaining={poolRemaining}
             onClose={onClose}
-            onInvite={({ emails, role, creditCap, teamId, projectId }) => (
-              onInvite(emails, role, creditCap, teamId, projectId)
+            onInvite={({ emails, role, teamId, projectId }) => (
+              onInvite(emails, role, teamId, projectId)
             )}
           />
         </Dialog.Content>

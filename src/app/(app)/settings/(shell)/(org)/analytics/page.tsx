@@ -32,8 +32,8 @@ const DATE_RANGES: Array<{ id: DateRange; label: string }> = [
   { id: 'qtd', label: 'QTD' },
 ]
 
-const MEMBER_CAP_COLUMNS = 'minmax(260px, 1fr) 150px 240px 160px'
-const MEMBER_CAP_COLUMN_GAP = 0
+const MEMBER_USAGE_COLUMNS = 'minmax(260px, 1fr) 150px'
+const MEMBER_USAGE_COLUMN_GAP = 0
 
 type ChartMetric = 'chat' | 'assistants' | 'brain'
 
@@ -302,7 +302,7 @@ function FeatureChart({ days }: { days: ChartDay[] }) {
   )
 }
 
-// ── Member caps table ─────────────────────────────────────────────
+// ── Member usage table ────────────────────────────────────────────
 
 
 const ROLE_FILTERS: Array<{ id: 'all' | OrgRole; label: string }> = [
@@ -312,7 +312,7 @@ const ROLE_FILTERS: Array<{ id: 'all' | OrgRole; label: string }> = [
   { id: 'member', label: 'Member' },
 ]
 
-function MemberCapsTable({
+function MemberUsageTable({
   members,
 }: {
   members: OrgMember[]
@@ -386,11 +386,9 @@ function MemberCapsTable({
         </div>
       </SettingsTableToolbar>
 
-      <SettingsTableHeader columns={MEMBER_CAP_COLUMNS} columnGap={MEMBER_CAP_COLUMN_GAP}>
+      <SettingsTableHeader columns={MEMBER_USAGE_COLUMNS} columnGap={MEMBER_USAGE_COLUMN_GAP}>
         <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
         <SettingsTableHeaderCell align="center">Credits used</SettingsTableHeaderCell>
-        <SettingsTableHeaderCell align="center">Cap</SettingsTableHeaderCell>
-        <SettingsTableHeaderCell align="center">Usage</SettingsTableHeaderCell>
       </SettingsTableHeader>
 
       {visibleMembers.length === 0 && (
@@ -399,71 +397,39 @@ function MemberCapsTable({
         </div>
       )}
 
-      {visibleMembers.map(member => {
-        const isPrivileged = member.orgRole === 'owner' || member.orgRole === 'admin'
-        const usagePct = !isPrivileged && member.creditCap && member.creditCap > 0
-          ? Math.min(100, Math.round((member.allocationUsed / member.creditCap) * 100))
-          : 0
-        return (
-          <SettingsTableRow
-            key={member.id}
-            columns={MEMBER_CAP_COLUMNS}
-            columnGap={MEMBER_CAP_COLUMN_GAP}
-            minHeight={72}
-          >
-            <SettingsTableCell>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                <UserAvatar />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {member.name || member.email}
-                    </p>
-                    {member.inviteStatus === 'invite_sent' && (
-                      <Badge color="Neutral" label="Invite sent" />
-                    )}
-                  </div>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {member.email}
+      {visibleMembers.map(member => (
+        <SettingsTableRow
+          key={member.id}
+          columns={MEMBER_USAGE_COLUMNS}
+          columnGap={MEMBER_USAGE_COLUMN_GAP}
+          minHeight={72}
+        >
+          <SettingsTableCell>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+              <UserAvatar />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {member.name || member.email}
                   </p>
+                  {member.inviteStatus === 'invite_sent' && (
+                    <Badge color="Neutral" label="Invite sent" />
+                  )}
                 </div>
-              </div>
-            </SettingsTableCell>
-
-            <SettingsTableCell align="center">
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                {member.creditUsed.toLocaleString()}
-              </p>
-            </SettingsTableCell>
-
-            <SettingsTableCell align="center">
-              {isPrivileged ? (
-                <Badge color="Green" label="No cap" />
-              ) : member.creditCap != null ? (
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
-                  {member.creditCap.toLocaleString()}
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {member.email}
                 </p>
-              ) : (
-                <Badge color="Yellow" label="Not Assigned" />
-              )}
-            </SettingsTableCell>
+              </div>
+            </div>
+          </SettingsTableCell>
 
-            <SettingsTableCell align="center">
-              {isPrivileged ? (
-                <Badge color="Neutral" label="Not applicable" />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 100, flexShrink: 0 }}>
-                  {usagePct > 0 ? <ProgressBar value={usagePct} /> : null}
-                  <Badge
-                    color={usagePct >= 90 ? 'Red' : usagePct >= 60 ? 'Yellow' : 'Green'}
-                    label={`${usagePct}%`}
-                  />
-                </div>
-              )}
-            </SettingsTableCell>
-          </SettingsTableRow>
-        )
-      })}
+          <SettingsTableCell align="center">
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
+              {member.creditUsed.toLocaleString()}
+            </p>
+          </SettingsTableCell>
+        </SettingsTableRow>
+      ))}
     </SettingsTable>
   )
 }
@@ -609,7 +575,7 @@ function AnalyticsPageSkeleton() {
           </div>
         </div>
 
-        {/* Member caps table */}
+        {/* Member usage table */}
         <section style={{ border: '1px solid var(--neutral-200)', borderRadius: 16, boxShadow: CARD_SHADOW, background: 'var(--neutral-50)', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 0' }}>
           {/* Toolbar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
@@ -619,17 +585,15 @@ function AnalyticsPageSkeleton() {
             <SkeletonBlock width={32} height={32} radius={8} />
           </div>
           {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: MEMBER_CAP_COLUMNS, columnGap: MEMBER_CAP_COLUMN_GAP, alignItems: 'center', padding: '0 24px 8px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: MEMBER_USAGE_COLUMNS, columnGap: MEMBER_USAGE_COLUMN_GAP, alignItems: 'center', padding: '0 24px 8px', borderBottom: '1px solid var(--neutral-100)' }}>
             <SkeletonBlock width={60} height={13} radius={4} />
             <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={13} radius={4} /></div>
-            <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={70} height={13} radius={4} /></div>
-            <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={50} height={13} radius={4} /></div>
           </div>
           {/* Member rows */}
           {[0, 1, 2, 3].map((i, idx) => (
             <React.Fragment key={i}>
               {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', margin: '0 24px' }} />}
-              <div style={{ display: 'grid', gridTemplateColumns: MEMBER_CAP_COLUMNS, columnGap: MEMBER_CAP_COLUMN_GAP, alignItems: 'center', minHeight: 72, padding: '0 24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: MEMBER_USAGE_COLUMNS, columnGap: MEMBER_USAGE_COLUMN_GAP, alignItems: 'center', minHeight: 72, padding: '0 24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <SkeletonBlock width={36} height={36} radius={999} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -638,13 +602,6 @@ function AnalyticsPageSkeleton() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={80} height={14} radius={4} /></div>
-                <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={90} height={14} radius={4} /></div>
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: 100 }}>
-                    <SkeletonBlock width={100} height={8} radius={4} />
-                    <SkeletonBlock width={36} height={20} radius={6} />
-                  </div>
-                </div>
               </div>
             </React.Fragment>
           ))}
@@ -820,7 +777,7 @@ export default function OrgUsageAnalyticsPage() {
           <FeatureChart days={featureSeries.days} />
         </PageCard>
 
-        <MemberCapsTable members={activeMembers} />
+        <MemberUsageTable members={activeMembers} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <RankedList title="Top users by credit usage" items={topUsers} />

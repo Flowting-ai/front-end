@@ -350,8 +350,6 @@ export const ORG_MEMBER_ENDPOINT = (orgId: string, memberId: string) =>
   withBase(`/organizations/${orgId}/members/${memberId}`)
 export const ORG_MEMBER_ROLE_ENDPOINT = (orgId: string, memberId: string) =>
   withBase(`/organizations/${orgId}/members/${memberId}/role`)
-export const ORG_MEMBER_CAP_ENDPOINT = (orgId: string, memberId: string) =>
-  withBase(`/organizations/${orgId}/members/${memberId}/cap`)
 
 // ── Chat shares ────────────────────────────────────────────────────────────────
 export const CHAT_SHARES_ENDPOINT                = withBase('/chat-shares')

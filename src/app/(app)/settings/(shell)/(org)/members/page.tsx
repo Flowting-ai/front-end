@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { SearchOneIcon, CancelCircleIcon, ExchangeOneIcon, InformationCircleIcon, TickTwoIcon, UserAddOneIcon, UserIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 import { RoleBadge, RoleGlyph, ROLE_TOKENS, ROLE_LABEL } from '@/components/RoleBadge'
-import { CREDIT_CAP_COLUMNS, CreditCapRow, formatCredits } from '@/components/CreditCapRow'
 import { Button }           from '@/components/Button'
 import { IconButton }       from '@/components/IconButton'
 import { Avatar }           from '@/components/Avatar'
@@ -25,7 +24,7 @@ import {
 import { toast }           from 'sonner'
 import { useOrg }           from '@/context/org-context'
 import { useAuth }          from '@/context/auth-context'
-import { setMemberRole, removeMember, revokeTeamInvite, getOrgSettings, setMemberCap } from '@/lib/api/organization'
+import { setMemberRole, removeMember, revokeTeamInvite, getOrgSettings } from '@/lib/api/organization'
 import { inviteTeamMembers, addTeamEditor, removeTeamEditor, addProjectMember, removeProjectMember } from '@/lib/api/teams'
 import { fetchProjects, type ApiProjectSummary } from '@/lib/api/projects'
 import { getGradient } from '@/lib/team-gradients'
@@ -1702,78 +1701,6 @@ function mergeTeamMemberships(
   return [...merged.values()]
 }
 
-// ── Credit caps section ───────────────────────────────────────────────────────
-// Per-member credit-cap editing (may-day CreditCapRow). Pending invitees are
-// omitted — the backend cap endpoint is keyed by user_id, which they lack until
-// they accept (the invite's own cap is applied on accept instead).
-
-function CreditCapsSection({ members, isAdmin, poolRemaining, onAssignCredits }: {
-  members:     OrgMember[]
-  isAdmin:     boolean
-  /** Org-wide credits left this billing period — passed through to each row
-   *  so the assign input can warn before committing past it. */
-  poolRemaining: number
-  onAssignCredits: (memberId: string, amount: number) => void | Promise<void>
-}) {
-  const active = members.filter(m => m.inviteStatus === 'signed_up')
-  if (active.length === 0) return null
-
-  // Rollup so an admin doesn't have to add up every row by hand to know how
-  // much of the pool is already committed as caps, or how many members still
-  // have no cap at all (and so can draw from the pool without limit).
-  const capable = active.filter(m => m.orgRole === 'member')
-  const cappedMembers = capable.filter(m => m.creditCap != null)
-  const totalCapped = cappedMembers.reduce((sum, m) => sum + (m.creditCap ?? 0), 0)
-  const uncappedCount = capable.length - cappedMembers.length
-
-  return (
-    <SettingsTable columns={CREDIT_CAP_COLUMNS} columnGap={0}>
-      <SettingsTableToolbar title="Per-member credit caps">
-        {capable.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '20px', color: 'var(--neutral-500)' }}>
-            <span><strong style={{ color: 'var(--neutral-700)' }}>{formatCredits(totalCapped)}</strong> capped</span>
-            <span aria-hidden style={{ color: 'var(--neutral-300)' }}>·</span>
-            <span><strong style={{ color: 'var(--neutral-700)' }}>{cappedMembers.length}</strong> member{cappedMembers.length === 1 ? '' : 's'}</span>
-            {uncappedCount > 0 && (
-              <>
-                <span aria-hidden style={{ color: 'var(--neutral-300)' }}>·</span>
-                <span><strong style={{ color: 'var(--neutral-700)' }}>{uncappedCount}</strong> uncapped</span>
-              </>
-            )}
-            <span aria-hidden style={{ color: 'var(--neutral-300)' }}>·</span>
-            <span><strong style={{ color: 'var(--neutral-700)' }}>{formatCredits(poolRemaining)}</strong> left in pool</span>
-          </div>
-        )}
-      </SettingsTableToolbar>
-      <div className="kaya-scrollbar" style={{ overflowX: 'auto' }}>
-        <div role="table" aria-label="Per-member credit caps" style={{ minWidth: 810 }}>
-          <SettingsTableHeader>
-            <SettingsTableHeaderCell>Member</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="center">Allocation used</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="center">Remaining</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="center">Current cap</SettingsTableHeaderCell>
-            <SettingsTableHeaderCell align="center">Assign credits</SettingsTableHeaderCell>
-          </SettingsTableHeader>
-          {active.map(m => (
-            <CreditCapRow
-              key={m.id}
-              memberName={m.name || m.email}
-              email={m.email}
-              creditUsed={m.creditUsed}
-              allocationUsed={m.allocationUsed}
-              creditCap={m.creditCap}
-              isAdmin={isAdmin}
-              canAssign={m.orgRole === 'member'}
-              poolRemaining={poolRemaining}
-              onAssignCredits={(amount) => onAssignCredits(m.id, amount)}
-            />
-          ))}
-        </div>
-      </div>
-    </SettingsTable>
-  )
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OrgMembersPage() {
@@ -2068,7 +1995,6 @@ export default function OrgMembersPage() {
   const handleInvite = async (
     emails: string[],
     role: WorkspaceRole,
-    creditCap?: number,
     selectedTeamId?: string,
     projectId?: string,
   ): Promise<InviteResult> => {
@@ -2108,20 +2034,19 @@ export default function OrgMembersPage() {
 
     setInviteLoading(true)
     try {
-      // The backend now grants TeamEditor (for editor invites) and applies the
-      // credit cap on accept — no fragile post-invite second calls needed.
-      // Caps are entered in display credits; the API takes raw (÷1000).
+      // The backend now grants TeamEditor (for editor invites) on accept — no
+      // fragile post-invite second calls needed.
       await inviteTeamMembers(
         orgId,
         teamId,
         toSend,
         role,
-        creditCap && creditCap > 0 ? creditCap / 1000 : undefined,
+        undefined,
         projectId,
       )
 
-      // Optimistic pending rows. The cap and team-editor grant only take
-      // effect once each invite is accepted, so they're not shown here.
+      // Optimistic pending rows. The team-editor grant only takes effect once
+      // each invite is accepted, so it's not shown here.
       bumpMembers(prev => [
         ...prev,
         ...toSend.map(email => ({
@@ -2137,7 +2062,6 @@ export default function OrgMembersPage() {
             isTeamOwner: role === 'editor',
           }],
           creditUsed:      0,
-          allocationUsed:  0,
         })),
       ])
       toast.success(toSend.length === 1 ? 'Invite sent' : `${toSend.length} invites sent`)
@@ -2151,25 +2075,6 @@ export default function OrgMembersPage() {
       return { succeeded: [], failed: [...failed, ...toSend.map(email => ({ email, reason }))] }
     } finally {
       setInviteLoading(false)
-    }
-  }
-
-  // Assign additional display credits. The API accepts the resulting total cap
-  // in raw credits (÷1000) and deducts only the added delta from the owner pool.
-  const handleAssignCredits = async (memberId: string, amount: number) => {
-    if (!orgId) return
-    const member = members.find(m => m.id === memberId)
-    if (!member || member.orgRole !== 'member' || amount <= 0) return
-    const newCap = (member.creditCap ?? 0) + amount
-    const prev = members
-    bumpMembers(ms => ms.map(m => (m.id === memberId ? { ...m, creditCap: newCap } : m)))
-    try {
-      await setMemberCap(orgId, memberId, newCap / 1000)
-      toast.success(`${amount.toLocaleString()} credits assigned`)
-      refreshMembers()
-    } catch (err) {
-      bumpMembers(prev)
-      toast.error(err instanceof Error ? err.message : 'Failed to assign credits')
     }
   }
 
@@ -2262,9 +2167,6 @@ export default function OrgMembersPage() {
           onRefresh={refreshMembers}
         />
 
-        {/* Credit caps */}
-        <CreditCapsSection members={members} isAdmin={isAdmin} poolRemaining={org.creditPool.remaining} onAssignCredits={handleAssignCredits} />
-
       </div>
 
       {/* Roles & Permissions info modal — opened from the info button next to the page title */}
@@ -2285,7 +2187,6 @@ export default function OrgMembersPage() {
         ))}
         existingEmails={members.map(m => m.email).filter(Boolean)}
         allowedDomains={allowedDomains}
-        poolRemaining={org.creditPool.remaining}
       />
     </div>
   )

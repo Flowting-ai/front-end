@@ -14,7 +14,6 @@ import {
   ORG_MEMBERS_ENDPOINT,
   ORG_MEMBER_ENDPOINT,
   ORG_MEMBER_ROLE_ENDPOINT,
-  ORG_MEMBER_CAP_ENDPOINT,
   ORG_TEAM_INVITE_ENDPOINT,
 } from '@/lib/config'
 import type { OrgRole, OrgSettings, OrgMember, OrgPlan, OrgPlanUsage, AuditLogEntry } from '@/types/teams'
@@ -160,8 +159,6 @@ function normalizeMember(m: MemberResponse): OrgMember {
     creditUsed:      inviteStatus === 'invite_sent'
       ? 0
       : toDisplayCredits(m.usage_total),
-    allocationUsed:  0,
-    creditCap:       undefined,
     inviteId:        m.invite_id ?? null,
     inviteTeamId:    null,
   }
@@ -385,13 +382,6 @@ export async function setMemberRole(orgId: string, memberId: string, role: OrgRo
   await apiFetch(ORG_MEMBER_ROLE_ENDPOINT(orgId, memberId), {
     method: 'PATCH',
     body:   JSON.stringify({ role }),
-  })
-}
-
-export async function setMemberCap(orgId: string, memberId: string, cap: number | null): Promise<void> {
-  await apiFetch(ORG_MEMBER_CAP_ENDPOINT(orgId, memberId), {
-    method: 'PATCH',
-    body:   JSON.stringify({ creditCap: cap }),
   })
 }
 
