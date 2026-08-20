@@ -29,8 +29,8 @@ interface BackendChat {
   id: string;
   owner_user_id?: string;
   can_edit?: boolean;
-  visibility?: "private" | "team";
-  team_id?: string | null;
+  visibility?: "private" | "org";
+  organization_id?: string | null;
   starred?: boolean;
   is_starred?: boolean;
   isStarred?: boolean;
@@ -53,8 +53,8 @@ function normalizeChat(raw: BackendChat): Chat {
     id: raw.id,
     owner_user_id: raw.owner_user_id,
     can_edit: raw.can_edit ?? false,
-    visibility: raw.visibility ?? "private",
-    team_id: raw.team_id ?? null,
+    visibility: raw.visibility === "org" ? "team" : "private",
+    team_id: raw.organization_id ?? null,
     title: raw.chat_title ?? raw.title ?? raw.name ?? "Untitled",
     created_at: raw.created_at ?? new Date().toISOString(),
     updated_at: raw.updated_at ?? raw.created_at ?? new Date().toISOString(),
@@ -492,8 +492,8 @@ export async function setChatVisibility(
   visibility: "private" | "team",
   teamId?: string,
 ): Promise<void> {
-  const body: Record<string, unknown> = { visibility };
-  if (visibility === "team" && teamId) body.teamId = teamId;
+  const body: Record<string, unknown> = { visibility: visibility === "team" ? "org" : "private" };
+  if (visibility === "team" && teamId) body.organizationId = teamId;
   await apiFetch(CHAT_VISIBILITY_ENDPOINT(chatId), {
     method: "PATCH",
     body:   JSON.stringify(body),

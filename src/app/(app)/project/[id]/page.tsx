@@ -28,7 +28,6 @@ import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
 import { ProjectTeamPanel } from '@/components/ProjectTeamPanel'
 import { ProjectAgentsPanel } from '@/components/ProjectAgentsPanel'
-import { TeamChip } from '@/components/TeamChip'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { setProjectVisibility } from '@/lib/api/projects'
 import { setChatVisibility, listChats } from '@/lib/api/chat'
@@ -90,7 +89,7 @@ export default function ProjectPage() {
   const { open: openModelSelector, setPersonaActive, personaActive, museActive, selectedModel, models, selectModel } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
 
-  const { orgId, org, caps, members, teams: orgTeams } = useOrg()
+  const { orgId, org, caps, members } = useOrg()
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice()
   const { user } = useAuth()
   // `user?.id` is never populated by the backend's /users/me — resolve the
@@ -419,7 +418,6 @@ export default function ProjectPage() {
     }
   }
 
-  const projectTeam = project.teamId ? orgTeams.find(t => t.id === project.teamId) : undefined
   const ownerName   = members.find(m => m.id === project.ownerUserId)?.name
   // Publish CTA gate — editor+ on this team (owner/admin resolve true). Members
   // (and editors whose grants aren't loaded yet) get no publish affordance.
@@ -692,17 +690,11 @@ export default function ProjectPage() {
             </div>
 
             {project.teamId ? (
-              (projectTeam || ownerName) && (
+              ownerName && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, marginBottom: project.description ? 6 : 0 }}>
-                  {ownerName && (
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
-                      Created by {ownerName}
-                    </span>
-                  )}
-                  {ownerName && projectTeam && (
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-300)' }}>·</span>
-                  )}
-                  {projectTeam && <TeamChip teamName={projectTeam.name} size="sm" />}
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
+                    Created by {ownerName}
+                  </span>
                 </div>
               )
             ) : (
