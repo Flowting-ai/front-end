@@ -299,11 +299,12 @@ export function personasForTeamContext(
 
 /**
  * Real per-persona ownership check — NOT the same as an org-role check.
- * `PersonaRepoResponse` carries no owner field, so the only authoritative
- * source is the team-persona-shares owner map (see fetchPersonaOwnerMap in
- * lib/api/teams.ts), keyed by repo id. `fallbackOwned` is used only while
- * that map hasn't loaded yet, to avoid a flash for genuine owners — pass the
- * coarse `currentUserRole === 'admin'` guess for it.
+ * `PersonaRepoResponse` carries no owner field, and Team (the only backend
+ * source for a real per-persona owner map) has no route left at all, so
+ * `ownerMap` is always empty now — `fallbackOwned` (the coarse
+ * `currentUserRole === 'admin'` guess) is what actually decides every
+ * org-shared persona. Accepted capability gap — see `EMPTY_PERSONA_OWNER_MAP`
+ * call sites in agents/page.tsx and LeftSidebar.tsx.
  */
 export function isPersonaOwnedByViewer(
   persona: Pick<Persona, 'id' | 'visibility'>,

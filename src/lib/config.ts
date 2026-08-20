@@ -285,8 +285,6 @@ export const ORG_PROJECT_MEMBERS_ENDPOINT = (orgId: string, projectId: string) =
   withBase(`/organizations/${orgId}/projects/${projectId}/members`)
 export const ORG_PROJECT_MEMBER_ENDPOINT = (orgId: string, projectId: string, memberId: string) =>
   withBase(`/organizations/${orgId}/projects/${projectId}/members/${memberId}`)
-export const ORG_TEAM_PERSONA_SHARES_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/persona-shares`)
 export const TEAM_INVITE_PREVIEW_ENDPOINT = (inviteId: string) =>
   withBase(`/team-invite/${inviteId}`)
 export const TEAM_INVITE_ACCEPT_ENDPOINT = (inviteId: string) =>

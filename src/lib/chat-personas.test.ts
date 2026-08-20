@@ -59,9 +59,8 @@ describe('resolveSelectableChatPersonas', () => {
   })
 })
 
-const { fetchPersonasMock, fetchPersonaOwnerMapMock } = vi.hoisted(() => ({
+const { fetchPersonasMock } = vi.hoisted(() => ({
   fetchPersonasMock: vi.fn(),
-  fetchPersonaOwnerMapMock: vi.fn(),
 }))
 
 vi.mock('@/lib/api/personas', async (importOriginal) => {
@@ -69,15 +68,9 @@ vi.mock('@/lib/api/personas', async (importOriginal) => {
   return { ...actual, fetchPersonas: fetchPersonasMock }
 })
 
-vi.mock('@/lib/api/teams', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/api/teams')>()
-  return { ...actual, fetchPersonaOwnerMap: fetchPersonaOwnerMapMock }
-})
-
 describe('fetchSelectableChatPersonas', () => {
   beforeEach(() => {
     fetchPersonasMock.mockReset()
-    fetchPersonaOwnerMapMock.mockReset().mockResolvedValue({})
   })
 
   it('excludes draft agents — they are not published/usable yet', async () => {
