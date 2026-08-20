@@ -8,21 +8,20 @@ import { Dropdown } from '@/components/Dropdown'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
 import { listMembers } from '@/lib/api/organization'
-import { listProjectMembers, addProjectMember, removeProjectMember, listTeamEditors, type ProjectMember } from '@/lib/api/teams'
+import { listProjectMembers, addProjectMember, removeProjectMember, type ProjectMember } from '@/lib/api/teams'
 import type { OrgMember } from '@/types/teams'
 import { SectionHeader, EmptyRow } from '@/components/shared/ProjectPanelSection'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface ProjectMembersPanelProps {
-  teamId:      string
   projectId:   string
   ownerUserId: string
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectMembersPanelProps) {
+export function ProjectMembersPanel({ projectId, ownerUserId }: ProjectMembersPanelProps) {
   const { orgId } = useOrg()
   const [members,    setMembers]    = useState<ProjectMember[]>([])
   const [loading,    setLoading]    = useState(true)
@@ -38,44 +37,40 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
     Promise.all([
       listProjectMembers(orgId, projectId),
       listMembers(orgId),
-      listTeamEditors(orgId, teamId),
     ])
-      .then(([assigned, all, editors]) => {
+      .then(([assigned, all]) => {
         if (cancelled) return
-        const editorIds = new Set(editors.map(editor => editor.userId))
         const eligibleIds = new Set(
-          all
-            .filter(member => (
+          all.reduce<string[]>((ids, member) => {
+            if (
               member.inviteStatus !== 'invite_sent'
               && member.orgRole !== 'owner'
               && member.orgRole !== 'admin'
               && member.id !== ownerUserId
-              && !editorIds.has(member.id)
-            ))
-            .map(member => member.id),
+            ) ids.push(member.id)
+            return ids
+          }, []),
         )
         setMembers(assigned.filter(member => eligibleIds.has(member.userId)))
       })
       .catch(console.error)
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [orgId, teamId, projectId, ownerUserId])
+  }, [orgId, projectId, ownerUserId])
 
   const handleOpenAdd = () => {
     if (!orgId) return
     setAddOpen(true)
     setPickerOpen(false)
     const memberIds = new Set(members.map(m => m.userId))
-    Promise.all([listMembers(orgId), listTeamEditors(orgId, teamId)])
-      .then(([all, editors]) => {
-        const editorIds = new Set(editors.map(editor => editor.userId))
+    listMembers(orgId)
+      .then(all => {
         setOrgMembers(all.filter(m =>
           m.inviteStatus !== 'invite_sent' &&
           m.orgRole !== 'owner' &&
           m.orgRole !== 'admin' &&
           m.id !== ownerUserId &&
-          !memberIds.has(m.id) &&
-          !editorIds.has(m.id)
+          !memberIds.has(m.id)
         ))
       })
       .catch(console.error)
@@ -115,7 +110,7 @@ export function ProjectMembersPanel({ teamId, projectId, ownerUserId }: ProjectM
     <div style={{ backgroundColor: 'var(--neutral-50)' }}>
       <SectionHeader
         title="Project members"
-        subtitle="Given access to just this project, without making them a team editor. Team editors already have access and won't appear in this list."
+        subtitle="Given direct access to just this project."
         padding="12px 24px 16px"
         action={
           <Button variant="secondary" size="sm" leftIcon={<PlusSignIcon size={14} />} onClick={handleOpenAdd}>

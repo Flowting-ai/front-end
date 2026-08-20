@@ -254,7 +254,7 @@ export default function ProjectPage() {
     }
     if (teamPanelOpen && project.teamId) {
       setProjectPanel({
-        title:   'Team',
+        title:   'Members',
         onClose: () => setTeamPanelOpen(false),
         content: (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -268,10 +268,9 @@ export default function ProjectPage() {
                 margin:     '-6px 0 0',
               }}
             >
-              Everyone on this project&apos;s team, and its project members.
+              Everyone in your organization can already see a shared project — give someone direct access here if they should be able to edit it too.
             </p>
             <ProjectTeamPanel
-              teamId={project.teamId}
               projectId={project.id}
               ownerUserId={project.ownerUserId}
               canEdit={project.canEdit}
