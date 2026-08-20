@@ -289,8 +289,6 @@ export const ORG_TEAM_INVITES_ENDPOINT = (orgId: string, teamId: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/invites`)
 export const ORG_TEAM_INVITE_ENDPOINT = (orgId: string, teamId: string, inviteId: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/invites/${inviteId}`)
-export const ORG_TEAM_OVERFLOW_ENDPOINT = (orgId: string, teamId: string) =>
-  withBase(`/organizations/${orgId}/teams/${teamId}/overflow`)
 export const ORG_TEAM_PROJECT_MEMBERS_ENDPOINT = (orgId: string, teamId: string, projectId: string) =>
   withBase(`/organizations/${orgId}/teams/${teamId}/projects/${projectId}/members`)
 export const ORG_TEAM_PROJECT_MEMBER_ENDPOINT = (orgId: string, teamId: string, projectId: string, memberId: string) =>
@@ -379,7 +377,3 @@ export const ORG_SLACK_PROJECT_CHANNEL_ENDPOINT = (orgId: string, projectId: str
 // ── Persona visibility ─────────────────────────────────────────────────────────
 export const PERSONA_VISIBILITY_ENDPOINT = (repoId: string) =>
   withBase(`/persona/${repoId}/visibility`)
-
-// ── Overflow approve ───────────────────────────────────────────────────────────
-export const ORG_OVERFLOW_APPROVE_ENDPOINT = (orgId: string, requestId: string) =>
-  withBase(`/organizations/${orgId}/overflow/${requestId}/approve`)

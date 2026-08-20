@@ -16,7 +16,6 @@ import {
   ORG_MEMBER_ROLE_ENDPOINT,
   ORG_MEMBER_CAP_ENDPOINT,
   ORG_TEAM_INVITE_ENDPOINT,
-  ORG_OVERFLOW_APPROVE_ENDPOINT,
 } from '@/lib/config'
 import type { OrgRole, OrgSettings, OrgMember, OrgPlan, OrgPlanUsage, AuditLogEntry } from '@/types/teams'
 
@@ -63,7 +62,6 @@ const memberResponseSchema = z.object({
   email:            z.string().nullable().default(null),
   role:             z.enum(['owner', 'admin', 'member']),
   credit_cap:       z.number().nullable().default(null),
-  credit_extra:     z.number().default(0),
   credit_used:      z.number().default(0),
   usage_total:      z.number().default(0),
   invite_status:    z.enum(['active', 'pending']),
@@ -412,59 +410,4 @@ export async function revokeTeamInvite(orgId: string, teamId: string, inviteId: 
   if (!res.ok && res.status !== 204) {
     throw new Error(`Failed to revoke invite: ${res.status}`)
   }
-}
-
-// ── Overflow ──────────────────────────────────────────────────────────────────
-
-export interface OverflowResponse {
-  id: string
-  teamId: string
-  requestedByUserId: string
-  requestedByName: string | null
-  requestedByEmail: string | null
-  amount: number
-  note: string | null
-  status: 'open' | 'resolved'
-  createdAt: string
-}
-
-interface OverflowResponseRaw {
-  id: string
-  team_id: string
-  requested_by_user_id: string
-  requested_by_name: string | null
-  requested_by_email: string | null
-  amount: number
-  note: string | null
-  status: 'open' | 'resolved'
-  created_at: string
-}
-
-function normalizeOverflow(r: OverflowResponseRaw): OverflowResponse {
-  return {
-    id:                  r.id,
-    teamId:              r.team_id,
-    requestedByUserId:   r.requested_by_user_id,
-    requestedByName:     r.requested_by_name,
-    requestedByEmail:    r.requested_by_email,
-    amount:              r.amount,
-    note:                r.note,
-    status:              r.status,
-    createdAt:           r.created_at,
-  }
-}
-
-/** POST /organizations/{id}/overflow/{requestId}/approve */
-export async function approveOverflow(
-  orgId: string,
-  requestId: string,
-  amount?: number,
-): Promise<OverflowResponse> {
-  const body: Record<string, unknown> = {}
-  if (amount !== undefined) body.amount = amount
-  const data = await apiFetchJson<OverflowResponseRaw>(
-    ORG_OVERFLOW_APPROVE_ENDPOINT(orgId, requestId),
-    { method: 'POST', body: JSON.stringify(body) },
-  )
-  return normalizeOverflow(data)
 }

@@ -1,5 +1,7 @@
 # Frontend Migration Plan — Team → Organization Flattening
 
+> **Superseded by [`backend-alignment-execution-map.md`](./backend-alignment-execution-map.md)**, which absorbs this plan as its Thread A and adds a role-ladder phase this doc doesn't cover. Kept here for the full file-by-file detail; treat the execution map as the sequencing source of truth.
+
 Status: plan only, no frontend code changed yet.
 
 ## Background
