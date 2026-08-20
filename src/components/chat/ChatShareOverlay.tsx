@@ -58,7 +58,7 @@ const DROPDOWN_PANEL_WIDTH = 'min(420px, calc(100vw - 72px))'
 const MODAL_HEIGHT = 480
 
 export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOpen }: ChatShareOverlayProps) {
-  const { orgId, teams: orgTeams, members: orgMembers } = useOrg()
+  const { orgId, members: orgMembers } = useOrg()
   const { user } = useAuth()
   const { projects } = useProjects()
 
@@ -74,27 +74,17 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
   const [creatingShare,       setCreatingShare]       = useState(false)
   const [copyingChat,         setCopyingChat]         = useState(false)
 
+  // There's only ever one organization, so every editable project is equally
+  // shareable — no more "Personal" vs. "grouped by team" split. (There used
+  // to be one, keyed off the org's teams list; that list is permanently
+  // empty now that Team has no backend route at all, which silently dropped
+  // every shared project out of this picker until this list was flattened
+  // back out.)
   const shareableProjects = projects.filter(project => project.canEdit)
-  // Personal (non-team) projects — a project's `teamId` is only set once it's
-  // published to a team, so these are just as shareable as team projects and
-  // need their own group rather than being silently dropped from the list.
-  const personalProjects = shareableProjects.filter(p => p.teamId === null)
-  // Projects grouped by their team, for the single "pick a project" dropdown —
-  // team is shown as a group header, not a separate gating step beforehand.
-  const projectsByTeam = orgTeams
-    .filter(team => !team.archived)
-    .map(team => ({ team, teamProjects: shareableProjects.filter(p => p.teamId === team.id) }))
-    .filter(entry => entry.teamProjects.length > 0)
-  const hasShareableProjects = personalProjects.length > 0 || projectsByTeam.length > 0
+  const hasShareableProjects = shareableProjects.length > 0
 
-  // Once a project is picked (or listed as an active share), the team
-  // grouping context from the dropdown is gone — so name it explicitly
-  // rather than showing a bare project name that could be ambiguous across
-  // teams.
-  function projectLabelWithTeam(project?: { name: string; teamId: string | null }) {
-    if (!project) return 'Project'
-    const team = orgTeams.find(t => t.id === project.teamId)
-    return team ? `${project.name} · ${team.name}` : project.name
+  function projectLabel(project?: { name: string }) {
+    return project?.name ?? 'Project'
   }
 
   function handleOpenChatShare() {
@@ -376,7 +366,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                             <span style={{ fontFamily: 'var(--font-body)', fontSize: '14px', lineHeight: '22px', color: shareTargetId ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>
                               {shareTargetId
                                 ? shareTargetType === 'project'
-                                  ? projectLabelWithTeam(shareableProjects.find(p => p.id === shareTargetId))
+                                  ? projectLabel(shareableProjects.find(p => p.id === shareTargetId))
                                   : (orgMembers.find(m => m.id === shareTargetId)?.name || orgMembers.find(m => m.id === shareTargetId)?.email || 'Person')
                                 : shareTargetType === 'project' ? 'Select project…' : 'Select person…'}
                             </span>
@@ -388,34 +378,17 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                           {shareTargetType === 'project'
                             ? (!hasShareableProjects
                                 ? <Dropdown.Section fluid><Dropdown.Item fluid label="No editable projects available" disabled /></Dropdown.Section>
-                                : <>
-                                    {personalProjects.length > 0 && (
-                                      <Dropdown.Section label="Personal" fluid>
-                                        {personalProjects.map(project => (
-                                          <Dropdown.Item
-                                            key={project.id}
-                                            fluid
-                                            label={project.name}
-                                            selected={shareTargetId === project.id}
-                                            onClick={() => { setShareTargetId(project.id); setShareTargetDropOpen(false) }}
-                                          />
-                                        ))}
-                                      </Dropdown.Section>
-                                    )}
-                                    {projectsByTeam.map(({ team, teamProjects }, i) => (
-                                      <Dropdown.Section key={team.id} label={team.name} fluid divider={i > 0 || personalProjects.length > 0}>
-                                        {teamProjects.map(project => (
-                                          <Dropdown.Item
-                                            key={project.id}
-                                            fluid
-                                            label={project.name}
-                                            selected={shareTargetId === project.id}
-                                            onClick={() => { setShareTargetId(project.id); setShareTargetDropOpen(false) }}
-                                          />
-                                        ))}
-                                      </Dropdown.Section>
+                                : <Dropdown.Section fluid>
+                                    {shareableProjects.map(project => (
+                                      <Dropdown.Item
+                                        key={project.id}
+                                        fluid
+                                        label={project.name}
+                                        selected={shareTargetId === project.id}
+                                        onClick={() => { setShareTargetId(project.id); setShareTargetDropOpen(false) }}
+                                      />
                                     ))}
-                                  </>)
+                                  </Dropdown.Section>)
                             : (
                                 <Dropdown.Section fluid>
                                   {orgMembers
@@ -463,11 +436,9 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                       </div>
                     ) : (
                       existingShares.map(share => {
-                        const label = share.targetTeamId
-                          ? (orgTeams.find(t => t.id === share.targetTeamId)?.name ?? 'Team')
-                          : share.targetProjectId
-                            ? projectLabelWithTeam(projects.find(project => project.id === share.targetProjectId))
-                            : (share.targetUserName || share.targetUserEmail || 'Person')
+                        const label = share.targetProjectId
+                          ? projectLabel(projects.find(project => project.id === share.targetProjectId))
+                          : (share.targetUserName || share.targetUserEmail || 'Person')
                         const isRevoking = revokingShareId === share.id
                         return (
                           <div
