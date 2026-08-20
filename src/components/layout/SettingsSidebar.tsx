@@ -12,7 +12,6 @@ import {
   LinkSixIcon,
   SettingsOneIcon,
   UserAddOneIcon,
-  DashboardSquareOneIcon,
   TokenCircleIcon,
   AnalyticsOneIcon,
   PlayListIcon,
@@ -31,7 +30,7 @@ import { useOrg } from '@/context/org-context'
 import { useSettingsGuard } from '@/context/settings-guard-context'
 import { useMounted } from '@/hooks/use-mounted'
 import { toast } from 'sonner'
-import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_BILLING_ROUTE, SETTINGS_CONNECTORS_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_TEAMS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, ORG_ACTIVITY_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
+import { SETTINGS_ACCOUNT_ROUTE, SETTINGS_BILLING_ROUTE, SETTINGS_CONNECTORS_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, ORG_ACTIVITY_ROUTE, SETTINGS_ROUTE, AUTH_LOGIN_ROUTE } from '@/lib/routes'
 
 // -- Item stagger animation - same three-layer pattern as LeftSidebar/Sidebar --
 const sectionStaggerVariants = {
@@ -66,7 +65,6 @@ const MY_SETTINGS_ITEMS = [
 const ORG_SETTINGS_ITEMS = [
   { id: 'general',   label: 'General',       href: ORG_GENERAL_ROUTE,   icon: <SettingsOneIcon        size={20} /> },
   { id: 'members',   label: 'Members',       href: ORG_MEMBERS_ROUTE,   icon: <UserAddOneIcon         size={20} /> },
-  { id: 'teams',     label: 'Teams',         href: ORG_TEAMS_ROUTE,     icon: <DashboardSquareOneIcon size={20} /> },
   { id: 'plans',     label: 'Plans & Usage', href: ORG_PLANS_ROUTE,     icon: <TokenCircleIcon        size={20} /> },
   { id: 'analytics', label: 'Analytics',     href: ORG_ANALYTICS_ROUTE, icon: <AnalyticsOneIcon       size={20} /> },
   { id: 'activity',  label: 'Activity Log',  href: ORG_ACTIVITY_ROUTE,  icon: <PlayListIcon           size={20} /> },

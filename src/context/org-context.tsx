@@ -2,7 +2,6 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/context/auth-context'
-import { fetchTeams, bustTeamsCache } from '@/lib/api/teams'
 import { getOrg, getOrgPlan, listMembers, listOrganizations } from '@/lib/api/organization'
 import { resolveRole, type Member } from '@/lib/roles'
 import type {
@@ -132,15 +131,16 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   const [membersLoading,   setMembersLoading]   = useState(false)
   const [planRefreshToken, setPlanRefreshToken] = useState(0)
 
-  const [teams,        setTeams]        = useState<Team[]>([])
-  const [teamsLoading, setTeamsLoading] = useState(false)
+  const [teams, setTeams] = useState<Team[]>([])
+  // Teams no longer exist on the backend at all — this never transitions to
+  // true, since there's nothing left to fetch.
+  const teamsLoading = false
   // activeTeamId persists across reloads (per org) so the chosen team — and the
   // team-scoped views that key off it, like /agents — survive a refresh instead
   // of silently resetting to "all".
   const [activeTeamId, _setActiveTeamId] = useState<string | null>(null)
   const restoredOrgRef = useRef<string | null>(null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
-  const [teamsRefreshToken, setTeamsRefreshToken] = useState(0)
 
   const activeTeamStorageKey = (oid: string) => `flowting:activeTeam:${oid}`
 
@@ -251,28 +251,19 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     Promise.all([planP, membersP]).finally(() => setMembersLoading(false))
   }, [orgId, planRefreshToken])
 
-  // Fetch teams
-  useEffect(() => {
-    if (!orgId) return
-    setTeamsLoading(true)
-    fetchTeams(orgId)
-      .then(setTeams)
-      .catch(console.error)
-      .finally(() => setTeamsLoading(false))
-  }, [orgId, teamsRefreshToken])
+  // Teams no longer exist on the backend at all (the Team table was dropped
+  // in the flatten-teams-into-organizations migration) — `teams` stays at its
+  // empty initial value forever; there is nothing to fetch.
 
-  // Drop a persisted team that no longer exists (deleted while away), or a
+  // Drop a persisted team that no longer exists (always true now), or a
   // stale 'personal' sentinel from the since-removed Team Switcher option —
-  // both fall back to the default (first team) rather than getting stuck.
+  // both fall back to the default (null) rather than getting stuck.
   useEffect(() => {
     if (teamsLoading || !activeTeamId) return
     if (activeTeamId === 'personal' || !teams.some(t => t.id === activeTeamId)) setActiveTeamId(null)
   }, [teams, teamsLoading, activeTeamId, setActiveTeamId])
 
-  function refreshTeams() {
-    if (orgId) bustTeamsCache(orgId)
-    setTeamsRefreshToken(t => t + 1)
-  }
+  function refreshTeams() {}
 
   function removeTeam(teamId: string) {
     setTeams(prev => prev.filter(t => t.id !== teamId))

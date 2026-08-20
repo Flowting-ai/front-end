@@ -3,8 +3,6 @@
 import { apiFetch, apiFetchJson } from './client'
 import { PERSONAS_LIST_UPDATED_EVENT } from './personas'
 import {
-  ORG_TEAMS_ENDPOINT,
-  ORG_TEAM_ENDPOINT,
   ORG_TEAM_EDITORS_ENDPOINT,
   ORG_TEAM_EDITOR_ENDPOINT,
   ORG_INVITES_ENDPOINT,
@@ -103,64 +101,7 @@ function normalizeInvite(i: InviteResponse): Invite {
   }
 }
 
-// ── Per-org cache ─────────────────────────────────────────────────────────────
-
-const _cache = new Map<string, { teams: Team[]; at: number }>()
-const CACHE_TTL = 30_000
-
-export function bustTeamsCache(orgId?: string): void {
-  if (orgId) _cache.delete(orgId)
-  else _cache.clear()
-}
-
 // ── API functions ─────────────────────────────────────────────────────────────
-
-export async function fetchTeams(orgId: string): Promise<Team[]> {
-  const now = Date.now()
-  const cached = _cache.get(orgId)
-  if (cached && now - cached.at < CACHE_TTL) return cached.teams
-
-  const list = await apiFetchJson<TeamResponse[]>(ORG_TEAMS_ENDPOINT(orgId))
-  const teams = list.map(normalizeTeam)
-  _cache.set(orgId, { teams, at: Date.now() })
-  return teams
-}
-
-export async function getTeam(orgId: string, teamId: string): Promise<Team> {
-  const data = await apiFetchJson<TeamResponse>(ORG_TEAM_ENDPOINT(orgId, teamId))
-  return normalizeTeam(data)
-}
-
-export async function createTeam(orgId: string, name: string, description = ''): Promise<Team> {
-  const data = await apiFetchJson<TeamResponse>(ORG_TEAMS_ENDPOINT(orgId), {
-    method: 'POST',
-    body: JSON.stringify({ name, description }),
-  })
-  bustTeamsCache(orgId)
-  return normalizeTeam(data)
-}
-
-export async function updateTeam(
-  orgId: string,
-  teamId: string,
-  params: { name?: string; description?: string; archived?: boolean },
-): Promise<Team> {
-  const data = await apiFetchJson<TeamResponse>(ORG_TEAM_ENDPOINT(orgId, teamId), {
-    method: 'PATCH',
-    body: JSON.stringify(params),
-  })
-  bustTeamsCache(orgId)
-  return normalizeTeam(data)
-}
-
-export async function archiveTeam(orgId: string, teamId: string): Promise<Team> {
-  return updateTeam(orgId, teamId, { archived: true })
-}
-
-export async function deleteTeam(orgId: string, teamId: string): Promise<void> {
-  await apiFetch(ORG_TEAM_ENDPOINT(orgId, teamId), { method: 'DELETE' })
-  bustTeamsCache(orgId)
-}
 
 export async function listTeamEditors(orgId: string, teamId: string): Promise<TeamEditor[]> {
   const list = await apiFetchJson<PersonResponse[]>(ORG_TEAM_EDITORS_ENDPOINT(orgId, teamId))

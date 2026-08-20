@@ -7,7 +7,7 @@ import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
 import { SlackConnectModal } from "@/components/SlackConnectModal";
 import { toast } from "sonner";
-import { CHAT_ROUTE, ORG_MEMBERS_ROUTE, ORG_TEAMS_ROUTE, PROJECTS_NEW_ROUTE, ORG_CONNECTORS_ROUTE, ORG_SOUVENIR_SLACK_ROUTE } from "@/lib/routes";
+import { CHAT_ROUTE, ORG_MEMBERS_ROUTE, PROJECTS_NEW_ROUTE, ORG_CONNECTORS_ROUTE, ORG_SOUVENIR_SLACK_ROUTE } from "@/lib/routes";
 
 // ── Icons (monochrome line icons, inherit currentColor) ──────────────────────────
 
@@ -16,16 +16,6 @@ function CheckCircleIcon() {
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
       <path d="M8 12.2l2.6 2.6L16 9.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ShapesIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="7" cy="7" r="3.4" stroke="currentColor" strokeWidth="1.6" />
-      <rect x="13.4" y="3.6" width="6.8" height="6.8" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M12 13.4l4 6.6H8l4-6.6z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -73,16 +63,6 @@ const ACTION_CARDS: ActionCard[] = [
     titleWeight: 500,
     route: ORG_MEMBERS_ROUTE,
     toastMessage: "Opening team members — add teammates, no per-seat cost.",
-  },
-  {
-    key: "team",
-    title: "Create your first team",
-    description: "Give the team a place to work.",
-    icon: <ShapesIcon />,
-    bg: "var(--neutral-white, #fff)",
-    titleWeight: 500,
-    route: ORG_TEAMS_ROUTE,
-    toastMessage: "Opening teams — create a dedicated workspace for your team.",
   },
   {
     key: "project",
